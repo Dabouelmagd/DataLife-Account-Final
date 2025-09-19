@@ -2,7 +2,7 @@ import React from 'react';
 import { Database } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const DataLifeLogo = ({ size = 'default', className = '' }) => {
+const DataLifeLogo = ({ size = 'default', className = '', variant = 'default' }) => {
   const { language, isArabic } = useLanguage();
   
   const sizeClasses = {
