@@ -28,7 +28,7 @@ const DataLifeLogo = ({ size = 'default', className = '' }) => {
   return (
     <div className={`flex items-center ${isArabic ? 'space-x-reverse' : ''} space-x-3 ${className}`}>
       <div className={`${currentSize.container} bg-[#28376B] rounded-lg flex items-center justify-center`}>
-        <Database className={`${currentSize.icon.replace('w-', 'h-').replace('h-', 'w-')} text-white`} />
+        <Database className={`${currentSize.icon} text-white`} />
       </div>
       <div className="flex flex-col">
         {isArabic ? (
