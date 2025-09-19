@@ -117,7 +117,7 @@ const LandingPage = () => {
       <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white/95 backdrop-blur-md shadow-lg' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <DataLifeLogo size="default" />
+            <div></div>
             <div className={`hidden md:flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-8`}>
               <a href="#features" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.features')}</a>
               <a href="#modules" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.modules')}</a>
