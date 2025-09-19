@@ -25,27 +25,33 @@ const DataLifeLogo = ({ size = 'default', className = '', variant = 'default' })
 
   const currentSize = sizeClasses[size] || sizeClasses.default;
 
+  const isFooter = variant === 'footer';
+  const iconBgColor = isFooter ? 'bg-white/20' : 'bg-[#28376B]';
+  const iconColor = isFooter ? 'text-white' : 'text-white';
+  const textColor = isFooter ? 'text-white' : 'text-[#28376B]';
+  const subtitleColor = isFooter ? 'text-gray-300' : 'text-gray-600';
+
   return (
     <div className={`flex items-center ${isArabic ? 'space-x-reverse' : ''} space-x-3 ${className}`}>
-      <div className={`${currentSize.container} bg-[#28376B] rounded-lg flex items-center justify-center`}>
-        <Database className={`${currentSize.icon} text-white`} />
+      <div className={`${currentSize.container} ${iconBgColor} rounded-lg flex items-center justify-center`}>
+        <Database className={`${currentSize.icon} ${iconColor}`} />
       </div>
       <div className="flex flex-col">
         {isArabic ? (
           <>
-            <span className={`${currentSize.text} font-bold text-[#28376B] leading-tight`}>
+            <span className={`${currentSize.text} font-bold ${textColor} leading-tight`}>
               داتا لايف
             </span>
-            <span className="text-xs text-gray-600 leading-tight">
+            <span className={`text-xs ${subtitleColor} leading-tight`}>
               لخدمات الذكاء الاصطناعي
             </span>
           </>
         ) : (
           <>
-            <span className={`${currentSize.text} font-bold text-[#28376B] leading-tight`}>
+            <span className={`${currentSize.text} font-bold ${textColor} leading-tight`}>
               DataLife Account
             </span>
-            <span className="text-xs text-gray-600 leading-tight">
+            <span className={`text-xs ${subtitleColor} leading-tight`}>
               Business Management
             </span>
           </>
