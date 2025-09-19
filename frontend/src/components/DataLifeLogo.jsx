@@ -20,7 +20,7 @@ const DataLifeLogo = ({ size = 'default', className = '' }) => {
   };
 
   const currentSize = sizeClasses[size] || sizeClasses.default;
-  const logoSrc = isArabic ? '/datalife-logo-arabic.jpg' : '/datalife-logo-english.jpg';
+  const logoSrc = isArabic ? '/datalife-logo-arabic.svg' : '/datalife-logo-english.svg';
   const logoAlt = isArabic ? 'داتا لايف أكونت' : 'DataLife Account';
 
   return (
