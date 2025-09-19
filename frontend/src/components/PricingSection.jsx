@@ -491,10 +491,19 @@ const PricingSection = () => {
             {t('pricing.contact.description')}
           </p>
           <div className={`flex flex-col sm:flex-row gap-4 justify-center ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
-            <Button size="lg" className="bg-[#28376B] hover:bg-[#1e2a5a]">
+            <Button 
+              size="lg" 
+              className="bg-[#28376B] hover:bg-[#1e2a5a]"
+              onClick={() => window.open(`mailto:${t('contact.email')}?subject=Schedule DataLife Account Demo`, '_blank')}
+            >
               {t('pricing.contact.demo')}
             </Button>
-            <Button size="lg" variant="outline" className="border-[#28376B] text-[#28376B] hover:bg-[#28376B] hover:text-white">
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="border-[#28376B] text-[#28376B] hover:bg-[#28376B] hover:text-white"
+              onClick={() => window.open(`tel:${t('contact.phone').replace(/\s/g, '')}`, '_self')}
+            >
               {t('pricing.contact.sales')}
             </Button>
           </div>
