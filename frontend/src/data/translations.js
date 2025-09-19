@@ -417,6 +417,71 @@ export const translations = {
       getStarted: "Get Started",
       
       securePayment: "256-bit SSL encrypted secure payment"
+    },
+
+    // Free Trial Section
+    trial: {
+      title: "Start Your 14-Day Free Trial",
+      description: "Experience the full power of DataLife Account with no commitment. Get instant access to all Professional features.",
+      
+      benefits: {
+        title: "What's Included in Your Free Trial"
+      },
+      
+      features: {
+        duration: "14 Days Full Access",
+        durationDesc: "Complete trial period with no restrictions",
+        employees: "Up to 25 Employees",
+        employeesDesc: "Perfect for testing with your team",
+        fullAccess: "All Professional Features",
+        fullAccessDesc: "HR, Finance, Inventory, Reports & more",
+        support: "Email Support",
+        supportDesc: "Get help when you need it"
+      },
+
+      form: {
+        title: "Create Your Free Trial Account",
+        firstName: "First Name",
+        firstNamePlaceholder: "Enter your first name",
+        lastName: "Last Name", 
+        lastNamePlaceholder: "Enter your last name",
+        email: "Email Address",
+        phone: "Phone Number",
+        companyName: "Company Name",
+        companyNamePlaceholder: "Enter your company name",
+        businessInfo: "Business Information (Optional)",
+        industry: "Industry",
+        selectIndustry: "Select your industry",
+        companySize: "Company Size",
+        selectSize: "Select company size",
+        intendedUse: "Primary Use Case",
+        selectUse: "How will you use DataLife?",
+        cancel: "Cancel",
+        startTrial: "Start My Free Trial"
+      },
+
+      processing: {
+        title: "Setting Up Your Trial Account",
+        description: "Please wait while we prepare your personalized DataLife Account experience..."
+      },
+
+      success: {
+        header: "Welcome to DataLife Account!",
+        title: "Your Free Trial is Ready!",
+        description: "We've created your account and populated it with sample data so you can start exploring immediately.",
+        trialLength: "Trial Duration",
+        days: "days",
+        maxEmployees: "Employee Limit",
+        employees: "employees",
+        features: "Feature Access",
+        fullAccess: "All Professional Features",
+        emailSent: "Welcome email sent with login details",
+        accountCreated: "Trial account created and activated",
+        sampleData: "Sample data added for immediate testing",
+        accessTrial: "Access My Trial Account"
+      },
+
+      security: "No credit card required. Cancel anytime."
     }
   },
 
@@ -838,6 +903,71 @@ export const translations = {
       getStarted: "ابدأ الآن",
 
       securePayment: "دفع آمن مشفر 256-بت SSL"
+    },
+
+    // Free Trial Section
+    trial: {
+      title: "ابدأ نسختك التجريبية المجانية لمدة 14 يوماً",
+      description: "اختبر القوة الكاملة لداتا لايف أكاونت بدون أي التزام. احصل على وصول فوري لجميع ميزات الخطة المحترفة.",
+      
+      benefits: {
+        title: "ما المتضمن في نسختك التجريبية المجانية"
+      },
+      
+      features: {
+        duration: "14 يوماً وصول كامل",
+        durationDesc: "فترة تجريبية كاملة بدون قيود",
+        employees: "حتى 25 موظف",
+        employeesDesc: "مثالي للاختبار مع فريقك",
+        fullAccess: "جميع الميزات المحترفة",
+        fullAccessDesc: "الموارد البشرية، المالية، المخزون، التقارير والمزيد",
+        support: "دعم عبر البريد الإلكتروني",
+        supportDesc: "احصل على المساعدة عند الحاجة"
+      },
+
+      form: {
+        title: "أنشئ حساب نسختك التجريبية المجانية",
+        firstName: "الاسم الأول",
+        firstNamePlaceholder: "أدخل اسمك الأول",
+        lastName: "اسم العائلة", 
+        lastNamePlaceholder: "أدخل اسم العائلة",
+        email: "البريد الإلكتروني",
+        phone: "رقم الهاتف",
+        companyName: "اسم الشركة",
+        companyNamePlaceholder: "أدخل اسم شركتك",
+        businessInfo: "معلومات العمل (اختيارية)",
+        industry: "الصناعة",
+        selectIndustry: "اختر صناعتك",
+        companySize: "حجم الشركة",
+        selectSize: "اختر حجم الشركة",
+        intendedUse: "حالة الاستخدام الأساسية",
+        selectUse: "كيف ستستخدم داتا لايف؟",
+        cancel: "إلغاء",
+        startTrial: "ابدأ نسختي التجريبية المجانية"
+      },
+
+      processing: {
+        title: "إعداد حساب نسختك التجريبية",
+        description: "يرجى الانتظار بينما نحضر تجربة داتا لايف أكاونت الشخصية لك..."
+      },
+
+      success: {
+        header: "مرحباً بك في داتا لايف أكاونت!",
+        title: "نسختك التجريبية المجانية جاهزة!",
+        description: "لقد أنشأنا حسابك وأضفنا بيانات عينة حتى تتمكن من البدء في الاستكشاف فوراً.",
+        trialLength: "مدة التجربة",
+        days: "أيام",
+        maxEmployees: "حد الموظفين",
+        employees: "موظف",
+        features: "الوصول للميزات",
+        fullAccess: "جميع الميزات المحترفة",
+        emailSent: "تم إرسال بريد ترحيبي مع تفاصيل تسجيل الدخول",
+        accountCreated: "تم إنشاء وتفعيل الحساب التجريبي",
+        sampleData: "تم إضافة بيانات عينة للاختبار الفوري",
+        accessTrial: "الوصول لحسابي التجريبي"
+      },
+
+      security: "لا حاجة لبطاقة ائتمانية. ألغِ في أي وقت."
     }
   }
 };
