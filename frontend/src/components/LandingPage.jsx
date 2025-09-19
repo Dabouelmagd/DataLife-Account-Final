@@ -345,8 +345,19 @@ const LandingPage = () => {
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>{t('footer.copyright')}</p>
+          <div className="border-t border-gray-800 mt-8 pt-8">
+            {/* Company Logo Section */}
+            <div className="flex flex-col items-center mb-6">
+              <p className="text-gray-400 text-sm mb-3">
+                {language === 'ar' ? 'تم التطوير بواسطة' : 'Developed by'}
+              </p>
+              <CompanyLogo size="default" />
+            </div>
+            
+            {/* Copyright */}
+            <div className="text-center text-gray-400">
+              <p>{t('footer.copyright')}</p>
+            </div>
           </div>
         </div>
       </footer>
