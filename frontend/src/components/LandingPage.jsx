@@ -336,9 +336,27 @@ const LandingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <DataLifeLogo size="small" className="mb-4" />
-              <p className="text-gray-400">
+              <p className="text-gray-400 mb-4">
                 {t('footer.description')}
               </p>
+              <div className="space-y-2 text-sm text-gray-400">
+                <div className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-2`}>
+                  <MapPin className="h-4 w-4 flex-shrink-0" />
+                  <span>{t('contact.address')}</span>
+                </div>
+                <div className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-2`}>
+                  <Phone className="h-4 w-4 flex-shrink-0" />
+                  <a href={`tel:${t('contact.phone').replace(/\s/g, '')}`} className="hover:text-white transition-colors">
+                    {t('contact.phone')}
+                  </a>
+                </div>
+                <div className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-2`}>
+                  <Mail className="h-4 w-4 flex-shrink-0" />
+                  <a href={`mailto:${t('contact.email')}`} className="hover:text-white transition-colors">
+                    {t('contact.email')}
+                  </a>
+                </div>
+              </div>
             </div>
             <div>
               <h3 className="font-semibold mb-4">{t('footer.product')}</h3>
