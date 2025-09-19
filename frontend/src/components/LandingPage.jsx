@@ -307,10 +307,19 @@ const LandingPage = () => {
             {t('cta.description')}
           </p>
           <div className={`flex flex-col sm:flex-row gap-4 justify-center ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
-            <Button size="lg" className="bg-white text-[#28376B] hover:bg-gray-100 px-8 py-4 text-lg">
+            <Button 
+              size="lg" 
+              className="bg-white text-[#28376B] hover:bg-gray-100 px-8 py-4 text-lg"
+              onClick={() => window.open(`mailto:${t('contact.email')}?subject=DataLife Account Free Trial Request`, '_blank')}
+            >
               {t('cta.startTrial')}
             </Button>
-            <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-[#28376B] px-8 py-4 text-lg">
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="border-white text-white hover:bg-white hover:text-[#28376B] px-8 py-4 text-lg"
+              onClick={() => window.open(`tel:${t('contact.phone').replace(/\s/g, '')}`, '_self')}
+            >
               {t('cta.contactSales')}
             </Button>
           </div>
