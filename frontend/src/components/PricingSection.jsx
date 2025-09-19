@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { CheckCircle, X, Star, Zap, Building2, Crown, Users, Calculator, PieChart, FileText, Shield, Cloud, Bell, HeadphonesIcon } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../data/translations';
+import PaymentModal from './PaymentModal';
 
 const PricingSection = () => {
   const { language, isRTL } = useLanguage();
