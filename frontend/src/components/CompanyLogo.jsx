@@ -6,15 +6,15 @@ const CompanyLogo = ({ size = 'default', className = '' }) => {
   
   const sizeClasses = {
     small: {
-      height: 'h-12',
+      height: 'h-24',
       width: 'w-auto'
     },
     default: {
-      height: 'h-16',
+      height: 'h-32',
       width: 'w-auto'
     },
     large: {
-      height: 'h-20', 
+      height: 'h-40', 
       width: 'w-auto'
     }
   };
