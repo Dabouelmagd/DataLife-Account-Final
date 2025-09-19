@@ -178,6 +178,165 @@ export const translations = {
       careers: "Careers",
       privacy: "Privacy",
       copyright: "© 2025 DataLife Account. All rights reserved."
+    },
+
+    // Pricing Section
+    pricing: {
+      badge: "Flexible Pricing Plans",
+      title: "Choose the Perfect Plan for Your Business",
+      description: "From startups to enterprises, we have pricing options that scale with your business needs and budget.",
+      popular: "Most Popular",
+      recommended: "Recommended",
+      employees: "employees",
+      
+      tabs: {
+        subscription: "Subscription Plans",
+        modules: "Module Packages",
+        onetime: "One-time Setup"
+      },
+
+      billing: {
+        monthly: "Monthly",
+        annual: "Annual",
+        month: "month",
+        year: "year",
+        save: "Save 33%",
+        savePercent: "Save %d%"
+      },
+
+      plans: {
+        starter: {
+          name: "Starter",
+          description: "Perfect for small businesses getting started with digital management",
+          features: {
+            employees: "Up to 10 employees",
+            basicHR: "Basic HR management",
+            financial: "Financial tracking & reporting",
+            reports: "Monthly financial reports",
+            emailSupport: "Email support",
+            storage: "5GB cloud storage"
+          },
+          notIncluded: {
+            payroll: "Automated payroll processing",
+            advanced: "Advanced analytics & forecasting",
+            api: "API integrations"
+          },
+          button: "Start Free Trial"
+        },
+        professional: {
+          name: "Professional",
+          description: "Ideal for growing businesses with comprehensive management needs",
+          features: {
+            employees: "Up to 100 employees",
+            fullHR: "Complete HR & payroll management",
+            advanced: "Advanced financial management",
+            inventory: "Production & inventory tracking",
+            cost: "Cost management & analysis",
+            priority: "Priority email & chat support",
+            storage: "50GB cloud storage",
+            reports: "Custom reports & analytics",
+            integrations: "Basic API integrations"
+          },
+          notIncluded: {
+            multiLocation: "Multi-location management",
+            dedicated: "Dedicated account manager"
+          },
+          button: "Get Professional"
+        },
+        enterprise: {
+          name: "Enterprise",
+          description: "Comprehensive solution for large organizations with complex requirements",
+          unlimited: "Unlimited",
+          features: {
+            unlimited: "Unlimited employees",
+            everything: "All Professional features included",
+            multiLocation: "Multi-location & branch management",
+            customization: "Custom workflows & integrations",
+            dedicated: "Dedicated account manager",
+            phone: "24/7 phone & on-site support",
+            storage: "Unlimited cloud storage",
+            training: "Comprehensive staff training",
+            sla: "99.9% uptime SLA guarantee"
+          },
+          button: "Contact Sales"
+        }
+      },
+
+      modules: {
+        title: "Individual Module Packages",
+        description: "Need specific functionality? Choose individual modules that fit your exact business requirements.",
+        button: "Get This Module",
+        
+        hr: {
+          name: "HR Management",
+          description: "Complete human resources management solution",
+          features: {
+            employee: "Employee database & profiles",
+            attendance: "Attendance & leave tracking",
+            payroll: "Automated payroll processing",
+            leave: "Leave management system",
+            insurance: "Health insurance tracking"
+          }
+        },
+        finance: {
+          name: "Financial Management",
+          description: "Comprehensive accounting and financial tracking",
+          features: {
+            accounting: "Complete accounting system",
+            invoicing: "Invoicing & billing",
+            expenses: "Expense tracking & management",
+            banking: "Bank reconciliation",
+            reports: "Financial reports & analytics"
+          }
+        },
+        inventory: {
+          name: "Inventory & Production",
+          description: "Stock management and production planning",
+          features: {
+            tracking: "Real-time inventory tracking",
+            orders: "Production order management",
+            suppliers: "Supplier & vendor management",
+            analytics: "Inventory analytics & forecasting",
+            alerts: "Low stock alerts & notifications"
+          }
+        }
+      },
+
+      oneTime: {
+        title: "One-time Setup Packages",
+        description: "Get started quickly with our comprehensive setup and training packages.",
+        onetime: "one-time payment",
+        button: "Purchase Setup",
+        
+        basic: {
+          name: "Basic Setup",
+          description: "Essential setup to get your system running",
+          features: {
+            installation: "System installation & configuration",
+            training: "2 hours of staff training",
+            data: "Basic data migration (up to 1000 records)",
+            support: "30 days email support"
+          }
+        },
+        premium: {
+          name: "Premium Setup",
+          description: "Complete setup with comprehensive training and support",
+          features: {
+            everything: "Everything in Basic Setup",
+            custom: "Custom workflow configuration",
+            integration: "Third-party system integration",
+            training: "8 hours of comprehensive training",
+            support: "90 days priority support"
+          }
+        }
+      },
+
+      contact: {
+        title: "Need a Custom Solution?",
+        description: "Contact our sales team for enterprise pricing, custom integrations, or special requirements.",
+        demo: "Schedule Demo",
+        sales: "Contact Sales"
+      }
     }
   },
 
@@ -360,6 +519,165 @@ export const translations = {
       careers: "الوظائف",
       privacy: "الخصوصية",
       copyright: "© 2025 داتا لايف أكاونت. جميع الحقوق محفوظة."
+    },
+
+    // Pricing Section
+    pricing: {
+      badge: "خطط تسعير مرنة",
+      title: "اختر الخطة المثالية لعملك",
+      description: "من الشركات الناشئة إلى المؤسسات الكبيرة، لدينا خيارات تسعير تتناسب مع احتياجات عملك وميزانيتك.",
+      popular: "الأكثر شعبية",
+      recommended: "موصى به",
+      employees: "موظف",
+      
+      tabs: {
+        subscription: "خطط الاشتراك",
+        modules: "حزم الوحدات",
+        onetime: "إعداد لمرة واحدة"
+      },
+
+      billing: {
+        monthly: "شهري",
+        annual: "سنوي",
+        month: "شهر",
+        year: "سنة",
+        save: "وفر 33%",
+        savePercent: "وفر %d%"
+      },
+
+      plans: {
+        starter: {
+          name: "المبتدئ",
+          description: "مثالي للشركات الصغيرة التي تبدأ بالإدارة الرقمية",
+          features: {
+            employees: "حتى 10 موظفين",
+            basicHR: "إدارة الموارد البشرية الأساسية",
+            financial: "التتبع المالي والتقارير",
+            reports: "التقارير المالية الشهرية",
+            emailSupport: "دعم عبر البريد الإلكتروني",
+            storage: "5 جيجابايت تخزين سحابي"
+          },
+          notIncluded: {
+            payroll: "معالجة الرواتب الآلية",
+            advanced: "التحليلات المتقدمة والتنبؤ",
+            api: "تكاملات API"
+          },
+          button: "ابدأ النسخة التجريبية"
+        },
+        professional: {
+          name: "المحترف",
+          description: "مثالي للشركات النامية ذات احتياجات الإدارة الشاملة",
+          features: {
+            employees: "حتى 100 موظف",
+            fullHR: "إدارة كاملة للموارد البشرية والرواتب",
+            advanced: "الإدارة المالية المتقدمة",
+            inventory: "تتبع الإنتاج والمخزون",
+            cost: "إدارة وتحليل التكاليف",
+            priority: "دعم أولوية عبر البريد والدردشة",
+            storage: "50 جيجابايت تخزين سحابي",
+            reports: "تقارير وتحليلات مخصصة",
+            integrations: "تكاملات API أساسية"
+          },
+          notIncluded: {
+            multiLocation: "إدارة المواقع المتعددة",
+            dedicated: "مدير حساب مخصص"
+          },
+          button: "احصل على المحترف"
+        },
+        enterprise: {
+          name: "المؤسسي",
+          description: "حل شامل للمؤسسات الكبيرة ذات المتطلبات المعقدة",
+          unlimited: "غير محدود",
+          features: {
+            unlimited: "موظفين غير محدودين",
+            everything: "جميع ميزات المحترف مشمولة",
+            multiLocation: "إدارة المواقع والفروع المتعددة",
+            customization: "سير عمل مخصص وتكاملات",
+            dedicated: "مدير حساب مخصص",
+            phone: "دعم هاتفي وموقعي على مدار الساعة",
+            storage: "تخزين سحابي غير محدود",
+            training: "تدريب شامل للموظفين",
+            sla: "ضمان توفر 99.9%"
+          },
+          button: "اتصل بالمبيعات"
+        }
+      },
+
+      modules: {
+        title: "حزم الوحدات الفردية",
+        description: "تحتاج وظائف محددة؟ اختر الوحدات الفردية التي تناسب متطلبات عملك بالضبط.",
+        button: "احصل على هذه الوحدة",
+        
+        hr: {
+          name: "إدارة الموارد البشرية",
+          description: "حل إدارة الموارد البشرية الكامل",
+          features: {
+            employee: "قاعدة بيانات وملفات الموظفين",
+            attendance: "تتبع الحضور والإجازات",
+            payroll: "معالجة الرواتب الآلية",
+            leave: "نظام إدارة الإجازات",
+            insurance: "تتبع التأمين الصحي"
+          }
+        },
+        finance: {
+          name: "الإدارة المالية",
+          description: "محاسبة شاملة وتتبع مالي",
+          features: {
+            accounting: "نظام محاسبة كامل",
+            invoicing: "الفواتير والمحاسبة",
+            expenses: "تتبع وإدارة المصروفات",
+            banking: "مطابقة البنك",
+            reports: "التقارير والتحليلات المالية"
+          }
+        },
+        inventory: {
+          name: "المخزون والإنتاج",
+          description: "إدارة المخزون وتخطيط الإنتاج",
+          features: {
+            tracking: "تتبع المخزون في الوقت الفعلي",
+            orders: "إدارة أوامر الإنتاج",
+            suppliers: "إدارة الموردين والبائعين",
+            analytics: "تحليلات وتنبؤات المخزون",
+            alerts: "تنبيهات انخفاض المخزون والإشعارات"
+          }
+        }
+      },
+
+      oneTime: {
+        title: "حزم الإعداد لمرة واحدة",
+        description: "ابدأ بسرعة مع حزم الإعداد والتدريب الشاملة لدينا.",
+        onetime: "دفعة واحدة",
+        button: "شراء الإعداد",
+        
+        basic: {
+          name: "الإعداد الأساسي",
+          description: "الإعداد الأساسي لتشغيل نظامك",
+          features: {
+            installation: "تثبيت وتكوين النظام",
+            training: "ساعتان من تدريب الموظفين",
+            data: "نقل البيانات الأساسي (حتى 1000 سجل)",
+            support: "30 يوم دعم عبر البريد الإلكتروني"
+          }
+        },
+        premium: {
+          name: "الإعداد المميز",
+          description: "إعداد كامل مع تدريب ودعم شاملين",
+          features: {
+            everything: "كل شيء في الإعداد الأساسي",
+            custom: "تكوين سير العمل المخصص",
+            integration: "تكامل أنظمة الطرف الثالث",
+            training: "8 ساعات من التدريب الشامل",
+            support: "90 يوم دعم أولوية"
+          }
+        }
+      },
+
+      contact: {
+        title: "تحتاج حل مخصص؟",
+        description: "اتصل بفريق المبيعات لدينا للحصول على تسعير المؤسسات أو التكاملات المخصصة أو المتطلبات الخاصة.",
+        demo: "جدولة عرض توضيحي",
+        sales: "اتصل بالمبيعات"
+      }
     }
   }
 };
