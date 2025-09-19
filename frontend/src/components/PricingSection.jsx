@@ -456,11 +456,14 @@ const PricingSection = () => {
                   </CardHeader>
 
                   <CardContent className="pt-0">
-                    <Button className={`w-full mb-6 ${
-                      pkg.popular 
-                        ? 'bg-[#28376B] hover:bg-[#1e2a5a]' 
-                        : 'bg-gray-900 hover:bg-gray-800'
-                    }`}>
+                    <Button 
+                      onClick={() => handlePlanSelect({...pkg, type: 'onetime', monthlyPrice: pkg.price, annualPrice: pkg.price})}
+                      className={`w-full mb-6 ${
+                        pkg.popular 
+                          ? 'bg-[#28376B] hover:bg-[#1e2a5a]' 
+                          : 'bg-gray-900 hover:bg-gray-800'
+                      }`}
+                    >
                       {t('pricing.oneTime.button')}
                     </Button>
 
