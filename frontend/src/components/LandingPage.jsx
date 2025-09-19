@@ -298,6 +298,9 @@ const LandingPage = () => {
         <PricingSection />
       </section>
 
+      {/* Contact Section */}
+      <ContactSection />
+
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-[#28376B] to-[#1e2a5a]">
         <div className="max-w-4xl mx-auto text-center">
