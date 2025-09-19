@@ -350,7 +350,7 @@ const LandingPage = () => {
               <p className="text-gray-400 text-sm mb-3">
                 {language === 'ar' ? 'تم التطوير بواسطة' : 'Developed by'}
               </p>
-              <CompanyLogo size="default" />
+              <CompanyLogo size="large" />
             </div>
             
             {/* Copyright */}
