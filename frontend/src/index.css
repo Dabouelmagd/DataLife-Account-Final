@@ -16,7 +16,128 @@ code {
         monospace;
 }
 
+/* Arabic font support */
+body.rtl {
+    font-family: 'Noto Sans Arabic', 'Arial', sans-serif;
+    direction: rtl;
+}
 
+body.ltr {
+    direction: ltr;
+}
+
+/* RTL specific styles */
+.rtl .space-x-2 > * + * {
+    margin-left: 0;
+    margin-right: 0.5rem;
+}
+
+.rtl .space-x-3 > * + * {
+    margin-left: 0;
+    margin-right: 0.75rem;
+}
+
+.rtl .space-x-4 > * + * {
+    margin-left: 0;
+    margin-right: 1rem;
+}
+
+.rtl .space-x-8 > * + * {
+    margin-left: 0;
+    margin-right: 2rem;
+}
+
+/* RTL flexbox adjustments */
+.rtl .flex-row {
+    flex-direction: row-reverse;
+}
+
+/* RTL text alignment */
+.rtl .text-left {
+    text-align: right;
+}
+
+.rtl .text-right {
+    text-align: left;
+}
+
+/* RTL margins and paddings */
+.rtl .ml-2 {
+    margin-left: 0;
+    margin-right: 0.5rem;
+}
+
+.rtl .ml-4 {
+    margin-left: 0;
+    margin-right: 1rem;
+}
+
+.rtl .mr-2 {
+    margin-right: 0;
+    margin-left: 0.5rem;
+}
+
+.rtl .mr-3 {
+    margin-right: 0;
+    margin-left: 0.75rem;
+}
+
+.rtl .pl-6 {
+    padding-left: 0;
+    padding-right: 1.5rem;
+}
+
+.rtl .pr-6 {
+    padding-right: 0;
+    padding-left: 1.5rem;
+}
+
+/* RTL border radius */
+.rtl .rounded-l-lg {
+    border-radius: 0;
+    border-top-right-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+}
+
+.rtl .rounded-r-lg {
+    border-radius: 0;
+    border-top-left-radius: 0.5rem;
+    border-bottom-left-radius: 0.5rem;
+}
+
+/* Arabic typography improvements */
+.rtl h1, .rtl h2, .rtl h3, .rtl h4, .rtl h5, .rtl h6 {
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.rtl p {
+    line-height: 1.7;
+}
+
+/* Better Arabic text rendering */
+.rtl {
+    text-rendering: optimizeLegibility;
+    -webkit-font-feature-settings: "liga", "dlig", "kern";
+    font-feature-settings: "liga", "dlig", "kern";
+}
+
+/* Language switcher animation */
+.language-switcher {
+    transition: all 0.2s ease-in-out;
+}
+
+.language-switcher:hover {
+    transform: scale(1.05);
+}
+
+/* Smooth transitions for direction changes */
+* {
+    transition: margin 0.3s ease, padding 0.3s ease;
+}
+
+/* Import Google Fonts for Arabic */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -73,8 +194,6 @@ code {
         --chart-5: 340 75% 55%;
     }
 }
-
-
 
 @layer base {
   * {
