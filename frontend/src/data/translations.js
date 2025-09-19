@@ -601,6 +601,21 @@ export const translations = {
       copyright: "© 2025 داتا لايف أكاونت. جميع الحقوق محفوظة."
     },
 
+    // Contact Information
+    contact: {
+      title: "معلومات الاتصال",
+      address: "59 شارع لبنان، المهندسين، الجيزة، مصر",
+      phone: "(+2) 01012625529",
+      email: "info@datalifeai.com",
+      businessHours: "الأحد - الخميس: 9:00 صباحاً - 6:00 مساءً",
+      getInTouch: "تواصل معنا",
+      contactSales: "اتصل بفريق المبيعات",
+      scheduleDemo: "جدولة عرض توضيحي",
+      visitOffice: "زيارة مكتبنا",
+      callUs: "اتصل بنا",
+      emailUs: "راسلنا"
+    },
+
     // Pricing Section
     pricing: {
       badge: "خطط تسعير مرنة",
