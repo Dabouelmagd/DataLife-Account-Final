@@ -388,7 +388,10 @@ const PricingSection = () => {
                   </CardHeader>
 
                   <CardContent className="pt-0">
-                    <Button className="w-full mb-6 bg-[#28376B] hover:bg-[#1e2a5a]">
+                    <Button 
+                      onClick={() => handlePlanSelect({...module, type: 'module'})}
+                      className="w-full mb-6 bg-[#28376B] hover:bg-[#1e2a5a]"
+                    >
                       {t('pricing.modules.button')}
                     </Button>
 
