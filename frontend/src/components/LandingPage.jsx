@@ -11,6 +11,7 @@ import DataLifeLogo from './DataLifeLogo';
 import CompanyLogo from './CompanyLogo';
 import PricingSection from './PricingSection';
 import ContactSection from './ContactSection';
+import FreeTrialModal from './FreeTrialModal';
 
 const LandingPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
