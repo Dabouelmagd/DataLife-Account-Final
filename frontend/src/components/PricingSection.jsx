@@ -499,6 +499,14 @@ const PricingSection = () => {
             </Button>
           </div>
         </div>
+
+        {/* Payment Modal */}
+        <PaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          selectedPlan={selectedPlan}
+          billingCycle={billingCycle}
+        />
       </div>
     </section>
   );
