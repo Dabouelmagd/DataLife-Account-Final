@@ -180,6 +180,21 @@ export const translations = {
       copyright: "© 2025 DataLife Account. All rights reserved."
     },
 
+    // Contact Information
+    contact: {
+      title: "Contact Information",
+      address: "59 Lebanon Street, Mohandessin, Giza, Egypt",
+      phone: "(+2) 01012625529",
+      email: "info@datalifeai.com",
+      businessHours: "Sunday - Thursday: 9:00 AM - 6:00 PM",
+      getInTouch: "Get in Touch",
+      contactSales: "Contact Sales Team",
+      scheduleDemo: "Schedule a Demo",
+      visitOffice: "Visit Our Office",
+      callUs: "Call Us",
+      emailUs: "Email Us"
+    },
+
     // Pricing Section
     pricing: {
       badge: "Flexible Pricing Plans",
