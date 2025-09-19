@@ -318,6 +318,7 @@ const PricingSection = () => {
 
                     <CardContent className="pt-0">
                       <Button 
+                        onClick={() => handlePlanSelect(plan)}
                         className={`w-full mb-6 ${
                           plan.popular 
                             ? 'bg-[#28376B] hover:bg-[#1e2a5a]' 
