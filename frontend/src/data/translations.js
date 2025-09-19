@@ -337,6 +337,71 @@ export const translations = {
         demo: "Schedule Demo",
         sales: "Contact Sales"
       }
+    },
+
+    // Payment Section
+    payment: {
+      checkout: "Secure Checkout",
+      paymentComplete: "Payment Complete",
+      secureCheckout: "Your payment information is secure and encrypted",
+      selectMethod: "Select Payment Method",
+      paymentDetails: "Payment Details",
+      billingInfo: "Billing Information",
+      
+      methods: {
+        card: "Credit/Debit Card",
+        cardDesc: "Pay securely with your credit or debit card",
+        fawryDesc: "Pay through Fawry locations or mobile app",
+        bank: "Bank Transfer",
+        bankDesc: "Direct bank transfer (1-2 business days)",
+        wallet: "Mobile Wallet",
+        walletDesc: "Vodafone Cash, Orange Money, Etisalat Cash"
+      },
+
+      instant: "Instant",
+      bankTime: "1-2 business days",
+
+      cardNumber: "Card Number",
+      expiryDate: "Expiry Date",
+      cvv: "CVV",
+      cardName: "Cardholder Name",
+      cardNamePlaceholder: "Name as it appears on card",
+      email: "Email Address",
+      phone: "Phone Number",
+      companyName: "Company Name",
+      companyNamePlaceholder: "Your company name",
+      vatNumber: "VAT Number",
+      optional: "Optional",
+      walletPhone: "Wallet Phone Number",
+
+      fawryInstructions: "Fawry Payment Instructions",
+      fawrySteps: "1. Complete this form 2. Visit any Fawry location 3. Use the payment code provided 4. Your account will be activated immediately",
+      
+      bankInstructions: "Bank Transfer Instructions",
+      bankDetails: "Account: DataLife Account Ltd. | Bank: CIB | Account Number: 123456789 | Reference: Your order number",
+
+      back: "Back",
+      continue: "Continue",
+      cancel: "Cancel",
+      payNow: "Pay Now",
+      
+      processing: "Processing Payment",
+      processingDesc: "Please wait while we process your payment. Do not close this window.",
+      
+      success: "Payment Successful!",
+      successDesc: "Your subscription has been activated and you'll receive confirmation details shortly.",
+      
+      transactionId: "Transaction ID",
+      amount: "Amount",
+      plan: "Plan",
+      save: "You save",
+      
+      emailSent: "Confirmation email sent",
+      smsSent: "SMS notification sent",
+      accountActivated: "Account activated",
+      getStarted: "Get Started",
+      
+      securePayment: "256-bit SSL encrypted secure payment"
     }
   },
 
@@ -678,6 +743,71 @@ export const translations = {
         demo: "جدولة عرض توضيحي",
         sales: "اتصل بالمبيعات"
       }
+    },
+
+    // Payment Section
+    payment: {
+      checkout: "الدفع الآمن",
+      paymentComplete: "تم الدفع بنجاح",
+      secureCheckout: "معلومات الدفع الخاصة بك آمنة ومشفرة",
+      selectMethod: "اختر طريقة الدفع",
+      paymentDetails: "تفاصيل الدفع",
+      billingInfo: "معلومات الفوترة",
+      
+      methods: {
+        card: "بطاقة ائتمانية/مدينة",
+        cardDesc: "ادفع بأمان ببطاقتك الائتمانية أو المدينة",
+        fawryDesc: "ادفع من خلال منافذ فوري أو تطبيق الموبايل",
+        bank: "تحويل بنكي",
+        bankDesc: "تحويل بنكي مباشر (1-2 يوم عمل)",
+        wallet: "محفظة موبايل",
+        walletDesc: "فودافون كاش، أورانج موني، اتصالات كاش"
+      },
+
+      instant: "فوري",
+      bankTime: "1-2 يوم عمل",
+
+      cardNumber: "رقم البطاقة",
+      expiryDate: "تاريخ الانتهاء",
+      cvv: "رمز الأمان",
+      cardName: "اسم حامل البطاقة",
+      cardNamePlaceholder: "الاسم كما يظهر على البطاقة",
+      email: "البريد الإلكتروني",
+      phone: "رقم الهاتف",
+      companyName: "اسم الشركة",
+      companyNamePlaceholder: "اسم الشركة الخاصة بك",
+      vatNumber: "الرقم الضريبي",
+      optional: "اختياري",
+      walletPhone: "رقم هاتف المحفظة",
+
+      fawryInstructions: "تعليمات الدفع عبر فوري",
+      fawrySteps: "1. أكمل هذا النموذج 2. اذهب إلى أي منفذ فوري 3. استخدم رمز الدفع المقدم 4. سيتم تفعيل حسابك فوراً",
+
+      bankInstructions: "تعليمات التحويل البنكي", 
+      bankDetails: "الحساب: شركة داتا لايف أكاونت | البنك: البنك التجاري الدولي | رقم الحساب: 123456789 | المرجع: رقم طلبك",
+
+      back: "رجوع",
+      continue: "متابعة",
+      cancel: "إلغاء",
+      payNow: "ادفع الآن",
+
+      processing: "جاري معالجة الدفع",
+      processingDesc: "يرجى الانتظار أثناء معالجة الدفع. لا تغلق هذه النافذة.",
+
+      success: "تم الدفع بنجاح!",
+      successDesc: "تم تفعيل اشتراكك وستتلقى تفاصيل التأكيد قريباً.",
+
+      transactionId: "رقم المعاملة",
+      amount: "المبلغ",
+      plan: "الخطة",
+      save: "توفر",
+
+      emailSent: "تم إرسال بريد التأكيد",
+      smsSent: "تم إرسال إشعار SMS",
+      accountActivated: "تم تفعيل الحساب",
+      getStarted: "ابدأ الآن",
+
+      securePayment: "دفع آمن مشفر 256-بت SSL"
     }
   }
 };
