@@ -6,15 +6,15 @@ const DataLifeLogo = ({ size = 'default', className = '' }) => {
   
   const sizeClasses = {
     small: {
-      height: 'h-8',
+      height: 'h-24',
       width: 'w-auto'
     },
     default: {
-      height: 'h-10',
+      height: 'h-30',
       width: 'w-auto'
     },
     large: {
-      height: 'h-12', 
+      height: 'h-36', 
       width: 'w-auto'
     }
   };
