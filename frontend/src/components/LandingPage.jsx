@@ -152,7 +152,11 @@ const LandingPage = () => {
               {t('hero.description')}
             </p>
             <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-12 ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
-              <Button size="lg" className="bg-[#28376B] hover:bg-[#1e2a5a] text-white px-8 py-4 text-lg">
+              <Button 
+                size="lg" 
+                className="bg-[#28376B] hover:bg-[#1e2a5a] text-white px-8 py-4 text-lg"
+                onClick={() => setIsTrialModalOpen(true)}
+              >
                 {t('hero.startTrial')}
               </Button>
               <Button size="lg" variant="outline" className="border-[#28376B] text-[#28376B] hover:bg-[#28376B] hover:text-white px-8 py-4 text-lg">
