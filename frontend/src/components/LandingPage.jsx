@@ -116,7 +116,19 @@ const LandingPage = () => {
       <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white/95 backdrop-blur-md shadow-lg' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <DataLifeLogo size="default" />
+            <div className={`flex items-center space-x-3`}>
+              <div className="w-10 h-10 bg-[#28376B] rounded-lg flex items-center justify-center">
+                <Database className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-[#28376B] leading-tight">
+                  DataLife Account
+                </span>
+                <span className="text-xs text-gray-600 leading-tight">
+                  Business Management
+                </span>
+              </div>
+            </div>
             <div className={`hidden md:flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-8`}>
               <a href="#features" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.features')}</a>
               <a href="#modules" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.modules')}</a>
