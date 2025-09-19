@@ -25,18 +25,16 @@ const DataLifeLogo = ({ size = 'default', className = '' }) => {
 
   return (
     <div className={`flex items-center ${className}`}>
-      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-100">
-        <img 
-          src={logoSrc}
-          alt={logoAlt}
-          className={`${currentSize.height} ${currentSize.width} object-contain`}
-          onError={(e) => {
-            console.error('Logo failed to load:', e.target.src);
-            // Fallback to text if image fails to load
-            e.target.style.display = 'none';
-          }}
-        />
-      </div>
+      <img 
+        src={logoSrc}
+        alt={logoAlt}
+        className={`${currentSize.height} ${currentSize.width} object-contain`}
+        onError={(e) => {
+          console.error('Logo failed to load:', e.target.src);
+          // Fallback to text if image fails to load
+          e.target.style.display = 'none';
+        }}
+      />
     </div>
   );
 };
