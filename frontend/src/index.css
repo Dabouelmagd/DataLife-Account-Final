@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import better Arabic fonts */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;700;800&display=swap');
+
 body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
@@ -16,14 +19,15 @@ code {
         monospace;
 }
 
-/* Arabic font support */
+/* Enhanced Arabic font support with Cairo */
 body.rtl {
-    font-family: 'Noto Sans Arabic', 'Arial', sans-serif;
+    font-family: 'Cairo', 'Tajawal', 'Arial', sans-serif;
     direction: rtl;
 }
 
 body.ltr {
     direction: ltr;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 }
 
 /* RTL specific styles */
@@ -105,21 +109,77 @@ body.ltr {
     border-bottom-left-radius: 0.5rem;
 }
 
-/* Arabic typography improvements */
+/* Enhanced Arabic typography with Cairo font */
 .rtl h1, .rtl h2, .rtl h3, .rtl h4, .rtl h5, .rtl h6 {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
     font-weight: 600;
     line-height: 1.4;
+    letter-spacing: 0.01em;
 }
 
-.rtl p {
+.rtl p, .rtl span, .rtl div {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
     line-height: 1.7;
+    font-weight: 400;
+}
+
+.rtl .font-bold {
+    font-weight: 700;
+}
+
+.rtl .font-semibold {
+    font-weight: 600;
+}
+
+.rtl .text-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+}
+
+.rtl .text-xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+}
+
+.rtl .text-2xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+}
+
+.rtl .text-3xl {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+}
+
+.rtl .text-4xl {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+}
+
+.rtl .text-6xl {
+    font-size: 3.75rem;
+    line-height: 1;
 }
 
 /* Better Arabic text rendering */
 .rtl {
     text-rendering: optimizeLegibility;
-    -webkit-font-feature-settings: "liga", "dlig", "kern";
-    font-feature-settings: "liga", "dlig", "kern";
+    -webkit-font-feature-settings: "liga", "dlig", "kern", "calt";
+    font-feature-settings: "liga", "dlig", "kern", "calt";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Arabic button text enhancement */
+.rtl button {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+    font-weight: 500;
+}
+
+/* Arabic navigation text */
+.rtl nav a {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+    font-weight: 500;
 }
 
 /* Language switcher animation */
@@ -136,8 +196,50 @@ body.ltr {
     transition: margin 0.3s ease, padding 0.3s ease;
 }
 
-/* Import Google Fonts for Arabic */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+/* Logo text styling */
+.logo-arabic {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.logo-english {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+/* Enhanced Arabic form elements */
+.rtl input, .rtl textarea, .rtl select {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+    text-align: right;
+}
+
+/* Better Arabic list styling */
+.rtl ul, .rtl ol {
+    text-align: right;
+}
+
+.rtl li {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+}
+
+/* Arabic table styling */
+.rtl table {
+    direction: rtl;
+}
+
+.rtl th, .rtl td {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+    text-align: right;
+}
+
+/* Print styles for Arabic */
+@media print {
+    .rtl {
+        font-family: 'Cairo', 'Tajawal', sans-serif !important;
+    }
+}
 
 @layer base {
   :root {

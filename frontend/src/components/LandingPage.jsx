@@ -7,6 +7,7 @@ import { CheckCircle, BarChart3, Users, DollarSign, Shield, Cloud, Bell, Calcula
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../data/translations';
 import LanguageSwitcher from './LanguageSwitcher';
+import DataLifeLogo from './DataLifeLogo';
 
 const LandingPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -115,12 +116,7 @@ const LandingPage = () => {
       <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white/95 backdrop-blur-md shadow-lg' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3`}>
-              <div className="w-10 h-10 bg-[#28376B] rounded-lg flex items-center justify-center">
-                <Database className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-[#28376B]">DataLife Account</span>
-            </div>
+            <DataLifeLogo size="default" />
             <div className={`hidden md:flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-8`}>
               <a href="#features" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.features')}</a>
               <a href="#modules" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.modules')}</a>
@@ -317,12 +313,7 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <div className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3 mb-4`}>
-                <div className="w-8 h-8 bg-[#28376B] rounded-lg flex items-center justify-center">
-                  <Database className="h-5 w-5 text-white" />
-                </div>
-                <span className="text-lg font-bold">DataLife Account</span>
-              </div>
+              <DataLifeLogo size="small" className="mb-4 filter brightness-0 invert" />
               <p className="text-gray-400">
                 {t('footer.description')}
               </p>
