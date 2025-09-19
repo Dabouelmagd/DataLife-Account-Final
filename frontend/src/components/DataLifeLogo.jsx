@@ -1,62 +1,40 @@
 import React from 'react';
-import { Database } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const DataLifeLogo = ({ size = 'default', className = '', variant = 'default' }) => {
+const DataLifeLogo = ({ size = 'default', className = '' }) => {
   const { language, isArabic } = useLanguage();
   
   const sizeClasses = {
     small: {
-      icon: 'w-6 h-6',
-      text: 'text-sm',
-      container: 'w-6 h-6'
+      height: 'h-8',
+      width: 'w-auto'
     },
     default: {
-      icon: 'w-8 h-8',
-      text: 'text-lg',
-      container: 'w-8 h-8'
+      height: 'h-10',
+      width: 'w-auto'
     },
     large: {
-      icon: 'w-10 h-10', 
-      text: 'text-xl',
-      container: 'w-10 h-10'
+      height: 'h-12', 
+      width: 'w-auto'
     }
   };
 
   const currentSize = sizeClasses[size] || sizeClasses.default;
-
-  const isFooter = variant === 'footer';
-  const iconBgColor = isFooter ? 'bg-white/20' : 'bg-[#28376B]';
-  const iconColor = isFooter ? 'text-white' : 'text-white';
-  const textColor = isFooter ? 'text-white' : 'text-[#28376B]';
-  const subtitleColor = isFooter ? 'text-gray-300' : 'text-gray-600';
+  const logoSrc = isArabic ? '/datalife-logo-arabic.jpg' : '/datalife-logo-english.jpg';
+  const logoAlt = isArabic ? 'داتا لايف أكونت' : 'DataLife Account';
 
   return (
-    <div className={`flex items-center ${isArabic ? 'space-x-reverse' : ''} space-x-3 ${className}`}>
-      <div className={`${currentSize.container} ${iconBgColor} rounded-lg flex items-center justify-center`}>
-        <Database className={`${currentSize.icon} ${iconColor}`} />
-      </div>
-      <div className="flex flex-col">
-        {isArabic ? (
-          <>
-            <span className={`${currentSize.text} font-bold ${textColor} leading-tight`}>
-              داتا لايف
-            </span>
-            <span className={`text-xs ${subtitleColor} leading-tight`}>
-              لخدمات الذكاء الاصطناعي
-            </span>
-          </>
-        ) : (
-          <>
-            <span className={`${currentSize.text} font-bold ${textColor} leading-tight`}>
-              DataLife Account
-            </span>
-            <span className={`text-xs ${subtitleColor} leading-tight`}>
-              Business Management
-            </span>
-          </>
-        )}
-      </div>
+    <div className={`flex items-center ${className}`}>
+      <img 
+        src={logoSrc}
+        alt={logoAlt}
+        className={`${currentSize.height} ${currentSize.width} object-contain`}
+        onError={(e) => {
+          console.error('Logo failed to load:', e.target.src);
+          // Fallback to text if image fails to load
+          e.target.style.display = 'none';
+        }}
+      />
     </div>
   );
 };
