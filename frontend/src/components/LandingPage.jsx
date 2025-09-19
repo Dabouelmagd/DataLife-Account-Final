@@ -9,6 +9,7 @@ import { getTranslation } from '../data/translations';
 import LanguageSwitcher from './LanguageSwitcher';
 import DataLifeLogo from './DataLifeLogo';
 import CompanyLogo from './CompanyLogo';
+import PricingSection from './PricingSection';
 
 const LandingPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
