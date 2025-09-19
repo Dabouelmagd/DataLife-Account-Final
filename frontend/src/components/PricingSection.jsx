@@ -11,6 +11,8 @@ import PaymentModal from './PaymentModal';
 const PricingSection = () => {
   const { language, isRTL } = useLanguage();
   const [billingCycle, setBillingCycle] = useState('monthly');
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
   
   const t = (key) => getTranslation(language, key);
 
