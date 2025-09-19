@@ -313,7 +313,7 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <DataLifeLogo size="small" className="mb-4" />
+              <DataLifeLogo size="small" variant="footer" className="mb-4" />
               <p className="text-gray-400">
                 {t('footer.description')}
               </p>
