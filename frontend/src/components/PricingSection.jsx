@@ -190,6 +190,11 @@ const PricingSection = () => {
     return 0;
   };
 
+  const handlePlanSelect = (plan) => {
+    setSelectedPlan(plan);
+    setIsPaymentModalOpen(true);
+  };
+
   return (
     <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="max-w-7xl mx-auto">
