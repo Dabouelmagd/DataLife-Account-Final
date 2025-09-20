@@ -405,6 +405,12 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
+
+      {/* Free Trial Modal */}
+      <FreeTrialModal
+        isOpen={isTrialModalOpen}
+        onClose={() => setIsTrialModalOpen(false)}
+      />
     </div>
   );
 };
