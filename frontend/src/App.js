@@ -3,6 +3,7 @@ import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import axios from "axios";
 import LandingPage from "./components/LandingPage";
+import DemoPage from "./components/DemoPage";
 import { LanguageProvider } from "./contexts/LanguageContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
