@@ -320,7 +320,7 @@ const LandingPage = () => {
             <Button 
               size="lg" 
               className="bg-white text-[#28376B] hover:bg-gray-100 px-8 py-4 text-lg"
-              onClick={() => window.open(`mailto:${t('contact.email')}?subject=DataLife Account Free Trial Request`, '_blank')}
+              onClick={() => setIsTrialModalOpen(true)}
             >
               {t('cta.startTrial')}
             </Button>
