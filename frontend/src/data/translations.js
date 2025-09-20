@@ -905,6 +905,94 @@ export const translations = {
       securePayment: "دفع آمن مشفر 256-بت SSL"
     },
 
+    // Demo Section
+    demo: {
+      title: "DataLife Account - Live Demo",
+      subtitle: "Experience the full power of our business management platform",
+      demoMode: "Demo Mode",
+      guidedTour: "Start Guided Tour",
+      
+      modules: {
+        dashboard: "Dashboard",
+        hr: "HR Management", 
+        financial: "Financial",
+        inventory: "Inventory",
+        reports: "Reports",
+        analytics: "Analytics"
+      },
+
+      kpi: {
+        totalEmployees: "Total Employees",
+        monthlyRevenue: "Monthly Revenue",
+        activeProjects: "Active Projects", 
+        efficiency: "Efficiency Rate"
+      },
+
+      currency: "EGP",
+
+      quickActions: {
+        title: "Quick Actions",
+        addEmployee: "Add Employee",
+        newTransaction: "New Transaction", 
+        generateReport: "Generate Report",
+        checkInventory: "Check Inventory"
+      },
+
+      recentActivity: {
+        title: "Recent Activity"
+      },
+
+      upcomingTasks: {
+        title: "Upcoming Tasks"
+      },
+
+      hr: {
+        totalEmployees: "Total Employees",
+        presentToday: "Present Today",
+        onLeave: "On Leave",
+        employeeList: "Employee List",
+        addEmployee: "Add Employee",
+        employee: "Employee",
+        position: "Position",
+        department: "Department", 
+        status: "Status",
+        actions: "Actions"
+      },
+
+      financial: {
+        recentTransactions: "Recent Transactions",
+        newTransaction: "New Transaction",
+        date: "Date",
+        description: "Description",
+        category: "Category",
+        amount: "Amount",
+        status: "Status"
+      },
+
+      inventory: {
+        items: "Inventory Items",
+        filter: "Filter",
+        addItem: "Add Item",
+        product: "Product",
+        sku: "SKU",
+        quantity: "Quantity",
+        value: "Value",
+        status: "Status"
+      },
+
+      reports: {
+        financialSummary: "Financial Summary",
+        monthlyRevenue: "Monthly Revenue",
+        expenses: "Expenses by Category"
+      },
+
+      tour: {
+        welcome: "Welcome to DataLife Demo!",
+        description: "Let us guide you through the key features of DataLife Account.",
+        start: "Start Tour"
+      }
+    },
+
     // Free Trial Section
     trial: {
       title: "ابدأ نسختك التجريبية المجانية لمدة 14 يوماً",
