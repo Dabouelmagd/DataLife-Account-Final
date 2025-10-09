@@ -161,19 +161,47 @@ const DemoPage = ({ onClose }) => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button variant="outline" className="h-16 flex flex-col items-center justify-center">
+            <Button 
+              variant="outline" 
+              className="h-16 flex flex-col items-center justify-center"
+              onClick={() => {
+                setActiveModule('hr');
+                setTimeout(() => setIsAddEmployeeModal(true), 500);
+              }}
+            >
               <Users className="h-5 w-5 mb-1" />
               <span className="text-xs">{t('demo.quickActions.addEmployee')}</span>
             </Button>
-            <Button variant="outline" className="h-16 flex flex-col items-center justify-center">
+            <Button 
+              variant="outline" 
+              className="h-16 flex flex-col items-center justify-center"
+              onClick={() => {
+                setActiveModule('financial');
+                setTimeout(() => alert(language === 'ar' ? 'فتح نموذج معاملة جديدة (عرض توضيحي)' : 'Opening new transaction form (Demo)'), 500);
+              }}
+            >
               <Calculator className="h-5 w-5 mb-1" />
               <span className="text-xs">{t('demo.quickActions.newTransaction')}</span>
             </Button>
-            <Button variant="outline" className="h-16 flex flex-col items-center justify-center">
+            <Button 
+              variant="outline" 
+              className="h-16 flex flex-col items-center justify-center"
+              onClick={() => {
+                setActiveModule('reports');
+                setTimeout(() => alert(language === 'ar' ? 'إنشاء تقرير جديد (عرض توضيحي)' : 'Generating new report (Demo)'), 500);
+              }}
+            >
               <FileText className="h-5 w-5 mb-1" />
               <span className="text-xs">{t('demo.quickActions.generateReport')}</span>
             </Button>
-            <Button variant="outline" className="h-16 flex flex-col items-center justify-center">
+            <Button 
+              variant="outline" 
+              className="h-16 flex flex-col items-center justify-center"
+              onClick={() => {
+                setActiveModule('inventory');
+                setTimeout(() => alert(language === 'ar' ? 'فحص حالة المخزون (عرض توضيحي)' : 'Checking inventory status (Demo)'), 500);
+              }}
+            >
               <PieChart className="h-5 w-5 mb-1" />
               <span className="text-xs">{t('demo.quickActions.checkInventory')}</span>
             </Button>
