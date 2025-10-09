@@ -186,7 +186,7 @@ const DemoPage = ({ onClose }) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {demoData.recentActivity.map((activity, index) => (
+              {translatedRecentActivity.map((activity, index) => (
                 <div key={index} className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3`}>
                   <div className={`w-2 h-2 rounded-full ${activity.type === 'success' ? 'bg-green-500' : activity.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
                   <div className="flex-1">
