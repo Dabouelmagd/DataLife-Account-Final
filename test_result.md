@@ -176,10 +176,8 @@ metadata:
   run_ui: true
 
 test_plan:
-  current_focus:
-    - "Free Trial Modal Integration"
-  stuck_tasks:
-    - "Free Trial Modal Integration"
+  current_focus: []
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
