@@ -316,10 +316,21 @@ const DemoPage = ({ onClose }) => {
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="ghost">
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedEmployee(employee);
+                          setShowEmployeeDetails(true);
+                        }}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost">
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => alert(language === 'ar' ? `تحرير الموظف: ${employee.name}` : `Edit employee: ${employee.name}`)}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
