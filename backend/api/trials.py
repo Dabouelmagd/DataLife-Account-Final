@@ -22,7 +22,7 @@ db = client[os.environ['DB_NAME']]
 notification_service = NotificationService(db)
 trial_service = TrialService(db, notification_service)
 
-@router.post("/", response_model=Trial)
+@router.post("/", response_model=Trial, status_code=201)
 async def create_trial(trial_data: TrialCreate, request: Request):
     """Create a new free trial"""
     try:
