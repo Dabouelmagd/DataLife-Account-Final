@@ -1,4 +1,5 @@
 // Demo data for DataLife Account interactive demo
+import { DollarSign, Calculator, TrendingUp, BarChart3, PieChart, AlertCircle } from 'lucide-react';
 
 export const demoData = {
   summary: {
