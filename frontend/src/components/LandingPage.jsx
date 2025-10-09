@@ -18,6 +18,7 @@ const LandingPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
   const { language, isRTL } = useLanguage();
+  const navigate = useNavigate();
 
   const t = (key) => getTranslation(language, key);
 
