@@ -105,7 +105,7 @@ class TrialAPITester:
     async def test_create_trial_duplicate_email(self):
         """Test trial creation with duplicate email"""
         test_data = {
-            "email": "sarah.johnson@techcorp.com",  # Same email as previous test
+            "email": "duplicate.test@techcorp.com",  # Use a consistent duplicate email
             "first_name": "John",
             "last_name": "Doe",
             "company_name": "Another Company"
