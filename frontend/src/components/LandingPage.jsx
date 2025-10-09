@@ -376,7 +376,7 @@ const LandingPage = () => {
               <ul className="space-y-2 text-gray-400">
                 <li><a href="#" className="hover:text-white transition-colors">{t('footer.features')}</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">{t('footer.pricing')}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">{t('footer.demo')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors cursor-pointer" onClick={() => navigate('/demo')}>{t('footer.demo')}</a></li>
               </ul>
             </div>
             <div>
