@@ -174,10 +174,10 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Demo Page Navigation"
     - "Free Trial Modal Integration"
-  stuck_tasks: []
-  test_all: true
+  stuck_tasks:
+    - "Free Trial Modal Integration"
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
@@ -185,3 +185,5 @@ agent_communication:
     - message: "Completed connecting demo/trial functionality. Watch Demo buttons now navigate to /demo route with interactive demo page. Start Free Trial buttons open modal with backend API integration. Ready for comprehensive testing of backend API endpoints and frontend user flow."
     - agent: "testing"
     - message: "BACKEND TESTING COMPLETE: Free Trial API Integration is fully working. Fixed critical issue where trials router was missing from server.py. All endpoints tested and working: trial creation (201 status), retrieval by email/ID, progress tracking, usage tracking, admin endpoints. Proper validation implemented. Database integration confirmed. Only minor issue: CORS headers missing from OPTIONS requests (doesn't affect functionality). Backend ready for frontend integration testing."
+    - agent: "testing"
+    - message: "FRONTEND TESTING COMPLETE: Demo functionality working perfectly - navigation, sidebar modules, Arabic support, mobile responsiveness all verified. CRITICAL ISSUE: Free Trial form API integration failing due to incorrect URL usage. Form uses relative URL '/api/trials/' instead of REACT_APP_BACKEND_URL environment variable, causing 404 errors. Fix needed in FreeTrialModal.jsx line 103: use `${process.env.REACT_APP_BACKEND_URL}/api/trials/` instead of '/api/trials/'. Modal UI and form functionality working correctly otherwise."
