@@ -206,7 +206,7 @@ const DemoPage = ({ onClose }) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {demoData.upcomingTasks.map((task, index) => (
+              {translatedUpcomingTasks.map((task, index) => (
                 <div key={index} className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3`}>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center ${task.priority === 'high' ? 'bg-red-100 text-red-600' : task.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600'}`}>
                     <AlertCircle className="h-4 w-4" />
