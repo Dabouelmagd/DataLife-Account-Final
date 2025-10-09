@@ -317,13 +317,25 @@ const FreeTrialModal = ({ isOpen, onClose }) => {
         </div>
       </div>
 
-      <Button 
-        onClick={() => window.open('https://app.datalife.com/login', '_blank')}
-        className="bg-[#28376B] hover:bg-[#1e2a5a]"
-      >
-        <ArrowRight className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-        {t('trial.success.accessTrial')}
-      </Button>
+      <div className="flex gap-3">
+        <Button 
+          onClick={() => {
+            onClose();
+            window.location.href = '/demo';
+          }}
+          className="bg-[#28376B] hover:bg-[#1e2a5a] flex-1"
+        >
+          <ArrowRight className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+          {t('trial.success.accessTrial')}
+        </Button>
+        <Button 
+          variant="outline"
+          onClick={onClose}
+          className="flex-1"
+        >
+          {t('trial.form.cancel')}
+        </Button>
+      </div>
     </div>
   );
 
