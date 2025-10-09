@@ -513,6 +513,7 @@ const DemoPage = ({ onClose }) => {
   );
 
   const renderModule = () => {
+    console.log('Active Module:', activeModule); // Debug log
     switch (activeModule) {
       case 'dashboard': return renderDashboard();
       case 'hr': return renderHRModule();
