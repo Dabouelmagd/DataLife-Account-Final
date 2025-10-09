@@ -993,6 +993,94 @@ export const translations = {
       }
     },
 
+    // Demo Section
+    demo: {
+      title: "داتا لايف أكاونت - العرض التوضيحي المباشر",
+      subtitle: "اختبر القوة الكاملة لمنصة إدارة الأعمال الخاصة بنا",
+      demoMode: "وضع العرض التوضيحي",
+      guidedTour: "ابدأ الجولة المرشدة",
+      
+      modules: {
+        dashboard: "لوحة التحكم",
+        hr: "إدارة الموارد البشرية", 
+        financial: "المالية",
+        inventory: "المخزون",
+        reports: "التقارير",
+        analytics: "التحليلات"
+      },
+
+      kpi: {
+        totalEmployees: "إجمالي الموظفين",
+        monthlyRevenue: "الإيرادات الشهرية",
+        activeProjects: "المشاريع النشطة", 
+        efficiency: "معدل الكفاءة"
+      },
+
+      currency: "جنيه مصري",
+
+      quickActions: {
+        title: "الإجراءات السريعة",
+        addEmployee: "إضافة موظف",
+        newTransaction: "معاملة جديدة", 
+        generateReport: "إنشاء تقرير",
+        checkInventory: "فحص المخزون"
+      },
+
+      recentActivity: {
+        title: "النشاط الحديث"
+      },
+
+      upcomingTasks: {
+        title: "المهام القادمة"
+      },
+
+      hr: {
+        totalEmployees: "إجمالي الموظفين",
+        presentToday: "الحاضرون اليوم",
+        onLeave: "في إجازة",
+        employeeList: "قائمة الموظفين",
+        addEmployee: "إضافة موظف",
+        employee: "الموظف",
+        position: "المنصب",
+        department: "القسم", 
+        status: "الحالة",
+        actions: "الإجراءات"
+      },
+
+      financial: {
+        recentTransactions: "المعاملات الحديثة",
+        newTransaction: "معاملة جديدة",
+        date: "التاريخ",
+        description: "الوصف",
+        category: "الفئة",
+        amount: "المبلغ",
+        status: "الحالة"
+      },
+
+      inventory: {
+        items: "عناصر المخزون",
+        filter: "تصفية",
+        addItem: "إضافة عنصر",
+        product: "المنتج",
+        sku: "رمز المنتج",
+        quantity: "الكمية",
+        value: "القيمة",
+        status: "الحالة"
+      },
+
+      reports: {
+        financialSummary: "الملخص المالي",
+        monthlyRevenue: "الإيرادات الشهرية",
+        expenses: "المصروفات حسب الفئة"
+      },
+
+      tour: {
+        welcome: "مرحباً بك في عرض داتا لايف التوضيحي!",
+        description: "دعنا نرشدك عبر الميزات الرئيسية لداتا لايف أكاونت.",
+        start: "ابدأ الجولة"
+      }
+    },
+
     // Free Trial Section
     trial: {
       title: "ابدأ نسختك التجريبية المجانية لمدة 14 يوماً",
