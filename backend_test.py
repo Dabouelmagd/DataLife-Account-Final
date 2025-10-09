@@ -104,22 +104,40 @@ class TrialAPITester:
     
     async def test_create_trial_duplicate_email(self):
         """Test trial creation with duplicate email"""
-        test_data = {
-            "email": "duplicate.test@techcorp.com",  # Use a consistent duplicate email
+        duplicate_email = "duplicate.test@techcorp.com"
+        
+        # First, create a trial
+        first_trial_data = {
+            "email": duplicate_email,
             "first_name": "John",
             "last_name": "Doe",
-            "company_name": "Another Company"
+            "company_name": "First Company"
         }
         
         try:
-            response = await self.client.post(
+            # Create first trial
+            first_response = await self.client.post(
                 f"{self.base_url}/trials/",
-                json=test_data,
+                json=first_trial_data,
                 headers={"Content-Type": "application/json"}
             )
             
-            if response.status_code == 400:
-                data = response.json()
+            # Now try to create duplicate
+            second_trial_data = {
+                "email": duplicate_email,
+                "first_name": "Jane",
+                "last_name": "Smith", 
+                "company_name": "Second Company"
+            }
+            
+            second_response = await self.client.post(
+                f"{self.base_url}/trials/",
+                json=second_trial_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if second_response.status_code == 400:
+                data = second_response.json()
                 if "active trial already exists" in data.get("detail", "").lower():
                     self.log_result("Create Trial - Duplicate Email", True, 
                                   "Correctly rejected duplicate email", data)
@@ -128,7 +146,7 @@ class TrialAPITester:
                                   f"Wrong error message: {data.get('detail')}", data)
             else:
                 self.log_result("Create Trial - Duplicate Email", False, 
-                              f"Expected 400, got {response.status_code}", response.text)
+                              f"Expected 400, got {second_response.status_code}", second_response.text)
                 
         except Exception as e:
             self.log_result("Create Trial - Duplicate Email", False, f"Exception: {str(e)}")
