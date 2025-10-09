@@ -59,6 +59,7 @@ async def get_status_checks():
 app.include_router(api_router)
 app.include_router(payments_router)
 app.include_router(subscriptions_router)
+app.include_router(trials_router)
 
 app.add_middleware(
     CORSMiddleware,
