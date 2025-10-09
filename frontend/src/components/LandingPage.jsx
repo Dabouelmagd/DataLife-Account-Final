@@ -161,7 +161,12 @@ const LandingPage = () => {
               >
                 {t('hero.startTrial')}
               </Button>
-              <Button size="lg" variant="outline" className="border-[#28376B] text-[#28376B] hover:bg-[#28376B] hover:text-white px-8 py-4 text-lg">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="border-[#28376B] text-[#28376B] hover:bg-[#28376B] hover:text-white px-8 py-4 text-lg"
+                onClick={() => navigate('/demo')}
+              >
                 {t('hero.watchDemo')}
               </Button>
             </div>
