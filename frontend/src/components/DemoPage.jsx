@@ -24,6 +24,63 @@ const DemoPage = ({ onClose }) => {
   
   const t = (key) => getTranslation(language, key);
 
+  // Translated demo data
+  const translatedRecentActivity = [
+    {
+      title: language === 'ar' ? 'تم إضافة الموظف أحمد حسن إلى نظام الموارد البشرية' : 'New employee Ahmed Hassan added to HR system',
+      time: language === 'ar' ? 'منذ دقيقتين' : '2 minutes ago',
+      type: 'success',
+      module: language === 'ar' ? 'الموارد البشرية' : 'HR'
+    },
+    {
+      title: language === 'ar' ? 'تمت معالجة كشوف المرتبات الشهرية بنجاح' : 'Monthly payroll processed successfully',
+      time: language === 'ar' ? 'منذ ساعة واحدة' : '1 hour ago',
+      type: 'success',
+      module: language === 'ar' ? 'الموارد البشرية' : 'HR'
+    },
+    {
+      title: language === 'ar' ? 'تنبيه المخزون: مستلزمات المكتب منخفضة' : 'Inventory alert: Office supplies running low',
+      time: language === 'ar' ? 'منذ 3 ساعات' : '3 hours ago',
+      type: 'warning',
+      module: language === 'ar' ? 'المخزون' : 'Inventory'
+    },
+    {
+      title: language === 'ar' ? 'تم إنشاء التقرير المالي' : 'Financial report generated',
+      time: language === 'ar' ? 'منذ 5 ساعات' : '5 hours ago',
+      type: 'info',
+      module: language === 'ar' ? 'التقارير' : 'Reports'
+    },
+    {
+      title: language === 'ar' ? 'تم إضافة عقد مورد جديد' : 'New supplier contract added',
+      time: language === 'ar' ? 'منذ يوم واحد' : '1 day ago',
+      type: 'success',
+      module: language === 'ar' ? 'المالية' : 'Financial'
+    }
+  ];
+
+  const translatedUpcomingTasks = [
+    {
+      title: language === 'ar' ? 'معالجة كشوف المرتبات الشهرية' : 'Process monthly payroll',
+      dueDate: language === 'ar' ? 'مستحق غداً' : 'Due tomorrow',
+      priority: 'high'
+    },
+    {
+      title: language === 'ar' ? 'مراجعة فواتير الموردين' : 'Review supplier invoices',
+      dueDate: language === 'ar' ? 'مستحق خلال يومين' : 'Due in 2 days',
+      priority: 'medium'
+    },
+    {
+      title: language === 'ar' ? 'تحديث مستويات المخزون' : 'Update inventory levels',
+      dueDate: language === 'ar' ? 'مستحق خلال 3 أيام' : 'Due in 3 days',
+      priority: 'medium'
+    },
+    {
+      title: language === 'ar' ? 'إنشاء التقرير الفصلي' : 'Generate quarterly report',
+      dueDate: language === 'ar' ? 'مستحق الأسبوع القادم' : 'Due next week',
+      priority: 'low'
+    }
+  ];
+
   const modules = [
     { id: 'dashboard', name: t('demo.modules.dashboard'), icon: <Home className="h-5 w-5" /> },
     { id: 'hr', name: t('demo.modules.hr'), icon: <Users className="h-5 w-5" /> },
