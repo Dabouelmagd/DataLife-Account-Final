@@ -618,6 +618,124 @@ const DemoPage = ({ onClose }) => {
           </Card>
         </div>
       )}
+
+      {/* Add Employee Modal */}
+      {isAddEmployeeModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <Card className="max-w-md w-full mx-4">
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                {language === 'ar' ? 'إضافة موظف جديد' : 'Add New Employee'}
+                <Button variant="ghost" onClick={() => setIsAddEmployeeModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">{language === 'ar' ? 'الاسم الكامل' : 'Full Name'}</label>
+                <input className="w-full border rounded px-3 py-2 mt-1" placeholder={language === 'ar' ? 'أدخل الاسم الكامل' : 'Enter full name'} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</label>
+                <input className="w-full border rounded px-3 py-2 mt-1" placeholder={language === 'ar' ? 'example@company.com' : 'example@company.com'} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{language === 'ar' ? 'المنصب' : 'Position'}</label>
+                <input className="w-full border rounded px-3 py-2 mt-1" placeholder={language === 'ar' ? 'أدخل المنصب' : 'Enter position'} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{language === 'ar' ? 'القسم' : 'Department'}</label>
+                <select className="w-full border rounded px-3 py-2 mt-1">
+                  <option>{language === 'ar' ? 'اختر القسم' : 'Select Department'}</option>
+                  <option>IT</option>
+                  <option>HR</option>
+                  <option>Finance</option>
+                  <option>Operations</option>
+                  <option>Sales</option>
+                </select>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  className="flex-1 bg-[#28376B]"
+                  onClick={() => {
+                    alert(language === 'ar' ? 'تم إضافة الموظف بنجاح! (عرض توضيحي)' : 'Employee added successfully! (Demo)');
+                    setIsAddEmployeeModal(false);
+                  }}
+                >
+                  {language === 'ar' ? 'إضافة الموظف' : 'Add Employee'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => setIsAddEmployeeModal(false)}
+                >
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Employee Details Modal */}
+      {showEmployeeDetails && selectedEmployee && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <Card className="max-w-lg w-full mx-4">
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                {language === 'ar' ? 'تفاصيل الموظف' : 'Employee Details'}
+                <Button variant="ghost" onClick={() => setShowEmployeeDetails(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={selectedEmployee.avatar} />
+                  <AvatarFallback className="text-lg">{selectedEmployee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="text-lg font-semibold">{selectedEmployee.name}</h3>
+                  <p className="text-gray-600">{selectedEmployee.position}</p>
+                  <Badge variant={selectedEmployee.status === 'Present' ? 'success' : selectedEmployee.status === 'Absent' ? 'destructive' : 'warning'}>
+                    {selectedEmployee.status}
+                  </Badge>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</label>
+                  <p className="text-sm">{selectedEmployee.email}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">{language === 'ar' ? 'القسم' : 'Department'}</label>
+                  <p className="text-sm">{selectedEmployee.department}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">{language === 'ar' ? 'الراتب' : 'Salary'}</label>
+                  <p className="text-sm">{selectedEmployee.salary?.toLocaleString()} {t('demo.currency')}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">{language === 'ar' ? 'تاريخ الانضمام' : 'Join Date'}</label>
+                  <p className="text-sm">{selectedEmployee.joinDate}</p>
+                </div>
+              </div>
+              
+              <div className="pt-4">
+                <Button 
+                  className="w-full"
+                  onClick={() => setShowEmployeeDetails(false)}
+                >
+                  {language === 'ar' ? 'إغلاق' : 'Close'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
