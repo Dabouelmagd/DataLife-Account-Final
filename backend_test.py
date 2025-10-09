@@ -46,8 +46,10 @@ class TrialAPITester:
     
     async def test_create_trial_success(self):
         """Test successful trial creation with valid data"""
+        # Use timestamp to ensure unique email
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         test_data = {
-            "email": "sarah.johnson@techcorp.com",
+            "email": f"sarah.johnson.{timestamp}@techcorp.com",
             "first_name": "Sarah",
             "last_name": "Johnson", 
             "company_name": "TechCorp Solutions",
