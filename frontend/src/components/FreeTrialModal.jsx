@@ -100,7 +100,8 @@ const FreeTrialModal = ({ isOpen, onClose }) => {
 
     try {
       // Submit trial registration
-      const response = await fetch('/api/trials/', {
+      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+      const response = await fetch(`${BACKEND_URL}/api/trials/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
