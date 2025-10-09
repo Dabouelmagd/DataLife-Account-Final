@@ -165,7 +165,6 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Free Trial API Integration"
     - "Demo Page Navigation"
     - "Free Trial Modal Integration"
   stuck_tasks: []
