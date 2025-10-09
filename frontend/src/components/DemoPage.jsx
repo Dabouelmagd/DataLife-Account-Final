@@ -21,6 +21,9 @@ const DemoPage = ({ onClose }) => {
   const [activeModule, setActiveModule] = useState('dashboard');
   const [isGuidedTour, setIsGuidedTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
+  const [isAddEmployeeModal, setIsAddEmployeeModal] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [showEmployeeDetails, setShowEmployeeDetails] = useState(false);
   
   const t = (key) => getTranslation(language, key);
 
