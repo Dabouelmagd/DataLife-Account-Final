@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime
 from api.payments import router as payments_router
 from api.subscriptions import router as subscriptions_router
+from api.trials import router as trials_router
 
 
 ROOT_DIR = Path(__file__).parent
