@@ -57,6 +57,8 @@ const DemoPage = ({ onClose }) => {
   });
   const [financialReportTab, setFinancialReportTab] = useState('overview');
   const [financialPeriod, setFinancialPeriod] = useState('monthly');
+  const [expandedModule, setExpandedModule] = useState(null);
+  const [activeFinancialSubModule, setActiveFinancialSubModule] = useState(null);
   const [employeeForm, setEmployeeForm] = useState({
     // Basic Info
     fullName: '',
