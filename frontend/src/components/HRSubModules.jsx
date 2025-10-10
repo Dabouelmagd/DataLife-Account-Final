@@ -369,7 +369,7 @@ export const DeductionsModule = ({ language, userRole }) => {
           {language === 'ar' ? 'الخصومات' : 'Deductions'}
         </h2>
         {canEdit && (
-          <Button size="sm" className="bg-[#28376B]">
+          <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
             <Plus className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'إضافة خصم' : 'Add Deduction'}</span>
           </Button>
