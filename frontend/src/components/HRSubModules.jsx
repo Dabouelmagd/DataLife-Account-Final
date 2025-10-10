@@ -557,6 +557,164 @@ export const AnnualLeaveModule = ({ language, userRole }) => {
   );
 };
 
+// HR Reports Module
+export const HRReportsModule = ({ language, userRole }) => {
+  const isRTL = language === 'ar';
+  const [reportType, setReportType] = useState('attendance');
+  const [period, setPeriod] = useState('monthly');
+
+  const reportTypes = [
+    { id: 'attendance', name: language === 'ar' ? 'تقرير الحضور' : 'Attendance Report' },
+    { id: 'payroll', name: language === 'ar' ? 'تقرير المرتبات' : 'Payroll Report' },
+    { id: 'leaves', name: language === 'ar' ? 'تقرير الإجازات' : 'Leaves Report' },
+    { id: 'overtime', name: language === 'ar' ? 'تقرير الإضافي' : 'Overtime Report' },
+    { id: 'deductions', name: language === 'ar' ? 'تقرير الخصومات' : 'Deductions Report' }
+  ];
+
+  const attendanceData = [
+    { employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', present: 22, absent: 1, late: 2, totalDays: 25 },
+    { employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', present: 24, absent: 0, late: 1, totalDays: 25 },
+    { employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', present: 20, absent: 3, late: 2, totalDays: 25 },
+    { employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', present: 23, absent: 1, late: 1, totalDays: 25 }
+  ];
+
+  const payrollData = [
+    { employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', basic: 15000, allowances: 3500, deductions: 800, net: 17700 },
+    { employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', basic: 20000, allowances: 4000, deductions: 1200, net: 22800 },
+    { employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', basic: 12000, allowances: 2500, deductions: 500, net: 14000 },
+    { employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', basic: 10000, allowances: 2200, deductions: 600, net: 11600 }
+  ];
+
+  return (
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">
+          {language === 'ar' ? 'تقارير الموارد البشرية' : 'HR Reports'}
+        </h2>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير PDF' : 'Export PDF'}</span>
+          </Button>
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير CSV' : 'Export CSV'}</span>
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <Card className="flex-1">
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'نوع التقرير' : 'Report Type'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <select 
+              value={reportType} 
+              onChange={(e) => setReportType(e.target.value)}
+              className="w-full p-2 border rounded"
+            >
+              {reportTypes.map(type => (
+                <option key={type.id} value={type.id}>{type.name}</option>
+              ))}
+            </select>
+          </CardContent>
+        </Card>
+
+        <Card className="flex-1">
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'الفترة' : 'Period'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <select 
+              value={period} 
+              onChange={(e) => setPeriod(e.target.value)}
+              className="w-full p-2 border rounded"
+            >
+              <option value="weekly">{language === 'ar' ? 'أسبوعي' : 'Weekly'}</option>
+              <option value="monthly">{language === 'ar' ? 'شهري' : 'Monthly'}</option>
+              <option value="annual">{language === 'ar' ? 'سنوي' : 'Annual'}</option>
+            </select>
+          </CardContent>
+        </Card>
+      </div>
+
+      {reportType === 'attendance' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{language === 'ar' ? 'تقرير الحضور' : 'Attendance Report'}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'حاضر' : 'Present'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'غائب' : 'Absent'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'تأخير' : 'Late'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'إجمالي الأيام' : 'Total Days'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'نسبة الحضور' : 'Attendance %'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {attendanceData.map((row, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="font-medium">{row.employee}</TableCell>
+                    <TableCell className="text-green-600">{row.present}</TableCell>
+                    <TableCell className="text-red-600">{row.absent}</TableCell>
+                    <TableCell className="text-yellow-600">{row.late}</TableCell>
+                    <TableCell>{row.totalDays}</TableCell>
+                    <TableCell className="font-bold">{((row.present / row.totalDays) * 100).toFixed(1)}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {reportType === 'payroll' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{language === 'ar' ? 'تقرير المرتبات' : 'Payroll Report'}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'المرتب الأساسي' : 'Basic Salary'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'البدلات' : 'Allowances'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الخصومات' : 'Deductions'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'صافي المرتب' : 'Net Salary'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payrollData.map((row, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="font-medium">{row.employee}</TableCell>
+                    <TableCell>{row.basic.toLocaleString()}</TableCell>
+                    <TableCell className="text-green-600">+{row.allowances.toLocaleString()}</TableCell>
+                    <TableCell className="text-red-600">-{row.deductions.toLocaleString()}</TableCell>
+                    <TableCell className="font-bold text-blue-600">{row.net.toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="bg-gray-50">
+                  <TableCell className="font-bold">{language === 'ar' ? 'الإجمالي' : 'Total'}</TableCell>
+                  <TableCell className="font-bold">{payrollData.reduce((sum, r) => sum + r.basic, 0).toLocaleString()}</TableCell>
+                  <TableCell className="font-bold text-green-600">+{payrollData.reduce((sum, r) => sum + r.allowances, 0).toLocaleString()}</TableCell>
+                  <TableCell className="font-bold text-red-600">-{payrollData.reduce((sum, r) => sum + r.deductions, 0).toLocaleString()}</TableCell>
+                  <TableCell className="font-bold text-blue-600">{payrollData.reduce((sum, r) => sum + r.net, 0).toLocaleString()}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
+
 // Attendance Module
 export const AttendanceModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
