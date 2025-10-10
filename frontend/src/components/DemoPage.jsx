@@ -1787,10 +1787,31 @@ const DemoPage = ({ onClose }) => {
                 </div>
               )}
 
-              <div className="flex items-end">
-                <Button className="bg-[#28376B] w-full">
-                  <Download className="h-4 w-4 mr-2" />
-                  {language === 'ar' ? 'تصدير التقرير' : 'Export Report'}
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex gap-2 w-full">
+                  <Button 
+                    className="bg-[#28376B] flex-1"
+                    onClick={() => exportReportData(reportType)}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {language === 'ar' ? 'تصدير CSV' : 'Export CSV'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => exportToPDF('reports-content', `تقرير_${reportType}_${reportPeriod}`)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    {language === 'ar' ? 'تصدير PDF' : 'Export PDF'}
+                  </Button>
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => printReport('reports-content', `تقرير ${reportType === 'attendance' ? 'الحضور والانصراف' : reportType === 'payroll' ? 'المرتبات' : reportType === 'overtime' ? 'العمل الإضافي' : 'الخصومات'}`)}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  {language === 'ar' ? 'طباعة التقرير' : 'Print Report'}
                 </Button>
               </div>
             </div>
