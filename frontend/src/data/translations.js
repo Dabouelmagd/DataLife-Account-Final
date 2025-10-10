@@ -1330,7 +1330,19 @@ export const translations = {
           addDeduction: "إضافة خصم",
           removeAllowance: "حذف البدلة",
           removeDeduction: "حذف الخصم",
-          addDepartment: "إضافة قسم جديد"
+          addDepartment: "إضافة قسم جديد",
+          addCustomType: "إضافة نوع مخصص"
+        },
+
+        customTypes: {
+          allowanceTitle: "إضافة نوع بدلة مخصص",
+          deductionTitle: "إضافة نوع خصم مخصص", 
+          nameAr: "الاسم بالعربية",
+          nameEn: "الاسم بالإنجليزية",
+          save: "حفظ النوع",
+          cancel: "إلغاء",
+          namePlaceholder: "أدخل اسم النوع",
+          custom: "مخصص"
         },
 
         addDepartment: {
