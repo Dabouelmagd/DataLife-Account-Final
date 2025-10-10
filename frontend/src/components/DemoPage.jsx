@@ -15,6 +15,14 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../data/translations';
 import { demoData } from '../data/demoData';
+import { 
+  JournalEntriesModule, 
+  TreasuryModule, 
+  CustodyModule, 
+  AccountsModule, 
+  SuppliersModule, 
+  CustomersModule 
+} from './FinancialSubModules';
 
 const DemoPage = ({ onClose }) => {
   const { language, isRTL } = useLanguage();
