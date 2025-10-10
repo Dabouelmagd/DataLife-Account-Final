@@ -117,7 +117,7 @@ export const SalariesModule = ({ language, userRole }) => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => alert(language === 'ar' ? `عرض تفاصيل ${salary.name}` : `View details for ${salary.name}`)}>
                         <Eye className="h-4 w-4" />
                       </Button>
                       {canEdit && (
