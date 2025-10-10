@@ -1109,7 +1109,111 @@ export const translations = {
         "منذ 3 ساعات",
         "منذ 5 ساعات",
         "منذ يوم واحد"
-      ]
+      ],
+
+      // Employee Form
+      employeeForm: {
+        tabs: {
+          basic: "المعلومات الأساسية",
+          job: "التفاصيل الوظيفية",
+          financial: "المعلومات المالية",
+          documents: "الوثائق والمرفقات",
+          transfers: "سجل الانتقالات"
+        },
+        
+        basic: {
+          personalInfo: "المعلومات الشخصية",
+          fullName: "الاسم الكامل",
+          email: "البريد الإلكتروني",
+          phone: "رقم الهاتف",
+          nationalId: "الرقم القومي",
+          birthDate: "تاريخ الميلاد",
+          gender: "النوع",
+          male: "ذكر",
+          female: "أنثى",
+          maritalStatus: "الحالة الاجتماعية",
+          single: "أعزب",
+          married: "متزوج",
+          divorced: "مطلق",
+          address: "العنوان"
+        },
+        
+        job: {
+          jobDetails: "التفاصيل الوظيفية",
+          position: "المنصب",
+          department: "القسم",
+          directManager: "المدير المباشر",
+          startDate: "تاريخ بداية العمل",
+          employmentType: "نوع التوظيف",
+          fullTime: "دوام كامل",
+          partTime: "دوام جزئي",
+          contract: "عقد",
+          internship: "تدريب",
+          workLocation: "مكان العمل"
+        },
+        
+        financial: {
+          salaryInfo: "المعلومات المالية",
+          baseSalary: "الراتب الأساسي",
+          allowances: "البدلات",
+          allowanceType: "نوع البدلة",
+          allowanceAmount: "مبلغ البدلة",
+          transportation: "بدل مواصلات",
+          housing: "بدل سكن",
+          food: "بدل طعام",
+          communication: "بدل اتصالات",
+          other: "أخرى",
+          deductions: "الخصومات",
+          deductionType: "نوع الخصم",
+          deductionAmount: "مبلغ الخصم",
+          insurance: "تأمين",
+          tax: "ضرائب",
+          loan: "قرض",
+          payrollMethod: "طريقة الدفع",
+          cash: "نقداً",
+          bank: "تحويل بنكي",
+          bankAccount: "رقم الحساب البنكي"
+        },
+        
+        documents: {
+          documentsFiles: "الوثائق والملفات",
+          profileImage: "الصورة الشخصية",
+          uploadImage: "رفع صورة",
+          cv: "السيرة الذاتية",
+          uploadCV: "رفع السيرة الذاتية",
+          contracts: "عقود العمل",
+          uploadContract: "رفع عقد",
+          certificates: "الشهادات والمؤهلات",
+          uploadCertificate: "رفع شهادة",
+          supportedFormats: "الصيغ المدعومة: PDF, DOC, JPG, PNG",
+          maxSize: "الحد الأقصى: 5 ميجا بايت"
+        },
+        
+        transfers: {
+          transferHistory: "سجل الانتقالات",
+          addTransfer: "إضافة انتقال",
+          fromDepartment: "من القسم",
+          toDepartment: "إلى القسم",
+          transferDate: "تاريخ الانتقال",
+          reason: "السبب",
+          promotion: "ترقية",
+          departmentChange: "تغيير قسم",
+          locationChange: "تغيير موقع",
+          restructuring: "إعادة هيكلة",
+          notes: "ملاحظات"
+        },
+        
+        actions: {
+          save: "حفظ الموظف",
+          cancel: "إلغاء",
+          next: "التالي",
+          previous: "السابق",
+          addAllowance: "إضافة بدلة",
+          addDeduction: "إضافة خصم",
+          removeAllowance: "حذف البدلة",
+          removeDeduction: "حذف الخصم"
+        }
+      }
     },
 
     // Free Trial Section
