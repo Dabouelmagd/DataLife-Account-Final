@@ -34,6 +34,12 @@ const DemoPage = ({ onClose }) => {
     { id: 'Operations', name: 'Operations', nameAr: 'العمليات' },
     { id: 'Sales', name: 'Sales', nameAr: 'المبيعات' }
   ]);
+  const [customAllowanceTypes, setCustomAllowanceTypes] = useState([]);
+  const [customDeductionTypes, setCustomDeductionTypes] = useState([]);
+  const [showAddAllowanceType, setShowAddAllowanceType] = useState(false);
+  const [showAddDeductionType, setShowAddDeductionType] = useState(false);
+  const [newAllowanceType, setNewAllowanceType] = useState({ nameAr: '', nameEn: '' });
+  const [newDeductionType, setNewDeductionType] = useState({ nameAr: '', nameEn: '' });
   const [employeeForm, setEmployeeForm] = useState({
     // Basic Info
     fullName: '',
