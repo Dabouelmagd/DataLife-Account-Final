@@ -1376,6 +1376,125 @@ const DemoPage = ({ onClose }) => {
           </Card>
         </div>
       )}
+
+      {/* Add Department Modal */}
+      {showAddDepartmentModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                {t('demo.employeeForm.addDepartment.title')}
+                <Button variant="ghost" onClick={() => setShowAddDepartmentModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">
+                  {language === 'ar' ? t('demo.employeeForm.addDepartment.nameAr') : t('demo.employeeForm.addDepartment.nameEn')} *
+                </label>
+                <input 
+                  className="w-full border rounded px-3 py-2 mt-1" 
+                  placeholder={t('demo.employeeForm.addDepartment.namePlaceholder')}
+                  value={newDepartment.name}
+                  onChange={(e) => setNewDepartment({...newDepartment, name: e.target.value})}
+                />
+              </div>
+
+              {language === 'ar' ? (
+                <div>
+                  <label className="text-sm font-medium">{t('demo.employeeForm.addDepartment.nameEn')}</label>
+                  <input 
+                    className="w-full border rounded px-3 py-2 mt-1" 
+                    placeholder="Enter English name"
+                    value={newDepartment.nameEn || ''}
+                    onChange={(e) => setNewDepartment({...newDepartment, nameEn: e.target.value})}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="text-sm font-medium">{t('demo.employeeForm.addDepartment.nameAr')}</label>
+                  <input 
+                    className="w-full border rounded px-3 py-2 mt-1" 
+                    placeholder="أدخل الاسم بالعربية"
+                    value={newDepartment.nameAr || ''}
+                    onChange={(e) => setNewDepartment({...newDepartment, nameAr: e.target.value})}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-medium">{t('demo.employeeForm.addDepartment.description')}</label>
+                <textarea 
+                  className="w-full border rounded px-3 py-2 mt-1 h-20" 
+                  placeholder={t('demo.employeeForm.addDepartment.descriptionPlaceholder')}
+                  value={newDepartment.description}
+                  onChange={(e) => setNewDepartment({...newDepartment, description: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">{t('demo.employeeForm.addDepartment.manager')}</label>
+                <select 
+                  className="w-full border rounded px-3 py-2 mt-1"
+                  value={newDepartment.manager}
+                  onChange={(e) => setNewDepartment({...newDepartment, manager: e.target.value})}
+                >
+                  <option value="">{t('demo.employeeForm.addDepartment.manager')}</option>
+                  <option value="ahmed">Ahmed Hassan - {language === 'ar' ? 'مدير تنفيذي' : 'Executive Manager'}</option>
+                  <option value="fatima">Fatima Al-Zahra - {language === 'ar' ? 'مدير HR' : 'HR Manager'}</option>
+                  <option value="omar">Omar Rashid - {language === 'ar' ? 'مدير مالي' : 'Finance Manager'}</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    setShowAddDepartmentModal(false);
+                    setNewDepartment({ name: '', description: '', manager: '' });
+                  }}
+                >
+                  {t('demo.employeeForm.addDepartment.cancel')}
+                </Button>
+                <Button 
+                  className="flex-1 bg-[#28376B]"
+                  onClick={() => {
+                    if (newDepartment.name.trim()) {
+                      const departmentId = newDepartment.name.replace(/\s+/g, '_').toUpperCase();
+                      const newDept = {
+                        id: departmentId,
+                        name: language === 'ar' ? (newDepartment.nameEn || newDepartment.name) : newDepartment.name,
+                        nameAr: language === 'ar' ? newDepartment.name : (newDepartment.nameAr || newDepartment.name),
+                        description: newDepartment.description,
+                        manager: newDepartment.manager
+                      };
+                      
+                      setDepartments([...departments, newDept]);
+                      setEmployeeForm({...employeeForm, department: departmentId});
+                      
+                      alert(language === 'ar' ? 
+                        `تم إضافة قسم "${newDept.nameAr}" بنجاح! (عرض توضيحي)` : 
+                        `Department "${newDept.name}" added successfully! (Demo)`
+                      );
+                      
+                      setShowAddDepartmentModal(false);
+                      setNewDepartment({ name: '', description: '', manager: '' });
+                    } else {
+                      alert(language === 'ar' ? 'يرجى إدخال اسم القسم' : 'Please enter department name');
+                    }
+                  }}
+                  disabled={!newDepartment.name.trim()}
+                >
+                  {t('demo.employeeForm.addDepartment.save')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
