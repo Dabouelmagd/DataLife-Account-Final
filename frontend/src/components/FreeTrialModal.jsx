@@ -125,6 +125,7 @@ const FreeTrialModal = ({ isOpen, onClose }) => {
       const result = await response.json();
 
       if (response.ok) {
+        setTrialId(result.id);
         setTimeout(() => {
           setStep('success');
         }, 2000);
