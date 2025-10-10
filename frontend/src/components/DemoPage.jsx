@@ -1933,6 +1933,222 @@ const DemoPage = ({ onClose }) => {
           </Card>
         </div>
       )}
+
+      {/* Edit Employee Modal */}
+      {isEditEmployeeModal && editingEmployee && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <CardHeader className="border-b">
+              <CardTitle className="flex justify-between items-center">
+                {language === 'ar' ? `تحرير بيانات الموظف: ${editingEmployee.name}` : `Edit Employee: ${editingEmployee.name}`}
+                <Button variant="ghost" onClick={() => {
+                  setIsEditEmployeeModal(false);
+                  setEditingEmployee(null);
+                }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            
+            {/* Tabs Navigation */}
+            <div className="border-b">
+              <div className="flex overflow-x-auto">
+                {['basic', 'job', 'financial', 'documents', 'transfers'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+                      activeTab === tab 
+                        ? 'border-[#28376B] text-[#28376B]' 
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {t(`demo.employeeForm.tabs.${tab}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <CardContent className="p-6 overflow-y-auto max-h-[60vh]">
+              {/* Basic Information Tab */}
+              {activeTab === 'basic' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.basic.fullName')} *</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder={t('demo.employeeForm.basic.fullName')} 
+                        value={employeeForm.fullName}
+                        onChange={(e) => setEmployeeForm({...employeeForm, fullName: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.basic.email')} *</label>
+                      <input 
+                        type="email"
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder="example@company.com" 
+                        value={employeeForm.email}
+                        onChange={(e) => setEmployeeForm({...employeeForm, email: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.basic.phone')}</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder="+20 1xxxxxxxxx" 
+                        value={employeeForm.phone}
+                        onChange={(e) => setEmployeeForm({...employeeForm, phone: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.position')} *</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder={t('demo.employeeForm.job.position')} 
+                        value={employeeForm.position}
+                        onChange={(e) => setEmployeeForm({...employeeForm, position: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.department')} *</label>
+                      <select 
+                        className="w-full border rounded px-3 py-2 mt-1"
+                        value={employeeForm.department}
+                        onChange={(e) => setEmployeeForm({...employeeForm, department: e.target.value})}
+                      >
+                        <option value="">{t('demo.employeeForm.job.department')}</option>
+                        {departments.map((dept) => (
+                          <option key={dept.id} value={dept.id}>
+                            {language === 'ar' ? dept.nameAr : dept.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.financial.baseSalary')}</label>
+                      <input 
+                        type="number"
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder="0" 
+                        value={employeeForm.baseSalary}
+                        onChange={(e) => setEmployeeForm({...employeeForm, baseSalary: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-800 mb-2">
+                      {language === 'ar' ? 'معلومات الموظف الحالية' : 'Current Employee Information'}
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-blue-700">
+                      <div><strong>{language === 'ar' ? 'الحالة:' : 'Status:'}</strong> {editingEmployee.status}</div>
+                      <div><strong>{language === 'ar' ? 'تاريخ الانضمام:' : 'Join Date:'}</strong> {editingEmployee.joinDate}</div>
+                      <div><strong>{language === 'ar' ? 'الراتب الحالي:' : 'Current Salary:'}</strong> {editingEmployee.salary?.toLocaleString()} {t('demo.currency')}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Other tabs can be added similarly */}
+              {activeTab === 'job' && (
+                <div className="text-center py-8">
+                  <Building2 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-500">
+                    {language === 'ar' ? 'تفاصيل وظيفية إضافية - قيد التطوير' : 'Additional job details - Coming soon'}
+                  </p>
+                </div>
+              )}
+
+              {activeTab === 'financial' && (
+                <div className="text-center py-8">
+                  <DollarSign className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-500">
+                    {language === 'ar' ? 'تحرير المعلومات المالية - قيد التطوير' : 'Financial information editing - Coming soon'}
+                  </p>
+                </div>
+              )}
+
+              {activeTab === 'documents' && (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-500">
+                    {language === 'ar' ? 'إدارة الوثائق - قيد التطوير' : 'Document management - Coming soon'}
+                  </p>
+                </div>
+              )}
+
+              {activeTab === 'transfers' && (
+                <div className="text-center py-8">
+                  <ArrowRight className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-500">
+                    {language === 'ar' ? 'سجل الانتقالات - قيد التطوير' : 'Transfer history - Coming soon'}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+
+            {/* Modal Footer */}
+            <div className="border-t p-6">
+              <div className="flex justify-between">
+                <div className="flex gap-2">
+                  {activeTab !== 'basic' && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        const tabs = ['basic', 'job', 'financial', 'documents', 'transfers'];
+                        const currentIndex = tabs.indexOf(activeTab);
+                        if (currentIndex > 0) setActiveTab(tabs[currentIndex - 1]);
+                      }}
+                    >
+                      {t('demo.employeeForm.actions.previous')}
+                    </Button>
+                  )}
+                  {activeTab !== 'transfers' && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        const tabs = ['basic', 'job', 'financial', 'documents', 'transfers'];
+                        const currentIndex = tabs.indexOf(activeTab);
+                        if (currentIndex < tabs.length - 1) setActiveTab(tabs[currentIndex + 1]);
+                      }}
+                    >
+                      {t('demo.employeeForm.actions.next')}
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditEmployeeModal(false);
+                      setEditingEmployee(null);
+                    }}
+                  >
+                    {t('demo.employeeForm.actions.cancel')}
+                  </Button>
+                  <Button 
+                    className="bg-[#28376B]"
+                    onClick={() => {
+                      alert(language === 'ar' ? 
+                        `تم تحديث بيانات الموظف "${editingEmployee.name}" بنجاح! (عرض توضيحي)` : 
+                        `Employee "${editingEmployee.name}" updated successfully! (Demo)`
+                      );
+                      setIsEditEmployeeModal(false);
+                      setEditingEmployee(null);
+                      setActiveTab('basic');
+                    }}
+                  >
+                    {language === 'ar' ? 'حفظ التحديثات' : 'Save Changes'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
