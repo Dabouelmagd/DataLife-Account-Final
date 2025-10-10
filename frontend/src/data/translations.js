@@ -1108,6 +1108,29 @@ export const translations = {
           custom: "Custom"
         },
 
+        newTransaction: {
+          title: "Add New Transaction",
+          description: "Description",
+          category: "Category",
+          amount: "Amount",
+          type: "Type",
+          date: "Date",
+          income: "Income",
+          expense: "Expense",
+          save: "Save Transaction",
+          cancel: "Cancel",
+          categories: {
+            salary: "Salary",
+            rent: "Rent",
+            utilities: "Utilities",
+            supplies: "Supplies",
+            marketing: "Marketing",
+            maintenance: "Maintenance",
+            sales: "Sales",
+            other: "Other"
+          }
+        },
+
         addDepartment: {
           title: "Add New Department",
           name: "Department Name",
