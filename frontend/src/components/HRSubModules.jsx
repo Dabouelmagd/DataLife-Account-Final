@@ -45,7 +45,7 @@ export const SalariesModule = ({ language, userRole }) => {
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
           {canEdit && (
-            <Button size="sm" className="bg-[#28376B]">
+            <Button size="sm" className="bg-[#28376B]" onClick={() => setShowProcessModal(true)}>
               <DollarSign className="h-4 w-4" />
               <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'معالجة المرتبات' : 'Process Payroll'}</span>
             </Button>
