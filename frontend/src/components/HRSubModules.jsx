@@ -1052,15 +1052,15 @@ export const AnnualLeaveModule = ({ language, userRole }) => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => alert(language === 'ar' ? `عرض تفاصيل ${leave.employee}: ${leave.startDate} - ${leave.endDate}` : `View details: ${leave.employee}: ${leave.startDate} - ${leave.endDate}`)}>
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedLeave(leave); setShowViewModal(true); }}>
                         <Eye className="h-4 w-4" />
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="sm" onClick={() => alert(language === 'ar' ? `تعديل إجازة ${leave.employee}` : `Edit leave for ${leave.employee}`)}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedLeave(leave); setSuccessMessage(language === 'ar' ? `تعديل إجازة ${leave.employee}` : `Edit leave for ${leave.employee}`); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(leave.id)}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedLeave(leave); setShowDeleteModal(true); }}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </>
