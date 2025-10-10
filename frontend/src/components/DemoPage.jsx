@@ -3147,6 +3147,129 @@ const DemoPage = ({ onClose }) => {
           </Card>
         </div>
       )}
+
+      {/* Add Transaction Modal */}
+      {isAddTransactionModal && (
+        <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                {t('demo.employeeForm.newTransaction.title')}
+                <Button variant="ghost" onClick={() => setIsAddTransactionModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">{t('demo.employeeForm.newTransaction.description')} *</label>
+                <input 
+                  className="w-full border rounded px-3 py-2 mt-1" 
+                  placeholder={language === 'ar' ? 'وصف المعاملة' : 'Transaction description'}
+                  value={newTransaction.description}
+                  onChange={(e) => setNewTransaction({...newTransaction, description: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">{t('demo.employeeForm.newTransaction.type')} *</label>
+                <select 
+                  className="w-full border rounded px-3 py-2 mt-1"
+                  value={newTransaction.type}
+                  onChange={(e) => setNewTransaction({...newTransaction, type: e.target.value})}
+                >
+                  <option value="expense">{t('demo.employeeForm.newTransaction.expense')}</option>
+                  <option value="income">{t('demo.employeeForm.newTransaction.income')}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">{t('demo.employeeForm.newTransaction.category')} *</label>
+                <select 
+                  className="w-full border rounded px-3 py-2 mt-1"
+                  value={newTransaction.category}
+                  onChange={(e) => setNewTransaction({...newTransaction, category: e.target.value})}
+                >
+                  <option value="">{t('demo.employeeForm.newTransaction.category')}</option>
+                  <option value="salary">{t('demo.employeeForm.newTransaction.categories.salary')}</option>
+                  <option value="rent">{t('demo.employeeForm.newTransaction.categories.rent')}</option>
+                  <option value="utilities">{t('demo.employeeForm.newTransaction.categories.utilities')}</option>
+                  <option value="supplies">{t('demo.employeeForm.newTransaction.categories.supplies')}</option>
+                  <option value="marketing">{t('demo.employeeForm.newTransaction.categories.marketing')}</option>
+                  <option value="maintenance">{t('demo.employeeForm.newTransaction.categories.maintenance')}</option>
+                  <option value="sales">{t('demo.employeeForm.newTransaction.categories.sales')}</option>
+                  <option value="other">{t('demo.employeeForm.newTransaction.categories.other')}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">{t('demo.employeeForm.newTransaction.amount')} *</label>
+                <input 
+                  type="number"
+                  className="w-full border rounded px-3 py-2 mt-1" 
+                  placeholder="0"
+                  value={newTransaction.amount}
+                  onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">{t('demo.employeeForm.newTransaction.date')} *</label>
+                <input 
+                  type="date"
+                  className="w-full border rounded px-3 py-2 mt-1" 
+                  value={newTransaction.date}
+                  onChange={(e) => setNewTransaction({...newTransaction, date: e.target.value})}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    setIsAddTransactionModal(false);
+                    setNewTransaction({
+                      description: '',
+                      category: '',
+                      amount: '',
+                      type: 'expense',
+                      date: new Date().toISOString().split('T')[0]
+                    });
+                  }}
+                >
+                  {t('demo.employeeForm.newTransaction.cancel')}
+                </Button>
+                <Button 
+                  className="flex-1 bg-[#28376B]"
+                  onClick={() => {
+                    if (newTransaction.description.trim() && newTransaction.category && newTransaction.amount) {
+                      alert(language === 'ar' ? 
+                        `تم إضافة المعاملة "${newTransaction.description}" بمبلغ ${newTransaction.amount} ${t('demo.currency')} بنجاح! (عرض توضيحي)` : 
+                        `Transaction "${newTransaction.description}" of ${newTransaction.amount} ${t('demo.currency')} added successfully! (Demo)`
+                      );
+                      
+                      setIsAddTransactionModal(false);
+                      setNewTransaction({
+                        description: '',
+                        category: '',
+                        amount: '',
+                        type: 'expense',
+                        date: new Date().toISOString().split('T')[0]
+                      });
+                    } else {
+                      alert(language === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields');
+                    }
+                  }}
+                  disabled={!newTransaction.description.trim() || !newTransaction.category || !newTransaction.amount}
+                >
+                  {t('demo.employeeForm.newTransaction.save')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
