@@ -518,7 +518,7 @@ export const CasualLeaveModule = ({ language, userRole }) => {
           {language === 'ar' ? 'الإجازات العارضة' : 'Casual Leave'}
         </h2>
         {canEdit && (
-          <Button size="sm" className="bg-[#28376B]">
+          <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
             <Plus className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'إضافة إجازة' : 'Add Leave'}</span>
           </Button>
