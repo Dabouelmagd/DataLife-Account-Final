@@ -46,6 +46,14 @@ const DemoPage = ({ onClose }) => {
   const [reportPeriod, setReportPeriod] = useState('monthly');
   const [selectedMonth, setSelectedMonth] = useState('2024-10');
   const [selectedYear, setSelectedYear] = useState('2024');
+  const [isAddTransactionModal, setIsAddTransactionModal] = useState(false);
+  const [newTransaction, setNewTransaction] = useState({
+    description: '',
+    category: '',
+    amount: '',
+    type: 'expense',
+    date: new Date().toISOString().split('T')[0]
+  });
   const [employeeForm, setEmployeeForm] = useState({
     // Basic Info
     fullName: '',
