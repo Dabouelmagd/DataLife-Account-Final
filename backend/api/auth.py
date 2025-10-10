@@ -16,7 +16,8 @@ from typing import Optional
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
 # Get database instance
-from server import db
+from database import get_database
+db = get_database()
 
 @router.post("/register-company", response_model=Token)
 async def register_company(
