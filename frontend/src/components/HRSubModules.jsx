@@ -485,11 +485,31 @@ export const CasualLeaveModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
 
-  const casualLeaves = [
+  const [casualLeaves, setCasualLeaves] = useState([
     { id: 'CL001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', date: '2024-10-05', reason: language === 'ar' ? 'ظروف عائلية' : 'Family emergency', status: 'approved' },
     { id: 'CL002', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', date: '2024-10-08', reason: language === 'ar' ? 'ظروف صحية' : 'Medical', status: 'pending' },
     { id: 'CL003', employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', date: '2024-10-10', reason: language === 'ar' ? 'ظروف طارئة' : 'Emergency', status: 'approved' }
-  ];
+  ]);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newLeave, setNewLeave] = useState({ employee: '', date: '', reason: '', status: 'pending' });
+
+  const handleAdd = () => {
+    if (newLeave.employee && newLeave.date && newLeave.reason) {
+      const id = 'CL' + String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      setCasualLeaves([...casualLeaves, { ...newLeave, id }]);
+      setNewLeave({ employee: '', date: '', reason: '', status: 'pending' });
+      setShowAddModal(false);
+      alert(language === 'ar' ? 'تم الإضافة بنجاح!' : 'Added successfully!');
+    }
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm(language === 'ar' ? 'هل تريد حذف هذا السجل؟' : 'Delete this record?')) {
+      setCasualLeaves(casualLeaves.filter(l => l.id !== id));
+      alert(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    }
+  };
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
