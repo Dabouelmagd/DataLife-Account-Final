@@ -570,12 +570,14 @@ export const DeductionsModule = ({ language, userRole }) => {
   ]);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [newDeduction, setNewDeduction] = useState({ employee: '', type: '', amount: '', month: '' });
+  const [editDeduction, setEditDeduction] = useState({ id: '', employee: '', type: '', amount: '', month: '' });
 
   const handleAdd = () => {
     if (newDeduction.employee && newDeduction.type && newDeduction.amount) {
@@ -584,6 +586,20 @@ export const DeductionsModule = ({ language, userRole }) => {
       setNewDeduction({ employee: '', type: '', amount: '', month: '' });
       setShowAddModal(false);
       setSuccessMessage(language === 'ar' ? 'تم الإضافة بنجاح!' : 'Added successfully!');
+      setShowSuccessModal(true);
+      setTimeout(() => setShowSuccessModal(false), 2000);
+    }
+  };
+
+  const handleEdit = () => {
+    if (editDeduction.employee && editDeduction.type && editDeduction.amount) {
+      setDeductions(deductions.map(d => 
+        d.id === editDeduction.id 
+          ? { ...editDeduction, amount: parseFloat(editDeduction.amount) }
+          : d
+      ));
+      setShowEditModal(false);
+      setSuccessMessage(language === 'ar' ? 'تم التعديل بنجاح!' : 'Updated successfully!');
       setShowSuccessModal(true);
       setTimeout(() => setShowSuccessModal(false), 2000);
     }
