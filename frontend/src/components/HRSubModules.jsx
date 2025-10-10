@@ -255,11 +255,14 @@ export const AllowancesModule = ({ language, userRole }) => {
   ]);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
   const [newAllowance, setNewAllowance] = useState({ employee: '', type: '', amount: '', month: '' });
+  const [editAllowance, setEditAllowance] = useState({ id: '', employee: '', type: '', amount: '', month: '' });
 
   const handleAdd = () => {
     if (newAllowance.employee && newAllowance.type && newAllowance.amount) {
@@ -267,6 +270,21 @@ export const AllowancesModule = ({ language, userRole }) => {
       setAllowances([...allowances, { ...newAllowance, id, amount: parseFloat(newAllowance.amount) }]);
       setNewAllowance({ employee: '', type: '', amount: '', month: '' });
       setShowAddModal(false);
+      setSuccessMessage(language === 'ar' ? 'تم الإضافة بنجاح!' : 'Added successfully!');
+      setShowSuccessModal(true);
+      setTimeout(() => setShowSuccessModal(false), 2000);
+    }
+  };
+
+  const handleEdit = () => {
+    if (editAllowance.employee && editAllowance.type && editAllowance.amount) {
+      setAllowances(allowances.map(a => 
+        a.id === editAllowance.id 
+          ? { ...editAllowance, amount: parseFloat(editAllowance.amount) }
+          : a
+      ));
+      setShowEditModal(false);
+      setSuccessMessage(language === 'ar' ? 'تم التعديل بنجاح!' : 'Updated successfully!');
       setShowSuccessModal(true);
       setTimeout(() => setShowSuccessModal(false), 2000);
     }
@@ -275,6 +293,7 @@ export const AllowancesModule = ({ language, userRole }) => {
   const handleDeleteConfirm = () => {
     setAllowances(allowances.filter(a => a.id !== selectedItem.id));
     setShowDeleteModal(false);
+    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
     setShowSuccessModal(true);
     setTimeout(() => setShowSuccessModal(false), 2000);
   };
