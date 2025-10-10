@@ -263,15 +263,15 @@ export const AllowancesModule = ({ language, userRole }) => {
                   <TableCell>{item.month}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => alert(language === 'ar' ? `عرض تفاصيل ${item.employee} - ${item.type}` : `View details: ${item.employee} - ${item.type}`)}>
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowViewModal(true); }}>
                         <Eye className="h-4 w-4" />
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="sm" onClick={() => alert(language === 'ar' ? `تعديل ${item.type} - ${item.employee}` : `Edit ${item.type} - ${item.employee}`)}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowAddModal(true); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowDeleteModal(true); }}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </>
