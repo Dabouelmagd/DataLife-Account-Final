@@ -1852,7 +1852,8 @@ const DemoPage = ({ onClose }) => {
         {/* جدول التقرير */}
         <Card>
           <CardHeader>
-            <CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle>
               {reportType === 'attendance' && (language === 'ar' ? 'تقرير الحضور والانصراف' : 'Attendance Report')}
               {reportType === 'payroll' && (language === 'ar' ? 'تقرير المرتبات' : 'Payroll Report')}
               {reportType === 'overtime' && (language === 'ar' ? 'تقرير العمل الإضافي' : 'Overtime Report')}
