@@ -51,5 +51,5 @@ async def get_company(
         phone=company.phone,
         address=company.address,
         subscription_status=company.subscription_status,
-        created_at=company.created_at
+        created_at=company.created_at if isinstance(company.created_at, str) else company.created_at.isoformat()
     )
