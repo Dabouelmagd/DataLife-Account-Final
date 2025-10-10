@@ -814,6 +814,7 @@ const DemoPage = ({ onClose }) => {
         </div>
 
         {/* محتوى التبويبات */}
+        <div id="financial-content">
         {/* الملخص التنفيذي */}
         {financialReportTab === 'overview' && (
           <div className="space-y-6">
