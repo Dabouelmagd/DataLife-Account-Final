@@ -325,7 +325,12 @@ const FreeTrialModal = ({ isOpen, onClose }) => {
         <Button 
           onClick={() => {
             onClose();
-            window.location.href = '/demo';
+            navigate('/register-company', { 
+              state: { 
+                email: formData.email, 
+                trialId: trialId 
+              } 
+            });
           }}
           className="bg-[#28376B] hover:bg-[#1e2a5a] flex-1"
         >
