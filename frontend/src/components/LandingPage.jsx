@@ -131,7 +131,17 @@ const LandingPage = () => {
               <a href="#modules" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.modules')}</a>
               <a href="#pricing" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.pricing')}</a>
               <LanguageSwitcher />
-              <Button className="bg-[#28376B] hover:bg-[#1e2a5a] text-white">
+              <Button 
+                onClick={() => navigate('/login')}
+                variant="outline" 
+                className="border-[#28376B] text-[#28376B] hover:bg-[#28376B] hover:text-white"
+              >
+                {language === 'ar' ? 'تسجيل الدخول' : 'Sign In'}
+              </Button>
+              <Button 
+                onClick={() => setIsTrialModalOpen(true)}
+                className="bg-[#28376B] hover:bg-[#1e2a5a] text-white"
+              >
                 {t('nav.getStarted')}
               </Button>
             </div>
