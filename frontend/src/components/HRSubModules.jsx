@@ -125,15 +125,15 @@ export const SalariesModule = ({ language, userRole }) => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => alert(language === 'ar' ? `عرض تفاصيل ${salary.name}` : `View details for ${salary.name}`)}>
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedSalary(salary); setShowViewModal(true); }}>
                         <Eye className="h-4 w-4" />
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="sm" onClick={() => alert(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open')}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedSalary(salary); setSuccessMessage(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open'); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(salary.id)}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedSalary(salary); setShowDeleteModal(true); }}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </>
