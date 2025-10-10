@@ -5,64 +5,58 @@ Subsequently, the engineer developed a highly interactive demo experience within
 </analysis>
 
 <product_requirements>
-The DataLife Account application required an MVP with a high-quality landing page featuring modern design, a navy blue scheme, and distinct CTAs. Key requirements included:
-1.  **Landing Page:** A modern, professional design showcasing features.
-2.  **Multilingual Support:** Full Arabic language support, including RTL and translated content.
-3.  **Branding:** Integration of DataLife Account (product) and Data Life (company) logos in header/footer.
-4.  **Pricing:** A flexible pricing section with monthly/annual tiers, module options, one-time setup (EGP).
-5.  **Payment & Notifications:** Online payment methods (cards, Fawry, bank transfers, Vodafone Cash) with notification system.
-6.  **Contact Information:** Company details in Contact Sales buttons and a dedicated section.
-7.  **Free Trial:** A comprehensive system for user trials.
-8.  **Program Demo:** An interactive demo for the application, expanded to include:
-    *   **Comprehensive Employee Management:** Multi-tab form (basic, job, financial, documents, transfers) with photo/attachment uploads, custom departments, allowances/discounts.
-    *   **Employee Reporting:** Monthly/annual/weekly reports for attendance, payroll, overtime, discounts.
-    *   **Financial Reports:** Executive summary, P&L, cash flow, balance sheet, KPIs, detailed analysis.
-    *   **Export & Print:** Functionality for all reports (CSV, PDF).
-9.  **Role-Based Access Control (RBAC):** Ability for companies to register, add multiple users, and assign different roles (Financial Manager, HR Manager, Accountant, General Manager) with distinct permissions and data access.
+The DataLife Account application aims to provide an MVP with a modern, multilingual landing page (Arabic/English, RTL) featuring DataLife branding, flexible pricing, and online payment integration. Key functionalities include:
+1.  **Free Trial & Interactive Demo:** A system for user trials and an advanced demo (). The demo expanded to cover comprehensive employee management (multi-tab forms, dynamic fields, file uploads), detailed employee reporting (attendance, payroll), and financial reporting (P&L, cash flow) with export (CSV/PDF) and print capabilities.
+2.  **Role-Based Access Control (RBAC):** Companies can register, add multiple users, and assign roles (Financial Manager, HR Manager, Accountant, General Manager) with specific permissions. This now includes JWT authentication, separate company registration, and automatic General Manager assignment to the first user.
+3.  **Enhanced Financial Modules:** Integration of sub-modules under Financial such as Journal Entries, Treasury, Custody, Accounts, Suppliers, Customers, and an Overview. Financial reports are now separated into this section.
+4.  **Enhanced HR Modules:** Integration of sub-modules under HR including Salaries, Allowances & Overtime, Deductions, Casual Leave, Annual Leave, and Attendance, with associated interactive functionalities (Add, Edit, Delete, View). HR reports are now separated into this section.
 </product_requirements>
 
 <key_technical_concepts>
 -   **Full-stack Architecture:** React (frontend), FastAPI (backend), MongoDB (database).
--   **Internationalization (i18n):** Language context for English/Arabic, RTL layout support, dynamic translation.
--   **UI/UX:** Shadcn UI components, Tailwind CSS for styling, responsive design, interactive forms and modals.
--   **API Integration:** Axios for frontend-backend communication,  prefix for backend routes.
--   **Frontend State Management:** React ,  for language.
+-   **Internationalization (i18n):** English/Arabic support, RTL layout, dynamic translation.
+-   **UI/UX:** Shadcn UI, Tailwind CSS, responsive design, interactive forms/modals.
+-   **API Integration:** Axios,  prefix for backend routes.
+-   **Frontend State Management:** React ,  (AuthContext, LanguageContext).
+-   **Authentication:** JWT-based username/password authentication (backend).
 -   **Navigation:** React Router's .
--   **Reporting & Data Visualization:** Dynamic data tables, custom reporting logic.
--   **File Uploads:** Simulated file upload mechanisms within the demo.
+-   **Backend Utilities:** Hashing (bcrypt), UUIDs (for MongoDB IDs).
 </key_technical_concepts>
 
 <code_architecture>
 The application features a standard full-stack setup with a React frontend and a FastAPI/MongoDB backend.
 
 
-
--   ****: Main entry point; updated to include a React Router route  that renders .
--   ****: Core landing page. Modified to link Watch Demo buttons to the  route and Start Free Trial buttons to open .
--   ****: Modal for free trial registration. Edited to redirect users to  upon successful registration instead of a non-existent login URL.
--   ****: This file underwent extensive modifications. It now houses the interactive demo, including:
-    -   Dynamic content for Dashboard, HR, Financial, Inventory, Reports, and Analytics modules.
-    -   An advanced multi-tab employee Add and Edit form (Basic Info, Job Details, Financial Info, Documents/Attachments, Transfers).
-    -   Functionality to dynamically add new departments and custom allowance/discount types.
-    -   Simulated file upload features for employee documents (profile picture, CV, contracts, certificates).
-    -   Comprehensive employee reporting system (attendance, payroll, overtime, discounts) with period selection (weekly, monthly, annual).
-    -   Advanced financial reporting (Executive Summary, P&L, Cash Flow, Balance Sheet, KPIs, Detailed Analysis).
-    -   Add Transaction modal within the financial module.
-    -   Export (CSV/PDF) and Print functionalities for reports and financial statements.
-    -   Imports for various  icons (e.g., , , , , ).
-    -   State management for active modules, modals, and dynamic data within the demo.
--   ****: Stores all UI texts for i18n. Significantly updated to include comprehensive Arabic and English translations for the entire  content, including module names, KPI titles, quick actions, recent activities, upcoming tasks, and all employee form fields and modal texts.
--   ****: Provides static demo data for various modules. Its content was integrated into  logic for dynamic translation.
+-   **, , **: New Pydantic models for RBAC (users, companies, permissions).
+-   **, , **: New services for authentication, company, and user management.
+-   **, , **: New FastAPI routers for auth, company, and user APIs.
+-   ****: New module for centralized MongoDB connection, resolving circular import.
+-   ****: Modified to include new API routers, use , and ensure  is installed.
+-   ****: Updated with  and new routes (, , ).
+-   ****: Modified to add a Sign In button in the header.
+-   ****: Updated to redirect to  with trial data after successful registration.
+-   ****: New component for user login.
+-   ****: New multi-step form for company registration; fixed missing email input field.
+-   ****: New placeholder for user dashboard.
+-   ****: Extensively modified to implement dynamic sub-modules for HR and Financial sections, rendering  and .
+-   ****: New component for all detailed Financial sub-modules (Journal Entries, Treasury, etc.) and financial reports.
+-   ****: New component for all detailed HR sub-modules (Salaries, Leaves, Attendance, etc.) and HR reports. Currently being updated to replace native alerts with custom modals for actions.
+-   ****: New React context for managing authentication state.
+-   ****: Updated with translations for all new components and sub-modules.
 </code_architecture>
 
 <pending_tasks>
--   **Implement Role-Based Access Control (RBAC) System:** This is the next major feature requested by the user, involving creating company accounts, adding multiple users with different roles (Financial Manager, HR Manager, Accountant, General Manager), and defining specific permissions and data access for each role.
+-   Complete the replacement of native browser alerts with custom, professional modals for all interactive actions (Add, Edit, Delete, View) within the HR sub-modules.
+-   Implement full interactive logic (Add/Edit/Delete/View) for the Financial sub-modules.
+-   Implement Role-Based Access Control (RBAC) permissions to enforce data access based on user roles (e.g., Accountant view-only for financial modules).
 </pending_tasks>
 
 <current_work>
-Immediately before this summary request, the AI engineer successfully implemented comprehensive **export (CSV/PDF) and print functionalities** for both the **Employee Reports module** and the **Financial Reports module** within the . This involved adding , , and  functions, along with corresponding buttons and icon imports (e.g.,  icon from ). Printable sections were identified using specific IDs. The user then reiterated the request to implement the **Role-Based Access Control (RBAC) system**, marking this as the immediate next major task.
+Immediately before this summary request, the AI engineer was actively working on enhancing the user experience within the **HR sub-modules** (e.g., Salaries, Allowances, Deductions) by replacing standard browser  pop-ups with custom, professionally designed  (modal) components. This was initiated in response to user feedback about the dated appearance of native alerts, specifically after testing the interactive , , , and  buttons for these HR sections.
+
+The implementation is ongoing within . The engineer successfully replaced the  calls for View details and started integrating the custom modals for confirmation messages (e.g., Are you sure you want to delete?) and new entry forms (e.g., Add New Allowance). The trajectory concludes with the engineer in the process of adding these custom modals to the  module, specifically after updating the  and  functions to trigger these new modal components. The goal is to make all user interactions visually consistent and professional.
 </current_work>
 
 <optional_next_step>
-Start developing the comprehensive Role-Based Access Control (RBAC) system.
+Complete the replacement of all native browser alerts with custom modals for all interactive actions within the HR sub-modules, starting with the  module.
 </optional_next_step>
