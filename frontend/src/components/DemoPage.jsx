@@ -10,7 +10,7 @@ import {
   Users, Calculator, PieChart, FileText, Building2, BarChart3, 
   TrendingUp, DollarSign, Calendar, Clock, AlertCircle, CheckCircle,
   ArrowUp, ArrowDown, Eye, PlayCircle, X, Home, Settings, Bell,
-  Search, Filter, Download, Plus, Edit, Trash2, MapPin, Phone, Mail, Award, ArrowRight, TrendingDown, Printer
+  Search, Filter, Download, Plus, Edit, Trash2, MapPin, Phone, Mail, Award, ArrowRight, TrendingDown, Printer, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../data/translations';
