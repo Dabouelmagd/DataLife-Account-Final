@@ -349,6 +349,11 @@ const DemoPage = ({ onClose }) => {
       id: 'attendance', 
       name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance',
       icon: <Clock className="h-4 w-4" />
+    },
+    { 
+      id: 'hr-reports', 
+      name: language === 'ar' ? 'التقارير' : 'Reports',
+      icon: <FileText className="h-4 w-4" />
     }
   ];
 
