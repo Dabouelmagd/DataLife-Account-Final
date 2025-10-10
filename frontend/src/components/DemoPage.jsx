@@ -54,6 +54,8 @@ const DemoPage = ({ onClose }) => {
     type: 'expense',
     date: new Date().toISOString().split('T')[0]
   });
+  const [financialReportTab, setFinancialReportTab] = useState('overview');
+  const [financialPeriod, setFinancialPeriod] = useState('monthly');
   const [employeeForm, setEmployeeForm] = useState({
     // Basic Info
     fullName: '',
