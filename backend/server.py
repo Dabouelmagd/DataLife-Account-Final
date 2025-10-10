@@ -12,6 +12,9 @@ from datetime import datetime
 from api.payments import router as payments_router
 from api.subscriptions import router as subscriptions_router
 from api.trials import router as trials_router
+from api.auth import router as auth_router
+from api.companies import router as companies_router
+from api.users import router as users_router
 
 
 ROOT_DIR = Path(__file__).parent
