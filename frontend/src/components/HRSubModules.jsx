@@ -279,6 +279,53 @@ export const AllowancesModule = ({ language, userRole }) => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Add Allowance Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4">{language === 'ar' ? 'إضافة بدل جديد' : 'Add New Allowance'}</h3>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'اسم الموظف' : 'Employee Name'}
+                value={newAllowance.employee}
+                onChange={(e) => setNewAllowance({ ...newAllowance, employee: e.target.value })}
+                className="w-full p-2 border rounded"
+              />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'نوع البدل' : 'Allowance Type'}
+                value={newAllowance.type}
+                onChange={(e) => setNewAllowance({ ...newAllowance, type: e.target.value })}
+                className="w-full p-2 border rounded"
+              />
+              <input
+                type="number"
+                placeholder={language === 'ar' ? 'المبلغ' : 'Amount'}
+                value={newAllowance.amount}
+                onChange={(e) => setNewAllowance({ ...newAllowance, amount: e.target.value })}
+                className="w-full p-2 border rounded"
+              />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'الشهر' : 'Month'}
+                value={newAllowance.month}
+                onChange={(e) => setNewAllowance({ ...newAllowance, month: e.target.value })}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div className="flex gap-4 mt-6">
+              <Button onClick={handleAdd} className="flex-1 bg-[#28376B]">
+                {language === 'ar' ? 'إضافة' : 'Add'}
+              </Button>
+              <Button onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
