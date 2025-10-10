@@ -305,6 +305,44 @@ const DemoPage = ({ onClose }) => {
     { id: 'analytics', name: t('demo.modules.analytics'), icon: <BarChart3 className="h-5 w-5" /> }
   ];
 
+  const hrSubModules = [
+    { 
+      id: 'hr-overview', 
+      name: language === 'ar' ? 'نظرة عامة' : 'Overview',
+      icon: <BarChart3 className="h-4 w-4" />
+    },
+    { 
+      id: 'salaries', 
+      name: language === 'ar' ? 'المرتبات' : 'Salaries',
+      icon: <DollarSign className="h-4 w-4" />
+    },
+    { 
+      id: 'allowances', 
+      name: language === 'ar' ? 'البدلات والإضافي' : 'Allowances & Overtime',
+      icon: <Award className="h-4 w-4" />
+    },
+    { 
+      id: 'deductions', 
+      name: language === 'ar' ? 'الخصومات' : 'Deductions',
+      icon: <TrendingDown className="h-4 w-4" />
+    },
+    { 
+      id: 'casual-leave', 
+      name: language === 'ar' ? 'الإجازات العارضة' : 'Casual Leave',
+      icon: <Calendar className="h-4 w-4" />
+    },
+    { 
+      id: 'annual-leave', 
+      name: language === 'ar' ? 'الإجازات السنوية' : 'Annual Leave',
+      icon: <Calendar className="h-4 w-4" />
+    },
+    { 
+      id: 'attendance', 
+      name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance',
+      icon: <Clock className="h-4 w-4" />
+    }
+  ];
+
   const financialSubModules = [
     { 
       id: 'overview', 
