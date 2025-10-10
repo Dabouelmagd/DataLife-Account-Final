@@ -501,7 +501,7 @@ export const AllowancesModule = ({ language, userRole }) => {
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900">{language === 'ar' ? 'تم بنجاح!' : 'Success!'}</h3>
-              <p className="text-gray-600 mt-2">{language === 'ar' ? 'تم تنفيذ العملية بنجاح' : 'Operation completed successfully'}</p>
+              <p className="text-gray-600 mt-2">{successMessage}</p>
             </div>
           </div>
         </div>
