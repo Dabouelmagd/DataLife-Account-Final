@@ -205,18 +205,35 @@ const CompanyRegistrationPage = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t.phone}</label>
-                <div className="relative">
-                  <Phone className={`absolute top-3 ${isRTL ? 'right-3' : 'left-3'} text-gray-400`} size={20} />
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={companyData.phone}
-                    onChange={handleCompanyChange}
-                    required
-                    className={`w-full ${isRTL ? 'pr-10 text-right' : 'pl-10'} py-3 border border-gray-300 rounded-lg`}
-                  />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t.email}</label>
+                  <div className="relative">
+                    <Mail className={`absolute top-3 ${isRTL ? 'right-3' : 'left-3'} text-gray-400`} size={20} />
+                    <input
+                      type="email"
+                      name="contact_email"
+                      value={companyData.contact_email}
+                      onChange={handleCompanyChange}
+                      required
+                      className={`w-full ${isRTL ? 'pr-10 text-right' : 'pl-10'} py-3 border border-gray-300 rounded-lg`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t.phone}</label>
+                  <div className="relative">
+                    <Phone className={`absolute top-3 ${isRTL ? 'right-3' : 'left-3'} text-gray-400`} size={20} />
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={companyData.phone}
+                      onChange={handleCompanyChange}
+                      required
+                      className={`w-full ${isRTL ? 'pr-10 text-right' : 'pl-10'} py-3 border border-gray-300 rounded-lg`}
+                    />
+                  </div>
                 </div>
               </div>
 
