@@ -24,6 +24,42 @@ const DemoPage = ({ onClose }) => {
   const [isAddEmployeeModal, setIsAddEmployeeModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showEmployeeDetails, setShowEmployeeDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState('basic');
+  const [employeeForm, setEmployeeForm] = useState({
+    // Basic Info
+    fullName: '',
+    email: '',
+    phone: '',
+    nationalId: '',
+    birthDate: '',
+    gender: '',
+    maritalStatus: '',
+    address: '',
+    
+    // Job Details
+    position: '',
+    department: '',
+    directManager: '',
+    startDate: '',
+    employmentType: '',
+    workLocation: '',
+    
+    // Financial
+    baseSalary: '',
+    allowances: [],
+    deductions: [],
+    payrollMethod: '',
+    bankAccount: '',
+    
+    // Documents & Files
+    profileImage: null,
+    cv: null,
+    contracts: [],
+    certificates: [],
+    
+    // Transfers History
+    transfers: []
+  });
   
   const t = (key) => getTranslation(language, key);
 
