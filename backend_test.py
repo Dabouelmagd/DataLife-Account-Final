@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend API Testing for Free Trial Endpoints
-Tests the Free Trial API endpoints with realistic data and comprehensive validation.
+Comprehensive Backend API Testing for RBAC System
+Tests the Authentication, User Management, and Company APIs with comprehensive validation.
 """
 
 import asyncio
@@ -9,12 +9,12 @@ import httpx
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 # Get backend URL from environment
 BACKEND_URL = "https://finance-hr-demo.preview.emergentagent.com/api"
 
-class TrialAPITester:
+class RBACAPITester:
     def __init__(self):
         self.base_url = BACKEND_URL
         self.client = None
