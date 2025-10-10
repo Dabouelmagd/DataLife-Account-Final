@@ -10,12 +10,28 @@ export const SalariesModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
 
-  const salaries = [
+  const [salaries, setSalaries] = useState([
     { id: 'E001', name: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', position: language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer', basicSalary: 15000, totalSalary: 18500, status: 'paid' },
     { id: 'E002', name: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', position: language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager', basicSalary: 20000, totalSalary: 24000, status: 'paid' },
     { id: 'E003', name: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', position: language === 'ar' ? 'محاسب' : 'Accountant', basicSalary: 12000, totalSalary: 14500, status: 'pending' },
     { id: 'E004', name: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', position: language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer', basicSalary: 10000, totalSalary: 12200, status: 'paid' }
-  ];
+  ]);
+
+  const [showProcessModal, setShowProcessModal] = useState(false);
+
+  const handleProcessPayroll = () => {
+    // Process all pending salaries
+    setSalaries(salaries.map(s => ({ ...s, status: 'paid' })));
+    setShowProcessModal(false);
+    alert(language === 'ar' ? 'تم معالجة المرتبات بنجاح!' : 'Payroll processed successfully!');
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm(language === 'ar' ? 'هل تريد حذف هذا السجل؟' : 'Are you sure you want to delete this record?')) {
+      setSalaries(salaries.filter(s => s.id !== id));
+      alert(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    }
+  };
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
