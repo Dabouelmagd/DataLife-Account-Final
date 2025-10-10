@@ -2131,6 +2131,28 @@ const DemoPage = ({ onClose }) => {
   };
 
   const renderModule = () => {
+    // Check if we're in a financial sub-module
+    if (activeModule === 'financial' && activeFinancialSubModule) {
+      const userRole = language === 'ar' ? 'المدير المالي' : 'Financial Manager'; // Demo role
+      
+      switch (activeFinancialSubModule) {
+        case 'journal-entries':
+          return <JournalEntriesModule language={language} userRole={userRole} />;
+        case 'treasury':
+          return <TreasuryModule language={language} userRole={userRole} />;
+        case 'custody':
+          return <CustodyModule language={language} userRole={userRole} />;
+        case 'accounts':
+          return <AccountsModule language={language} userRole={userRole} />;
+        case 'suppliers':
+          return <SuppliersModule language={language} userRole={userRole} />;
+        case 'customers':
+          return <CustomersModule language={language} userRole={userRole} />;
+        default:
+          return renderFinancialModule();
+      }
+    }
+    
     switch (activeModule) {
       case 'dashboard': return renderDashboard();
       case 'hr': return renderHRModule();
