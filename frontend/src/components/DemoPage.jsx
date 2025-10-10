@@ -21,7 +21,8 @@ import {
   CustodyModule, 
   AccountsModule, 
   SuppliersModule, 
-  CustomersModule 
+  CustomersModule,
+  FinancialReportsModule 
 } from './FinancialSubModules';
 import { 
   SalariesModule, 
@@ -29,7 +30,8 @@ import {
   DeductionsModule, 
   CasualLeaveModule, 
   AnnualLeaveModule, 
-  AttendanceModule 
+  AttendanceModule,
+  HRReportsModule 
 } from './HRSubModules';
 
 const DemoPage = ({ onClose }) => {
