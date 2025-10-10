@@ -7,7 +7,8 @@ from typing import Optional
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
 # Get database instance
-from server import db
+from database import get_database
+db = get_database()
 
 async def get_current_user(authorization: Optional[str] = Header(None)):
     """Dependency to get current user from JWT token"""
