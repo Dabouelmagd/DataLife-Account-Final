@@ -2167,19 +2167,58 @@ const DemoPage = ({ onClose }) => {
 
       <div className="flex">
         {/* Sidebar */}
-        <div className="w-64 bg-white h-screen shadow-sm">
+        <div className="w-64 bg-white h-screen shadow-sm overflow-y-auto">
           <div className="p-6">
             <div className="space-y-2">
               {modules.map((module) => (
-                <Button
-                  key={module.id}
-                  variant={activeModule === module.id ? "default" : "ghost"}
-                  className={`w-full justify-start ${activeModule === module.id ? 'bg-[#28376B]' : ''}`}
-                  onClick={() => setActiveModule(module.id)}
-                >
-                  {module.icon}
-                  <span className="ml-2">{module.name}</span>
-                </Button>
+                <div key={module.id}>
+                  <Button
+                    variant={activeModule === module.id && !activeFinancialSubModule ? "default" : "ghost"}
+                    className={`w-full justify-start ${activeModule === module.id && !activeFinancialSubModule ? 'bg-[#28376B]' : ''}`}
+                    onClick={() => {
+                      if (module.hasSubModules) {
+                        setExpandedModule(expandedModule === module.id ? null : module.id);
+                        setActiveModule(module.id);
+                        if (expandedModule !== module.id) {
+                          setActiveFinancialSubModule(null);
+                        }
+                      } else {
+                        setActiveModule(module.id);
+                        setActiveFinancialSubModule(null);
+                        setExpandedModule(null);
+                      }
+                    }}
+                  >
+                    {module.icon}
+                    <span className={`${isRTL ? 'mr-2' : 'ml-2'} flex-1 text-${isRTL ? 'right' : 'left'}`}>{module.name}</span>
+                    {module.hasSubModules && (
+                      expandedModule === module.id ? 
+                        <ChevronDown className="h-4 w-4" /> : 
+                        <ChevronRight className="h-4 w-4" />
+                    )}
+                  </Button>
+                  
+                  {/* Sub-modules for Financial */}
+                  {module.hasSubModules && expandedModule === module.id && (
+                    <div className={`${isRTL ? 'mr-4' : 'ml-4'} mt-1 space-y-1`}>
+                      {financialSubModules.map((subModule) => (
+                        <Button
+                          key={subModule.id}
+                          variant={activeFinancialSubModule === subModule.id ? "default" : "ghost"}
+                          size="sm"
+                          className={`w-full justify-start ${activeFinancialSubModule === subModule.id ? 'bg-[#28376B]' : ''}`}
+                          onClick={() => {
+                            setActiveFinancialSubModule(subModule.id);
+                            setActiveModule('financial');
+                          }}
+                        >
+                          {subModule.icon}
+                          <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-sm`}>{subModule.name}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
