@@ -47,62 +47,79 @@ class RBACAPITester:
         if response_data and not success:
             print(f"   Response: {response_data}")
     
-    async def test_create_trial_success(self):
-        """Test successful trial creation with valid data"""
-        # Use timestamp to ensure unique email
+    async def test_company_registration(self):
+        """Test company registration with user creation"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        test_data = {
-            "email": f"sarah.johnson.{timestamp}@techcorp.com",
-            "first_name": "Sarah",
-            "last_name": "Johnson", 
-            "company_name": "TechCorp Solutions",
-            "phone": "+1-555-0123",
-            "industry": "Technology",
-            "company_size": "50-100 employees",
-            "intended_use": "HR and Financial Management",
-            "how_heard": "Google Search"
+        
+        # Company data
+        company_data = {
+            "name": "Test Company",
+            "industry": "Technology", 
+            "size": "Small (1-50)",
+            "contact_email": f"test.{timestamp}@company.com",
+            "phone": "+201234567890"
         }
+        
+        # User data
+        user_email = f"admin.{timestamp}@company.com"
+        user_password = "password123"
+        user_full_name = "Admin User"
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/trials/",
-                json=test_data,
+                f"{self.base_url}/auth/register-company",
+                json=company_data,
+                params={
+                    "user_email": user_email,
+                    "user_password": user_password,
+                    "user_full_name": user_full_name
+                },
                 headers={"Content-Type": "application/json"}
             )
             
-            if response.status_code == 201:
+            if response.status_code == 200:
                 data = response.json()
                 
                 # Validate response structure
-                required_fields = ["id", "email", "first_name", "last_name", "company_name", "status", "expires_at"]
+                required_fields = ["access_token", "token_type", "user"]
                 missing_fields = [field for field in required_fields if field not in data]
                 
                 if missing_fields:
-                    self.log_result("Create Trial - Success", False, 
+                    self.log_result("Company Registration", False, 
                                   f"Missing required fields: {missing_fields}", data)
                     return None
                 
-                # Validate data integrity
-                if data["email"] != test_data["email"]:
-                    self.log_result("Create Trial - Success", False, 
-                                  f"Email mismatch: expected {test_data['email']}, got {data['email']}", data)
+                # Validate user data
+                user_data = data.get("user", {})
+                if user_data.get("email") != user_email:
+                    self.log_result("Company Registration", False, 
+                                  f"Email mismatch: expected {user_email}, got {user_data.get('email')}", data)
                     return None
                 
-                if data["status"] != "active":
-                    self.log_result("Create Trial - Success", False, 
-                                  f"Expected status 'active', got '{data['status']}'", data)
+                if user_data.get("role") != "General Manager":
+                    self.log_result("Company Registration", False, 
+                                  f"Expected role 'General Manager', got '{user_data.get('role')}'", data)
                     return None
                 
-                self.log_result("Create Trial - Success", True, 
-                              f"Trial created successfully for {data['email']}", data)
+                # Store for later tests
+                self.test_tokens["admin"] = data["access_token"]
+                self.test_users["admin"] = user_data
+                self.test_company = {
+                    "id": user_data.get("company_id"),
+                    "email": user_email,
+                    "password": user_password
+                }
+                
+                self.log_result("Company Registration", True, 
+                              f"Company and admin user created successfully", data)
                 return data
             else:
-                self.log_result("Create Trial - Success", False, 
-                              f"Expected 201, got {response.status_code}", response.text)
+                self.log_result("Company Registration", False, 
+                              f"Expected 200, got {response.status_code}", response.text)
                 return None
                 
         except Exception as e:
-            self.log_result("Create Trial - Success", False, f"Exception: {str(e)}")
+            self.log_result("Company Registration", False, f"Exception: {str(e)}")
             return None
     
     async def test_create_trial_duplicate_email(self):
