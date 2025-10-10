@@ -285,43 +285,117 @@ export const AllowancesModule = ({ language, userRole }) => {
         </CardContent>
       </Card>
 
+      {/* View Details Modal */}
+      {showViewModal && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل البدل' : 'Allowance Details'}</h3>
+              <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الموظف' : 'Employee'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedItem.employee}</p>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'نوع البدل' : 'Type'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedItem.type}</p>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'المبلغ' : 'Amount'}</p>
+                <p className="text-2xl font-bold text-green-600">{selectedItem.amount.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الشهر' : 'Month'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedItem.month}</p>
+              </div>
+            </div>
+            <Button onClick={() => setShowViewModal(false)} className="w-full mt-6 bg-[#28376B]">
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="h-8 w-8 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Delete'}</h3>
+              <p className="text-gray-600">{language === 'ar' ? 'هل أنت متأكد من حذف هذا السجل؟' : 'Are you sure you want to delete this record?'}</p>
+              <div className="bg-gray-50 p-3 rounded-lg mt-4">
+                <p className="font-semibold">{selectedItem.employee} - {selectedItem.type}</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-600 hover:bg-red-700">
+                {language === 'ar' ? 'حذف' : 'Delete'}
+              </Button>
+              <Button onClick={() => setShowDeleteModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl" dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">{language === 'ar' ? 'تم بنجاح!' : 'Success!'}</h3>
+              <p className="text-gray-600 mt-2">{language === 'ar' ? 'تم تنفيذ العملية بنجاح' : 'Operation completed successfully'}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Allowance Modal */}
-      {showAddModal && (
+      {showAddModal && !selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4">{language === 'ar' ? 'إضافة بدل جديد' : 'Add New Allowance'}</h3>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <h3 className="text-2xl font-bold text-[#28376B] mb-6">{language === 'ar' ? 'إضافة بدل جديد' : 'Add New Allowance'}</h3>
             <div className="space-y-4">
               <input
                 type="text"
                 placeholder={language === 'ar' ? 'اسم الموظف' : 'Employee Name'}
                 value={newAllowance.employee}
                 onChange={(e) => setNewAllowance({ ...newAllowance, employee: e.target.value })}
-                className="w-full p-2 border rounded"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
               />
               <input
                 type="text"
                 placeholder={language === 'ar' ? 'نوع البدل' : 'Allowance Type'}
                 value={newAllowance.type}
                 onChange={(e) => setNewAllowance({ ...newAllowance, type: e.target.value })}
-                className="w-full p-2 border rounded"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
               />
               <input
                 type="number"
                 placeholder={language === 'ar' ? 'المبلغ' : 'Amount'}
                 value={newAllowance.amount}
                 onChange={(e) => setNewAllowance({ ...newAllowance, amount: e.target.value })}
-                className="w-full p-2 border rounded"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
               />
               <input
                 type="text"
                 placeholder={language === 'ar' ? 'الشهر' : 'Month'}
                 value={newAllowance.month}
                 onChange={(e) => setNewAllowance({ ...newAllowance, month: e.target.value })}
-                className="w-full p-2 border rounded"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
               />
             </div>
-            <div className="flex gap-4 mt-6">
-              <Button onClick={handleAdd} className="flex-1 bg-[#28376B]">
+            <div className="flex gap-3 mt-6">
+              <Button onClick={handleAdd} className="flex-1 bg-[#28376B] hover:bg-[#1e2a5a]">
                 {language === 'ar' ? 'إضافة' : 'Add'}
               </Button>
               <Button onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
