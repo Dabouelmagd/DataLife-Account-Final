@@ -335,12 +335,32 @@ export const DeductionsModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
 
-  const deductions = [
+  const [deductions, setDeductions] = useState([
     { id: 'D001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', type: language === 'ar' ? 'تأمينات' : 'Insurance', amount: 800, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
     { id: 'D002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', type: language === 'ar' ? 'ضرائب' : 'Taxes', amount: 1200, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
     { id: 'D003', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', type: language === 'ar' ? 'غياب' : 'Absence', amount: 500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
     { id: 'D004', employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', type: language === 'ar' ? 'تأمينات' : 'Insurance', amount: 600, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' }
-  ];
+  ]);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newDeduction, setNewDeduction] = useState({ employee: '', type: '', amount: '', month: '' });
+
+  const handleAdd = () => {
+    if (newDeduction.employee && newDeduction.type && newDeduction.amount) {
+      const id = 'D' + String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      setDeductions([...deductions, { ...newDeduction, id, amount: parseFloat(newDeduction.amount) }]);
+      setNewDeduction({ employee: '', type: '', amount: '', month: '' });
+      setShowAddModal(false);
+      alert(language === 'ar' ? 'تم الإضافة بنجاح!' : 'Added successfully!');
+    }
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm(language === 'ar' ? 'هل تريد حذف هذا السجل؟' : 'Delete this record?')) {
+      setDeductions(deductions.filter(d => d.id !== id));
+      alert(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    }
+  };
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
