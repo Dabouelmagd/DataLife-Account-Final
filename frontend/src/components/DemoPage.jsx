@@ -1295,12 +1295,61 @@ const DemoPage = ({ onClose }) => {
 
                       <div>
                         <label className="text-sm font-medium">{t('demo.employeeForm.documents.certificates')}</label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                          <Award className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <Button size="sm" variant="outline">
-                            {t('demo.employeeForm.documents.uploadCertificate')}
-                          </Button>
-                          <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#28376B] transition-colors cursor-pointer">
+                          {employeeForm.certificates && employeeForm.certificates.length > 0 ? (
+                            <div className="space-y-2">
+                              <Award className="h-8 w-8 text-green-600 mx-auto" />
+                              <div className="space-y-1">
+                                {employeeForm.certificates.map((certificate, index) => (
+                                  <div key={index} className="flex items-center justify-between text-sm">
+                                    <span className="text-green-600">{certificate.name}</span>
+                                    <Button 
+                                      size="xs" 
+                                      variant="ghost"
+                                      onClick={() => {
+                                        const newCertificates = employeeForm.certificates.filter((_, i) => i !== index);
+                                        setEmployeeForm({...employeeForm, certificates: newCertificates});
+                                      }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('certificateFile').click()}
+                              >
+                                {language === 'ar' ? 'إضافة شهادة أخرى' : 'Add Another Certificate'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <Award className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('certificateFile').click()}
+                              >
+                                {t('demo.employeeForm.documents.uploadCertificate')}
+                              </Button>
+                              <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                            </div>
+                          )}
+                          <input 
+                            type="file" 
+                            id="certificateFile" 
+                            accept=".pdf,.doc,.docx,.jpg,.png" 
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const newCertificates = [...(employeeForm.certificates || []), file];
+                                setEmployeeForm({...employeeForm, certificates: newCertificates});
+                              }
+                            }}
+                          />
                         </div>
                       </div>
                     </div>
