@@ -313,15 +313,18 @@ frontend:
 
   - task: "Allowances Module Edit Icon Functionality"
     implemented: true
-    working: true
+    working: false
     file: "HRSubModules.jsx"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
         - working: "unknown"
         - agent: "testing"
         - comment: "COMPREHENSIVE EDIT ICON FUNCTIONALITY TEST COMPLETED: ✅ Demo Page Navigation: Successfully navigated to /demo route. ✅ HR Module Access: Successfully expanded HR module in sidebar showing all sub-modules. ✅ Allowances Module Access: Successfully accessed 'Allowances & Overtime' sub-module displaying correct table with 4 records (A001-Ahmed Mohamed/Transport/1500, A002-Sara Ahmed/Housing/3000, O001-Mohamed Ali/Overtime/2000, A003-Fatima Omar/Meal/500). ✅ Edit Icon Functionality: Edit icon (pencil) on first record (A001-Ahmed Mohamed) working correctly. ✅ Edit Modal: Modal opens with pre-filled form fields showing current data (Employee Name: Ahmed Mohamed, Allowance Type: Transport, Amount: 1500, Month: October 2024). ✅ Data Modification: Successfully modified amount from 1500 to 2000 in the form. ✅ Save Functionality: 'Save Changes' button working correctly. ✅ Success Feedback: Success message displayed after saving changes. ✅ Professional UI: Custom modal with proper styling, form validation, and user feedback. All critical edit functionality working as expected. Users can successfully edit allowance records, modify amounts, and save changes with proper feedback."
+        - working: false
+        - agent: "testing"
+        - comment: "CRITICAL ISSUE FOUND: After main agent applied fix to remove [&_svg]:pointer-events-none from button.jsx, comprehensive testing revealed navigation issues to Allowances module. ✅ Demo page loads correctly. ✅ HR module expansion works (can see submenu items including 'Allowances & Overtime'). ❌ NAVIGATION ISSUE: Cannot access Allowances submenu - clicking on 'Allowances & Overtime' in sidebar fails with timeout errors. The button.jsx fix appears correct (verified [&_svg]:pointer-events-none was removed), but there may be additional navigation or routing issues preventing access to the Allowances module for comprehensive icon testing. Need main agent to investigate Allowances module navigation/routing in demo page."
 
 agent_communication:
     - agent: "main"
