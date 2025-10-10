@@ -1190,12 +1190,44 @@ const DemoPage = ({ onClose }) => {
 
                       <div>
                         <label className="text-sm font-medium">{t('demo.employeeForm.documents.cv')}</label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                          <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <Button size="sm" variant="outline">
-                            {t('demo.employeeForm.documents.uploadCV')}
-                          </Button>
-                          <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#28376B] transition-colors cursor-pointer">
+                          {employeeForm.cv ? (
+                            <div className="space-y-2">
+                              <CheckCircle className="h-8 w-8 text-green-600 mx-auto" />
+                              <p className="text-sm text-green-600 font-medium">{employeeForm.cv.name}</p>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => setEmployeeForm({...employeeForm, cv: null})}
+                              >
+                                {language === 'ar' ? 'إزالة السيرة الذاتية' : 'Remove CV'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <input 
+                                type="file" 
+                                id="cvFile" 
+                                accept=".pdf,.doc,.docx" 
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    setEmployeeForm({...employeeForm, cv: file});
+                                  }
+                                }}
+                              />
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('cvFile').click()}
+                              >
+                                {t('demo.employeeForm.documents.uploadCV')}
+                              </Button>
+                              <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
