@@ -281,10 +281,48 @@ const DemoPage = ({ onClose }) => {
   const modules = [
     { id: 'dashboard', name: t('demo.modules.dashboard'), icon: <Home className="h-5 w-5" /> },
     { id: 'hr', name: t('demo.modules.hr'), icon: <Users className="h-5 w-5" /> },
-    { id: 'financial', name: t('demo.modules.financial'), icon: <Calculator className="h-5 w-5" /> },
+    { 
+      id: 'financial', 
+      name: t('demo.modules.financial'), 
+      icon: <Calculator className="h-5 w-5" />,
+      hasSubModules: true
+    },
     { id: 'inventory', name: t('demo.modules.inventory'), icon: <PieChart className="h-5 w-5" /> },
     { id: 'reports', name: t('demo.modules.reports'), icon: <FileText className="h-5 w-5" /> },
     { id: 'analytics', name: t('demo.modules.analytics'), icon: <BarChart3 className="h-5 w-5" /> }
+  ];
+
+  const financialSubModules = [
+    { 
+      id: 'journal-entries', 
+      name: language === 'ar' ? 'القيود اليومية' : 'Journal Entries',
+      icon: <FileText className="h-4 w-4" />
+    },
+    { 
+      id: 'treasury', 
+      name: language === 'ar' ? 'الخزنة' : 'Treasury',
+      icon: <DollarSign className="h-4 w-4" />
+    },
+    { 
+      id: 'custody', 
+      name: language === 'ar' ? 'العهدة' : 'Custody',
+      icon: <Award className="h-4 w-4" />
+    },
+    { 
+      id: 'accounts', 
+      name: language === 'ar' ? 'الحسابات' : 'Accounts',
+      icon: <Building2 className="h-4 w-4" />
+    },
+    { 
+      id: 'suppliers', 
+      name: language === 'ar' ? 'الموردين' : 'Suppliers',
+      icon: <Users className="h-4 w-4" />
+    },
+    { 
+      id: 'customers', 
+      name: language === 'ar' ? 'العملاء' : 'Customers',
+      icon: <Users className="h-4 w-4" />
+    }
   ];
 
   const kpiCards = [
