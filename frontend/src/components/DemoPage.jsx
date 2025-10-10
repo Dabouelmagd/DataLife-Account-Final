@@ -683,61 +683,614 @@ const DemoPage = ({ onClose }) => {
         </div>
       )}
 
-      {/* Add Employee Modal */}
+      {/* Advanced Add Employee Modal */}
       {isAddEmployeeModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <Card className="max-w-md w-full mx-4">
-            <CardHeader>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <CardHeader className="border-b">
               <CardTitle className="flex justify-between items-center">
-                {language === 'ar' ? 'إضافة موظف جديد' : 'Add New Employee'}
+                {t('demo.employeeForm.basic.personalInfo')}
                 <Button variant="ghost" onClick={() => setIsAddEmployeeModal(false)}>
                   <X className="h-4 w-4" />
                 </Button>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">{language === 'ar' ? 'الاسم الكامل' : 'Full Name'}</label>
-                <input className="w-full border rounded px-3 py-2 mt-1" placeholder={language === 'ar' ? 'أدخل الاسم الكامل' : 'Enter full name'} />
+            
+            {/* Tabs Navigation */}
+            <div className="border-b">
+              <div className="flex overflow-x-auto">
+                {['basic', 'job', 'financial', 'documents', 'transfers'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+                      activeTab === tab 
+                        ? 'border-[#28376B] text-[#28376B]' 
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {t(`demo.employeeForm.tabs.${tab}`)}
+                  </button>
+                ))}
               </div>
-              <div>
-                <label className="text-sm font-medium">{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</label>
-                <input className="w-full border rounded px-3 py-2 mt-1" placeholder={language === 'ar' ? 'example@company.com' : 'example@company.com'} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">{language === 'ar' ? 'المنصب' : 'Position'}</label>
-                <input className="w-full border rounded px-3 py-2 mt-1" placeholder={language === 'ar' ? 'أدخل المنصب' : 'Enter position'} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">{language === 'ar' ? 'القسم' : 'Department'}</label>
-                <select className="w-full border rounded px-3 py-2 mt-1">
-                  <option>{language === 'ar' ? 'اختر القسم' : 'Select Department'}</option>
-                  <option>IT</option>
-                  <option>HR</option>
-                  <option>Finance</option>
-                  <option>Operations</option>
-                  <option>Sales</option>
-                </select>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button 
-                  className="flex-1 bg-[#28376B]"
-                  onClick={() => {
-                    alert(language === 'ar' ? 'تم إضافة الموظف بنجاح! (عرض توضيحي)' : 'Employee added successfully! (Demo)');
-                    setIsAddEmployeeModal(false);
-                  }}
-                >
-                  {language === 'ar' ? 'إضافة الموظف' : 'Add Employee'}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => setIsAddEmployeeModal(false)}
-                >
-                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                </Button>
-              </div>
+            </div>
+
+            <CardContent className="p-6 overflow-y-auto max-h-[60vh]">
+              {/* Basic Information Tab */}
+              {activeTab === 'basic' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.basic.fullName')} *</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder={t('demo.employeeForm.basic.fullName')} 
+                        value={employeeForm.fullName}
+                        onChange={(e) => setEmployeeForm({...employeeForm, fullName: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.basic.email')} *</label>
+                      <input 
+                        type="email"
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder="example@company.com" 
+                        value={employeeForm.email}
+                        onChange={(e) => setEmployeeForm({...employeeForm, email: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.basic.phone')}</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder="+20 1xxxxxxxxx" 
+                        value={employeeForm.phone}
+                        onChange={(e) => setEmployeeForm({...employeeForm, phone: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.basic.nationalId')}</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder="00000000000000" 
+                        value={employeeForm.nationalId}
+                        onChange={(e) => setEmployeeForm({...employeeForm, nationalId: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.basic.birthDate')}</label>
+                      <input 
+                        type="date"
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        value={employeeForm.birthDate}
+                        onChange={(e) => setEmployeeForm({...employeeForm, birthDate: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.basic.gender')}</label>
+                      <select 
+                        className="w-full border rounded px-3 py-2 mt-1"
+                        value={employeeForm.gender}
+                        onChange={(e) => setEmployeeForm({...employeeForm, gender: e.target.value})}
+                      >
+                        <option value="">{t('demo.employeeForm.basic.gender')}</option>
+                        <option value="male">{t('demo.employeeForm.basic.male')}</option>
+                        <option value="female">{t('demo.employeeForm.basic.female')}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.basic.maritalStatus')}</label>
+                      <select 
+                        className="w-full border rounded px-3 py-2 mt-1"
+                        value={employeeForm.maritalStatus}
+                        onChange={(e) => setEmployeeForm({...employeeForm, maritalStatus: e.target.value})}
+                      >
+                        <option value="">{t('demo.employeeForm.basic.maritalStatus')}</option>
+                        <option value="single">{t('demo.employeeForm.basic.single')}</option>
+                        <option value="married">{t('demo.employeeForm.basic.married')}</option>
+                        <option value="divorced">{t('demo.employeeForm.basic.divorced')}</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">{t('demo.employeeForm.basic.address')}</label>
+                    <textarea 
+                      className="w-full border rounded px-3 py-2 mt-1 h-20" 
+                      placeholder={t('demo.employeeForm.basic.address')} 
+                      value={employeeForm.address}
+                      onChange={(e) => setEmployeeForm({...employeeForm, address: e.target.value})}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Job Details Tab */}
+              {activeTab === 'job' && (
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold">{t('demo.employeeForm.job.jobDetails')}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.position')} *</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder={t('demo.employeeForm.job.position')} 
+                        value={employeeForm.position}
+                        onChange={(e) => setEmployeeForm({...employeeForm, position: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.department')} *</label>
+                      <select 
+                        className="w-full border rounded px-3 py-2 mt-1"
+                        value={employeeForm.department}
+                        onChange={(e) => setEmployeeForm({...employeeForm, department: e.target.value})}
+                      >
+                        <option value="">{t('demo.employeeForm.job.department')}</option>
+                        <option value="IT">IT</option>
+                        <option value="HR">HR</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Operations">Operations</option>
+                        <option value="Sales">Sales</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.directManager')}</label>
+                      <select className="w-full border rounded px-3 py-2 mt-1">
+                        <option value="">{t('demo.employeeForm.job.directManager')}</option>
+                        <option value="ahmed">Ahmed Hassan</option>
+                        <option value="fatima">Fatima Al-Zahra</option>
+                        <option value="omar">Omar Rashid</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.startDate')} *</label>
+                      <input 
+                        type="date"
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        value={employeeForm.startDate}
+                        onChange={(e) => setEmployeeForm({...employeeForm, startDate: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.employmentType')}</label>
+                      <select 
+                        className="w-full border rounded px-3 py-2 mt-1"
+                        value={employeeForm.employmentType}
+                        onChange={(e) => setEmployeeForm({...employeeForm, employmentType: e.target.value})}
+                      >
+                        <option value="">{t('demo.employeeForm.job.employmentType')}</option>
+                        <option value="fullTime">{t('demo.employeeForm.job.fullTime')}</option>
+                        <option value="partTime">{t('demo.employeeForm.job.partTime')}</option>
+                        <option value="contract">{t('demo.employeeForm.job.contract')}</option>
+                        <option value="internship">{t('demo.employeeForm.job.internship')}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.workLocation')}</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder={t('demo.employeeForm.job.workLocation')} 
+                        value={employeeForm.workLocation}
+                        onChange={(e) => setEmployeeForm({...employeeForm, workLocation: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Financial Tab */}
+              {activeTab === 'financial' && (
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold">{t('demo.employeeForm.financial.salaryInfo')}</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.financial.baseSalary')} *</label>
+                      <input 
+                        type="number"
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder="0" 
+                        value={employeeForm.baseSalary}
+                        onChange={(e) => setEmployeeForm({...employeeForm, baseSalary: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.financial.payrollMethod')}</label>
+                      <select 
+                        className="w-full border rounded px-3 py-2 mt-1"
+                        value={employeeForm.payrollMethod}
+                        onChange={(e) => setEmployeeForm({...employeeForm, payrollMethod: e.target.value})}
+                      >
+                        <option value="">{t('demo.employeeForm.financial.payrollMethod')}</option>
+                        <option value="cash">{t('demo.employeeForm.financial.cash')}</option>
+                        <option value="bank">{t('demo.employeeForm.financial.bank')}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {employeeForm.payrollMethod === 'bank' && (
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.financial.bankAccount')}</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder={t('demo.employeeForm.financial.bankAccount')} 
+                        value={employeeForm.bankAccount}
+                        onChange={(e) => setEmployeeForm({...employeeForm, bankAccount: e.target.value})}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-medium">{t('demo.employeeForm.financial.allowances')}</h4>
+                      <Button 
+                        size="sm" 
+                        onClick={() => setEmployeeForm({
+                          ...employeeForm, 
+                          allowances: [...employeeForm.allowances, { type: '', amount: '' }]
+                        })}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        {t('demo.employeeForm.actions.addAllowance')}
+                      </Button>
+                    </div>
+                    
+                    {employeeForm.allowances.map((allowance, index) => (
+                      <div key={index} className="flex gap-3 mb-3">
+                        <select 
+                          className="flex-1 border rounded px-3 py-2"
+                          value={allowance.type}
+                          onChange={(e) => {
+                            const newAllowances = [...employeeForm.allowances];
+                            newAllowances[index].type = e.target.value;
+                            setEmployeeForm({...employeeForm, allowances: newAllowances});
+                          }}
+                        >
+                          <option value="">{t('demo.employeeForm.financial.allowanceType')}</option>
+                          <option value="transportation">{t('demo.employeeForm.financial.transportation')}</option>
+                          <option value="housing">{t('demo.employeeForm.financial.housing')}</option>
+                          <option value="food">{t('demo.employeeForm.financial.food')}</option>
+                          <option value="communication">{t('demo.employeeForm.financial.communication')}</option>
+                          <option value="other">{t('demo.employeeForm.financial.other')}</option>
+                        </select>
+                        <input 
+                          type="number"
+                          className="flex-1 border rounded px-3 py-2"
+                          placeholder={t('demo.employeeForm.financial.allowanceAmount')}
+                          value={allowance.amount}
+                          onChange={(e) => {
+                            const newAllowances = [...employeeForm.allowances];
+                            newAllowances[index].amount = e.target.value;
+                            setEmployeeForm({...employeeForm, allowances: newAllowances});
+                          }}
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const newAllowances = employeeForm.allowances.filter((_, i) => i !== index);
+                            setEmployeeForm({...employeeForm, allowances: newAllowances});
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-medium">{t('demo.employeeForm.financial.deductions')}</h4>
+                      <Button 
+                        size="sm" 
+                        onClick={() => setEmployeeForm({
+                          ...employeeForm, 
+                          deductions: [...employeeForm.deductions, { type: '', amount: '' }]
+                        })}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        {t('demo.employeeForm.actions.addDeduction')}
+                      </Button>
+                    </div>
+                    
+                    {employeeForm.deductions.map((deduction, index) => (
+                      <div key={index} className="flex gap-3 mb-3">
+                        <select 
+                          className="flex-1 border rounded px-3 py-2"
+                          value={deduction.type}
+                          onChange={(e) => {
+                            const newDeductions = [...employeeForm.deductions];
+                            newDeductions[index].type = e.target.value;
+                            setEmployeeForm({...employeeForm, deductions: newDeductions});
+                          }}
+                        >
+                          <option value="">{t('demo.employeeForm.financial.deductionType')}</option>
+                          <option value="insurance">{t('demo.employeeForm.financial.insurance')}</option>
+                          <option value="tax">{t('demo.employeeForm.financial.tax')}</option>
+                          <option value="loan">{t('demo.employeeForm.financial.loan')}</option>
+                          <option value="other">{t('demo.employeeForm.financial.other')}</option>
+                        </select>
+                        <input 
+                          type="number"
+                          className="flex-1 border rounded px-3 py-2"
+                          placeholder={t('demo.employeeForm.financial.deductionAmount')}
+                          value={deduction.amount}
+                          onChange={(e) => {
+                            const newDeductions = [...employeeForm.deductions];
+                            newDeductions[index].amount = e.target.value;
+                            setEmployeeForm({...employeeForm, deductions: newDeductions});
+                          }}
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const newDeductions = employeeForm.deductions.filter((_, i) => i !== index);
+                            setEmployeeForm({...employeeForm, deductions: newDeductions});
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Documents Tab */}
+              {activeTab === 'documents' && (
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold">{t('demo.employeeForm.documents.documentsFiles')}</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">{t('demo.employeeForm.documents.profileImage')}</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-3 flex items-center justify-center">
+                            <Users className="h-8 w-8 text-gray-400" />
+                          </div>
+                          <Button size="sm" variant="outline">
+                            {t('demo.employeeForm.documents.uploadImage')}
+                          </Button>
+                          <p className="text-xs text-gray-500 mt-2">JPG, PNG - {t('demo.employeeForm.documents.maxSize')}</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium">{t('demo.employeeForm.documents.cv')}</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                          <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <Button size="sm" variant="outline">
+                            {t('demo.employeeForm.documents.uploadCV')}
+                          </Button>
+                          <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">{t('demo.employeeForm.documents.contracts')}</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                          <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <Button size="sm" variant="outline">
+                            {t('demo.employeeForm.documents.uploadContract')}
+                          </Button>
+                          <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium">{t('demo.employeeForm.documents.certificates')}</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                          <Award className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <Button size="sm" variant="outline">
+                            {t('demo.employeeForm.documents.uploadCertificate')}
+                          </Button>
+                          <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Transfers Tab */}
+              {activeTab === 'transfers' && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold">{t('demo.employeeForm.transfers.transferHistory')}</h3>
+                    <Button 
+                      size="sm" 
+                      onClick={() => setEmployeeForm({
+                        ...employeeForm, 
+                        transfers: [...employeeForm.transfers, { 
+                          fromDepartment: '', 
+                          toDepartment: '', 
+                          date: '', 
+                          reason: '', 
+                          notes: '' 
+                        }]
+                      })}
+                      className="bg-[#28376B]"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      {t('demo.employeeForm.transfers.addTransfer')}
+                    </Button>
+                  </div>
+
+                  {employeeForm.transfers.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Building2 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <p>{language === 'ar' ? 'لا يوجد انتقالات بعد' : 'No transfers yet'}</p>
+                    </div>
+                  ) : (
+                    employeeForm.transfers.map((transfer, index) => (
+                      <Card key={index} className="p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">{t('demo.employeeForm.transfers.fromDepartment')}</label>
+                            <select 
+                              className="w-full border rounded px-3 py-2 mt-1"
+                              value={transfer.fromDepartment}
+                              onChange={(e) => {
+                                const newTransfers = [...employeeForm.transfers];
+                                newTransfers[index].fromDepartment = e.target.value;
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            >
+                              <option value="">Select Department</option>
+                              <option value="IT">IT</option>
+                              <option value="HR">HR</option>
+                              <option value="Finance">Finance</option>
+                              <option value="Operations">Operations</option>
+                              <option value="Sales">Sales</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">{t('demo.employeeForm.transfers.toDepartment')}</label>
+                            <select 
+                              className="w-full border rounded px-3 py-2 mt-1"
+                              value={transfer.toDepartment}
+                              onChange={(e) => {
+                                const newTransfers = [...employeeForm.transfers];
+                                newTransfers[index].toDepartment = e.target.value;
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            >
+                              <option value="">Select Department</option>
+                              <option value="IT">IT</option>
+                              <option value="HR">HR</option>
+                              <option value="Finance">Finance</option>
+                              <option value="Operations">Operations</option>
+                              <option value="Sales">Sales</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">{t('demo.employeeForm.transfers.transferDate')}</label>
+                            <input 
+                              type="date"
+                              className="w-full border rounded px-3 py-2 mt-1"
+                              value={transfer.date}
+                              onChange={(e) => {
+                                const newTransfers = [...employeeForm.transfers];
+                                newTransfers[index].date = e.target.value;
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">{t('demo.employeeForm.transfers.reason')}</label>
+                            <select 
+                              className="w-full border rounded px-3 py-2 mt-1"
+                              value={transfer.reason}
+                              onChange={(e) => {
+                                const newTransfers = [...employeeForm.transfers];
+                                newTransfers[index].reason = e.target.value;
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            >
+                              <option value="">{t('demo.employeeForm.transfers.reason')}</option>
+                              <option value="promotion">{t('demo.employeeForm.transfers.promotion')}</option>
+                              <option value="departmentChange">{t('demo.employeeForm.transfers.departmentChange')}</option>
+                              <option value="locationChange">{t('demo.employeeForm.transfers.locationChange')}</option>
+                              <option value="restructuring">{t('demo.employeeForm.transfers.restructuring')}</option>
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="text-sm font-medium">{t('demo.employeeForm.transfers.notes')}</label>
+                            <textarea 
+                              className="w-full border rounded px-3 py-2 mt-1 h-20"
+                              placeholder={t('demo.employeeForm.transfers.notes')}
+                              value={transfer.notes}
+                              onChange={(e) => {
+                                const newTransfers = [...employeeForm.transfers];
+                                newTransfers[index].notes = e.target.value;
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-2 flex justify-end">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const newTransfers = employeeForm.transfers.filter((_, i) => i !== index);
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              {language === 'ar' ? 'حذف' : 'Delete'}
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              )}
             </CardContent>
+
+            {/* Modal Footer */}
+            <div className="border-t p-6">
+              <div className="flex justify-between">
+                <div className="flex gap-2">
+                  {activeTab !== 'basic' && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        const tabs = ['basic', 'job', 'financial', 'documents', 'transfers'];
+                        const currentIndex = tabs.indexOf(activeTab);
+                        if (currentIndex > 0) setActiveTab(tabs[currentIndex - 1]);
+                      }}
+                    >
+                      {t('demo.employeeForm.actions.previous')}
+                    </Button>
+                  )}
+                  {activeTab !== 'transfers' && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        const tabs = ['basic', 'job', 'financial', 'documents', 'transfers'];
+                        const currentIndex = tabs.indexOf(activeTab);
+                        if (currentIndex < tabs.length - 1) setActiveTab(tabs[currentIndex + 1]);
+                      }}
+                    >
+                      {t('demo.employeeForm.actions.next')}
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button 
+                    variant="outline"
+                    onClick={() => setIsAddEmployeeModal(false)}
+                  >
+                    {t('demo.employeeForm.actions.cancel')}
+                  </Button>
+                  <Button 
+                    className="bg-[#28376B]"
+                    onClick={() => {
+                      alert(language === 'ar' ? 'تم حفظ الموظف بنجاح! (عرض توضيحي)' : 'Employee saved successfully! (Demo)');
+                      setIsAddEmployeeModal(false);
+                      // Reset form
+                      setEmployeeForm({
+                        fullName: '', email: '', phone: '', nationalId: '', birthDate: '', gender: '', maritalStatus: '', address: '',
+                        position: '', department: '', directManager: '', startDate: '', employmentType: '', workLocation: '',
+                        baseSalary: '', allowances: [], deductions: [], payrollMethod: '', bankAccount: '',
+                        profileImage: null, cv: null, contracts: [], certificates: [], transfers: []
+                      });
+                      setActiveTab('basic');
+                    }}
+                  >
+                    {t('demo.employeeForm.actions.save')}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </Card>
         </div>
       )}
