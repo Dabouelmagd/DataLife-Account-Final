@@ -199,7 +199,7 @@ export const AllowancesModule = ({ language, userRole }) => {
           {language === 'ar' ? 'البدلات والإضافي' : 'Allowances & Overtime'}
         </h2>
         {canEdit && (
-          <Button size="sm" className="bg-[#28376B]">
+          <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
             <Plus className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'إضافة بدل' : 'Add Allowance'}</span>
           </Button>
