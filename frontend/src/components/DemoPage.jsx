@@ -1854,17 +1854,36 @@ const DemoPage = ({ onClose }) => {
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>
-              {reportType === 'attendance' && (language === 'ar' ? 'تقرير الحضور والانصراف' : 'Attendance Report')}
-              {reportType === 'payroll' && (language === 'ar' ? 'تقرير المرتبات' : 'Payroll Report')}
-              {reportType === 'overtime' && (language === 'ar' ? 'تقرير العمل الإضافي' : 'Overtime Report')}
-              {reportType === 'deductions' && (language === 'ar' ? 'تقرير الخصومات' : 'Deductions Report')}
-              {' - '}
-              {reportPeriod === 'weekly' && (language === 'ar' ? 'أسبوعي' : 'Weekly')}
-              {reportPeriod === 'monthly' && (language === 'ar' ? `شهري - ${selectedMonth}` : `Monthly - ${selectedMonth}`)}
-              {reportPeriod === 'yearly' && (language === 'ar' ? `سنوي - ${selectedYear}` : `Yearly - ${selectedYear}`)}
-            </CardTitle>
+                {reportType === 'attendance' && (language === 'ar' ? 'تقرير الحضور والانصراف' : 'Attendance Report')}
+                {reportType === 'payroll' && (language === 'ar' ? 'تقرير المرتبات' : 'Payroll Report')}
+                {reportType === 'overtime' && (language === 'ar' ? 'تقرير العمل الإضافي' : 'Overtime Report')}
+                {reportType === 'deductions' && (language === 'ar' ? 'تقرير الخصومات' : 'Deductions Report')}
+                {' - '}
+                {reportPeriod === 'weekly' && (language === 'ar' ? 'أسبوعي' : 'Weekly')}
+                {reportPeriod === 'monthly' && (language === 'ar' ? `شهري - ${selectedMonth}` : `Monthly - ${selectedMonth}`)}
+                {reportPeriod === 'yearly' && (language === 'ar' ? `سنوي - ${selectedYear}` : `Yearly - ${selectedYear}`)}
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => exportReportData(reportType)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  CSV
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => printReport('reports-content', `تقرير ${reportType === 'attendance' ? 'الحضور والانصراف' : reportType === 'payroll' ? 'المرتبات' : reportType === 'overtime' ? 'العمل الإضافي' : 'الخصومات'}`)}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  {language === 'ar' ? 'طباعة' : 'Print'}
+                </Button>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent id="reports-content">
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
