@@ -1567,6 +1567,176 @@ const DemoPage = ({ onClose }) => {
           </Card>
         </div>
       )}
+
+      {/* Add Custom Allowance Type Modal */}
+      {showAddAllowanceType && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                {t('demo.employeeForm.customTypes.allowanceTitle')}
+                <Button variant="ghost" onClick={() => setShowAddAllowanceType(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">
+                  {language === 'ar' ? t('demo.employeeForm.customTypes.nameAr') : t('demo.employeeForm.customTypes.nameEn')} *
+                </label>
+                <input 
+                  className="w-full border rounded px-3 py-2 mt-1" 
+                  placeholder={t('demo.employeeForm.customTypes.namePlaceholder')}
+                  value={language === 'ar' ? newAllowanceType.nameAr : newAllowanceType.nameEn}
+                  onChange={(e) => setNewAllowanceType({
+                    ...newAllowanceType, 
+                    [language === 'ar' ? 'nameAr' : 'nameEn']: e.target.value
+                  })}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">
+                  {language === 'ar' ? t('demo.employeeForm.customTypes.nameEn') : t('demo.employeeForm.customTypes.nameAr')}
+                </label>
+                <input 
+                  className="w-full border rounded px-3 py-2 mt-1" 
+                  placeholder={language === 'ar' ? 'Enter English name' : 'أدخل الاسم بالعربية'}
+                  value={language === 'ar' ? newAllowanceType.nameEn : newAllowanceType.nameAr}
+                  onChange={(e) => setNewAllowanceType({
+                    ...newAllowanceType, 
+                    [language === 'ar' ? 'nameEn' : 'nameAr']: e.target.value
+                  })}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    setShowAddAllowanceType(false);
+                    setNewAllowanceType({ nameAr: '', nameEn: '' });
+                  }}
+                >
+                  {t('demo.employeeForm.customTypes.cancel')}
+                </Button>
+                <Button 
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  onClick={() => {
+                    const primaryName = language === 'ar' ? newAllowanceType.nameAr : newAllowanceType.nameEn;
+                    if (primaryName.trim()) {
+                      const newType = {
+                        nameAr: newAllowanceType.nameAr || primaryName,
+                        nameEn: newAllowanceType.nameEn || primaryName
+                      };
+                      
+                      setCustomAllowanceTypes([...customAllowanceTypes, newType]);
+                      
+                      alert(language === 'ar' ? 
+                        `تم إضافة نوع البدلة "${newType.nameAr}" بنجاح! (عرض توضيحي)` : 
+                        `Allowance type "${newType.nameEn}" added successfully! (Demo)`
+                      );
+                      
+                      setShowAddAllowanceType(false);
+                      setNewAllowanceType({ nameAr: '', nameEn: '' });
+                    }
+                  }}
+                  disabled={!(language === 'ar' ? newAllowanceType.nameAr.trim() : newAllowanceType.nameEn.trim())}
+                >
+                  {t('demo.employeeForm.customTypes.save')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Custom Deduction Type Modal */}
+      {showAddDeductionType && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                {t('demo.employeeForm.customTypes.deductionTitle')}
+                <Button variant="ghost" onClick={() => setShowAddDeductionType(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">
+                  {language === 'ar' ? t('demo.employeeForm.customTypes.nameAr') : t('demo.employeeForm.customTypes.nameEn')} *
+                </label>
+                <input 
+                  className="w-full border rounded px-3 py-2 mt-1" 
+                  placeholder={t('demo.employeeForm.customTypes.namePlaceholder')}
+                  value={language === 'ar' ? newDeductionType.nameAr : newDeductionType.nameEn}
+                  onChange={(e) => setNewDeductionType({
+                    ...newDeductionType, 
+                    [language === 'ar' ? 'nameAr' : 'nameEn']: e.target.value
+                  })}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">
+                  {language === 'ar' ? t('demo.employeeForm.customTypes.nameEn') : t('demo.employeeForm.customTypes.nameAr')}
+                </label>
+                <input 
+                  className="w-full border rounded px-3 py-2 mt-1" 
+                  placeholder={language === 'ar' ? 'Enter English name' : 'أدخل الاسم بالعربية'}
+                  value={language === 'ar' ? newDeductionType.nameEn : newDeductionType.nameAr}
+                  onChange={(e) => setNewDeductionType({
+                    ...newDeductionType, 
+                    [language === 'ar' ? 'nameEn' : 'nameAr']: e.target.value
+                  })}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    setShowAddDeductionType(false);
+                    setNewDeductionType({ nameAr: '', nameEn: '' });
+                  }}
+                >
+                  {t('demo.employeeForm.customTypes.cancel')}
+                </Button>
+                <Button 
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                  onClick={() => {
+                    const primaryName = language === 'ar' ? newDeductionType.nameAr : newDeductionType.nameEn;
+                    if (primaryName.trim()) {
+                      const newType = {
+                        nameAr: newDeductionType.nameAr || primaryName,
+                        nameEn: newDeductionType.nameEn || primaryName
+                      };
+                      
+                      setCustomDeductionTypes([...customDeductionTypes, newType]);
+                      
+                      alert(language === 'ar' ? 
+                        `تم إضافة نوع الخصم "${newType.nameAr}" بنجاح! (عرض توضيحي)` : 
+                        `Deduction type "${newType.nameEn}" added successfully! (Demo)`
+                      );
+                      
+                      setShowAddDeductionType(false);
+                      setNewDeductionType({ nameAr: '', nameEn: '' });
+                    }
+                  }}
+                  disabled={!(language === 'ar' ? newDeductionType.nameAr.trim() : newDeductionType.nameEn.trim())}
+                >
+                  {t('demo.employeeForm.customTypes.save')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
