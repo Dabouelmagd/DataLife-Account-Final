@@ -1457,6 +1457,67 @@ export const AttendanceModule = ({ language, userRole }) => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* View Details Modal */}
+      {showViewModal && selectedRecord && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل الحضور' : 'Attendance Details'}</h3>
+              <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الموظف' : 'Employee'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedRecord.name}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'التاريخ' : 'Date'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedRecord.date}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">{language === 'ar' ? 'الحضور' : 'Check In'}</p>
+                  <p className="text-lg font-bold text-green-600">{selectedRecord.checkIn}</p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">{language === 'ar' ? 'الانصراف' : 'Check Out'}</p>
+                  <p className="text-lg font-bold text-red-600">{selectedRecord.checkOut}</p>
+                </div>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'إجمالي الساعات' : 'Total Hours'}</p>
+                <p className="text-lg font-bold text-purple-600">{selectedRecord.hours}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الحالة' : 'Status'}</p>
+                <Badge variant={
+                  selectedRecord.status === 'present' ? 'success' : 
+                  selectedRecord.status === 'absent' ? 'destructive' : 
+                  'warning'
+                }>
+                  {selectedRecord.status === 'present' ? (language === 'ar' ? 'حاضر' : 'Present') : 
+                   selectedRecord.status === 'absent' ? (language === 'ar' ? 'غائب' : 'Absent') : 
+                   (language === 'ar' ? 'تأخير' : 'Late')}
+                </Badge>
+              </div>
+            </div>
+            <Button onClick={() => setShowViewModal(false)} className="w-full mt-6 bg-[#28376B]">
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <div className="text-green-600 text-5xl mb-4">✓</div>
+            <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
