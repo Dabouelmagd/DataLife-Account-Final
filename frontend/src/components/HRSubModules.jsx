@@ -940,12 +940,16 @@ export const AttendanceModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
 
-  const attendance = [
+  const [attendance, setAttendance] = useState([
     { id: 'E001', name: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', date: '2024-10-10', checkIn: '08:45', checkOut: '17:30', status: 'present', hours: 8.75 },
     { id: 'E002', name: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', date: '2024-10-10', checkIn: '09:00', checkOut: '18:00', status: 'present', hours: 9 },
     { id: 'E003', name: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', date: '2024-10-10', checkIn: '-', checkOut: '-', status: 'absent', hours: 0 },
     { id: 'E004', name: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', date: '2024-10-10', checkIn: '10:00', checkOut: '17:00', status: 'late', hours: 7 }
-  ];
+  ]);
+
+  const handleEdit = (record) => {
+    alert(language === 'ar' ? `تعديل سجل ${record.name}` : `Edit record for ${record.name}`);
+  };
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
