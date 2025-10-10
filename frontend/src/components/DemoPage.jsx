@@ -392,6 +392,11 @@ const DemoPage = ({ onClose }) => {
       id: 'customers', 
       name: language === 'ar' ? 'العملاء' : 'Customers',
       icon: <Users className="h-4 w-4" />
+    },
+    { 
+      id: 'financial-reports', 
+      name: language === 'ar' ? 'التقارير' : 'Reports',
+      icon: <FileText className="h-4 w-4" />
     }
   ];
 
