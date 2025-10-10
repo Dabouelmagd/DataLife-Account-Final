@@ -2051,40 +2051,671 @@ const DemoPage = ({ onClose }) => {
                 </div>
               )}
 
-              {/* Other tabs can be added similarly */}
+              {/* Job Details Tab */}
               {activeTab === 'job' && (
-                <div className="text-center py-8">
-                  <Building2 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-500">
-                    {language === 'ar' ? 'تفاصيل وظيفية إضافية - قيد التطوير' : 'Additional job details - Coming soon'}
-                  </p>
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold">{t('demo.employeeForm.job.jobDetails')}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.position')} *</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder={t('demo.employeeForm.job.position')} 
+                        value={employeeForm.position}
+                        onChange={(e) => setEmployeeForm({...employeeForm, position: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.department')} *</label>
+                      <div className="flex gap-2">
+                        <select 
+                          className="flex-1 border rounded px-3 py-2 mt-1"
+                          value={employeeForm.department}
+                          onChange={(e) => setEmployeeForm({...employeeForm, department: e.target.value})}
+                        >
+                          <option value="">{t('demo.employeeForm.job.department')}</option>
+                          {departments.map((dept) => (
+                            <option key={dept.id} value={dept.id}>
+                              {language === 'ar' ? dept.nameAr : dept.name}
+                            </option>
+                          ))}
+                        </select>
+                        <Button 
+                          type="button"
+                          size="sm" 
+                          variant="outline"
+                          className="mt-1 px-3"
+                          onClick={() => setShowAddDepartmentModal(true)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.directManager')}</label>
+                      <select className="w-full border rounded px-3 py-2 mt-1">
+                        <option value="">{t('demo.employeeForm.job.directManager')}</option>
+                        <option value="ahmed">Ahmed Hassan</option>
+                        <option value="fatima">Fatima Al-Zahra</option>
+                        <option value="omar">Omar Rashid</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.startDate')} *</label>
+                      <input 
+                        type="date"
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        value={employeeForm.startDate}
+                        onChange={(e) => setEmployeeForm({...employeeForm, startDate: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.employmentType')}</label>
+                      <select 
+                        className="w-full border rounded px-3 py-2 mt-1"
+                        value={employeeForm.employmentType}
+                        onChange={(e) => setEmployeeForm({...employeeForm, employmentType: e.target.value})}
+                      >
+                        <option value="">{t('demo.employeeForm.job.employmentType')}</option>
+                        <option value="fullTime">{t('demo.employeeForm.job.fullTime')}</option>
+                        <option value="partTime">{t('demo.employeeForm.job.partTime')}</option>
+                        <option value="contract">{t('demo.employeeForm.job.contract')}</option>
+                        <option value="internship">{t('demo.employeeForm.job.internship')}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.job.workLocation')}</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder={t('demo.employeeForm.job.workLocation')} 
+                        value={employeeForm.workLocation}
+                        onChange={(e) => setEmployeeForm({...employeeForm, workLocation: e.target.value})}
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
+              {/* Financial Tab */}
               {activeTab === 'financial' && (
-                <div className="text-center py-8">
-                  <DollarSign className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-500">
-                    {language === 'ar' ? 'تحرير المعلومات المالية - قيد التطوير' : 'Financial information editing - Coming soon'}
-                  </p>
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold">{t('demo.employeeForm.financial.salaryInfo')}</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.financial.baseSalary')} *</label>
+                      <input 
+                        type="number"
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder="0" 
+                        value={employeeForm.baseSalary}
+                        onChange={(e) => setEmployeeForm({...employeeForm, baseSalary: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.financial.payrollMethod')}</label>
+                      <select 
+                        className="w-full border rounded px-3 py-2 mt-1"
+                        value={employeeForm.payrollMethod}
+                        onChange={(e) => setEmployeeForm({...employeeForm, payrollMethod: e.target.value})}
+                      >
+                        <option value="">{t('demo.employeeForm.financial.payrollMethod')}</option>
+                        <option value="cash">{t('demo.employeeForm.financial.cash')}</option>
+                        <option value="bank">{t('demo.employeeForm.financial.bank')}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {employeeForm.payrollMethod === 'bank' && (
+                    <div>
+                      <label className="text-sm font-medium">{t('demo.employeeForm.financial.bankAccount')}</label>
+                      <input 
+                        className="w-full border rounded px-3 py-2 mt-1" 
+                        placeholder={t('demo.employeeForm.financial.bankAccount')} 
+                        value={employeeForm.bankAccount}
+                        onChange={(e) => setEmployeeForm({...employeeForm, bankAccount: e.target.value})}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-medium">{t('demo.employeeForm.financial.allowances')}</h4>
+                      <Button 
+                        size="sm" 
+                        onClick={() => setEmployeeForm({
+                          ...employeeForm, 
+                          allowances: [...(employeeForm.allowances || []), { type: '', amount: '' }]
+                        })}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        {t('demo.employeeForm.actions.addAllowance')}
+                      </Button>
+                    </div>
+                    
+                    {(employeeForm.allowances || []).map((allowance, index) => (
+                      <div key={index} className="flex gap-3 mb-3">
+                        <div className="flex-1 flex gap-2">
+                          <select 
+                            className="flex-1 border rounded px-3 py-2"
+                            value={allowance.type}
+                            onChange={(e) => {
+                              const newAllowances = [...(employeeForm.allowances || [])];
+                              newAllowances[index].type = e.target.value;
+                              if (e.target.value === 'custom') {
+                                newAllowances[index].customName = '';
+                              }
+                              setEmployeeForm({...employeeForm, allowances: newAllowances});
+                            }}
+                          >
+                            <option value="">{t('demo.employeeForm.financial.allowanceType')}</option>
+                            <option value="transportation">{t('demo.employeeForm.financial.transportation')}</option>
+                            <option value="housing">{t('demo.employeeForm.financial.housing')}</option>
+                            <option value="food">{t('demo.employeeForm.financial.food')}</option>
+                            <option value="communication">{t('demo.employeeForm.financial.communication')}</option>
+                            <option value="other">{t('demo.employeeForm.financial.other')}</option>
+                            {customAllowanceTypes.map((customType, customIndex) => (
+                              <option key={customIndex} value={`custom_${customIndex}`}>
+                                {language === 'ar' ? customType.nameAr : customType.nameEn}
+                              </option>
+                            ))}
+                            <option value="custom">{t('demo.employeeForm.customTypes.custom')}</option>
+                          </select>
+                          <Button 
+                            type="button"
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setShowAddAllowanceType(true)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        {allowance.type === 'custom' && (
+                          <input 
+                            type="text"
+                            className="flex-1 border rounded px-3 py-2"
+                            placeholder={t('demo.employeeForm.customTypes.namePlaceholder')}
+                            value={allowance.customName || ''}
+                            onChange={(e) => {
+                              const newAllowances = [...(employeeForm.allowances || [])];
+                              newAllowances[index].customName = e.target.value;
+                              setEmployeeForm({...employeeForm, allowances: newAllowances});
+                            }}
+                          />
+                        )}
+                        <input 
+                          type="number"
+                          className="flex-1 border rounded px-3 py-2"
+                          placeholder={t('demo.employeeForm.financial.allowanceAmount')}
+                          value={allowance.amount}
+                          onChange={(e) => {
+                            const newAllowances = [...(employeeForm.allowances || [])];
+                            newAllowances[index].amount = e.target.value;
+                            setEmployeeForm({...employeeForm, allowances: newAllowances});
+                          }}
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const newAllowances = (employeeForm.allowances || []).filter((_, i) => i !== index);
+                            setEmployeeForm({...employeeForm, allowances: newAllowances});
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-medium">{t('demo.employeeForm.financial.deductions')}</h4>
+                      <Button 
+                        size="sm" 
+                        onClick={() => setEmployeeForm({
+                          ...employeeForm, 
+                          deductions: [...(employeeForm.deductions || []), { type: '', amount: '' }]
+                        })}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        {t('demo.employeeForm.actions.addDeduction')}
+                      </Button>
+                    </div>
+                    
+                    {(employeeForm.deductions || []).map((deduction, index) => (
+                      <div key={index} className="flex gap-3 mb-3">
+                        <div className="flex-1 flex gap-2">
+                          <select 
+                            className="flex-1 border rounded px-3 py-2"
+                            value={deduction.type}
+                            onChange={(e) => {
+                              const newDeductions = [...(employeeForm.deductions || [])];
+                              newDeductions[index].type = e.target.value;
+                              if (e.target.value === 'custom') {
+                                newDeductions[index].customName = '';
+                              }
+                              setEmployeeForm({...employeeForm, deductions: newDeductions});
+                            }}
+                          >
+                            <option value="">{t('demo.employeeForm.financial.deductionType')}</option>
+                            <option value="insurance">{t('demo.employeeForm.financial.insurance')}</option>
+                            <option value="tax">{t('demo.employeeForm.financial.tax')}</option>
+                            <option value="loan">{t('demo.employeeForm.financial.loan')}</option>
+                            <option value="other">{t('demo.employeeForm.financial.other')}</option>
+                            {customDeductionTypes.map((customType, customIndex) => (
+                              <option key={customIndex} value={`custom_${customIndex}`}>
+                                {language === 'ar' ? customType.nameAr : customType.nameEn}
+                              </option>
+                            ))}
+                            <option value="custom">{t('demo.employeeForm.customTypes.custom')}</option>
+                          </select>
+                          <Button 
+                            type="button"
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setShowAddDeductionType(true)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        {deduction.type === 'custom' && (
+                          <input 
+                            type="text"
+                            className="flex-1 border rounded px-3 py-2"
+                            placeholder={t('demo.employeeForm.customTypes.namePlaceholder')}
+                            value={deduction.customName || ''}
+                            onChange={(e) => {
+                              const newDeductions = [...(employeeForm.deductions || [])];
+                              newDeductions[index].customName = e.target.value;
+                              setEmployeeForm({...employeeForm, deductions: newDeductions});
+                            }}
+                          />
+                        )}
+                        <input 
+                          type="number"
+                          className="flex-1 border rounded px-3 py-2"
+                          placeholder={t('demo.employeeForm.financial.deductionAmount')}
+                          value={deduction.amount}
+                          onChange={(e) => {
+                            const newDeductions = [...(employeeForm.deductions || [])];
+                            newDeductions[index].amount = e.target.value;
+                            setEmployeeForm({...employeeForm, deductions: newDeductions});
+                          }}
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const newDeductions = (employeeForm.deductions || []).filter((_, i) => i !== index);
+                            setEmployeeForm({...employeeForm, deductions: newDeductions});
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
+              {/* Documents Tab */}
               {activeTab === 'documents' && (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-500">
-                    {language === 'ar' ? 'إدارة الوثائق - قيد التطوير' : 'Document management - Coming soon'}
-                  </p>
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold">{t('demo.employeeForm.documents.documentsFiles')}</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">{t('demo.employeeForm.documents.profileImage')}</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#28376B] transition-colors cursor-pointer">
+                          {employeeForm.profileImage ? (
+                            <div className="space-y-2">
+                              <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-3 flex items-center justify-center">
+                                <CheckCircle className="h-8 w-8 text-green-600" />
+                              </div>
+                              <p className="text-sm text-green-600 font-medium">{employeeForm.profileImage.name}</p>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => setEmployeeForm({...employeeForm, profileImage: null})}
+                              >
+                                {language === 'ar' ? 'إزالة الصورة' : 'Remove Image'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-3 flex items-center justify-center">
+                                <Users className="h-8 w-8 text-gray-400" />
+                              </div>
+                              <input 
+                                type="file" 
+                                id="editProfileImage" 
+                                accept="image/*" 
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    setEmployeeForm({...employeeForm, profileImage: file});
+                                  }
+                                }}
+                              />
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('editProfileImage').click()}
+                              >
+                                {t('demo.employeeForm.documents.uploadImage')}
+                              </Button>
+                              <p className="text-xs text-gray-500 mt-2">JPG, PNG - {t('demo.employeeForm.documents.maxSize')}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium">{t('demo.employeeForm.documents.cv')}</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#28376B] transition-colors cursor-pointer">
+                          {employeeForm.cv ? (
+                            <div className="space-y-2">
+                              <CheckCircle className="h-8 w-8 text-green-600 mx-auto" />
+                              <p className="text-sm text-green-600 font-medium">{employeeForm.cv.name}</p>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => setEmployeeForm({...employeeForm, cv: null})}
+                              >
+                                {language === 'ar' ? 'إزالة السيرة الذاتية' : 'Remove CV'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <input 
+                                type="file" 
+                                id="editCvFile" 
+                                accept=".pdf,.doc,.docx" 
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    setEmployeeForm({...employeeForm, cv: file});
+                                  }
+                                }}
+                              />
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('editCvFile').click()}
+                              >
+                                {t('demo.employeeForm.documents.uploadCV')}
+                              </Button>
+                              <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">{t('demo.employeeForm.documents.contracts')}</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#28376B] transition-colors cursor-pointer">
+                          {employeeForm.contracts && employeeForm.contracts.length > 0 ? (
+                            <div className="space-y-2">
+                              <CheckCircle className="h-8 w-8 text-green-600 mx-auto" />
+                              <div className="space-y-1">
+                                {employeeForm.contracts.map((contract, index) => (
+                                  <div key={index} className="flex items-center justify-between text-sm">
+                                    <span className="text-green-600">{contract.name}</span>
+                                    <Button 
+                                      size="xs" 
+                                      variant="ghost"
+                                      onClick={() => {
+                                        const newContracts = employeeForm.contracts.filter((_, i) => i !== index);
+                                        setEmployeeForm({...employeeForm, contracts: newContracts});
+                                      }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('editContractFile').click()}
+                              >
+                                {language === 'ar' ? 'إضافة عقد آخر' : 'Add Another Contract'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('editContractFile').click()}
+                              >
+                                {t('demo.employeeForm.documents.uploadContract')}
+                              </Button>
+                              <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                            </div>
+                          )}
+                          <input 
+                            type="file" 
+                            id="editContractFile" 
+                            accept=".pdf,.doc,.docx" 
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const newContracts = [...(employeeForm.contracts || []), file];
+                                setEmployeeForm({...employeeForm, contracts: newContracts});
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium">{t('demo.employeeForm.documents.certificates')}</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#28376B] transition-colors cursor-pointer">
+                          {employeeForm.certificates && employeeForm.certificates.length > 0 ? (
+                            <div className="space-y-2">
+                              <Award className="h-8 w-8 text-green-600 mx-auto" />
+                              <div className="space-y-1">
+                                {employeeForm.certificates.map((certificate, index) => (
+                                  <div key={index} className="flex items-center justify-between text-sm">
+                                    <span className="text-green-600">{certificate.name}</span>
+                                    <Button 
+                                      size="xs" 
+                                      variant="ghost"
+                                      onClick={() => {
+                                        const newCertificates = employeeForm.certificates.filter((_, i) => i !== index);
+                                        setEmployeeForm({...employeeForm, certificates: newCertificates});
+                                      }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('editCertificateFile').click()}
+                              >
+                                {language === 'ar' ? 'إضافة شهادة أخرى' : 'Add Another Certificate'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <Award className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('editCertificateFile').click()}
+                              >
+                                {t('demo.employeeForm.documents.uploadCertificate')}
+                              </Button>
+                              <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                            </div>
+                          )}
+                          <input 
+                            type="file" 
+                            id="editCertificateFile" 
+                            accept=".pdf,.doc,.docx,.jpg,.png" 
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const newCertificates = [...(employeeForm.certificates || []), file];
+                                setEmployeeForm({...employeeForm, certificates: newCertificates});
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
+              {/* Transfers Tab */}
               {activeTab === 'transfers' && (
-                <div className="text-center py-8">
-                  <ArrowRight className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-500">
-                    {language === 'ar' ? 'سجل الانتقالات - قيد التطوير' : 'Transfer history - Coming soon'}
-                  </p>
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold">{t('demo.employeeForm.transfers.transferHistory')}</h3>
+                    <Button 
+                      size="sm" 
+                      onClick={() => setEmployeeForm({
+                        ...employeeForm, 
+                        transfers: [...(employeeForm.transfers || []), { 
+                          fromDepartment: '', 
+                          toDepartment: '', 
+                          date: '', 
+                          reason: '', 
+                          notes: '' 
+                        }]
+                      })}
+                      className="bg-[#28376B]"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      {t('demo.employeeForm.transfers.addTransfer')}
+                    </Button>
+                  </div>
+
+                  {(!employeeForm.transfers || employeeForm.transfers.length === 0) ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Building2 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <p>{language === 'ar' ? 'لا يوجد انتقالات بعد' : 'No transfers yet'}</p>
+                    </div>
+                  ) : (
+                    (employeeForm.transfers || []).map((transfer, index) => (
+                      <Card key={index} className="p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">{t('demo.employeeForm.transfers.fromDepartment')}</label>
+                            <select 
+                              className="w-full border rounded px-3 py-2 mt-1"
+                              value={transfer.fromDepartment}
+                              onChange={(e) => {
+                                const newTransfers = [...(employeeForm.transfers || [])];
+                                newTransfers[index].fromDepartment = e.target.value;
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            >
+                              <option value="">Select Department</option>
+                              <option value="IT">IT</option>
+                              <option value="HR">HR</option>
+                              <option value="Finance">Finance</option>
+                              <option value="Operations">Operations</option>
+                              <option value="Sales">Sales</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">{t('demo.employeeForm.transfers.toDepartment')}</label>
+                            <select 
+                              className="w-full border rounded px-3 py-2 mt-1"
+                              value={transfer.toDepartment}
+                              onChange={(e) => {
+                                const newTransfers = [...(employeeForm.transfers || [])];
+                                newTransfers[index].toDepartment = e.target.value;
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            >
+                              <option value="">Select Department</option>
+                              <option value="IT">IT</option>
+                              <option value="HR">HR</option>
+                              <option value="Finance">Finance</option>
+                              <option value="Operations">Operations</option>
+                              <option value="Sales">Sales</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">{t('demo.employeeForm.transfers.transferDate')}</label>
+                            <input 
+                              type="date"
+                              className="w-full border rounded px-3 py-2 mt-1"
+                              value={transfer.date}
+                              onChange={(e) => {
+                                const newTransfers = [...(employeeForm.transfers || [])];
+                                newTransfers[index].date = e.target.value;
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">{t('demo.employeeForm.transfers.reason')}</label>
+                            <select 
+                              className="w-full border rounded px-3 py-2 mt-1"
+                              value={transfer.reason}
+                              onChange={(e) => {
+                                const newTransfers = [...(employeeForm.transfers || [])];
+                                newTransfers[index].reason = e.target.value;
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            >
+                              <option value="">{t('demo.employeeForm.transfers.reason')}</option>
+                              <option value="promotion">{t('demo.employeeForm.transfers.promotion')}</option>
+                              <option value="departmentChange">{t('demo.employeeForm.transfers.departmentChange')}</option>
+                              <option value="locationChange">{t('demo.employeeForm.transfers.locationChange')}</option>
+                              <option value="restructuring">{t('demo.employeeForm.transfers.restructuring')}</option>
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="text-sm font-medium">{t('demo.employeeForm.transfers.notes')}</label>
+                            <textarea 
+                              className="w-full border rounded px-3 py-2 mt-1 h-20"
+                              placeholder={t('demo.employeeForm.transfers.notes')}
+                              value={transfer.notes}
+                              onChange={(e) => {
+                                const newTransfers = [...(employeeForm.transfers || [])];
+                                newTransfers[index].notes = e.target.value;
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-2 flex justify-end">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const newTransfers = (employeeForm.transfers || []).filter((_, i) => i !== index);
+                                setEmployeeForm({...employeeForm, transfers: newTransfers});
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              {language === 'ar' ? 'حذف' : 'Delete'}
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
                 </div>
               )}
             </CardContent>
