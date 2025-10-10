@@ -371,15 +371,15 @@ export const AccountsModule = ({ language, userRole }) => {
                   <TableCell className="font-bold">{account.balance.toLocaleString()}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(entry); setShowViewModal(true); }}>
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setShowViewModal(true); }}>
                         <Eye className="h-4 w-4" />
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(entry); setSuccessMessage(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open'); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setSuccessMessage(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open'); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(entry); setShowDeleteModal(true); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setShowDeleteModal(true); }}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </>
