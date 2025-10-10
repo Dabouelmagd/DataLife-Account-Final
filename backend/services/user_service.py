@@ -71,5 +71,5 @@ def user_to_response(user: User) -> UserResponse:
         company_id=user.company_id,
         role=user.role,
         is_active=user.is_active,
-        created_at=user.created_at
+        created_at=user.created_at if isinstance(user.created_at, str) else user.created_at.isoformat()
     )
