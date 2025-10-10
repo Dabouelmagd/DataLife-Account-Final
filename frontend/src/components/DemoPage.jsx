@@ -67,6 +67,7 @@ const DemoPage = ({ onClose }) => {
   const [financialPeriod, setFinancialPeriod] = useState('monthly');
   const [expandedModule, setExpandedModule] = useState(null);
   const [activeFinancialSubModule, setActiveFinancialSubModule] = useState(null);
+  const [activeHRSubModule, setActiveHRSubModule] = useState(null);
   const [employeeForm, setEmployeeForm] = useState({
     // Basic Info
     fullName: '',
