@@ -410,7 +410,37 @@ const DemoPage = ({ onClose }) => {
                       <Button 
                         size="sm" 
                         variant="ghost"
-                        onClick={() => alert(language === 'ar' ? `تحرير الموظف: ${employee.name}` : `Edit employee: ${employee.name}`)}
+                        onClick={() => {
+                          setEditingEmployee(employee);
+                          setIsEditEmployeeModal(true);
+                          // Initialize edit form with employee data
+                          setEmployeeForm({
+                            fullName: employee.name,
+                            email: employee.email,
+                            phone: employee.phone || '',
+                            nationalId: '',
+                            birthDate: '',
+                            gender: '',
+                            maritalStatus: '',
+                            address: '',
+                            position: employee.position,
+                            department: employee.department,
+                            directManager: '',
+                            startDate: employee.joinDate || '',
+                            employmentType: '',
+                            workLocation: '',
+                            baseSalary: employee.salary?.toString() || '',
+                            allowances: [],
+                            deductions: [],
+                            payrollMethod: '',
+                            bankAccount: '',
+                            profileImage: null,
+                            cv: null,
+                            contracts: [],
+                            certificates: [],
+                            transfers: []
+                          });
+                        }}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
