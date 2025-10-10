@@ -302,6 +302,11 @@ const DemoPage = ({ onClose }) => {
 
   const financialSubModules = [
     { 
+      id: 'overview', 
+      name: language === 'ar' ? 'نظرة عامة' : 'Overview',
+      icon: <BarChart3 className="h-4 w-4" />
+    },
+    { 
       id: 'journal-entries', 
       name: language === 'ar' ? 'القيود اليومية' : 'Journal Entries',
       icon: <FileText className="h-4 w-4" />
