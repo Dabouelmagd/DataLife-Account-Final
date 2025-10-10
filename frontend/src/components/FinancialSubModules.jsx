@@ -302,7 +302,7 @@ export const TreasuryModule = ({ language, userRole }) => {
                 <p className="text-sm text-gray-600">{language === 'ar' ? 'الوصف' : 'Description'}</p>
                 <p className="text-lg font-semibold text-gray-800">{selectedEntry.description}</p>
               </div>
-              <div className={selectedEntry.type === 'in' ? 'bg-green-50' : 'bg-red-50'} p-4 rounded-lg">
+              <div className={`${selectedEntry.type === 'in' ? 'bg-green-50' : 'bg-red-50'} p-4 rounded-lg`}>
                 <p className="text-sm text-gray-600">{language === 'ar' ? 'المبلغ' : 'Amount'}</p>
                 <p className={`text-lg font-bold ${selectedEntry.type === 'in' ? 'text-green-600' : 'text-red-600'}`}>
                   {selectedEntry.type === 'in' ? '+' : '-'}{selectedEntry.amount.toLocaleString()}
