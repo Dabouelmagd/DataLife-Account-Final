@@ -1568,6 +1568,7 @@ const DemoPage = ({ onClose }) => {
             </Card>
           </div>
         )}
+        </div>
       </div>
     );
   };
