@@ -2281,8 +2281,30 @@ const DemoPage = ({ onClose }) => {
                     )}
                   </Button>
                   
+                  {/* Sub-modules for HR */}
+                  {module.hasSubModules && module.id === 'hr' && expandedModule === module.id && (
+                    <div className={`${isRTL ? 'mr-4' : 'ml-4'} mt-1 space-y-1`}>
+                      {hrSubModules.map((subModule) => (
+                        <Button
+                          key={subModule.id}
+                          variant={activeHRSubModule === subModule.id ? "default" : "ghost"}
+                          size="sm"
+                          className={`w-full justify-start ${activeHRSubModule === subModule.id ? 'bg-[#28376B]' : ''}`}
+                          onClick={() => {
+                            setActiveHRSubModule(subModule.id);
+                            setActiveFinancialSubModule(null);
+                            setActiveModule('hr');
+                          }}
+                        >
+                          {subModule.icon}
+                          <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-sm`}>{subModule.name}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Sub-modules for Financial */}
-                  {module.hasSubModules && expandedModule === module.id && (
+                  {module.hasSubModules && module.id === 'financial' && expandedModule === module.id && (
                     <div className={`${isRTL ? 'mr-4' : 'ml-4'} mt-1 space-y-1`}>
                       {financialSubModules.map((subModule) => (
                         <Button
@@ -2292,6 +2314,7 @@ const DemoPage = ({ onClose }) => {
                           className={`w-full justify-start ${activeFinancialSubModule === subModule.id ? 'bg-[#28376B]' : ''}`}
                           onClick={() => {
                             setActiveFinancialSubModule(subModule.id);
+                            setActiveHRSubModule(null);
                             setActiveModule('financial');
                           }}
                         >
