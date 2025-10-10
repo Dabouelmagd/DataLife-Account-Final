@@ -742,6 +742,53 @@ export const DeductionsModule = ({ language, userRole }) => {
         </div>
       )}
 
+      {/* Edit Deduction Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <h3 className="text-2xl font-bold text-[#28376B] mb-6">{language === 'ar' ? 'تعديل الخصم' : 'Edit Deduction'}</h3>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'اسم الموظف' : 'Employee Name'}
+                value={editDeduction.employee}
+                onChange={(e) => setEditDeduction({ ...editDeduction, employee: e.target.value })}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+              />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'نوع الخصم' : 'Deduction Type'}
+                value={editDeduction.type}
+                onChange={(e) => setEditDeduction({ ...editDeduction, type: e.target.value })}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+              />
+              <input
+                type="number"
+                placeholder={language === 'ar' ? 'المبلغ' : 'Amount'}
+                value={editDeduction.amount}
+                onChange={(e) => setEditDeduction({ ...editDeduction, amount: e.target.value })}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+              />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'الشهر' : 'Month'}
+                value={editDeduction.month}
+                onChange={(e) => setEditDeduction({ ...editDeduction, month: e.target.value })}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+              />
+            </div>
+            <div className="flex gap-4 mt-6">
+              <Button onClick={handleEdit} className="flex-1 bg-[#28376B]">
+                {language === 'ar' ? 'حفظ التعديلات' : 'Save Changes'}
+              </Button>
+              <Button onClick={() => setShowEditModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
