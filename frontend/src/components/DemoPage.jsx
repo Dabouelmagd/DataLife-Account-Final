@@ -1235,12 +1235,61 @@ const DemoPage = ({ onClose }) => {
                     <div className="space-y-4">
                       <div>
                         <label className="text-sm font-medium">{t('demo.employeeForm.documents.contracts')}</label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                          <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <Button size="sm" variant="outline">
-                            {t('demo.employeeForm.documents.uploadContract')}
-                          </Button>
-                          <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#28376B] transition-colors cursor-pointer">
+                          {employeeForm.contracts && employeeForm.contracts.length > 0 ? (
+                            <div className="space-y-2">
+                              <CheckCircle className="h-8 w-8 text-green-600 mx-auto" />
+                              <div className="space-y-1">
+                                {employeeForm.contracts.map((contract, index) => (
+                                  <div key={index} className="flex items-center justify-between text-sm">
+                                    <span className="text-green-600">{contract.name}</span>
+                                    <Button 
+                                      size="xs" 
+                                      variant="ghost"
+                                      onClick={() => {
+                                        const newContracts = employeeForm.contracts.filter((_, i) => i !== index);
+                                        setEmployeeForm({...employeeForm, contracts: newContracts});
+                                      }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('contractFile').click()}
+                              >
+                                {language === 'ar' ? 'إضافة عقد آخر' : 'Add Another Contract'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('contractFile').click()}
+                              >
+                                {t('demo.employeeForm.documents.uploadContract')}
+                              </Button>
+                              <p className="text-xs text-gray-500 mt-2">{t('demo.employeeForm.documents.supportedFormats')}</p>
+                            </div>
+                          )}
+                          <input 
+                            type="file" 
+                            id="contractFile" 
+                            accept=".pdf,.doc,.docx" 
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const newContracts = [...(employeeForm.contracts || []), file];
+                                setEmployeeForm({...employeeForm, contracts: newContracts});
+                              }
+                            }}
+                          />
                         </div>
                       </div>
 
