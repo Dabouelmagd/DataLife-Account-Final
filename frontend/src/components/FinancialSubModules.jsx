@@ -8,15 +8,28 @@ import { Badge } from './ui/badge';
 // Journal Entries Component
 export const JournalEntriesModule = ({ language, userRole }) => {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
   const isRTL = language === 'ar';
   const canEdit = userRole === 'Financial Manager' || userRole === 'المدير المالي';
 
-  const journalEntries = [
+  const [journalEntries, setJournalEntries] = useState([
     { id: 'JE001', date: '2024-10-01', description: language === 'ar' ? 'مشتريات مواد خام' : 'Raw materials purchase', debit: 50000, credit: 0, account: language === 'ar' ? 'المخزون' : 'Inventory' },
     { id: 'JE002', date: '2024-10-02', description: language === 'ar' ? 'مبيعات منتجات' : 'Product sales', debit: 0, credit: 75000, account: language === 'ar' ? 'المبيعات' : 'Sales' },
     { id: 'JE003', date: '2024-10-03', description: language === 'ar' ? 'دفع رواتب' : 'Salary payment', debit: 120000, credit: 0, account: language === 'ar' ? 'المصروفات' : 'Expenses' },
     { id: 'JE004', date: '2024-10-05', description: language === 'ar' ? 'إيداع نقدي' : 'Cash deposit', debit: 0, credit: 30000, account: language === 'ar' ? 'البنك' : 'Bank' }
-  ];
+  ]);
+
+  const handleDeleteConfirm = () => {
+    setJournalEntries(journalEntries.filter(e => e.id !== selectedEntry.id));
+    setShowDeleteModal(false);
+    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
