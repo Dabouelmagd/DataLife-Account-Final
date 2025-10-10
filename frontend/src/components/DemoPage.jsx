@@ -1059,21 +1059,54 @@ const DemoPage = ({ onClose }) => {
                     
                     {employeeForm.deductions.map((deduction, index) => (
                       <div key={index} className="flex gap-3 mb-3">
-                        <select 
-                          className="flex-1 border rounded px-3 py-2"
-                          value={deduction.type}
-                          onChange={(e) => {
-                            const newDeductions = [...employeeForm.deductions];
-                            newDeductions[index].type = e.target.value;
-                            setEmployeeForm({...employeeForm, deductions: newDeductions});
-                          }}
-                        >
-                          <option value="">{t('demo.employeeForm.financial.deductionType')}</option>
-                          <option value="insurance">{t('demo.employeeForm.financial.insurance')}</option>
-                          <option value="tax">{t('demo.employeeForm.financial.tax')}</option>
-                          <option value="loan">{t('demo.employeeForm.financial.loan')}</option>
-                          <option value="other">{t('demo.employeeForm.financial.other')}</option>
-                        </select>
+                        <div className="flex-1 flex gap-2">
+                          <select 
+                            className="flex-1 border rounded px-3 py-2"
+                            value={deduction.type}
+                            onChange={(e) => {
+                              const newDeductions = [...employeeForm.deductions];
+                              newDeductions[index].type = e.target.value;
+                              if (e.target.value === 'custom') {
+                                newDeductions[index].customName = '';
+                              }
+                              setEmployeeForm({...employeeForm, deductions: newDeductions});
+                            }}
+                          >
+                            <option value="">{t('demo.employeeForm.financial.deductionType')}</option>
+                            <option value="insurance">{t('demo.employeeForm.financial.insurance')}</option>
+                            <option value="tax">{t('demo.employeeForm.financial.tax')}</option>
+                            <option value="loan">{t('demo.employeeForm.financial.loan')}</option>
+                            <option value="other">{t('demo.employeeForm.financial.other')}</option>
+                            {customDeductionTypes.map((customType, customIndex) => (
+                              <option key={customIndex} value={`custom_${customIndex}`}>
+                                {language === 'ar' ? customType.nameAr : customType.nameEn}
+                              </option>
+                            ))}
+                            <option value="custom">{t('demo.employeeForm.customTypes.custom')}</option>
+                          </select>
+                          <Button 
+                            type="button"
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setShowAddDeductionType(true)}
+                            title={t('demo.employeeForm.actions.addCustomType')}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        {deduction.type === 'custom' && (
+                          <input 
+                            type="text"
+                            className="flex-1 border rounded px-3 py-2 mt-2"
+                            placeholder={t('demo.employeeForm.customTypes.namePlaceholder')}
+                            value={deduction.customName || ''}
+                            onChange={(e) => {
+                              const newDeductions = [...employeeForm.deductions];
+                              newDeductions[index].customName = e.target.value;
+                              setEmployeeForm({...employeeForm, deductions: newDeductions});
+                            }}
+                          />
+                        )}
                         <input 
                           type="number"
                           className="flex-1 border rounded px-3 py-2"
