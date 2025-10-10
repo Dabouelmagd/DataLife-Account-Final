@@ -247,7 +247,7 @@ frontend:
   - task: "Login Page"
     implemented: true
     working: true
-    file: "LoginPage.jsx"
+    file: "LoginPage.jsx, LandingPage.jsx"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
@@ -258,6 +258,9 @@ frontend:
         - working: true
         - agent: "testing"
         - comment: "COMPREHENSIVE TESTING COMPLETED: Login Page working perfectly. ✅ Login form loads correctly with proper styling and layout. ✅ JWT authentication working - successful login with valid credentials redirects to dashboard. ✅ Error handling working - wrong password shows appropriate error messages. ✅ Token management working - authentication state persisted correctly. ✅ Navigation protection working - accessing /dashboard without authentication redirects to /login. ✅ Form validation and user feedback working correctly."
+        - working: true
+        - agent: "main"
+        - comment: "USER FEEDBACK: Added 'Sign In' button to landing page navigation. Button visible in both English and Arabic versions. Clicking button redirects to /login page. ✅ Sign In button now accessible from landing page header."
 
   - task: "Dashboard with User Management"
     implemented: true
