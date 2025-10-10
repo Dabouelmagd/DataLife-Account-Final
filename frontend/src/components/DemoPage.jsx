@@ -288,7 +288,12 @@ const DemoPage = ({ onClose }) => {
 
   const modules = [
     { id: 'dashboard', name: t('demo.modules.dashboard'), icon: <Home className="h-5 w-5" /> },
-    { id: 'hr', name: t('demo.modules.hr'), icon: <Users className="h-5 w-5" /> },
+    { 
+      id: 'hr', 
+      name: t('demo.modules.hr'), 
+      icon: <Users className="h-5 w-5" />,
+      hasSubModules: true
+    },
     { 
       id: 'financial', 
       name: t('demo.modules.financial'), 
