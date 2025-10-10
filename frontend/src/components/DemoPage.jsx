@@ -829,18 +829,32 @@ const DemoPage = ({ onClose }) => {
                     </div>
                     <div>
                       <label className="text-sm font-medium">{t('demo.employeeForm.job.department')} *</label>
-                      <select 
-                        className="w-full border rounded px-3 py-2 mt-1"
-                        value={employeeForm.department}
-                        onChange={(e) => setEmployeeForm({...employeeForm, department: e.target.value})}
-                      >
-                        <option value="">{t('demo.employeeForm.job.department')}</option>
-                        <option value="IT">IT</option>
-                        <option value="HR">HR</option>
-                        <option value="Finance">Finance</option>
-                        <option value="Operations">Operations</option>
-                        <option value="Sales">Sales</option>
-                      </select>
+                      <div className="flex gap-2">
+                        <select 
+                          className="flex-1 border rounded px-3 py-2 mt-1"
+                          value={employeeForm.department}
+                          onChange={(e) => setEmployeeForm({...employeeForm, department: e.target.value})}
+                        >
+                          <option value="">{t('demo.employeeForm.job.department')}</option>
+                          {departments.map((dept) => (
+                            <option key={dept.id} value={dept.id}>
+                              {language === 'ar' ? dept.nameAr : dept.name}
+                            </option>
+                          ))}
+                        </select>
+                        <Button 
+                          type="button"
+                          size="sm" 
+                          variant="outline"
+                          className="mt-1 px-3"
+                          onClick={() => setShowAddDepartmentModal(true)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {language === 'ar' ? 'اضغط + لإضافة قسم جديد' : 'Click + to add new department'}
+                      </p>
                     </div>
                     <div>
                       <label className="text-sm font-medium">{t('demo.employeeForm.job.directManager')}</label>
