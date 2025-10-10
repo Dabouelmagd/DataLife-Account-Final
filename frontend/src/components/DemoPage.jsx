@@ -40,6 +40,8 @@ const DemoPage = ({ onClose }) => {
   const [showAddDeductionType, setShowAddDeductionType] = useState(false);
   const [newAllowanceType, setNewAllowanceType] = useState({ nameAr: '', nameEn: '' });
   const [newDeductionType, setNewDeductionType] = useState({ nameAr: '', nameEn: '' });
+  const [isEditEmployeeModal, setIsEditEmployeeModal] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
   const [employeeForm, setEmployeeForm] = useState({
     // Basic Info
     fullName: '',
