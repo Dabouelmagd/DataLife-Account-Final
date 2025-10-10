@@ -692,7 +692,7 @@ export const DeductionsModule = ({ language, userRole }) => {
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setSuccessMessage(language === 'ar' ? `تعديل ${item.type} - ${item.employee}` : `Edit ${item.type} - ${item.employee}`); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setEditDeduction({ id: item.id, employee: item.employee, type: item.type, amount: item.amount, month: item.month }); setShowEditModal(true); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowDeleteModal(true); }}>
