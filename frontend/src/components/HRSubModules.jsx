@@ -1045,7 +1045,7 @@ export const AttendanceModule = ({ language, userRole }) => {
                         <Eye className="h-4 w-4" />
                       </Button>
                       {canEdit && (
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(record)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       )}
