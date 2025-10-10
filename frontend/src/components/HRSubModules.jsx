@@ -1346,9 +1346,10 @@ export const AttendanceModule = ({ language, userRole }) => {
     { id: 'E004', name: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', date: '2024-10-10', checkIn: '10:00', checkOut: '17:00', status: 'late', hours: 7 }
   ]);
 
-  const handleEdit = (record) => {
-    alert(language === 'ar' ? `تعديل سجل ${record.name}` : `Edit record for ${record.name}`);
-  };
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
