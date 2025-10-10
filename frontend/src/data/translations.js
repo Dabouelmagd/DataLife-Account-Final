@@ -1093,7 +1093,19 @@ export const translations = {
           addDeduction: "Add Deduction",
           removeAllowance: "Remove Allowance",
           removeDeduction: "Remove Deduction",
-          addDepartment: "Add New Department"
+          addDepartment: "Add New Department",
+          addCustomType: "Add Custom Type"
+        },
+
+        customTypes: {
+          allowanceTitle: "Add Custom Allowance Type",
+          deductionTitle: "Add Custom Deduction Type",
+          nameAr: "Arabic Name", 
+          nameEn: "English Name",
+          save: "Save Type",
+          cancel: "Cancel",
+          namePlaceholder: "Enter type name",
+          custom: "Custom"
         },
 
         addDepartment: {
