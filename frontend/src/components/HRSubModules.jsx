@@ -844,11 +844,69 @@ export const CasualLeaveModule = ({ language, userRole }) => {
         </CardContent>
       </Card>
 
+      {/* View Details Modal */}
+      {showViewModal && selectedLeave && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل الإجازة العارضة' : 'Casual Leave Details'}</h3>
+              <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الموظف' : 'Employee'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedLeave.employee}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'التاريخ' : 'Date'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedLeave.date}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'السبب' : 'Reason'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedLeave.reason}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الحالة' : 'Status'}</p>
+                <Badge variant={selectedLeave.status === 'approved' ? 'success' : 'warning'}>
+                  {selectedLeave.status === 'approved' ? (language === 'ar' ? 'موافق' : 'Approved') : (language === 'ar' ? 'قيد المراجعة' : 'Pending')}
+                </Badge>
+              </div>
+            </div>
+            <Button onClick={() => setShowViewModal(false)} className="w-full mt-6 bg-[#28376B]">
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedLeave && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="text-gray-700 mb-6">
+              {language === 'ar' ? `هل أنت متأكد من حذف إجازة ${selectedLeave.employee} بتاريخ ${selectedLeave.date}؟` : `Are you sure you want to delete the casual leave for ${selectedLeave.employee} on ${selectedLeave.date}?`}
+            </p>
+            <div className="flex gap-4">
+              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-600 hover:bg-red-700">
+                {language === 'ar' ? 'حذف' : 'Delete'}
+              </Button>
+              <Button onClick={() => setShowDeleteModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Casual Leave Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4">{language === 'ar' ? 'إضافة إجازة عارضة' : 'Add Casual Leave'}</h3>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <h3 className="text-xl font-bold mb-4 text-[#28376B]">{language === 'ar' ? 'إضافة إجازة عارضة' : 'Add Casual Leave'}</h3>
             <div className="space-y-4">
               <input type="text" placeholder={language === 'ar' ? 'اسم الموظف' : 'Employee Name'} value={newLeave.employee} onChange={(e) => setNewLeave({ ...newLeave, employee: e.target.value })} className="w-full p-2 border rounded" />
               <input type="date" placeholder={language === 'ar' ? 'التاريخ' : 'Date'} value={newLeave.date} onChange={(e) => setNewLeave({ ...newLeave, date: e.target.value })} className="w-full p-2 border rounded" />
@@ -858,6 +916,16 @@ export const CasualLeaveModule = ({ language, userRole }) => {
               <Button onClick={handleAdd} className="flex-1 bg-[#28376B]">{language === 'ar' ? 'إضافة' : 'Add'}</Button>
               <Button onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <div className="text-green-600 text-5xl mb-4">✓</div>
+            <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
           </div>
         </div>
       )}
