@@ -2254,18 +2254,20 @@ const DemoPage = ({ onClose }) => {
               {modules.map((module) => (
                 <div key={module.id}>
                   <Button
-                    variant={activeModule === module.id && !activeFinancialSubModule ? "default" : "ghost"}
-                    className={`w-full justify-start ${activeModule === module.id && !activeFinancialSubModule ? 'bg-[#28376B]' : ''}`}
+                    variant={activeModule === module.id && !activeFinancialSubModule && !activeHRSubModule ? "default" : "ghost"}
+                    className={`w-full justify-start ${activeModule === module.id && !activeFinancialSubModule && !activeHRSubModule ? 'bg-[#28376B]' : ''}`}
                     onClick={() => {
                       if (module.hasSubModules) {
                         setExpandedModule(expandedModule === module.id ? null : module.id);
                         setActiveModule(module.id);
                         if (expandedModule !== module.id) {
                           setActiveFinancialSubModule(null);
+                          setActiveHRSubModule(null);
                         }
                       } else {
                         setActiveModule(module.id);
                         setActiveFinancialSubModule(null);
+                        setActiveHRSubModule(null);
                         setExpandedModule(null);
                       }
                     }}
