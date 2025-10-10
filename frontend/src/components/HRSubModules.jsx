@@ -138,6 +138,24 @@ export const SalariesModule = ({ language, userRole }) => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Process Payroll Modal */}
+      {showProcessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowProcessModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4">{language === 'ar' ? 'معالجة المرتبات' : 'Process Payroll'}</h3>
+            <p className="mb-6">{language === 'ar' ? 'هل تريد معالجة جميع المرتبات المعلقة؟' : 'Do you want to process all pending salaries?'}</p>
+            <div className="flex gap-4">
+              <Button onClick={handleProcessPayroll} className="flex-1 bg-[#28376B]">
+                {language === 'ar' ? 'تأكيد' : 'Confirm'}
+              </Button>
+              <Button onClick={() => setShowProcessModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
