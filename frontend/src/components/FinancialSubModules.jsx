@@ -773,6 +773,12 @@ export const FinancialReportsModule = ({ language, userRole }) => {
 
 // Customers Module
 export const CustomersModule = ({ language, userRole }) => {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
   const isRTL = language === 'ar';
   const canEdit = userRole === 'Financial Manager' || userRole === 'المدير المالي';
 
