@@ -274,6 +274,57 @@ export const TreasuryModule = ({ language, userRole }) => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* View Details Modal */}
+      {showViewModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل الحركة' : 'Transaction Details'}</h3>
+              <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'رقم الحركة' : 'Transaction #'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedEntry.id}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'التاريخ' : 'Date'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedEntry.date}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'النوع' : 'Type'}</p>
+                <Badge variant={selectedEntry.type === 'in' ? 'success' : 'destructive'}>
+                  {selectedEntry.type === 'in' ? (language === 'ar' ? 'إيداع' : 'Deposit') : (language === 'ar' ? 'سحب' : 'Withdrawal')}
+                </Badge>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الوصف' : 'Description'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedEntry.description}</p>
+              </div>
+              <div className={selectedEntry.type === 'in' ? 'bg-green-50' : 'bg-red-50'} p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'المبلغ' : 'Amount'}</p>
+                <p className={`text-lg font-bold ${selectedEntry.type === 'in' ? 'text-green-600' : 'text-red-600'}`}>
+                  {selectedEntry.type === 'in' ? '+' : '-'}{selectedEntry.amount.toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <Button onClick={() => setShowViewModal(false)} className="w-full mt-6 bg-[#28376B]">
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <div className="text-green-600 text-5xl mb-4">✓</div>
+            <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
