@@ -1143,14 +1143,48 @@ const DemoPage = ({ onClose }) => {
                     <div className="space-y-4">
                       <div>
                         <label className="text-sm font-medium">{t('demo.employeeForm.documents.profileImage')}</label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                          <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-3 flex items-center justify-center">
-                            <Users className="h-8 w-8 text-gray-400" />
-                          </div>
-                          <Button size="sm" variant="outline">
-                            {t('demo.employeeForm.documents.uploadImage')}
-                          </Button>
-                          <p className="text-xs text-gray-500 mt-2">JPG, PNG - {t('demo.employeeForm.documents.maxSize')}</p>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#28376B] transition-colors cursor-pointer">
+                          {employeeForm.profileImage ? (
+                            <div className="space-y-2">
+                              <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-3 flex items-center justify-center">
+                                <CheckCircle className="h-8 w-8 text-green-600" />
+                              </div>
+                              <p className="text-sm text-green-600 font-medium">{employeeForm.profileImage.name}</p>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => setEmployeeForm({...employeeForm, profileImage: null})}
+                              >
+                                {language === 'ar' ? 'إزالة الصورة' : 'Remove Image'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-3 flex items-center justify-center">
+                                <Users className="h-8 w-8 text-gray-400" />
+                              </div>
+                              <input 
+                                type="file" 
+                                id="profileImage" 
+                                accept="image/*" 
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    setEmployeeForm({...employeeForm, profileImage: file});
+                                  }
+                                }}
+                              />
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => document.getElementById('profileImage').click()}
+                              >
+                                {t('demo.employeeForm.documents.uploadImage')}
+                              </Button>
+                              <p className="text-xs text-gray-500 mt-2">JPG, PNG - {t('demo.employeeForm.documents.maxSize')}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
 
