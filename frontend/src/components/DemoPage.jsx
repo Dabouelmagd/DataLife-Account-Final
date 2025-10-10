@@ -2188,6 +2188,30 @@ const DemoPage = ({ onClose }) => {
   };
 
   const renderModule = () => {
+    // Check if we're in an HR sub-module
+    if (activeModule === 'hr' && activeHRSubModule) {
+      const userRole = language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'; // Demo role
+      
+      switch (activeHRSubModule) {
+        case 'hr-overview':
+          return renderHRModule();
+        case 'salaries':
+          return <SalariesModule language={language} userRole={userRole} />;
+        case 'allowances':
+          return <AllowancesModule language={language} userRole={userRole} />;
+        case 'deductions':
+          return <DeductionsModule language={language} userRole={userRole} />;
+        case 'casual-leave':
+          return <CasualLeaveModule language={language} userRole={userRole} />;
+        case 'annual-leave':
+          return <AnnualLeaveModule language={language} userRole={userRole} />;
+        case 'attendance':
+          return <AttendanceModule language={language} userRole={userRole} />;
+        default:
+          return renderHRModule();
+      }
+    }
+    
     // Check if we're in a financial sub-module
     if (activeModule === 'financial' && activeFinancialSubModule) {
       const userRole = language === 'ar' ? 'المدير المالي' : 'Financial Manager'; // Demo role
