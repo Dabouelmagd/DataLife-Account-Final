@@ -14,7 +14,9 @@ import { getTranslation } from '../data/translations';
 
 const FreeTrialModal = ({ isOpen, onClose }) => {
   const { language, isRTL } = useLanguage();
+  const navigate = useNavigate();
   const [step, setStep] = useState('form'); // form, processing, success
+  const [trialId, setTrialId] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
