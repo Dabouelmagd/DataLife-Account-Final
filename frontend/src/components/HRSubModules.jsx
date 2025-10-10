@@ -18,19 +18,27 @@ export const SalariesModule = ({ language, userRole }) => {
   ]);
 
   const [showProcessModal, setShowProcessModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedSalary, setSelectedSalary] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleProcessPayroll = () => {
     // Process all pending salaries
     setSalaries(salaries.map(s => ({ ...s, status: 'paid' })));
     setShowProcessModal(false);
-    alert(language === 'ar' ? 'تم معالجة المرتبات بنجاح!' : 'Payroll processed successfully!');
+    setSuccessMessage(language === 'ar' ? 'تم معالجة المرتبات بنجاح!' : 'Payroll processed successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm(language === 'ar' ? 'هل تريد حذف هذا السجل؟' : 'Are you sure you want to delete this record?')) {
-      setSalaries(salaries.filter(s => s.id !== id));
-      alert(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
-    }
+  const handleDeleteConfirm = () => {
+    setSalaries(salaries.filter(s => s.id !== selectedSalary.id));
+    setShowDeleteModal(false);
+    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
   return (
