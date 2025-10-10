@@ -369,7 +369,7 @@ export const AllowancesModule = ({ language, userRole }) => {
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowAddModal(true); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setEditAllowance({ id: item.id, employee: item.employee, type: item.type, amount: item.amount, month: item.month }); setShowEditModal(true); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowDeleteModal(true); }}>
