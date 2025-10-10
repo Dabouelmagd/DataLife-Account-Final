@@ -19,6 +19,9 @@ class RBACAPITester:
         self.base_url = BACKEND_URL
         self.client = None
         self.test_results = []
+        self.test_tokens = {}  # Store tokens for different users
+        self.test_users = {}   # Store user data
+        self.test_company = None
         
     async def setup(self):
         """Setup HTTP client"""
