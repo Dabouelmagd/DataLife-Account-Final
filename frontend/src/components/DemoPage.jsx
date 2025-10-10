@@ -610,11 +610,6 @@ const DemoPage = ({ onClose }) => {
   );
 
   const renderReportsModule = () => {
-    const [reportType, setReportType] = useState('attendance');
-    const [reportPeriod, setReportPeriod] = useState('monthly');
-    const [selectedMonth, setSelectedMonth] = useState('2024-10');
-    const [selectedYear, setSelectedYear] = useState('2024');
-
     // بيانات وهمية للحضور والانصراف
     const attendanceData = [
       { 
