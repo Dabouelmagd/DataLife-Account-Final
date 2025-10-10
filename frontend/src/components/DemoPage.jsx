@@ -95,6 +95,130 @@ const DemoPage = ({ onClose }) => {
   
   const t = (key) => getTranslation(language, key);
 
+  // وظائف التصدير والطباعة
+  const exportToCSV = (data, filename) => {
+    const csvContent = data.map(row => 
+      Object.values(row).map(val => 
+        typeof val === 'string' && val.includes(',') ? `"${val}"` : val
+      ).join(',')
+    ).join('\n');
+    
+    const headers = Object.keys(data[0]).join(',');
+    const fullContent = headers + '\n' + csvContent;
+    
+    const blob = new Blob([fullContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${filename}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToPDF = (contentId, filename) => {
+    const printWindow = window.open('', '', 'height=600,width=800');
+    const content = document.getElementById(contentId);
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${filename}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .summary-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; }
+            .no-print { display: none !important; }
+            @media print {
+              .no-print { display: none !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>DataLife Account - ${filename}</h1>
+            <p>تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}</p>
+          </div>
+          ${content.innerHTML}
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
+  const printReport = (contentId, title) => {
+    const originalContents = document.body.innerHTML;
+    const printContents = document.getElementById(contentId).innerHTML;
+    
+    document.body.innerHTML = `
+      <div style="font-family: Arial, sans-serif; margin: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1>DataLife Account</h1>
+          <h2>${title}</h2>
+          <p>تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}</p>
+        </div>
+        ${printContents}
+      </div>
+    `;
+    
+    window.print();
+    document.body.innerHTML = originalContents;
+    window.location.reload();
+  };
+
+  const exportReportData = (reportType) => {
+    let data = [];
+    let filename = '';
+
+    switch (reportType) {
+      case 'attendance':
+        data = attendanceData.map(emp => ({
+          'اسم الموظف': emp.name,
+          'كود الموظف': emp.employeeId,
+          'أيام العمل': emp.totalDays,
+          'أيام الحضور': emp.presentDays,
+          'أيام الغياب': emp.absentDays,
+          'أيام التأخير': emp.lateDays,
+          'ساعات العمل': emp.regularHours,
+          'ساعات إضافية': emp.overtimeHours
+        }));
+        filename = `تقرير_الحضور_${new Date().toISOString().split('T')[0]}`;
+        break;
+      case 'payroll':
+        data = attendanceData.map(emp => ({
+          'اسم الموظف': emp.name,
+          'الراتب الأساسي': emp.salary,
+          'البدلات': emp.allowances,
+          'الخصومات': emp.deductions,
+          'صافي الراتب': emp.netSalary
+        }));
+        filename = `تقرير_المرتبات_${new Date().toISOString().split('T')[0]}`;
+        break;
+      case 'financial':
+        data = [{
+          'الإيرادات الشهرية': 285000,
+          'المصروفات الشهرية': 180000,
+          'صافي الربح': 105000,
+          'هامش الربح': '36.8%',
+          'نمو الإيرادات': '15.2%'
+        }];
+        filename = `التقرير_المالي_${new Date().toISOString().split('T')[0]}`;
+        break;
+    }
+
+    exportToCSV(data, filename);
+  };
+
   // Translated demo data
   const translatedRecentActivity = [
     {
