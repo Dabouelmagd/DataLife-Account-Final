@@ -263,10 +263,10 @@ export const AllowancesModule = ({ language, userRole }) => {
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => alert(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open')}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </>
