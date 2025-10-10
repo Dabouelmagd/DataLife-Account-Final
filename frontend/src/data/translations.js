@@ -990,6 +990,110 @@ export const translations = {
         welcome: "Welcome to DataLife Demo!",
         description: "Let us guide you through the key features of DataLife Account.",
         start: "Start Tour"
+      },
+
+      // Employee Form
+      employeeForm: {
+        tabs: {
+          basic: "Basic Information",
+          job: "Job Details",
+          financial: "Financial Information", 
+          documents: "Documents & Files",
+          transfers: "Transfer History"
+        },
+        
+        basic: {
+          personalInfo: "Personal Information",
+          fullName: "Full Name",
+          email: "Email Address",
+          phone: "Phone Number",
+          nationalId: "National ID",
+          birthDate: "Birth Date",
+          gender: "Gender",
+          male: "Male",
+          female: "Female",
+          maritalStatus: "Marital Status",
+          single: "Single",
+          married: "Married",
+          divorced: "Divorced",
+          address: "Address"
+        },
+        
+        job: {
+          jobDetails: "Job Details",
+          position: "Position",
+          department: "Department",
+          directManager: "Direct Manager",
+          startDate: "Start Date",
+          employmentType: "Employment Type",
+          fullTime: "Full Time",
+          partTime: "Part Time",
+          contract: "Contract",
+          internship: "Internship",
+          workLocation: "Work Location"
+        },
+        
+        financial: {
+          salaryInfo: "Financial Information",
+          baseSalary: "Base Salary",
+          allowances: "Allowances",
+          allowanceType: "Allowance Type",
+          allowanceAmount: "Allowance Amount",
+          transportation: "Transportation",
+          housing: "Housing",
+          food: "Food",
+          communication: "Communication",
+          other: "Other",
+          deductions: "Deductions",
+          deductionType: "Deduction Type",
+          deductionAmount: "Deduction Amount",
+          insurance: "Insurance",
+          tax: "Tax",
+          loan: "Loan",
+          payrollMethod: "Payroll Method",
+          cash: "Cash",
+          bank: "Bank Transfer",
+          bankAccount: "Bank Account Number"
+        },
+        
+        documents: {
+          documentsFiles: "Documents & Files",
+          profileImage: "Profile Image",
+          uploadImage: "Upload Image",
+          cv: "CV/Resume",
+          uploadCV: "Upload CV",
+          contracts: "Employment Contracts",
+          uploadContract: "Upload Contract",
+          certificates: "Certificates & Qualifications",
+          uploadCertificate: "Upload Certificate",
+          supportedFormats: "Supported formats: PDF, DOC, JPG, PNG",
+          maxSize: "Max size: 5 MB"
+        },
+        
+        transfers: {
+          transferHistory: "Transfer History",
+          addTransfer: "Add Transfer",
+          fromDepartment: "From Department",
+          toDepartment: "To Department",
+          transferDate: "Transfer Date",
+          reason: "Reason",
+          promotion: "Promotion",
+          departmentChange: "Department Change",
+          locationChange: "Location Change",
+          restructuring: "Restructuring",
+          notes: "Notes"
+        },
+        
+        actions: {
+          save: "Save Employee",
+          cancel: "Cancel",
+          next: "Next",
+          previous: "Previous",
+          addAllowance: "Add Allowance",
+          addDeduction: "Add Deduction",
+          removeAllowance: "Remove Allowance",
+          removeDeduction: "Remove Deduction"
+        }
       }
     },
 
