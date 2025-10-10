@@ -47,14 +47,26 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <LanguageProvider>
-      <div className="App">
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/demo" element={<DemoPage onClose={() => window.history.back()} />} />
-          </Routes>
-        </BrowserRouter>
-      </div>
+      <AuthProvider>
+        <div className="App">
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/demo" element={<DemoPage onClose={() => window.history.back()} />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register-company" element={<CompanyRegistrationPage />} />
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
+            </Routes>
+          </BrowserRouter>
+        </div>
+      </AuthProvider>
     </LanguageProvider>
   );
 }
