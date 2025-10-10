@@ -1,0 +1,680 @@
+import React, { useState } from 'react';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Calendar, DollarSign } from 'lucide-react';
+import { Badge } from './ui/badge';
+
+// Salaries Module
+export const SalariesModule = ({ language, userRole }) => {
+  const isRTL = language === 'ar';
+  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+
+  const salaries = [
+    { id: 'E001', name: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', position: language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer', basicSalary: 15000, totalSalary: 18500, status: 'paid' },
+    { id: 'E002', name: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', position: language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager', basicSalary: 20000, totalSalary: 24000, status: 'paid' },
+    { id: 'E003', name: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', position: language === 'ar' ? 'محاسب' : 'Accountant', basicSalary: 12000, totalSalary: 14500, status: 'pending' },
+    { id: 'E004', name: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', position: language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer', basicSalary: 10000, totalSalary: 12200, status: 'paid' }
+  ];
+
+  return (
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">
+          {language === 'ar' ? 'المرتبات' : 'Salaries'}
+        </h2>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
+          </Button>
+          {canEdit && (
+            <Button size="sm" className="bg-[#28376B]">
+              <DollarSign className="h-4 w-4" />
+              <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'معالجة المرتبات' : 'Process Payroll'}</span>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي المرتبات' : 'Total Payroll'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">69,200 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'المدفوع' : 'Paid'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-green-600">3</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'قيد الانتظار' : 'Pending'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-yellow-600">1</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'عدد الموظفين' : 'Employees'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">4</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                <TableHead>{language === 'ar' ? 'اسم الموظف' : 'Employee Name'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الوظيفة' : 'Position'}</TableHead>
+                <TableHead>{language === 'ar' ? 'المرتب الأساسي' : 'Basic Salary'}</TableHead>
+                <TableHead>{language === 'ar' ? 'إجمالي المرتب' : 'Total Salary'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {salaries.map((salary) => (
+                <TableRow key={salary.id}>
+                  <TableCell className="font-medium">{salary.id}</TableCell>
+                  <TableCell>{salary.name}</TableCell>
+                  <TableCell>{salary.position}</TableCell>
+                  <TableCell>{salary.basicSalary.toLocaleString()}</TableCell>
+                  <TableCell className="font-bold">{salary.totalSalary.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Badge variant={salary.status === 'paid' ? 'success' : 'warning'}>
+                      {salary.status === 'paid' ? (language === 'ar' ? 'مدفوع' : 'Paid') : (language === 'ar' ? 'قيد الانتظار' : 'Pending')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {canEdit && (
+                        <>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Allowances & Overtime Module
+export const AllowancesModule = ({ language, userRole }) => {
+  const isRTL = language === 'ar';
+  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+
+  const allowances = [
+    { id: 'A001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', type: language === 'ar' ? 'بدل انتقال' : 'Transport', amount: 1500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
+    { id: 'A002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', type: language === 'ar' ? 'بدل سكن' : 'Housing', amount: 3000, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
+    { id: 'O001', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', type: language === 'ar' ? 'ساعات إضافية' : 'Overtime', amount: 2000, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
+    { id: 'A003', employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', type: language === 'ar' ? 'بدل طعام' : 'Meal', amount: 500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' }
+  ];
+
+  return (
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">
+          {language === 'ar' ? 'البدلات والإضافي' : 'Allowances & Overtime'}
+        </h2>
+        {canEdit && (
+          <Button size="sm" className="bg-[#28376B]">
+            <Plus className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'إضافة بدل' : 'Add Allowance'}</span>
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي البدلات' : 'Total Allowances'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">5,000 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'الساعات الإضافية' : 'Overtime'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">2,000 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'الإجمالي' : 'Grand Total'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-green-600">7,000 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
+                <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
+                <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الشهر' : 'Month'}</TableHead>
+                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {allowances.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.id}</TableCell>
+                  <TableCell>{item.employee}</TableCell>
+                  <TableCell>
+                    <Badge>{item.type}</Badge>
+                  </TableCell>
+                  <TableCell className="text-green-600 font-bold">{item.amount.toLocaleString()}</TableCell>
+                  <TableCell>{item.month}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {canEdit && (
+                        <>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Deductions Module
+export const DeductionsModule = ({ language, userRole }) => {
+  const isRTL = language === 'ar';
+  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+
+  const deductions = [
+    { id: 'D001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', type: language === 'ar' ? 'تأمينات' : 'Insurance', amount: 800, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
+    { id: 'D002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', type: language === 'ar' ? 'ضرائب' : 'Taxes', amount: 1200, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
+    { id: 'D003', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', type: language === 'ar' ? 'غياب' : 'Absence', amount: 500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
+    { id: 'D004', employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', type: language === 'ar' ? 'تأمينات' : 'Insurance', amount: 600, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' }
+  ];
+
+  return (
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">
+          {language === 'ar' ? 'الخصومات' : 'Deductions'}
+        </h2>
+        {canEdit && (
+          <Button size="sm" className="bg-[#28376B]">
+            <Plus className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'إضافة خصم' : 'Add Deduction'}</span>
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-4 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي الخصومات' : 'Total Deductions'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">3,100 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'التأمينات' : 'Insurance'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">1,400 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'الضرائب' : 'Taxes'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">1,200 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'أخرى' : 'Others'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">500 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
+                <TableHead>{language === 'ar' ? 'نوع الخصم' : 'Type'}</TableHead>
+                <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الشهر' : 'Month'}</TableHead>
+                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {deductions.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.id}</TableCell>
+                  <TableCell>{item.employee}</TableCell>
+                  <TableCell>
+                    <Badge variant="destructive">{item.type}</Badge>
+                  </TableCell>
+                  <TableCell className="text-red-600 font-bold">-{item.amount.toLocaleString()}</TableCell>
+                  <TableCell>{item.month}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {canEdit && (
+                        <>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Casual Leave Module
+export const CasualLeaveModule = ({ language, userRole }) => {
+  const isRTL = language === 'ar';
+  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+
+  const casualLeaves = [
+    { id: 'CL001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', date: '2024-10-05', reason: language === 'ar' ? 'ظروف عائلية' : 'Family emergency', status: 'approved' },
+    { id: 'CL002', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', date: '2024-10-08', reason: language === 'ar' ? 'ظروف صحية' : 'Medical', status: 'pending' },
+    { id: 'CL003', employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', date: '2024-10-10', reason: language === 'ar' ? 'ظروف طارئة' : 'Emergency', status: 'approved' }
+  ];
+
+  return (
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">
+          {language === 'ar' ? 'الإجازات العارضة' : 'Casual Leave'}
+        </h2>
+        {canEdit && (
+          <Button size="sm" className="bg-[#28376B]">
+            <Plus className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'إضافة إجازة' : 'Add Leave'}</span>
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي الإجازات' : 'Total Leaves'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">3</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'موافق عليها' : 'Approved'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-green-600">2</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'قيد المراجعة' : 'Pending'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-yellow-600">1</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
+                <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                <TableHead>{language === 'ar' ? 'السبب' : 'Reason'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {casualLeaves.map((leave) => (
+                <TableRow key={leave.id}>
+                  <TableCell className="font-medium">{leave.id}</TableCell>
+                  <TableCell>{leave.employee}</TableCell>
+                  <TableCell>{leave.date}</TableCell>
+                  <TableCell>{leave.reason}</TableCell>
+                  <TableCell>
+                    <Badge variant={leave.status === 'approved' ? 'success' : 'warning'}>
+                      {leave.status === 'approved' ? (language === 'ar' ? 'موافق' : 'Approved') : (language === 'ar' ? 'قيد المراجعة' : 'Pending')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {canEdit && (
+                        <>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Annual Leave Module
+export const AnnualLeaveModule = ({ language, userRole }) => {
+  const isRTL = language === 'ar';
+  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+
+  const annualLeaves = [
+    { id: 'AL001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', startDate: '2024-12-15', endDate: '2024-12-25', days: 10, balance: 11, status: 'approved' },
+    { id: 'AL002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', startDate: '2024-11-01', endDate: '2024-11-07', days: 7, balance: 14, status: 'pending' },
+    { id: 'AL003', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', startDate: '2024-10-20', endDate: '2024-10-25', days: 5, balance: 16, status: 'approved' }
+  ];
+
+  return (
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">
+          {language === 'ar' ? 'الإجازات السنوية' : 'Annual Leave'}
+        </h2>
+        {canEdit && (
+          <Button size="sm" className="bg-[#28376B]">
+            <Plus className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'طلب إجازة' : 'Request Leave'}</span>
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-4 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي الطلبات' : 'Total Requests'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">3</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'أيام مستخدمة' : 'Days Used'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">22</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'الرصيد المتبقي' : 'Remaining Balance'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-green-600">41</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'موافق عليها' : 'Approved'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">2</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
+                <TableHead>{language === 'ar' ? 'من' : 'From'}</TableHead>
+                <TableHead>{language === 'ar' ? 'إلى' : 'To'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الأيام' : 'Days'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الرصيد المتبقي' : 'Balance'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {annualLeaves.map((leave) => (
+                <TableRow key={leave.id}>
+                  <TableCell className="font-medium">{leave.id}</TableCell>
+                  <TableCell>{leave.employee}</TableCell>
+                  <TableCell>{leave.startDate}</TableCell>
+                  <TableCell>{leave.endDate}</TableCell>
+                  <TableCell className="font-bold">{leave.days}</TableCell>
+                  <TableCell className="text-green-600">{leave.balance}</TableCell>
+                  <TableCell>
+                    <Badge variant={leave.status === 'approved' ? 'success' : 'warning'}>
+                      {leave.status === 'approved' ? (language === 'ar' ? 'موافق' : 'Approved') : (language === 'ar' ? 'قيد المراجعة' : 'Pending')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {canEdit && (
+                        <>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Attendance Module
+export const AttendanceModule = ({ language, userRole }) => {
+  const isRTL = language === 'ar';
+  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+
+  const attendance = [
+    { id: 'E001', name: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', date: '2024-10-10', checkIn: '08:45', checkOut: '17:30', status: 'present', hours: 8.75 },
+    { id: 'E002', name: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', date: '2024-10-10', checkIn: '09:00', checkOut: '18:00', status: 'present', hours: 9 },
+    { id: 'E003', name: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', date: '2024-10-10', checkIn: '-', checkOut: '-', status: 'absent', hours: 0 },
+    { id: 'E004', name: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', date: '2024-10-10', checkIn: '10:00', checkOut: '17:00', status: 'late', hours: 7 }
+  ];
+
+  return (
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">
+          {language === 'ar' ? 'الحضور والانصراف' : 'Attendance'}
+        </h2>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm">
+            <Calendar className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'اختر التاريخ' : 'Select Date'}</span>
+          </Button>
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">4</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'حاضر' : 'Present'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-green-600">3</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'غائب' : 'Absent'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">1</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{language === 'ar' ? 'تأخير' : 'Late'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-yellow-600">1</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
+                <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الحضور' : 'Check In'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الانصراف' : 'Check Out'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الساعات' : 'Hours'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {attendance.map((record) => (
+                <TableRow key={record.id}>
+                  <TableCell className="font-medium">{record.id}</TableCell>
+                  <TableCell>{record.name}</TableCell>
+                  <TableCell>{record.date}</TableCell>
+                  <TableCell>{record.checkIn}</TableCell>
+                  <TableCell>{record.checkOut}</TableCell>
+                  <TableCell className="font-bold">{record.hours}</TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      record.status === 'present' ? 'success' : 
+                      record.status === 'absent' ? 'destructive' : 
+                      'warning'
+                    }>
+                      {record.status === 'present' ? (language === 'ar' ? 'حاضر' : 'Present') : 
+                       record.status === 'absent' ? (language === 'ar' ? 'غائب' : 'Absent') : 
+                       (language === 'ar' ? 'تأخير' : 'Late')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {canEdit && (
+                        <Button variant="ghost" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
