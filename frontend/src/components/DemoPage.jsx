@@ -469,78 +469,957 @@ const DemoPage = ({ onClose }) => {
     </div>
   );
 
-  const renderFinancialModule = () => (
-    <div className="space-y-6">
-      {/* Financial Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {demoData.financial.overview.map((item, index) => (
-          <Card key={index}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">{item.label}</p>
-                  <p className="text-2xl font-bold">{item.value}</p>
-                  <p className={`text-sm ${item.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                    {item.change}
-                  </p>
+  const renderFinancialModule = () => {
+    // بيانات مالية شاملة
+    const financialData = {
+      executiveSummary: {
+        currentMonth: {
+          revenue: 285000,
+          expenses: 180000,
+          netProfit: 105000,
+          profitMargin: 36.8,
+          revenueGrowth: 15.2,
+          expenseGrowth: 8.5
+        },
+        previousMonth: {
+          revenue: 248000,
+          expenses: 166000,
+          netProfit: 82000
+        },
+        yearToDate: {
+          revenue: 2650000,
+          expenses: 1950000,
+          netProfit: 700000
+        }
+      },
+      
+      profitLoss: {
+        revenue: {
+          sales: 285000,
+          services: 45000,
+          other: 15000,
+          total: 345000
+        },
+        cogs: 120000,
+        grossProfit: 225000,
+        operatingExpenses: {
+          salaries: 85000,
+          rent: 25000,
+          marketing: 15000,
+          utilities: 8000,
+          maintenance: 7000,
+          other: 20000,
+          total: 160000
+        },
+        operatingProfit: 65000,
+        nonOperating: {
+          income: 5000,
+          expenses: 3000,
+          net: 2000
+        },
+        profitBeforeTax: 67000,
+        tax: 10000,
+        netProfit: 57000
+      },
+
+      cashFlow: {
+        operating: {
+          netIncome: 57000,
+          depreciation: 8000,
+          accountsReceivable: -15000,
+          inventory: -8000,
+          accountsPayable: 12000,
+          total: 54000
+        },
+        investing: {
+          equipment: -25000,
+          investments: -10000,
+          total: -35000
+        },
+        financing: {
+          loans: 20000,
+          dividends: -15000,
+          total: 5000
+        },
+        netCashFlow: 24000,
+        beginningCash: 120000,
+        endingCash: 144000
+      },
+
+      balanceSheet: {
+        assets: {
+          current: {
+            cash: 144000,
+            accountsReceivable: 85000,
+            inventory: 65000,
+            prepaid: 15000,
+            total: 309000
+          },
+          fixed: {
+            equipment: 180000,
+            buildings: 350000,
+            depreciation: -45000,
+            total: 485000
+          },
+          totalAssets: 794000
+        },
+        liabilities: {
+          current: {
+            accountsPayable: 45000,
+            shortTermLoans: 25000,
+            accrued: 18000,
+            total: 88000
+          },
+          longTerm: {
+            loans: 150000,
+            total: 150000
+          },
+          totalLiabilities: 238000
+        },
+        equity: {
+          capital: 400000,
+          retainedEarnings: 156000,
+          totalEquity: 556000
+        }
+      },
+
+      kpis: {
+        profitability: {
+          grossMargin: 65.2,
+          operatingMargin: 18.8,
+          netMargin: 16.5,
+          roe: 10.3,
+          roa: 7.2
+        },
+        liquidity: {
+          currentRatio: 3.51,
+          quickRatio: 2.77,
+          cashRatio: 1.64
+        },
+        efficiency: {
+          assetTurnover: 0.43,
+          receivablesTurnover: 4.1,
+          inventoryTurnover: 5.3,
+          payablesTurnover: 3.6
+        }
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* التحكم في التقارير المالية */}
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="flex items-center">
+                <TrendingUp className="h-5 w-5 mr-2" />
+                {language === 'ar' ? 'التقارير المالية' : 'Financial Reports'}
+              </CardTitle>
+              <div className="flex gap-2">
+                <select 
+                  className="border rounded px-3 py-2 text-sm"
+                  value={financialPeriod}
+                  onChange={(e) => setFinancialPeriod(e.target.value)}
+                >
+                  <option value="monthly">{language === 'ar' ? 'شهري' : 'Monthly'}</option>
+                  <option value="yearly">{language === 'ar' ? 'سنوي' : 'Yearly'}</option>
+                </select>
+                <Button 
+                  size="sm" 
+                  className="bg-[#28376B]"
+                  onClick={() => setIsAddTransactionModal(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('demo.financial.newTransaction')}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* تبويبات التقارير */}
+        <div className="border-b">
+          <div className="flex overflow-x-auto">
+            {[
+              { id: 'overview', label: language === 'ar' ? 'الملخص التنفيذي' : 'Executive Summary' },
+              { id: 'profitLoss', label: language === 'ar' ? 'الربح والخسارة' : 'Profit & Loss' },
+              { id: 'cashFlow', label: language === 'ar' ? 'التدفق النقدي' : 'Cash Flow' },
+              { id: 'balance', label: language === 'ar' ? 'الميزانية العمومية' : 'Balance Sheet' },
+              { id: 'kpis', label: language === 'ar' ? 'مؤشرات الأداء' : 'KPIs' },
+              { id: 'analysis', label: language === 'ar' ? 'التحليل التفصيلي' : 'Detailed Analysis' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setFinancialReportTab(tab.id)}
+                className={`px-6 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+                  financialReportTab === tab.id 
+                    ? 'border-[#28376B] text-[#28376B]' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* محتوى التبويبات */}
+        {/* الملخص التنفيذي */}
+        {financialReportTab === 'overview' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card className="bg-gradient-to-r from-green-50 to-green-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-green-700">{language === 'ar' ? 'الإيرادات الشهرية' : 'Monthly Revenue'}</p>
+                      <p className="text-2xl font-bold text-green-800">{financialData.executiveSummary.currentMonth.revenue.toLocaleString()} {t('demo.currency')}</p>
+                      <p className="text-sm text-green-600">+{financialData.executiveSummary.currentMonth.revenueGrowth}%</p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-r from-red-50 to-red-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-red-700">{language === 'ar' ? 'المصروفات الشهرية' : 'Monthly Expenses'}</p>
+                      <p className="text-2xl font-bold text-red-800">{financialData.executiveSummary.currentMonth.expenses.toLocaleString()} {t('demo.currency')}</p>
+                      <p className="text-sm text-red-600">+{financialData.executiveSummary.currentMonth.expenseGrowth}%</p>
+                    </div>
+                    <TrendingDown className="h-8 w-8 text-red-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-700">{language === 'ar' ? 'صافي الربح' : 'Net Profit'}</p>
+                      <p className="text-2xl font-bold text-blue-800">{financialData.executiveSummary.currentMonth.netProfit.toLocaleString()} {t('demo.currency')}</p>
+                      <p className="text-sm text-blue-600">{financialData.executiveSummary.currentMonth.profitMargin}% {language === 'ar' ? 'هامش' : 'margin'}</p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-r from-purple-50 to-purple-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-purple-700">{language === 'ar' ? 'الإيرادات السنوية' : 'YTD Revenue'}</p>
+                      <p className="text-2xl font-bold text-purple-800">{financialData.executiveSummary.yearToDate.revenue.toLocaleString()} {t('demo.currency')}</p>
+                      <p className="text-sm text-purple-600">{language === 'ar' ? 'حتى تاريخه' : 'Year to Date'}</p>
+                    </div>
+                    <BarChart3 className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* مقارنة الأداء */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'مقارنة الأداء الشهري' : 'Monthly Performance Comparison'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <h4 className="font-semibold mb-2">{language === 'ar' ? 'الشهر الحالي' : 'Current Month'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'الإيرادات:' : 'Revenue:'}</span>
+                        <span className="font-medium">{financialData.executiveSummary.currentMonth.revenue.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'المصروفات:' : 'Expenses:'}</span>
+                        <span className="font-medium text-red-600">{financialData.executiveSummary.currentMonth.expenses.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2">
+                        <span className="font-semibold">{language === 'ar' ? 'صافي الربح:' : 'Net Profit:'}</span>
+                        <span className="font-semibold text-green-600">{financialData.executiveSummary.currentMonth.netProfit.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold mb-2">{language === 'ar' ? 'الشهر السابق' : 'Previous Month'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'الإيرادات:' : 'Revenue:'}</span>
+                        <span className="font-medium">{financialData.executiveSummary.previousMonth.revenue.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'المصروفات:' : 'Expenses:'}</span>
+                        <span className="font-medium text-red-600">{financialData.executiveSummary.previousMonth.expenses.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2">
+                        <span className="font-semibold">{language === 'ar' ? 'صافي الربح:' : 'Net Profit:'}</span>
+                        <span className="font-semibold text-green-600">{financialData.executiveSummary.previousMonth.netProfit.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold mb-2">{language === 'ar' ? 'التغيير' : 'Change'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'الإيرادات:' : 'Revenue:'}</span>
+                        <span className="font-medium text-green-600">+{financialData.executiveSummary.currentMonth.revenueGrowth}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'المصروفات:' : 'Expenses:'}</span>
+                        <span className="font-medium text-orange-600">+{financialData.executiveSummary.currentMonth.expenseGrowth}%</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2">
+                        <span className="font-semibold">{language === 'ar' ? 'صافي الربح:' : 'Net Profit:'}</span>
+                        <span className="font-semibold text-green-600">+28.0%</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <item.icon className={`h-8 w-8 ${item.color}`} />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* بيان الربح والخسارة */}
+        {financialReportTab === 'profitLoss' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'بيان الربح والخسارة' : 'Profit & Loss Statement'} - {financialPeriod === 'monthly' ? (language === 'ar' ? 'شهري' : 'Monthly') : (language === 'ar' ? 'سنوي' : 'Annual')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* الإيرادات */}
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-green-800 mb-3">{language === 'ar' ? 'الإيرادات' : 'Revenue'}</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'المبيعات:' : 'Sales:'}</span>
+                      <span className="font-medium">{financialData.profitLoss.revenue.sales.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'الخدمات:' : 'Services:'}</span>
+                      <span className="font-medium">{financialData.profitLoss.revenue.services.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'أخرى:' : 'Other:'}</span>
+                      <span className="font-medium">{financialData.profitLoss.revenue.other.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-green-700 border-t pt-2">
+                      <span>{language === 'ar' ? 'إجمالي الإيرادات:' : 'Total Revenue:'}</span>
+                      <span>{financialData.profitLoss.revenue.total.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* تكلفة البضاعة المباعة */}
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <div className="flex justify-between">
+                    <span className="font-semibold">{language === 'ar' ? 'تكلفة البضاعة المباعة:' : 'Cost of Goods Sold:'}</span>
+                    <span className="font-semibold text-orange-600">({financialData.profitLoss.cogs.toLocaleString()}) {t('demo.currency')}</span>
+                  </div>
+                </div>
+
+                {/* إجمالي الربح */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-blue-800">{language === 'ar' ? 'إجمالي الربح:' : 'Gross Profit:'}</span>
+                    <span className="font-semibold text-blue-800">{financialData.profitLoss.grossProfit.toLocaleString()} {t('demo.currency')}</span>
+                  </div>
+                </div>
+
+                {/* المصروفات التشغيلية */}
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-red-800 mb-3">{language === 'ar' ? 'المصروفات التشغيلية' : 'Operating Expenses'}</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'الرواتب:' : 'Salaries:'}</span>
+                      <span className="font-medium">({financialData.profitLoss.operatingExpenses.salaries.toLocaleString()}) {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'الإيجار:' : 'Rent:'}</span>
+                      <span className="font-medium">({financialData.profitLoss.operatingExpenses.rent.toLocaleString()}) {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'التسويق:' : 'Marketing:'}</span>
+                      <span className="font-medium">({financialData.profitLoss.operatingExpenses.marketing.toLocaleString()}) {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'المرافق:' : 'Utilities:'}</span>
+                      <span className="font-medium">({financialData.profitLoss.operatingExpenses.utilities.toLocaleString()}) {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'الصيانة:' : 'Maintenance:'}</span>
+                      <span className="font-medium">({financialData.profitLoss.operatingExpenses.maintenance.toLocaleString()}) {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-red-700 border-t pt-2">
+                      <span>{language === 'ar' ? 'إجمالي المصروفات:' : 'Total Expenses:'}</span>
+                      <span>({financialData.profitLoss.operatingExpenses.total.toLocaleString()}) {t('demo.currency')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* النتيجة النهائية */}
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-semibold">{language === 'ar' ? 'الربح التشغيلي:' : 'Operating Profit:'}</span>
+                      <span className="font-semibold">{financialData.profitLoss.operatingProfit.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'إيرادات/مصروفات غير تشغيلية:' : 'Non-Operating (Net):'}</span>
+                      <span className="text-green-600">+{financialData.profitLoss.nonOperating.net.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-semibold">{language === 'ar' ? 'الربح قبل الضرائب:' : 'Profit Before Tax:'}</span>
+                      <span className="font-semibold">{financialData.profitLoss.profitBeforeTax.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'الضرائب:' : 'Tax:'}</span>
+                      <span className="text-red-600">({financialData.profitLoss.tax.toLocaleString()}) {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-lg border-t pt-2">
+                      <span className="text-green-800">{language === 'ar' ? 'صافي الربح:' : 'Net Profit:'}</span>
+                      <span className="text-green-800">{financialData.profitLoss.netProfit.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        )}
 
-      {/* Recent Transactions */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>{t('demo.financial.recentTransactions')}</CardTitle>
-            <Button 
-              size="sm" 
-              className="bg-[#28376B]"
-              onClick={() => setIsAddTransactionModal(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              {t('demo.financial.newTransaction')}
-            </Button>
+        {/* بيان التدفق النقدي */}
+        {financialReportTab === 'cashFlow' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'بيان التدفق النقدي' : 'Cash Flow Statement'}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* التدفقات التشغيلية */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-blue-800 mb-3">{language === 'ar' ? 'التدفقات من الأنشطة التشغيلية' : 'Cash Flows from Operating Activities'}</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'صافي الدخل:' : 'Net Income:'}</span>
+                      <span className="font-medium">{financialData.cashFlow.operating.netIncome.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'الاستهلاك:' : 'Depreciation:'}</span>
+                      <span className="font-medium">+{financialData.cashFlow.operating.depreciation.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'حسابات مدينة:' : 'Accounts Receivable:'}</span>
+                      <span className="font-medium text-red-600">{financialData.cashFlow.operating.accountsReceivable.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'المخزون:' : 'Inventory:'}</span>
+                      <span className="font-medium text-red-600">{financialData.cashFlow.operating.inventory.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'حسابات دائنة:' : 'Accounts Payable:'}</span>
+                      <span className="font-medium text-green-600">+{financialData.cashFlow.operating.accountsPayable.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold border-t pt-2">
+                      <span className="text-blue-700">{language === 'ar' ? 'صافي التدفق التشغيلي:' : 'Net Operating Cash Flow:'}</span>
+                      <span className="text-blue-700">{financialData.cashFlow.operating.total.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* التدفقات الاستثمارية */}
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-yellow-800 mb-3">{language === 'ar' ? 'التدفقات من الأنشطة الاستثمارية' : 'Cash Flows from Investing Activities'}</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'شراء معدات:' : 'Equipment Purchase:'}</span>
+                      <span className="font-medium text-red-600">{financialData.cashFlow.investing.equipment.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'استثمارات:' : 'Investments:'}</span>
+                      <span className="font-medium text-red-600">{financialData.cashFlow.investing.investments.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold border-t pt-2">
+                      <span className="text-yellow-700">{language === 'ar' ? 'صافي التدفق الاستثماري:' : 'Net Investing Cash Flow:'}</span>
+                      <span className="text-red-600">{financialData.cashFlow.investing.total.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* التدفقات التمويلية */}
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-green-800 mb-3">{language === 'ar' ? 'التدفقات من الأنشطة التمويلية' : 'Cash Flows from Financing Activities'}</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'قروض جديدة:' : 'New Loans:'}</span>
+                      <span className="font-medium text-green-600">+{financialData.cashFlow.financing.loans.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'أرباح موزعة:' : 'Dividends Paid:'}</span>
+                      <span className="font-medium text-red-600">{financialData.cashFlow.financing.dividends.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold border-t pt-2">
+                      <span className="text-green-700">{language === 'ar' ? 'صافي التدفق التمويلي:' : 'Net Financing Cash Flow:'}</span>
+                      <span className="text-green-700">{financialData.cashFlow.financing.total.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* الملخص النهائي */}
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <div className="space-y-2">
+                    <div className="flex justify-between font-semibold">
+                      <span>{language === 'ar' ? 'صافي التغير في النقدية:' : 'Net Change in Cash:'}</span>
+                      <span className="text-blue-600">{financialData.cashFlow.netCashFlow.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'النقدية في بداية الفترة:' : 'Beginning Cash Balance:'}</span>
+                      <span className="font-medium">{financialData.cashFlow.beginningCash.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-lg border-t pt-2">
+                      <span className="text-green-800">{language === 'ar' ? 'النقدية في نهاية الفترة:' : 'Ending Cash Balance:'}</span>
+                      <span className="text-green-800">{financialData.cashFlow.endingCash.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* الميزانية العمومية */}
+        {financialReportTab === 'balance' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'الميزانية العمومية' : 'Balance Sheet'}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* الأصول */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-blue-800">{language === 'ar' ? 'الأصول' : 'Assets'}</h3>
+                  
+                  {/* الأصول المتداولة */}
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-blue-700 mb-3">{language === 'ar' ? 'الأصول المتداولة' : 'Current Assets'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'النقد وما في حكمه:' : 'Cash & Cash Equivalents:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.assets.current.cash.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'حسابات مدينة:' : 'Accounts Receivable:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.assets.current.accountsReceivable.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'المخزون:' : 'Inventory:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.assets.current.inventory.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'مصروفات مدفوعة مقدماً:' : 'Prepaid Expenses:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.assets.current.prepaid.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span className="text-blue-700">{language === 'ar' ? 'إجمالي الأصول المتداولة:' : 'Total Current Assets:'}</span>
+                        <span className="text-blue-700">{financialData.balanceSheet.assets.current.total.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* الأصول الثابتة */}
+                  <div className="bg-blue-100 p-4 rounded-lg">
+                    <h4 className="font-semibold text-blue-700 mb-3">{language === 'ar' ? 'الأصول الثابتة' : 'Fixed Assets'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'معدات:' : 'Equipment:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.assets.fixed.equipment.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'مباني:' : 'Buildings:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.assets.fixed.buildings.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'استهلاك متراكم:' : 'Accumulated Depreciation:'}</span>
+                        <span className="font-medium text-red-600">({Math.abs(financialData.balanceSheet.assets.fixed.depreciation).toLocaleString()}) {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span className="text-blue-700">{language === 'ar' ? 'صافي الأصول الثابتة:' : 'Net Fixed Assets:'}</span>
+                        <span className="text-blue-700">{financialData.balanceSheet.assets.fixed.total.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-200 p-4 rounded-lg">
+                    <div className="flex justify-between font-bold text-lg">
+                      <span className="text-blue-800">{language === 'ar' ? 'إجمالي الأصول:' : 'Total Assets:'}</span>
+                      <span className="text-blue-800">{financialData.balanceSheet.assets.totalAssets.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* الخصوم وحقوق الملكية */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-red-800">{language === 'ar' ? 'الخصوم وحقوق الملكية' : 'Liabilities & Equity'}</h3>
+                  
+                  {/* الخصوم المتداولة */}
+                  <div className="bg-red-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-red-700 mb-3">{language === 'ar' ? 'الخصوم المتداولة' : 'Current Liabilities'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'حسابات دائنة:' : 'Accounts Payable:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.liabilities.current.accountsPayable.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'قروض قصيرة الأجل:' : 'Short-term Loans:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.liabilities.current.shortTermLoans.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'مستحقات:' : 'Accrued Liabilities:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.liabilities.current.accrued.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span className="text-red-700">{language === 'ar' ? 'إجمالي الخصوم المتداولة:' : 'Total Current Liabilities:'}</span>
+                        <span className="text-red-700">{financialData.balanceSheet.liabilities.current.total.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* الخصوم طويلة الأجل */}
+                  <div className="bg-red-100 p-4 rounded-lg">
+                    <h4 className="font-semibold text-red-700 mb-3">{language === 'ar' ? 'الخصوم طويلة الأجل' : 'Long-term Liabilities'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'قروض طويلة الأجل:' : 'Long-term Loans:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.liabilities.longTerm.loans.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span className="text-red-700">{language === 'ar' ? 'إجمالي الخصوم طويلة الأجل:' : 'Total Long-term Liabilities:'}</span>
+                        <span className="text-red-700">{financialData.balanceSheet.liabilities.longTerm.total.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* إجمالي الخصوم */}
+                  <div className="bg-red-200 p-4 rounded-lg">
+                    <div className="flex justify-between font-semibold">
+                      <span className="text-red-800">{language === 'ar' ? 'إجمالي الخصوم:' : 'Total Liabilities:'}</span>
+                      <span className="text-red-800">{financialData.balanceSheet.liabilities.totalLiabilities.toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                  </div>
+
+                  {/* حقوق الملكية */}
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-green-700 mb-3">{language === 'ar' ? 'حقوق الملكية' : 'Shareholders\' Equity'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'رأس المال:' : 'Share Capital:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.equity.capital.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'الأرباح المحتجزة:' : 'Retained Earnings:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.equity.retainedEarnings.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span className="text-green-700">{language === 'ar' ? 'إجمالي حقوق الملكية:' : 'Total Equity:'}</span>
+                        <span className="text-green-700">{financialData.balanceSheet.equity.totalEquity.toLocaleString()} {t('demo.currency')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* التحقق من توازن الميزانية */}
+                  <div className="bg-gray-100 p-4 rounded-lg">
+                    <div className="flex justify-between font-bold text-lg">
+                      <span>{language === 'ar' ? 'إجمالي الخصوم وحقوق الملكية:' : 'Total Liabilities & Equity:'}</span>
+                      <span className="text-gray-800">{(financialData.balanceSheet.liabilities.totalLiabilities + financialData.balanceSheet.equity.totalEquity).toLocaleString()} {t('demo.currency')}</span>
+                    </div>
+                    <div className="text-center mt-2">
+                      <span className="text-sm text-green-600 font-medium">✓ {language === 'ar' ? 'الميزانية متوازنة' : 'Balance Sheet Balanced'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* مؤشرات الأداء الرئيسية */}
+        {financialReportTab === 'kpis' && (
+          <div className="space-y-6">
+            {/* مؤشرات الربحية */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-green-800">{language === 'ar' ? 'مؤشرات الربحية' : 'Profitability Ratios'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">{financialData.kpis.profitability.grossMargin}%</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'هامش الربح الإجمالي' : 'Gross Margin'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">{financialData.kpis.profitability.operatingMargin}%</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'هامش الربح التشغيلي' : 'Operating Margin'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">{financialData.kpis.profitability.netMargin}%</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'هامش صافي الربح' : 'Net Margin'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">{financialData.kpis.profitability.roe}%</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'العائد على الملكية' : 'ROE'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">{financialData.kpis.profitability.roa}%</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'العائد على الأصول' : 'ROA'}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* مؤشرات السيولة */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-blue-800">{language === 'ar' ? 'مؤشرات السيولة' : 'Liquidity Ratios'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{financialData.kpis.liquidity.currentRatio}</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'نسبة التداول' : 'Current Ratio'}</div>
+                    <div className="text-xs text-gray-500 mt-1">{language === 'ar' ? 'الأصول المتداولة / الخصوم المتداولة' : 'Current Assets / Current Liabilities'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{financialData.kpis.liquidity.quickRatio}</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'النسبة السريعة' : 'Quick Ratio'}</div>
+                    <div className="text-xs text-gray-500 mt-1">{language === 'ar' ? '(الأصول المتداولة - المخزون) / الخصوم المتداولة' : '(Current Assets - Inventory) / Current Liabilities'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{financialData.kpis.liquidity.cashRatio}</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'النسبة النقدية' : 'Cash Ratio'}</div>
+                    <div className="text-xs text-gray-500 mt-1">{language === 'ar' ? 'النقد / الخصوم المتداولة' : 'Cash / Current Liabilities'}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* مؤشرات الكفاءة */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-orange-800">{language === 'ar' ? 'مؤشرات الكفاءة' : 'Efficiency Ratios'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">{financialData.kpis.efficiency.assetTurnover}</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'دوران الأصول' : 'Asset Turnover'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">{financialData.kpis.efficiency.receivablesTurnover}</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'دوران المدينين' : 'Receivables Turnover'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">{financialData.kpis.efficiency.inventoryTurnover}</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'دوران المخزون' : 'Inventory Turnover'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">{financialData.kpis.efficiency.payablesTurnover}</div>
+                    <div className="text-sm text-gray-600">{language === 'ar' ? 'دوران الدائنين' : 'Payables Turnover'}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* مقارنة المعايير الصناعية */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'مقارنة مع المعايير الصناعية' : 'Industry Benchmarks Comparison'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                    <span className="font-medium">{language === 'ar' ? 'هامش صافي الربح' : 'Net Profit Margin'}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'الشركة:' : 'Company:'} <strong>{financialData.kpis.profitability.netMargin}%</strong></span>
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'الصناعة:' : 'Industry:'} <strong>12.3%</strong></span>
+                      <span className="text-sm text-green-600 font-semibold">+4.2%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                    <span className="font-medium">{language === 'ar' ? 'نسبة التداول' : 'Current Ratio'}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'الشركة:' : 'Company:'} <strong>{financialData.kpis.liquidity.currentRatio}</strong></span>
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'الصناعة:' : 'Industry:'} <strong>2.1</strong></span>
+                      <span className="text-sm text-green-600 font-semibold">+1.41</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                    <span className="font-medium">{language === 'ar' ? 'العائد على الأصول' : 'Return on Assets'}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'الشركة:' : 'Company:'} <strong>{financialData.kpis.profitability.roa}%</strong></span>
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'الصناعة:' : 'Industry:'} <strong>5.8%</strong></span>
+                      <span className="text-sm text-green-600 font-semibold">+1.4%</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('demo.financial.date')}</TableHead>
-                <TableHead>{t('demo.financial.description')}</TableHead>
-                <TableHead>{t('demo.financial.category')}</TableHead>
-                <TableHead>{t('demo.financial.amount')}</TableHead>
-                <TableHead>{t('demo.financial.status')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {demoData.financial.transactions.map((transaction, index) => (
-                <TableRow key={index}>
-                  <TableCell>{transaction.date}</TableCell>
-                  <TableCell>{transaction.description}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{transaction.category}</Badge>
-                  </TableCell>
-                  <TableCell className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
-                    {transaction.type === 'income' ? '+' : '-'}{transaction.amount.toLocaleString()} {t('demo.currency')}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={transaction.status === 'Completed' ? 'success' : 'warning'}>
-                      {transaction.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
-  );
+        )}
+
+        {/* التحليل التفصيلي */}
+        {financialReportTab === 'analysis' && (
+          <div className="space-y-6">
+            {/* التحليل الإقليمي/المنتج */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'التحليل حسب القسم/المنطقة' : 'Analysis by Department/Region'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-semibold mb-3">{language === 'ar' ? 'الإيرادات حسب القسم' : 'Revenue by Department'}</h4>
+                    <div className="space-y-2">
+                      {[
+                        { dept: language === 'ar' ? 'المبيعات' : 'Sales', revenue: 180000, percentage: 52 },
+                        { dept: language === 'ar' ? 'الخدمات' : 'Services', revenue: 95000, percentage: 28 },
+                        { dept: language === 'ar' ? 'التسويق' : 'Marketing', revenue: 45000, percentage: 13 },
+                        { dept: language === 'ar' ? 'أخرى' : 'Others', revenue: 25000, percentage: 7 }
+                      ].map((item, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <span className="font-medium">{item.dept}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium">{item.revenue.toLocaleString()} {t('demo.currency')}</span>
+                            <span className="text-sm text-gray-600">({item.percentage}%)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold mb-3">{language === 'ar' ? 'المصروفات حسب الفئة' : 'Expenses by Category'}</h4>
+                    <div className="space-y-2">
+                      {[
+                        { category: language === 'ar' ? 'الرواتب' : 'Salaries', amount: 85000, percentage: 47 },
+                        { category: language === 'ar' ? 'التشغيل' : 'Operations', amount: 45000, percentage: 25 },
+                        { category: language === 'ar' ? 'الإيجار' : 'Rent', amount: 25000, percentage: 14 },
+                        { category: language === 'ar' ? 'أخرى' : 'Others', amount: 25000, percentage: 14 }
+                      ].map((item, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-red-50 rounded">
+                          <span className="font-medium">{item.category}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-red-600">({item.amount.toLocaleString()}) {t('demo.currency')}</span>
+                            <span className="text-sm text-gray-600">({item.percentage}%)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* تحليل الاتجاهات */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'تحليل الاتجاهات (آخر 6 أشهر)' : 'Trend Analysis (Last 6 Months)'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">{language === 'ar' ? 'الشهر' : 'Month'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'الإيرادات' : 'Revenue'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'المصروفات' : 'Expenses'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'صافي الربح' : 'Net Profit'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'النمو %' : 'Growth %'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { month: language === 'ar' ? 'أكتوبر 2024' : 'Oct 2024', revenue: 285000, expenses: 180000, profit: 105000, growth: 15.2 },
+                        { month: language === 'ar' ? 'سبتمبر 2024' : 'Sep 2024', revenue: 248000, expenses: 166000, profit: 82000, growth: 8.5 },
+                        { month: language === 'ar' ? 'أغسطس 2024' : 'Aug 2024', revenue: 228000, expenses: 158000, profit: 70000, growth: 5.2 },
+                        { month: language === 'ar' ? 'يوليو 2024' : 'Jul 2024', revenue: 217000, expenses: 152000, profit: 65000, growth: 3.1 },
+                        { month: language === 'ar' ? 'يونيو 2024' : 'Jun 2024', revenue: 210000, expenses: 148000, profit: 62000, growth: 2.8 },
+                        { month: language === 'ar' ? 'مايو 2024' : 'May 2024', revenue: 204000, expenses: 145000, profit: 59000, growth: 1.5 }
+                      ].map((month, index) => (
+                        <tr key={index} className="border-b hover:bg-gray-50">
+                          <td className="p-2 font-medium">{month.month}</td>
+                          <td className="p-2">{month.revenue.toLocaleString()} {t('demo.currency')}</td>
+                          <td className="p-2 text-red-600">({month.expenses.toLocaleString()}) {t('demo.currency')}</td>
+                          <td className="p-2 text-green-600">{month.profit.toLocaleString()} {t('demo.currency')}</td>
+                          <td className="p-2">
+                            <span className={`font-medium ${month.growth > 10 ? 'text-green-600' : month.growth > 5 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              +{month.growth}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* التوصيات والملاحظات */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'التوصيات والملاحظات المالية' : 'Financial Recommendations & Notes'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-semibold text-green-700 mb-3">{language === 'ar' ? 'نقاط القوة' : 'Strengths'}</h4>
+                    <ul className="space-y-2">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                        <span className="text-sm">{language === 'ar' ? 'نمو مستمر في الإيرادات بنسبة 15.2%' : 'Consistent revenue growth of 15.2%'}</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                        <span className="text-sm">{language === 'ar' ? 'سيولة ممتازة مع نسبة تداول 3.51' : 'Excellent liquidity with current ratio of 3.51'}</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                        <span className="text-sm">{language === 'ar' ? 'هامش ربح صافي مرتفع 16.5%' : 'High net profit margin of 16.5%'}</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-orange-700 mb-3">{language === 'ar' ? 'مجالات التحسين' : 'Areas for Improvement'}</h4>
+                    <ul className="space-y-2">
+                      <li className="flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+                        <span className="text-sm">{language === 'ar' ? 'تحسين كفاءة إدارة المخزون' : 'Improve inventory management efficiency'}</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+                        <span className="text-sm">{language === 'ar' ? 'تسريع تحصيل الذمم المدينة' : 'Accelerate accounts receivable collection'}</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+                        <span className="text-sm">{language === 'ar' ? 'مراجعة استراتيجية التسويق للتكاليف' : 'Review marketing strategy for cost optimization'}</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderInventoryModule = () => (
     <div className="space-y-6">
