@@ -584,10 +584,10 @@ export const CasualLeaveModule = ({ language, userRole }) => {
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => alert(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open')}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(leave.id)}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </>
@@ -600,6 +600,24 @@ export const CasualLeaveModule = ({ language, userRole }) => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Add Casual Leave Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4">{language === 'ar' ? 'إضافة إجازة عارضة' : 'Add Casual Leave'}</h3>
+            <div className="space-y-4">
+              <input type="text" placeholder={language === 'ar' ? 'اسم الموظف' : 'Employee Name'} value={newLeave.employee} onChange={(e) => setNewLeave({ ...newLeave, employee: e.target.value })} className="w-full p-2 border rounded" />
+              <input type="date" placeholder={language === 'ar' ? 'التاريخ' : 'Date'} value={newLeave.date} onChange={(e) => setNewLeave({ ...newLeave, date: e.target.value })} className="w-full p-2 border rounded" />
+              <input type="text" placeholder={language === 'ar' ? 'السبب' : 'Reason'} value={newLeave.reason} onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })} className="w-full p-2 border rounded" />
+            </div>
+            <div className="flex gap-4 mt-6">
+              <Button onClick={handleAdd} className="flex-1 bg-[#28376B]">{language === 'ar' ? 'إضافة' : 'Add'}</Button>
+              <Button onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
