@@ -516,14 +516,14 @@ class RBACAPITester:
         user_data = {
             "email": f"finance.{timestamp}@company.com",
             "full_name": "Financial Manager User",
-            "role": "Financial Manager"
+            "role": "Financial Manager",
+            "password": "password123"
         }
         
         try:
             response = await self.client.post(
                 f"{self.base_url}/users/",
                 json=user_data,
-                params={"password": "password123"},
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['admin']}",
                     "Content-Type": "application/json"
