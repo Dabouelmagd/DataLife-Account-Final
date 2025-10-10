@@ -25,6 +25,15 @@ const DemoPage = ({ onClose }) => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showEmployeeDetails, setShowEmployeeDetails] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const [showAddDepartmentModal, setShowAddDepartmentModal] = useState(false);
+  const [newDepartment, setNewDepartment] = useState({ name: '', description: '', manager: '' });
+  const [departments, setDepartments] = useState([
+    { id: 'IT', name: 'IT', nameAr: 'تكنولوجيا المعلومات' },
+    { id: 'HR', name: 'HR', nameAr: 'الموارد البشرية' },
+    { id: 'Finance', name: 'Finance', nameAr: 'المالية' },
+    { id: 'Operations', name: 'Operations', nameAr: 'العمليات' },
+    { id: 'Sales', name: 'Sales', nameAr: 'المبيعات' }
+  ]);
   const [employeeForm, setEmployeeForm] = useState({
     // Basic Info
     fullName: '',
