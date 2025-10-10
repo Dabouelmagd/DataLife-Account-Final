@@ -1357,6 +1357,29 @@ export const translations = {
           custom: "مخصص"
         },
 
+        newTransaction: {
+          title: "إضافة معاملة جديدة",
+          description: "الوصف",
+          category: "الفئة",
+          amount: "المبلغ",
+          type: "النوع",
+          date: "التاريخ",
+          income: "دخل",
+          expense: "مصروف",
+          save: "حفظ المعاملة",
+          cancel: "إلغاء",
+          categories: {
+            salary: "راتب",
+            rent: "إيجار",
+            utilities: "مرافق",
+            supplies: "مستلزمات",
+            marketing: "تسويق",
+            maintenance: "صيانة",
+            sales: "مبيعات",
+            other: "أخرى"
+          }
+        },
+
         addDepartment: {
           title: "إضافة قسم جديد",
           name: "اسم القسم",
