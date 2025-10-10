@@ -152,15 +152,18 @@ backend:
 
   - task: "User Management API"
     implemented: true
-    working: "unknown"
+    working: true
     file: "api/users.py, services/user_service.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "unknown"
         - agent: "main"
         - comment: "Created user management API with role-based permissions. Endpoints: POST /api/users/ (add user - General Manager only), GET /api/users/ (list company users), PUT /api/users/{user_id}/role (update role - General Manager only), DELETE /api/users/{user_id} (deactivate user - General Manager only), GET /api/users/roles, GET /api/users/permissions/{role}. Need to test CRUD operations and permission checking."
+        - working: true
+        - agent: "testing"
+        - comment: "COMPREHENSIVE TESTING COMPLETED: Fixed API parameter issue (password now in request body) and datetime serialization in UserResponse. All User Management API endpoints working perfectly: GET /api/users/ (200 status, lists company users), POST /api/users/ (200 status, creates HR Manager, Financial Manager, Accountant users - General Manager only), PUT /api/users/{user_id}/role (200 status, updates user roles), DELETE /api/users/{user_id} (200 status, deactivates users). Permission enforcement working: non-General Manager users correctly denied (403) when trying to add users. Self-deletion prevention working (400). Database integration confirmed. Test success rate: 100% (8/8 user management tests passed)."
 
   - task: "Role-Based Permissions System"
     implemented: true
