@@ -605,41 +605,397 @@ const DemoPage = ({ onClose }) => {
     </div>
   );
 
-  const renderReportsModule = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('demo.reports.financialSummary')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h4 className="font-semibold mb-4">{t('demo.reports.monthlyRevenue')}</h4>
-              <div className="space-y-2">
-                {demoData.reports.monthlyRevenue.map((month, index) => (
-                  <div key={index} className="flex justify-between items-center">
-                    <span className="text-sm">{month.month}</span>
-                    <span className="font-medium">{month.revenue.toLocaleString()} {t('demo.currency')}</span>
-                  </div>
-                ))}
+  const renderReportsModule = () => {
+    const [reportType, setReportType] = useState('attendance');
+    const [reportPeriod, setReportPeriod] = useState('monthly');
+    const [selectedMonth, setSelectedMonth] = useState('2024-10');
+    const [selectedYear, setSelectedYear] = useState('2024');
+
+    // بيانات وهمية للحضور والانصراف
+    const attendanceData = [
+      { 
+        employeeId: 'AMH', 
+        name: 'أحمد محمد حسن',
+        totalDays: 22, 
+        presentDays: 20, 
+        absentDays: 2, 
+        lateDays: 3,
+        overtimeHours: 15,
+        regularHours: 176,
+        salary: 15000,
+        deductions: 500,
+        allowances: 2000,
+        netSalary: 16500
+      },
+      { 
+        employeeId: 'FAA', 
+        name: 'فاطمة الزهراء علي',
+        totalDays: 22, 
+        presentDays: 22, 
+        absentDays: 0, 
+        lateDays: 1,
+        overtimeHours: 8,
+        regularHours: 176,
+        salary: 12000,
+        deductions: 200,
+        allowances: 1500,
+        netSalary: 13300
+      },
+      { 
+        employeeId: 'ORM', 
+        name: 'عمر رشيد محمد',
+        totalDays: 22, 
+        presentDays: 19, 
+        absentDays: 3, 
+        lateDays: 5,
+        overtimeHours: 12,
+        regularHours: 152,
+        salary: 18000,
+        deductions: 800,
+        allowances: 2500,
+        netSalary: 19700
+      },
+      { 
+        employeeId: 'LMK', 
+        name: 'ليلى محمود خالد',
+        totalDays: 22, 
+        presentDays: 21, 
+        absentDays: 1, 
+        lateDays: 2,
+        overtimeHours: 6,
+        regularHours: 168,
+        salary: 13500,
+        deductions: 300,
+        allowances: 1800,
+        netSalary: 15000
+      },
+      { 
+        employeeId: 'YIS', 
+        name: 'يوسف إبراهيم سعيد',
+        totalDays: 22, 
+        presentDays: 20, 
+        absentDays: 2, 
+        lateDays: 4,
+        overtimeHours: 20,
+        regularHours: 160,
+        salary: 16000,
+        deductions: 600,
+        allowances: 2200,
+        netSalary: 17600
+      }
+    ];
+
+    const summaryStats = {
+      totalEmployees: attendanceData.length,
+      totalPresent: attendanceData.reduce((sum, emp) => sum + emp.presentDays, 0),
+      totalAbsent: attendanceData.reduce((sum, emp) => sum + emp.absentDays, 0),
+      totalOvertime: attendanceData.reduce((sum, emp) => sum + emp.overtimeHours, 0),
+      totalSalaries: attendanceData.reduce((sum, emp) => sum + emp.salary, 0),
+      totalDeductions: attendanceData.reduce((sum, emp) => sum + emp.deductions, 0),
+      totalAllowances: attendanceData.reduce((sum, emp) => sum + emp.allowances, 0),
+      totalNetSalaries: attendanceData.reduce((sum, emp) => sum + emp.netSalary, 0)
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* تحكم التقارير */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2" />
+              {language === 'ar' ? 'تقارير الموظفين' : 'Employee Reports'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  {language === 'ar' ? 'نوع التقرير' : 'Report Type'}
+                </label>
+                <select 
+                  className="w-full border rounded px-3 py-2"
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value)}
+                >
+                  <option value="attendance">{language === 'ar' ? 'تقرير الحضور والانصراف' : 'Attendance Report'}</option>
+                  <option value="payroll">{language === 'ar' ? 'تقرير المرتبات' : 'Payroll Report'}</option>
+                  <option value="overtime">{language === 'ar' ? 'تقرير العمل الإضافي' : 'Overtime Report'}</option>
+                  <option value="deductions">{language === 'ar' ? 'تقرير الخصومات' : 'Deductions Report'}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  {language === 'ar' ? 'الفترة الزمنية' : 'Period'}
+                </label>
+                <select 
+                  className="w-full border rounded px-3 py-2"
+                  value={reportPeriod}
+                  onChange={(e) => setReportPeriod(e.target.value)}
+                >
+                  <option value="weekly">{language === 'ar' ? 'أسبوعي' : 'Weekly'}</option>
+                  <option value="monthly">{language === 'ar' ? 'شهري' : 'Monthly'}</option>
+                  <option value="yearly">{language === 'ar' ? 'سنوي' : 'Yearly'}</option>
+                </select>
+              </div>
+
+              {reportPeriod === 'monthly' && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    {language === 'ar' ? 'الشهر' : 'Month'}
+                  </label>
+                  <input 
+                    type="month"
+                    className="w-full border rounded px-3 py-2"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {reportPeriod === 'yearly' && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    {language === 'ar' ? 'السنة' : 'Year'}
+                  </label>
+                  <select 
+                    className="w-full border rounded px-3 py-2"
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                  >
+                    <option value="2024">2024</option>
+                    <option value="2023">2023</option>
+                    <option value="2022">2022</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="flex items-end">
+                <Button className="bg-[#28376B] w-full">
+                  <Download className="h-4 w-4 mr-2" />
+                  {language === 'ar' ? 'تصدير التقرير' : 'Export Report'}
+                </Button>
               </div>
             </div>
-            <div>
-              <h4 className="font-semibold mb-4">{t('demo.reports.expenses')}</h4>
-              <div className="space-y-2">
-                {demoData.reports.expenses.map((expense, index) => (
-                  <div key={index} className="flex justify-between items-center">
-                    <span className="text-sm">{expense.category}</span>
-                    <span className="font-medium text-red-600">{expense.amount.toLocaleString()} {t('demo.currency')}</span>
-                  </div>
-                ))}
+          </CardContent>
+        </Card>
+
+        {/* ملخص إحصائي */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-[#28376B]">{summaryStats.totalEmployees}</div>
+              <div className="text-sm text-gray-600">{language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees'}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-green-600">{summaryStats.totalPresent}</div>
+              <div className="text-sm text-gray-600">{language === 'ar' ? 'أيام الحضور' : 'Present Days'}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-red-600">{summaryStats.totalAbsent}</div>
+              <div className="text-sm text-gray-600">{language === 'ar' ? 'أيام الغياب' : 'Absent Days'}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-orange-600">{summaryStats.totalOvertime}</div>
+              <div className="text-sm text-gray-600">{language === 'ar' ? 'ساعات إضافية' : 'Overtime Hours'}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* جدول التقرير */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {reportType === 'attendance' && (language === 'ar' ? 'تقرير الحضور والانصراف' : 'Attendance Report')}
+              {reportType === 'payroll' && (language === 'ar' ? 'تقرير المرتبات' : 'Payroll Report')}
+              {reportType === 'overtime' && (language === 'ar' ? 'تقرير العمل الإضافي' : 'Overtime Report')}
+              {reportType === 'deductions' && (language === 'ar' ? 'تقرير الخصومات' : 'Deductions Report')}
+              {' - '}
+              {reportPeriod === 'weekly' && (language === 'ar' ? 'أسبوعي' : 'Weekly')}
+              {reportPeriod === 'monthly' && (language === 'ar' ? `شهري - ${selectedMonth}` : `Monthly - ${selectedMonth}`)}
+              {reportPeriod === 'yearly' && (language === 'ar' ? `سنوي - ${selectedYear}` : `Yearly - ${selectedYear}`)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">{language === 'ar' ? 'الموظف' : 'Employee'}</th>
+                    
+                    {reportType === 'attendance' && (
+                      <>
+                        <th className="text-left p-2">{language === 'ar' ? 'أيام العمل' : 'Work Days'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'أيام الحضور' : 'Present'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'أيام الغياب' : 'Absent'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'أيام التأخير' : 'Late Days'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'ساعات العمل' : 'Work Hours'}</th>
+                      </>
+                    )}
+
+                    {reportType === 'payroll' && (
+                      <>
+                        <th className="text-left p-2">{language === 'ar' ? 'الراتب الأساسي' : 'Base Salary'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'البدلات' : 'Allowances'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'الخصومات' : 'Deductions'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'صافي الراتب' : 'Net Salary'}</th>
+                      </>
+                    )}
+
+                    {reportType === 'overtime' && (
+                      <>
+                        <th className="text-left p-2">{language === 'ar' ? 'الساعات العادية' : 'Regular Hours'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'الساعات الإضافية' : 'Overtime Hours'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'مقابل الإضافي' : 'Overtime Pay'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'الإجمالي' : 'Total'}</th>
+                      </>
+                    )}
+
+                    {reportType === 'deductions' && (
+                      <>
+                        <th className="text-left p-2">{language === 'ar' ? 'الراتب الأساسي' : 'Base Salary'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'خصم الغياب' : 'Absence Deduction'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'خصم التأخير' : 'Late Deduction'}</th>
+                        <th className="text-left p-2">{language === 'ar' ? 'إجمالي الخصومات' : 'Total Deductions'}</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceData.map((employee) => (
+                    <tr key={employee.employeeId} className="border-b hover:bg-gray-50">
+                      <td className="p-2">
+                        <div>
+                          <div className="font-medium">{employee.name}</div>
+                          <div className="text-sm text-gray-500">{employee.employeeId}</div>
+                        </div>
+                      </td>
+
+                      {reportType === 'attendance' && (
+                        <>
+                          <td className="p-2">{employee.totalDays}</td>
+                          <td className="p-2">
+                            <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
+                              {employee.presentDays}
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm">
+                              {employee.absentDays}
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm">
+                              {employee.lateDays}
+                            </span>
+                          </td>
+                          <td className="p-2">{employee.regularHours}h</td>
+                        </>
+                      )}
+
+                      {reportType === 'payroll' && (
+                        <>
+                          <td className="p-2">{employee.salary.toLocaleString()} {t('demo.currency')}</td>
+                          <td className="p-2">
+                            <span className="text-green-600">+{employee.allowances.toLocaleString()}</span>
+                          </td>
+                          <td className="p-2">
+                            <span className="text-red-600">-{employee.deductions.toLocaleString()}</span>
+                          </td>
+                          <td className="p-2 font-semibold">{employee.netSalary.toLocaleString()} {t('demo.currency')}</td>
+                        </>
+                      )}
+
+                      {reportType === 'overtime' && (
+                        <>
+                          <td className="p-2">{employee.regularHours}h</td>
+                          <td className="p-2">
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
+                              {employee.overtimeHours}h
+                            </span>
+                          </td>
+                          <td className="p-2">{(employee.overtimeHours * 50).toLocaleString()} {t('demo.currency')}</td>
+                          <td className="p-2 font-semibold">
+                            {(employee.salary + (employee.overtimeHours * 50)).toLocaleString()} {t('demo.currency')}
+                          </td>
+                        </>
+                      )}
+
+                      {reportType === 'deductions' && (
+                        <>
+                          <td className="p-2">{employee.salary.toLocaleString()} {t('demo.currency')}</td>
+                          <td className="p-2">
+                            <span className="text-red-600">-{(employee.absentDays * 200).toLocaleString()}</span>
+                          </td>
+                          <td className="p-2">
+                            <span className="text-red-600">-{(employee.lateDays * 50).toLocaleString()}</span>
+                          </td>
+                          <td className="p-2 font-semibold text-red-600">
+                            -{employee.deductions.toLocaleString()} {t('demo.currency')}
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ملخص إجمالي */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold mb-3">{language === 'ar' ? 'الملخص الإجمالي' : 'Summary Totals'}</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {reportType === 'payroll' && (
+                  <>
+                    <div>
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'إجمالي الرواتب:' : 'Total Salaries:'}</span>
+                      <div className="font-semibold">{summaryStats.totalSalaries.toLocaleString()} {t('demo.currency')}</div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'إجمالي البدلات:' : 'Total Allowances:'}</span>
+                      <div className="font-semibold text-green-600">+{summaryStats.totalAllowances.toLocaleString()} {t('demo.currency')}</div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'إجمالي الخصومات:' : 'Total Deductions:'}</span>
+                      <div className="font-semibold text-red-600">-{summaryStats.totalDeductions.toLocaleString()} {t('demo.currency')}</div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'صافي الإجمالي:' : 'Net Total:'}</span>
+                      <div className="font-semibold text-[#28376B]">{summaryStats.totalNetSalaries.toLocaleString()} {t('demo.currency')}</div>
+                    </div>
+                  </>
+                )}
+
+                {reportType === 'attendance' && (
+                  <>
+                    <div>
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'معدل الحضور:' : 'Attendance Rate:'}</span>
+                      <div className="font-semibold text-green-600">
+                        {((summaryStats.totalPresent / (summaryStats.totalPresent + summaryStats.totalAbsent)) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-600">{language === 'ar' ? 'إجمالي الساعات الإضافية:' : 'Total Overtime:'}</span>
+                      <div className="font-semibold text-orange-600">{summaryStats.totalOvertime} {language === 'ar' ? 'ساعة' : 'hours'}</div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   const renderModule = () => {
     switch (activeModule) {
