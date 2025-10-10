@@ -48,7 +48,6 @@ def check_user_permission(user_role: str, required_permission: str):
 @router.post("/", response_model=UserResponse)
 async def add_user(
     user_data: UserCreate,
-    password: str,
     current_user: dict = Depends(get_current_user)
 ):
     """Add a new user to the company (requires General Manager role)"""
@@ -68,7 +67,7 @@ async def add_user(
     user_data.company_id = current_user.get("company_id")
     
     # Create user
-    user = await create_user(db, user_data, password)
+    user = await create_user(db, user_data, user_data.password)
     
     return user_to_response(user)
 
