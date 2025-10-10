@@ -23,6 +23,14 @@ import {
   SuppliersModule, 
   CustomersModule 
 } from './FinancialSubModules';
+import { 
+  SalariesModule, 
+  AllowancesModule, 
+  DeductionsModule, 
+  CasualLeaveModule, 
+  AnnualLeaveModule, 
+  AttendanceModule 
+} from './HRSubModules';
 
 const DemoPage = ({ onClose }) => {
   const { language, isRTL } = useLanguage();
