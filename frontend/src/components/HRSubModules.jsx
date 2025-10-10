@@ -173,6 +173,10 @@ export const AllowancesModule = ({ language, userRole }) => {
   ]);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [newAllowance, setNewAllowance] = useState({ employee: '', type: '', amount: '', month: '' });
 
   const handleAdd = () => {
@@ -181,15 +185,16 @@ export const AllowancesModule = ({ language, userRole }) => {
       setAllowances([...allowances, { ...newAllowance, id, amount: parseFloat(newAllowance.amount) }]);
       setNewAllowance({ employee: '', type: '', amount: '', month: '' });
       setShowAddModal(false);
-      alert(language === 'ar' ? 'تم الإضافة بنجاح!' : 'Added successfully!');
+      setShowSuccessModal(true);
+      setTimeout(() => setShowSuccessModal(false), 2000);
     }
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm(language === 'ar' ? 'هل تريد حذف هذا السجل؟' : 'Delete this record?')) {
-      setAllowances(allowances.filter(a => a.id !== id));
-      alert(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
-    }
+  const handleDeleteConfirm = () => {
+    setAllowances(allowances.filter(a => a.id !== selectedItem.id));
+    setShowDeleteModal(false);
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
   return (
