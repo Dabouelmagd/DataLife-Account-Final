@@ -2219,6 +2219,8 @@ const DemoPage = ({ onClose }) => {
           return <AnnualLeaveModule language={language} userRole={userRole} />;
         case 'attendance':
           return <AttendanceModule language={language} userRole={userRole} />;
+        case 'hr-reports':
+          return <HRReportsModule language={language} userRole={userRole} />;
         default:
           return renderHRModule();
       }
