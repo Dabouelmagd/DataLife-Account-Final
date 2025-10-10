@@ -727,6 +727,11 @@ export const CasualLeaveModule = ({ language, userRole }) => {
   ]);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
   const [newLeave, setNewLeave] = useState({ employee: '', date: '', reason: '', status: 'pending' });
 
   const handleAdd = () => {
@@ -735,15 +740,18 @@ export const CasualLeaveModule = ({ language, userRole }) => {
       setCasualLeaves([...casualLeaves, { ...newLeave, id }]);
       setNewLeave({ employee: '', date: '', reason: '', status: 'pending' });
       setShowAddModal(false);
-      alert(language === 'ar' ? 'تم الإضافة بنجاح!' : 'Added successfully!');
+      setSuccessMessage(language === 'ar' ? 'تم الإضافة بنجاح!' : 'Added successfully!');
+      setShowSuccessModal(true);
+      setTimeout(() => setShowSuccessModal(false), 2000);
     }
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm(language === 'ar' ? 'هل تريد حذف هذا السجل؟' : 'Delete this record?')) {
-      setCasualLeaves(casualLeaves.filter(l => l.id !== id));
-      alert(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
-    }
+  const handleDeleteConfirm = () => {
+    setCasualLeaves(casualLeaves.filter(l => l.id !== selectedLeave.id));
+    setShowDeleteModal(false);
+    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
   return (
