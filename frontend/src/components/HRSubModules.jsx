@@ -1441,11 +1441,11 @@ export const AttendanceModule = ({ language, userRole }) => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => alert(language === 'ar' ? `عرض تفاصيل ${record.name} - ${record.date}` : `View details: ${record.name} - ${record.date}`)}>
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedRecord(record); setShowViewModal(true); }}>
                         <Eye className="h-4 w-4" />
                       </Button>
                       {canEdit && (
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(record)}>
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedRecord(record); setSuccessMessage(language === 'ar' ? `تعديل سجل ${record.name}` : `Edit record for ${record.name}`); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       )}
