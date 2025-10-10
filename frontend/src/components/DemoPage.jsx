@@ -749,14 +749,39 @@ const DemoPage = ({ onClose }) => {
                   <option value="monthly">{language === 'ar' ? 'شهري' : 'Monthly'}</option>
                   <option value="yearly">{language === 'ar' ? 'سنوي' : 'Yearly'}</option>
                 </select>
-                <Button 
-                  size="sm" 
-                  className="bg-[#28376B]"
-                  onClick={() => setIsAddTransactionModal(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('demo.financial.newTransaction')}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      const reportTitle = financialReportTab === 'overview' ? 'الملخص التنفيذي' :
+                                        financialReportTab === 'profitLoss' ? 'بيان الربح والخسارة' :
+                                        financialReportTab === 'cashFlow' ? 'بيان التدفق النقدي' :
+                                        financialReportTab === 'balance' ? 'الميزانية العمومية' :
+                                        financialReportTab === 'kpis' ? 'مؤشرات الأداء' : 'التحليل التفصيلي';
+                      printReport('financial-content', `التقرير المالي - ${reportTitle}`);
+                    }}
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    {language === 'ar' ? 'طباعة' : 'Print'}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => exportReportData('financial')}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {language === 'ar' ? 'تصدير' : 'Export'}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="bg-[#28376B]"
+                    onClick={() => setIsAddTransactionModal(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('demo.financial.newTransaction')}
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>
