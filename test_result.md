@@ -281,14 +281,7 @@ metadata:
   run_ui: true
 
 test_plan:
-  current_focus:
-    - "Authentication API (JWT)"
-    - "Company Management API"
-    - "User Management API"
-    - "Role-Based Permissions System"
-    - "Company Registration Flow"
-    - "Login Page"
-    - "Dashboard with User Management"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
