@@ -967,22 +967,55 @@ const DemoPage = ({ onClose }) => {
                     
                     {employeeForm.allowances.map((allowance, index) => (
                       <div key={index} className="flex gap-3 mb-3">
-                        <select 
-                          className="flex-1 border rounded px-3 py-2"
-                          value={allowance.type}
-                          onChange={(e) => {
-                            const newAllowances = [...employeeForm.allowances];
-                            newAllowances[index].type = e.target.value;
-                            setEmployeeForm({...employeeForm, allowances: newAllowances});
-                          }}
-                        >
-                          <option value="">{t('demo.employeeForm.financial.allowanceType')}</option>
-                          <option value="transportation">{t('demo.employeeForm.financial.transportation')}</option>
-                          <option value="housing">{t('demo.employeeForm.financial.housing')}</option>
-                          <option value="food">{t('demo.employeeForm.financial.food')}</option>
-                          <option value="communication">{t('demo.employeeForm.financial.communication')}</option>
-                          <option value="other">{t('demo.employeeForm.financial.other')}</option>
-                        </select>
+                        <div className="flex-1 flex gap-2">
+                          <select 
+                            className="flex-1 border rounded px-3 py-2"
+                            value={allowance.type}
+                            onChange={(e) => {
+                              const newAllowances = [...employeeForm.allowances];
+                              newAllowances[index].type = e.target.value;
+                              if (e.target.value === 'custom') {
+                                newAllowances[index].customName = '';
+                              }
+                              setEmployeeForm({...employeeForm, allowances: newAllowances});
+                            }}
+                          >
+                            <option value="">{t('demo.employeeForm.financial.allowanceType')}</option>
+                            <option value="transportation">{t('demo.employeeForm.financial.transportation')}</option>
+                            <option value="housing">{t('demo.employeeForm.financial.housing')}</option>
+                            <option value="food">{t('demo.employeeForm.financial.food')}</option>
+                            <option value="communication">{t('demo.employeeForm.financial.communication')}</option>
+                            <option value="other">{t('demo.employeeForm.financial.other')}</option>
+                            {customAllowanceTypes.map((customType, customIndex) => (
+                              <option key={customIndex} value={`custom_${customIndex}`}>
+                                {language === 'ar' ? customType.nameAr : customType.nameEn}
+                              </option>
+                            ))}
+                            <option value="custom">{t('demo.employeeForm.customTypes.custom')}</option>
+                          </select>
+                          <Button 
+                            type="button"
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setShowAddAllowanceType(true)}
+                            title={t('demo.employeeForm.actions.addCustomType')}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        {allowance.type === 'custom' && (
+                          <input 
+                            type="text"
+                            className="flex-1 border rounded px-3 py-2 mt-2"
+                            placeholder={t('demo.employeeForm.customTypes.namePlaceholder')}
+                            value={allowance.customName || ''}
+                            onChange={(e) => {
+                              const newAllowances = [...employeeForm.allowances];
+                              newAllowances[index].customName = e.target.value;
+                              setEmployeeForm({...employeeForm, allowances: newAllowances});
+                            }}
+                          />
+                        )}
                         <input 
                           type="number"
                           className="flex-1 border rounded px-3 py-2"
