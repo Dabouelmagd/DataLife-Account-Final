@@ -243,6 +243,9 @@ frontend:
         - working: true
         - agent: "testing"
         - comment: "COMPREHENSIVE TESTING COMPLETED: Company Registration Flow working perfectly. ✅ 2-step form navigation working (Company Information → Admin Account). ✅ Form validation working (required fields, password confirmation). ✅ Backend integration successful - creates company and General Manager user with JWT token. ✅ Automatic redirect to dashboard after successful registration. ✅ Pre-filled email from trial data. ✅ Industry and company size selection working. Minor: Free trial modal dropdown selection has UI interaction issues but core functionality works when accessed directly."
+        - working: true
+        - agent: "main"
+        - comment: "USER FEEDBACK FIX: Fixed 'Next' button not working issue. Problem was missing contact_email input field in step 1. Added email field to company registration form step 1. ✅ Next button now works correctly in both English and Arabic versions. ✅ Form validation working properly - shows error if required fields are empty. ✅ Successfully moves from step 1 to step 2 when all fields are filled."
 
   - task: "Login Page"
     implemented: true
