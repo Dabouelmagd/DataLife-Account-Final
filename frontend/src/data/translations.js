@@ -1315,7 +1315,21 @@ export const translations = {
           addAllowance: "إضافة بدلة",
           addDeduction: "إضافة خصم",
           removeAllowance: "حذف البدلة",
-          removeDeduction: "حذف الخصم"
+          removeDeduction: "حذف الخصم",
+          addDepartment: "إضافة قسم جديد"
+        },
+
+        addDepartment: {
+          title: "إضافة قسم جديد",
+          name: "اسم القسم",
+          nameAr: "الاسم بالعربية",
+          nameEn: "الاسم بالإنجليزية",
+          description: "وصف القسم",
+          manager: "مدير القسم",
+          save: "حفظ القسم",
+          cancel: "إلغاء",
+          namePlaceholder: "أدخل اسم القسم",
+          descriptionPlaceholder: "وصف مختصر للقسم وأهدافه"
         }
       }
     },
