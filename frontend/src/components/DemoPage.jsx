@@ -494,7 +494,11 @@ const DemoPage = ({ onClose }) => {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>{t('demo.financial.recentTransactions')}</CardTitle>
-            <Button size="sm" className="bg-[#28376B]">
+            <Button 
+              size="sm" 
+              className="bg-[#28376B]"
+              onClick={() => setIsAddTransactionModal(true)}
+            >
               <Plus className="h-4 w-4 mr-2" />
               {t('demo.financial.newTransaction')}
             </Button>
