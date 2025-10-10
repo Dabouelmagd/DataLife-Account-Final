@@ -2141,6 +2141,8 @@ const DemoPage = ({ onClose }) => {
       const userRole = language === 'ar' ? 'المدير المالي' : 'Financial Manager'; // Demo role
       
       switch (activeFinancialSubModule) {
+        case 'overview':
+          return renderFinancialModule();
         case 'journal-entries':
           return <JournalEntriesModule language={language} userRole={userRole} />;
         case 'treasury':
