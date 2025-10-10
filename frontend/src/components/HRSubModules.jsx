@@ -504,6 +504,11 @@ export const DeductionsModule = ({ language, userRole }) => {
   ]);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
   const [newDeduction, setNewDeduction] = useState({ employee: '', type: '', amount: '', month: '' });
 
   const handleAdd = () => {
@@ -512,15 +517,18 @@ export const DeductionsModule = ({ language, userRole }) => {
       setDeductions([...deductions, { ...newDeduction, id, amount: parseFloat(newDeduction.amount) }]);
       setNewDeduction({ employee: '', type: '', amount: '', month: '' });
       setShowAddModal(false);
-      alert(language === 'ar' ? 'تم الإضافة بنجاح!' : 'Added successfully!');
+      setSuccessMessage(language === 'ar' ? 'تم الإضافة بنجاح!' : 'Added successfully!');
+      setShowSuccessModal(true);
+      setTimeout(() => setShowSuccessModal(false), 2000);
     }
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm(language === 'ar' ? 'هل تريد حذف هذا السجل؟' : 'Delete this record?')) {
-      setDeductions(deductions.filter(d => d.id !== id));
-      alert(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
-    }
+  const handleDeleteConfirm = () => {
+    setDeductions(deductions.filter(d => d.id !== selectedItem.id));
+    setShowDeleteModal(false);
+    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
   return (
