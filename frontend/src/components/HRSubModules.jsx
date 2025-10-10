@@ -627,11 +627,31 @@ export const AnnualLeaveModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
 
-  const annualLeaves = [
+  const [annualLeaves, setAnnualLeaves] = useState([
     { id: 'AL001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', startDate: '2024-12-15', endDate: '2024-12-25', days: 10, balance: 11, status: 'approved' },
     { id: 'AL002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', startDate: '2024-11-01', endDate: '2024-11-07', days: 7, balance: 14, status: 'pending' },
     { id: 'AL003', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', startDate: '2024-10-20', endDate: '2024-10-25', days: 5, balance: 16, status: 'approved' }
-  ];
+  ]);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newLeave, setNewLeave] = useState({ employee: '', startDate: '', endDate: '', days: 0, balance: 21, status: 'pending' });
+
+  const handleAdd = () => {
+    if (newLeave.employee && newLeave.startDate && newLeave.endDate) {
+      const id = 'AL' + String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      setAnnualLeaves([...annualLeaves, { ...newLeave, id, days: parseInt(newLeave.days) }]);
+      setNewLeave({ employee: '', startDate: '', endDate: '', days: 0, balance: 21, status: 'pending' });
+      setShowAddModal(false);
+      alert(language === 'ar' ? 'تم الإضافة بنجاح!' : 'Added successfully!');
+    }
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm(language === 'ar' ? 'هل تريد حذف هذا السجل؟' : 'Delete this record?')) {
+      setAnnualLeaves(annualLeaves.filter(l => l.id !== id));
+      alert(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    }
+  };
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
