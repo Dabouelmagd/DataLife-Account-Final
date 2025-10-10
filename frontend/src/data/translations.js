@@ -1092,7 +1092,21 @@ export const translations = {
           addAllowance: "Add Allowance",
           addDeduction: "Add Deduction",
           removeAllowance: "Remove Allowance",
-          removeDeduction: "Remove Deduction"
+          removeDeduction: "Remove Deduction",
+          addDepartment: "Add New Department"
+        },
+
+        addDepartment: {
+          title: "Add New Department",
+          name: "Department Name",
+          nameAr: "Arabic Name",
+          nameEn: "English Name",
+          description: "Department Description",
+          manager: "Department Manager",
+          save: "Save Department",
+          cancel: "Cancel",
+          namePlaceholder: "Enter department name",
+          descriptionPlaceholder: "Brief description of the department and its goals"
         }
       }
     },
