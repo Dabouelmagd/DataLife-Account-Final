@@ -397,6 +397,11 @@ const DemoPage = ({ onClose }) => {
       icon: <Users className="h-4 w-4" />
     },
     { 
+      id: 'bank', 
+      name: language === 'ar' ? 'البنك' : 'Bank',
+      icon: <DollarSign className="h-4 w-4" />
+    },
+    { 
       id: 'financial-reports', 
       name: language === 'ar' ? 'التقارير' : 'Reports',
       icon: <FileText className="h-4 w-4" />
