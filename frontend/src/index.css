@@ -191,10 +191,7 @@ body.ltr {
     transform: scale(1.05);
 }
 
-/* Smooth transitions for direction changes */
-* {
-    transition: margin 0.3s ease, padding 0.3s ease;
-}
+/* Smooth transitions for direction changes - removed global transition to fix button clicks */
 
 /* Logo text styling */
 .logo-arabic {
