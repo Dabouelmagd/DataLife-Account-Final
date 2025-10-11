@@ -1,10 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File
 from models.company import CompanyResponse
 from services.auth_service import verify_token
 from services.company_service import get_company_by_id
 from typing import Optional
+import shutil
+import os
+from pathlib import Path
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
+
+# Create uploads directory if it doesn't exist
+UPLOAD_DIR = Path("/app/frontend/public/uploads/logos")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Get database instance
 from database import get_database
