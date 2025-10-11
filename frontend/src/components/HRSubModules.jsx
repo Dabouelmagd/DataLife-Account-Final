@@ -247,12 +247,24 @@ export const AllowancesModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
 
-  const [allowances, setAllowances] = useState([
+  const initialAllowances = [
     { id: 'A001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', type: language === 'ar' ? 'بدل انتقال' : 'Transport', amount: 1500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
     { id: 'A002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', type: language === 'ar' ? 'بدل سكن' : 'Housing', amount: 3000, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
     { id: 'O001', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', type: language === 'ar' ? 'ساعات إضافية' : 'Overtime', amount: 2000, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
     { id: 'A003', employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', type: language === 'ar' ? 'بدل طعام' : 'Meal', amount: 500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' }
-  ]);
+  ];
+  
+  const [allowances, setAllowances] = useState(initialAllowances);
+  
+  // Update allowances when language changes
+  React.useEffect(() => {
+    setAllowances([
+      { id: 'A001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', type: language === 'ar' ? 'بدل انتقال' : 'Transport', amount: 1500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
+      { id: 'A002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', type: language === 'ar' ? 'بدل سكن' : 'Housing', amount: 3000, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
+      { id: 'O001', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', type: language === 'ar' ? 'ساعات إضافية' : 'Overtime', amount: 2000, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
+      { id: 'A003', employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', type: language === 'ar' ? 'بدل طعام' : 'Meal', amount: 500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' }
+    ]);
+  }, [language]);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
