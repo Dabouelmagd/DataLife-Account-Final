@@ -22,6 +22,7 @@ import {
   AccountsModule, 
   SuppliersModule, 
   CustomersModule,
+  BankModule,
   FinancialReportsModule 
 } from './FinancialSubModules';
 import { 
