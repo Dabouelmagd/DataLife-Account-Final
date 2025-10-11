@@ -57,6 +57,48 @@ async def get_company(
         contact_email=company.contact_email,
         phone=company.phone,
         address=company.address,
+        logo_url=company.logo_url,
         subscription_status=company.subscription_status,
         created_at=company.created_at if isinstance(company.created_at, str) else company.created_at.isoformat()
     )
+
+@router.post("/{company_id}/upload-logo")
+async def upload_logo(
+    company_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload company logo"""
+    # Check if user belongs to this company
+    if current_user.get("company_id") != company_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Check if user has permission (only General Manager, CEO, Board Chairman)
+    allowed_roles = ["General Manager", "CEO", "Board Chairman", "مدير عام", "المدير التنفيذي", "رئيس مجلس الإدارة"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Only company administrators can upload logo")
+    
+    # Validate file type
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image files are allowed")
+    
+    # Generate unique filename
+    file_extension = file.filename.split(".")[-1]
+    new_filename = f"{company_id}.{file_extension}"
+    file_path = UPLOAD_DIR / new_filename
+    
+    # Save file
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+    
+    # Update company logo_url in database
+    logo_url = f"/uploads/logos/{new_filename}"
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {"logo_url": logo_url}}
+    )
+    
+    return {"message": "Logo uploaded successfully", "logo_url": logo_url}
