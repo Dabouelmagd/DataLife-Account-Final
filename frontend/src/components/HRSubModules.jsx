@@ -1114,11 +1114,22 @@ export const AnnualLeaveModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
 
-  const [annualLeaves, setAnnualLeaves] = useState([
+  const initialAnnualLeaves = [
     { id: 'AL001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', startDate: '2024-12-15', endDate: '2024-12-25', days: 10, balance: 11, status: 'approved' },
     { id: 'AL002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', startDate: '2024-11-01', endDate: '2024-11-07', days: 7, balance: 14, status: 'pending' },
     { id: 'AL003', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', startDate: '2024-10-20', endDate: '2024-10-25', days: 5, balance: 16, status: 'approved' }
-  ]);
+  ];
+  
+  const [annualLeaves, setAnnualLeaves] = useState(initialAnnualLeaves);
+  
+  // Update annual leaves when language changes
+  React.useEffect(() => {
+    setAnnualLeaves([
+      { id: 'AL001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', startDate: '2024-12-15', endDate: '2024-12-25', days: 10, balance: 11, status: 'approved' },
+      { id: 'AL002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', startDate: '2024-11-01', endDate: '2024-11-07', days: 7, balance: 14, status: 'pending' },
+      { id: 'AL003', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', startDate: '2024-10-20', endDate: '2024-10-25', days: 5, balance: 16, status: 'approved' }
+    ]);
+  }, [language]);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
