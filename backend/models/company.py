@@ -34,5 +34,6 @@ class CompanyResponse(BaseModel):
     contact_email: EmailStr
     phone: str
     address: Optional[str]
+    logo_url: Optional[str]
     subscription_status: str
     created_at: str
