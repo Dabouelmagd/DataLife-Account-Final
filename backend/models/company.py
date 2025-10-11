@@ -11,6 +11,7 @@ class Company(BaseModel):
     contact_email: EmailStr
     phone: str
     address: Optional[str] = None
+    logo_url: Optional[str] = None  # Company logo URL
     trial_id: Optional[str] = None  # Link to trial if converted from trial
     subscription_status: str = "trial"  # trial, active, expired
     created_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
