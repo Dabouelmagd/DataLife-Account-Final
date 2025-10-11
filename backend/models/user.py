@@ -9,7 +9,7 @@ class User(BaseModel):
     password_hash: str
     full_name: str
     company_id: str
-    role: str  # General Manager, HR Manager, Financial Manager, Accountant
+    role: str  # General Manager, CEO (Chief Executive Officer), Board Chairman, Financial Manager, Chief Accountant, HR Manager, Accountant
     is_active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
