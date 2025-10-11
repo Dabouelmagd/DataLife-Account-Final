@@ -2246,6 +2246,8 @@ const DemoPage = ({ onClose }) => {
           return <SuppliersModule language={language} userRole={userRole} />;
         case 'customers':
           return <CustomersModule language={language} userRole={userRole} />;
+        case 'bank':
+          return <BankModule language={language} userRole={userRole} />;
         case 'financial-reports':
           return <FinancialReportsModule language={language} userRole={userRole} />;
         default:
