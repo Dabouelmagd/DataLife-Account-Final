@@ -1009,3 +1009,227 @@ export const CustomersModule = ({ language, userRole }) => {
     </div>
   );
 };
+
+// Bank Module
+export const BankModule = ({ language, userRole }) => {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const isRTL = language === 'ar';
+  const canEdit = userRole === 'Financial Manager' || userRole === 'المدير المالي' || userRole === 'Chief Accountant' || userRole === 'رئيس الحسابات';
+
+  const initialTransactions = [
+    { id: 'BT001', date: '2024-10-01', description: language === 'ar' ? 'إيداع شيك' : 'Check Deposit', type: 'deposit', amount: 50000, balance: 150000, bankName: language === 'ar' ? 'البنك الأهلي' : 'National Bank' },
+    { id: 'BT002', date: '2024-10-03', description: language === 'ar' ? 'سحب نقدي' : 'Cash Withdrawal', type: 'withdrawal', amount: 20000, balance: 130000, bankName: language === 'ar' ? 'البنك الأهلي' : 'National Bank' },
+    { id: 'BT003', date: '2024-10-05', description: language === 'ar' ? 'تحويل بنكي' : 'Bank Transfer', type: 'transfer', amount: 30000, balance: 100000, bankName: language === 'ar' ? 'البنك الأهلي' : 'National Bank' },
+    { id: 'BT004', date: '2024-10-08', description: language === 'ar' ? 'إيداع راتب' : 'Salary Deposit', type: 'deposit', amount: 75000, balance: 175000, bankName: language === 'ar' ? 'بنك الراجحي' : 'Al Rajhi Bank' }
+  ];
+
+  const [transactions, setTransactions] = useState(initialTransactions);
+
+  // Update transactions when language changes
+  React.useEffect(() => {
+    setTransactions([
+      { id: 'BT001', date: '2024-10-01', description: language === 'ar' ? 'إيداع شيك' : 'Check Deposit', type: 'deposit', amount: 50000, balance: 150000, bankName: language === 'ar' ? 'البنك الأهلي' : 'National Bank' },
+      { id: 'BT002', date: '2024-10-03', description: language === 'ar' ? 'سحب نقدي' : 'Cash Withdrawal', type: 'withdrawal', amount: 20000, balance: 130000, bankName: language === 'ar' ? 'البنك الأهلي' : 'National Bank' },
+      { id: 'BT003', date: '2024-10-05', description: language === 'ar' ? 'تحويل بنكي' : 'Bank Transfer', type: 'transfer', amount: 30000, balance: 100000, bankName: language === 'ar' ? 'البنك الأهلي' : 'National Bank' },
+      { id: 'BT004', date: '2024-10-08', description: language === 'ar' ? 'إيداع راتب' : 'Salary Deposit', type: 'deposit', amount: 75000, balance: 175000, bankName: language === 'ar' ? 'بنك الراجحي' : 'Al Rajhi Bank' }
+    ]);
+  }, [language]);
+
+  const handleDeleteConfirm = () => {
+    setTransactions(transactions.filter(t => t.id !== selectedTransaction.id));
+    setShowDeleteModal(false);
+    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
+  const totalDeposits = transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0);
+  const totalWithdrawals = transactions.filter(t => t.type === 'withdrawal' || t.type === 'transfer').reduce((sum, t) => sum + t.amount, 0);
+
+  return (
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold text-[#28376B]">
+          {language === 'ar' ? 'البنك' : 'Bank'}
+        </h2>
+        {canEdit && (
+          <Button onClick={() => setShowAddModal(true)} className="bg-[#28376B]">
+            <Plus className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'إضافة معاملة' : 'Add Transaction'}</span>
+          </Button>
+        )}
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي الإيداعات' : 'Total Deposits'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">+{totalDeposits.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي السحوبات' : 'Total Withdrawals'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">-{totalWithdrawals.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">{language === 'ar' ? 'الرصيد الحالي' : 'Current Balance'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-[#28376B]">{transactions[transactions.length - 1]?.balance.toLocaleString() || 0}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Transactions Table */}
+      <Card>
+        <CardContent className="pt-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
+                <TableHead>{language === 'ar' ? 'البنك' : 'Bank'}</TableHead>
+                <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
+                <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الرصيد' : 'Balance'}</TableHead>
+                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {transactions.map((transaction) => (
+                <TableRow key={transaction.id}>
+                  <TableCell className="font-medium">{transaction.id}</TableCell>
+                  <TableCell>{transaction.date}</TableCell>
+                  <TableCell>{transaction.description}</TableCell>
+                  <TableCell>{transaction.bankName}</TableCell>
+                  <TableCell>
+                    <Badge variant={transaction.type === 'deposit' ? 'success' : 'destructive'}>
+                      {transaction.type === 'deposit' 
+                        ? (language === 'ar' ? 'إيداع' : 'Deposit') 
+                        : transaction.type === 'withdrawal'
+                        ? (language === 'ar' ? 'سحب' : 'Withdrawal')
+                        : (language === 'ar' ? 'تحويل' : 'Transfer')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className={transaction.type === 'deposit' ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                    {transaction.type === 'deposit' ? '+' : '-'}{transaction.amount.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="font-bold">{transaction.balance.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedTransaction(transaction); setShowViewModal(true); }}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {canEdit && (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedTransaction(transaction); setSuccessMessage(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open'); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedTransaction(transaction); setShowDeleteModal(true); }}>
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* View Details Modal */}
+      {showViewModal && selectedTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل المعاملة' : 'Transaction Details'}</h3>
+              <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'رقم المعاملة' : 'Transaction #'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedTransaction.id}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'التاريخ' : 'Date'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedTransaction.date}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'البنك' : 'Bank'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedTransaction.bankName}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الوصف' : 'Description'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedTransaction.description}</p>
+              </div>
+              <div className={`${selectedTransaction.type === 'deposit' ? 'bg-green-50' : 'bg-red-50'} p-4 rounded-lg`}>
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'المبلغ' : 'Amount'}</p>
+                <p className={`text-2xl font-bold ${selectedTransaction.type === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
+                  {selectedTransaction.type === 'deposit' ? '+' : '-'}{selectedTransaction.amount.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الرصيد بعد المعاملة' : 'Balance After'}</p>
+                <p className="text-2xl font-bold text-purple-600">{selectedTransaction.balance.toLocaleString()}</p>
+              </div>
+            </div>
+            <Button onClick={() => setShowViewModal(false)} className="w-full mt-6 bg-[#28376B]">
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="text-gray-700 mb-6">
+              {language === 'ar' ? `هل أنت متأكد من حذف المعاملة ${selectedTransaction.id}؟` : `Are you sure you want to delete transaction ${selectedTransaction.id}?`}
+            </p>
+            <div className="flex gap-4">
+              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-600 hover:bg-red-700">
+                {language === 'ar' ? 'حذف' : 'Delete'}
+              </Button>
+              <Button onClick={() => setShowDeleteModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <div className="text-green-600 text-5xl mb-4">✓</div>
+            <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
