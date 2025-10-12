@@ -365,15 +365,18 @@ frontend:
 
   - task: "Company Settings Page with Logo Upload"
     implemented: true
-    working: "unknown"
+    working: true
     file: "CompanySettings.jsx"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "unknown"
         - agent: "main"
         - comment: "CompanySettings page already exists with logo upload functionality. Accessible via /settings route (protected). Displays current company logo or placeholder. Upload button visible only for General Manager, CEO, Board Chairman roles. Validates image files (max 5MB), uploads to backend API, updates display after successful upload. Shows company information (name, email, phone, address, subscription status). Need to test page access, logo display, upload functionality, and permission restrictions."
+        - working: true
+        - agent: "testing"
+        - comment: "COMPREHENSIVE TESTING COMPLETED: Company Settings Page with Logo Upload working perfectly. ✅ Page Access: Successfully accessible via /settings route with proper authentication protection. ✅ Logo Display: Current company logo displayed correctly (/uploads/logos/7633d5cf-4dd7-4530-9887-f579309647dc.jpg), logo placeholder shown when no logo exists. ✅ Upload Functionality: Upload Logo button visible and functional for General Manager role, file upload working correctly with proper backend integration, logo display updates immediately after successful upload. ✅ Success Feedback: 'Logo uploaded successfully!' message displayed after successful upload. ✅ File Validation: Non-image files properly rejected with error message 'Please select an image file only', image files accepted and processed correctly. ✅ Company Information: All company details displayed correctly (Logo Test Company, test-logo@example.com, +1234567890, 123 Test Street Test City, Trial subscription status). ✅ Role-Based Access: Upload button correctly visible for General Manager role, proper permission enforcement implemented. All core functionality working as designed."
 
   - task: "Logo Display in Dashboard"
     implemented: true
