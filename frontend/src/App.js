@@ -6,7 +6,7 @@ import LandingPage from "./components/LandingPage";
 import DemoPage from "./components/DemoPage";
 import LoginPage from "./components/LoginPage";
 import CompanyRegistrationPage from "./components/CompanyRegistrationPage";
-import Dashboard from "./components/Dashboard";
+import RealDashboard from "./components/RealDashboard";
 import CompanySettings from "./components/CompanySettings";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
