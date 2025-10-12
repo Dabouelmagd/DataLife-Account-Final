@@ -1143,6 +1143,13 @@ class RBACAPITester:
             await self.test_list_roles()
             await self.test_get_role_permissions()
             
+            # Test company logo upload functionality
+            await self.test_upload_logo_as_general_manager()
+            await self.test_upload_non_image_file()
+            await self.test_upload_logo_without_auth()
+            await self.test_upload_logo_as_accountant()
+            await self.test_get_company_with_logo_url()
+            
         finally:
             await self.cleanup()
         
