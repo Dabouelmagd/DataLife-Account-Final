@@ -333,7 +333,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Dashboard Integration with Real Data"
+    - "HR/Financial Sub-modules Backend Integration"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
