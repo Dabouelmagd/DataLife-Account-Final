@@ -379,39 +379,48 @@ export const AllowancesModule = ({ language, userRole }) => {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
-                <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
-                <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
-                <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
-                <TableHead>{language === 'ar' ? 'الشهر' : 'Month'}</TableHead>
-                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {allowances.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.id}</TableCell>
-                  <TableCell>{item.employee}</TableCell>
-                  <TableCell>
-                    <Badge>{item.type}</Badge>
-                  </TableCell>
-                  <TableCell className="text-green-600 font-bold">{item.amount.toLocaleString()}</TableCell>
-                  <TableCell>{item.month}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowViewModal(true); }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {canEdit && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setEditAllowance({ id: item.id, employee: item.employee, type: item.type, amount: item.amount, month: item.month }); setShowEditModal(true); }}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowDeleteModal(true); }}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
+          {loading ? (
+            <div className="p-8 text-center">
+              <p className="text-gray-500">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</p>
+            </div>
+          ) : allowances.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-gray-500">{language === 'ar' ? 'لا توجد بدلات حالياً' : 'No allowances yet'}</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الموظف' : 'Employee'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الشهر' : 'Month'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allowances.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.id}</TableCell>
+                    <TableCell>{item.employee_name}</TableCell>
+                    <TableCell>
+                      <Badge>{item.type}</Badge>
+                    </TableCell>
+                    <TableCell className="text-green-600 font-bold">{item.amount.toLocaleString()}</TableCell>
+                    <TableCell>{item.month}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowViewModal(true); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setEditAllowance({ id: item.id, employee: item.employee_name, type: item.type, amount: item.amount, month: item.month }); setShowEditModal(true); }}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowDeleteModal(true); }}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </>
                       )}
