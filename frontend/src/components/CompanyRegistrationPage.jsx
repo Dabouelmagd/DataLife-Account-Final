@@ -32,8 +32,27 @@ const CompanyRegistrationPage = () => {
     confirmPassword: ''
   });
   
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError(language === 'ar' ? 'يرجى اختيار ملف صورة فقط' : 'Please select an image file only');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError(language === 'ar' ? 'حجم الملف كبير جداً (الحد الأقصى 5 ميجابايت)' : 'File size too large (max 5MB)');
+        return;
+      }
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+      setError('');
+    }
+  };
 
   const isRTL = language === 'ar';
 
