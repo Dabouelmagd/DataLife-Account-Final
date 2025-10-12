@@ -333,9 +333,6 @@ metadata:
 
 test_plan:
   current_focus:
-    - "HR Data APIs with Multi-Tenant Isolation"
-    - "Financial Data APIs with Multi-Tenant Isolation"
-    - "RBAC Enforcement in Backend APIs"
     - "Dashboard Integration with Real Data"
   stuck_tasks: []
   test_all: false
