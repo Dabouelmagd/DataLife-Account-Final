@@ -60,7 +60,7 @@ function App() {
                 path="/dashboard" 
                 element={
                   <ProtectedRoute>
-                    <Dashboard />
+                    <RealDashboard />
                   </ProtectedRoute>
                 } 
               />
