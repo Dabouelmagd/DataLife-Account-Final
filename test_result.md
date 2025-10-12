@@ -341,6 +341,42 @@ frontend:
         - agent: "testing"
         - comment: "CRITICAL FIX VERIFICATION SUCCESSFUL: ✅ NAVIGATION RESOLVED: Successfully navigated to Allowances module by clicking HR module and then expanding submenu with chevron. ✅ ALL THREE ACTION ICONS WORKING: Comprehensive testing of A001-Ahmed Mohamed row confirmed all action icons are now functional after Radix UI Slot removal. ✅ VIEW ICON (Eye 👁️): Opens 'Allowance Details' modal showing employee (Ahmed Mohamed), type (Transport), amount (1,500 EGP), month (October 2024) with colored backgrounds (blue-50, green-50, purple-50). Modal closes properly. ✅ EDIT ICON (Pencil ✏️): Opens 'Edit Allowance' modal with pre-filled form fields (Employee Name, Allowance Type, Amount: 1500, Month: October 2024). All 4 editable fields working. Modal closes properly. ✅ DELETE ICON (Trash 🗑️): Opens 'Confirm Delete' modal asking 'Are you sure you want to delete this record?' with employee details (Ahmed Mohamed - Transport). Proper confirmation dialog with Delete/Cancel buttons. Modal closes properly. ✅ NO BROWSER ALERTS: All interactions use custom modals, no native browser alerts detected. ✅ BUTTON.JSX FIX CONFIRMED: Radix UI Slot component successfully removed, icons respond to clicks consistently. Root cause was Radix UI Slot component interfering with React event delegation. All critical functionality restored."
 
+  - task: "Company Logo Upload Integration in Registration"
+    implemented: true
+    working: "unknown"
+    file: "CompanyRegistrationPage.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "unknown"
+        - agent: "main"
+        - comment: "Fixed company logo upload integration in CompanyRegistrationPage.jsx. Issue: Code was trying to access result.company_id but registerCompany returns result.user.company_id. Fix: Changed line 144 to access result.user?.company_id. Logo upload form field exists in step 1, file validation (image type, max 5MB) implemented. After successful registration, if logo is provided, uploads to backend API and then navigates to dashboard. Need to test complete registration flow with logo upload."
+
+  - task: "Company Settings Page with Logo Upload"
+    implemented: true
+    working: "unknown"
+    file: "CompanySettings.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "unknown"
+        - agent: "main"
+        - comment: "CompanySettings page already exists with logo upload functionality. Accessible via /settings route (protected). Displays current company logo or placeholder. Upload button visible only for General Manager, CEO, Board Chairman roles. Validates image files (max 5MB), uploads to backend API, updates display after successful upload. Shows company information (name, email, phone, address, subscription status). Need to test page access, logo display, upload functionality, and permission restrictions."
+
+  - task: "Logo Display in Dashboard"
+    implemented: true
+    working: "unknown"
+    file: "RealDashboard.jsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: "unknown"
+        - agent: "main"
+        - comment: "RealDashboard already has logo display functionality. Shows logo in sidebar (line 314-319) if company.logo_url exists, otherwise shows company name. Shows logo in overview section header (line 158-160) next to welcome message. Fetches company data on mount including logo_url. Need to test that logo displays correctly after upload and persists across sessions."
+
 agent_communication:
     - agent: "main"
     - message: "Completed connecting demo/trial functionality. Watch Demo buttons now navigate to /demo route with interactive demo page. Start Free Trial buttons open modal with backend API integration. Ready for comprehensive testing of backend API endpoints and frontend user flow."
