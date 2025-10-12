@@ -16,6 +16,7 @@ from api.auth import router as auth_router
 from api.companies import router as companies_router
 from api.users import router as users_router
 from api.hr_data import router as hr_data_router
+from api.financial_data import router as financial_data_router
 
 
 ROOT_DIR = Path(__file__).parent
