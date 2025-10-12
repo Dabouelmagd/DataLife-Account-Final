@@ -962,7 +962,7 @@ export const CustomersModule = ({ language, userRole }) => {
             <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي العملاء' : 'Total Customers'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">3</p>
+            <p className="text-2xl font-bold">{customers.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -970,7 +970,7 @@ export const CustomersModule = ({ language, userRole }) => {
             <CardTitle className="text-sm">{language === 'ar' ? 'العملاء النشطين' : 'Active Customers'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-600">3</p>
+            <p className="text-2xl font-bold text-green-600">{customers.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -978,33 +978,44 @@ export const CustomersModule = ({ language, userRole }) => {
             <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي المستحقات' : 'Total Receivables'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-600">137,000 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+            <p className="text-2xl font-bold text-green-600">
+              {customers.reduce((sum, c) => sum + c.balance, 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+            </p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
-                <TableHead>{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</TableHead>
-                <TableHead>{language === 'ar' ? 'الهاتف' : 'Phone'}</TableHead>
-                <TableHead>{language === 'ar' ? 'الرصيد' : 'Balance'}</TableHead>
-                <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
-                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {customers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell className="font-medium">{customer.id}</TableCell>
-                  <TableCell>{customer.name}</TableCell>
-                  <TableCell>{customer.phone}</TableCell>
-                  <TableCell className={customer.balance > 0 ? 'text-green-600 font-bold' : 'text-gray-500'}>
-                    {customer.balance > 0 ? customer.balance.toLocaleString() : '-'}
-                  </TableCell>
+          {loading ? (
+            <div className="p-8 text-center">
+              <p className="text-gray-500">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</p>
+            </div>
+          ) : customers.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-gray-500">{language === 'ar' ? 'لا يوجد عملاء حالياً' : 'No customers yet'}</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الهاتف' : 'Phone'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الرصيد' : 'Balance'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {customers.map((customer) => (
+                  <TableRow key={customer.id}>
+                    <TableCell className="font-medium">{customer.id}</TableCell>
+                    <TableCell>{customer.name}</TableCell>
+                    <TableCell>{customer.phone}</TableCell>
+                    <TableCell className={customer.balance > 0 ? 'text-green-600 font-bold' : 'text-gray-500'}>
+                      {customer.balance > 0 ? customer.balance.toLocaleString() : '-'}
+                    </TableCell>
                   <TableCell>
                     <Badge variant="success">
                       {language === 'ar' ? 'نشط' : 'Active'}
