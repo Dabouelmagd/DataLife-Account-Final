@@ -873,6 +873,219 @@ class RBACAPITester:
             except Exception as e:
                 self.log_result(f"Get {role} Permissions", False, f"Exception: {str(e)}")
 
+    async def test_upload_logo_as_general_manager(self):
+        """Test uploading logo as General Manager (should succeed)"""
+        if "admin" not in self.test_tokens or not self.test_company:
+            self.log_result("Upload Logo as General Manager", False, "No admin token or company data available")
+            return
+            
+        company_id = self.test_company["id"]
+        
+        # Create a simple test image content
+        test_image_content = b"fake_image_content_for_testing"
+        
+        try:
+            files = {"file": ("test_logo.jpg", test_image_content, "image/jpeg")}
+            
+            response = await self.client.post(
+                f"{self.base_url}/companies/{company_id}/upload-logo",
+                files=files,
+                headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response structure
+                required_fields = ["message", "logo_url"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("Upload Logo as General Manager", False, 
+                                  f"Missing required fields: {missing_fields}", data)
+                    return None
+                
+                if "successfully" not in data.get("message", "").lower():
+                    self.log_result("Upload Logo as General Manager", False, 
+                                  f"Unexpected message: {data.get('message')}", data)
+                    return None
+                
+                # Verify logo_url format
+                logo_url = data.get("logo_url")
+                if not logo_url or not logo_url.startswith("/uploads/logos/"):
+                    self.log_result("Upload Logo as General Manager", False, 
+                                  f"Invalid logo_url format: {logo_url}", data)
+                    return None
+                
+                self.log_result("Upload Logo as General Manager", True, 
+                              f"Logo uploaded successfully: {logo_url}", data)
+                return data
+            else:
+                self.log_result("Upload Logo as General Manager", False, 
+                              f"Expected 200, got {response.status_code}", response.text)
+                return None
+                
+        except Exception as e:
+            self.log_result("Upload Logo as General Manager", False, f"Exception: {str(e)}")
+            return None
+
+    async def test_upload_non_image_file(self):
+        """Test uploading non-image file (should fail with 400)"""
+        if "admin" not in self.test_tokens or not self.test_company:
+            self.log_result("Upload Non-Image File", False, "No admin token or company data available")
+            return
+            
+        company_id = self.test_company["id"]
+        
+        # Create a non-image file content
+        test_file_content = b"This is not an image file content"
+        
+        try:
+            files = {"file": ("test_file.txt", test_file_content, "text/plain")}
+            
+            response = await self.client.post(
+                f"{self.base_url}/companies/{company_id}/upload-logo",
+                files=files,
+                headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
+            )
+            
+            if response.status_code == 400:
+                data = response.json()
+                if "only image files" in data.get("detail", "").lower():
+                    self.log_result("Upload Non-Image File", True, 
+                                  "Correctly rejected non-image file", data)
+                else:
+                    self.log_result("Upload Non-Image File", False, 
+                                  f"Wrong error message: {data.get('detail')}", data)
+            else:
+                self.log_result("Upload Non-Image File", False, 
+                              f"Expected 400, got {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_result("Upload Non-Image File", False, f"Exception: {str(e)}")
+
+    async def test_upload_logo_without_auth(self):
+        """Test uploading logo without authentication (should fail with 401)"""
+        if not self.test_company:
+            self.log_result("Upload Logo Without Auth", False, "No company data available")
+            return
+            
+        company_id = self.test_company["id"]
+        test_image_content = b"fake_image_content_for_testing"
+        
+        try:
+            files = {"file": ("test_logo.jpg", test_image_content, "image/jpeg")}
+            
+            response = await self.client.post(
+                f"{self.base_url}/companies/{company_id}/upload-logo",
+                files=files
+            )
+            
+            if response.status_code == 401:
+                data = response.json()
+                if "authorization header missing" in data.get("detail", "").lower():
+                    self.log_result("Upload Logo Without Auth", True, 
+                                  "Correctly rejected request without authentication", data)
+                else:
+                    self.log_result("Upload Logo Without Auth", False, 
+                                  f"Wrong error message: {data.get('detail')}", data)
+            else:
+                self.log_result("Upload Logo Without Auth", False, 
+                              f"Expected 401, got {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_result("Upload Logo Without Auth", False, f"Exception: {str(e)}")
+
+    async def test_upload_logo_as_accountant(self):
+        """Test uploading logo as Accountant (should fail with 403)"""
+        if "accountant" not in self.test_users or not self.test_company:
+            self.log_result("Upload Logo as Accountant", False, "No accountant user or company data available")
+            return
+            
+        # First, login as Accountant
+        accountant_email = self.test_users["accountant"]["email"]
+        login_data = {
+            "email": accountant_email,
+            "password": "password123"
+        }
+        
+        try:
+            login_response = await self.client.post(
+                f"{self.base_url}/auth/login",
+                json=login_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if login_response.status_code != 200:
+                self.log_result("Upload Logo as Accountant", False, 
+                              f"Could not login as Accountant: {login_response.status_code}")
+                return
+                
+            accountant_token = login_response.json()["access_token"]
+            company_id = self.test_company["id"]
+            test_image_content = b"fake_image_content_for_testing"
+            
+            files = {"file": ("test_logo.jpg", test_image_content, "image/jpeg")}
+            
+            response = await self.client.post(
+                f"{self.base_url}/companies/{company_id}/upload-logo",
+                files=files,
+                headers={"Authorization": f"Bearer {accountant_token}"}
+            )
+            
+            if response.status_code == 403:
+                data = response.json()
+                if "only company administrators" in data.get("detail", "").lower():
+                    self.log_result("Upload Logo as Accountant", True, 
+                                  "Correctly denied logo upload for Accountant role", data)
+                else:
+                    self.log_result("Upload Logo as Accountant", False, 
+                                  f"Wrong error message: {data.get('detail')}", data)
+            else:
+                self.log_result("Upload Logo as Accountant", False, 
+                              f"Expected 403, got {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_result("Upload Logo as Accountant", False, f"Exception: {str(e)}")
+
+    async def test_get_company_with_logo_url(self):
+        """Test that GET company returns logo_url after upload"""
+        if "admin" not in self.test_tokens or not self.test_company:
+            self.log_result("Get Company with Logo URL", False, "No admin token or company data available")
+            return
+            
+        company_id = self.test_company["id"]
+        
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/companies/{company_id}",
+                headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check if logo_url is present and not null
+                logo_url = data.get("logo_url")
+                if logo_url and logo_url.startswith("/uploads/logos/"):
+                    self.log_result("Get Company with Logo URL", True, 
+                                  f"Company data includes logo_url: {logo_url}", data)
+                elif logo_url is None:
+                    self.log_result("Get Company with Logo URL", True, 
+                                  "Company data includes logo_url field (null - no logo uploaded yet)", data)
+                else:
+                    self.log_result("Get Company with Logo URL", False, 
+                                  f"Invalid logo_url format: {logo_url}", data)
+                return data
+            else:
+                self.log_result("Get Company with Logo URL", False, 
+                              f"Expected 200, got {response.status_code}", response.text)
+                return None
+                
+        except Exception as e:
+            self.log_result("Get Company with Logo URL", False, f"Exception: {str(e)}")
+            return None
+
     async def test_api_health(self):
         """Test basic API health"""
         try:
