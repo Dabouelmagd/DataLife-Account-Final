@@ -64,6 +64,14 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/settings" 
+                element={
+                  <ProtectedRoute>
+                    <CompanySettings />
+                  </ProtectedRoute>
+                } 
+              />
             </Routes>
           </BrowserRouter>
         </div>
