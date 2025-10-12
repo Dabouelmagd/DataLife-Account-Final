@@ -7,6 +7,7 @@ import DemoPage from "./components/DemoPage";
 import LoginPage from "./components/LoginPage";
 import CompanyRegistrationPage from "./components/CompanyRegistrationPage";
 import Dashboard from "./components/Dashboard";
+import CompanySettings from "./components/CompanySettings";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
