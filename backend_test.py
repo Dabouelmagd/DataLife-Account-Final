@@ -998,18 +998,41 @@ class RBACAPITester:
 
     async def test_upload_logo_as_accountant(self):
         """Test uploading logo as Accountant (should fail with 403)"""
-        if "accountant" not in self.test_users or not self.test_company:
-            self.log_result("Upload Logo as Accountant", False, "No accountant user or company data available")
+        if "admin" not in self.test_tokens or not self.test_company:
+            self.log_result("Upload Logo as Accountant", False, "No admin token or company data available")
             return
             
-        # First, login as Accountant
-        accountant_email = self.test_users["accountant"]["email"]
-        login_data = {
-            "email": accountant_email,
+        # Create a new Accountant user for this test (since previous one might be deactivated)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        user_data = {
+            "email": f"accountant_logo.{timestamp}@company.com",
+            "full_name": "Accountant Logo Test User",
+            "role": "Accountant",
             "password": "password123"
         }
         
         try:
+            # Create new accountant user
+            create_response = await self.client.post(
+                f"{self.base_url}/users/",
+                json=user_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['admin']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if create_response.status_code != 200:
+                self.log_result("Upload Logo as Accountant", False, 
+                              f"Could not create Accountant user: {create_response.status_code}")
+                return
+            
+            # Login as the new Accountant
+            login_data = {
+                "email": user_data["email"],
+                "password": user_data["password"]
+            }
+            
             login_response = await self.client.post(
                 f"{self.base_url}/auth/login",
                 json=login_data,
