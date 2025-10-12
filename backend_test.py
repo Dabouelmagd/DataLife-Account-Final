@@ -1111,6 +1111,989 @@ class MultiTenantAPITester:
             self.log_result("Get Company with Logo URL", False, f"Exception: {str(e)}")
             return None
 
+    # ==================== MULTI-TENANT TESTING METHODS ====================
+    
+    async def setup_multi_tenant_companies(self):
+        """Setup two companies for multi-tenant testing"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Company A - TechCorp A
+        company_a_data = {
+            "name": "TechCorp A",
+            "industry": "Technology", 
+            "size": "Medium (51-200)",
+            "contact_email": f"contact.a.{timestamp}@techcorp.com",
+            "phone": "+201111111111"
+        }
+        
+        admin_a_email = f"admin.a.{timestamp}@techcorp.com"
+        admin_a_password = "securepass123"
+        
+        try:
+            response_a = await self.client.post(
+                f"{self.base_url}/auth/register-company",
+                json=company_a_data,
+                params={
+                    "user_email": admin_a_email,
+                    "user_password": admin_a_password,
+                    "user_full_name": "General Manager A"
+                },
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response_a.status_code == 200:
+                data_a = response_a.json()
+                self.test_companies["A"] = {
+                    "id": data_a["user"]["company_id"],
+                    "email": admin_a_email,
+                    "password": admin_a_password,
+                    "token": data_a["access_token"],
+                    "user": data_a["user"]
+                }
+                self.log_result("Setup Company A", True, f"Company A created: {company_a_data['name']}")
+            else:
+                self.log_result("Setup Company A", False, f"Failed to create Company A: {response_a.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Setup Company A", False, f"Exception: {str(e)}")
+            return False
+        
+        # Company B - TechCorp B
+        company_b_data = {
+            "name": "TechCorp B",
+            "industry": "Finance", 
+            "size": "Large (201+)",
+            "contact_email": f"contact.b.{timestamp}@techcorp.com",
+            "phone": "+202222222222"
+        }
+        
+        admin_b_email = f"admin.b.{timestamp}@techcorp.com"
+        admin_b_password = "securepass456"
+        
+        try:
+            response_b = await self.client.post(
+                f"{self.base_url}/auth/register-company",
+                json=company_b_data,
+                params={
+                    "user_email": admin_b_email,
+                    "user_password": admin_b_password,
+                    "user_full_name": "General Manager B"
+                },
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response_b.status_code == 200:
+                data_b = response_b.json()
+                self.test_companies["B"] = {
+                    "id": data_b["user"]["company_id"],
+                    "email": admin_b_email,
+                    "password": admin_b_password,
+                    "token": data_b["access_token"],
+                    "user": data_b["user"]
+                }
+                self.log_result("Setup Company B", True, f"Company B created: {company_b_data['name']}")
+                return True
+            else:
+                self.log_result("Setup Company B", False, f"Failed to create Company B: {response_b.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Setup Company B", False, f"Exception: {str(e)}")
+            return False
+
+    async def create_company_a_users(self):
+        """Create additional users for Company A"""
+        if "A" not in self.test_companies:
+            self.log_result("Create Company A Users", False, "Company A not available")
+            return False
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        admin_token = self.test_companies["A"]["token"]
+        
+        users_to_create = [
+            {
+                "role": "HR Manager",
+                "email": f"hr.a.{timestamp}@techcorp.com",
+                "full_name": "HR Manager A",
+                "password": "hrpass123"
+            },
+            {
+                "role": "Financial Manager", 
+                "email": f"finance.a.{timestamp}@techcorp.com",
+                "full_name": "Financial Manager A",
+                "password": "financepass123"
+            },
+            {
+                "role": "Accountant",
+                "email": f"accountant.a.{timestamp}@techcorp.com", 
+                "full_name": "Accountant A",
+                "password": "accountpass123"
+            }
+        ]
+        
+        created_users = {}
+        
+        for user_data in users_to_create:
+            try:
+                response = await self.client.post(
+                    f"{self.base_url}/users/",
+                    json=user_data,
+                    headers={
+                        "Authorization": f"Bearer {admin_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    # Login to get token
+                    login_response = await self.client.post(
+                        f"{self.base_url}/auth/login",
+                        json={"email": user_data["email"], "password": user_data["password"]},
+                        headers={"Content-Type": "application/json"}
+                    )
+                    
+                    if login_response.status_code == 200:
+                        login_data = login_response.json()
+                        created_users[user_data["role"]] = {
+                            "user": data,
+                            "email": user_data["email"],
+                            "password": user_data["password"],
+                            "token": login_data["access_token"]
+                        }
+                        self.log_result(f"Create {user_data['role']} A", True, f"User created and logged in")
+                    else:
+                        self.log_result(f"Create {user_data['role']} A", False, f"User created but login failed")
+                        return False
+                else:
+                    self.log_result(f"Create {user_data['role']} A", False, f"Failed to create user: {response.status_code}")
+                    return False
+                    
+            except Exception as e:
+                self.log_result(f"Create {user_data['role']} A", False, f"Exception: {str(e)}")
+                return False
+        
+        self.test_companies["A"]["users"] = created_users
+        return True
+
+    # ==================== HR API TESTING ====================
+    
+    async def test_hr_employees_api(self):
+        """Test HR Employees API with RBAC and multi-tenant isolation"""
+        if "A" not in self.test_companies:
+            self.log_result("HR Employees API", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test data
+        employee_data = {
+            "company_id": company_a["id"],
+            "name": "Ahmed Hassan",
+            "position": "Software Engineer",
+            "department": "IT",
+            "email": "ahmed.hassan@techcorp.com",
+            "phone": "+201234567890",
+            "hire_date": "2024-01-15",
+            "basic_salary": 15000.0
+        }
+        
+        # Test 1: POST as General Manager (should succeed)
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/hr/employees",
+                json=employee_data,
+                headers={
+                    "Authorization": f"Bearer {company_a['token']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.test_data["employee_id"] = data.get("id")
+                self.log_result("HR Employees POST (General Manager)", True, "Employee created successfully")
+            else:
+                self.log_result("HR Employees POST (General Manager)", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Employees POST (General Manager)", False, f"Exception: {str(e)}")
+        
+        # Test 2: GET as General Manager (should return only Company A data)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/employees",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    # Check that all employees belong to Company A
+                    company_a_employees = [emp for emp in data if emp.get("company_id") == company_a["id"]]
+                    if len(company_a_employees) == len(data):
+                        self.log_result("HR Employees GET (Company A)", True, f"Retrieved {len(data)} employees for Company A only")
+                    else:
+                        self.log_result("HR Employees GET (Company A)", False, "Data contains employees from other companies")
+                else:
+                    self.log_result("HR Employees GET (Company A)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("HR Employees GET (Company A)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("HR Employees GET (Company A)", False, f"Exception: {str(e)}")
+        
+        # Test 3: POST as Accountant (should fail 403)
+        if "users" in company_a and "Accountant" in company_a["users"]:
+            try:
+                accountant_token = company_a["users"]["Accountant"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/hr/employees",
+                    json=employee_data,
+                    headers={
+                        "Authorization": f"Bearer {accountant_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 403:
+                    self.log_result("HR Employees POST (Accountant Denied)", True, "Correctly denied Accountant access")
+                else:
+                    self.log_result("HR Employees POST (Accountant Denied)", False, f"Expected 403, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("HR Employees POST (Accountant Denied)", False, f"Exception: {str(e)}")
+
+    async def test_hr_allowances_api(self):
+        """Test HR Allowances API with RBAC"""
+        if "A" not in self.test_companies:
+            self.log_result("HR Allowances API", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test data
+        allowance_data = {
+            "company_id": company_a["id"],
+            "employee_id": self.test_data.get("employee_id", "emp_123"),
+            "employee_name": "Ahmed Hassan",
+            "type": "Transport",
+            "amount": 1500.0,
+            "month": "2024-12"
+        }
+        
+        # Test 1: POST as HR Manager (should succeed)
+        if "users" in company_a and "HR Manager" in company_a["users"]:
+            try:
+                hr_token = company_a["users"]["HR Manager"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/hr/allowances",
+                    json=allowance_data,
+                    headers={
+                        "Authorization": f"Bearer {hr_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    self.log_result("HR Allowances POST (HR Manager)", True, "Allowance created successfully")
+                else:
+                    self.log_result("HR Allowances POST (HR Manager)", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("HR Allowances POST (HR Manager)", False, f"Exception: {str(e)}")
+        
+        # Test 2: GET as any role (should return only Company A data)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/allowances",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    company_a_allowances = [allow for allow in data if allow.get("company_id") == company_a["id"]]
+                    if len(company_a_allowances) == len(data):
+                        self.log_result("HR Allowances GET (Company A)", True, f"Retrieved {len(data)} allowances for Company A only")
+                    else:
+                        self.log_result("HR Allowances GET (Company A)", False, "Data contains allowances from other companies")
+                else:
+                    self.log_result("HR Allowances GET (Company A)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("HR Allowances GET (Company A)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("HR Allowances GET (Company A)", False, f"Exception: {str(e)}")
+        
+        # Test 3: POST as Accountant (should fail 403)
+        if "users" in company_a and "Accountant" in company_a["users"]:
+            try:
+                accountant_token = company_a["users"]["Accountant"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/hr/allowances",
+                    json=allowance_data,
+                    headers={
+                        "Authorization": f"Bearer {accountant_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 403:
+                    self.log_result("HR Allowances POST (Accountant Denied)", True, "Correctly denied Accountant access")
+                else:
+                    self.log_result("HR Allowances POST (Accountant Denied)", False, f"Expected 403, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("HR Allowances POST (Accountant Denied)", False, f"Exception: {str(e)}")
+
+    async def test_hr_deductions_api(self):
+        """Test HR Deductions API"""
+        if "A" not in self.test_companies:
+            self.log_result("HR Deductions API", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test data
+        deduction_data = {
+            "company_id": company_a["id"],
+            "employee_id": self.test_data.get("employee_id", "emp_123"),
+            "employee_name": "Ahmed Hassan",
+            "type": "Insurance",
+            "amount": 500.0,
+            "month": "2024-12"
+        }
+        
+        # Test 1: POST as Financial Manager (should succeed)
+        if "users" in company_a and "Financial Manager" in company_a["users"]:
+            try:
+                finance_token = company_a["users"]["Financial Manager"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/hr/deductions",
+                    json=deduction_data,
+                    headers={
+                        "Authorization": f"Bearer {finance_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    self.log_result("HR Deductions POST (Financial Manager)", True, "Deduction created successfully")
+                else:
+                    self.log_result("HR Deductions POST (Financial Manager)", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("HR Deductions POST (Financial Manager)", False, f"Exception: {str(e)}")
+        
+        # Test 2: GET (should return only Company A data)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/deductions",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_result("HR Deductions GET (Company A)", True, f"Retrieved {len(data)} deductions for Company A")
+                else:
+                    self.log_result("HR Deductions GET (Company A)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("HR Deductions GET (Company A)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("HR Deductions GET (Company A)", False, f"Exception: {str(e)}")
+
+    async def test_hr_leaves_api(self):
+        """Test HR Leaves API"""
+        if "A" not in self.test_companies:
+            self.log_result("HR Leaves API", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test data
+        leave_data = {
+            "company_id": company_a["id"],
+            "employee_id": self.test_data.get("employee_id", "emp_123"),
+            "employee_name": "Ahmed Hassan",
+            "leave_type": "annual",
+            "start_date": "2024-12-25",
+            "end_date": "2024-12-30",
+            "days": 5,
+            "reason": "Year-end vacation"
+        }
+        
+        # Test 1: POST as any authenticated user (should succeed)
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/hr/leaves",
+                json=leave_data,
+                headers={
+                    "Authorization": f"Bearer {company_a['token']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                self.log_result("HR Leaves POST (Any User)", True, "Leave created successfully")
+            else:
+                self.log_result("HR Leaves POST (Any User)", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Leaves POST (Any User)", False, f"Exception: {str(e)}")
+        
+        # Test 2: GET (should return only Company A data)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/leaves",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_result("HR Leaves GET (Company A)", True, f"Retrieved {len(data)} leaves for Company A")
+                else:
+                    self.log_result("HR Leaves GET (Company A)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("HR Leaves GET (Company A)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("HR Leaves GET (Company A)", False, f"Exception: {str(e)}")
+
+    async def test_hr_attendance_api(self):
+        """Test HR Attendance API"""
+        if "A" not in self.test_companies:
+            self.log_result("HR Attendance API", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test data
+        attendance_data = {
+            "company_id": company_a["id"],
+            "employee_id": self.test_data.get("employee_id", "emp_123"),
+            "employee_name": "Ahmed Hassan",
+            "date": "2024-12-15",
+            "check_in": "09:00",
+            "check_out": "17:00",
+            "status": "present",
+            "hours": 8.0
+        }
+        
+        # Test 1: POST as HR Manager (should succeed)
+        if "users" in company_a and "HR Manager" in company_a["users"]:
+            try:
+                hr_token = company_a["users"]["HR Manager"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/hr/attendance",
+                    json=attendance_data,
+                    headers={
+                        "Authorization": f"Bearer {hr_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    self.log_result("HR Attendance POST (HR Manager)", True, "Attendance recorded successfully")
+                else:
+                    self.log_result("HR Attendance POST (HR Manager)", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("HR Attendance POST (HR Manager)", False, f"Exception: {str(e)}")
+        
+        # Test 2: GET (should return only Company A data)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/attendance",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_result("HR Attendance GET (Company A)", True, f"Retrieved {len(data)} attendance records for Company A")
+                else:
+                    self.log_result("HR Attendance GET (Company A)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("HR Attendance GET (Company A)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("HR Attendance GET (Company A)", False, f"Exception: {str(e)}")
+        
+        # Test 3: POST as Accountant (should fail 403)
+        if "users" in company_a and "Accountant" in company_a["users"]:
+            try:
+                accountant_token = company_a["users"]["Accountant"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/hr/attendance",
+                    json=attendance_data,
+                    headers={
+                        "Authorization": f"Bearer {accountant_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 403:
+                    self.log_result("HR Attendance POST (Accountant Denied)", True, "Correctly denied Accountant access")
+                else:
+                    self.log_result("HR Attendance POST (Accountant Denied)", False, f"Expected 403, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("HR Attendance POST (Accountant Denied)", False, f"Exception: {str(e)}")
+
+    # ==================== FINANCIAL API TESTING ====================
+    
+    async def test_financial_journal_entries_api(self):
+        """Test Financial Journal Entries API"""
+        if "A" not in self.test_companies:
+            self.log_result("Financial Journal Entries API", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test data
+        journal_entry_data = {
+            "company_id": company_a["id"],
+            "date": "2024-12-15",
+            "description": "Office supplies purchase",
+            "account": "Office Expenses",
+            "debit": 2500.0,
+            "credit": 0.0
+        }
+        
+        # Test 1: POST as Financial Manager (should succeed)
+        if "users" in company_a and "Financial Manager" in company_a["users"]:
+            try:
+                finance_token = company_a["users"]["Financial Manager"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/financial/journal-entries",
+                    json=journal_entry_data,
+                    headers={
+                        "Authorization": f"Bearer {finance_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    self.log_result("Financial Journal Entries POST (Financial Manager)", True, "Journal entry created successfully")
+                else:
+                    self.log_result("Financial Journal Entries POST (Financial Manager)", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Financial Journal Entries POST (Financial Manager)", False, f"Exception: {str(e)}")
+        
+        # Test 2: GET (should return only Company A data)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/journal-entries",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_result("Financial Journal Entries GET (Company A)", True, f"Retrieved {len(data)} journal entries for Company A")
+                else:
+                    self.log_result("Financial Journal Entries GET (Company A)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("Financial Journal Entries GET (Company A)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Financial Journal Entries GET (Company A)", False, f"Exception: {str(e)}")
+        
+        # Test 3: POST as Accountant (should fail 403)
+        if "users" in company_a and "Accountant" in company_a["users"]:
+            try:
+                accountant_token = company_a["users"]["Accountant"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/financial/journal-entries",
+                    json=journal_entry_data,
+                    headers={
+                        "Authorization": f"Bearer {accountant_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 403:
+                    self.log_result("Financial Journal Entries POST (Accountant Denied)", True, "Correctly denied Accountant write access")
+                else:
+                    self.log_result("Financial Journal Entries POST (Accountant Denied)", False, f"Expected 403, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("Financial Journal Entries POST (Accountant Denied)", False, f"Exception: {str(e)}")
+
+    async def test_financial_treasury_api(self):
+        """Test Financial Treasury API"""
+        if "A" not in self.test_companies:
+            self.log_result("Financial Treasury API", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test data
+        treasury_data = {
+            "company_id": company_a["id"],
+            "date": "2024-12-15",
+            "description": "Cash deposit from sales",
+            "type": "in",
+            "amount": 50000.0
+        }
+        
+        # Test 1: POST as Financial Manager (should succeed)
+        if "users" in company_a and "Financial Manager" in company_a["users"]:
+            try:
+                finance_token = company_a["users"]["Financial Manager"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/financial/treasury",
+                    json=treasury_data,
+                    headers={
+                        "Authorization": f"Bearer {finance_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    self.log_result("Financial Treasury POST (Financial Manager)", True, "Treasury transaction created successfully")
+                else:
+                    self.log_result("Financial Treasury POST (Financial Manager)", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Financial Treasury POST (Financial Manager)", False, f"Exception: {str(e)}")
+        
+        # Test 2: GET as Accountant (should succeed - read access)
+        if "users" in company_a and "Accountant" in company_a["users"]:
+            try:
+                accountant_token = company_a["users"]["Accountant"]["token"]
+                response = await self.client.get(
+                    f"{self.base_url}/financial/treasury",
+                    headers={"Authorization": f"Bearer {accountant_token}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if isinstance(data, list):
+                        self.log_result("Financial Treasury GET (Accountant Read Access)", True, f"Accountant can read {len(data)} treasury transactions")
+                    else:
+                        self.log_result("Financial Treasury GET (Accountant Read Access)", False, f"Expected list, got {type(data)}")
+                else:
+                    self.log_result("Financial Treasury GET (Accountant Read Access)", False, f"Expected 200, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("Financial Treasury GET (Accountant Read Access)", False, f"Exception: {str(e)}")
+
+    async def test_financial_bank_api(self):
+        """Test Financial Bank API"""
+        if "A" not in self.test_companies:
+            self.log_result("Financial Bank API", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test data
+        bank_data = {
+            "company_id": company_a["id"],
+            "date": "2024-12-15",
+            "description": "Client payment received",
+            "bank_name": "National Bank of Egypt",
+            "type": "deposit",
+            "amount": 75000.0,
+            "balance": 125000.0
+        }
+        
+        # Test 1: POST as Financial Manager (should succeed)
+        if "users" in company_a and "Financial Manager" in company_a["users"]:
+            try:
+                finance_token = company_a["users"]["Financial Manager"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/financial/bank",
+                    json=bank_data,
+                    headers={
+                        "Authorization": f"Bearer {finance_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    self.log_result("Financial Bank POST (Financial Manager)", True, "Bank transaction created successfully")
+                else:
+                    self.log_result("Financial Bank POST (Financial Manager)", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Financial Bank POST (Financial Manager)", False, f"Exception: {str(e)}")
+        
+        # Test 2: GET (should return only Company A data)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/bank",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_result("Financial Bank GET (Company A)", True, f"Retrieved {len(data)} bank transactions for Company A")
+                else:
+                    self.log_result("Financial Bank GET (Company A)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("Financial Bank GET (Company A)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Financial Bank GET (Company A)", False, f"Exception: {str(e)}")
+        
+        # Test 3: POST as Accountant (should fail 403)
+        if "users" in company_a and "Accountant" in company_a["users"]:
+            try:
+                accountant_token = company_a["users"]["Accountant"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/financial/bank",
+                    json=bank_data,
+                    headers={
+                        "Authorization": f"Bearer {accountant_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 403:
+                    self.log_result("Financial Bank POST (Accountant Denied)", True, "Correctly denied Accountant write access")
+                else:
+                    self.log_result("Financial Bank POST (Accountant Denied)", False, f"Expected 403, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("Financial Bank POST (Accountant Denied)", False, f"Exception: {str(e)}")
+
+    async def test_financial_customers_api(self):
+        """Test Financial Customers API"""
+        if "A" not in self.test_companies:
+            self.log_result("Financial Customers API", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test data
+        customer_data = {
+            "company_id": company_a["id"],
+            "name": "Mahmoud Ali Trading",
+            "email": "mahmoud@alitrading.com",
+            "phone": "+201555666777",
+            "address": "123 Commerce Street, Cairo",
+            "balance": 25000.0
+        }
+        
+        # Test 1: POST as Financial Manager (should succeed)
+        if "users" in company_a and "Financial Manager" in company_a["users"]:
+            try:
+                finance_token = company_a["users"]["Financial Manager"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/financial/customers",
+                    json=customer_data,
+                    headers={
+                        "Authorization": f"Bearer {finance_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    self.test_data["customer_id"] = data.get("id")
+                    self.log_result("Financial Customers POST (Financial Manager)", True, "Customer created successfully")
+                else:
+                    self.log_result("Financial Customers POST (Financial Manager)", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Financial Customers POST (Financial Manager)", False, f"Exception: {str(e)}")
+        
+        # Test 2: GET (should return only Company A data)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/customers",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_result("Financial Customers GET (Company A)", True, f"Retrieved {len(data)} customers for Company A")
+                else:
+                    self.log_result("Financial Customers GET (Company A)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("Financial Customers GET (Company A)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Financial Customers GET (Company A)", False, f"Exception: {str(e)}")
+
+    async def test_financial_suppliers_api(self):
+        """Test Financial Suppliers API"""
+        if "A" not in self.test_companies:
+            self.log_result("Financial Suppliers API", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test data
+        supplier_data = {
+            "company_id": company_a["id"],
+            "name": "Tech Solutions Provider",
+            "email": "sales@techsolutions.com",
+            "phone": "+201444555666",
+            "address": "456 Technology Park, Giza",
+            "balance": -15000.0
+        }
+        
+        # Test 1: POST as Financial Manager (should succeed)
+        if "users" in company_a and "Financial Manager" in company_a["users"]:
+            try:
+                finance_token = company_a["users"]["Financial Manager"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/financial/suppliers",
+                    json=supplier_data,
+                    headers={
+                        "Authorization": f"Bearer {finance_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    self.log_result("Financial Suppliers POST (Financial Manager)", True, "Supplier created successfully")
+                else:
+                    self.log_result("Financial Suppliers POST (Financial Manager)", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Financial Suppliers POST (Financial Manager)", False, f"Exception: {str(e)}")
+        
+        # Test 2: GET (should return only Company A data)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/suppliers",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_result("Financial Suppliers GET (Company A)", True, f"Retrieved {len(data)} suppliers for Company A")
+                else:
+                    self.log_result("Financial Suppliers GET (Company A)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("Financial Suppliers GET (Company A)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Financial Suppliers GET (Company A)", False, f"Exception: {str(e)}")
+
+    # ==================== MULTI-TENANT ISOLATION TESTING ====================
+    
+    async def test_multi_tenant_isolation(self):
+        """Test that Company A cannot see Company B data and vice versa"""
+        if "A" not in self.test_companies or "B" not in self.test_companies:
+            self.log_result("Multi-Tenant Isolation", False, "Both companies not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        company_b = self.test_companies["B"]
+        
+        # Test 1: Company B General Manager tries to access Company A employee data
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/employees",
+                headers={"Authorization": f"Bearer {company_b['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    # Check that no Company A employees are returned
+                    company_a_employees = [emp for emp in data if emp.get("company_id") == company_a["id"]]
+                    if len(company_a_employees) == 0:
+                        self.log_result("Multi-Tenant Isolation (HR Employees)", True, f"Company B cannot see Company A employees (returned {len(data)} Company B employees)")
+                    else:
+                        self.log_result("Multi-Tenant Isolation (HR Employees)", False, f"CRITICAL: Company B can see {len(company_a_employees)} Company A employees")
+                else:
+                    self.log_result("Multi-Tenant Isolation (HR Employees)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("Multi-Tenant Isolation (HR Employees)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Multi-Tenant Isolation (HR Employees)", False, f"Exception: {str(e)}")
+        
+        # Test 2: Company B General Manager tries to access Company A customer data
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/customers",
+                headers={"Authorization": f"Bearer {company_b['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    # Check that no Company A customers are returned
+                    company_a_customers = [cust for cust in data if cust.get("company_id") == company_a["id"]]
+                    if len(company_a_customers) == 0:
+                        self.log_result("Multi-Tenant Isolation (Financial Customers)", True, f"Company B cannot see Company A customers (returned {len(data)} Company B customers)")
+                    else:
+                        self.log_result("Multi-Tenant Isolation (Financial Customers)", False, f"CRITICAL: Company B can see {len(company_a_customers)} Company A customers")
+                else:
+                    self.log_result("Multi-Tenant Isolation (Financial Customers)", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("Multi-Tenant Isolation (Financial Customers)", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Multi-Tenant Isolation (Financial Customers)", False, f"Exception: {str(e)}")
+
+    # ==================== AUTHENTICATION TESTING ====================
+    
+    async def test_endpoints_without_auth(self):
+        """Test that all endpoints require authentication"""
+        endpoints_to_test = [
+            "/hr/employees",
+            "/hr/allowances", 
+            "/hr/deductions",
+            "/hr/leaves",
+            "/hr/attendance",
+            "/financial/journal-entries",
+            "/financial/treasury",
+            "/financial/bank",
+            "/financial/customers",
+            "/financial/suppliers"
+        ]
+        
+        for endpoint in endpoints_to_test:
+            try:
+                response = await self.client.get(f"{self.base_url}{endpoint}")
+                
+                if response.status_code == 401:
+                    self.log_result(f"Auth Required {endpoint}", True, "Correctly requires authentication")
+                else:
+                    self.log_result(f"Auth Required {endpoint}", False, f"Expected 401, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result(f"Auth Required {endpoint}", False, f"Exception: {str(e)}")
+
+    async def test_endpoints_with_invalid_token(self):
+        """Test endpoints with invalid token"""
+        endpoints_to_test = [
+            "/hr/employees",
+            "/financial/customers"
+        ]
+        
+        for endpoint in endpoints_to_test:
+            try:
+                response = await self.client.get(
+                    f"{self.base_url}{endpoint}",
+                    headers={"Authorization": "Bearer invalid_token_12345"}
+                )
+                
+                if response.status_code == 401:
+                    self.log_result(f"Invalid Token {endpoint}", True, "Correctly rejects invalid token")
+                else:
+                    self.log_result(f"Invalid Token {endpoint}", False, f"Expected 401, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result(f"Invalid Token {endpoint}", False, f"Exception: {str(e)}")
+
     async def test_api_health(self):
         """Test basic API health"""
         try:
