@@ -141,13 +141,13 @@ const CompanyRegistrationPage = () => {
     
     if (result.success) {
       // Upload logo if provided
-      if (logoFile && result.company_id) {
+      if (logoFile && result.user?.company_id) {
         try {
           const formData = new FormData();
           formData.append('file', logoFile);
           
           const token = localStorage.getItem('token');
-          await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/companies/${result.company_id}/upload-logo`, {
+          await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/companies/${result.user.company_id}/upload-logo`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`
