@@ -302,11 +302,7 @@ metadata:
   run_ui: true
 
 test_plan:
-  current_focus:
-    - "Company Logo Upload API"
-    - "Company Logo Upload Integration in Registration"
-    - "Company Settings Page with Logo Upload"
-    - "Logo Display in Dashboard"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
