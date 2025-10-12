@@ -270,6 +270,30 @@ const CompanyRegistrationPage = () => {
                 </div>
               </div>
 
+              {/* Logo Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'شعار الشركة (اختياري)' : 'Company Logo (Optional)'}
+                </label>
+                <div className="flex items-center space-x-4">
+                  {logoPreview && (
+                    <img src={logoPreview} alt="Logo Preview" className="w-20 h-20 object-contain border rounded" />
+                  )}
+                  <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg border border-gray-300">
+                    <span className="text-sm">{language === 'ar' ? 'اختر صورة' : 'Choose Image'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {logoFile && (
+                    <span className="text-sm text-gray-600">{logoFile.name}</span>
+                  )}
+                </div>
+              </div>
+
               <button
                 onClick={handleNext}
                 className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
