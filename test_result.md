@@ -182,15 +182,18 @@ backend:
 
   - task: "Company Logo Upload API"
     implemented: true
-    working: "unknown"
+    working: true
     file: "api/companies.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "unknown"
         - agent: "main"
         - comment: "Company logo upload API endpoint exists at POST /api/companies/{company_id}/upload-logo. Requires authentication and restricts upload to General Manager, CEO, Board Chairman roles only. Validates image file types, saves to /app/frontend/public/uploads/logos directory, updates company logo_url in database. Need to test file upload, permission checks, and database update."
+        - working: true
+        - agent: "testing"
+        - comment: "COMPREHENSIVE TESTING COMPLETED: Company Logo Upload API working perfectly with 100% test success rate (5/5 logo upload tests passed). ✅ POST /api/companies/{company_id}/upload-logo endpoint working correctly. ✅ Authentication requirement enforced - returns 401 without Bearer token. ✅ Role-based permissions working - General Manager can upload successfully, Accountant correctly denied with 403 error. ✅ File validation working - non-image files rejected with 400 error and proper message 'Only image files are allowed'. ✅ Files saved correctly to /app/frontend/public/uploads/logos directory with company_id filename format. ✅ Company logo_url updated in database correctly with format '/uploads/logos/{company_id}.{extension}'. ✅ GET /api/companies/{company_id} returns logo_url field after upload. ✅ Logo URLs accessible via HTTP (verified with curl - returns 200 status). All test scenarios passed: upload as General Manager (success), upload non-image file (400), upload without auth (401), upload as Accountant (403), verify logo_url accessibility (working). Database integration confirmed. File system integration confirmed. Permission system working correctly."
 
 frontend:
   - task: "Demo Page Navigation"
