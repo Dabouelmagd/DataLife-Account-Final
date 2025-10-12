@@ -2109,15 +2109,18 @@ class MultiTenantAPITester:
 
     async def run_all_tests(self):
         """Run all tests in sequence"""
-        print("🚀 Starting RBAC API Tests...")
+        print("🚀 Starting Comprehensive Multi-Tenant Backend API Tests...")
         print(f"Backend URL: {self.base_url}")
-        print("=" * 60)
+        print("=" * 80)
         
         await self.setup()
         
         try:
             # Test API health first
             await self.test_api_health()
+            
+            print("\n📋 PHASE 1: Basic RBAC System Testing")
+            print("-" * 50)
             
             # Test company registration and authentication
             await self.test_company_registration()
@@ -2157,6 +2160,48 @@ class MultiTenantAPITester:
             await self.test_upload_logo_without_auth()
             await self.test_upload_logo_as_accountant()
             await self.test_get_company_with_logo_url()
+            
+            print("\n🏢 PHASE 2: Multi-Tenant Setup")
+            print("-" * 50)
+            
+            # Setup multi-tenant companies
+            if await self.setup_multi_tenant_companies():
+                await self.create_company_a_users()
+                
+                print("\n👥 PHASE 3: HR APIs Testing")
+                print("-" * 50)
+                
+                # Test HR APIs
+                await self.test_hr_employees_api()
+                await self.test_hr_allowances_api()
+                await self.test_hr_deductions_api()
+                await self.test_hr_leaves_api()
+                await self.test_hr_attendance_api()
+                
+                print("\n💰 PHASE 4: Financial APIs Testing")
+                print("-" * 50)
+                
+                # Test Financial APIs
+                await self.test_financial_journal_entries_api()
+                await self.test_financial_treasury_api()
+                await self.test_financial_bank_api()
+                await self.test_financial_customers_api()
+                await self.test_financial_suppliers_api()
+                
+                print("\n🔒 PHASE 5: Multi-Tenant Isolation Testing")
+                print("-" * 50)
+                
+                # Test multi-tenant isolation
+                await self.test_multi_tenant_isolation()
+                
+                print("\n🔐 PHASE 6: Authentication Testing")
+                print("-" * 50)
+                
+                # Test authentication requirements
+                await self.test_endpoints_without_auth()
+                await self.test_endpoints_with_invalid_token()
+            else:
+                print("❌ Multi-tenant setup failed, skipping advanced tests")
             
         finally:
             await self.cleanup()
