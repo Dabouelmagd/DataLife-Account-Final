@@ -356,7 +356,9 @@ export const AllowancesModule = ({ language, userRole }) => {
             <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي البدلات' : 'Total Allowances'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">5,000 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+            <p className="text-2xl font-bold">
+              {allowances.filter(a => a.type !== 'Overtime' && a.type !== 'ساعات إضافية').reduce((sum, a) => sum + a.amount, 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -364,7 +366,9 @@ export const AllowancesModule = ({ language, userRole }) => {
             <CardTitle className="text-sm">{language === 'ar' ? 'الساعات الإضافية' : 'Overtime'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">2,000 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+            <p className="text-2xl font-bold">
+              {allowances.filter(a => a.type === 'Overtime' || a.type === 'ساعات إضافية').reduce((sum, a) => sum + a.amount, 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -372,7 +376,9 @@ export const AllowancesModule = ({ language, userRole }) => {
             <CardTitle className="text-sm">{language === 'ar' ? 'الإجمالي' : 'Grand Total'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-600">7,000 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+            <p className="text-2xl font-bold text-green-600">
+              {allowances.reduce((sum, a) => sum + a.amount, 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+            </p>
           </CardContent>
         </Card>
       </div>
