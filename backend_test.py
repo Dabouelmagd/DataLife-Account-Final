@@ -2230,7 +2230,7 @@ class MultiTenantAPITester:
 
 async def main():
     """Main test runner"""
-    tester = RBACAPITester()
+    tester = MultiTenantAPITester()
     results = await tester.run_all_tests()
     
     # Return exit code based on test results
