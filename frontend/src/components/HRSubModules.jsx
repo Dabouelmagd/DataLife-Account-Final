@@ -259,23 +259,37 @@ export const AllowancesModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
 
-  const initialAllowances = [
-    { id: 'A001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', type: language === 'ar' ? 'بدل انتقال' : 'Transport', amount: 1500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
-    { id: 'A002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', type: language === 'ar' ? 'بدل سكن' : 'Housing', amount: 3000, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
-    { id: 'O001', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', type: language === 'ar' ? 'ساعات إضافية' : 'Overtime', amount: 2000, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
-    { id: 'A003', employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', type: language === 'ar' ? 'بدل طعام' : 'Meal', amount: 500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' }
-  ];
+  const [allowances, setAllowances] = useState([]);
+  const [loading, setLoading] = useState(true);
   
-  const [allowances, setAllowances] = useState(initialAllowances);
-  
-  // Update allowances when language changes
+  // Fetch allowances from backend API
   React.useEffect(() => {
-    setAllowances([
-      { id: 'A001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', type: language === 'ar' ? 'بدل انتقال' : 'Transport', amount: 1500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
-      { id: 'A002', employee: language === 'ar' ? 'سارة أحمد' : 'Sara Ahmed', type: language === 'ar' ? 'بدل سكن' : 'Housing', amount: 3000, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
-      { id: 'O001', employee: language === 'ar' ? 'محمد علي' : 'Mohamed Ali', type: language === 'ar' ? 'ساعات إضافية' : 'Overtime', amount: 2000, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
-      { id: 'A003', employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', type: language === 'ar' ? 'بدل طعام' : 'Meal', amount: 500, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' }
-    ]);
+    const fetchAllowances = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/hr/allowances`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAllowances(data);
+        } else {
+          console.error('Failed to fetch allowances:', response.statusText);
+          setAllowances([]);
+        }
+      } catch (error) {
+        console.error('Error fetching allowances:', error);
+        setAllowances([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllowances();
   }, [language]);
 
   const [showAddModal, setShowAddModal] = useState(false);
