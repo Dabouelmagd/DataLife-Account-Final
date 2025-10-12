@@ -15,14 +15,15 @@ from typing import Dict, Any, Optional
 # Get backend URL from environment
 BACKEND_URL = "https://multi-tenant-erp-2.preview.emergentagent.com/api"
 
-class RBACAPITester:
+class MultiTenantAPITester:
     def __init__(self):
         self.base_url = BACKEND_URL
         self.client = None
         self.test_results = []
         self.test_tokens = {}  # Store tokens for different users
         self.test_users = {}   # Store user data
-        self.test_company = None
+        self.test_companies = {}  # Store multiple companies for multi-tenant testing
+        self.test_data = {}  # Store created test data for isolation testing
         
     async def setup(self):
         """Setup HTTP client"""
