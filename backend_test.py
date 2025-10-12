@@ -103,7 +103,7 @@ class MultiTenantAPITester:
                                   f"Expected role 'General Manager', got '{user_data.get('role')}'", data)
                     return None
                 
-                # Store for later tests
+                # Store for later tests (backward compatibility)
                 self.test_tokens["admin"] = data["access_token"]
                 self.test_users["admin"] = user_data
                 self.test_company = {
