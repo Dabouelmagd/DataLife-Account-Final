@@ -909,11 +909,38 @@ export const CustomersModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const canEdit = userRole === 'Financial Manager' || userRole === 'المدير المالي';
 
-  const customers = [
-    { id: 'C001', name: language === 'ar' ? 'شركة التجارة العالمية' : 'Global Trading Co.', phone: '+201111222333', balance: 85000, status: 'active' },
-    { id: 'C002', name: language === 'ar' ? 'مؤسسة الأعمال المتطورة' : 'Advanced Business Est.', phone: '+201222333444', balance: 52000, status: 'active' },
-    { id: 'C003', name: language === 'ar' ? 'شركة المستقبل للتنمية' : 'Future Development Co.', phone: '+201333444555', balance: 0, status: 'active' }
-  ];
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch customers from backend API
+  React.useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/financial/customers`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setCustomers(data);
+        } else {
+          console.error('Failed to fetch customers:', response.statusText);
+          setCustomers([]);
+        }
+      } catch (error) {
+        console.error('Error fetching customers:', error);
+        setCustomers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCustomers();
+  }, [language]);
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
