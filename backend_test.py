@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend API Testing for RBAC System
-Tests the Authentication, User Management, and Company APIs with comprehensive validation.
+Comprehensive Multi-Tenant Backend API Testing
+Tests the complete multi-tenant SaaS backend with HR and Financial data APIs.
+Verifies company data isolation, RBAC enforcement, authentication requirements, and data persistence.
 """
 
 import asyncio
