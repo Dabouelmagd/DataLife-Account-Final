@@ -180,6 +180,18 @@ backend:
         - agent: "testing"
         - comment: "COMPREHENSIVE TESTING COMPLETED: Role-Based Permissions System working perfectly. All 4 roles properly defined and accessible: GET /api/users/roles (200 status) returns ['General Manager', 'HR Manager', 'Financial Manager', 'Accountant']. GET /api/users/permissions/{role} (200 status) returns detailed permissions for each role with correct modules and permissions structure. Permission enforcement verified: General Manager has full access (users CRUD, assign_roles), HR Manager limited to HR + reports, Financial Manager has financial + analytics access, Accountant has view-only financial access. Role validation working in user creation. Test success rate: 100% (5/5 permissions tests passed)."
 
+  - task: "Company Logo Upload API"
+    implemented: true
+    working: "unknown"
+    file: "api/companies.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "unknown"
+        - agent: "main"
+        - comment: "Company logo upload API endpoint exists at POST /api/companies/{company_id}/upload-logo. Requires authentication and restricts upload to General Manager, CEO, Board Chairman roles only. Validates image file types, saves to /app/frontend/public/uploads/logos directory, updates company logo_url in database. Need to test file upload, permission checks, and database update."
+
 frontend:
   - task: "Demo Page Navigation"
     implemented: true
