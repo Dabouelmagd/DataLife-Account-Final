@@ -1042,6 +1042,7 @@ export const CustomersModule = ({ language, userRole }) => {
               ))}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
     </div>
