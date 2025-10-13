@@ -436,6 +436,7 @@ export const AllowancesModule = ({ language, userRole }) => {
               ))}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 
