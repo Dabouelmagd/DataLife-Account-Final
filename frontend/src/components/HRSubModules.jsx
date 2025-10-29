@@ -2398,7 +2398,7 @@ export const AttendanceModule = ({ language, userRole }) => {
             <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">4</p>
+            <p className="text-2xl font-bold">{filteredAttendance.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -2406,7 +2406,9 @@ export const AttendanceModule = ({ language, userRole }) => {
             <CardTitle className="text-sm">{language === 'ar' ? 'حاضر' : 'Present'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-600">3</p>
+            <p className="text-2xl font-bold text-green-600">
+              {filteredAttendance.filter(a => a.status === 'present').length}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -2414,7 +2416,9 @@ export const AttendanceModule = ({ language, userRole }) => {
             <CardTitle className="text-sm">{language === 'ar' ? 'غائب' : 'Absent'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-600">1</p>
+            <p className="text-2xl font-bold text-red-600">
+              {filteredAttendance.filter(a => a.status === 'absent').length}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -2422,7 +2426,9 @@ export const AttendanceModule = ({ language, userRole }) => {
             <CardTitle className="text-sm">{language === 'ar' ? 'تأخير' : 'Late'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-yellow-600">1</p>
+            <p className="text-2xl font-bold text-yellow-600">
+              {filteredAttendance.filter(a => a.status === 'late').length}
+            </p>
           </CardContent>
         </Card>
       </div>
