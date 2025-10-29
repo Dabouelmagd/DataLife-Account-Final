@@ -212,121 +212,216 @@ const RealDashboard = () => {
   };
 
   const renderContent = () => {
-    // Overview
-    if (activeModule === 'overview') {
+    // Dashboard Overview
+    if (activeModule === 'dashboard') {
+      // KPI Cards data
+      const kpiCards = [
+        {
+          title: t('demo.kpi.totalEmployees'),
+          value: stats.totalEmployees,
+          change: '+12%',
+          trend: 'up',
+          icon: <Users className="h-6 w-6" />,
+          color: 'text-blue-600'
+        },
+        {
+          title: t('demo.kpi.monthlyRevenue'),
+          value: `${stats.monthlyRevenue.toLocaleString()} ${t('demo.currency')}`,
+          change: '+23%',
+          trend: 'up',
+          icon: <DollarSign className="h-6 w-6" />,
+          color: 'text-green-600'
+        },
+        {
+          title: t('demo.kpi.activeProjects'),
+          value: stats.activeProjects,
+          change: '+8%',
+          trend: 'up',
+          icon: <Building2 className="h-6 w-6" />,
+          color: 'text-purple-600'
+        },
+        {
+          title: t('demo.kpi.efficiency'),
+          value: `${stats.totalEmployees > 0 ? Math.round((stats.monthlyRevenue / stats.totalEmployees) / 100) : 0}%`,
+          change: '+15%',
+          trend: 'up',
+          icon: <TrendingUp className="h-6 w-6" />,
+          color: 'text-orange-600'
+        }
+      ];
+
+      // Recent Activity (from real data)
+      const translatedRecentActivity = [
+        {
+          title: language === 'ar' ? `تمت إضافة ${stats.totalEmployees} موظف إلى النظام` : `${stats.totalEmployees} employees in system`,
+          time: language === 'ar' ? 'اليوم' : 'Today',
+          type: 'success',
+          module: language === 'ar' ? 'الموارد البشرية' : 'HR'
+        },
+        {
+          title: language === 'ar' ? `إجمالي البدلات: ${stats.totalAllowances.toLocaleString()}` : `Total Allowances: ${stats.totalAllowances.toLocaleString()}`,
+          time: language === 'ar' ? 'اليوم' : 'Today',
+          type: 'success',
+          module: language === 'ar' ? 'الموارد البشرية' : 'HR'
+        },
+        {
+          title: language === 'ar' ? `العملاء: ${stats.totalCustomers}` : `Customers: ${stats.totalCustomers}`,
+          time: language === 'ar' ? 'اليوم' : 'Today',
+          type: 'info',
+          module: language === 'ar' ? 'المالية' : 'Financial'
+        },
+        {
+          title: language === 'ar' ? `الموردين: ${stats.totalSuppliers}` : `Suppliers: ${stats.totalSuppliers}`,
+          time: language === 'ar' ? 'اليوم' : 'Today',
+          type: 'info',
+          module: language === 'ar' ? 'المالية' : 'Financial'
+        }
+      ];
+
+      // Upcoming Tasks
+      const translatedUpcomingTasks = [
+        {
+          title: language === 'ar' ? 'معالجة كشوف المرتبات الشهرية' : 'Process monthly payroll',
+          dueDate: language === 'ar' ? 'مستحق غداً' : 'Due tomorrow',
+          priority: 'high'
+        },
+        {
+          title: language === 'ar' ? 'مراجعة فواتير الموردين' : 'Review supplier invoices',
+          dueDate: language === 'ar' ? 'مستحق خلال يومين' : 'Due in 2 days',
+          priority: 'medium'
+        },
+        {
+          title: language === 'ar' ? 'تحديث مستويات المخزون' : 'Update inventory levels',
+          dueDate: language === 'ar' ? 'مستحق خلال 3 أيام' : 'Due in 3 days',
+          priority: 'medium'
+        },
+        {
+          title: language === 'ar' ? 'إنشاء التقرير الفصلي' : 'Generate quarterly report',
+          dueDate: language === 'ar' ? 'مستحق الأسبوع القادم' : 'Due next week',
+          priority: 'low'
+        }
+      ];
+
       return (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-[#28376B]">
-                {language === 'ar' ? 'مرحباً' : 'Welcome'}, {user?.full_name}
-              </h1>
-              <p className="text-gray-600 mt-2">
-                {company?.name} • {user?.role}
-              </p>
-            </div>
-            {company?.logo_url && (
-              <img src={company.logo_url} alt="Company Logo" className="h-16 object-contain" />
-            )}
-          </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span>{language === 'ar' ? 'الموظفين' : 'Employees'}</span>
-                  <Users className="h-4 w-4 text-[#28376B]" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalEmployees}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span>{language === 'ar' ? 'إجمالي البدلات' : 'Total Allowances'}</span>
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {stats.totalAllowances.toLocaleString()}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span>{language === 'ar' ? 'إجمالي الخصومات' : 'Total Deductions'}</span>
-                  <TrendingUp className="h-4 w-4 text-red-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  {stats.totalDeductions.toLocaleString()}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span>{language === 'ar' ? 'العملاء' : 'Customers'}</span>
-                  <Users className="h-4 w-4 text-blue-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{stats.totalCustomers}</div>
-              </CardContent>
-            </Card>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {kpiCards.map((kpi, index) => (
+              <Card key={index} className="hover:shadow-lg transition-all duration-300">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div className={kpi.color}>{kpi.icon}</div>
+                    <Badge variant={kpi.trend === 'up' ? 'success' : 'destructive'} className="text-xs">
+                      {kpi.trend === 'up' ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
+                      {kpi.change}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900">{kpi.value}</div>
+                  <p className="text-sm text-gray-600">{kpi.title}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
           {/* Quick Actions */}
           <Card>
             <CardHeader>
-              <CardTitle>{language === 'ar' ? 'إجراءات سريعة' : 'Quick Actions'}</CardTitle>
+              <CardTitle className="flex items-center">
+                <PlayCircle className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+                {t('demo.quickActions.title')}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Button 
+                  variant="outline" 
+                  className="h-16 flex flex-col items-center justify-center"
+                  onClick={() => {
+                    setActiveModule('hr');
+                    setActiveHRSubModule('salaries');
+                  }}
+                >
+                  <Users className="h-5 w-5 mb-1" />
+                  <span className="text-xs">{language === 'ar' ? 'إدارة الموظفين' : 'Manage Employees'}</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-16 flex flex-col items-center justify-center"
+                  onClick={() => {
+                    setActiveModule('financial');
+                    setActiveFinancialSubModule('journal-entries');
+                  }}
+                >
+                  <Calculator className="h-5 w-5 mb-1" />
+                  <span className="text-xs">{t('demo.quickActions.newTransaction')}</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-16 flex flex-col items-center justify-center"
+                  onClick={() => {
+                    setActiveModule('reports');
+                  }}
+                >
+                  <FileText className="h-5 w-5 mb-1" />
+                  <span className="text-xs">{t('demo.quickActions.generateReport')}</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-16 flex flex-col items-center justify-center"
                   onClick={() => navigate('/settings')}
-                  variant="outline"
-                  className="flex flex-col items-center justify-center h-24 space-y-2"
                 >
-                  <Settings className="h-6 w-6" />
-                  <span className="text-sm">{language === 'ar' ? 'الإعدادات' : 'Settings'}</span>
-                </Button>
-                <Button 
-                  onClick={() => { setActiveModule('hr'); setActiveSubModule('salaries'); }}
-                  variant="outline"
-                  className="flex flex-col items-center justify-center h-24 space-y-2"
-                >
-                  <DollarSign className="h-6 w-6" />
-                  <span className="text-sm">{language === 'ar' ? 'المرتبات' : 'Salaries'}</span>
-                </Button>
-                <Button 
-                  onClick={() => { setActiveModule('financial'); setActiveSubModule('bank'); }}
-                  variant="outline"
-                  className="flex flex-col items-center justify-center h-24 space-y-2"
-                >
-                  <Building2 className="h-6 w-6" />
-                  <span className="text-sm">{language === 'ar' ? 'البنك' : 'Bank'}</span>
-                </Button>
-                <Button 
-                  onClick={() => navigate('/demo')}
-                  variant="outline"
-                  className="flex flex-col items-center justify-center h-24 space-y-2"
-                >
-                  <FileText className="h-6 w-6" />
-                  <span className="text-sm">{language === 'ar' ? 'التجربة' : 'Demo'}</span>
+                  <Settings className="h-5 w-5 mb-1" />
+                  <span className="text-xs">{language === 'ar' ? 'الإعدادات' : 'Settings'}</span>
                 </Button>
               </div>
             </CardContent>
           </Card>
+
+          {/* Recent Activity */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('demo.recentActivity.title')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {translatedRecentActivity.map((activity, index) => (
+                    <div key={index} className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3`}>
+                      <div className={`w-2 h-2 rounded-full ${activity.type === 'success' ? 'bg-green-500' : activity.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{activity.title}</p>
+                        <p className="text-xs text-gray-500">{activity.time}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">{activity.module}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('demo.upcomingTasks.title')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {translatedUpcomingTasks.map((task, index) => (
+                    <div key={index} className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${task.priority === 'high' ? 'bg-red-100 text-red-600' : task.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600'}`}>
+                        <AlertCircle className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{task.title}</p>
+                        <p className="text-xs text-gray-500">{task.dueDate}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       );
     }
