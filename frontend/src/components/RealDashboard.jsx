@@ -44,17 +44,28 @@ const RealDashboard = () => {
   const { user, logout } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
-  const [activeModule, setActiveModule] = useState('overview');
+  const [activeModule, setActiveModule] = useState('dashboard');
   const [activeSubModule, setActiveSubModule] = useState(null);
+  const [activeHRSubModule, setActiveHRSubModule] = useState(null);
+  const [activeFinancialSubModule, setActiveFinancialSubModule] = useState(null);
+  const [expandedModule, setExpandedModule] = useState(null);
   const [company, setCompany] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [financialReportTab, setFinancialReportTab] = useState('overview');
+  const [financialPeriod, setFinancialPeriod] = useState('monthly');
   const [stats, setStats] = useState({
     totalEmployees: 0,
     totalAllowances: 0,
     totalDeductions: 0,
     totalCustomers: 0,
-    totalSuppliers: 0
+    totalSuppliers: 0,
+    monthlyRevenue: 0,
+    monthlyExpenses: 0,
+    activeProjects: 0
   });
   const isRTL = language === 'ar';
+  
+  const t = (key) => getTranslation(language, key);
 
   useEffect(() => {
     fetchCompanyData();
