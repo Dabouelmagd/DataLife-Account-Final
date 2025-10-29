@@ -31,6 +31,43 @@ export const JournalEntriesModule = ({ language, userRole }) => {
     setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
+  // Export to CSV function
+  const exportToCSV = () => {
+    const headers = language === 'ar' 
+      ? ['الكود', 'التاريخ', 'الوصف', 'الحساب', 'مدين', 'دائن']
+      : ['ID', 'Date', 'Description', 'Account', 'Debit', 'Credit'];
+    
+    const csvData = journalEntries.map(entry => [
+      entry.id,
+      entry.date,
+      entry.description,
+      entry.account,
+      entry.debit,
+      entry.credit
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `journal_entries_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="flex items-center justify-between">
@@ -38,6 +75,10 @@ export const JournalEntriesModule = ({ language, userRole }) => {
           {language === 'ar' ? 'القيود اليومية' : 'Journal Entries'}
         </h2>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
+            <Download className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
+          </Button>
           <Button variant="outline" size="sm">
             <Search className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'بحث' : 'Search'}</span>
