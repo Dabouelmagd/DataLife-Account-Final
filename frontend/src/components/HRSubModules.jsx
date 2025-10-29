@@ -30,6 +30,7 @@ export const SalariesModule = ({ language, userRole }) => {
   }, [language]);
 
   const [showProcessModal, setShowProcessModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
