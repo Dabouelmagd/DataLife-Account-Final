@@ -877,6 +877,16 @@ const RealDashboard = () => {
                 }`}
                 onClick={() => {
                   setActiveModule(module.id);
+                  if (module.id === 'hr') {
+                    setActiveHRSubModule(null);
+                    setActiveFinancialSubModule(null);
+                  } else if (module.id === 'financial') {
+                    setActiveFinancialSubModule(null);
+                    setActiveHRSubModule(null);
+                  } else {
+                    setActiveHRSubModule(null);
+                    setActiveFinancialSubModule(null);
+                  }
                   setActiveSubModule(null);
                 }}
               >
