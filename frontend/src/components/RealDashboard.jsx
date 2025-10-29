@@ -135,8 +135,12 @@ const RealDashboard = () => {
     const role = user?.role;
     const modules = [];
 
-    // Overview available to all
-    modules.push({ id: 'overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <PieChart /> });
+    // Dashboard available to all
+    modules.push({ 
+      id: 'dashboard', 
+      name: language === 'ar' ? 'لوحة التحكم' : 'Dashboard', 
+      icon: <Home /> 
+    });
 
     // HR Module
     const hrRoles = ['General Manager', 'CEO', 'Board Chairman', 'HR Manager', 'Financial Manager', 'Chief Accountant',
@@ -146,13 +150,16 @@ const RealDashboard = () => {
         id: 'hr', 
         name: language === 'ar' ? 'الموارد البشرية' : 'Human Resources', 
         icon: <Users />,
+        hasSubModules: true,
         subModules: [
-          { id: 'salaries', name: language === 'ar' ? 'المرتبات' : 'Salaries' },
-          { id: 'allowances', name: language === 'ar' ? 'البدلات' : 'Allowances' },
-          { id: 'deductions', name: language === 'ar' ? 'الخصومات' : 'Deductions' },
-          { id: 'casual-leave', name: language === 'ar' ? 'الإجازات العارضة' : 'Casual Leave' },
-          { id: 'annual-leave', name: language === 'ar' ? 'الإجازات السنوية' : 'Annual Leave' },
-          { id: 'attendance', name: language === 'ar' ? 'الحضور' : 'Attendance' }
+          { id: 'hr-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart /> },
+          { id: 'salaries', name: language === 'ar' ? 'المرتبات' : 'Salaries', icon: <DollarSign /> },
+          { id: 'allowances', name: language === 'ar' ? 'البدلات والإضافي' : 'Allowances & Overtime', icon: <Award /> },
+          { id: 'deductions', name: language === 'ar' ? 'الخصومات' : 'Deductions', icon: <TrendingDown /> },
+          { id: 'casual-leave', name: language === 'ar' ? 'الإجازات العارضة' : 'Casual Leave', icon: <Calendar /> },
+          { id: 'annual-leave', name: language === 'ar' ? 'الإجازات السنوية' : 'Annual Leave', icon: <Calendar /> },
+          { id: 'attendance', name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance', icon: <Clock /> },
+          { id: 'hr-reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <FileText /> }
         ]
       });
     }
@@ -164,14 +171,40 @@ const RealDashboard = () => {
       modules.push({ 
         id: 'financial', 
         name: language === 'ar' ? 'المالية' : 'Financial', 
-        icon: <DollarSign />,
+        icon: <Calculator />,
+        hasSubModules: true,
         subModules: [
-          { id: 'journal-entries', name: language === 'ar' ? 'القيود اليومية' : 'Journal Entries' },
-          { id: 'treasury', name: language === 'ar' ? 'الخزنة' : 'Treasury' },
-          { id: 'bank', name: language === 'ar' ? 'البنك' : 'Bank' },
-          { id: 'customers', name: language === 'ar' ? 'العملاء' : 'Customers' },
-          { id: 'suppliers', name: language === 'ar' ? 'الموردين' : 'Suppliers' }
+          { id: 'financial-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart /> },
+          { id: 'journal-entries', name: language === 'ar' ? 'القيود اليومية' : 'Journal Entries', icon: <FileText /> },
+          { id: 'treasury', name: language === 'ar' ? 'الخزنة' : 'Treasury', icon: <DollarSign /> },
+          { id: 'custody', name: language === 'ar' ? 'العهدة' : 'Custody', icon: <Award /> },
+          { id: 'accounts', name: language === 'ar' ? 'الحسابات' : 'Accounts', icon: <Building2 /> },
+          { id: 'suppliers', name: language === 'ar' ? 'الموردين' : 'Suppliers', icon: <Users /> },
+          { id: 'customers', name: language === 'ar' ? 'العملاء' : 'Customers', icon: <Users /> },
+          { id: 'bank', name: language === 'ar' ? 'البنك' : 'Bank', icon: <DollarSign /> },
+          { id: 'financial-reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <FileText /> }
         ]
+      });
+    }
+    
+    // Inventory, Reports, Analytics modules available to managers
+    const managerRoles = ['General Manager', 'CEO', 'Board Chairman', 'Financial Manager', 
+                          'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'المدير المالي'];
+    if (managerRoles.includes(role)) {
+      modules.push({ 
+        id: 'inventory', 
+        name: language === 'ar' ? 'المخزون' : 'Inventory', 
+        icon: <PieChart /> 
+      });
+      modules.push({ 
+        id: 'reports', 
+        name: language === 'ar' ? 'التقارير' : 'Reports', 
+        icon: <FileText /> 
+      });
+      modules.push({ 
+        id: 'analytics', 
+        name: language === 'ar' ? 'التحليلات' : 'Analytics', 
+        icon: <BarChart /> 
       });
     }
 
