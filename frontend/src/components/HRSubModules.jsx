@@ -246,12 +246,12 @@ export const SalariesModule = ({ language, userRole }) => {
         </div>
       )}
 
-      {/* Add Employee Modal */}
+      {/* Add Employee Modal - Enhanced */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'موظف جديد' : 'New Employee'}</h3>
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'إضافة موظف جديد' : 'Add New Employee'}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -263,108 +263,352 @@ export const SalariesModule = ({ language, userRole }) => {
                 name: formData.get('name'),
                 position: formData.get('position'),
                 basicSalary: parseFloat(formData.get('basicSalary')),
-                totalSalary: parseFloat(formData.get('basicSalary')) * 1.2, // Example: 20% additions
-                status: 'pending'
+                totalSalary: parseFloat(formData.get('basicSalary')) * 1.2,
+                status: 'pending',
+                photo: formData.get('photo')?.name || null,
+                documents: formData.get('documents')?.name || null
               };
               setSalaries([...salaries, newEmployee]);
               setShowAddModal(false);
               setSuccessMessage(language === 'ar' ? 'تم إضافة الموظف بنجاح!' : 'Employee added successfully!');
               setShowSuccessModal(true);
               setTimeout(() => setShowSuccessModal(false), 2000);
-            }} className="space-y-4">
+            }} className="space-y-6">
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Employee Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {language === 'ar' ? 'اسم الموظف' : 'Employee Name'} <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-                    placeholder={language === 'ar' ? 'أدخل اسم الموظف' : 'Enter employee name'}
-                  />
-                </div>
-
-                {/* Position */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {language === 'ar' ? 'المسمى الوظيفي' : 'Job Position'} <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="position"
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-                  >
-                    <option value="">{language === 'ar' ? 'اختر الوظيفة' : 'Select Position'}</option>
-                    <option value={language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer'}>{language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer'}</option>
-                    <option value={language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}>{language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}</option>
-                    <option value={language === 'ar' ? 'محاسب' : 'Accountant'}>{language === 'ar' ? 'محاسب' : 'Accountant'}</option>
-                    <option value={language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer'}>{language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer'}</option>
-                    <option value={language === 'ar' ? 'مدير مبيعات' : 'Sales Manager'}>{language === 'ar' ? 'مدير مبيعات' : 'Sales Manager'}</option>
-                    <option value={language === 'ar' ? 'مدير مالي' : 'Financial Manager'}>{language === 'ar' ? 'مدير مالي' : 'Financial Manager'}</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Basic Salary */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {language === 'ar' ? 'الراتب الأساسي' : 'Basic Salary'} <span className="text-red-500">*</span> <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+              {/* Personal Photo Upload */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border-2 border-dashed border-blue-300">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  📸 {language === 'ar' ? 'صورة الموظف' : 'Employee Photo'}
                 </label>
                 <input
-                  type="number"
-                  name="basicSalary"
-                  step="100"
-                  min="1000"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="10000"
+                  type="file"
+                  name="photo"
+                  accept="image/*"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600"
                 />
+                <p className="text-xs text-gray-500 mt-2">{language === 'ar' ? 'صيغ مدعومة: JPG, PNG, JPEG (حد أقصى 5MB)' : 'Supported formats: JPG, PNG, JPEG (Max 5MB)'}</p>
               </div>
 
-              {/* Contact Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-                    placeholder="+201234567890"
-                  />
-                </div>
+              {/* Section: Basic Information */}
+              <div className="border-b pb-4">
+                <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="bg-[#28376B] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+                  {language === 'ar' ? 'المعلومات الأساسية' : 'Basic Information'}
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'الاسم الكامل' : 'Full Name'} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                      placeholder={language === 'ar' ? 'أدخل الاسم الكامل' : 'Enter full name'}
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {language === 'ar' ? 'البريد الإلكتروني' : 'Email'}
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-                    placeholder="employee@example.com"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'رقم الهوية الوطنية' : 'National ID'}
+                    </label>
+                    <input
+                      type="text"
+                      name="nationalId"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                      placeholder={language === 'ar' ? 'رقم الهوية' : 'ID Number'}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'تاريخ الميلاد' : 'Date of Birth'}
+                    </label>
+                    <input
+                      type="date"
+                      name="birthDate"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'الجنس' : 'Gender'}
+                    </label>
+                    <select
+                      name="gender"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    >
+                      <option value="">{language === 'ar' ? 'اختر' : 'Select'}</option>
+                      <option value="male">{language === 'ar' ? 'ذكر' : 'Male'}</option>
+                      <option value="female">{language === 'ar' ? 'أنثى' : 'Female'}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'الجنسية' : 'Nationality'}
+                    </label>
+                    <input
+                      type="text"
+                      name="nationality"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                      placeholder={language === 'ar' ? 'الجنسية' : 'Nationality'}
+                      defaultValue={language === 'ar' ? 'مصري' : 'Egyptian'}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'الحالة الاجتماعية' : 'Marital Status'}
+                    </label>
+                    <select
+                      name="maritalStatus"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    >
+                      <option value="">{language === 'ar' ? 'اختر' : 'Select'}</option>
+                      <option value="single">{language === 'ar' ? 'أعزب' : 'Single'}</option>
+                      <option value="married">{language === 'ar' ? 'متزوج' : 'Married'}</option>
+                      <option value="divorced">{language === 'ar' ? 'مطلق' : 'Divorced'}</option>
+                      <option value="widowed">{language === 'ar' ? 'أرمل' : 'Widowed'}</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
-                <p className="text-sm text-blue-800">
+              {/* Section: Contact Information */}
+              <div className="border-b pb-4">
+                <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="bg-[#28376B] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
+                  {language === 'ar' ? 'معلومات الاتصال' : 'Contact Information'}
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'رقم الهاتف' : 'Phone Number'} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                      placeholder="+201234567890"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                      placeholder="employee@example.com"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'العنوان' : 'Address'}
+                    </label>
+                    <textarea
+                      name="address"
+                      rows="2"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                      placeholder={language === 'ar' ? 'أدخل العنوان الكامل' : 'Enter full address'}
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Employment Details */}
+              <div className="border-b pb-4">
+                <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="bg-[#28376B] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
+                  {language === 'ar' ? 'تفاصيل الوظيفة' : 'Employment Details'}
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'المسمى الوظيفي' : 'Job Position'} <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="position"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    >
+                      <option value="">{language === 'ar' ? 'اختر الوظيفة' : 'Select Position'}</option>
+                      <option value={language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer'}>{language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer'}</option>
+                      <option value={language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}>{language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}</option>
+                      <option value={language === 'ar' ? 'محاسب' : 'Accountant'}>{language === 'ar' ? 'محاسب' : 'Accountant'}</option>
+                      <option value={language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer'}>{language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer'}</option>
+                      <option value={language === 'ar' ? 'مدير مبيعات' : 'Sales Manager'}>{language === 'ar' ? 'مدير مبيعات' : 'Sales Manager'}</option>
+                      <option value={language === 'ar' ? 'مدير مالي' : 'Financial Manager'}>{language === 'ar' ? 'مدير مالي' : 'Financial Manager'}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'القسم' : 'Department'}
+                    </label>
+                    <select
+                      name="department"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    >
+                      <option value="">{language === 'ar' ? 'اختر القسم' : 'Select Department'}</option>
+                      <option value="hr">{language === 'ar' ? 'الموارد البشرية' : 'Human Resources'}</option>
+                      <option value="finance">{language === 'ar' ? 'المالية' : 'Finance'}</option>
+                      <option value="it">{language === 'ar' ? 'تكنولوجيا المعلومات' : 'IT'}</option>
+                      <option value="sales">{language === 'ar' ? 'المبيعات' : 'Sales'}</option>
+                      <option value="marketing">{language === 'ar' ? 'التسويق' : 'Marketing'}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'تاريخ التعيين' : 'Hire Date'} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      name="hireDate"
+                      required
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'نوع العقد' : 'Contract Type'}
+                    </label>
+                    <select
+                      name="contractType"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    >
+                      <option value="permanent">{language === 'ar' ? 'دائم' : 'Permanent'}</option>
+                      <option value="temporary">{language === 'ar' ? 'مؤقت' : 'Temporary'}</option>
+                      <option value="contract">{language === 'ar' ? 'عقد' : 'Contract'}</option>
+                      <option value="parttime">{language === 'ar' ? 'دوام جزئي' : 'Part-Time'}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'الراتب الأساسي' : 'Basic Salary'} <span className="text-red-500">*</span> <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="basicSalary"
+                      step="100"
+                      min="1000"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="10000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'حساب البنك' : 'Bank Account'}
+                    </label>
+                    <input
+                      type="text"
+                      name="bankAccount"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                      placeholder={language === 'ar' ? 'رقم الحساب البنكي' : 'Bank account number'}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Documents Upload */}
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg border-2 border-dashed border-purple-300">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  📄 {language === 'ar' ? 'المستندات والأوراق الرسمية' : 'Official Documents'}
+                </label>
+                <input
+                  type="file"
+                  name="documents"
+                  multiple
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-500 file:text-white hover:file:bg-purple-600"
+                />
+                <p className="text-xs text-gray-500 mt-2">
                   {language === 'ar' 
-                    ? 'ℹ️ سيتم حساب الراتب الإجمالي تلقائياً بإضافة البدلات والخصومات' 
-                    : 'ℹ️ Total salary will be calculated automatically with allowances and deductions'}
+                    ? 'يمكنك رفع عدة ملفات: شهادات، بطاقة الهوية، عقد العمل، السيرة الذاتية، إلخ' 
+                    : 'Upload multiple files: certificates, ID card, employment contract, CV, etc.'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'الصيغ المدعومة: PDF, DOC, DOCX, JPG, PNG (حد أقصى 10MB لكل ملف)' : 'Supported: PDF, DOC, DOCX, JPG, PNG (Max 10MB per file)'}
                 </p>
               </div>
 
+              {/* Emergency Contact */}
+              <div className="border-b pb-4">
+                <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">!</span>
+                  {language === 'ar' ? 'جهة الاتصال في حالات الطوارئ' : 'Emergency Contact'}
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'اسم جهة الاتصال' : 'Contact Name'}
+                    </label>
+                    <input
+                      type="text"
+                      name="emergencyName"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      placeholder={language === 'ar' ? 'اسم الشخص' : 'Person name'}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
+                    </label>
+                    <input
+                      type="tel"
+                      name="emergencyPhone"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      placeholder="+201234567890"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'العلاقة' : 'Relationship'}
+                    </label>
+                    <input
+                      type="text"
+                      name="emergencyRelation"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      placeholder={language === 'ar' ? 'مثال: أب، أخ، زوجة' : 'e.g., Father, Brother, Spouse'}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Note */}
+              <div className="bg-gradient-to-r from-green-50 to-teal-50 border-l-4 border-green-400 p-4 rounded">
+                <p className="text-sm text-green-800 flex items-start gap-2">
+                  <span className="text-xl">✓</span>
+                  <span>
+                    {language === 'ar' 
+                      ? 'سيتم حساب الراتب الإجمالي تلقائياً بإضافة البدلات والخصومات. يمكنك تعديل معلومات الموظف لاحقاً من قسم إدارة الموظفين.' 
+                      : 'Total salary will be calculated automatically with allowances and deductions. You can edit employee information later from the employee management section.'}
+                  </span>
+                </p>
+              </div>
+
+              {/* Action Buttons */}
               <div className="flex gap-4 pt-4 border-t">
-                <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
-                  {language === 'ar' ? 'حفظ الموظف' : 'Save Employee'}
+                <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-lg py-3">
+                  <Plus className="h-5 w-5 mr-2" />
+                  {language === 'ar' ? 'حفظ وإضافة الموظف' : 'Save & Add Employee'}
                 </Button>
-                <Button type="button" onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
+                <Button type="button" onClick={() => setShowAddModal(false)} variant="outline" className="flex-1 text-lg py-3">
                   {language === 'ar' ? 'إلغاء' : 'Cancel'}
                 </Button>
               </div>
