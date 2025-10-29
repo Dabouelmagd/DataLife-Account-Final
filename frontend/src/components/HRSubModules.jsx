@@ -98,7 +98,7 @@ export const SalariesModule = ({ language, userRole }) => {
           {language === 'ar' ? 'المرتبات' : 'Salaries'}
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
             <Download className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
