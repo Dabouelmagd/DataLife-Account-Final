@@ -2488,7 +2488,8 @@ export const AttendanceModule = ({ language, userRole }) => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
