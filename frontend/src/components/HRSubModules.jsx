@@ -1579,15 +1579,56 @@ export const CasualLeaveModule = ({ language, userRole }) => {
     setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
+  // Export to CSV function
+  const exportToCSV = () => {
+    const headers = language === 'ar' 
+      ? ['الكود', 'الموظف', 'التاريخ', 'السبب', 'الحالة']
+      : ['ID', 'Employee', 'Date', 'Reason', 'Status'];
+    
+    const csvData = casualLeaves.map(leave => [
+      leave.id,
+      leave.employee,
+      leave.date,
+      leave.reason,
+      leave.status === 'approved' ? (language === 'ar' ? 'موافق عليها' : 'Approved') : (language === 'ar' ? 'معلقة' : 'Pending')
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `casual_leave_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'الإجازات العارضة' : 'Casual Leave'}
         </h2>
-        {canEdit && (
-          <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
-            <Plus className="h-4 w-4" />
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
+            <Download className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
+          </Button>
+          {canEdit && (
+            <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'إضافة إجازة' : 'Add Leave'}</span>
           </Button>
         )}
