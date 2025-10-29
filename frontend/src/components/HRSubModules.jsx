@@ -1771,17 +1771,72 @@ export const CasualLeaveModule = ({ language, userRole }) => {
 
       {/* Add Casual Leave Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
-            <h3 className="text-xl font-bold mb-4 text-[#28376B]">{language === 'ar' ? 'إضافة إجازة عارضة' : 'Add Casual Leave'}</h3>
-            <div className="space-y-4">
-              <input type="text" placeholder={language === 'ar' ? 'اسم الموظف' : 'Employee Name'} value={newLeave.employee} onChange={(e) => setNewLeave({ ...newLeave, employee: e.target.value })} className="w-full p-2 border rounded" />
-              <input type="date" placeholder={language === 'ar' ? 'التاريخ' : 'Date'} value={newLeave.date} onChange={(e) => setNewLeave({ ...newLeave, date: e.target.value })} className="w-full p-2 border rounded" />
-              <input type="text" placeholder={language === 'ar' ? 'السبب' : 'Reason'} value={newLeave.reason} onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })} className="w-full p-2 border rounded" />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'إضافة إجازة عارضة' : 'Add Casual Leave'}</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
-            <div className="flex gap-4 mt-6">
-              <Button onClick={handleAdd} className="flex-1 bg-[#28376B]">{language === 'ar' ? 'إضافة' : 'Add'}</Button>
-              <Button onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'اسم الموظف' : 'Employee Name'} <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder={language === 'ar' ? 'أدخل اسم الموظف' : 'Enter employee name'} 
+                  value={newLeave.employee} 
+                  onChange={(e) => setNewLeave({ ...newLeave, employee: e.target.value })} 
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'التاريخ' : 'Date'} <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="date" 
+                  value={newLeave.date} 
+                  onChange={(e) => setNewLeave({ ...newLeave, date: e.target.value })} 
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'السبب' : 'Reason'} <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  placeholder={language === 'ar' ? 'أدخل سبب الإجازة' : 'Enter reason for leave'} 
+                  value={newLeave.reason} 
+                  onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })} 
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  required
+                ></textarea>
+              </div>
+
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                <p className="text-sm text-blue-800">
+                  {language === 'ar' 
+                    ? 'ℹ️ الإجازات العارضة محدودة ويتم الموافقة عليها حسب سياسة الشركة' 
+                    : 'ℹ️ Casual leaves are limited and approved based on company policy'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-6 pt-4 border-t">
+              <Button onClick={handleAdd} className="flex-1 bg-[#28376B] hover:bg-[#1f2b54]">
+                <Plus className="h-4 w-4 mr-2" />
+                {language === 'ar' ? 'إضافة الإجازة' : 'Add Leave'}
+              </Button>
+              <Button onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
             </div>
           </div>
         </div>
