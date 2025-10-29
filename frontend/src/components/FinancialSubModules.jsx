@@ -164,6 +164,139 @@ export const JournalEntriesModule = ({ language, userRole }) => {
         </div>
       )}
 
+      {/* Add New Entry Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'قيد جديد' : 'New Journal Entry'}</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const newEntry = {
+                id: `JE${String(journalEntries.length + 1).padStart(3, '0')}`,
+                date: formData.get('date'),
+                description: formData.get('description'),
+                account: formData.get('account'),
+                debit: parseFloat(formData.get('debit')) || 0,
+                credit: parseFloat(formData.get('credit')) || 0,
+              };
+              setJournalEntries([...journalEntries, newEntry]);
+              setShowAddModal(false);
+              setSuccessMessage(language === 'ar' ? 'تم إضافة القيد بنجاح!' : 'Entry added successfully!');
+              setShowSuccessModal(true);
+              setTimeout(() => setShowSuccessModal(false), 2000);
+            }} className="space-y-4">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'التاريخ' : 'Date'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    defaultValue={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+
+                {/* Account */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الحساب' : 'Account'} <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="account"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  >
+                    <option value="">{language === 'ar' ? 'اختر الحساب' : 'Select Account'}</option>
+                    <option value={language === 'ar' ? 'المخزون' : 'Inventory'}>{language === 'ar' ? 'المخزون' : 'Inventory'}</option>
+                    <option value={language === 'ar' ? 'المبيعات' : 'Sales'}>{language === 'ar' ? 'المبيعات' : 'Sales'}</option>
+                    <option value={language === 'ar' ? 'المصروفات' : 'Expenses'}>{language === 'ar' ? 'المصروفات' : 'Expenses'}</option>
+                    <option value={language === 'ar' ? 'البنك' : 'Bank'}>{language === 'ar' ? 'البنك' : 'Bank'}</option>
+                    <option value={language === 'ar' ? 'النقدية' : 'Cash'}>{language === 'ar' ? 'النقدية' : 'Cash'}</option>
+                    <option value={language === 'ar' ? 'العملاء' : 'Customers'}>{language === 'ar' ? 'العملاء' : 'Customers'}</option>
+                    <option value={language === 'ar' ? 'الموردين' : 'Suppliers'}>{language === 'ar' ? 'الموردين' : 'Suppliers'}</option>
+                    <option value={language === 'ar' ? 'الأصول الثابتة' : 'Fixed Assets'}>{language === 'ar' ? 'الأصول الثابتة' : 'Fixed Assets'}</option>
+                    <option value={language === 'ar' ? 'رأس المال' : 'Capital'}>{language === 'ar' ? 'رأس المال' : 'Capital'}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'الوصف' : 'Description'} <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  name="description"
+                  required
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  placeholder={language === 'ar' ? 'أدخل وصف القيد...' : 'Enter entry description...'}
+                ></textarea>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Debit */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'مدين' : 'Debit'} <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="debit"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                {/* Credit */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'دائن' : 'Credit'} <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="credit"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                <p className="text-sm text-yellow-800">
+                  {language === 'ar' 
+                    ? '⚠️ ملاحظة: يجب إدخال قيمة في المدين أو الدائن (ليس كلاهما)' 
+                    : '⚠️ Note: Enter value in either Debit or Credit (not both)'}
+                </p>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t">
+                <Button type="submit" className="flex-1 bg-[#28376B] hover:bg-[#1f2b54]">
+                  {language === 'ar' ? 'حفظ القيد' : 'Save Entry'}
+                </Button>
+                <Button type="button" onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -312,6 +445,139 @@ export const TreasuryModule = ({ language, userRole }) => {
             <Button onClick={() => setShowViewModal(false)} className="w-full mt-6 bg-[#28376B]">
               {language === 'ar' ? 'إغلاق' : 'Close'}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Entry Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'قيد جديد' : 'New Journal Entry'}</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const newEntry = {
+                id: `JE${String(journalEntries.length + 1).padStart(3, '0')}`,
+                date: formData.get('date'),
+                description: formData.get('description'),
+                account: formData.get('account'),
+                debit: parseFloat(formData.get('debit')) || 0,
+                credit: parseFloat(formData.get('credit')) || 0,
+              };
+              setJournalEntries([...journalEntries, newEntry]);
+              setShowAddModal(false);
+              setSuccessMessage(language === 'ar' ? 'تم إضافة القيد بنجاح!' : 'Entry added successfully!');
+              setShowSuccessModal(true);
+              setTimeout(() => setShowSuccessModal(false), 2000);
+            }} className="space-y-4">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'التاريخ' : 'Date'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    defaultValue={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+
+                {/* Account */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الحساب' : 'Account'} <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="account"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  >
+                    <option value="">{language === 'ar' ? 'اختر الحساب' : 'Select Account'}</option>
+                    <option value={language === 'ar' ? 'المخزون' : 'Inventory'}>{language === 'ar' ? 'المخزون' : 'Inventory'}</option>
+                    <option value={language === 'ar' ? 'المبيعات' : 'Sales'}>{language === 'ar' ? 'المبيعات' : 'Sales'}</option>
+                    <option value={language === 'ar' ? 'المصروفات' : 'Expenses'}>{language === 'ar' ? 'المصروفات' : 'Expenses'}</option>
+                    <option value={language === 'ar' ? 'البنك' : 'Bank'}>{language === 'ar' ? 'البنك' : 'Bank'}</option>
+                    <option value={language === 'ar' ? 'النقدية' : 'Cash'}>{language === 'ar' ? 'النقدية' : 'Cash'}</option>
+                    <option value={language === 'ar' ? 'العملاء' : 'Customers'}>{language === 'ar' ? 'العملاء' : 'Customers'}</option>
+                    <option value={language === 'ar' ? 'الموردين' : 'Suppliers'}>{language === 'ar' ? 'الموردين' : 'Suppliers'}</option>
+                    <option value={language === 'ar' ? 'الأصول الثابتة' : 'Fixed Assets'}>{language === 'ar' ? 'الأصول الثابتة' : 'Fixed Assets'}</option>
+                    <option value={language === 'ar' ? 'رأس المال' : 'Capital'}>{language === 'ar' ? 'رأس المال' : 'Capital'}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'الوصف' : 'Description'} <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  name="description"
+                  required
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  placeholder={language === 'ar' ? 'أدخل وصف القيد...' : 'Enter entry description...'}
+                ></textarea>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Debit */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'مدين' : 'Debit'} <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="debit"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                {/* Credit */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'دائن' : 'Credit'} <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="credit"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                <p className="text-sm text-yellow-800">
+                  {language === 'ar' 
+                    ? '⚠️ ملاحظة: يجب إدخال قيمة في المدين أو الدائن (ليس كلاهما)' 
+                    : '⚠️ Note: Enter value in either Debit or Credit (not both)'}
+                </p>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t">
+                <Button type="submit" className="flex-1 bg-[#28376B] hover:bg-[#1f2b54]">
+                  {language === 'ar' ? 'حفظ القيد' : 'Save Entry'}
+                </Button>
+                <Button type="button" onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1256,6 +1522,139 @@ export const BankModule = ({ language, userRole }) => {
                 {language === 'ar' ? 'إلغاء' : 'Cancel'}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Entry Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'قيد جديد' : 'New Journal Entry'}</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const newEntry = {
+                id: `JE${String(journalEntries.length + 1).padStart(3, '0')}`,
+                date: formData.get('date'),
+                description: formData.get('description'),
+                account: formData.get('account'),
+                debit: parseFloat(formData.get('debit')) || 0,
+                credit: parseFloat(formData.get('credit')) || 0,
+              };
+              setJournalEntries([...journalEntries, newEntry]);
+              setShowAddModal(false);
+              setSuccessMessage(language === 'ar' ? 'تم إضافة القيد بنجاح!' : 'Entry added successfully!');
+              setShowSuccessModal(true);
+              setTimeout(() => setShowSuccessModal(false), 2000);
+            }} className="space-y-4">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'التاريخ' : 'Date'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    defaultValue={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+
+                {/* Account */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الحساب' : 'Account'} <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="account"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  >
+                    <option value="">{language === 'ar' ? 'اختر الحساب' : 'Select Account'}</option>
+                    <option value={language === 'ar' ? 'المخزون' : 'Inventory'}>{language === 'ar' ? 'المخزون' : 'Inventory'}</option>
+                    <option value={language === 'ar' ? 'المبيعات' : 'Sales'}>{language === 'ar' ? 'المبيعات' : 'Sales'}</option>
+                    <option value={language === 'ar' ? 'المصروفات' : 'Expenses'}>{language === 'ar' ? 'المصروفات' : 'Expenses'}</option>
+                    <option value={language === 'ar' ? 'البنك' : 'Bank'}>{language === 'ar' ? 'البنك' : 'Bank'}</option>
+                    <option value={language === 'ar' ? 'النقدية' : 'Cash'}>{language === 'ar' ? 'النقدية' : 'Cash'}</option>
+                    <option value={language === 'ar' ? 'العملاء' : 'Customers'}>{language === 'ar' ? 'العملاء' : 'Customers'}</option>
+                    <option value={language === 'ar' ? 'الموردين' : 'Suppliers'}>{language === 'ar' ? 'الموردين' : 'Suppliers'}</option>
+                    <option value={language === 'ar' ? 'الأصول الثابتة' : 'Fixed Assets'}>{language === 'ar' ? 'الأصول الثابتة' : 'Fixed Assets'}</option>
+                    <option value={language === 'ar' ? 'رأس المال' : 'Capital'}>{language === 'ar' ? 'رأس المال' : 'Capital'}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'الوصف' : 'Description'} <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  name="description"
+                  required
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  placeholder={language === 'ar' ? 'أدخل وصف القيد...' : 'Enter entry description...'}
+                ></textarea>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Debit */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'مدين' : 'Debit'} <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="debit"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                {/* Credit */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'دائن' : 'Credit'} <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="credit"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                <p className="text-sm text-yellow-800">
+                  {language === 'ar' 
+                    ? '⚠️ ملاحظة: يجب إدخال قيمة في المدين أو الدائن (ليس كلاهما)' 
+                    : '⚠️ Note: Enter value in either Debit or Credit (not both)'}
+                </p>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t">
+                <Button type="submit" className="flex-1 bg-[#28376B] hover:bg-[#1f2b54]">
+                  {language === 'ar' ? 'حفظ القيد' : 'Save Entry'}
+                </Button>
+                <Button type="button" onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
