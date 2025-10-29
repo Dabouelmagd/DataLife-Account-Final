@@ -42,12 +42,10 @@ export const JournalEntriesModule = ({ language, userRole }) => {
             <Search className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'بحث' : 'Search'}</span>
           </Button>
-          {canEdit && (
-            <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
-              <Plus className="h-4 w-4" />
-              <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'قيد جديد' : 'New Entry'}</span>
-            </Button>
-          )}
+          <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
+            <Plus className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'قيد جديد' : 'New Entry'}</span>
+          </Button>
         </div>
       </div>
 
