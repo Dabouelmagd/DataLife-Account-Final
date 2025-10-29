@@ -1326,16 +1326,58 @@ export const CustomersModule = ({ language, userRole }) => {
     fetchCustomers();
   }, [language]);
 
+  // Export to CSV function
+  const exportToCSV = () => {
+    const headers = language === 'ar' 
+      ? ['الكود', 'اسم العميل', 'الهاتف', 'الرصيد', 'الحالة']
+      : ['ID', 'Customer Name', 'Phone', 'Balance', 'Status'];
+    
+    const csvData = customers.map(customer => [
+      customer.id,
+      customer.name,
+      customer.phone,
+      customer.balance,
+      'Active'
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `customers_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'العملاء' : 'Customers'}
         </h2>
-        <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
-          <Plus className="h-4 w-4" />
-          <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'عميل جديد' : 'New Customer'}</span>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
+            <Download className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
+          </Button>
+          <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
+            <Plus className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'عميل جديد' : 'New Customer'}</span>
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
