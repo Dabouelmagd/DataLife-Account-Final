@@ -1212,12 +1212,10 @@ export const CustomersModule = ({ language, userRole }) => {
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'العملاء' : 'Customers'}
         </h2>
-        {canEdit && (
-          <Button size="sm" className="bg-[#28376B]">
-            <Plus className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'عميل جديد' : 'New Customer'}</span>
-          </Button>
-        )}
+        <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
+          <Plus className="h-4 w-4" />
+          <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'عميل جديد' : 'New Customer'}</span>
+        </Button>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
