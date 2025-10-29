@@ -37,6 +37,43 @@ export const SalariesModule = ({ language, userRole }) => {
   const [selectedSalary, setSelectedSalary] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Export to CSV function
+  const exportToCSV = () => {
+    const headers = language === 'ar' 
+      ? ['الكود', 'الاسم', 'الوظيفة', 'الراتب الأساسي', 'الراتب الإجمالي', 'الحالة']
+      : ['ID', 'Name', 'Position', 'Basic Salary', 'Total Salary', 'Status'];
+    
+    const csvData = salaries.map(salary => [
+      salary.id,
+      salary.name,
+      salary.position,
+      salary.basicSalary,
+      salary.totalSalary,
+      salary.status === 'paid' ? (language === 'ar' ? 'مدفوع' : 'Paid') : (language === 'ar' ? 'معلق' : 'Pending')
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const BOM = '\uFEFF'; // UTF-8 BOM for Excel compatibility with Arabic
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `salaries_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
   const handleProcessPayroll = () => {
     // Process all pending salaries
     setSalaries(salaries.map(s => ({ ...s, status: 'paid' })));
