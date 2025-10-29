@@ -1004,7 +1004,7 @@ export const AllowancesModule = ({ language, userRole }) => {
                             </Button>
                             <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(item); setShowDeleteModal(true); }}>
                               <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
+                            </Button>
                         </>
                       )}
                     </div>
