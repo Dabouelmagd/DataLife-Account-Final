@@ -2449,8 +2449,15 @@ export const AttendanceModule = ({ language, userRole }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {attendance.map((record) => (
-                <TableRow key={record.id}>
+              {filteredAttendance.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan="8" className="text-center py-8 text-gray-500">
+                    {language === 'ar' ? 'لا توجد نتائج' : 'No results found'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAttendance.map((record) => (
+                  <TableRow key={record.id}>
                   <TableCell className="font-medium">{record.id}</TableCell>
                   <TableCell>{record.name}</TableCell>
                   <TableCell>{record.date}</TableCell>
