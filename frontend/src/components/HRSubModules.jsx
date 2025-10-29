@@ -440,29 +440,151 @@ export const SalariesModule = ({ language, userRole }) => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
                     >
                       <option value="">{language === 'ar' ? 'اختر الوظيفة' : 'Select Position'}</option>
-                      <option value={language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer'}>{language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer'}</option>
-                      <option value={language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}>{language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}</option>
-                      <option value={language === 'ar' ? 'محاسب' : 'Accountant'}>{language === 'ar' ? 'محاسب' : 'Accountant'}</option>
-                      <option value={language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer'}>{language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer'}</option>
-                      <option value={language === 'ar' ? 'مدير مبيعات' : 'Sales Manager'}>{language === 'ar' ? 'مدير مبيعات' : 'Sales Manager'}</option>
-                      <option value={language === 'ar' ? 'مدير مالي' : 'Financial Manager'}>{language === 'ar' ? 'مدير مالي' : 'Financial Manager'}</option>
+                      
+                      {/* Executive Management - الإدارة التنفيذية */}
+                      <optgroup label={language === 'ar' ? '━━━━ الإدارة التنفيذية ━━━━' : '━━━━ Executive Management ━━━━'}>
+                        <option value={language === 'ar' ? 'الرئيس التنفيذي' : 'Chief Executive Officer (CEO)'}>{language === 'ar' ? 'الرئيس التنفيذي (CEO)' : 'Chief Executive Officer (CEO)'}</option>
+                        <option value={language === 'ar' ? 'المدير العام' : 'General Manager'}>{language === 'ar' ? 'المدير العام' : 'General Manager'}</option>
+                        <option value={language === 'ar' ? 'نائب المدير العام' : 'Deputy General Manager'}>{language === 'ar' ? 'نائب المدير العام' : 'Deputy General Manager'}</option>
+                        <option value={language === 'ar' ? 'مدير تنفيذي' : 'Executive Director'}>{language === 'ar' ? 'مدير تنفيذي' : 'Executive Director'}</option>
+                      </optgroup>
+
+                      {/* HR Department - الموارد البشرية */}
+                      <optgroup label={language === 'ar' ? '━━━━ الموارد البشرية ━━━━' : '━━━━ Human Resources ━━━━'}>
+                        <option value={language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}>{language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}</option>
+                        <option value={language === 'ar' ? 'مسؤول موارد بشرية' : 'HR Officer'}>{language === 'ar' ? 'مسؤول موارد بشرية' : 'HR Officer'}</option>
+                        <option value={language === 'ar' ? 'مسؤول التوظيف' : 'Recruitment Specialist'}>{language === 'ar' ? 'مسؤول التوظيف' : 'Recruitment Specialist'}</option>
+                        <option value={language === 'ar' ? 'مسؤول الرواتب' : 'Payroll Officer'}>{language === 'ar' ? 'مسؤول الرواتب' : 'Payroll Officer'}</option>
+                        <option value={language === 'ar' ? 'مسؤول التدريب والتطوير' : 'Training & Development Officer'}>{language === 'ar' ? 'مسؤول التدريب والتطوير' : 'Training & Development Officer'}</option>
+                      </optgroup>
+
+                      {/* Finance & Accounting - المالية والمحاسبة */}
+                      <optgroup label={language === 'ar' ? '━━━━ المالية والمحاسبة ━━━━' : '━━━━ Finance & Accounting ━━━━'}>
+                        <option value={language === 'ar' ? 'المدير المالي' : 'Chief Financial Officer (CFO)'}>{language === 'ar' ? 'المدير المالي (CFO)' : 'Chief Financial Officer (CFO)'}</option>
+                        <option value={language === 'ar' ? 'مدير الحسابات' : 'Accounting Manager'}>{language === 'ar' ? 'مدير الحسابات' : 'Accounting Manager'}</option>
+                        <option value={language === 'ar' ? 'محاسب عام' : 'General Accountant'}>{language === 'ar' ? 'محاسب عام' : 'General Accountant'}</option>
+                        <option value={language === 'ar' ? 'محاسب تكاليف' : 'Cost Accountant'}>{language === 'ar' ? 'محاسب تكاليف' : 'Cost Accountant'}</option>
+                        <option value={language === 'ar' ? 'محاسب ضرائب' : 'Tax Accountant'}>{language === 'ar' ? 'محاسب ضرائب' : 'Tax Accountant'}</option>
+                        <option value={language === 'ar' ? 'مراجع مالي' : 'Financial Auditor'}>{language === 'ar' ? 'مراجع مالي' : 'Financial Auditor'}</option>
+                        <option value={language === 'ar' ? 'أمين صندوق' : 'Cashier'}>{language === 'ar' ? 'أمين صندوق' : 'Cashier'}</option>
+                        <option value={language === 'ar' ? 'محلل مالي' : 'Financial Analyst'}>{language === 'ar' ? 'محلل مالي' : 'Financial Analyst'}</option>
+                      </optgroup>
+
+                      {/* IT Department - تكنولوجيا المعلومات */}
+                      <optgroup label={language === 'ar' ? '━━━━ تكنولوجيا المعلومات ━━━━' : '━━━━ Information Technology ━━━━'}>
+                        <option value={language === 'ar' ? 'مدير تكنولوجيا المعلومات' : 'IT Manager'}>{language === 'ar' ? 'مدير تكنولوجيا المعلومات' : 'IT Manager'}</option>
+                        <option value={language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer'}>{language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer'}</option>
+                        <option value={language === 'ar' ? 'مطور ويب' : 'Web Developer'}>{language === 'ar' ? 'مطور ويب' : 'Web Developer'}</option>
+                        <option value={language === 'ar' ? 'مطور تطبيقات موبايل' : 'Mobile App Developer'}>{language === 'ar' ? 'مطور تطبيقات موبايل' : 'Mobile App Developer'}</option>
+                        <option value={language === 'ar' ? 'مهندس DevOps' : 'DevOps Engineer'}>{language === 'ar' ? 'مهندس DevOps' : 'DevOps Engineer'}</option>
+                        <option value={language === 'ar' ? 'محلل بيانات' : 'Data Analyst'}>{language === 'ar' ? 'محلل بيانات' : 'Data Analyst'}</option>
+                        <option value={language === 'ar' ? 'مهندس شبكات' : 'Network Engineer'}>{language === 'ar' ? 'مهندس شبكات' : 'Network Engineer'}</option>
+                        <option value={language === 'ar' ? 'مسؤول أنظمة' : 'System Administrator'}>{language === 'ar' ? 'مسؤول أنظمة' : 'System Administrator'}</option>
+                        <option value={language === 'ar' ? 'مهندس أمن معلومات' : 'Cybersecurity Engineer'}>{language === 'ar' ? 'مهندس أمن معلومات' : 'Cybersecurity Engineer'}</option>
+                        <option value={language === 'ar' ? 'مسؤول دعم فني' : 'Technical Support'}>{language === 'ar' ? 'مسؤول دعم فني' : 'Technical Support'}</option>
+                      </optgroup>
+
+                      {/* Sales & Marketing - المبيعات والتسويق */}
+                      <optgroup label={language === 'ar' ? '━━━━ المبيعات والتسويق ━━━━' : '━━━━ Sales & Marketing ━━━━'}>
+                        <option value={language === 'ar' ? 'مدير المبيعات' : 'Sales Manager'}>{language === 'ar' ? 'مدير المبيعات' : 'Sales Manager'}</option>
+                        <option value={language === 'ar' ? 'مدير التسويق' : 'Marketing Manager'}>{language === 'ar' ? 'مدير التسويق' : 'Marketing Manager'}</option>
+                        <option value={language === 'ar' ? 'مندوب مبيعات' : 'Sales Representative'}>{language === 'ar' ? 'مندوب مبيعات' : 'Sales Representative'}</option>
+                        <option value={language === 'ar' ? 'مسؤول تسويق رقمي' : 'Digital Marketing Specialist'}>{language === 'ar' ? 'مسؤول تسويق رقمي' : 'Digital Marketing Specialist'}</option>
+                        <option value={language === 'ar' ? 'مسؤول وسائل التواصل الاجتماعي' : 'Social Media Specialist'}>{language === 'ar' ? 'مسؤول وسائل التواصل الاجتماعي' : 'Social Media Specialist'}</option>
+                        <option value={language === 'ar' ? 'مسؤول علاقات العملاء' : 'Customer Relations Officer'}>{language === 'ar' ? 'مسؤول علاقات العملاء' : 'Customer Relations Officer'}</option>
+                        <option value={language === 'ar' ? 'مسؤول خدمة العملاء' : 'Customer Service Representative'}>{language === 'ar' ? 'مسؤول خدمة العملاء' : 'Customer Service Representative'}</option>
+                      </optgroup>
+
+                      {/* Operations & Logistics - العمليات والخدمات اللوجستية */}
+                      <optgroup label={language === 'ar' ? '━━━━ العمليات واللوجستيات ━━━━' : '━━━━ Operations & Logistics ━━━━'}>
+                        <option value={language === 'ar' ? 'مدير العمليات' : 'Operations Manager'}>{language === 'ar' ? 'مدير العمليات' : 'Operations Manager'}</option>
+                        <option value={language === 'ar' ? 'مدير المشتريات' : 'Procurement Manager'}>{language === 'ar' ? 'مدير المشتريات' : 'Procurement Manager'}</option>
+                        <option value={language === 'ar' ? 'مدير المخزون' : 'Inventory Manager'}>{language === 'ar' ? 'مدير المخزون' : 'Inventory Manager'}</option>
+                        <option value={language === 'ar' ? 'مدير سلسلة الإمداد' : 'Supply Chain Manager'}>{language === 'ar' ? 'مدير سلسلة الإمداد' : 'Supply Chain Manager'}</option>
+                        <option value={language === 'ar' ? 'مسؤول مستودع' : 'Warehouse Officer'}>{language === 'ar' ? 'مسؤول مستودع' : 'Warehouse Officer'}</option>
+                        <option value={language === 'ar' ? 'مسؤول لوجستيات' : 'Logistics Coordinator'}>{language === 'ar' ? 'مسؤول لوجستيات' : 'Logistics Coordinator'}</option>
+                      </optgroup>
+
+                      {/* Design & Creative - التصميم والإبداع */}
+                      <optgroup label={language === 'ar' ? '━━━━ التصميم والإبداع ━━━━' : '━━━━ Design & Creative ━━━━'}>
+                        <option value={language === 'ar' ? 'مدير إبداعي' : 'Creative Director'}>{language === 'ar' ? 'مدير إبداعي' : 'Creative Director'}</option>
+                        <option value={language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer'}>{language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer'}</option>
+                        <option value={language === 'ar' ? 'مصمم UI/UX' : 'UI/UX Designer'}>{language === 'ar' ? 'مصمم UI/UX' : 'UI/UX Designer'}</option>
+                        <option value={language === 'ar' ? 'مصمم موشن جرافيك' : 'Motion Graphics Designer'}>{language === 'ar' ? 'مصمم موشن جرافيك' : 'Motion Graphics Designer'}</option>
+                        <option value={language === 'ar' ? 'مصور فوتوغرافي' : 'Photographer'}>{language === 'ar' ? 'مصور فوتوغرافي' : 'Photographer'}</option>
+                        <option value={language === 'ar' ? 'محرر فيديو' : 'Video Editor'}>{language === 'ar' ? 'محرر فيديو' : 'Video Editor'}</option>
+                        <option value={language === 'ar' ? 'كاتب محتوى' : 'Content Writer'}>{language === 'ar' ? 'كاتب محتوى' : 'Content Writer'}</option>
+                      </optgroup>
+
+                      {/* Engineering & Production - الهندسة والإنتاج */}
+                      <optgroup label={language === 'ar' ? '━━━━ الهندسة والإنتاج ━━━━' : '━━━━ Engineering & Production ━━━━'}>
+                        <option value={language === 'ar' ? 'مدير الإنتاج' : 'Production Manager'}>{language === 'ar' ? 'مدير الإنتاج' : 'Production Manager'}</option>
+                        <option value={language === 'ar' ? 'مهندس ميكانيكي' : 'Mechanical Engineer'}>{language === 'ar' ? 'مهندس ميكانيكي' : 'Mechanical Engineer'}</option>
+                        <option value={language === 'ar' ? 'مهندس كهربائي' : 'Electrical Engineer'}>{language === 'ar' ? 'مهندس كهربائي' : 'Electrical Engineer'}</option>
+                        <option value={language === 'ar' ? 'مهندس مدني' : 'Civil Engineer'}>{language === 'ar' ? 'مهندس مدني' : 'Civil Engineer'}</option>
+                        <option value={language === 'ar' ? 'مهندس صناعي' : 'Industrial Engineer'}>{language === 'ar' ? 'مهندس صناعي' : 'Industrial Engineer'}</option>
+                        <option value={language === 'ar' ? 'مراقب جودة' : 'Quality Control Inspector'}>{language === 'ar' ? 'مراقب جودة' : 'Quality Control Inspector'}</option>
+                        <option value={language === 'ar' ? 'فني صيانة' : 'Maintenance Technician'}>{language === 'ar' ? 'فني صيانة' : 'Maintenance Technician'}</option>
+                      </optgroup>
+
+                      {/* Legal & Compliance - القانونية والامتثال */}
+                      <optgroup label={language === 'ar' ? '━━━━ القانونية والامتثال ━━━━' : '━━━━ Legal & Compliance ━━━━'}>
+                        <option value={language === 'ar' ? 'المستشار القانوني' : 'Legal Counsel'}>{language === 'ar' ? 'المستشار القانوني' : 'Legal Counsel'}</option>
+                        <option value={language === 'ar' ? 'محامي' : 'Lawyer'}>{language === 'ar' ? 'محامي' : 'Lawyer'}</option>
+                        <option value={language === 'ar' ? 'مسؤول امتثال' : 'Compliance Officer'}>{language === 'ar' ? 'مسؤول امتثال' : 'Compliance Officer'}</option>
+                      </optgroup>
+
+                      {/* Administrative - الإدارية */}
+                      <optgroup label={language === 'ar' ? '━━━━ الوظائف الإدارية ━━━━' : '━━━━ Administrative ━━━━'}>
+                        <option value={language === 'ar' ? 'مدير مكتب' : 'Office Manager'}>{language === 'ar' ? 'مدير مكتب' : 'Office Manager'}</option>
+                        <option value={language === 'ar' ? 'سكرتير تنفيذي' : 'Executive Secretary'}>{language === 'ar' ? 'سكرتير تنفيذي' : 'Executive Secretary'}</option>
+                        <option value={language === 'ar' ? 'موظف استقبال' : 'Receptionist'}>{language === 'ar' ? 'موظف استقبال' : 'Receptionist'}</option>
+                        <option value={language === 'ar' ? 'مساعد إداري' : 'Administrative Assistant'}>{language === 'ar' ? 'مساعد إداري' : 'Administrative Assistant'}</option>
+                        <option value={language === 'ar' ? 'منسق إداري' : 'Administrative Coordinator'}>{language === 'ar' ? 'منسق إداري' : 'Administrative Coordinator'}</option>
+                      </optgroup>
+
+                      {/* Others - أخرى */}
+                      <optgroup label={language === 'ar' ? '━━━━ أخرى ━━━━' : '━━━━ Others ━━━━'}>
+                        <option value={language === 'ar' ? 'مستشار' : 'Consultant'}>{language === 'ar' ? 'مستشار' : 'Consultant'}</option>
+                        <option value={language === 'ar' ? 'باحث' : 'Researcher'}>{language === 'ar' ? 'باحث' : 'Researcher'}</option>
+                        <option value={language === 'ar' ? 'متدرب' : 'Intern'}>{language === 'ar' ? 'متدرب' : 'Intern'}</option>
+                        <option value={language === 'ar' ? 'سائق' : 'Driver'}>{language === 'ar' ? 'سائق' : 'Driver'}</option>
+                        <option value={language === 'ar' ? 'عامل نظافة' : 'Cleaner'}>{language === 'ar' ? 'عامل نظافة' : 'Cleaner'}</option>
+                        <option value={language === 'ar' ? 'حارس أمن' : 'Security Guard'}>{language === 'ar' ? 'حارس أمن' : 'Security Guard'}</option>
+                      </optgroup>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {language === 'ar' ? 'القسم' : 'Department'}
+                      {language === 'ar' ? 'القسم' : 'Department'} <span className="text-red-500">*</span>
                     </label>
                     <select
                       name="department"
+                      required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
                     >
                       <option value="">{language === 'ar' ? 'اختر القسم' : 'Select Department'}</option>
+                      <option value="executive">{language === 'ar' ? 'الإدارة التنفيذية' : 'Executive Management'}</option>
                       <option value="hr">{language === 'ar' ? 'الموارد البشرية' : 'Human Resources'}</option>
-                      <option value="finance">{language === 'ar' ? 'المالية' : 'Finance'}</option>
-                      <option value="it">{language === 'ar' ? 'تكنولوجيا المعلومات' : 'IT'}</option>
+                      <option value="finance">{language === 'ar' ? 'المالية والمحاسبة' : 'Finance & Accounting'}</option>
+                      <option value="it">{language === 'ar' ? 'تكنولوجيا المعلومات' : 'Information Technology'}</option>
                       <option value="sales">{language === 'ar' ? 'المبيعات' : 'Sales'}</option>
                       <option value="marketing">{language === 'ar' ? 'التسويق' : 'Marketing'}</option>
+                      <option value="operations">{language === 'ar' ? 'العمليات' : 'Operations'}</option>
+                      <option value="logistics">{language === 'ar' ? 'الخدمات اللوجستية' : 'Logistics'}</option>
+                      <option value="procurement">{language === 'ar' ? 'المشتريات' : 'Procurement'}</option>
+                      <option value="design">{language === 'ar' ? 'التصميم والإبداع' : 'Design & Creative'}</option>
+                      <option value="engineering">{language === 'ar' ? 'الهندسة' : 'Engineering'}</option>
+                      <option value="production">{language === 'ar' ? 'الإنتاج' : 'Production'}</option>
+                      <option value="quality">{language === 'ar' ? 'الجودة' : 'Quality Control'}</option>
+                      <option value="legal">{language === 'ar' ? 'القانونية' : 'Legal & Compliance'}</option>
+                      <option value="admin">{language === 'ar' ? 'الشؤون الإدارية' : 'Administration'}</option>
+                      <option value="customer_service">{language === 'ar' ? 'خدمة العملاء' : 'Customer Service'}</option>
+                      <option value="research">{language === 'ar' ? 'البحث والتطوير' : 'Research & Development'}</option>
+                      <option value="security">{language === 'ar' ? 'الأمن والسلامة' : 'Security & Safety'}</option>
+                      <option value="maintenance">{language === 'ar' ? 'الصيانة' : 'Maintenance'}</option>
+                      <option value="other">{language === 'ar' ? 'أخرى' : 'Other'}</option>
                     </select>
                   </div>
 
