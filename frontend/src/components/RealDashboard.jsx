@@ -91,20 +91,34 @@ const RealDashboard = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       
       // Fetch data from various endpoints
-      const [employees, allowances, deductions, customers, suppliers] = await Promise.all([
+      const [employeesRes, allowances, deductions, customers, suppliers, journalEntries] = await Promise.all([
         axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/hr/employees`, config).catch(() => ({ data: [] })),
         axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/hr/allowances`, config).catch(() => ({ data: [] })),
         axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/hr/deductions`, config).catch(() => ({ data: [] })),
         axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/financial/customers`, config).catch(() => ({ data: [] })),
-        axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/financial/suppliers`, config).catch(() => ({ data: [] }))
+        axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/financial/suppliers`, config).catch(() => ({ data: [] })),
+        axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/financial/journal-entries`, config).catch(() => ({ data: [] }))
       ]);
+      
+      setEmployees(employeesRes.data);
+      
+      // Calculate financial stats from journal entries
+      const revenue = journalEntries.data
+        .filter(entry => entry.type === 'credit')
+        .reduce((sum, entry) => sum + (entry.amount || 0), 0);
+      const expenses = journalEntries.data
+        .filter(entry => entry.type === 'debit')
+        .reduce((sum, entry) => sum + (entry.amount || 0), 0);
 
       setStats({
-        totalEmployees: employees.data.length,
+        totalEmployees: employeesRes.data.length,
         totalAllowances: allowances.data.reduce((sum, a) => sum + (a.amount || 0), 0),
         totalDeductions: deductions.data.reduce((sum, d) => sum + (d.amount || 0), 0),
         totalCustomers: customers.data.length,
-        totalSuppliers: suppliers.data.length
+        totalSuppliers: suppliers.data.length,
+        monthlyRevenue: revenue,
+        monthlyExpenses: expenses,
+        activeProjects: customers.data.length + suppliers.data.length
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
