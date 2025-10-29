@@ -908,26 +908,40 @@ const RealDashboard = () => {
               </button>
 
               {/* Sub-modules - Modern Collapse Animation */}
-              {module.subModules && activeModule === module.id && (
+              {module.hasSubModules && activeModule === module.id && (
                 <div className={`space-y-1 ${isRTL ? 'mr-4 pr-4 border-r-2' : 'ml-4 pl-4 border-l-2'} border-blue-500/30 animate-in slide-in-from-top-2 duration-300`}>
-                  {module.subModules.map(sub => (
-                    <button
-                      key={sub.id}
-                      className={`w-full text-sm px-4 py-2.5 rounded-lg transition-all duration-200 ${
-                        activeSubModule === sub.id
-                          ? 'bg-white/20 text-white font-semibold shadow-lg'
-                          : 'text-gray-400 hover:text-white hover:bg-white/10'
-                      } ${isRTL ? 'text-right' : 'text-left'}`}
-                      onClick={() => setActiveSubModule(sub.id)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
-                          activeSubModule === sub.id ? 'bg-white w-2 h-2' : 'bg-gray-500'
-                        }`}></div>
-                        {sub.name}
-                      </div>
-                    </button>
-                  ))}
+                  {module.subModules.map(sub => {
+                    const isActive = module.id === 'hr' ? activeHRSubModule === sub.id : 
+                                    module.id === 'financial' ? activeFinancialSubModule === sub.id : 
+                                    activeSubModule === sub.id;
+                    
+                    return (
+                      <button
+                        key={sub.id}
+                        className={`w-full text-sm px-4 py-2.5 rounded-lg transition-all duration-200 ${
+                          isActive
+                            ? 'bg-white/20 text-white font-semibold shadow-lg'
+                            : 'text-gray-400 hover:text-white hover:bg-white/10'
+                        } ${isRTL ? 'text-right' : 'text-left'}`}
+                        onClick={() => {
+                          if (module.id === 'hr') {
+                            setActiveHRSubModule(sub.id);
+                          } else if (module.id === 'financial') {
+                            setActiveFinancialSubModule(sub.id);
+                          } else {
+                            setActiveSubModule(sub.id);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                            isActive ? 'bg-white w-2 h-2' : 'bg-gray-500'
+                          }`}></div>
+                          {sub.name}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
