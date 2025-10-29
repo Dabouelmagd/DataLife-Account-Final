@@ -2,13 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from './ui/card';
 import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { 
   Users, DollarSign, FileText, Calendar, Settings, LogOut,
-  Building2, TrendingUp, PieChart, BarChart
+  Building2, TrendingUp, PieChart, BarChart, Calculator,
+  Home, PlayCircle, ArrowUp, ArrowDown, AlertCircle, CheckCircle,
+  Eye, Edit, Plus, Download, Printer, Clock, Award, TrendingDown,
+  ChevronDown, ChevronRight
 } from 'lucide-react';
 import axios from 'axios';
+import { getTranslation } from '../data/translations';
 
 // Import sub-modules from existing files
 import {
@@ -17,7 +25,8 @@ import {
   DeductionsModule,
   CasualLeaveModule,
   AnnualLeaveModule,
-  AttendanceModule
+  AttendanceModule,
+  HRReportsModule
 } from './HRSubModules';
 
 import {
@@ -25,7 +34,10 @@ import {
   TreasuryModule,
   BankModule,
   CustomersModule,
-  SuppliersModule
+  SuppliersModule,
+  CustodyModule,
+  AccountsModule,
+  FinancialReportsModule
 } from './FinancialSubModules';
 
 const RealDashboard = () => {
