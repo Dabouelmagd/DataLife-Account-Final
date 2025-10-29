@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "I need to show how to start using the program. Connect demo/trial buttons on the landing page to open the FreeTrialModal and navigate to the DemoPage"
+user_problem_statement: "Make RealDashboard.jsx function and appear exactly like DemoPage.jsx. Copy all modules, content, and functionality from DemoPage.jsx to RealDashboard.jsx while maintaining multi-tenancy (company_id isolation) and RBAC features. العرض التوضيحي هو الصحيح يجب ان يكون الابلكشن مثله بالضبط (The demo display is correct, the application should be exactly like it)."
 
 backend:
   - task: "Free Trial API Integration"
