@@ -428,7 +428,131 @@ const RealDashboard = () => {
 
     // HR Sub-modules
     if (activeModule === 'hr') {
-      switch (activeSubModule) {
+      // HR Overview
+      if (activeHRSubModule === 'hr-overview' || !activeHRSubModule) {
+        return (
+          <div className="space-y-6">
+            {/* HR Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">{t('demo.hr.totalEmployees')}</p>
+                      <p className="text-3xl font-bold">{stats.totalEmployees}</p>
+                    </div>
+                    <Users className="h-8 w-8 text-blue-500" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">{language === 'ar' ? 'إجمالي البدلات' : 'Total Allowances'}</p>
+                      <p className="text-3xl font-bold">{stats.totalAllowances.toLocaleString()}</p>
+                    </div>
+                    <CheckCircle className="h-8 w-8 text-green-500" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">{language === 'ar' ? 'إجمالي الخصومات' : 'Total Deductions'}</p>
+                      <p className="text-3xl font-bold">{stats.totalDeductions.toLocaleString()}</p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-orange-500" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Employee Table */}
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>{t('demo.hr.employeeList')}</CardTitle>
+                  <Button 
+                    size="sm" 
+                    className="bg-[#28376B]"
+                    onClick={() => {
+                      setActiveModule('hr');
+                      setActiveHRSubModule('salaries');
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('demo.hr.addEmployee')}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {employees.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('demo.hr.employee')}</TableHead>
+                        <TableHead>{t('demo.hr.position')}</TableHead>
+                        <TableHead>{t('demo.hr.department')}</TableHead>
+                        <TableHead>{t('demo.hr.status')}</TableHead>
+                        <TableHead>{t('demo.hr.actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {employees.map((employee, index) => (
+                        <TableRow key={index}>
+                          <TableCell>
+                            <div className="flex items-center space-x-3">
+                              <Avatar>
+                                <AvatarFallback>{employee.employee_name?.split(' ').map(n => n[0]).join('') || 'NA'}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{employee.employee_name || 'N/A'}</p>
+                                <p className="text-sm text-gray-500">{employee.employee_id || ''}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{employee.job_title || 'N/A'}</TableCell>
+                          <TableCell>{employee.department || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Badge variant="success">
+                              {language === 'ar' ? 'نشط' : 'Active'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    {language === 'ar' ? 'لا يوجد موظفين بعد' : 'No employees yet'}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
+      
+      // HR Sub-module components
+      switch (activeHRSubModule) {
         case 'salaries':
           return <SalariesModule language={language} userRole={user?.role} />;
         case 'allowances':
@@ -441,6 +565,8 @@ const RealDashboard = () => {
           return <AnnualLeaveModule language={language} userRole={user?.role} />;
         case 'attendance':
           return <AttendanceModule language={language} userRole={user?.role} />;
+        case 'hr-reports':
+          return <HRReportsModule language={language} userRole={user?.role} />;
         default:
           return <div>{language === 'ar' ? 'اختر وحدة فرعية' : 'Select a sub-module'}</div>;
       }
