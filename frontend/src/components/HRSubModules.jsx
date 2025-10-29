@@ -2272,6 +2272,29 @@ export const AttendanceModule = ({ language, userRole }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [filteredAttendance, setFilteredAttendance] = useState(attendance);
+
+  // Filter attendance by date and search term
+  React.useEffect(() => {
+    let filtered = attendance;
+
+    // Filter by date if selected
+    if (selectedDate) {
+      filtered = filtered.filter(record => record.date === selectedDate);
+    }
+
+    // Filter by search term (name or ID)
+    if (searchTerm) {
+      filtered = filtered.filter(record => 
+        record.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.id.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    setFilteredAttendance(filtered);
+  }, [attendance, selectedDate, searchTerm]);
 
   // Export to CSV function
   const exportToCSV = () => {
