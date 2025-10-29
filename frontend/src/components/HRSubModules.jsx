@@ -246,6 +246,133 @@ export const SalariesModule = ({ language, userRole }) => {
         </div>
       )}
 
+      {/* Add Employee Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'موظف جديد' : 'New Employee'}</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const newEmployee = {
+                id: `E${String(salaries.length + 1).padStart(3, '0')}`,
+                name: formData.get('name'),
+                position: formData.get('position'),
+                basicSalary: parseFloat(formData.get('basicSalary')),
+                totalSalary: parseFloat(formData.get('basicSalary')) * 1.2, // Example: 20% additions
+                status: 'pending'
+              };
+              setSalaries([...salaries, newEmployee]);
+              setShowAddModal(false);
+              setSuccessMessage(language === 'ar' ? 'تم إضافة الموظف بنجاح!' : 'Employee added successfully!');
+              setShowSuccessModal(true);
+              setTimeout(() => setShowSuccessModal(false), 2000);
+            }} className="space-y-4">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Employee Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'اسم الموظف' : 'Employee Name'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    placeholder={language === 'ar' ? 'أدخل اسم الموظف' : 'Enter employee name'}
+                  />
+                </div>
+
+                {/* Position */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'المسمى الوظيفي' : 'Job Position'} <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="position"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  >
+                    <option value="">{language === 'ar' ? 'اختر الوظيفة' : 'Select Position'}</option>
+                    <option value={language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer'}>{language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer'}</option>
+                    <option value={language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}>{language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}</option>
+                    <option value={language === 'ar' ? 'محاسب' : 'Accountant'}>{language === 'ar' ? 'محاسب' : 'Accountant'}</option>
+                    <option value={language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer'}>{language === 'ar' ? 'مصمم جرافيك' : 'Graphic Designer'}</option>
+                    <option value={language === 'ar' ? 'مدير مبيعات' : 'Sales Manager'}>{language === 'ar' ? 'مدير مبيعات' : 'Sales Manager'}</option>
+                    <option value={language === 'ar' ? 'مدير مالي' : 'Financial Manager'}>{language === 'ar' ? 'مدير مالي' : 'Financial Manager'}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Basic Salary */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'الراتب الأساسي' : 'Basic Salary'} <span className="text-red-500">*</span> <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+                </label>
+                <input
+                  type="number"
+                  name="basicSalary"
+                  step="100"
+                  min="1000"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="10000"
+                />
+              </div>
+
+              {/* Contact Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    placeholder="+201234567890"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                    placeholder="employee@example.com"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                <p className="text-sm text-blue-800">
+                  {language === 'ar' 
+                    ? 'ℹ️ سيتم حساب الراتب الإجمالي تلقائياً بإضافة البدلات والخصومات' 
+                    : 'ℹ️ Total salary will be calculated automatically with allowances and deductions'}
+                </p>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t">
+                <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
+                  {language === 'ar' ? 'حفظ الموظف' : 'Save Employee'}
+                </Button>
+                <Button type="button" onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
