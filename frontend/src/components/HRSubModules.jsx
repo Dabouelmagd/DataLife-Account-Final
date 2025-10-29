@@ -2272,6 +2272,46 @@ export const AttendanceModule = ({ language, userRole }) => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Export to CSV function
+  const exportToCSV = () => {
+    const headers = language === 'ar' 
+      ? ['الكود', 'الاسم', 'التاريخ', 'الدخول', 'الخروج', 'الحالة', 'الساعات']
+      : ['ID', 'Name', 'Date', 'Check In', 'Check Out', 'Status', 'Hours'];
+    
+    const csvData = attendance.map(record => [
+      record.id,
+      record.name,
+      record.date,
+      record.checkIn,
+      record.checkOut,
+      record.status === 'present' ? (language === 'ar' ? 'حاضر' : 'Present') : 
+      record.status === 'absent' ? (language === 'ar' ? 'غائب' : 'Absent') : 
+      (language === 'ar' ? 'متأخر' : 'Late'),
+      record.hours
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `attendance_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="flex items-center justify-between">
@@ -2283,7 +2323,7 @@ export const AttendanceModule = ({ language, userRole }) => {
             <Calendar className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'اختر التاريخ' : 'Select Date'}</span>
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
             <Download className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
