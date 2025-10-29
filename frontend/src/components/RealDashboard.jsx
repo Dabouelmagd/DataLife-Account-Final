@@ -574,20 +574,270 @@ const RealDashboard = () => {
 
     // Financial Sub-modules
     if (activeModule === 'financial') {
-      switch (activeSubModule) {
+      // Financial Overview  
+      if (activeFinancialSubModule === 'financial-overview' || !activeFinancialSubModule) {
+        return (
+          <div className="space-y-6">
+            {/* Financial Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card className="bg-gradient-to-r from-green-50 to-green-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-green-700">{language === 'ar' ? 'الإيرادات الشهرية' : 'Monthly Revenue'}</p>
+                      <p className="text-2xl font-bold text-green-800">{stats.monthlyRevenue.toLocaleString()} {t('demo.currency')}</p>
+                      <p className="text-sm text-green-600">+15.2%</p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-r from-red-50 to-red-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-red-700">{language === 'ar' ? 'المصروفات الشهرية' : 'Monthly Expenses'}</p>
+                      <p className="text-2xl font-bold text-red-800">{stats.monthlyExpenses.toLocaleString()} {t('demo.currency')}</p>
+                      <p className="text-sm text-red-600">+8.5%</p>
+                    </div>
+                    <TrendingDown className="h-8 w-8 text-red-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-700">{language === 'ar' ? 'صافي الربح' : 'Net Profit'}</p>
+                      <p className="text-2xl font-bold text-blue-800">{(stats.monthlyRevenue - stats.monthlyExpenses).toLocaleString()} {t('demo.currency')}</p>
+                      <p className="text-sm text-blue-600">{stats.monthlyRevenue > 0 ? ((stats.monthlyRevenue - stats.monthlyExpenses) / stats.monthlyRevenue * 100).toFixed(1) : 0}% {language === 'ar' ? 'هامش' : 'margin'}</p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-r from-purple-50 to-purple-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-purple-700">{language === 'ar' ? 'العملاء النشطين' : 'Active Customers'}</p>
+                      <p className="text-2xl font-bold text-purple-800">{stats.totalCustomers}</p>
+                      <p className="text-sm text-purple-600">{language === 'ar' ? 'عميل' : 'customers'}</p>
+                    </div>
+                    <Users className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Financial Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'الإجراءات المالية السريعة' : 'Quick Financial Actions'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Button
+                    variant="outline"
+                    className="h-20 flex flex-col items-center justify-center space-y-2"
+                    onClick={() => setActiveFinancialSubModule('journal-entries')}
+                  >
+                    <FileText className="h-6 w-6" />
+                    <span className="text-sm">{language === 'ar' ? 'قيد يومي' : 'Journal Entry'}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-20 flex flex-col items-center justify-center space-y-2"
+                    onClick={() => setActiveFinancialSubModule('customers')}
+                  >
+                    <Users className="h-6 w-6" />
+                    <span className="text-sm">{language === 'ar' ? 'عميل جديد' : 'New Customer'}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-20 flex flex-col items-center justify-center space-y-2"
+                    onClick={() => setActiveFinancialSubModule('suppliers')}
+                  >
+                    <Building2 className="h-6 w-6" />
+                    <span className="text-sm">{language === 'ar' ? 'مورد جديد' : 'New Supplier'}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-20 flex flex-col items-center justify-center space-y-2"
+                    onClick={() => setActiveFinancialSubModule('financial-reports')}
+                  >
+                    <BarChart className="h-6 w-6" />
+                    <span className="text-sm">{language === 'ar' ? 'التقارير' : 'Reports'}</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Financial Summary Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'ملخص مالي' : 'Financial Summary'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <span className="font-medium">{language === 'ar' ? 'إجمالي العملاء' : 'Total Customers'}</span>
+                    <span className="text-lg font-bold">{stats.totalCustomers}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <span className="font-medium">{language === 'ar' ? 'إجمالي الموردين' : 'Total Suppliers'}</span>
+                    <span className="text-lg font-bold">{stats.totalSuppliers}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <span className="font-medium">{language === 'ar' ? 'الإيرادات' : 'Revenue'}</span>
+                    <span className="text-lg font-bold text-green-600">{stats.monthlyRevenue.toLocaleString()} {t('demo.currency')}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">{language === 'ar' ? 'المصروفات' : 'Expenses'}</span>
+                    <span className="text-lg font-bold text-red-600">{stats.monthlyExpenses.toLocaleString()} {t('demo.currency')}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
+      
+      // Financial Sub-module components
+      switch (activeFinancialSubModule) {
         case 'journal-entries':
           return <JournalEntriesModule language={language} userRole={user?.role} />;
         case 'treasury':
           return <TreasuryModule language={language} userRole={user?.role} />;
+        case 'custody':
+          return <CustodyModule language={language} userRole={user?.role} />;
+        case 'accounts':
+          return <AccountsModule language={language} userRole={user?.role} />;
         case 'bank':
           return <BankModule language={language} userRole={user?.role} />;
         case 'customers':
           return <CustomersModule language={language} userRole={user?.role} />;
         case 'suppliers':
           return <SuppliersModule language={language} userRole={user?.role} />;
+        case 'financial-reports':
+          return <FinancialReportsModule language={language} userRole={user?.role} />;
         default:
           return <div>{language === 'ar' ? 'اختر وحدة فرعية' : 'Select a sub-module'}</div>;
       }
+    }
+    
+    // Inventory Module
+    if (activeModule === 'inventory') {
+      return (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'إدارة المخزون' : 'Inventory Management'}</CardTitle>
+              <CardDescription>
+                {language === 'ar' ? 'قريباً - جاري التطوير' : 'Coming Soon - Under Development'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12 text-gray-500">
+                <PieChart className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                <p>{language === 'ar' ? 'هذه الميزة قيد التطوير حالياً' : 'This feature is currently under development'}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // Reports Module
+    if (activeModule === 'reports') {
+      return (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'التقارير' : 'Reports'}</CardTitle>
+              <CardDescription>
+                {language === 'ar' ? 'التقارير والتحليلات' : 'Reports and Analytics'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button
+                  variant="outline"
+                  className="h-24 flex flex-col items-center justify-center"
+                  onClick={() => {
+                    setActiveModule('hr');
+                    setActiveHRSubModule('hr-reports');
+                  }}
+                >
+                  <Users className="h-6 w-6 mb-2" />
+                  <span>{language === 'ar' ? 'تقارير الموارد البشرية' : 'HR Reports'}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-24 flex flex-col items-center justify-center"
+                  onClick={() => {
+                    setActiveModule('financial');
+                    setActiveFinancialSubModule('financial-reports');
+                  }}
+                >
+                  <Calculator className="h-6 w-6 mb-2" />
+                  <span>{language === 'ar' ? 'التقارير المالية' : 'Financial Reports'}</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // Analytics Module
+    if (activeModule === 'analytics') {
+      return (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'التحليلات' : 'Analytics'}</CardTitle>
+              <CardDescription>
+                {language === 'ar' ? 'رؤى وتحليلات متقدمة' : 'Advanced Insights and Analytics'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="text-center">
+                      <TrendingUp className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                      <p className="text-sm text-gray-600">{language === 'ar' ? 'معدل النمو' : 'Growth Rate'}</p>
+                      <p className="text-2xl font-bold">+15.2%</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="text-center">
+                      <Users className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                      <p className="text-sm text-gray-600">{language === 'ar' ? 'معدل الاستبقاء' : 'Retention Rate'}</p>
+                      <p className="text-2xl font-bold">92%</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="text-center">
+                      <BarChart className="h-8 w-8 mx-auto mb-2 text-purple-600" />
+                      <p className="text-sm text-gray-600">{language === 'ar' ? 'الأداء' : 'Performance'}</p>
+                      <p className="text-2xl font-bold">88%</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
     }
 
     return null;
