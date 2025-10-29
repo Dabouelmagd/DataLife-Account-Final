@@ -2343,14 +2343,52 @@ export const AttendanceModule = ({ language, userRole }) => {
           {language === 'ar' ? 'الحضور والانصراف' : 'Attendance'}
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Calendar className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'اختر التاريخ' : 'Select Date'}</span>
-          </Button>
           <Button variant="outline" size="sm" onClick={exportToCSV}>
             <Download className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
+        </div>
+      </div>
+
+      {/* Search and Filter Bar */}
+      <div className="flex flex-col md:flex-row gap-4 items-center bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+        {/* Date Picker */}
+        <div className="flex items-center gap-2 flex-1">
+          <Calendar className="h-5 w-5 text-blue-600" />
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        {/* Search Box */}
+        <div className="flex items-center gap-2 flex-1">
+          <Search className="h-5 w-5 text-blue-600" />
+          <input
+            type="text"
+            placeholder={language === 'ar' ? 'ابحث بالاسم أو الكود...' : 'Search by name or ID...'}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            dir={isRTL ? 'rtl' : 'ltr'}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Results Count */}
+        <div className="text-sm text-gray-600 font-medium">
+          {language === 'ar' 
+            ? `${filteredAttendance.length} نتيجة` 
+            : `${filteredAttendance.length} results`}
         </div>
       </div>
 
