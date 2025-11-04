@@ -137,3 +137,112 @@ async def get_permissions(role: str):
         raise HTTPException(status_code=404, detail="Role not found")
     
     return get_role_permissions(role)
+
+
+# Photo upload endpoint
+from fastapi import File, UploadFile
+import os
+from pathlib import Path
+
+@router.post("/{user_id}/upload-photo")
+async def upload_user_photo(
+    user_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload profile photo for a user"""
+    # Check if user has permission (can only edit own photo or if they're a manager)
+    is_manager = current_user.get("role") in ['General Manager', 'CEO', 'Board Chairman']
+    if user_id != current_user.get("user_id") and not is_manager:
+        raise HTTPException(status_code=403, detail="Cannot upload photo for other users")
+    
+    # Validate file type
+    if not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Create uploads directory if it doesn't exist
+    upload_dir = Path("/app/frontend/public/uploads/users")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate filename
+    file_extension = file.filename.split('.')[-1]
+    filename = f"{user_id}.{file_extension}"
+    file_path = upload_dir / filename
+    
+    # Save file
+    try:
+        contents = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(contents)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+    
+    # Update user profile_photo_url in database
+    photo_url = f"/uploads/users/{filename}"
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"profile_photo_url": photo_url}}
+    )
+    
+    return {"message": "Photo uploaded successfully", "photo_url": photo_url}
+
+@router.put("/{user_id}")
+async def update_user_details(
+    user_id: str,
+    full_name: Optional[str] = None,
+    email: Optional[str] = None,
+    role: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update user details"""
+    # Check permissions
+    is_manager = current_user.get("role") in ['General Manager', 'CEO', 'Board Chairman']
+    is_own_account = user_id == current_user.get("user_id")
+    
+    # Users can only edit their own name/email, managers can edit everything
+    if not is_manager and not is_own_account:
+        raise HTTPException(status_code=403, detail="Cannot modify other users")
+    
+    # Only managers can change roles
+    if role and not is_manager:
+        raise HTTPException(status_code=403, detail="Only managers can change roles")
+    
+    # Get user
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check company isolation
+    if user.get("company_id") != current_user.get("company_id"):
+        raise HTTPException(status_code=403, detail="Cannot modify users from other companies")
+    
+    # Build update dict
+    update_data = {}
+    if full_name:
+        update_data["full_name"] = full_name
+    if email:
+        # Check if email is already taken
+        existing = await db.users.find_one({"email": email, "id": {"$ne": user_id}})
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        update_data["email"] = email
+    if role and is_manager:
+        if role not in ROLE_PERMISSIONS:
+            raise HTTPException(status_code=400, detail="Invalid role")
+        update_data["role"] = role
+    
+    # Update user
+    if update_data:
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": update_data}
+        )
+    
+    # Get updated user
+    updated_user = await db.users.find_one({"id": user_id})
+    return user_to_response(updated_user)
+
