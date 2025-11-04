@@ -1432,6 +1432,9 @@ export const DeductionsModule = ({ language, userRole }) => {
   ];
   
   const [deductions, setDeductions] = useState(initialDeductions);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterMonth, setFilterMonth] = useState('all');
   
   // Update deductions when language changes
   React.useEffect(() => {
@@ -1452,6 +1455,32 @@ export const DeductionsModule = ({ language, userRole }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [newDeduction, setNewDeduction] = useState({ employee: '', type: '', amount: '', month: '' });
   const [editDeduction, setEditDeduction] = useState({ id: '', employee: '', type: '', amount: '', month: '' });
+
+  // Calculate statistics
+  const stats = {
+    totalDeductions: deductions.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0),
+    totalEmployees: new Set(deductions.map(item => item.employee)).size,
+    avgDeduction: deductions.length > 0 ? deductions.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0) / deductions.length : 0,
+    mostCommonType: deductions.length > 0 ? 
+      Object.entries(deductions.reduce((acc, item) => {
+        const type = item.type || 'Other';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {})).sort((a, b) => b[1] - a[1])[0]?.[0] : 'N/A'
+  };
+
+  // Filter deductions
+  const filteredDeductions = deductions.filter(item => {
+    const matchesSearch = (item.employee || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (item.type || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || item.type === filterType;
+    const matchesMonth = filterMonth === 'all' || item.month === filterMonth;
+    return matchesSearch && matchesType && matchesMonth;
+  });
+
+  // Get unique types and months for filters
+  const uniqueTypes = [...new Set(deductions.map(item => item.type))].filter(Boolean);
+  const uniqueMonths = [...new Set(deductions.map(item => item.month))].filter(Boolean);
 
   const handleAdd = () => {
     if (newDeduction.employee && newDeduction.type && newDeduction.amount) {
