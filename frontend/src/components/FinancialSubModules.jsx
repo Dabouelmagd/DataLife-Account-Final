@@ -1105,54 +1105,143 @@ export const SuppliersModule = ({ language, userRole }) => {
 // Financial Reports Module
 export const FinancialReportsModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
-  const [reportType, setReportType] = useState('profit-loss');
-  const [period, setPeriod] = useState('monthly');
+  const [financialReportTab, setFinancialReportTab] = useState('overview');
+  const [financialPeriod, setFinancialPeriod] = useState('monthly');
 
-  const reportTypes = [
-    { id: 'profit-loss', name: language === 'ar' ? 'قائمة الدخل' : 'Profit & Loss' },
-    { id: 'balance-sheet', name: language === 'ar' ? 'الميزانية العمومية' : 'Balance Sheet' },
-    { id: 'cash-flow', name: language === 'ar' ? 'قائمة التدفق النقدي' : 'Cash Flow Statement' },
-    { id: 'trial-balance', name: language === 'ar' ? 'ميزان المراجعة' : 'Trial Balance' },
-    { id: 'tax-report', name: language === 'ar' ? 'التقرير الضريبي' : 'Tax Report' }
-  ];
+  // بيانات مالية شاملة
+  const financialData = {
+    executiveSummary: {
+      currentMonth: {
+        revenue: 285000,
+        expenses: 180000,
+        netProfit: 105000,
+        profitMargin: 36.8,
+        revenueGrowth: 15.2,
+        expenseGrowth: 8.5
+      },
+      previousMonth: {
+        revenue: 248000,
+        expenses: 166000,
+        netProfit: 82000
+      },
+      yearToDate: {
+        revenue: 2650000,
+        expenses: 1950000,
+        netProfit: 700000
+      }
+    },
+    
+    profitLoss: {
+      revenue: {
+        sales: 285000,
+        services: 45000,
+        other: 15000,
+        total: 345000
+      },
+      cogs: 120000,
+      grossProfit: 225000,
+      operatingExpenses: {
+        salaries: 85000,
+        rent: 25000,
+        marketing: 15000,
+        utilities: 8000,
+        maintenance: 7000,
+        other: 20000,
+        total: 160000
+      },
+      operatingProfit: 65000,
+      nonOperating: {
+        income: 5000,
+        expenses: 3000,
+        net: 2000
+      },
+      profitBeforeTax: 67000,
+      tax: 10000,
+      netProfit: 57000
+    },
 
-  const profitLossData = {
-    revenue: [
-      { account: language === 'ar' ? 'المبيعات' : 'Sales', amount: 450000 },
-      { account: language === 'ar' ? 'إيرادات أخرى' : 'Other Income', amount: 25000 }
-    ],
-    expenses: [
-      { account: language === 'ar' ? 'الرواتب' : 'Salaries', amount: 180000 },
-      { account: language === 'ar' ? 'الإيجار' : 'Rent', amount: 50000 },
-      { account: language === 'ar' ? 'المرافق' : 'Utilities', amount: 15000 },
-      { account: language === 'ar' ? 'مصاريف تشغيلية' : 'Operating Expenses', amount: 80000 }
-    ]
+    cashFlow: {
+      operating: {
+        netIncome: 57000,
+        depreciation: 8000,
+        accountsReceivable: -15000,
+        inventory: -8000,
+        accountsPayable: 12000,
+        total: 54000
+      },
+      investing: {
+        equipment: -25000,
+        investments: -10000,
+        total: -35000
+      },
+      financing: {
+        loans: 20000,
+        dividends: -15000,
+        total: 5000
+      },
+      netCashFlow: 24000,
+      beginningCash: 120000,
+      endingCash: 144000
+    },
+
+    balanceSheet: {
+      assets: {
+        current: {
+          cash: 144000,
+          accountsReceivable: 85000,
+          inventory: 65000,
+          prepaid: 15000,
+          total: 309000
+        },
+        fixed: {
+          equipment: 180000,
+          buildings: 350000,
+          depreciation: -45000,
+          total: 485000
+        },
+        totalAssets: 794000
+      },
+      liabilities: {
+        current: {
+          accountsPayable: 45000,
+          shortTermLoans: 25000,
+          accrued: 18000,
+          total: 88000
+        },
+        longTerm: {
+          loans: 150000,
+          total: 150000
+        },
+        totalLiabilities: 238000
+      },
+      equity: {
+        capital: 400000,
+        retainedEarnings: 156000,
+        totalEquity: 556000
+      }
+    },
+
+    kpis: {
+      profitability: {
+        grossMargin: 65.2,
+        operatingMargin: 18.8,
+        netMargin: 16.5,
+        roe: 10.3,
+        roa: 7.2
+      },
+      liquidity: {
+        currentRatio: 3.51,
+        quickRatio: 2.77,
+        cashRatio: 1.64
+      },
+      efficiency: {
+        assetTurnover: 0.43,
+        receivablesTurnover: 4.1,
+        inventoryTurnover: 5.3,
+        payablesTurnover: 3.6
+      }
+    }
   };
-
-  const balanceSheetData = {
-    assets: [
-      { account: language === 'ar' ? 'البنك' : 'Bank', amount: 250000 },
-      { account: language === 'ar' ? 'الخزنة' : 'Cash', amount: 350000 },
-      { account: language === 'ar' ? 'العملاء' : 'Accounts Receivable', amount: 137000 },
-      { account: language === 'ar' ? 'المخزون' : 'Inventory', amount: 180000 }
-    ],
-    liabilities: [
-      { account: language === 'ar' ? 'الموردين' : 'Accounts Payable', amount: 77000 },
-      { account: language === 'ar' ? 'قروض قصيرة الأجل' : 'Short-term Loans', amount: 100000 }
-    ],
-    equity: [
-      { account: language === 'ar' ? 'رأس المال' : 'Capital', amount: 500000 },
-      { account: language === 'ar' ? 'الأرباح المحتجزة' : 'Retained Earnings', amount: 240000 }
-    ]
-  };
-
-  const totalRevenue = profitLossData.revenue.reduce((sum, item) => sum + item.amount, 0);
-  const totalExpenses = profitLossData.expenses.reduce((sum, item) => sum + item.amount, 0);
-  const netProfit = totalRevenue - totalExpenses;
-
-  const totalAssets = balanceSheetData.assets.reduce((sum, item) => sum + item.amount, 0);
-  const totalLiabilities = balanceSheetData.liabilities.reduce((sum, item) => sum + item.amount, 0);
-  const totalEquity = balanceSheetData.equity.reduce((sum, item) => sum + item.amount, 0);
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
