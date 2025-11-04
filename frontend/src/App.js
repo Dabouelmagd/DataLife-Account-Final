@@ -8,6 +8,7 @@ import LoginPage from "./components/LoginPage";
 import CompanyRegistrationPage from "./components/CompanyRegistrationPage";
 import RealDashboard from "./components/RealDashboard";
 import CompanySettings from "./components/CompanySettings";
+import UserManagement from "./components/UserManagement";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
