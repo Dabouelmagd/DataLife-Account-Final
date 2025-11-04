@@ -1554,6 +1554,7 @@ export const DeductionsModule = ({ language, userRole }) => {
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'الخصومات' : 'Deductions'}
@@ -1563,11 +1564,210 @@ export const DeductionsModule = ({ language, userRole }) => {
             <Download className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'طباعة' : 'Print'}</span>
+          </Button>
           {canEdit && (
             <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
               <Plus className="h-4 w-4" />
               <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'إضافة خصم' : 'Add Deduction'}</span>
             </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Statistics Cards - Professional Design */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-700">{language === 'ar' ? 'إجمالي الخصومات' : 'Total Deductions'}</p>
+                <p className="text-3xl font-bold text-red-900 mt-2">{stats.totalDeductions.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                <p className="text-xs text-red-600 mt-1">{deductions.length} {language === 'ar' ? 'خصم' : 'items'}</p>
+              </div>
+              <div className="bg-red-200 p-3 rounded-full">
+                <TrendingDown className="h-8 w-8 text-red-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-700">{language === 'ar' ? 'عدد الموظفين' : 'Total Employees'}</p>
+                <p className="text-3xl font-bold text-blue-900 mt-2">{stats.totalEmployees}</p>
+                <p className="text-xs text-blue-600 mt-1">{language === 'ar' ? 'موظف عليه خصومات' : 'with deductions'}</p>
+              </div>
+              <div className="bg-blue-200 p-3 rounded-full">
+                <Users className="h-8 w-8 text-blue-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-orange-700">{language === 'ar' ? 'متوسط الخصم' : 'Average Deduction'}</p>
+                <p className="text-3xl font-bold text-orange-900 mt-2">{stats.avgDeduction.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                <p className="text-xs text-orange-600 mt-1">{language === 'ar' ? 'للموظف الواحد' : 'per employee'}</p>
+              </div>
+              <div className="bg-orange-200 p-3 rounded-full">
+                <DollarSign className="h-8 w-8 text-orange-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-700">{language === 'ar' ? 'النوع الأكثر شيوعاً' : 'Most Common Type'}</p>
+                <p className="text-xl font-bold text-purple-900 mt-2">{stats.mostCommonType}</p>
+                <p className="text-xs text-purple-600 mt-1">{language === 'ar' ? 'الأكثر استخداماً' : 'most used'}</p>
+              </div>
+              <div className="bg-purple-200 p-3 rounded-full">
+                <AlertCircle className="h-8 w-8 text-purple-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder={language === 'ar' ? 'بحث عن موظف أو نوع خصم...' : 'Search by employee or type...'}
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <select
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+              >
+                <option value="all">{language === 'ar' ? 'كل الأنواع' : 'All Types'}</option>
+                {uniqueTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <select
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+              >
+                <option value="all">{language === 'ar' ? 'كل الشهور' : 'All Months'}</option>
+                {uniqueMonths.map(month => (
+                  <option key={month} value={month}>{month}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Data Table */}
+      <Card>
+        <CardContent className="p-0">
+          {filteredDeductions.length === 0 ? (
+            <div className="text-center py-12">
+              <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+              <p className="text-gray-600">{language === 'ar' ? 'لا توجد خصومات' : 'No deductions found'}</p>
+              {canEdit && (
+                <Button className="mt-4" onClick={() => setShowAddModal(true)}>
+                  {language === 'ar' ? 'إضافة خصم جديد' : 'Add New Deduction'}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="font-bold">{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'اسم الموظف' : 'Employee Name'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'نوع الخصم' : 'Deduction Type'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'الشهر' : 'Month'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredDeductions.map((item, index) => (
+                  <TableRow key={item.id || index} className="hover:bg-gray-50 transition-colors">
+                    <TableCell className="font-medium">{item.id}</TableCell>
+                    <TableCell>{item.employee}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                        {item.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-semibold text-red-600">
+                      -{item.amount.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+                    </TableCell>
+                    <TableCell>{item.month}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => { 
+                            setSelectedItem(item); 
+                            setShowViewModal(true); 
+                          }}
+                        >
+                          <Eye className="h-4 w-4 text-blue-600" />
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => { 
+                                setEditDeduction(item); 
+                                setShowEditModal(true); 
+                              }}
+                            >
+                              <Edit className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => { 
+                                setSelectedItem(item); 
+                                setShowDeleteModal(true); 
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
           )}
         </div>
       </div>
