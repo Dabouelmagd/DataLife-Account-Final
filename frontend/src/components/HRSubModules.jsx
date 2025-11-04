@@ -938,6 +938,7 @@ export const AllowancesModule = ({ language, userRole }) => {
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'البدلات والإضافي' : 'Allowances & Overtime'}
@@ -947,6 +948,10 @@ export const AllowancesModule = ({ language, userRole }) => {
             <Download className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'طباعة' : 'Print'}</span>
+          </Button>
           {canEdit && (
             <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
               <Plus className="h-4 w-4" />
@@ -955,6 +960,203 @@ export const AllowancesModule = ({ language, userRole }) => {
           )}
         </div>
       </div>
+
+      {/* Statistics Cards - Professional Design */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-700">{language === 'ar' ? 'إجمالي البدلات' : 'Total Allowances'}</p>
+                <p className="text-3xl font-bold text-green-900 mt-2">{stats.totalAllowances.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                <p className="text-xs text-green-600 mt-1">{allowances.length} {language === 'ar' ? 'بدل' : 'items'}</p>
+              </div>
+              <div className="bg-green-200 p-3 rounded-full">
+                <DollarSign className="h-8 w-8 text-green-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-700">{language === 'ar' ? 'عدد الموظفين' : 'Total Employees'}</p>
+                <p className="text-3xl font-bold text-blue-900 mt-2">{stats.totalEmployees}</p>
+                <p className="text-xs text-blue-600 mt-1">{language === 'ar' ? 'موظف يستحق بدلات' : 'receiving allowances'}</p>
+              </div>
+              <div className="bg-blue-200 p-3 rounded-full">
+                <Users className="h-8 w-8 text-blue-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-700">{language === 'ar' ? 'متوسط البدل' : 'Average Allowance'}</p>
+                <p className="text-3xl font-bold text-purple-900 mt-2">{stats.avgAllowance.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                <p className="text-xs text-purple-600 mt-1">{language === 'ar' ? 'للموظف الواحد' : 'per employee'}</p>
+              </div>
+              <div className="bg-purple-200 p-3 rounded-full">
+                <TrendingUp className="h-8 w-8 text-purple-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-orange-700">{language === 'ar' ? 'النوع الأكثر شيوعاً' : 'Most Common Type'}</p>
+                <p className="text-xl font-bold text-orange-900 mt-2">{stats.mostCommonType}</p>
+                <p className="text-xs text-orange-600 mt-1">{language === 'ar' ? 'الأكثر استخداماً' : 'most used'}</p>
+              </div>
+              <div className="bg-orange-200 p-3 rounded-full">
+                <Award className="h-8 w-8 text-orange-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder={language === 'ar' ? 'بحث عن موظف أو نوع بدل...' : 'Search by employee or type...'}
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <select
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+              >
+                <option value="all">{language === 'ar' ? 'كل الأنواع' : 'All Types'}</option>
+                {uniqueTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <select
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+              >
+                <option value="all">{language === 'ar' ? 'كل الشهور' : 'All Months'}</option>
+                {uniqueMonths.map(month => (
+                  <option key={month} value={month}>{month}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Data Table */}
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#28376B]"></div>
+              <p className="mt-2 text-gray-600">{language === 'ar' ? 'جارٍ التحميل...' : 'Loading...'}</p>
+            </div>
+          ) : filteredAllowances.length === 0 ? (
+            <div className="text-center py-12">
+              <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+              <p className="text-gray-600">{language === 'ar' ? 'لا توجد بدلات' : 'No allowances found'}</p>
+              {canEdit && (
+                <Button className="mt-4" onClick={() => setShowAddModal(true)}>
+                  {language === 'ar' ? 'إضافة بدل جديد' : 'Add New Allowance'}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="font-bold">{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'اسم الموظف' : 'Employee Name'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'نوع البدل' : 'Allowance Type'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'الشهر' : 'Month'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAllowances.map((item, index) => (
+                  <TableRow key={item.id || index} className="hover:bg-gray-50 transition-colors">
+                    <TableCell className="font-medium">{item.id || `A${index + 1}`}</TableCell>
+                    <TableCell>{item.employee_name || item.employee || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        {item.allowance_type || item.type || 'N/A'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-semibold text-green-600">
+                      {(item.amount || 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+                    </TableCell>
+                    <TableCell>{item.month || 'N/A'}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => { 
+                            setSelectedItem(item); 
+                            setShowViewModal(true); 
+                          }}
+                        >
+                          <Eye className="h-4 w-4 text-blue-600" />
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => { 
+                                setEditAllowance(item); 
+                                setShowEditModal(true); 
+                              }}
+                            >
+                              <Edit className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => { 
+                                setSelectedItem(item); 
+                                setShowDeleteModal(true); 
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-3 gap-4">
         <Card>
