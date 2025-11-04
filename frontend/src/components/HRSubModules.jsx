@@ -796,6 +796,9 @@ export const AllowancesModule = ({ language, userRole }) => {
 
   const [allowances, setAllowances] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterMonth, setFilterMonth] = useState('all');
   
   // Fetch allowances from backend API
   React.useEffect(() => {
