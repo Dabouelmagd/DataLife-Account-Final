@@ -1944,20 +1944,8 @@ export const CustomersModule = ({ language, userRole }) => {
           )}
         </CardContent>
       </Card>
-            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي المستحقات' : 'Total Receivables'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">
-              {customers.reduce((sum, c) => sum + c.balance, 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-8 text-center">
+      {/* Add Customer Modal - Professional Design */}
               <p className="text-gray-500">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</p>
             </div>
           ) : customers.length === 0 ? (
