@@ -102,6 +102,12 @@ const UserManagement = ({ language = 'ar' }) => {
   // Handle add user
   const handleAddUser = async () => {
     try {
+      // Validation
+      if (!newUser.full_name || !newUser.email || !newUser.password || !newUser.role) {
+        showToast(language === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields', 'error');
+        return;
+      }
+
       const token = localStorage.getItem('token');
       const response = await axios.post(
         `${process.env.REACT_APP_BACKEND_URL}/api/users`,
@@ -130,10 +136,17 @@ const UserManagement = ({ language = 'ar' }) => {
       setNewUser({ full_name: '', email: '', password: '', role: '' });
       setProfileImage(null);
       setImagePreview(null);
+      showToast(language === 'ar' ? 'تم إضافة المستخدم بنجاح' : 'User added successfully', 'success');
       fetchUsers();
     } catch (error) {
       console.error('Error adding user:', error);
-      alert(error.response?.data?.detail || 'Error adding user');
+      const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
+      showToast(
+        language === 'ar' 
+          ? `خطأ في إضافة المستخدم: ${errorMsg}`
+          : `Error adding user: ${errorMsg}`,
+        'error'
+      );
     }
   };
 
