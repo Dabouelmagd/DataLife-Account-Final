@@ -1369,46 +1369,120 @@ export const AllowancesModule = ({ language, userRole }) => {
         </div>
       )}
 
-      {/* Add Allowance Modal */}
-      {showAddModal && !selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
-            <h3 className="text-2xl font-bold text-[#28376B] mb-6">{language === 'ar' ? 'إضافة بدل جديد' : 'Add New Allowance'}</h3>
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder={language === 'ar' ? 'اسم الموظف' : 'Employee Name'}
-                value={newAllowance.employee}
-                onChange={(e) => setNewAllowance({ ...newAllowance, employee: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-              />
-              <input
-                type="text"
-                placeholder={language === 'ar' ? 'نوع البدل' : 'Allowance Type'}
-                value={newAllowance.type}
-                onChange={(e) => setNewAllowance({ ...newAllowance, type: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-              />
-              <input
-                type="number"
-                placeholder={language === 'ar' ? 'المبلغ' : 'Amount'}
-                value={newAllowance.amount}
-                onChange={(e) => setNewAllowance({ ...newAllowance, amount: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-              />
-              <input
-                type="text"
-                placeholder={language === 'ar' ? 'الشهر' : 'Month'}
-                value={newAllowance.month}
-                onChange={(e) => setNewAllowance({ ...newAllowance, month: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-              />
+      {/* Add Allowance Modal - Professional Modern Design */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl transform transition-all" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Plus className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-white">{language === 'ar' ? 'إضافة بدل جديد' : 'Add New Allowance'}</h3>
+                    <p className="text-green-100 text-sm">{language === 'ar' ? 'املأ البيانات أدناه' : 'Fill in the details below'}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowAddModal(false)} 
+                  className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-all"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <Button onClick={handleAdd} className="flex-1 bg-[#28376B] hover:bg-[#1e2a5a]">
-                {language === 'ar' ? 'إضافة' : 'Add'}
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* Employee Name */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Users className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'اسم الموظف' : 'Employee Name'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={language === 'ar' ? 'أدخل اسم الموظف' : 'Enter employee name'}
+                  value={newAllowance.employee}
+                  onChange={(e) => setNewAllowance({ ...newAllowance, employee: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all bg-gray-50"
+                />
+              </div>
+
+              {/* Allowance Type */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Award className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'نوع البدل' : 'Allowance Type'}
+                </label>
+                <select
+                  value={newAllowance.type}
+                  onChange={(e) => setNewAllowance({ ...newAllowance, type: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all bg-gray-50"
+                >
+                  <option value="">{language === 'ar' ? 'اختر نوع البدل' : 'Select allowance type'}</option>
+                  <option value={language === 'ar' ? 'بدل انتقال' : 'Transportation'}>{language === 'ar' ? 'بدل انتقال' : 'Transportation'}</option>
+                  <option value={language === 'ar' ? 'بدل سكن' : 'Housing'}>{language === 'ar' ? 'بدل سكن' : 'Housing'}</option>
+                  <option value={language === 'ar' ? 'بدل وجبات' : 'Meals'}>{language === 'ar' ? 'بدل وجبات' : 'Meals'}</option>
+                  <option value={language === 'ar' ? 'بدل اتصالات' : 'Communication'}>{language === 'ar' ? 'بدل اتصالات' : 'Communication'}</option>
+                  <option value={language === 'ar' ? 'ساعات إضافية' : 'Overtime'}>{language === 'ar' ? 'ساعات إضافية' : 'Overtime'}</option>
+                  <option value={language === 'ar' ? 'بدل خطر' : 'Hazard'}>{language === 'ar' ? 'بدل خطر' : 'Hazard'}</option>
+                  <option value={language === 'ar' ? 'حوافز' : 'Bonus'}>{language === 'ar' ? 'حوافز' : 'Bonus'}</option>
+                  <option value={language === 'ar' ? 'أخرى' : 'Other'}>{language === 'ar' ? 'أخرى' : 'Other'}</option>
+                </select>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <DollarSign className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'المبلغ' : 'Amount'}
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    placeholder={language === 'ar' ? 'أدخل المبلغ' : 'Enter amount'}
+                    value={newAllowance.amount}
+                    onChange={(e) => setNewAllowance({ ...newAllowance, amount: e.target.value })}
+                    className="w-full p-4 pr-16 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all bg-gray-50"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">
+                    {language === 'ar' ? 'ج.م' : 'EGP'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Month */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Calendar className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'الشهر' : 'Month'}
+                </label>
+                <input
+                  type="month"
+                  value={newAllowance.month}
+                  onChange={(e) => setNewAllowance({ ...newAllowance, month: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all bg-gray-50"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 bg-gray-50 rounded-b-2xl flex gap-3">
+              <Button 
+                onClick={handleAdd} 
+                className="flex-1 h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                {language === 'ar' ? 'إضافة البدل' : 'Add Allowance'}
               </Button>
-              <Button onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
+              <Button 
+                onClick={() => setShowAddModal(false)} 
+                variant="outline" 
+                className="flex-1 h-12 border-2 rounded-xl font-semibold"
+              >
                 {language === 'ar' ? 'إلغاء' : 'Cancel'}
               </Button>
             </div>
