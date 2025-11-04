@@ -211,10 +211,17 @@ const UserManagement = ({ language = 'ar' }) => {
       );
       setShowDeleteModal(false);
       setSelectedUser(null);
+      showToast(language === 'ar' ? 'تم حذف المستخدم بنجاح' : 'User deleted successfully', 'success');
       fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert(error.response?.data?.detail || 'Error deleting user');
+      const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
+      showToast(
+        language === 'ar'
+          ? `خطأ في حذف المستخدم: ${errorMsg}`
+          : `Error deleting user: ${errorMsg}`,
+        'error'
+      );
     }
   };
 
