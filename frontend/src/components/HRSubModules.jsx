@@ -1768,21 +1768,8 @@ export const DeductionsModule = ({ language, userRole }) => {
           )}
         </CardContent>
       </Card>
-          )}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي الخصومات' : 'Total Deductions'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-red-600">3,100 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
+      {/* Modals remain the same - Add, Edit, View, Delete, Success */}
             <CardTitle className="text-sm">{language === 'ar' ? 'التأمينات' : 'Insurance'}</CardTitle>
           </CardHeader>
           <CardContent>
