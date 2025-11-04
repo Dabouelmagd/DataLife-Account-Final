@@ -1245,129 +1245,176 @@ export const FinancialReportsModule = ({ language, userRole }) => {
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">
-          {language === 'ar' ? 'التقارير المالية' : 'Financial Reports'}
-        </h2>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير PDF' : 'Export PDF'}</span>
-          </Button>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير Excel' : 'Export Excel'}</span>
-          </Button>
+      {/* التحكم في التقارير المالية */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center">
+              <span>{language === 'ar' ? 'التقارير المالية' : 'Financial Reports'}</span>
+            </CardTitle>
+            <div className="flex gap-2">
+              <select 
+                className="border rounded px-3 py-2 text-sm"
+                value={financialPeriod}
+                onChange={(e) => setFinancialPeriod(e.target.value)}
+              >
+                <option value="monthly">{language === 'ar' ? 'شهري' : 'Monthly'}</option>
+                <option value="yearly">{language === 'ar' ? 'سنوي' : 'Yearly'}</option>
+              </select>
+              <Button size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                {language === 'ar' ? 'تصدير' : 'Export'}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* تبويبات التقارير */}
+      <div className="border-b">
+        <div className="flex overflow-x-auto">
+          {[
+            { id: 'overview', label: language === 'ar' ? 'الملخص التنفيذي' : 'Executive Summary' },
+            { id: 'profitLoss', label: language === 'ar' ? 'الربح والخسارة' : 'Profit & Loss' },
+            { id: 'cashFlow', label: language === 'ar' ? 'التدفق النقدي' : 'Cash Flow' },
+            { id: 'balance', label: language === 'ar' ? 'الميزانية العمومية' : 'Balance Sheet' },
+            { id: 'kpis', label: language === 'ar' ? 'مؤشرات الأداء' : 'KPIs' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFinancialReportTab(tab.id)}
+              className={`px-6 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+                financialReportTab === tab.id 
+                  ? 'border-[#28376B] text-[#28376B]' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="flex gap-4">
-        <Card className="flex-1">
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'نوع التقرير' : 'Report Type'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <select 
-              value={reportType} 
-              onChange={(e) => setReportType(e.target.value)}
-              className="w-full p-2 border rounded"
-            >
-              {reportTypes.map(type => (
-                <option key={type.id} value={type.id}>{type.name}</option>
-              ))}
-            </select>
-          </CardContent>
-        </Card>
+      {/* محتوى التبويبات */}
+      <div>
+        {/* الملخص التنفيذي */}
+        {financialReportTab === 'overview' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card className="bg-gradient-to-r from-green-50 to-green-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-green-700">{language === 'ar' ? 'الإيرادات الشهرية' : 'Monthly Revenue'}</p>
+                      <p className="text-2xl font-bold text-green-800">{financialData.executiveSummary.currentMonth.revenue.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                      <p className="text-sm text-green-600">+{financialData.executiveSummary.currentMonth.revenueGrowth}%</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-        <Card className="flex-1">
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'الفترة' : 'Period'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <select 
-              value={period} 
-              onChange={(e) => setPeriod(e.target.value)}
-              className="w-full p-2 border rounded"
-            >
-              <option value="monthly">{language === 'ar' ? 'شهري' : 'Monthly'}</option>
-              <option value="quarterly">{language === 'ar' ? 'ربع سنوي' : 'Quarterly'}</option>
-              <option value="annual">{language === 'ar' ? 'سنوي' : 'Annual'}</option>
-            </select>
-          </CardContent>
-        </Card>
-      </div>
+              <Card className="bg-gradient-to-r from-red-50 to-red-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-red-700">{language === 'ar' ? 'المصروفات الشهرية' : 'Monthly Expenses'}</p>
+                      <p className="text-2xl font-bold text-red-800">{financialData.executiveSummary.currentMonth.expenses.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                      <p className="text-sm text-red-600">+{financialData.executiveSummary.currentMonth.expenseGrowth}%</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-      {reportType === 'profit-loss' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{language === 'ar' ? 'قائمة الدخل' : 'Profit & Loss Statement'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <h3 className="font-semibold text-lg mb-3">{language === 'ar' ? 'الإيرادات' : 'Revenue'}</h3>
-              <Table>
-                <TableBody>
-                  {profitLossData.revenue.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{item.account}</TableCell>
-                      <TableCell className="text-right font-medium text-green-600">
-                        {item.amount.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="bg-green-50">
-                    <TableCell className="font-bold">{language === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue'}</TableCell>
-                    <TableCell className="text-right font-bold text-green-600">
-                      {totalRevenue.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-700">{language === 'ar' ? 'صافي الربح' : 'Net Profit'}</p>
+                      <p className="text-2xl font-bold text-blue-800">{financialData.executiveSummary.currentMonth.netProfit.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                      <p className="text-sm text-blue-600">{financialData.executiveSummary.currentMonth.profitMargin}% {language === 'ar' ? 'هامش' : 'margin'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-r from-purple-50 to-purple-100">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-purple-700">{language === 'ar' ? 'الإيرادات السنوية' : 'YTD Revenue'}</p>
+                      <p className="text-2xl font-bold text-purple-800">{financialData.executiveSummary.yearToDate.revenue.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                      <p className="text-sm text-purple-600">{language === 'ar' ? 'حتى تاريخه' : 'Year to Date'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
-            <div>
-              <h3 className="font-semibold text-lg mb-3">{language === 'ar' ? 'المصروفات' : 'Expenses'}</h3>
-              <Table>
-                <TableBody>
-                  {profitLossData.expenses.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{item.account}</TableCell>
-                      <TableCell className="text-right font-medium text-red-600">
-                        ({item.amount.toLocaleString()}) {language === 'ar' ? 'ج.م' : 'EGP'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="bg-red-50">
-                    <TableCell className="font-bold">{language === 'ar' ? 'إجمالي المصروفات' : 'Total Expenses'}</TableCell>
-                    <TableCell className="text-right font-bold text-red-600">
-                      ({totalExpenses.toLocaleString()}) {language === 'ar' ? 'ج.م' : 'EGP'}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
+            {/* مقارنة الأداء */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'مقارنة الأداء الشهري' : 'Monthly Performance Comparison'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <h4 className="font-semibold mb-2">{language === 'ar' ? 'الشهر الحالي' : 'Current Month'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'الإيرادات:' : 'Revenue:'}</span>
+                        <span className="font-medium">{financialData.executiveSummary.currentMonth.revenue.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'المصروفات:' : 'Expenses:'}</span>
+                        <span className="font-medium text-red-600">{financialData.executiveSummary.currentMonth.expenses.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2">
+                        <span className="font-semibold">{language === 'ar' ? 'صافي الربح:' : 'Net Profit:'}</span>
+                        <span className="font-semibold text-green-600">{financialData.executiveSummary.currentMonth.netProfit.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                    </div>
+                  </div>
 
-            <div className="border-t-2 pt-4">
-              <Table>
-                <TableBody>
-                  <TableRow className="bg-blue-50">
-                    <TableCell className="font-bold text-lg">{language === 'ar' ? 'صافي الربح' : 'Net Profit'}</TableCell>
-                    <TableCell className="text-right font-bold text-lg text-blue-600">
-                      {netProfit.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  <div>
+                    <h4 className="font-semibold mb-2">{language === 'ar' ? 'الشهر السابق' : 'Previous Month'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'الإيرادات:' : 'Revenue:'}</span>
+                        <span className="font-medium">{financialData.executiveSummary.previousMonth.revenue.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'المصروفات:' : 'Expenses:'}</span>
+                        <span className="font-medium text-red-600">{financialData.executiveSummary.previousMonth.expenses.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2">
+                        <span className="font-semibold">{language === 'ar' ? 'صافي الربح:' : 'Net Profit:'}</span>
+                        <span className="font-semibold text-green-600">{financialData.executiveSummary.previousMonth.netProfit.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                    </div>
+                  </div>
 
-      {reportType === 'balance-sheet' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{language === 'ar' ? 'الميزانية العمومية' : 'Balance Sheet'}</CardTitle>
-          </CardHeader>
+                  <div>
+                    <h4 className="font-semibold mb-2">{language === 'ar' ? 'التغيير' : 'Change'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'الإيرادات:' : 'Revenue:'}</span>
+                        <span className="font-medium text-green-600">+{financialData.executiveSummary.currentMonth.revenueGrowth}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'المصروفات:' : 'Expenses:'}</span>
+                        <span className="font-medium text-orange-600">+{financialData.executiveSummary.currentMonth.expenseGrowth}%</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2">
+                        <span className="font-semibold">{language === 'ar' ? 'صافي الربح:' : 'Net Profit:'}</span>
+                        <span className="font-semibold text-green-600">+28.0%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
           <CardContent className="space-y-6">
             <div>
               <h3 className="font-semibold text-lg mb-3">{language === 'ar' ? 'الأصول' : 'Assets'}</h3>
