@@ -1947,57 +1947,8 @@ export const CustomersModule = ({ language, userRole }) => {
 
       {/* Add Customer Modal - Professional Design */}
       {showAddModal && (
-              </TableHeader>
-              <TableBody>
-                {customers.map((customer) => (
-                  <TableRow key={customer.id}>
-                    <TableCell className="font-medium">{customer.id}</TableCell>
-                    <TableCell>{customer.name}</TableCell>
-                    <TableCell>{customer.phone}</TableCell>
-                    <TableCell className={customer.balance > 0 ? 'text-green-600 font-bold' : 'text-gray-500'}>
-                      {customer.balance > 0 ? customer.balance.toLocaleString() : '-'}
-                    </TableCell>
-                  <TableCell>
-                    <Badge variant="success">
-                      {language === 'ar' ? 'نشط' : 'Active'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(customer); setShowViewModal(true); }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {canEdit && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(customer); setSuccessMessage(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open'); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(customer); setShowDeleteModal(true); }}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Add Customer Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'عميل جديد' : 'New Customer'}</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
-            </div>
-            
-            <form onSubmit={(e) => {
-              e.preventDefault();
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl transform transition-all" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
               const formData = new FormData(e.target);
               const newCustomer = {
                 id: `C${String(customers.length + 1).padStart(3, '0')}`,
