@@ -840,6 +840,32 @@ export const AllowancesModule = ({ language, userRole }) => {
   const [newAllowance, setNewAllowance] = useState({ employee: '', type: '', amount: '', month: '' });
   const [editAllowance, setEditAllowance] = useState({ id: '', employee: '', type: '', amount: '', month: '' });
 
+  // Calculate statistics
+  const stats = {
+    totalAllowances: allowances.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0),
+    totalEmployees: new Set(allowances.map(item => item.employee_name || item.employee)).size,
+    avgAllowance: allowances.length > 0 ? allowances.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0) / allowances.length : 0,
+    mostCommonType: allowances.length > 0 ? 
+      Object.entries(allowances.reduce((acc, item) => {
+        const type = item.allowance_type || item.type || 'Other';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {})).sort((a, b) => b[1] - a[1])[0]?.[0] : 'N/A'
+  };
+
+  // Filter allowances
+  const filteredAllowances = allowances.filter(item => {
+    const matchesSearch = (item.employee_name || item.employee || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (item.allowance_type || item.type || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || (item.allowance_type || item.type) === filterType;
+    const matchesMonth = filterMonth === 'all' || item.month === filterMonth;
+    return matchesSearch && matchesType && matchesMonth;
+  });
+
+  // Get unique types and months for filters
+  const uniqueTypes = [...new Set(allowances.map(item => item.allowance_type || item.type))].filter(Boolean);
+  const uniqueMonths = [...new Set(allowances.map(item => item.month))].filter(Boolean);
+
   const handleAdd = () => {
     if (newAllowance.employee && newAllowance.type && newAllowance.amount) {
       const id = 'A' + String(Math.floor(Math.random() * 1000)).padStart(3, '0');
