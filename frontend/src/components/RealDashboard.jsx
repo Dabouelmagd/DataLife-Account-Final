@@ -953,9 +953,17 @@ const RealDashboard = () => {
           <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-lg rounded-2xl p-4 border border-white/20 shadow-xl">
             <div className="flex items-center gap-3">
               {/* User Avatar */}
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
-              </div>
+              {user?.profile_photo_url ? (
+                <img
+                  src={user.profile_photo_url}
+                  alt={user.full_name}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-white/50 shadow-lg"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                  {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                </div>
+              )}
               
               {/* User Details */}
               <div className="flex-1 min-w-0">
