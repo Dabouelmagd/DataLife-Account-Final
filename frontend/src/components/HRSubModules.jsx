@@ -1947,20 +1947,122 @@ export const DeductionsModule = ({ language, userRole }) => {
         </div>
       )}
 
-      {/* Add Deduction Modal */}
+      {/* Add Deduction Modal - Professional Modern Design */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
-            <h3 className="text-xl font-bold mb-4 text-[#28376B]">{language === 'ar' ? 'إضافة خصم جديد' : 'Add New Deduction'}</h3>
-            <div className="space-y-4">
-              <input type="text" placeholder={language === 'ar' ? 'اسم الموظف' : 'Employee Name'} value={newDeduction.employee} onChange={(e) => setNewDeduction({ ...newDeduction, employee: e.target.value })} className="w-full p-2 border rounded" />
-              <input type="text" placeholder={language === 'ar' ? 'نوع الخصم' : 'Deduction Type'} value={newDeduction.type} onChange={(e) => setNewDeduction({ ...newDeduction, type: e.target.value })} className="w-full p-2 border rounded" />
-              <input type="number" placeholder={language === 'ar' ? 'المبلغ' : 'Amount'} value={newDeduction.amount} onChange={(e) => setNewDeduction({ ...newDeduction, amount: e.target.value })} className="w-full p-2 border rounded" />
-              <input type="text" placeholder={language === 'ar' ? 'الشهر' : 'Month'} value={newDeduction.month} onChange={(e) => setNewDeduction({ ...newDeduction, month: e.target.value })} className="w-full p-2 border rounded" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl transform transition-all" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-red-500 to-pink-600 p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <TrendingDown className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-white">{language === 'ar' ? 'إضافة خصم جديد' : 'Add New Deduction'}</h3>
+                    <p className="text-red-100 text-sm">{language === 'ar' ? 'املأ البيانات أدناه' : 'Fill in the details below'}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowAddModal(false)} 
+                  className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-all"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-            <div className="flex gap-4 mt-6">
-              <Button onClick={handleAdd} className="flex-1 bg-[#28376B]">{language === 'ar' ? 'إضافة' : 'Add'}</Button>
-              <Button onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* Employee Name */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Users className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'اسم الموظف' : 'Employee Name'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={language === 'ar' ? 'أدخل اسم الموظف' : 'Enter employee name'}
+                  value={newDeduction.employee}
+                  onChange={(e) => setNewDeduction({ ...newDeduction, employee: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-gray-50"
+                />
+              </div>
+
+              {/* Deduction Type */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <AlertCircle className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'نوع الخصم' : 'Deduction Type'}
+                </label>
+                <select
+                  value={newDeduction.type}
+                  onChange={(e) => setNewDeduction({ ...newDeduction, type: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-gray-50"
+                >
+                  <option value="">{language === 'ar' ? 'اختر نوع الخصم' : 'Select deduction type'}</option>
+                  <option value={language === 'ar' ? 'تأمينات' : 'Insurance'}>{language === 'ar' ? 'تأمينات اجتماعية' : 'Social Insurance'}</option>
+                  <option value={language === 'ar' ? 'ضرائب' : 'Taxes'}>{language === 'ar' ? 'ضرائب الدخل' : 'Income Tax'}</option>
+                  <option value={language === 'ar' ? 'غياب' : 'Absence'}>{language === 'ar' ? 'غياب بدون عذر' : 'Unexcused Absence'}</option>
+                  <option value={language === 'ar' ? 'تأخير' : 'Late'}>{language === 'ar' ? 'تأخير متكرر' : 'Repeated Lateness'}</option>
+                  <option value={language === 'ar' ? 'سلفة' : 'Advance'}>{language === 'ar' ? 'سلفة على الراتب' : 'Salary Advance'}</option>
+                  <option value={language === 'ar' ? 'قرض' : 'Loan'}>{language === 'ar' ? 'قسط قرض' : 'Loan Installment'}</option>
+                  <option value={language === 'ar' ? 'جزاء' : 'Penalty'}>{language === 'ar' ? 'جزاء إداري' : 'Administrative Penalty'}</option>
+                  <option value={language === 'ar' ? 'أخرى' : 'Other'}>{language === 'ar' ? 'أخرى' : 'Other'}</option>
+                </select>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <DollarSign className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'المبلغ' : 'Amount'}
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    placeholder={language === 'ar' ? 'أدخل المبلغ' : 'Enter amount'}
+                    value={newDeduction.amount}
+                    onChange={(e) => setNewDeduction({ ...newDeduction, amount: e.target.value })}
+                    className="w-full p-4 pr-16 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-gray-50"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">
+                    {language === 'ar' ? 'ج.م' : 'EGP'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Month */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Calendar className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'الشهر' : 'Month'}
+                </label>
+                <input
+                  type="month"
+                  value={newDeduction.month}
+                  onChange={(e) => setNewDeduction({ ...newDeduction, month: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-gray-50"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 bg-gray-50 rounded-b-2xl flex gap-3">
+              <Button 
+                onClick={handleAdd} 
+                className="flex-1 h-12 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-semibold rounded-xl shadow-lg"
+              >
+                <TrendingDown className="h-5 w-5 mr-2" />
+                {language === 'ar' ? 'إضافة الخصم' : 'Add Deduction'}
+              </Button>
+              <Button 
+                onClick={() => setShowAddModal(false)} 
+                variant="outline" 
+                className="flex-1 h-12 border-2 rounded-xl font-semibold"
+              >
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
             </div>
           </div>
         </div>
