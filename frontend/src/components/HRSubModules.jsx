@@ -8,7 +8,7 @@ import { Badge } from './ui/badge';
 // Salaries Module
 export const SalariesModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+  const canEdit = ['HR Manager', 'مدير الموارد البشرية', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const initialSalaries = [
     { id: 'E001', name: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', position: language === 'ar' ? 'مهندس برمجيات' : 'Software Engineer', basicSalary: 15000, totalSalary: 18500, status: 'paid' },
@@ -792,7 +792,7 @@ export const SalariesModule = ({ language, userRole }) => {
 // Allowances & Overtime Module
 export const AllowancesModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+  const canEdit = ['HR Manager', 'مدير الموارد البشرية', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const [allowances, setAllowances] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1191,7 +1191,7 @@ export const AllowancesModule = ({ language, userRole }) => {
 // Deductions Module
 export const DeductionsModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+  const canEdit = ['HR Manager', 'مدير الموارد البشرية', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const initialDeductions = [
     { id: 'D001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', type: language === 'ar' ? 'تأمينات' : 'Insurance', amount: 800, month: language === 'ar' ? 'أكتوبر 2024' : 'October 2024' },
@@ -1532,7 +1532,7 @@ export const DeductionsModule = ({ language, userRole }) => {
 // Casual Leave Module
 export const CasualLeaveModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+  const canEdit = ['HR Manager', 'مدير الموارد البشرية', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const initialCasualLeaves = [
     { id: 'CL001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', date: '2024-10-05', reason: language === 'ar' ? 'ظروف عائلية' : 'Family emergency', status: 'approved' },
@@ -1858,7 +1858,7 @@ export const CasualLeaveModule = ({ language, userRole }) => {
 // Annual Leave Module
 export const AnnualLeaveModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+  const canEdit = ['HR Manager', 'مدير الموارد البشرية', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const initialAnnualLeaves = [
     { id: 'AL001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', startDate: '2024-12-15', endDate: '2024-12-25', days: 10, balance: 11, status: 'approved' },
@@ -2395,7 +2395,7 @@ export const HRReportsModule = ({ language, userRole }) => {
 // Attendance Module
 export const AttendanceModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'HR Manager' || userRole === 'مدير الموارد البشرية';
+  const canEdit = ['HR Manager', 'مدير الموارد البشرية', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const [attendance, setAttendance] = useState([
     { id: 'E001', name: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', date: '2024-10-10', checkIn: '08:45', checkOut: '17:30', status: 'present', hours: 8.75 },
