@@ -1946,23 +1946,7 @@ export const CustomersModule = ({ language, userRole }) => {
       </Card>
 
       {/* Add Customer Modal - Professional Design */}
-              <p className="text-gray-500">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</p>
-            </div>
-          ) : customers.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-gray-500">{language === 'ar' ? 'لا يوجد عملاء حالياً' : 'No customers yet'}</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
-                  <TableHead>{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</TableHead>
-                  <TableHead>{language === 'ar' ? 'الهاتف' : 'Phone'}</TableHead>
-                  <TableHead>{language === 'ar' ? 'الرصيد' : 'Balance'}</TableHead>
-                  <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
-                  <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
-                </TableRow>
+      {showAddModal && (
               </TableHeader>
               <TableBody>
                 {customers.map((customer) => (
