@@ -1415,88 +1415,218 @@ export const FinancialReportsModule = ({ language, userRole }) => {
             </Card>
           </div>
         )}
-          <CardContent className="space-y-6">
-            <div>
-              <h3 className="font-semibold text-lg mb-3">{language === 'ar' ? 'الأصول' : 'Assets'}</h3>
-              <Table>
-                <TableBody>
-                  {balanceSheetData.assets.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{item.account}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {item.amount.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="bg-blue-50">
-                    <TableCell className="font-bold">{language === 'ar' ? 'إجمالي الأصول' : 'Total Assets'}</TableCell>
-                    <TableCell className="text-right font-bold text-blue-600">
-                      {totalAssets.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
 
-            <div>
-              <h3 className="font-semibold text-lg mb-3">{language === 'ar' ? 'الخصوم' : 'Liabilities'}</h3>
-              <Table>
-                <TableBody>
-                  {balanceSheetData.liabilities.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{item.account}</TableCell>
-                      <TableCell className="text-right font-medium text-red-600">
-                        {item.amount.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="bg-red-50">
-                    <TableCell className="font-bold">{language === 'ar' ? 'إجمالي الخصوم' : 'Total Liabilities'}</TableCell>
-                    <TableCell className="text-right font-bold text-red-600">
-                      {totalLiabilities.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
+        {/* بيان الربح والخسارة */}
+        {financialReportTab === 'profitLoss' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'بيان الربح والخسارة' : 'Profit & Loss Statement'}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* الإيرادات */}
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-green-800 mb-3">{language === 'ar' ? 'الإيرادات' : 'Revenue'}</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'المبيعات:' : 'Sales:'}</span>
+                      <span className="font-medium">{financialData.profitLoss.revenue.sales.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'الخدمات:' : 'Services:'}</span>
+                      <span className="font-medium">{financialData.profitLoss.revenue.services.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-green-700 border-t pt-2">
+                      <span>{language === 'ar' ? 'إجمالي الإيرادات:' : 'Total Revenue:'}</span>
+                      <span>{financialData.profitLoss.revenue.total.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                  </div>
+                </div>
 
-            <div>
-              <h3 className="font-semibold text-lg mb-3">{language === 'ar' ? 'حقوق الملكية' : 'Equity'}</h3>
-              <Table>
-                <TableBody>
-                  {balanceSheetData.equity.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{item.account}</TableCell>
-                      <TableCell className="text-right font-medium text-green-600">
-                        {item.amount.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="bg-green-50">
-                    <TableCell className="font-bold">{language === 'ar' ? 'إجمالي حقوق الملكية' : 'Total Equity'}</TableCell>
-                    <TableCell className="text-right font-bold text-green-600">
-                      {totalEquity.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
+                {/* المصروفات التشغيلية */}
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-red-800 mb-3">{language === 'ar' ? 'المصروفات التشغيلية' : 'Operating Expenses'}</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'الرواتب:' : 'Salaries:'}</span>
+                      <span className="font-medium">({financialData.profitLoss.operatingExpenses.salaries.toLocaleString()}) {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'الإيجار:' : 'Rent:'}</span>
+                      <span className="font-medium">({financialData.profitLoss.operatingExpenses.rent.toLocaleString()}) {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-red-700 border-t pt-2">
+                      <span>{language === 'ar' ? 'إجمالي المصروفات:' : 'Total Expenses:'}</span>
+                      <span>({financialData.profitLoss.operatingExpenses.total.toLocaleString()}) {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                  </div>
+                </div>
 
-            <div className="border-t-2 pt-4">
-              <Table>
-                <TableBody>
-                  <TableRow className="bg-gray-100">
-                    <TableCell className="font-bold text-lg">{language === 'ar' ? 'الخصوم وحقوق الملكية' : 'Liabilities + Equity'}</TableCell>
-                    <TableCell className="text-right font-bold text-lg">
-                      {(totalLiabilities + totalEquity).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                {/* النتيجة النهائية */}
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <div className="flex justify-between font-bold text-lg border-t pt-2">
+                    <span className="text-green-800">{language === 'ar' ? 'صافي الربح:' : 'Net Profit:'}</span>
+                    <span className="text-green-800">{financialData.profitLoss.netProfit.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* بيان التدفق النقدي */}
+        {financialReportTab === 'cashFlow' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'بيان التدفق النقدي' : 'Cash Flow Statement'}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* التدفقات التشغيلية */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-blue-800 mb-3">{language === 'ar' ? 'التدفقات من الأنشطة التشغيلية' : 'Operating Activities'}</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>{language === 'ar' ? 'صافي الدخل:' : 'Net Income:'}</span>
+                      <span className="font-medium">{financialData.cashFlow.operating.netIncome.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold border-t pt-2">
+                      <span className="text-blue-700">{language === 'ar' ? 'صافي التدفق التشغيلي:' : 'Net Operating Cash Flow:'}</span>
+                      <span className="text-blue-700">{financialData.cashFlow.operating.total.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* الملخص النهائي */}
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <div className="space-y-2">
+                    <div className="flex justify-between font-semibold">
+                      <span>{language === 'ar' ? 'صافي التغير في النقدية:' : 'Net Change in Cash:'}</span>
+                      <span className="text-blue-600">{financialData.cashFlow.netCashFlow.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-lg border-t pt-2">
+                      <span className="text-green-800">{language === 'ar' ? 'النقدية في نهاية الفترة:' : 'Ending Cash Balance:'}</span>
+                      <span className="text-green-800">{financialData.cashFlow.endingCash.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* الميزانية العمومية */}
+        {financialReportTab === 'balance' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'الميزانية العمومية' : 'Balance Sheet'}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* الأصول */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-blue-800">{language === 'ar' ? 'الأصول' : 'Assets'}</h3>
+                  
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-blue-700 mb-3">{language === 'ar' ? 'الأصول المتداولة' : 'Current Assets'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'النقد:' : 'Cash:'}</span>
+                        <span className="font-medium">{financialData.balanceSheet.assets.current.cash.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span className="text-blue-700">{language === 'ar' ? 'إجمالي الأصول المتداولة:' : 'Total Current Assets:'}</span>
+                        <span className="text-blue-700">{financialData.balanceSheet.assets.current.total.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-200 p-4 rounded-lg">
+                    <div className="flex justify-between font-bold text-lg">
+                      <span className="text-blue-800">{language === 'ar' ? 'إجمالي الأصول:' : 'Total Assets:'}</span>
+                      <span className="text-blue-800">{financialData.balanceSheet.assets.totalAssets.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* الخصوم وحقوق الملكية */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-red-800">{language === 'ar' ? 'الخصوم وحقوق الملكية' : 'Liabilities & Equity'}</h3>
+                  
+                  <div className="bg-red-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-red-700 mb-3">{language === 'ar' ? 'الخصوم المتداولة' : 'Current Liabilities'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span className="text-red-700">{language === 'ar' ? 'إجمالي الخصوم:' : 'Total Liabilities:'}</span>
+                        <span className="text-red-700">{financialData.balanceSheet.liabilities.totalLiabilities.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-green-700 mb-3">{language === 'ar' ? 'حقوق الملكية' : 'Equity'}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span className="text-green-700">{language === 'ar' ? 'إجمالي حقوق الملكية:' : 'Total Equity:'}</span>
+                        <span className="text-green-700">{financialData.balanceSheet.equity.totalEquity.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* مؤشرات الأداء */}
+        {financialReportTab === 'kpis' && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'مؤشرات الربحية' : 'Profitability Ratios'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-gray-600">{language === 'ar' ? 'هامش الربح الإجمالي' : 'Gross Margin'}</p>
+                    <p className="text-2xl font-bold text-blue-600">{financialData.kpis.profitability.grossMargin}%</p>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <p className="text-sm text-gray-600">{language === 'ar' ? 'هامش الربح الصافي' : 'Net Margin'}</p>
+                    <p className="text-2xl font-bold text-green-600">{financialData.kpis.profitability.netMargin}%</p>
+                  </div>
+                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <p className="text-sm text-gray-600">{language === 'ar' ? 'العائد على حقوق الملكية' : 'ROE'}</p>
+                    <p className="text-2xl font-bold text-purple-600">{financialData.kpis.profitability.roe}%</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'مؤشرات السيولة' : 'Liquidity Ratios'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-gray-600">{language === 'ar' ? 'نسبة السيولة الجارية' : 'Current Ratio'}</p>
+                    <p className="text-2xl font-bold text-blue-600">{financialData.kpis.liquidity.currentRatio}</p>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <p className="text-sm text-gray-600">{language === 'ar' ? 'نسبة السيولة السريعة' : 'Quick Ratio'}</p>
+                    <p className="text-2xl font-bold text-green-600">{financialData.kpis.liquidity.quickRatio}</p>
+                  </div>
+                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <p className="text-sm text-gray-600">{language === 'ar' ? 'نسبة النقدية' : 'Cash Ratio'}</p>
+                    <p className="text-2xl font-bold text-purple-600">{financialData.kpis.liquidity.cashRatio}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
