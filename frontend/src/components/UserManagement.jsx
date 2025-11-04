@@ -153,6 +153,12 @@ const UserManagement = ({ language = 'ar' }) => {
   // Handle edit user
   const handleEditUser = async () => {
     try {
+      // Validation
+      if (!editUser.full_name || !editUser.email || !editUser.role) {
+        showToast(language === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields', 'error');
+        return;
+      }
+
       const token = localStorage.getItem('token');
       await axios.put(
         `${process.env.REACT_APP_BACKEND_URL}/api/users/${editUser.id}`,
@@ -181,10 +187,17 @@ const UserManagement = ({ language = 'ar' }) => {
       setEditUser({ id: '', full_name: '', email: '', role: '' });
       setProfileImage(null);
       setImagePreview(null);
+      showToast(language === 'ar' ? 'تم تحديث المستخدم بنجاح' : 'User updated successfully', 'success');
       fetchUsers();
     } catch (error) {
       console.error('Error updating user:', error);
-      alert(error.response?.data?.detail || 'Error updating user');
+      const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
+      showToast(
+        language === 'ar'
+          ? `خطأ في تحديث المستخدم: ${errorMsg}`
+          : `Error updating user: ${errorMsg}`,
+        'error'
+      );
     }
   };
 
