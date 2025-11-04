@@ -1949,104 +1949,125 @@ export const CustomersModule = ({ language, userRole }) => {
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
           <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl transform transition-all" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
-              const formData = new FormData(e.target);
-              const newCustomer = {
-                id: `C${String(customers.length + 1).padStart(3, '0')}`,
-                name: formData.get('name'),
-                phone: formData.get('phone'),
-                email: formData.get('email'),
-                address: formData.get('address'),
-                balance: parseFloat(formData.get('balance')) || 0,
-                status: 'active'
-              };
-              setCustomers([...customers, newCustomer]);
-              setShowAddModal(false);
-              setSuccessMessage(language === 'ar' ? 'تم إضافة العميل بنجاح!' : 'Customer added successfully!');
-              setShowSuccessModal(true);
-              setTimeout(() => setShowSuccessModal(false), 2000);
-            }} className="space-y-4">
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Customer Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {language === 'ar' ? 'اسم العميل' : 'Customer Name'} <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-                    placeholder={language === 'ar' ? 'أدخل اسم العميل' : 'Enter customer name'}
-                  />
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-blue-500 to-cyan-600 p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Plus className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-white">{language === 'ar' ? 'عميل جديد' : 'New Customer'}</h3>
+                    <p className="text-blue-100 text-sm">{language === 'ar' ? 'املأ بيانات العميل' : 'Fill customer details'}</p>
+                  </div>
                 </div>
+                <button onClick={() => setShowAddModal(false)} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-all">
+                  ✕
+                </button>
+              </div>
+            </div>
 
-                {/* Phone */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {language === 'ar' ? 'رقم الهاتف' : 'Phone Number'} <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-                    placeholder="+201234567890"
-                  />
-                </div>
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Users className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'اسم العميل' : 'Customer Name'}
+                </label>
+                <input
+                  type="text"
+                  value={newCustomer.name}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50"
+                  placeholder={language === 'ar' ? 'أدخل اسم العميل' : 'Enter customer name'}
+                />
               </div>
 
-              {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Phone className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
+                </label>
+                <input
+                  type="tel"
+                  value={newCustomer.phone}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50"
+                  placeholder="+201234567890"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Mail className="h-4 w-4 inline mr-2" />
                   {language === 'ar' ? 'البريد الإلكتروني' : 'Email'}
                 </label>
                 <input
                   type="email"
-                  name="email"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                  value={newCustomer.email}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50"
                   placeholder="customer@example.com"
                 />
               </div>
 
-              {/* Address */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <MapPin className="h-4 w-4 inline mr-2" />
                   {language === 'ar' ? 'العنوان' : 'Address'}
                 </label>
                 <textarea
-                  name="address"
-                  rows="2"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
-                  placeholder={language === 'ar' ? 'أدخل عنوان العميل' : 'Enter customer address'}
-                ></textarea>
-              </div>
-
-              {/* Balance */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {language === 'ar' ? 'الرصيد الافتتاحي' : 'Opening Balance'} <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
-                </label>
-                <input
-                  type="number"
-                  name="balance"
-                  step="0.01"
-                  min="0"
-                  defaultValue="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="0.00"
+                  value={newCustomer.address}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50"
+                  placeholder={language === 'ar' ? 'أدخل العنوان' : 'Enter address'}
+                  rows="3"
                 />
               </div>
 
-              <div className="flex gap-4 pt-4 border-t">
-                <Button type="submit" className="flex-1 bg-[#28376B] hover:bg-[#1f2b54]">
-                  {language === 'ar' ? 'حفظ العميل' : 'Save Customer'}
-                </Button>
-                <Button type="button" onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
-                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                </Button>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <DollarSign className="h-4 w-4 inline mr-2" />
+                  {language === 'ar' ? 'الرصيد الافتتاحي' : 'Opening Balance'}
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={newCustomer.balance}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, balance: e.target.value })}
+                    className="w-full p-4 pr-16 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50"
+                    placeholder="0"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">
+                    {language === 'ar' ? 'ج.م' : 'EGP'}
+                  </span>
+                </div>
               </div>
-            </form>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 bg-gray-50 rounded-b-2xl flex gap-3">
+              <Button 
+                onClick={() => {
+                  // Handle add customer
+                  setShowAddModal(false);
+                  setSuccessMessage(language === 'ar' ? 'تم إضافة العميل بنجاح' : 'Customer added successfully');
+                  setShowSuccessModal(true);
+                  setTimeout(() => setShowSuccessModal(false), 2000);
+                }}
+                className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white font-semibold rounded-xl shadow-lg"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                {language === 'ar' ? 'إضافة العميل' : 'Add Customer'}
+              </Button>
+              <Button 
+                onClick={() => setShowAddModal(false)}
+                variant="outline"
+                className="flex-1 h-12 border-2 rounded-xl font-semibold"
+              >
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
