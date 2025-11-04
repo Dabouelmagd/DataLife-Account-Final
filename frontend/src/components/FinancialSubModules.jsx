@@ -14,7 +14,7 @@ export const JournalEntriesModule = ({ language, userRole }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'Financial Manager' || userRole === 'المدير المالي';
+  const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const [journalEntries, setJournalEntries] = useState([
     { id: 'JE001', date: '2024-10-01', description: language === 'ar' ? 'مشتريات مواد خام' : 'Raw materials purchase', debit: 50000, credit: 0, account: language === 'ar' ? 'المخزون' : 'Inventory' },
@@ -358,7 +358,7 @@ export const TreasuryModule = ({ language, userRole }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'Financial Manager' || userRole === 'المدير المالي';
+  const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const treasuryData = {
     balance: 350000,
@@ -643,7 +643,7 @@ export const CustodyModule = ({ language, userRole }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'Financial Manager' || userRole === 'المدير المالي';
+  const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const custodyData = [
     { id: 'C001', employee: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohamed', amount: 10000, date: '2024-09-15', purpose: language === 'ar' ? 'مصاريف سفر' : 'Travel expenses', status: 'active' },
@@ -755,7 +755,7 @@ export const AccountsModule = ({ language, userRole }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'Financial Manager' || userRole === 'المدير المالي';
+  const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const accounts = [
     { code: '1010', name: language === 'ar' ? 'البنك' : 'Bank', type: language === 'ar' ? 'أصول' : 'Assets', balance: 250000 },
@@ -837,7 +837,7 @@ export const SuppliersModule = ({ language, userRole }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'Financial Manager' || userRole === 'المدير المالي';
+  const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const suppliers = [
     { id: 'S001', name: language === 'ar' ? 'شركة المواد الخام المتحدة' : 'United Raw Materials Co.', phone: '+201234567890', balance: 45000, status: 'active' },
@@ -1374,7 +1374,7 @@ export const CustomersModule = ({ language, userRole }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const isRTL = language === 'ar';
-  const canEdit = userRole === 'Financial Manager' || userRole === 'المدير المالي';
+  const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
