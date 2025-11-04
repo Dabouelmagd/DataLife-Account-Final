@@ -73,6 +73,14 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/user-management" 
+                element={
+                  <ProtectedRoute>
+                    <UserManagement />
+                  </ProtectedRoute>
+                } 
+              />
             </Routes>
           </BrowserRouter>
         </div>
