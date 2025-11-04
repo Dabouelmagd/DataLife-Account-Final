@@ -681,6 +681,48 @@ const UserManagement = ({ language = 'ar' }) => {
           </div>
         )}
       </div>
+
+      {/* Toast Notification - Modern Design */}
+      {toast.show && (
+        <div className={`fixed top-6 ${isRTL ? 'left-6' : 'right-6'} z-50 animate-in slide-in-from-top-4 duration-300`}>
+          <div className={`rounded-2xl shadow-2xl p-4 min-w-[300px] max-w-md backdrop-blur-lg border-2 ${
+            toast.type === 'success' 
+              ? 'bg-green-500/90 border-green-400 text-white'
+              : toast.type === 'error'
+              ? 'bg-red-500/90 border-red-400 text-white'
+              : 'bg-blue-500/90 border-blue-400 text-white'
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                {toast.type === 'success' ? (
+                  <CheckCircle className="h-6 w-6" />
+                ) : toast.type === 'error' ? (
+                  <AlertCircle className="h-6 w-6" />
+                ) : (
+                  <AlertCircle className="h-6 w-6" />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-sm mb-1">
+                  {toast.type === 'success' 
+                    ? (language === 'ar' ? 'نجح!' : 'Success!')
+                    : toast.type === 'error'
+                    ? (language === 'ar' ? 'خطأ!' : 'Error!')
+                    : (language === 'ar' ? 'معلومة' : 'Info')
+                  }
+                </p>
+                <p className="text-sm opacity-90">{toast.message}</p>
+              </div>
+              <button
+                onClick={() => setToast({ show: false, message: '', type: '' })}
+                className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
