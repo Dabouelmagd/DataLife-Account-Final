@@ -1634,16 +1634,21 @@ export const FinancialReportsModule = ({ language, userRole }) => {
 // Customers Module
 export const CustomersModule = ({ language, userRole }) => {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
   const isRTL = language === 'ar';
   const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', address: '', balance: 0 });
+  const [editCustomer, setEditCustomer] = useState({ id: '', name: '', phone: '', email: '', address: '', balance: 0 });
 
   // Fetch customers from backend API
   React.useEffect(() => {
@@ -1674,6 +1679,24 @@ export const CustomersModule = ({ language, userRole }) => {
 
     fetchCustomers();
   }, [language]);
+
+  // Calculate statistics
+  const stats = {
+    totalCustomers: customers.length,
+    activeCustomers: customers.filter(c => (c.balance || 0) >= 0).length,
+    totalBalance: customers.reduce((sum, c) => sum + (parseFloat(c.balance) || 0), 0),
+    avgBalance: customers.length > 0 ? customers.reduce((sum, c) => sum + (parseFloat(c.balance) || 0), 0) / customers.length : 0
+  };
+
+  // Filter customers
+  const filteredCustomers = customers.filter(customer => {
+    const matchesSearch = (customer.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (customer.phone || '').includes(searchTerm);
+    const matchesStatus = filterStatus === 'all' || 
+                         (filterStatus === 'active' && (customer.balance || 0) >= 0) ||
+                         (filterStatus === 'inactive' && (customer.balance || 0) < 0);
+    return matchesSearch && matchesStatus;
+  });
 
   // Export to CSV function
   const exportToCSV = () => {
