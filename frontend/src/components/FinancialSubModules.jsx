@@ -1736,6 +1736,7 @@ export const CustomersModule = ({ language, userRole }) => {
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'العملاء' : 'Customers'}
@@ -1745,32 +1746,204 @@ export const CustomersModule = ({ language, userRole }) => {
             <Download className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
-            <Plus className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'عميل جديد' : 'New Customer'}</span>
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
+          {canEdit && (
+            <Button size="sm" className="bg-gradient-to-r from-blue-500 to-cyan-600" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
+              <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'عميل جديد' : 'New Customer'}</span>
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي العملاء' : 'Total Customers'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{customers.length}</p>
+      {/* Statistics Cards - Professional Design */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-700">{language === 'ar' ? 'إجمالي العملاء' : 'Total Customers'}</p>
+                <p className="text-3xl font-bold text-blue-900 mt-2">{stats.totalCustomers}</p>
+                <p className="text-xs text-blue-600 mt-1">{language === 'ar' ? 'عميل' : 'customers'}</p>
+              </div>
+              <div className="bg-blue-200 p-3 rounded-full">
+                <Users className="h-8 w-8 text-blue-700" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'العملاء النشطين' : 'Active Customers'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">{customers.length}</p>
+
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-700">{language === 'ar' ? 'العملاء النشطين' : 'Active Customers'}</p>
+                <p className="text-3xl font-bold text-green-900 mt-2">{stats.activeCustomers}</p>
+                <p className="text-xs text-green-600 mt-1">{language === 'ar' ? 'نشط' : 'active'}</p>
+              </div>
+              <div className="bg-green-200 p-3 rounded-full">
+                <CheckCircle className="h-8 w-8 text-green-700" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-700">{language === 'ar' ? 'إجمالي الرصيد' : 'Total Balance'}</p>
+                <p className="text-3xl font-bold text-purple-900 mt-2">{stats.totalBalance.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                <p className="text-xs text-purple-600 mt-1">{language === 'ar' ? 'الرصيد الإجمالي' : 'total'}</p>
+              </div>
+              <div className="bg-purple-200 p-3 rounded-full">
+                <DollarSign className="h-8 w-8 text-purple-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-orange-700">{language === 'ar' ? 'متوسط الرصيد' : 'Average Balance'}</p>
+                <p className="text-3xl font-bold text-orange-900 mt-2">{stats.avgBalance.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                <p className="text-xs text-orange-600 mt-1">{language === 'ar' ? 'للعميل' : 'per customer'}</p>
+              </div>
+              <div className="bg-orange-200 p-3 rounded-full">
+                <TrendingUp className="h-8 w-8 text-orange-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder={language === 'ar' ? 'بحث عن عميل بالاسم أو الهاتف...' : 'Search by name or phone...'}
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <select
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="all">{language === 'ar' ? 'جميع العملاء' : 'All Customers'}</option>
+                <option value="active">{language === 'ar' ? 'العملاء النشطين' : 'Active Customers'}</option>
+                <option value="inactive">{language === 'ar' ? 'العملاء غير النشطين' : 'Inactive Customers'}</option>
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Customers Table */}
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">{language === 'ar' ? 'جارٍ التحميل...' : 'Loading...'}</p>
+            </div>
+          ) : filteredCustomers.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+              <p className="text-gray-600">{language === 'ar' ? 'لا يوجد عملاء' : 'No customers found'}</p>
+              {canEdit && (
+                <Button className="mt-4" onClick={() => setShowAddModal(true)}>
+                  {language === 'ar' ? 'إضافة عميل جديد' : 'Add New Customer'}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="font-bold">{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'الهاتف' : 'Phone'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'الرصيد' : 'Balance'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                  <TableHead className="font-bold">{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCustomers.map((customer, index) => (
+                  <TableRow key={customer.id || index} className="hover:bg-gray-50 transition-colors">
+                    <TableCell className="font-medium">{customer.id || `C${index + 1}`}</TableCell>
+                    <TableCell className="font-semibold">{customer.name || 'N/A'}</TableCell>
+                    <TableCell>{customer.phone || 'N/A'}</TableCell>
+                    <TableCell>{customer.email || 'N/A'}</TableCell>
+                    <TableCell className={`font-semibold ${(customer.balance || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {(customer.balance || 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={(customer.balance || 0) >= 0 ? 'success' : 'destructive'}>
+                        {(customer.balance || 0) >= 0 ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => { 
+                            setSelectedEntry(customer); 
+                            setShowViewModal(true); 
+                          }}
+                        >
+                          <Eye className="h-4 w-4 text-blue-600" />
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => { 
+                                setEditCustomer(customer); 
+                                setShowEditModal(true); 
+                              }}
+                            >
+                              <Edit className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => { 
+                                setSelectedEntry(customer); 
+                                setShowDeleteModal(true); 
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
             <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي المستحقات' : 'Total Receivables'}</CardTitle>
           </CardHeader>
           <CardContent>
