@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Calendar, DollarSign, FileText, CheckCircle, Printer, Users, TrendingUp, Award, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Calendar, DollarSign, FileText, CheckCircle, Printer, Users, TrendingUp, TrendingDown, Award, AlertCircle } from 'lucide-react';
 import { Badge } from './ui/badge';
 
 // Salaries Module
