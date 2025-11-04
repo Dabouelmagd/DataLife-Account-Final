@@ -23,6 +23,15 @@ const UserManagement = ({ language = 'ar' }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+
+  // Show toast notification
+  const showToast = (message, type = 'error') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: '', type: '' });
+    }, 5000);
+  };
 
   const [newUser, setNewUser] = useState({
     full_name: '',
