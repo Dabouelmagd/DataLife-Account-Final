@@ -3689,6 +3689,19 @@ async def main():
     failed_count = sum(1 for result in results if not result["success"])
     return 0 if failed_count == 0 else 1
 
+async def main_user_management():
+    """User Management focused test runner"""
+    tester = MultiTenantAPITester()
+    results = await tester.run_user_management_tests()
+    
+    # Return exit code based on test results
+    failed_count = sum(1 for result in results if not result["success"])
+    return 0 if failed_count == 0 else 1
+
 if __name__ == "__main__":
-    exit_code = asyncio.run(main())
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "user_management":
+        exit_code = asyncio.run(main_user_management())
+    else:
+        exit_code = asyncio.run(main())
     exit(exit_code)
