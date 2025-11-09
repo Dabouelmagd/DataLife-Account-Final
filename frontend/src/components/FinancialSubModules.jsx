@@ -2619,7 +2619,7 @@ export const SuppliersModule = ({ language, userRole }) => {
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(supplier); setSuccessMessage(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open'); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(supplier); setShowEditModal(true); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(supplier); setShowDeleteModal(true); }}>
