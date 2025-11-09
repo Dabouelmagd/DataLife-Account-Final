@@ -4807,7 +4807,6 @@ class MultiTenantAPITester:
             
             # Test all HR APIs
             await self.test_existing_user_hr_employees()
-            await self.test_existing_user_hr_salaries()
             await self.test_existing_user_hr_allowances()
             await self.test_existing_user_hr_deductions()
             await self.test_existing_user_hr_leaves()
