@@ -241,18 +241,18 @@ export const JournalEntriesModule = ({ language, userRole }) => {
                   <TableCell>{entry.date}</TableCell>
                   <TableCell>{entry.description}</TableCell>
                   <TableCell>{entry.account}</TableCell>
-                  <TableCell>
+                  <TableCell className={entry.debit > 0 ? 'bg-green-50' : ''}>
                     {entry.debit > 0 ? (
-                      <span className="inline-block px-3 py-1 bg-green-100 text-green-700 font-bold rounded">
+                      <span className="text-green-600 font-bold">
                         +{entry.debit.toLocaleString()}
                       </span>
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={entry.credit > 0 ? 'bg-red-50' : ''}>
                     {entry.credit > 0 ? (
-                      <span className="inline-block px-3 py-1 bg-red-100 text-red-700 font-bold rounded">
+                      <span className="text-red-600 font-bold">
                         -{entry.credit.toLocaleString()}
                       </span>
                     ) : (
