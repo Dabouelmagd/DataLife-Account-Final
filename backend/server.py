@@ -71,6 +71,7 @@ app.include_router(users_router)
 app.include_router(hr_data_router)
 app.include_router(financial_data_router)
 app.include_router(inventory_data_router)
+app.include_router(analytics_router)
 
 app.add_middleware(
     CORSMiddleware,
