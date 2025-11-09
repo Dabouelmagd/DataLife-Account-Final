@@ -68,6 +68,11 @@ export const JournalEntriesModule = ({ language, userRole }) => {
     setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
+  // Calculate statistics
+  const totalDebit = journalEntries.reduce((sum, entry) => sum + entry.debit, 0);
+  const totalCredit = journalEntries.reduce((sum, entry) => sum + entry.credit, 0);
+  const totalEntries = journalEntries.length;
+
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="flex items-center justify-between">
@@ -75,20 +80,109 @@ export const JournalEntriesModule = ({ language, userRole }) => {
           {language === 'ar' ? 'القيود اليومية' : 'Journal Entries'}
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportToCSV}>
+          <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
             <Download className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
+            <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button variant="outline" size="sm">
-            <Search className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'بحث' : 'Search'}</span>
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
-          <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
-            <Plus className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'قيد جديد' : 'New Entry'}</span>
-          </Button>
+          {canEdit && (
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
+              <span>{language === 'ar' ? 'قيد جديد' : 'New Entry'}</span>
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي القيود' : 'Total Entries'}
+                </p>
+                <h3 className="text-3xl font-bold text-gray-900">{totalEntries}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'قيود' : 'entries'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي المدين' : 'Total Debit'}
+                </p>
+                <h3 className="text-3xl font-bold text-green-600">{totalDebit.toLocaleString()}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي الدائن' : 'Total Credit'}
+                </p>
+                <h3 className="text-3xl font-bold text-red-600">{totalCredit.toLocaleString()}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                </svg>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filter Section */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'البحث بالوصف أو رقم القيد...' : 'Search by description or entry number...'}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <option value="">{language === 'ar' ? 'كل الحسابات' : 'All Accounts'}</option>
+              <option>{language === 'ar' ? 'المخزون' : 'Inventory'}</option>
+              <option>{language === 'ar' ? 'المبيعات' : 'Sales'}</option>
+              <option>{language === 'ar' ? 'المصروفات' : 'Expenses'}</option>
+              <option>{language === 'ar' ? 'البنك' : 'Bank'}</option>
+            </select>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
