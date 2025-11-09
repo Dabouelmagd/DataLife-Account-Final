@@ -250,7 +250,7 @@ export const JournalEntriesModule = ({ language, userRole }) => {
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(entry); setSuccessMessage(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open'); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(entry); setShowEditModal(true); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(entry); setShowDeleteModal(true); }}>
@@ -261,7 +261,8 @@ export const JournalEntriesModule = ({ language, userRole }) => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                ));
+              })()}
             </TableBody>
           </Table>
         </CardContent>
