@@ -3202,6 +3202,16 @@ export const InventoryModule = ({ language, userRole }) => {
             </TableHeader>
             <TableBody>
               {(() => {
+                if (loading) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan="8" className="text-center py-8 text-gray-500">
+                        {language === 'ar' ? 'جاري التحميل...' : 'Loading...'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+
                 const getCategoryKey = (cat) => {
                   const map = {
                     'مواد خام': 'Raw Materials',
