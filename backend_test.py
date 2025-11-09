@@ -3088,6 +3088,456 @@ class MultiTenantAPITester:
             except Exception as e:
                 self.log_result("Inventory Multi-tenant Isolation", False, f"Exception: {str(e)}")
 
+    async def run_user_management_tests(self):
+        """Run focused User Management API tests based on review request"""
+        print("🚀 Starting User Management API Testing...")
+        print(f"Backend URL: {self.base_url}")
+        print("=" * 80)
+        
+        await self.setup()
+        
+        try:
+            # Setup: Login with existing General Manager credentials
+            print("\n🔐 AUTHENTICATION SETUP")
+            print("-" * 40)
+            
+            # Use the provided test credentials
+            login_data = {
+                "email": "test-logo@example.com",
+                "password": "testpass123"
+            }
+            
+            response = await self.client.post(
+                f"{self.base_url}/auth/login",
+                json=login_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.test_tokens["admin"] = data["access_token"]
+                self.test_users["admin"] = data["user"]
+                self.test_company = {
+                    "id": data["user"]["company_id"],
+                    "email": login_data["email"],
+                    "password": login_data["password"]
+                }
+                self.log_result("Login with Test Credentials", True, f"Successfully logged in as {data['user']['email']}")
+            else:
+                self.log_result("Login with Test Credentials", False, f"Login failed: {response.status_code} - {response.text}")
+                return self.test_results
+            
+            # User Management Tests
+            print("\n👥 USER MANAGEMENT API TESTS")
+            print("-" * 40)
+            
+            # Test 1: GET /api/users - List Users
+            await self.test_list_users_detailed()
+            
+            # Test 2: POST /api/users - Add New User
+            await self.test_add_new_user_detailed()
+            
+            # Test 3: Error Cases
+            await self.test_duplicate_email_error()
+            await self.test_invalid_role_error()
+            await self.test_unauthorized_access()
+            await self.test_insufficient_permissions()
+            
+            # Test 4: Photo Upload Endpoint
+            await self.test_user_photo_upload()
+            
+        except Exception as e:
+            self.log_result("User Management Testing", False, f"Exception during testing: {str(e)}")
+        finally:
+            await self.cleanup()
+        
+        # Print Summary
+        print("\n" + "=" * 80)
+        print("📊 USER MANAGEMENT TEST SUMMARY")
+        print("=" * 80)
+        
+        total_tests = len(self.test_results)
+        passed_tests = len([r for r in self.test_results if r["success"]])
+        failed_tests = total_tests - passed_tests
+        
+        print(f"Total Tests: {total_tests}")
+        print(f"✅ Passed: {passed_tests}")
+        print(f"❌ Failed: {failed_tests}")
+        print(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        
+        if failed_tests > 0:
+            print(f"\n❌ FAILED TESTS ({failed_tests}):")
+            print("-" * 40)
+            for result in self.test_results:
+                if not result["success"]:
+                    print(f"• {result['test']}: {result['details']}")
+        
+        print("\n🎉 User Management Testing completed!")
+        return self.test_results
+
+    async def test_list_users_detailed(self):
+        """Test GET /api/users - List Users with detailed validation"""
+        if "admin" not in self.test_tokens:
+            self.log_result("GET /api/users - List Users", False, "No admin token available")
+            return None
+            
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/users/",
+                headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response is a list
+                if not isinstance(data, list):
+                    self.log_result("GET /api/users - List Users", False, 
+                                  f"Expected list, got {type(data)}", data)
+                    return None
+                
+                # Validate at least one user exists (the General Manager)
+                if len(data) < 1:
+                    self.log_result("GET /api/users - List Users", False, 
+                                  "Expected at least 1 user (General Manager)", data)
+                    return None
+                
+                # Validate user structure
+                for user in data:
+                    required_fields = ["id", "email", "full_name", "company_id", "role", "is_active"]
+                    missing_fields = [field for field in required_fields if field not in user]
+                    
+                    if missing_fields:
+                        self.log_result("GET /api/users - List Users", False, 
+                                      f"User missing required fields: {missing_fields}", user)
+                        return None
+                
+                # Check if all users belong to the same company
+                company_id = self.test_company["id"]
+                for user in data:
+                    if user.get("company_id") != company_id:
+                        self.log_result("GET /api/users - List Users", False, 
+                                      f"User belongs to different company: {user.get('company_id')} vs {company_id}", user)
+                        return None
+                
+                self.log_result("GET /api/users - List Users", True, 
+                              f"Successfully retrieved {len(data)} users for company", data)
+                return data
+            else:
+                self.log_result("GET /api/users - List Users", False, 
+                              f"Expected 200, got {response.status_code}", response.text)
+                return None
+                
+        except Exception as e:
+            self.log_result("GET /api/users - List Users", False, f"Exception: {str(e)}")
+            return None
+
+    async def test_add_new_user_detailed(self):
+        """Test POST /api/users - Add New User with detailed validation"""
+        if "admin" not in self.test_tokens:
+            self.log_result("POST /api/users - Add New User", False, "No admin token available")
+            return None
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        user_data = {
+            "full_name": "Test User New",
+            "email": f"testuser.{timestamp}@example.com",
+            "password": "testpass123",
+            "role": "Accountant"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/users/",
+                json=user_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['admin']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response structure
+                required_fields = ["id", "email", "full_name", "company_id", "role", "is_active"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("POST /api/users - Add New User", False, 
+                                  f"Missing required fields: {missing_fields}", data)
+                    return None
+                
+                # Validate user data matches input
+                if data.get("email") != user_data["email"]:
+                    self.log_result("POST /api/users - Add New User", False, 
+                                  f"Email mismatch: expected {user_data['email']}, got {data.get('email')}", data)
+                    return None
+                
+                if data.get("full_name") != user_data["full_name"]:
+                    self.log_result("POST /api/users - Add New User", False, 
+                                  f"Name mismatch: expected {user_data['full_name']}, got {data.get('full_name')}", data)
+                    return None
+                
+                if data.get("role") != user_data["role"]:
+                    self.log_result("POST /api/users - Add New User", False, 
+                                  f"Role mismatch: expected {user_data['role']}, got {data.get('role')}", data)
+                    return None
+                
+                # Validate company_id is set correctly
+                if data.get("company_id") != self.test_company["id"]:
+                    self.log_result("POST /api/users - Add New User", False, 
+                                  f"Company ID mismatch: expected {self.test_company['id']}, got {data.get('company_id')}", data)
+                    return None
+                
+                # Validate user is active
+                if not data.get("is_active"):
+                    self.log_result("POST /api/users - Add New User", False, 
+                                  "New user should be active", data)
+                    return None
+                
+                # Store for later tests
+                self.test_users["new_user"] = data
+                
+                self.log_result("POST /api/users - Add New User", True, 
+                              f"User created successfully: {data.get('email')} with ID {data.get('id')}", data)
+                return data
+            else:
+                self.log_result("POST /api/users - Add New User", False, 
+                              f"Expected 200, got {response.status_code}", response.text)
+                return None
+                
+        except Exception as e:
+            self.log_result("POST /api/users - Add New User", False, f"Exception: {str(e)}")
+            return None
+
+    async def test_duplicate_email_error(self):
+        """Test POST /api/users with duplicate email (should fail with 400)"""
+        if "admin" not in self.test_tokens:
+            self.log_result("Duplicate Email Error", False, "No admin token available")
+            return
+            
+        # Try to create user with existing email
+        user_data = {
+            "full_name": "Duplicate User",
+            "email": "test-logo@example.com",  # Same as General Manager
+            "password": "testpass123",
+            "role": "HR Manager"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/users/",
+                json=user_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['admin']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 400:
+                data = response.json()
+                if "already exists" in data.get("detail", "").lower():
+                    self.log_result("Duplicate Email Error", True, 
+                                  "Correctly rejected duplicate email", data)
+                else:
+                    self.log_result("Duplicate Email Error", False, 
+                                  f"Wrong error message: {data.get('detail')}", data)
+            else:
+                self.log_result("Duplicate Email Error", False, 
+                              f"Expected 400, got {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_result("Duplicate Email Error", False, f"Exception: {str(e)}")
+
+    async def test_invalid_role_error(self):
+        """Test POST /api/users with invalid role (should fail with 400)"""
+        if "admin" not in self.test_tokens:
+            self.log_result("Invalid Role Error", False, "No admin token available")
+            return
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        user_data = {
+            "full_name": "Invalid Role User",
+            "email": f"invalid.{timestamp}@example.com",
+            "password": "testpass123",
+            "role": "Invalid Role"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/users/",
+                json=user_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['admin']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 400:
+                data = response.json()
+                if "invalid role" in data.get("detail", "").lower():
+                    self.log_result("Invalid Role Error", True, 
+                                  "Correctly rejected invalid role", data)
+                else:
+                    self.log_result("Invalid Role Error", False, 
+                                  f"Wrong error message: {data.get('detail')}", data)
+            else:
+                self.log_result("Invalid Role Error", False, 
+                              f"Expected 400, got {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_result("Invalid Role Error", False, f"Exception: {str(e)}")
+
+    async def test_unauthorized_access(self):
+        """Test POST /api/users without authentication (should fail with 401)"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        user_data = {
+            "full_name": "Unauthorized User",
+            "email": f"unauthorized.{timestamp}@example.com",
+            "password": "testpass123",
+            "role": "Accountant"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/users/",
+                json=user_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 401:
+                data = response.json()
+                if "authorization header missing" in data.get("detail", "").lower():
+                    self.log_result("Unauthorized Access", True, 
+                                  "Correctly rejected request without authentication", data)
+                else:
+                    self.log_result("Unauthorized Access", False, 
+                                  f"Wrong error message: {data.get('detail')}", data)
+            else:
+                self.log_result("Unauthorized Access", False, 
+                              f"Expected 401, got {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_result("Unauthorized Access", False, f"Exception: {str(e)}")
+
+    async def test_insufficient_permissions(self):
+        """Test Accountant trying to add user (should fail with 403)"""
+        # First, create an Accountant user if we don't have one
+        if "new_user" not in self.test_users:
+            self.log_result("Insufficient Permissions", False, "No Accountant user available for testing")
+            return
+            
+        # Login as the Accountant
+        accountant_email = self.test_users["new_user"]["email"]
+        login_data = {
+            "email": accountant_email,
+            "password": "testpass123"
+        }
+        
+        try:
+            login_response = await self.client.post(
+                f"{self.base_url}/auth/login",
+                json=login_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if login_response.status_code != 200:
+                self.log_result("Insufficient Permissions", False, 
+                              f"Could not login as Accountant: {login_response.status_code}")
+                return
+                
+            accountant_token = login_response.json()["access_token"]
+            
+            # Try to add user as Accountant (should fail)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            user_data = {
+                "full_name": "Forbidden User",
+                "email": f"forbidden.{timestamp}@example.com",
+                "password": "testpass123",
+                "role": "HR Manager"
+            }
+            
+            response = await self.client.post(
+                f"{self.base_url}/users/",
+                json=user_data,
+                headers={
+                    "Authorization": f"Bearer {accountant_token}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 403:
+                data = response.json()
+                if "insufficient permissions" in data.get("detail", "").lower():
+                    self.log_result("Insufficient Permissions", True, 
+                                  "Correctly denied Accountant user creation", data)
+                else:
+                    self.log_result("Insufficient Permissions", False, 
+                                  f"Wrong error message: {data.get('detail')}", data)
+            else:
+                self.log_result("Insufficient Permissions", False, 
+                              f"Expected 403, got {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_result("Insufficient Permissions", False, f"Exception: {str(e)}")
+
+    async def test_user_photo_upload(self):
+        """Test POST /api/users/{user_id}/upload-photo endpoint"""
+        if "new_user" not in self.test_users:
+            self.log_result("User Photo Upload", False, "No test user available")
+            return
+            
+        user_id = self.test_users["new_user"]["id"]
+        
+        # Create a simple test image content
+        test_image_content = b"fake_image_content_for_testing"
+        
+        try:
+            files = {"file": ("test_photo.jpg", test_image_content, "image/jpeg")}
+            
+            response = await self.client.post(
+                f"{self.base_url}/users/{user_id}/upload-photo",
+                files=files,
+                headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response structure
+                required_fields = ["message", "photo_url"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("User Photo Upload", False, 
+                                  f"Missing required fields: {missing_fields}", data)
+                    return None
+                
+                if "successfully" not in data.get("message", "").lower():
+                    self.log_result("User Photo Upload", False, 
+                                  f"Unexpected message: {data.get('message')}", data)
+                    return None
+                
+                # Verify photo_url format
+                photo_url = data.get("photo_url")
+                if not photo_url or not photo_url.startswith("/uploads/users/"):
+                    self.log_result("User Photo Upload", False, 
+                                  f"Invalid photo_url format: {photo_url}", data)
+                    return None
+                
+                self.log_result("User Photo Upload", True, 
+                              f"Photo uploaded successfully: {photo_url}", data)
+                return data
+            else:
+                self.log_result("User Photo Upload", False, 
+                              f"Expected 200, got {response.status_code}", response.text)
+                return None
+                
+        except Exception as e:
+            self.log_result("User Photo Upload", False, f"Exception: {str(e)}")
+            return None
+
     async def run_all_tests(self):
         """Run all tests in sequence"""
         print("🚀 Starting Comprehensive Multi-Tenant Backend API Tests...")
