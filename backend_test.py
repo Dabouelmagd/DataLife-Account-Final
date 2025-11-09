@@ -4893,6 +4893,8 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "user_management":
         exit_code = asyncio.run(main_user_management())
+    elif len(sys.argv) > 1 and sys.argv[1] == "comprehensive":
+        exit_code = asyncio.run(main_comprehensive_validation())
     else:
         exit_code = asyncio.run(main())
     exit(exit_code)
