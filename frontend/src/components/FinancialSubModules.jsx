@@ -175,12 +175,16 @@ export const JournalEntriesModule = ({ language, userRole }) => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-              <option value="">{language === 'ar' ? 'كل الحسابات' : 'All Accounts'}</option>
-              <option>{language === 'ar' ? 'المخزون' : 'Inventory'}</option>
-              <option>{language === 'ar' ? 'المبيعات' : 'Sales'}</option>
-              <option>{language === 'ar' ? 'المصروفات' : 'Expenses'}</option>
-              <option>{language === 'ar' ? 'البنك' : 'Bank'}</option>
+            <select 
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={accountFilter}
+              onChange={(e) => setAccountFilter(e.target.value)}
+            >
+              <option value="all">{language === 'ar' ? 'كل الحسابات' : 'All Accounts'}</option>
+              <option value="Inventory">{language === 'ar' ? 'المخزون' : 'Inventory'}</option>
+              <option value="Sales">{language === 'ar' ? 'المبيعات' : 'Sales'}</option>
+              <option value="Expenses">{language === 'ar' ? 'المصروفات' : 'Expenses'}</option>
+              <option value="Bank">{language === 'ar' ? 'البنك' : 'Bank'}</option>
             </select>
           </div>
         </CardContent>
@@ -201,7 +205,37 @@ export const JournalEntriesModule = ({ language, userRole }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {journalEntries.map((entry) => (
+              {(() => {
+                // Get unique account names for filtering
+                const getAccountName = (account) => {
+                  const accountMap = {
+                    'Inventory': ['Inventory', 'المخزون'],
+                    'Sales': ['Sales', 'المبيعات'],
+                    'Expenses': ['Expenses', 'المصروفات'],
+                    'Bank': ['Bank', 'البنك']
+                  };
+                  
+                  for (const [key, values] of Object.entries(accountMap)) {
+                    if (values.includes(account)) return key;
+                  }
+                  return account;
+                };
+
+                const filteredEntries = accountFilter === 'all' 
+                  ? journalEntries 
+                  : journalEntries.filter(e => getAccountName(e.account) === accountFilter);
+                
+                if (filteredEntries.length === 0) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan="7" className="text-center py-8 text-gray-500">
+                        {language === 'ar' ? 'لا توجد قيود' : 'No entries found'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                
+                return filteredEntries.map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell className="font-medium">{entry.id}</TableCell>
                   <TableCell>{entry.date}</TableCell>
