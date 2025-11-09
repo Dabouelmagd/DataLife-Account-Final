@@ -3716,14 +3716,19 @@ class MultiTenantAPITester:
             return None
 
     async def test_existing_user_company_details(self):
-        """Test GET /api/companies/me"""
-        if "existing_user" not in self.test_tokens:
-            self.log_result("Company Details", False, "No existing user token available")
+        """Test GET /api/companies/{company_id}"""
+        if "existing_user" not in self.test_tokens or "existing_user" not in self.test_users:
+            self.log_result("Company Details", False, "No existing user data available")
+            return
+            
+        company_id = self.test_users["existing_user"].get("company_id")
+        if not company_id:
+            self.log_result("Company Details", False, "No company_id available")
             return
             
         try:
             response = await self.client.get(
-                f"{self.base_url}/companies/me",
+                f"{self.base_url}/companies/{company_id}",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
