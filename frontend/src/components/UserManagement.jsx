@@ -501,7 +501,10 @@ const UserManagement = ({ language = 'ar' }) => {
               {/* Modal Footer */}
               <div className="p-6 bg-gray-50 rounded-b-2xl flex gap-3">
                 <Button
-                  onClick={handleAddUser}
+                  onClick={() => {
+                    console.log('Add User button clicked');
+                    handleAddUser();
+                  }}
                   className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg"
                 >
                   <Plus className="h-5 w-5 mr-2" />
