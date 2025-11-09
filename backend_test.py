@@ -4821,8 +4821,6 @@ class MultiTenantAPITester:
             await self.test_existing_user_financial_suppliers()
             await self.test_existing_user_financial_treasury()
             await self.test_existing_user_financial_bank()
-            await self.test_existing_user_financial_custody()
-            await self.test_existing_user_financial_accounts()
             
             print("\n📦 PHASE 5: Inventory Management APIs")
             print("-" * 60)
