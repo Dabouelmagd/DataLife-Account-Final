@@ -1526,41 +1526,308 @@ export const CustodyModule = ({ language, userRole }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {custodyData.map((custody) => (
-                <TableRow key={custody.id}>
-                  <TableCell className="font-medium">{custody.id}</TableCell>
-                  <TableCell>{custody.employee}</TableCell>
-                  <TableCell>{custody.amount.toLocaleString()}</TableCell>
-                  <TableCell>{custody.date}</TableCell>
-                  <TableCell>{custody.purpose}</TableCell>
-                  <TableCell>
-                    <Badge variant={custody.status === 'active' ? 'warning' : 'success'}>
-                      {custody.status === 'active' ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'مسدد' : 'Settled')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(custody); setShowViewModal(true); }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {canEdit && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(custody); setSuccessMessage(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open'); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(custody); setShowDeleteModal(true); }}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {(() => {
+                const filteredCustody = statusFilter === 'all' 
+                  ? custodyData 
+                  : custodyData.filter(c => c.status === statusFilter);
+                
+                if (filteredCustody.length === 0) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan="7" className="text-center py-8 text-gray-500">
+                        {language === 'ar' ? 'لا توجد عهد' : 'No custody found'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                
+                return filteredCustody.map((custody) => (
+                  <TableRow key={custody.id}>
+                    <TableCell className="font-medium">{custody.id}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-gray-500" />
+                        {custody.employee}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-bold text-blue-600">
+                      {custody.amount.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+                    </TableCell>
+                    <TableCell>{custody.date}</TableCell>
+                    <TableCell>{custody.purpose}</TableCell>
+                    <TableCell>
+                      <Badge variant={custody.status === 'active' ? 'warning' : 'success'}>
+                        {custody.status === 'active' ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'مسدد' : 'Settled')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(custody); setShowViewModal(true); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(custody); setShowEditModal(true); }}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(custody); setShowDeleteModal(true); }}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ));
+              })()}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Add Custody Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'عهدة جديدة' : 'New Custody'}</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const newCustody = {
+                id: `C${String(custodyData.length + 1).padStart(3, '0')}`,
+                employee: formData.get('employee'),
+                amount: parseFloat(formData.get('amount')) || 0,
+                date: formData.get('date'),
+                purpose: formData.get('purpose'),
+                status: 'active'
+              };
+              setCustodyData([...custodyData, newCustody]);
+              setShowAddModal(false);
+              setSuccessMessage(language === 'ar' ? 'تم إضافة العهدة بنجاح!' : 'Custody added successfully!');
+              setShowSuccessModal(true);
+              setTimeout(() => setShowSuccessModal(false), 2000);
+            }} className="space-y-4">
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'اسم الموظف' : 'Employee Name'} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="employee"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder={language === 'ar' ? 'أدخل اسم الموظف' : 'Enter employee name'}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'المبلغ' : 'Amount'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="amount"
+                    required
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'التاريخ' : 'Date'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    defaultValue={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'الغرض' : 'Purpose'} <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  name="purpose"
+                  required
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder={language === 'ar' ? 'أدخل غرض العهدة...' : 'Enter custody purpose...'}
+                ></textarea>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                  {language === 'ar' ? 'إضافة' : 'Add'}
+                </Button>
+                <Button type="button" onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Custody Modal */}
+      {showEditModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل العهدة' : 'Edit Custody'}</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const updatedCustody = custodyData.map(c => 
+                c.id === selectedEntry.id 
+                  ? {
+                      ...c,
+                      employee: formData.get('employee'),
+                      amount: parseFloat(formData.get('amount')) || 0,
+                      date: formData.get('date'),
+                      purpose: formData.get('purpose'),
+                      status: formData.get('status')
+                    }
+                  : c
+              );
+              setCustodyData(updatedCustody);
+              setShowEditModal(false);
+              setSuccessMessage(language === 'ar' ? 'تم تعديل العهدة بنجاح!' : 'Custody updated successfully!');
+              setShowSuccessModal(true);
+              setTimeout(() => setShowSuccessModal(false), 2000);
+            }} className="space-y-4">
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'اسم الموظف' : 'Employee Name'} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="employee"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  defaultValue={selectedEntry.employee}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'المبلغ' : 'Amount'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="amount"
+                    required
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    defaultValue={selectedEntry.amount}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'التاريخ' : 'Date'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    defaultValue={selectedEntry.date}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'الغرض' : 'Purpose'} <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  name="purpose"
+                  required
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  defaultValue={selectedEntry.purpose}
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'الحالة' : 'Status'} <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="status"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  defaultValue={selectedEntry.status}
+                >
+                  <option value="active">{language === 'ar' ? 'نشط' : 'Active'}</option>
+                  <option value="settled">{language === 'ar' ? 'مسدد' : 'Settled'}</option>
+                </select>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                  {language === 'ar' ? 'حفظ التعديلات' : 'Save Changes'}
+                </Button>
+                <Button type="button" onClick={() => setShowEditModal(false)} variant="outline" className="flex-1">
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="text-gray-700 mb-6">
+              {language === 'ar' ? `هل أنت متأكد من حذف عهدة ${selectedEntry.employee} (${selectedEntry.id})؟` : `Are you sure you want to delete custody for ${selectedEntry.employee} (${selectedEntry.id})?`}
+            </p>
+            <div className="flex gap-4">
+              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-600 hover:bg-red-700">
+                {language === 'ar' ? 'حذف' : 'Delete'}
+              </Button>
+              <Button onClick={() => setShowDeleteModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <div className="text-green-600 text-5xl mb-4">✓</div>
+            <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
