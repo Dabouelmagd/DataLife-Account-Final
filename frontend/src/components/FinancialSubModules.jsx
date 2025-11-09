@@ -993,32 +993,90 @@ export const SuppliersModule = ({ language, userRole }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي الموردين' : 'Total Suppliers'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">3</p>
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي الموردين' : 'Total Suppliers'}
+                </p>
+                <h3 className="text-3xl font-bold text-gray-900">{suppliers.length}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'موردين' : 'suppliers'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'الموردين النشطين' : 'Active Suppliers'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">2</p>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'الموردين النشطين' : 'Active Suppliers'}
+                </p>
+                <h3 className="text-3xl font-bold text-green-600">
+                  {suppliers.filter(s => s.status === 'active').length}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'نشطين' : 'active'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي المديونية' : 'Total Payables'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-red-600">77,000 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي المديونية' : 'Total Payables'}
+                </p>
+                <h3 className="text-3xl font-bold text-red-600">
+                  {suppliers.reduce((sum, s) => sum + s.balance, 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'مستحق الدفع' : 'payables'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Search Section */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'البحث بالاسم أو رقم الهاتف...' : 'Search by name or phone...'}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <option value="">{language === 'ar' ? 'كل الموردين' : 'All Suppliers'}</option>
+              <option value="active">{language === 'ar' ? 'نشطين' : 'Active'}</option>
+              <option value="inactive">{language === 'ar' ? 'غير نشطين' : 'Inactive'}</option>
+            </select>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
