@@ -1885,43 +1885,164 @@ export const FinancialReportsModule = ({ language, userRole }) => {
 
         {/* بيان التدفق النقدي */}
         {financialReportTab === 'cashFlow' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{language === 'ar' ? 'بيان التدفق النقدي' : 'Cash Flow Statement'}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {/* التدفقات التشغيلية */}
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-blue-800 mb-3">{language === 'ar' ? 'التدفقات من الأنشطة التشغيلية' : 'Operating Activities'}</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>{language === 'ar' ? 'صافي الدخل:' : 'Net Income:'}</span>
-                      <span className="font-medium">{financialData.cashFlow.operating.netIncome.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+          <div className="space-y-6">
+            {/* بطاقات الملخص */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="border-l-4 border-l-green-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">
+                        {language === 'ar' ? 'إجمالي الإيداعات' : 'Total Deposits'}
+                      </p>
+                      <h3 className="text-3xl font-bold text-green-600">+80,000</h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {language === 'ar' ? 'ج.م' : 'EGP'}
+                      </p>
                     </div>
-                    <div className="flex justify-between font-semibold border-t pt-2">
-                      <span className="text-blue-700">{language === 'ar' ? 'صافي التدفق التشغيلي:' : 'Net Operating Cash Flow:'}</span>
-                      <span className="text-blue-700">{financialData.cashFlow.operating.total.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6 text-green-600" />
                     </div>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
 
-                {/* الملخص النهائي */}
-                <div className="bg-gray-100 p-4 rounded-lg">
-                  <div className="space-y-2">
-                    <div className="flex justify-between font-semibold">
-                      <span>{language === 'ar' ? 'صافي التغير في النقدية:' : 'Net Change in Cash:'}</span>
-                      <span className="text-blue-600">{financialData.cashFlow.netCashFlow.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+              <Card className="border-l-4 border-l-red-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">
+                        {language === 'ar' ? 'إجمالي السحوبات' : 'Total Withdrawals'}
+                      </p>
+                      <h3 className="text-3xl font-bold text-red-600">-35,000</h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {language === 'ar' ? 'ج.م' : 'EGP'}
+                      </p>
                     </div>
-                    <div className="flex justify-between font-bold text-lg border-t pt-2">
-                      <span className="text-green-800">{language === 'ar' ? 'النقدية في نهاية الفترة:' : 'Ending Cash Balance:'}</span>
-                      <span className="text-green-800">{financialData.cashFlow.endingCash.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                    <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                      <TrendingDown className="w-6 h-6 text-red-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-blue-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">
+                        {language === 'ar' ? 'صافي التدفق النقدي' : 'Net Cash Flow'}
+                      </p>
+                      <h3 className="text-3xl font-bold text-blue-600">+45,000</h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {language === 'ar' ? 'ج.م' : 'EGP'}
+                      </p>
+                    </div>
+                    <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <DollarSign className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* جدول تفاصيل السحب والإيداع */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'تفاصيل السحب والإيداع' : 'Deposits & Withdrawals Details'}</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'الرصيد' : 'Balance'}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>2024-10-08</TableCell>
+                      <TableCell>{language === 'ar' ? 'تحصيل من عميل' : 'Customer payment'}</TableCell>
+                      <TableCell>
+                        <Badge variant="success">{language === 'ar' ? 'إيداع' : 'Deposit'}</Badge>
+                      </TableCell>
+                      <TableCell className="text-green-600 font-bold">+50,000</TableCell>
+                      <TableCell className="font-semibold">150,000</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>2024-10-08</TableCell>
+                      <TableCell>{language === 'ar' ? 'شراء مستلزمات' : 'Purchase supplies'}</TableCell>
+                      <TableCell>
+                        <Badge variant="destructive">{language === 'ar' ? 'سحب' : 'Withdrawal'}</Badge>
+                      </TableCell>
+                      <TableCell className="text-red-600 font-bold">-15,000</TableCell>
+                      <TableCell className="font-semibold">135,000</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>2024-10-09</TableCell>
+                      <TableCell>{language === 'ar' ? 'مبيعات نقدية' : 'Cash sales'}</TableCell>
+                      <TableCell>
+                        <Badge variant="success">{language === 'ar' ? 'إيداع' : 'Deposit'}</Badge>
+                      </TableCell>
+                      <TableCell className="text-green-600 font-bold">+30,000</TableCell>
+                      <TableCell className="font-semibold">165,000</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>2024-10-09</TableCell>
+                      <TableCell>{language === 'ar' ? 'دفع فواتير' : 'Bills payment'}</TableCell>
+                      <TableCell>
+                        <Badge variant="destructive">{language === 'ar' ? 'سحب' : 'Withdrawal'}</Badge>
+                      </TableCell>
+                      <TableCell className="text-red-600 font-bold">-20,000</TableCell>
+                      <TableCell className="font-semibold">145,000</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* بيان التدفق النقدي التفصيلي */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'ar' ? 'بيان التدفق النقدي' : 'Cash Flow Statement'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* التدفقات التشغيلية */}
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-blue-800 mb-3">{language === 'ar' ? 'التدفقات من الأنشطة التشغيلية' : 'Operating Activities'}</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{language === 'ar' ? 'صافي الدخل:' : 'Net Income:'}</span>
+                        <span className="font-medium">{financialData.cashFlow.operating.netIncome.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span className="text-blue-700">{language === 'ar' ? 'صافي التدفق التشغيلي:' : 'Net Operating Cash Flow:'}</span>
+                        <span className="text-blue-700">{financialData.cashFlow.operating.total.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* الملخص النهائي */}
+                  <div className="bg-gray-100 p-4 rounded-lg">
+                    <div className="space-y-2">
+                      <div className="flex justify-between font-semibold">
+                        <span>{language === 'ar' ? 'صافي التغير في النقدية:' : 'Net Change in Cash:'}</span>
+                        <span className="text-blue-600">{financialData.cashFlow.netCashFlow.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-lg border-t pt-2">
+                        <span className="text-green-800">{language === 'ar' ? 'النقدية في نهاية الفترة:' : 'Ending Cash Balance:'}</span>
+                        <span className="text-green-800">{financialData.cashFlow.endingCash.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* الميزانية العمومية */}
