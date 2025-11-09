@@ -955,69 +955,6 @@ const RealDashboard = () => {
           ))}
         </div>
 
-        {/* Current User Info - Professional Card */}
-        <div className="px-4 pb-4 relative z-10">
-          <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-lg rounded-2xl p-4 border border-white/20 shadow-xl">
-            <div className="flex items-center gap-3">
-              {/* User Avatar */}
-              {user?.profile_photo_url ? (
-                <img
-                  src={user.profile_photo_url}
-                  alt={user.full_name}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-white/50 shadow-lg"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                  {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
-                </div>
-              )}
-              
-              {/* User Details */}
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold text-sm truncate">
-                  {user?.full_name || 'User'}
-                </p>
-                <div className="flex items-center gap-1 mt-1">
-                  <Badge className={`text-xs px-2 py-0.5 ${
-                    ['CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(user?.role) 
-                      ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0'
-                      : ['General Manager', 'مدير عام'].includes(user?.role)
-                      ? 'bg-gradient-to-r from-purple-400 to-pink-500 text-white border-0'
-                      : ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات'].includes(user?.role)
-                      ? 'bg-gradient-to-r from-green-400 to-teal-500 text-white border-0'
-                      : ['HR Manager', 'مدير الموارد البشرية'].includes(user?.role)
-                      ? 'bg-gradient-to-r from-blue-400 to-cyan-500 text-white border-0'
-                      : 'bg-gray-500 text-white border-0'
-                  }`}>
-                    {user?.role || 'N/A'}
-                  </Badge>
-                </div>
-                <p className="text-gray-300 text-xs mt-1 truncate">
-                  {user?.email || 'No email'}
-                </p>
-              </div>
-            </div>
-            
-            {/* Permissions Indicator */}
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <p className="text-xs text-gray-300 mb-2">
-                {language === 'ar' ? 'الصلاحيات:' : 'Permissions:'}
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {modules.map((module, index) => (
-                  <span 
-                    key={index}
-                    className="text-xs px-2 py-1 bg-white/10 text-white rounded-lg"
-                    title={module.name}
-                  >
-                    {React.cloneElement(module.icon, { className: 'h-3 w-3' })}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Bottom Actions - Modern Glass Effect */}
         <div className="p-4 space-y-2 relative z-10 border-t border-white/10">
           {['General Manager', 'CEO', 'Board Chairman', 'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة'].includes(user?.role) && (
