@@ -781,49 +781,7 @@ const RealDashboard = () => {
 
     // Analytics Module
     if (activeModule === 'analytics') {
-      return (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{language === 'ar' ? 'التحليلات' : 'Analytics'}</CardTitle>
-              <CardDescription>
-                {language === 'ar' ? 'رؤى وتحليلات متقدمة' : 'Advanced Insights and Analytics'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="text-center">
-                      <TrendingUp className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                      <p className="text-sm text-gray-600">{language === 'ar' ? 'معدل النمو' : 'Growth Rate'}</p>
-                      <p className="text-2xl font-bold">+15.2%</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="text-center">
-                      <Users className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                      <p className="text-sm text-gray-600">{language === 'ar' ? 'معدل الاستبقاء' : 'Retention Rate'}</p>
-                      <p className="text-2xl font-bold">92%</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="text-center">
-                      <BarChart className="h-8 w-8 mx-auto mb-2 text-purple-600" />
-                      <p className="text-sm text-gray-600">{language === 'ar' ? 'الأداء' : 'Performance'}</p>
-                      <p className="text-2xl font-bold">88%</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      );
+      return <AnalyticsModule language={language} userRole={user?.role} />;
     }
 
     return null;
