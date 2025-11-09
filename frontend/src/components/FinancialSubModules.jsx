@@ -635,7 +635,7 @@ export const TreasuryModule = ({ language, userRole }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {treasuryData.transactions.map((tx) => (
+              {transactions.map((tx) => (
                 <TableRow key={tx.id}>
                   <TableCell className="font-medium">{tx.id}</TableCell>
                   <TableCell>{tx.date}</TableCell>
