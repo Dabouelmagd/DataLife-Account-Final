@@ -2107,6 +2107,385 @@ class MultiTenantAPITester:
         except Exception as e:
             self.log_result("API Health", False, f"Exception: {str(e)}")
 
+    async def test_inventory_api_comprehensive(self):
+        """Comprehensive Inventory Management API Testing"""
+        if "A" not in self.test_companies:
+            self.log_result("Inventory API Comprehensive", False, "Company A not available")
+            return
+            
+        company_a = self.test_companies["A"]
+        
+        # Test 1: Authentication Testing - Missing Authorization Header
+        try:
+            response = await self.client.get(f"{self.base_url}/inventory/items")
+            
+            if response.status_code == 401:
+                data = response.json()
+                if "authorization header" in data.get("detail", "").lower():
+                    self.log_result("Inventory Auth - Missing Header", True, "Correctly rejected missing auth header")
+                else:
+                    self.log_result("Inventory Auth - Missing Header", False, f"Wrong error message: {data.get('detail')}")
+            else:
+                self.log_result("Inventory Auth - Missing Header", False, f"Expected 401, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Inventory Auth - Missing Header", False, f"Exception: {str(e)}")
+        
+        # Test 2: Authentication Testing - Invalid Token
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/inventory/items",
+                headers={"Authorization": "Bearer invalid_token_123"}
+            )
+            
+            if response.status_code == 401:
+                data = response.json()
+                if "invalid" in data.get("detail", "").lower() or "expired" in data.get("detail", "").lower():
+                    self.log_result("Inventory Auth - Invalid Token", True, "Correctly rejected invalid token")
+                else:
+                    self.log_result("Inventory Auth - Invalid Token", False, f"Wrong error message: {data.get('detail')}")
+            else:
+                self.log_result("Inventory Auth - Invalid Token", False, f"Expected 401, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Inventory Auth - Invalid Token", False, f"Exception: {str(e)}")
+        
+        # Test 3: GET /api/inventory/items - List Items (Empty for new company)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/inventory/items",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_result("Inventory GET Items - Empty List", True, f"Retrieved {len(data)} items for new company (expected empty)")
+                else:
+                    self.log_result("Inventory GET Items - Empty List", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("Inventory GET Items - Empty List", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Inventory GET Items - Empty List", False, f"Exception: {str(e)}")
+        
+        # Test 4: POST /api/inventory/items - Create Item as General Manager (Should Succeed)
+        inventory_item_data = {
+            "name": "Laptop Computer",
+            "category": "Finished Products",
+            "quantity": 50.0,
+            "unit": "pcs",
+            "unit_price": 1200.0,
+            "min_stock": 10.0
+        }
+        
+        created_item_id = None
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/inventory/items",
+                json=inventory_item_data,
+                headers={
+                    "Authorization": f"Bearer {company_a['token']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response structure
+                required_fields = ["id", "name", "category", "quantity", "unit", "unit_price", "total_value", "min_stock", "status"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("Inventory POST - General Manager", False, f"Missing fields: {missing_fields}")
+                else:
+                    # Validate automatic calculations
+                    expected_total_value = inventory_item_data["quantity"] * inventory_item_data["unit_price"]
+                    expected_status = "in-stock"  # quantity (50) > min_stock (10)
+                    
+                    if data.get("total_value") == expected_total_value and data.get("status") == expected_status:
+                        created_item_id = data.get("id")
+                        self.test_data["inventory_item_id"] = created_item_id
+                        self.log_result("Inventory POST - General Manager", True, f"Item created with correct calculations: total_value={expected_total_value}, status={expected_status}")
+                    else:
+                        self.log_result("Inventory POST - General Manager", False, f"Calculation error: expected total_value={expected_total_value}, got {data.get('total_value')}")
+            else:
+                self.log_result("Inventory POST - General Manager", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Inventory POST - General Manager", False, f"Exception: {str(e)}")
+        
+        # Test 5: POST /api/inventory/items - Create Item as Financial Manager (Should Succeed)
+        if "users" in company_a and "Financial Manager" in company_a["users"]:
+            financial_item_data = {
+                "name": "Office Chair",
+                "category": "Supplies",
+                "quantity": 25.0,
+                "unit": "pcs",
+                "unit_price": 150.0,
+                "min_stock": 5.0
+            }
+            
+            try:
+                financial_token = company_a["users"]["Financial Manager"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/inventory/items",
+                    json=financial_item_data,
+                    headers={
+                        "Authorization": f"Bearer {financial_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    expected_total_value = financial_item_data["quantity"] * financial_item_data["unit_price"]
+                    if data.get("total_value") == expected_total_value:
+                        self.log_result("Inventory POST - Financial Manager", True, f"Financial Manager can create items successfully")
+                    else:
+                        self.log_result("Inventory POST - Financial Manager", False, f"Calculation error in Financial Manager creation")
+                else:
+                    self.log_result("Inventory POST - Financial Manager", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Inventory POST - Financial Manager", False, f"Exception: {str(e)}")
+        
+        # Test 6: POST /api/inventory/items - Create Item as Accountant (Should Fail 403)
+        if "users" in company_a and "Accountant" in company_a["users"]:
+            accountant_item_data = {
+                "name": "Unauthorized Item",
+                "category": "Supplies",
+                "quantity": 10.0,
+                "unit": "pcs",
+                "unit_price": 50.0,
+                "min_stock": 2.0
+            }
+            
+            try:
+                accountant_token = company_a["users"]["Accountant"]["token"]
+                response = await self.client.post(
+                    f"{self.base_url}/inventory/items",
+                    json=accountant_item_data,
+                    headers={
+                        "Authorization": f"Bearer {accountant_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 403:
+                    data = response.json()
+                    if "insufficient permissions" in data.get("detail", "").lower():
+                        self.log_result("Inventory POST - Accountant Denied", True, "Correctly denied Accountant create access")
+                    else:
+                        self.log_result("Inventory POST - Accountant Denied", False, f"Wrong error message: {data.get('detail')}")
+                else:
+                    self.log_result("Inventory POST - Accountant Denied", False, f"Expected 403, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("Inventory POST - Accountant Denied", False, f"Exception: {str(e)}")
+        
+        # Test 7: GET /api/inventory/items - List Items After Creation (Multi-tenant isolation)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/inventory/items",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    # Check that all items belong to Company A
+                    company_a_items = [item for item in data if item.get("name") in ["Laptop Computer", "Office Chair"]]
+                    if len(company_a_items) >= 1:  # At least the laptop should be there
+                        self.log_result("Inventory GET Items - After Creation", True, f"Retrieved {len(data)} items for Company A only")
+                    else:
+                        self.log_result("Inventory GET Items - After Creation", False, "Created items not found in list")
+                else:
+                    self.log_result("Inventory GET Items - After Creation", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("Inventory GET Items - After Creation", False, f"Expected 200, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Inventory GET Items - After Creation", False, f"Exception: {str(e)}")
+        
+        # Test 8: GET /api/inventory/items/{item_id} - Get Specific Item
+        if created_item_id:
+            try:
+                response = await self.client.get(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    headers={"Authorization": f"Bearer {company_a['token']}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("name") == "Laptop Computer" and data.get("id") == created_item_id:
+                        self.log_result("Inventory GET Specific Item", True, f"Retrieved specific item successfully: {data.get('name')}")
+                    else:
+                        self.log_result("Inventory GET Specific Item", False, f"Item data mismatch: expected Laptop Computer, got {data.get('name')}")
+                else:
+                    self.log_result("Inventory GET Specific Item", False, f"Expected 200, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("Inventory GET Specific Item", False, f"Exception: {str(e)}")
+        
+        # Test 9: GET /api/inventory/items/{item_id} - Non-existent Item (404)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/inventory/items/non-existent-item-id",
+                headers={"Authorization": f"Bearer {company_a['token']}"}
+            )
+            
+            if response.status_code == 404:
+                data = response.json()
+                if "not found" in data.get("detail", "").lower():
+                    self.log_result("Inventory GET Non-existent Item", True, "Correctly returned 404 for non-existent item")
+                else:
+                    self.log_result("Inventory GET Non-existent Item", False, f"Wrong error message: {data.get('detail')}")
+            else:
+                self.log_result("Inventory GET Non-existent Item", False, f"Expected 404, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Inventory GET Non-existent Item", False, f"Exception: {str(e)}")
+        
+        # Test 10: PUT /api/inventory/items/{item_id} - Update Item as General Manager
+        if created_item_id:
+            update_data = {
+                "quantity": 30.0,  # Reduce quantity to test low-stock status
+                "unit_price": 1300.0  # Increase price
+            }
+            
+            try:
+                response = await self.client.put(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    json=update_data,
+                    headers={
+                        "Authorization": f"Bearer {company_a['token']}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    expected_total_value = update_data["quantity"] * update_data["unit_price"]  # 30 * 1300 = 39000
+                    expected_status = "in-stock"  # quantity (30) > min_stock (10)
+                    
+                    if data.get("total_value") == expected_total_value and data.get("status") == expected_status:
+                        self.log_result("Inventory PUT - Update Item", True, f"Item updated with recalculated values: total_value={expected_total_value}")
+                    else:
+                        self.log_result("Inventory PUT - Update Item", False, f"Update calculation error: expected total_value={expected_total_value}, got {data.get('total_value')}")
+                else:
+                    self.log_result("Inventory PUT - Update Item", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Inventory PUT - Update Item", False, f"Exception: {str(e)}")
+        
+        # Test 11: PUT /api/inventory/items/{item_id} - Update as Accountant (Should Fail 403)
+        if created_item_id and "users" in company_a and "Accountant" in company_a["users"]:
+            update_data = {"quantity": 100.0}
+            
+            try:
+                accountant_token = company_a["users"]["Accountant"]["token"]
+                response = await self.client.put(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    json=update_data,
+                    headers={
+                        "Authorization": f"Bearer {accountant_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 403:
+                    data = response.json()
+                    if "insufficient permissions" in data.get("detail", "").lower():
+                        self.log_result("Inventory PUT - Accountant Denied", True, "Correctly denied Accountant update access")
+                    else:
+                        self.log_result("Inventory PUT - Accountant Denied", False, f"Wrong error message: {data.get('detail')}")
+                else:
+                    self.log_result("Inventory PUT - Accountant Denied", False, f"Expected 403, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("Inventory PUT - Accountant Denied", False, f"Exception: {str(e)}")
+        
+        # Test 12: DELETE /api/inventory/items/{item_id} - Delete as Accountant (Should Fail 403)
+        if created_item_id and "users" in company_a and "Accountant" in company_a["users"]:
+            try:
+                accountant_token = company_a["users"]["Accountant"]["token"]
+                response = await self.client.delete(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    headers={"Authorization": f"Bearer {accountant_token}"}
+                )
+                
+                if response.status_code == 403:
+                    data = response.json()
+                    if "insufficient permissions" in data.get("detail", "").lower():
+                        self.log_result("Inventory DELETE - Accountant Denied", True, "Correctly denied Accountant delete access")
+                    else:
+                        self.log_result("Inventory DELETE - Accountant Denied", False, f"Wrong error message: {data.get('detail')}")
+                else:
+                    self.log_result("Inventory DELETE - Accountant Denied", False, f"Expected 403, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("Inventory DELETE - Accountant Denied", False, f"Exception: {str(e)}")
+        
+        # Test 13: DELETE /api/inventory/items/{item_id} - Delete as General Manager (Should Succeed)
+        if created_item_id:
+            try:
+                response = await self.client.delete(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    headers={"Authorization": f"Bearer {company_a['token']}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "deleted successfully" in data.get("message", "").lower():
+                        self.log_result("Inventory DELETE - General Manager", True, f"Item deleted successfully: {data.get('item_id')}")
+                    else:
+                        self.log_result("Inventory DELETE - General Manager", False, f"Unexpected response: {data.get('message')}")
+                else:
+                    self.log_result("Inventory DELETE - General Manager", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Inventory DELETE - General Manager", False, f"Exception: {str(e)}")
+        
+        # Test 14: GET /api/inventory/items/{item_id} - Verify Deletion (Should Return 404)
+        if created_item_id:
+            try:
+                response = await self.client.get(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    headers={"Authorization": f"Bearer {company_a['token']}"}
+                )
+                
+                if response.status_code == 404:
+                    self.log_result("Inventory GET After Delete", True, "Correctly returned 404 after deletion")
+                else:
+                    self.log_result("Inventory GET After Delete", False, f"Expected 404, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("Inventory GET After Delete", False, f"Exception: {str(e)}")
+        
+        # Test 15: Multi-tenant Isolation - Company B cannot access Company A items
+        if "B" in self.test_companies:
+            try:
+                company_b_token = self.test_companies["B"]["token"]
+                response = await self.client.get(
+                    f"{self.base_url}/inventory/items",
+                    headers={"Authorization": f"Bearer {company_b_token}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if isinstance(data, list) and len(data) == 0:
+                        self.log_result("Inventory Multi-tenant Isolation", True, "Company B cannot see Company A inventory items")
+                    else:
+                        self.log_result("Inventory Multi-tenant Isolation", False, f"Company B can see {len(data)} items (should be 0)")
+                else:
+                    self.log_result("Inventory Multi-tenant Isolation", False, f"Expected 200, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("Inventory Multi-tenant Isolation", False, f"Exception: {str(e)}")
+
     async def run_all_tests(self):
         """Run all tests in sequence"""
         print("🚀 Starting Comprehensive Multi-Tenant Backend API Tests...")
