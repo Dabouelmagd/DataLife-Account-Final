@@ -2946,6 +2946,314 @@ export const SuppliersModule = ({ language, userRole }) => {
   );
 };
 
+// Inventory Module
+export const InventoryModule = ({ language, userRole }) => {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const isRTL = language === 'ar';
+  const canEdit = ['Financial Manager', 'المدير المالي', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
+
+  const initialInventory = [
+    { id: 'INV001', name: language === 'ar' ? 'مواد خام - نوع A' : 'Raw Material - Type A', category: language === 'ar' ? 'مواد خام' : 'Raw Materials', quantity: 500, unit: language === 'ar' ? 'كجم' : 'kg', unitPrice: 50, totalValue: 25000, minStock: 100, status: 'in-stock' },
+    { id: 'INV002', name: language === 'ar' ? 'منتج نهائي - X' : 'Finished Product - X', category: language === 'ar' ? 'منتجات نهائية' : 'Finished Products', quantity: 200, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 150, totalValue: 30000, minStock: 50, status: 'in-stock' },
+    { id: 'INV003', name: language === 'ar' ? 'قطع غيار' : 'Spare Parts', category: language === 'ar' ? 'قطع غيار' : 'Spare Parts', quantity: 30, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 200, totalValue: 6000, minStock: 50, status: 'low-stock' },
+    { id: 'INV004', name: language === 'ar' ? 'مستلزمات التعبئة' : 'Packaging Materials', category: language === 'ar' ? 'مستلزمات' : 'Supplies', quantity: 1000, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 5, totalValue: 5000, minStock: 200, status: 'in-stock' },
+    { id: 'INV005', name: language === 'ar' ? 'مواد كيميائية' : 'Chemical Materials', category: language === 'ar' ? 'مواد خام' : 'Raw Materials', quantity: 15, unit: language === 'ar' ? 'لتر' : 'ltr', unitPrice: 300, totalValue: 4500, minStock: 20, status: 'low-stock' }
+  ];
+
+  const [inventory, setInventory] = React.useState(initialInventory);
+
+  React.useEffect(() => {
+    setInventory([
+      { id: 'INV001', name: language === 'ar' ? 'مواد خام - نوع A' : 'Raw Material - Type A', category: language === 'ar' ? 'مواد خام' : 'Raw Materials', quantity: 500, unit: language === 'ar' ? 'كجم' : 'kg', unitPrice: 50, totalValue: 25000, minStock: 100, status: 'in-stock' },
+      { id: 'INV002', name: language === 'ar' ? 'منتج نهائي - X' : 'Finished Product - X', category: language === 'ar' ? 'منتجات نهائية' : 'Finished Products', quantity: 200, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 150, totalValue: 30000, minStock: 50, status: 'in-stock' },
+      { id: 'INV003', name: language === 'ar' ? 'قطع غيار' : 'Spare Parts', category: language === 'ar' ? 'قطع غيار' : 'Spare Parts', quantity: 30, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 200, totalValue: 6000, minStock: 50, status: 'low-stock' },
+      { id: 'INV004', name: language === 'ar' ? 'مستلزمات التعبئة' : 'Packaging Materials', category: language === 'ar' ? 'مستلزمات' : 'Supplies', quantity: 1000, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 5, totalValue: 5000, minStock: 200, status: 'in-stock' },
+      { id: 'INV005', name: language === 'ar' ? 'مواد كيميائية' : 'Chemical Materials', category: language === 'ar' ? 'مواد خام' : 'Raw Materials', quantity: 15, unit: language === 'ar' ? 'لتر' : 'ltr', unitPrice: 300, totalValue: 4500, minStock: 20, status: 'low-stock' }
+    ]);
+  }, [language]);
+
+  const handleDeleteConfirm = () => {
+    setInventory(inventory.filter(i => i.id !== selectedEntry.id));
+    setShowDeleteModal(false);
+    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
+  const totalValue = inventory.reduce((sum, i) => sum + i.totalValue, 0);
+  const totalItems = inventory.length;
+  const lowStockItems = inventory.filter(i => i.status === 'low-stock').length;
+  const inStockItems = inventory.filter(i => i.status === 'in-stock').length;
+
+  const exportToCSV = () => {
+    const headers = language === 'ar' 
+      ? ['الكود', 'اسم الصنف', 'الفئة', 'الكمية', 'الوحدة', 'سعر الوحدة', 'القيمة الإجمالية', 'الحد الأدنى', 'الحالة']
+      : ['ID', 'Item Name', 'Category', 'Quantity', 'Unit', 'Unit Price', 'Total Value', 'Min Stock', 'Status'];
+    
+    const csvData = inventory.map(i => [
+      i.id, i.name, i.category, i.quantity, i.unit, i.unitPrice, i.totalValue, i.minStock,
+      i.status === 'in-stock' ? (language === 'ar' ? 'متوفر' : 'In Stock') : (language === 'ar' ? 'مخزون منخفض' : 'Low Stock')
+    ]);
+
+    const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `inventory_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
+  return (
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">
+          {language === 'ar' ? 'إدارة المخزون' : 'Inventory Management'}
+        </h2>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
+          </Button>
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
+          </Button>
+          {canEdit && (
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
+              <span>{language === 'ar' ? 'صنف جديد' : 'New Item'}</span>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي الأصناف' : 'Total Items'}
+                </p>
+                <h3 className="text-3xl font-bold text-gray-900">{totalItems}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'صنف' : 'items'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'متوفر' : 'In Stock'}
+                </p>
+                <h3 className="text-3xl font-bold text-green-600">{inStockItems}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'صنف' : 'items'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'مخزون منخفض' : 'Low Stock'}
+                </p>
+                <h3 className="text-3xl font-bold text-red-600">{lowStockItems}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'صنف' : 'items'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-purple-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'القيمة الإجمالية' : 'Total Value'}
+                </p>
+                <h3 className="text-3xl font-bold text-purple-600">{totalValue.toLocaleString()}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filter Section */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'البحث بالاسم أو الكود...' : 'Search by name or ID...'}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <select 
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="all">{language === 'ar' ? 'كل الفئات' : 'All Categories'}</option>
+              <option value="Raw Materials">{language === 'ar' ? 'مواد خام' : 'Raw Materials'}</option>
+              <option value="Finished Products">{language === 'ar' ? 'منتجات نهائية' : 'Finished Products'}</option>
+              <option value="Spare Parts">{language === 'ar' ? 'قطع غيار' : 'Spare Parts'}</option>
+              <option value="Supplies">{language === 'ar' ? 'مستلزمات' : 'Supplies'}</option>
+            </select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
+                <TableHead>{language === 'ar' ? 'اسم الصنف' : 'Item Name'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الفئة' : 'Category'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الكمية' : 'Quantity'}</TableHead>
+                <TableHead>{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
+                <TableHead>{language === 'ar' ? 'القيمة' : 'Total Value'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(() => {
+                const getCategoryKey = (cat) => {
+                  const map = {
+                    'مواد خام': 'Raw Materials',
+                    'منتجات نهائية': 'Finished Products',
+                    'قطع غيار': 'Spare Parts',
+                    'مستلزمات': 'Supplies'
+                  };
+                  return map[cat] || cat;
+                };
+
+                const filteredInventory = categoryFilter === 'all' 
+                  ? inventory 
+                  : inventory.filter(i => getCategoryKey(i.category) === categoryFilter);
+                
+                if (filteredInventory.length === 0) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan="8" className="text-center py-8 text-gray-500">
+                        {language === 'ar' ? 'لا توجد أصناف' : 'No items found'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                
+                return filteredInventory.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-bold text-blue-600">{item.id}</TableCell>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell>
+                      <span className="inline-block px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                        {item.category}
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-semibold">
+                      {item.quantity} {item.unit}
+                    </TableCell>
+                    <TableCell>{item.unitPrice.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</TableCell>
+                    <TableCell className="font-bold">{item.totalValue.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</TableCell>
+                    <TableCell>
+                      <Badge variant={item.status === 'in-stock' ? 'success' : 'destructive'}>
+                        {item.status === 'in-stock' 
+                          ? (language === 'ar' ? 'متوفر' : 'In Stock') 
+                          : (language === 'ar' ? 'مخزون منخفض' : 'Low Stock')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(item); setShowViewModal(true); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(item); setShowEditModal(true); }}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(item); setShowDeleteModal(true); }}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ));
+              })()}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <div className="text-green-600 text-5xl mb-4">✓</div>
+            <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Financial Reports Module
 export const FinancialReportsModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
