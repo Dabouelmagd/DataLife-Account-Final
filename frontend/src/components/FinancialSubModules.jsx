@@ -1838,12 +1838,14 @@ export const AccountsModule = ({ language, userRole }) => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
   const isRTL = language === 'ar';
   const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
-  const accounts = [
+  const initialAccounts = [
     { code: '1010', name: language === 'ar' ? 'البنك' : 'Bank', type: language === 'ar' ? 'أصول' : 'Assets', balance: 250000 },
     { code: '1020', name: language === 'ar' ? 'الخزنة' : 'Cash', type: language === 'ar' ? 'أصول' : 'Assets', balance: 350000 },
     { code: '2010', name: language === 'ar' ? 'الموردين' : 'Suppliers', type: language === 'ar' ? 'خصوم' : 'Liabilities', balance: 120000 },
@@ -1851,6 +1853,64 @@ export const AccountsModule = ({ language, userRole }) => {
     { code: '4010', name: language === 'ar' ? 'المبيعات' : 'Sales', type: language === 'ar' ? 'إيرادات' : 'Revenue', balance: 450000 },
     { code: '5010', name: language === 'ar' ? 'الرواتب' : 'Salaries', type: language === 'ar' ? 'مصروفات' : 'Expenses', balance: 180000 }
   ];
+
+  const [accounts, setAccounts] = React.useState(initialAccounts);
+
+  // Update accounts when language changes
+  React.useEffect(() => {
+    setAccounts([
+      { code: '1010', name: language === 'ar' ? 'البنك' : 'Bank', type: language === 'ar' ? 'أصول' : 'Assets', balance: 250000 },
+      { code: '1020', name: language === 'ar' ? 'الخزنة' : 'Cash', type: language === 'ar' ? 'أصول' : 'Assets', balance: 350000 },
+      { code: '2010', name: language === 'ar' ? 'الموردين' : 'Suppliers', type: language === 'ar' ? 'خصوم' : 'Liabilities', balance: 120000 },
+      { code: '3010', name: language === 'ar' ? 'رأس المال' : 'Capital', type: language === 'ar' ? 'حقوق ملكية' : 'Equity', balance: 500000 },
+      { code: '4010', name: language === 'ar' ? 'المبيعات' : 'Sales', type: language === 'ar' ? 'إيرادات' : 'Revenue', balance: 450000 },
+      { code: '5010', name: language === 'ar' ? 'الرواتب' : 'Salaries', type: language === 'ar' ? 'مصروفات' : 'Expenses', balance: 180000 }
+    ]);
+  }, [language]);
+
+  const handleDeleteConfirm = () => {
+    setAccounts(accounts.filter(a => a.code !== selectedEntry.code));
+    setShowDeleteModal(false);
+    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
+  // Calculate statistics by type
+  const assetAccounts = accounts.filter(a => a.type === (language === 'ar' ? 'أصول' : 'Assets'));
+  const liabilityAccounts = accounts.filter(a => a.type === (language === 'ar' ? 'خصوم' : 'Liabilities'));
+  const equityAccounts = accounts.filter(a => a.type === (language === 'ar' ? 'حقوق ملكية' : 'Equity'));
+  const revenueAccounts = accounts.filter(a => a.type === (language === 'ar' ? 'إيرادات' : 'Revenue'));
+  const expenseAccounts = accounts.filter(a => a.type === (language === 'ar' ? 'مصروفات' : 'Expenses'));
+
+  const totalAssets = assetAccounts.reduce((sum, a) => sum + a.balance, 0);
+  const totalLiabilities = liabilityAccounts.reduce((sum, a) => sum + a.balance, 0);
+
+  // Export to CSV function
+  const exportToCSV = () => {
+    const headers = language === 'ar' 
+      ? ['الكود', 'اسم الحساب', 'النوع', 'الرصيد']
+      : ['Code', 'Account Name', 'Type', 'Balance'];
+    
+    const csvData = accounts.map(a => [a.code, a.name, a.type, a.balance]);
+
+    const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `chart_of_accounts_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
