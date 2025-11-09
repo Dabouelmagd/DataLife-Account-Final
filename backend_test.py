@@ -2107,6 +2107,166 @@ class MultiTenantAPITester:
         except Exception as e:
             self.log_result("API Health", False, f"Exception: {str(e)}")
 
+    async def test_inventory_api_with_existing_user(self):
+        """Test Inventory API with existing test user: test-logo@example.com"""
+        print("\n🔍 Testing with existing user: test-logo@example.com")
+        
+        # Login with existing test user
+        login_data = {
+            "email": "test-logo@example.com",
+            "password": "testpass123"
+        }
+        
+        try:
+            login_response = await self.client.post(
+                f"{self.base_url}/auth/login",
+                json=login_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if login_response.status_code != 200:
+                self.log_result("Existing User Login", False, f"Could not login existing user: {login_response.status_code}")
+                return
+                
+            login_data_response = login_response.json()
+            existing_user_token = login_data_response["access_token"]
+            user_info = login_data_response["user"]
+            
+            self.log_result("Existing User Login", True, f"Successfully logged in as {user_info.get('full_name')} ({user_info.get('role')})")
+            
+        except Exception as e:
+            self.log_result("Existing User Login", False, f"Exception: {str(e)}")
+            return
+        
+        # Test 1: GET /api/inventory/items - List existing items
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/inventory/items",
+                headers={"Authorization": f"Bearer {existing_user_token}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_result("Existing User - GET Items", True, f"Retrieved {len(data)} inventory items")
+                else:
+                    self.log_result("Existing User - GET Items", False, f"Expected list, got {type(data)}")
+            else:
+                self.log_result("Existing User - GET Items", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Existing User - GET Items", False, f"Exception: {str(e)}")
+        
+        # Test 2: POST /api/inventory/items - Create new item (General Manager should succeed)
+        test_item = {
+            "name": "Test Inventory Item",
+            "category": "Raw Materials",
+            "quantity": 100.0,
+            "unit": "kg",
+            "unit_price": 25.50,
+            "min_stock": 20.0
+        }
+        
+        created_item_id = None
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/inventory/items",
+                json=test_item,
+                headers={
+                    "Authorization": f"Bearer {existing_user_token}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                expected_total_value = test_item["quantity"] * test_item["unit_price"]  # 100 * 25.50 = 2550
+                expected_status = "in-stock"  # quantity (100) > min_stock (20)
+                
+                if data.get("total_value") == expected_total_value and data.get("status") == expected_status:
+                    created_item_id = data.get("id")
+                    self.log_result("Existing User - POST Item", True, f"Item created successfully with correct calculations")
+                else:
+                    self.log_result("Existing User - POST Item", False, f"Calculation error: expected total_value={expected_total_value}, got {data.get('total_value')}")
+            else:
+                self.log_result("Existing User - POST Item", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Existing User - POST Item", False, f"Exception: {str(e)}")
+        
+        # Test 3: GET /api/inventory/items/{item_id} - Get specific item
+        if created_item_id:
+            try:
+                response = await self.client.get(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    headers={"Authorization": f"Bearer {existing_user_token}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("name") == test_item["name"]:
+                        self.log_result("Existing User - GET Specific Item", True, f"Retrieved specific item: {data.get('name')}")
+                    else:
+                        self.log_result("Existing User - GET Specific Item", False, f"Item name mismatch")
+                else:
+                    self.log_result("Existing User - GET Specific Item", False, f"Expected 200, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result("Existing User - GET Specific Item", False, f"Exception: {str(e)}")
+        
+        # Test 4: PUT /api/inventory/items/{item_id} - Update item
+        if created_item_id:
+            update_data = {
+                "quantity": 75.0,  # Reduce quantity
+                "min_stock": 80.0  # Increase min_stock to test low-stock status
+            }
+            
+            try:
+                response = await self.client.put(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    json=update_data,
+                    headers={
+                        "Authorization": f"Bearer {existing_user_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    expected_total_value = update_data["quantity"] * test_item["unit_price"]  # 75 * 25.50 = 1912.5
+                    expected_status = "low-stock"  # quantity (75) <= min_stock (80)
+                    
+                    if data.get("total_value") == expected_total_value and data.get("status") == expected_status:
+                        self.log_result("Existing User - PUT Item", True, f"Item updated with correct status change to low-stock")
+                    else:
+                        self.log_result("Existing User - PUT Item", False, f"Update calculation error")
+                else:
+                    self.log_result("Existing User - PUT Item", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Existing User - PUT Item", False, f"Exception: {str(e)}")
+        
+        # Test 5: DELETE /api/inventory/items/{item_id} - Delete item
+        if created_item_id:
+            try:
+                response = await self.client.delete(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    headers={"Authorization": f"Bearer {existing_user_token}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "deleted successfully" in data.get("message", "").lower():
+                        self.log_result("Existing User - DELETE Item", True, f"Item deleted successfully")
+                    else:
+                        self.log_result("Existing User - DELETE Item", False, f"Unexpected response: {data.get('message')}")
+                else:
+                    self.log_result("Existing User - DELETE Item", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Existing User - DELETE Item", False, f"Exception: {str(e)}")
+
     async def test_inventory_api_comprehensive(self):
         """Comprehensive Inventory Management API Testing"""
         if "A" not in self.test_companies:
