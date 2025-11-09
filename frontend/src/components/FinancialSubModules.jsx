@@ -3241,6 +3241,386 @@ export const InventoryModule = ({ language, userRole }) => {
         </CardContent>
       </Card>
 
+      {/* Add Item Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-3xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'صنف جديد' : 'New Item'}</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const quantity = parseFloat(formData.get('quantity')) || 0;
+              const unitPrice = parseFloat(formData.get('unitPrice')) || 0;
+              const minStock = parseFloat(formData.get('minStock')) || 0;
+              const totalValue = quantity * unitPrice;
+              const status = quantity <= minStock ? 'low-stock' : 'in-stock';
+              
+              const newItem = {
+                id: `INV${String(inventory.length + 1).padStart(3, '0')}`,
+                name: formData.get('name'),
+                category: formData.get('category'),
+                quantity: quantity,
+                unit: formData.get('unit'),
+                unitPrice: unitPrice,
+                totalValue: totalValue,
+                minStock: minStock,
+                status: status
+              };
+              setInventory([...inventory, newItem]);
+              setShowAddModal(false);
+              setSuccessMessage(language === 'ar' ? 'تم إضافة الصنف بنجاح!' : 'Item added successfully!');
+              setShowSuccessModal(true);
+              setTimeout(() => setShowSuccessModal(false), 2000);
+            }} className="space-y-4">
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'اسم الصنف' : 'Item Name'} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder={language === 'ar' ? 'أدخل اسم الصنف' : 'Enter item name'}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الفئة' : 'Category'} <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="category"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">{language === 'ar' ? 'اختر الفئة' : 'Select Category'}</option>
+                    <option value={language === 'ar' ? 'مواد خام' : 'Raw Materials'}>{language === 'ar' ? 'مواد خام' : 'Raw Materials'}</option>
+                    <option value={language === 'ar' ? 'منتجات نهائية' : 'Finished Products'}>{language === 'ar' ? 'منتجات نهائية' : 'Finished Products'}</option>
+                    <option value={language === 'ar' ? 'قطع غيار' : 'Spare Parts'}>{language === 'ar' ? 'قطع غيار' : 'Spare Parts'}</option>
+                    <option value={language === 'ar' ? 'مستلزمات' : 'Supplies'}>{language === 'ar' ? 'مستلزمات' : 'Supplies'}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الوحدة' : 'Unit'} <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="unit"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">{language === 'ar' ? 'اختر الوحدة' : 'Select Unit'}</option>
+                    <option value={language === 'ar' ? 'كجم' : 'kg'}>{language === 'ar' ? 'كيلوجرام' : 'Kilogram'}</option>
+                    <option value={language === 'ar' ? 'قطعة' : 'pcs'}>{language === 'ar' ? 'قطعة' : 'Piece'}</option>
+                    <option value={language === 'ar' ? 'لتر' : 'ltr'}>{language === 'ar' ? 'لتر' : 'Liter'}</option>
+                    <option value={language === 'ar' ? 'متر' : 'm'}>{language === 'ar' ? 'متر' : 'Meter'}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الكمية' : 'Quantity'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="quantity"
+                    required
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'سعر الوحدة' : 'Unit Price'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="unitPrice"
+                    required
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الحد الأدنى' : 'Min Stock'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="minStock"
+                    required
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                <p className="text-sm text-yellow-800">
+                  {language === 'ar' 
+                    ? '💡 سيتم حساب القيمة الإجمالية والحالة تلقائياً بناءً على الكمية والسعر والحد الأدنى' 
+                    : '💡 Total value and status will be calculated automatically based on quantity, price and min stock'}
+                </p>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t">
+                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                  {language === 'ar' ? 'إضافة' : 'Add'}
+                </Button>
+                <Button type="button" onClick={() => setShowAddModal(false)} variant="outline" className="flex-1">
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Item Modal */}
+      {showViewModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تفاصيل الصنف' : 'Item Details'}</h3>
+              <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الكود' : 'ID'}</p>
+                <p className="text-lg font-bold text-blue-600">{selectedEntry.id}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'اسم الصنف' : 'Item Name'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedEntry.name}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الفئة' : 'Category'}</p>
+                <span className="inline-block px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm mt-1">
+                  {selectedEntry.category}
+                </span>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الكمية' : 'Quantity'}</p>
+                <p className="text-lg font-bold text-gray-800">{selectedEntry.quantity} {selectedEntry.unit}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</p>
+                <p className="text-lg font-bold text-gray-800">{selectedEntry.unitPrice.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'القيمة الإجمالية' : 'Total Value'}</p>
+                <p className="text-2xl font-bold text-purple-600">{selectedEntry.totalValue.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الحد الأدنى' : 'Min Stock'}</p>
+                <p className="text-lg font-bold text-gray-800">{selectedEntry.minStock} {selectedEntry.unit}</p>
+              </div>
+              <div className={`${selectedEntry.status === 'in-stock' ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500'} p-4 rounded-lg`}>
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الحالة' : 'Status'}</p>
+                <Badge variant={selectedEntry.status === 'in-stock' ? 'success' : 'destructive'} className="mt-2">
+                  {selectedEntry.status === 'in-stock' 
+                    ? (language === 'ar' ? 'متوفر' : 'In Stock') 
+                    : (language === 'ar' ? 'مخزون منخفض' : 'Low Stock')}
+                </Badge>
+              </div>
+            </div>
+            <Button onClick={() => setShowViewModal(false)} className="w-full mt-6 bg-blue-600">
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Item Modal */}
+      {showEditModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-3xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل الصنف' : 'Edit Item'}</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const quantity = parseFloat(formData.get('quantity')) || 0;
+              const unitPrice = parseFloat(formData.get('unitPrice')) || 0;
+              const minStock = parseFloat(formData.get('minStock')) || 0;
+              const totalValue = quantity * unitPrice;
+              const status = quantity <= minStock ? 'low-stock' : 'in-stock';
+              
+              const updatedInventory = inventory.map(i => 
+                i.id === selectedEntry.id 
+                  ? {
+                      ...i,
+                      name: formData.get('name'),
+                      category: formData.get('category'),
+                      quantity: quantity,
+                      unit: formData.get('unit'),
+                      unitPrice: unitPrice,
+                      totalValue: totalValue,
+                      minStock: minStock,
+                      status: status
+                    }
+                  : i
+              );
+              setInventory(updatedInventory);
+              setShowEditModal(false);
+              setSuccessMessage(language === 'ar' ? 'تم تعديل الصنف بنجاح!' : 'Item updated successfully!');
+              setShowSuccessModal(true);
+              setTimeout(() => setShowSuccessModal(false), 2000);
+            }} className="space-y-4">
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'اسم الصنف' : 'Item Name'} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  defaultValue={selectedEntry.name}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الفئة' : 'Category'} <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="category"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    defaultValue={selectedEntry.category}
+                  >
+                    <option value={language === 'ar' ? 'مواد خام' : 'Raw Materials'}>{language === 'ar' ? 'مواد خام' : 'Raw Materials'}</option>
+                    <option value={language === 'ar' ? 'منتجات نهائية' : 'Finished Products'}>{language === 'ar' ? 'منتجات نهائية' : 'Finished Products'}</option>
+                    <option value={language === 'ar' ? 'قطع غيار' : 'Spare Parts'}>{language === 'ar' ? 'قطع غيار' : 'Spare Parts'}</option>
+                    <option value={language === 'ar' ? 'مستلزمات' : 'Supplies'}>{language === 'ar' ? 'مستلزمات' : 'Supplies'}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الوحدة' : 'Unit'} <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="unit"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    defaultValue={selectedEntry.unit}
+                  >
+                    <option value={language === 'ar' ? 'كجم' : 'kg'}>{language === 'ar' ? 'كيلوجرام' : 'Kilogram'}</option>
+                    <option value={language === 'ar' ? 'قطعة' : 'pcs'}>{language === 'ar' ? 'قطعة' : 'Piece'}</option>
+                    <option value={language === 'ar' ? 'لتر' : 'ltr'}>{language === 'ar' ? 'لتر' : 'Liter'}</option>
+                    <option value={language === 'ar' ? 'متر' : 'm'}>{language === 'ar' ? 'متر' : 'Meter'}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الكمية' : 'Quantity'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="quantity"
+                    required
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    defaultValue={selectedEntry.quantity}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'سعر الوحدة' : 'Unit Price'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="unitPrice"
+                    required
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    defaultValue={selectedEntry.unitPrice}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الحد الأدنى' : 'Min Stock'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="minStock"
+                    required
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    defaultValue={selectedEntry.minStock}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t">
+                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                  {language === 'ar' ? 'حفظ التعديلات' : 'Save Changes'}
+                </Button>
+                <Button type="button" onClick={() => setShowEditModal(false)} variant="outline" className="flex-1">
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="text-gray-700 mb-6">
+              {language === 'ar' ? `هل أنت متأكد من حذف الصنف ${selectedEntry.name} (${selectedEntry.id})؟` : `Are you sure you want to delete item ${selectedEntry.name} (${selectedEntry.id})?`}
+            </p>
+            <div className="flex gap-4">
+              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-600 hover:bg-red-700">
+                {language === 'ar' ? 'حذف' : 'Delete'}
+              </Button>
+              <Button onClick={() => setShowDeleteModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
