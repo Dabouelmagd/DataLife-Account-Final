@@ -345,7 +345,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "RealDashboard Enhancement - Match DemoPage"
+    - "Inventory Management API"
+    - "Inventory Module Backend Integration"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
