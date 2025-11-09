@@ -2730,7 +2730,10 @@ class MultiTenantAPITester:
                 print("\n📦 PHASE 5: Inventory APIs Testing")
                 print("-" * 50)
                 
-                # Test Inventory APIs
+                # Test Inventory APIs with existing user first
+                await self.test_inventory_api_with_existing_user()
+                
+                # Test Inventory APIs with multi-tenant setup
                 await self.test_inventory_api_comprehensive()
                 
                 print("\n🔒 PHASE 6: Multi-Tenant Isolation Testing")
