@@ -84,108 +84,88 @@ export const AnalyticsModule = ({ language, userRole }) => {
     doc.text(`${language === 'ar' ? 'التاريخ' : 'Date'}: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
     doc.text(`${language === 'ar' ? 'الفترة' : 'Period'}: ${period}`, pageWidth / 2, yPosition + 5, { align: 'center' });
 
-    yPosition += 15;
+    yPosition += 20;
 
     // Overview Section
     doc.setFontSize(14);
     doc.setFont(undefined, 'bold');
     doc.text(language === 'ar' ? 'نظرة عامة' : 'Overview', 14, yPosition);
+    yPosition += 10;
+
+    // Financial Metrics
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text(language === 'ar' ? 'المؤشرات المالية:' : 'Financial Metrics:', 14, yPosition);
     yPosition += 8;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`${language === 'ar' ? 'صافي الربح' : 'Net Profit'}: ${overview.financial_analytics.net_profit.toLocaleString()}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'هامش الربح' : 'Profit Margin'}: ${overview.financial_analytics.profit_margin.toFixed(1)}%`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue'}: ${overview.financial_analytics.total_revenue.toLocaleString()}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'إجمالي المصروفات' : 'Total Expenses'}: ${overview.financial_analytics.total_expenses.toLocaleString()}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'العملاء' : 'Customers'}: ${overview.financial_analytics.total_customers}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'الموردين' : 'Suppliers'}: ${overview.financial_analytics.total_suppliers}`, 20, yPosition);
 
-    // KPI Table
-    doc.autoTable({
-      startY: yPosition,
-      head: [[
-        language === 'ar' ? 'المؤشر' : 'Metric',
-        language === 'ar' ? 'القيمة' : 'Value'
-      ]],
-      body: [
-        [language === 'ar' ? 'صافي الربح' : 'Net Profit', overview.financial_analytics.net_profit.toLocaleString()],
-        [language === 'ar' ? 'هامش الربح' : 'Profit Margin', `${overview.financial_analytics.profit_margin.toFixed(1)}%`],
-        [language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees', overview.hr_analytics.total_employees],
-        [language === 'ar' ? 'قيمة المخزون' : 'Inventory Value', overview.inventory_analytics.total_value.toLocaleString()],
-        [language === 'ar' ? 'إجمالي العملاء' : 'Total Customers', overview.financial_analytics.total_customers],
-        [language === 'ar' ? 'إجمالي الموردين' : 'Total Suppliers', overview.financial_analytics.total_suppliers]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] }
-    });
+    yPosition += 12;
 
-    yPosition = doc.lastAutoTable.finalY + 15;
+    // HR Metrics
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text(language === 'ar' ? 'مؤشرات الموارد البشرية:' : 'HR Metrics:', 14, yPosition);
+    yPosition += 8;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`${language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees'}: ${overview.hr_analytics.total_employees}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'البدلات' : 'Allowances'}: ${overview.hr_analytics.total_allowances}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'الخصومات' : 'Deductions'}: ${overview.hr_analytics.total_deductions}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'الإجازات' : 'Leaves'}: ${overview.hr_analytics.total_leaves}`, 20, yPosition);
 
-    // Financial Summary
-    if (yPosition > 250) {
+    yPosition += 12;
+
+    // Inventory Metrics
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text(language === 'ar' ? 'مؤشرات المخزون:' : 'Inventory Metrics:', 14, yPosition);
+    yPosition += 8;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`${language === 'ar' ? 'إجمالي الأصناف' : 'Total Items'}: ${overview.inventory_analytics.total_items}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'متوفر' : 'In Stock'}: ${overview.inventory_analytics.in_stock_items}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'مخزون منخفض' : 'Low Stock'}: ${overview.inventory_analytics.low_stock_items}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`${language === 'ar' ? 'القيمة الكلية' : 'Total Value'}: ${overview.inventory_analytics.total_value.toLocaleString()}`, 20, yPosition);
+
+    // Add new page for detailed data if available
+    if (financial && financial.revenue_by_month && financial.revenue_by_month.length > 0) {
       doc.addPage();
       yPosition = 20;
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.text(language === 'ar' ? 'الإيرادات والمصروفات حسب الشهر' : 'Revenue & Expenses by Month', 14, yPosition);
+      yPosition += 10;
+      
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      financial.revenue_by_month.slice(0, 12).forEach((item, idx) => {
+        if (yPosition > 270) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        const expense = financial.expenses_by_month[idx]?.amount || 0;
+        doc.text(`${item.month}: ${language === 'ar' ? 'إيرادات' : 'Revenue'} ${item.amount.toLocaleString()}, ${language === 'ar' ? 'مصروفات' : 'Expenses'} ${expense.toLocaleString()}`, 20, yPosition);
+        yPosition += 6;
+      });
     }
-
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text(language === 'ar' ? 'الملخص المالي' : 'Financial Summary', 14, yPosition);
-    yPosition += 8;
-
-    doc.autoTable({
-      startY: yPosition,
-      head: [[language === 'ar' ? 'البند' : 'Item', language === 'ar' ? 'المبلغ' : 'Amount']],
-      body: [
-        [language === 'ar' ? 'الإيرادات' : 'Revenue', overview.financial_analytics.total_revenue.toLocaleString()],
-        [language === 'ar' ? 'المصروفات' : 'Expenses', overview.financial_analytics.total_expenses.toLocaleString()],
-        [language === 'ar' ? 'صافي الربح' : 'Net Profit', overview.financial_analytics.net_profit.toLocaleString()]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [16, 185, 129] }
-    });
-
-    yPosition = doc.lastAutoTable.finalY + 15;
-
-    // HR Summary
-    if (yPosition > 250) {
-      doc.addPage();
-      yPosition = 20;
-    }
-
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text(language === 'ar' ? 'ملخص الموارد البشرية' : 'HR Summary', 14, yPosition);
-    yPosition += 8;
-
-    doc.autoTable({
-      startY: yPosition,
-      head: [[language === 'ar' ? 'البند' : 'Item', language === 'ar' ? 'العدد' : 'Count']],
-      body: [
-        [language === 'ar' ? 'الموظفين' : 'Employees', overview.hr_analytics.total_employees],
-        [language === 'ar' ? 'البدلات' : 'Allowances', overview.hr_analytics.total_allowances],
-        [language === 'ar' ? 'الخصومات' : 'Deductions', overview.hr_analytics.total_deductions],
-        [language === 'ar' ? 'الإجازات' : 'Leaves', overview.hr_analytics.total_leaves]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [139, 92, 246] }
-    });
-
-    yPosition = doc.lastAutoTable.finalY + 15;
-
-    // Inventory Summary
-    if (yPosition > 250) {
-      doc.addPage();
-      yPosition = 20;
-    }
-
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text(language === 'ar' ? 'ملخص المخزون' : 'Inventory Summary', 14, yPosition);
-    yPosition += 8;
-
-    doc.autoTable({
-      startY: yPosition,
-      head: [[language === 'ar' ? 'البند' : 'Item', language === 'ar' ? 'القيمة' : 'Value']],
-      body: [
-        [language === 'ar' ? 'متوفر' : 'In Stock', overview.inventory_analytics.in_stock_items],
-        [language === 'ar' ? 'مخزون منخفض' : 'Low Stock', overview.inventory_analytics.low_stock_items],
-        [language === 'ar' ? 'القيمة الكلية' : 'Total Value', overview.inventory_analytics.total_value.toLocaleString()]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [245, 158, 11] }
-    });
 
     // Save PDF
     const filename = `analytics_report_${new Date().toISOString().split('T')[0]}.pdf`;
