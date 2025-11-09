@@ -3689,6 +3689,15 @@ async def main():
     failed_count = sum(1 for result in results if not result["success"])
     return 0 if failed_count == 0 else 1
 
+async def main_comprehensive_validation():
+    """Comprehensive Backend API Validation with existing user credentials"""
+    tester = MultiTenantAPITester()
+    results = await tester.run_comprehensive_validation()
+    
+    # Return exit code based on test results
+    failed_count = sum(1 for result in results if not result["success"])
+    return 0 if failed_count == 0 else 1
+
 async def main_user_management():
     """User Management focused test runner"""
     tester = MultiTenantAPITester()
