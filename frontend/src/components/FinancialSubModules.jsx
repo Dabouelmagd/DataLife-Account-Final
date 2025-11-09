@@ -1926,7 +1926,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
                       <p className="text-sm text-gray-600 mb-1">
                         {language === 'ar' ? 'إجمالي الإيداعات' : 'Total Deposits'}
                       </p>
-                      <h3 className="text-3xl font-bold text-green-600">+80,000</h3>
+                      <h3 className="text-3xl font-bold text-green-600">+{totalDeposits.toLocaleString()}</h3>
                       <p className="text-xs text-gray-500 mt-1">
                         {language === 'ar' ? 'ج.م' : 'EGP'}
                       </p>
@@ -1945,7 +1945,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
                       <p className="text-sm text-gray-600 mb-1">
                         {language === 'ar' ? 'إجمالي السحوبات' : 'Total Withdrawals'}
                       </p>
-                      <h3 className="text-3xl font-bold text-red-600">-35,000</h3>
+                      <h3 className="text-3xl font-bold text-red-600">-{totalWithdrawals.toLocaleString()}</h3>
                       <p className="text-xs text-gray-500 mt-1">
                         {language === 'ar' ? 'ج.م' : 'EGP'}
                       </p>
@@ -1964,7 +1964,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
                       <p className="text-sm text-gray-600 mb-1">
                         {language === 'ar' ? 'صافي التدفق النقدي' : 'Net Cash Flow'}
                       </p>
-                      <h3 className="text-3xl font-bold text-blue-600">+45,000</h3>
+                      <h3 className="text-3xl font-bold text-blue-600">+{(totalDeposits - totalWithdrawals).toLocaleString()}</h3>
                       <p className="text-xs text-gray-500 mt-1">
                         {language === 'ar' ? 'ج.م' : 'EGP'}
                       </p>
