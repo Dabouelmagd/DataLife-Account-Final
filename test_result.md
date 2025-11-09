@@ -348,11 +348,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Analytics API"
-    - "Analytics Module with Charts"
+    - "Comprehensive System Testing"
+    - "All Backend APIs"
+    - "All Frontend Modules"
   stuck_tasks: []
-  test_all: false
-  test_priority: "high_first"
+  test_all: true
+  test_priority: "comprehensive"
 
 frontend:
   - task: "HR & Financial Modules Icon Interactivity"
