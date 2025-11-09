@@ -2989,12 +2989,30 @@ export const InventoryModule = ({ language, userRole }) => {
     fetchInventoryItems();
   }, []);
 
-  const handleDeleteConfirm = () => {
-    setInventory(inventory.filter(i => i.id !== selectedEntry.id));
-    setShowDeleteModal(false);
-    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
-    setShowSuccessModal(true);
-    setTimeout(() => setShowSuccessModal(false), 2000);
+  const handleDeleteConfirm = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/inventory/items/${selectedEntry.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        setInventory(inventory.filter(i => i.id !== selectedEntry.id));
+        setShowDeleteModal(false);
+        setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+        setShowSuccessModal(true);
+        setTimeout(() => setShowSuccessModal(false), 2000);
+      } else {
+        console.error('Failed to delete inventory item');
+        setShowDeleteModal(false);
+      }
+    } catch (error) {
+      console.error('Error deleting inventory item:', error);
+      setShowDeleteModal(false);
+    }
   };
 
   const totalValue = inventory.reduce((sum, i) => sum + i.totalValue, 0);
