@@ -345,8 +345,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Inventory Management API"
-    - "Inventory Module Backend Integration"
+    - "Analytics API"
+    - "Analytics Module with Charts"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
