@@ -2284,49 +2284,141 @@ export const BankModule = ({ language, userRole }) => {
   const totalDeposits = transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0);
   const totalWithdrawals = transactions.filter(t => t.type === 'withdrawal' || t.type === 'transfer').reduce((sum, t) => sum + t.amount, 0);
 
+  // Export function
+  const exportToCSV = () => {
+    const headers = language === 'ar' 
+      ? ['الكود', 'التاريخ', 'الوصف', 'البنك', 'النوع', 'المبلغ', 'الرصيد']
+      : ['ID', 'Date', 'Description', 'Bank', 'Type', 'Amount', 'Balance'];
+    
+    const csvData = transactions.map(t => [
+      t.id, t.date, t.description, t.bankName, t.type, t.amount, t.balance
+    ]);
+
+    const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `bank_transactions_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-[#28376B]">
+        <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'البنك' : 'Bank'}
         </h2>
-        {canEdit && (
-          <Button onClick={() => setShowAddModal(true)} className="bg-[#28376B]">
-            <Plus className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'إضافة معاملة' : 'Add Transaction'}</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-        )}
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
+          </Button>
+          {canEdit && (
+            <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              <span>{language === 'ar' ? 'إضافة معاملة' : 'Add Transaction'}</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي الإيداعات' : 'Total Deposits'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">+{totalDeposits.toLocaleString()}</div>
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي الإيداعات' : 'Total Deposits'}
+                </p>
+                <h3 className="text-3xl font-bold text-green-600">+{totalDeposits.toLocaleString()}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي السحوبات' : 'Total Withdrawals'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">-{totalWithdrawals.toLocaleString()}</div>
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي السحوبات' : 'Total Withdrawals'}
+                </p>
+                <h3 className="text-3xl font-bold text-red-600">-{totalWithdrawals.toLocaleString()}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                </svg>
+              </div>
+            </div>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">{language === 'ar' ? 'الرصيد الحالي' : 'Current Balance'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[#28376B]">{transactions[transactions.length - 1]?.balance.toLocaleString() || 0}</div>
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'الرصيد الحالي' : 'Current Balance'}
+                </p>
+                <h3 className="text-3xl font-bold text-blue-600">{transactions[transactions.length - 1]?.balance.toLocaleString() || 0}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Search Section */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'البحث بالوصف أو رقم المعاملة...' : 'Search by description or transaction ID...'}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <option value="">{language === 'ar' ? 'كل الأنواع' : 'All Types'}</option>
+              <option value="deposit">{language === 'ar' ? 'إيداع' : 'Deposit'}</option>
+              <option value="withdrawal">{language === 'ar' ? 'سحب' : 'Withdrawal'}</option>
+              <option value="transfer">{language === 'ar' ? 'تحويل' : 'Transfer'}</option>
+            </select>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Transactions Table */}
       <Card>
