@@ -406,7 +406,7 @@ class MultiTenantAPITester:
             
         try:
             response = await self.client.get(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
             )
             
@@ -463,7 +463,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['admin']}",
@@ -524,7 +524,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['admin']}",
@@ -571,7 +571,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['admin']}",
@@ -640,7 +640,7 @@ class MultiTenantAPITester:
             }
             
             response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={
                     "Authorization": f"Bearer {hr_token}",
@@ -674,7 +674,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.put(
-                f"{self.base_url}/users/{hr_user_id}/role",
+                f"{self.base_url}/users{hr_user_id}/role",
                 params={"role": new_role},
                 headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
             )
@@ -712,7 +712,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.delete(
-                f"{self.base_url}/users/{accountant_user_id}",
+                f"{self.base_url}/users{accountant_user_id}",
                 headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
             )
             
@@ -746,7 +746,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.delete(
-                f"{self.base_url}/users/{admin_user_id}",
+                f"{self.base_url}/users{admin_user_id}",
                 headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
             )
             
@@ -811,7 +811,7 @@ class MultiTenantAPITester:
     async def test_list_roles(self):
         """Test listing all available roles"""
         try:
-            response = await self.client.get(f"{self.base_url}/users/roles")
+            response = await self.client.get(f"{self.base_url}/usersroles")
             
             if response.status_code == 200:
                 data = response.json()
@@ -847,7 +847,7 @@ class MultiTenantAPITester:
         
         for role in roles:
             try:
-                response = await self.client.get(f"{self.base_url}/users/permissions/{role}")
+                response = await self.client.get(f"{self.base_url}/userspermissions/{role}")
                 
                 if response.status_code == 200:
                     data = response.json()
@@ -1016,7 +1016,7 @@ class MultiTenantAPITester:
         try:
             # Create new accountant user
             create_response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['admin']}",
@@ -1237,7 +1237,7 @@ class MultiTenantAPITester:
         for user_data in users_to_create:
             try:
                 response = await self.client.post(
-                    f"{self.base_url}/users/",
+                    f"{self.base_url}/users",
                     json=user_data,
                     headers={
                         "Authorization": f"Bearer {admin_token}",
@@ -2637,11 +2637,11 @@ class MultiTenantAPITester:
         except Exception as e:
             self.log_result("Existing User - POST Item", False, f"Exception: {str(e)}")
         
-        # Test 3: GET /api/inventory/items/{item_id} - Get specific item
+        # Test 3: GET /api/inventory/items{item_id} - Get specific item
         if created_item_id:
             try:
                 response = await self.client.get(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     headers={"Authorization": f"Bearer {existing_user_token}"}
                 )
                 
@@ -2657,7 +2657,7 @@ class MultiTenantAPITester:
             except Exception as e:
                 self.log_result("Existing User - GET Specific Item", False, f"Exception: {str(e)}")
         
-        # Test 4: PUT /api/inventory/items/{item_id} - Update item
+        # Test 4: PUT /api/inventory/items{item_id} - Update item
         if created_item_id:
             update_data = {
                 "quantity": 75.0,  # Reduce quantity
@@ -2666,7 +2666,7 @@ class MultiTenantAPITester:
             
             try:
                 response = await self.client.put(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     json=update_data,
                     headers={
                         "Authorization": f"Bearer {existing_user_token}",
@@ -2689,11 +2689,11 @@ class MultiTenantAPITester:
             except Exception as e:
                 self.log_result("Existing User - PUT Item", False, f"Exception: {str(e)}")
         
-        # Test 5: DELETE /api/inventory/items/{item_id} - Delete item
+        # Test 5: DELETE /api/inventory/items{item_id} - Delete item
         if created_item_id:
             try:
                 response = await self.client.delete(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     headers={"Authorization": f"Bearer {existing_user_token}"}
                 )
                 
@@ -2912,11 +2912,11 @@ class MultiTenantAPITester:
         except Exception as e:
             self.log_result("Inventory GET Items - After Creation", False, f"Exception: {str(e)}")
         
-        # Test 8: GET /api/inventory/items/{item_id} - Get Specific Item
+        # Test 8: GET /api/inventory/items{item_id} - Get Specific Item
         if created_item_id:
             try:
                 response = await self.client.get(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     headers={"Authorization": f"Bearer {company_a['token']}"}
                 )
                 
@@ -2932,10 +2932,10 @@ class MultiTenantAPITester:
             except Exception as e:
                 self.log_result("Inventory GET Specific Item", False, f"Exception: {str(e)}")
         
-        # Test 9: GET /api/inventory/items/{item_id} - Non-existent Item (404)
+        # Test 9: GET /api/inventory/items{item_id} - Non-existent Item (404)
         try:
             response = await self.client.get(
-                f"{self.base_url}/inventory/items/non-existent-item-id",
+                f"{self.base_url}/inventory/itemsnon-existent-item-id",
                 headers={"Authorization": f"Bearer {company_a['token']}"}
             )
             
@@ -2951,7 +2951,7 @@ class MultiTenantAPITester:
         except Exception as e:
             self.log_result("Inventory GET Non-existent Item", False, f"Exception: {str(e)}")
         
-        # Test 10: PUT /api/inventory/items/{item_id} - Update Item as General Manager
+        # Test 10: PUT /api/inventory/items{item_id} - Update Item as General Manager
         if created_item_id:
             update_data = {
                 "quantity": 30.0,  # Reduce quantity to test low-stock status
@@ -2960,7 +2960,7 @@ class MultiTenantAPITester:
             
             try:
                 response = await self.client.put(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     json=update_data,
                     headers={
                         "Authorization": f"Bearer {company_a['token']}",
@@ -2983,14 +2983,14 @@ class MultiTenantAPITester:
             except Exception as e:
                 self.log_result("Inventory PUT - Update Item", False, f"Exception: {str(e)}")
         
-        # Test 11: PUT /api/inventory/items/{item_id} - Update as Accountant (Should Fail 403)
+        # Test 11: PUT /api/inventory/items{item_id} - Update as Accountant (Should Fail 403)
         if created_item_id and "users" in company_a and "Accountant" in company_a["users"]:
             update_data = {"quantity": 100.0}
             
             try:
                 accountant_token = company_a["users"]["Accountant"]["token"]
                 response = await self.client.put(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     json=update_data,
                     headers={
                         "Authorization": f"Bearer {accountant_token}",
@@ -3010,12 +3010,12 @@ class MultiTenantAPITester:
             except Exception as e:
                 self.log_result("Inventory PUT - Accountant Denied", False, f"Exception: {str(e)}")
         
-        # Test 12: DELETE /api/inventory/items/{item_id} - Delete as Accountant (Should Fail 403)
+        # Test 12: DELETE /api/inventory/items{item_id} - Delete as Accountant (Should Fail 403)
         if created_item_id and "users" in company_a and "Accountant" in company_a["users"]:
             try:
                 accountant_token = company_a["users"]["Accountant"]["token"]
                 response = await self.client.delete(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     headers={"Authorization": f"Bearer {accountant_token}"}
                 )
                 
@@ -3031,11 +3031,11 @@ class MultiTenantAPITester:
             except Exception as e:
                 self.log_result("Inventory DELETE - Accountant Denied", False, f"Exception: {str(e)}")
         
-        # Test 13: DELETE /api/inventory/items/{item_id} - Delete as General Manager (Should Succeed)
+        # Test 13: DELETE /api/inventory/items{item_id} - Delete as General Manager (Should Succeed)
         if created_item_id:
             try:
                 response = await self.client.delete(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     headers={"Authorization": f"Bearer {company_a['token']}"}
                 )
                 
@@ -3051,11 +3051,11 @@ class MultiTenantAPITester:
             except Exception as e:
                 self.log_result("Inventory DELETE - General Manager", False, f"Exception: {str(e)}")
         
-        # Test 14: GET /api/inventory/items/{item_id} - Verify Deletion (Should Return 404)
+        # Test 14: GET /api/inventory/items{item_id} - Verify Deletion (Should Return 404)
         if created_item_id:
             try:
                 response = await self.client.get(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     headers={"Authorization": f"Bearer {company_a['token']}"}
                 )
                 
@@ -3183,7 +3183,7 @@ class MultiTenantAPITester:
             
         try:
             response = await self.client.get(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
             )
             
@@ -3248,7 +3248,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['admin']}",
@@ -3327,7 +3327,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['admin']}",
@@ -3366,7 +3366,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['admin']}",
@@ -3401,7 +3401,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={"Content-Type": "application/json"}
             )
@@ -3459,7 +3459,7 @@ class MultiTenantAPITester:
             }
             
             response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={
                     "Authorization": f"Bearer {accountant_token}",
@@ -3483,7 +3483,7 @@ class MultiTenantAPITester:
             self.log_result("Insufficient Permissions", False, f"Exception: {str(e)}")
 
     async def test_user_photo_upload(self):
-        """Test POST /api/users/{user_id}/upload-photo endpoint"""
+        """Test POST /api/users{user_id}/upload-photo endpoint"""
         if "new_user" not in self.test_users:
             self.log_result("User Photo Upload", False, "No test user available")
             return
@@ -3497,7 +3497,7 @@ class MultiTenantAPITester:
             files = {"file": ("test_photo.jpg", test_image_content, "image/jpeg")}
             
             response = await self.client.post(
-                f"{self.base_url}/users/{user_id}/upload-photo",
+                f"{self.base_url}/users{user_id}/upload-photo",
                 files=files,
                 headers={"Authorization": f"Bearer {self.test_tokens['admin']}"}
             )
@@ -3521,7 +3521,7 @@ class MultiTenantAPITester:
                 
                 # Verify photo_url format
                 photo_url = data.get("photo_url")
-                if not photo_url or not photo_url.startswith("/uploads/users/"):
+                if not photo_url or not photo_url.startswith("/uploads/users"):
                     self.log_result("User Photo Upload", False, 
                                   f"Invalid photo_url format: {photo_url}", data)
                     return None
@@ -3769,14 +3769,14 @@ class MultiTenantAPITester:
             self.log_result("Logo Upload", False, f"Exception: {str(e)}")
 
     async def test_existing_user_list_users(self):
-        """Test GET /api/users/"""
+        """Test GET /api/users"""
         if "existing_user" not in self.test_tokens:
             self.log_result("List Users", False, "No existing user token available")
             return
             
         try:
             response = await self.client.get(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -3791,7 +3791,7 @@ class MultiTenantAPITester:
             self.log_result("List Users", False, f"Exception: {str(e)}")
 
     async def test_existing_user_create_user(self):
-        """Test POST /api/users/"""
+        """Test POST /api/users"""
         if "existing_user" not in self.test_tokens:
             self.log_result("Create User", False, "No existing user token available")
             return
@@ -3806,7 +3806,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/users/",
+                f"{self.base_url}/users",
                 json=user_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -3826,7 +3826,7 @@ class MultiTenantAPITester:
             self.log_result("Create User", False, f"Exception: {str(e)}")
 
     async def test_existing_user_update_user(self):
-        """Test PUT /api/users/{id}"""
+        """Test PUT /api/users{id}"""
         if "existing_user" not in self.test_tokens or "created_user_id" not in self.test_data:
             self.log_result("Update User", False, "No user data available for update")
             return
@@ -3835,7 +3835,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.put(
-                f"{self.base_url}/users/{user_id}/role",
+                f"{self.base_url}/users{user_id}/role",
                 params={"role": "HR Manager"},
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
@@ -3850,7 +3850,7 @@ class MultiTenantAPITester:
             self.log_result("Update User", False, f"Exception: {str(e)}")
 
     async def test_existing_user_delete_user(self):
-        """Test DELETE /api/users/{id}"""
+        """Test DELETE /api/users{id}"""
         if "existing_user" not in self.test_tokens or "created_user_id" not in self.test_data:
             self.log_result("Delete User", False, "No user data available for deletion")
             return
@@ -3859,7 +3859,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.delete(
-                f"{self.base_url}/users/{user_id}",
+                f"{self.base_url}/users{user_id}",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -3873,7 +3873,7 @@ class MultiTenantAPITester:
             self.log_result("Delete User", False, f"Exception: {str(e)}")
 
     async def test_existing_user_upload_photo(self):
-        """Test POST /api/users/{id}/upload-photo"""
+        """Test POST /api/users{id}/upload-photo"""
         if "existing_user" not in self.test_tokens or "existing_user" not in self.test_users:
             self.log_result("Upload Photo", False, "No existing user data available")
             return
@@ -3885,7 +3885,7 @@ class MultiTenantAPITester:
             files = {"file": ("profile.jpg", test_image_content, "image/jpeg")}
             
             response = await self.client.post(
-                f"{self.base_url}/users/{user_id}/upload-photo",
+                f"{self.base_url}/users{user_id}/upload-photo",
                 files=files,
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
@@ -3934,7 +3934,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/hr/employees/",
+                f"{self.base_url}/hr/employees",
                 json=employee_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -3961,7 +3961,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/hr/salaries/",
+                f"{self.base_url}/hr/salaries",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -3987,7 +3987,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/hr/salaries/",
+                f"{self.base_url}/hr/salaries",
                 json=salary_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4013,7 +4013,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/hr/allowances/",
+                f"{self.base_url}/hr/allowances",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4037,7 +4037,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/hr/allowances/",
+                f"{self.base_url}/hr/allowances",
                 json=allowance_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4063,7 +4063,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/hr/deductions/",
+                f"{self.base_url}/hr/deductions",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4087,7 +4087,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/hr/deductions/",
+                f"{self.base_url}/hr/deductions",
                 json=deduction_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4113,7 +4113,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/hr/leaves/",
+                f"{self.base_url}/hr/leaves",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4139,7 +4139,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/hr/leaves/",
+                f"{self.base_url}/hr/leaves",
                 json=leave_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4165,7 +4165,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/hr/attendance/",
+                f"{self.base_url}/hr/attendance",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4191,7 +4191,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/hr/attendance/",
+                f"{self.base_url}/hr/attendance",
                 json=attendance_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4217,7 +4217,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/financial/journal-entries/",
+                f"{self.base_url}/financial/journal-entries",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4241,7 +4241,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/financial/journal-entries/",
+                f"{self.base_url}/financial/journal-entries",
                 json=journal_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4268,7 +4268,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/financial/customers/",
+                f"{self.base_url}/financial/customers",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4292,7 +4292,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/financial/customers/",
+                f"{self.base_url}/financial/customers",
                 json=customer_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4318,7 +4318,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/financial/suppliers/",
+                f"{self.base_url}/financial/suppliers",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4342,7 +4342,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/financial/suppliers/",
+                f"{self.base_url}/financial/suppliers",
                 json=supplier_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4368,7 +4368,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/financial/treasury/",
+                f"{self.base_url}/financial/treasury",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4391,7 +4391,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/financial/treasury/",
+                f"{self.base_url}/financial/treasury",
                 json=treasury_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4417,7 +4417,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/financial/bank/",
+                f"{self.base_url}/financial/bank",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4442,7 +4442,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/financial/bank/",
+                f"{self.base_url}/financial/bank",
                 json=bank_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4468,7 +4468,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/financial/custody/",
+                f"{self.base_url}/financial/custody",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4492,7 +4492,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/financial/custody/",
+                f"{self.base_url}/financial/custody",
                 json=custody_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4518,7 +4518,7 @@ class MultiTenantAPITester:
         # Test GET
         try:
             response = await self.client.get(
-                f"{self.base_url}/financial/accounts/",
+                f"{self.base_url}/financial/accounts",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4542,7 +4542,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/financial/accounts/",
+                f"{self.base_url}/financial/accounts",
                 json=account_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4565,10 +4565,10 @@ class MultiTenantAPITester:
             self.log_result("Inventory Management", False, "No existing user token available")
             return
             
-        # Test GET /api/inventory/items/
+        # Test GET /api/inventory/items
         try:
             response = await self.client.get(
-                f"{self.base_url}/inventory/items/",
+                f"{self.base_url}/inventory/items",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
@@ -4581,7 +4581,7 @@ class MultiTenantAPITester:
         except Exception as e:
             self.log_result("Inventory Items GET", False, f"Exception: {str(e)}")
         
-        # Test POST /api/inventory/items/
+        # Test POST /api/inventory/items
         item_data = {
             "name": "Test Inventory Item",
             "category": "Raw Materials",
@@ -4595,7 +4595,7 @@ class MultiTenantAPITester:
         
         try:
             response = await self.client.post(
-                f"{self.base_url}/inventory/items/",
+                f"{self.base_url}/inventory/items",
                 json=item_data,
                 headers={
                     "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4613,11 +4613,11 @@ class MultiTenantAPITester:
         except Exception as e:
             self.log_result("Inventory Items POST", False, f"Exception: {str(e)}")
         
-        # Test GET /api/inventory/items/{id}
+        # Test GET /api/inventory/items{id}
         if created_item_id:
             try:
                 response = await self.client.get(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
                 )
                 
@@ -4630,7 +4630,7 @@ class MultiTenantAPITester:
             except Exception as e:
                 self.log_result("Inventory Item GET by ID", False, f"Exception: {str(e)}")
         
-        # Test PUT /api/inventory/items/{id}
+        # Test PUT /api/inventory/items{id}
         if created_item_id:
             update_data = {
                 "quantity": 75.0,
@@ -4639,7 +4639,7 @@ class MultiTenantAPITester:
             
             try:
                 response = await self.client.put(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     json=update_data,
                     headers={
                         "Authorization": f"Bearer {self.test_tokens['existing_user']}",
@@ -4656,11 +4656,11 @@ class MultiTenantAPITester:
             except Exception as e:
                 self.log_result("Inventory Item PUT", False, f"Exception: {str(e)}")
         
-        # Test DELETE /api/inventory/items/{id}
+        # Test DELETE /api/inventory/items{id}
         if created_item_id:
             try:
                 response = await self.client.delete(
-                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    f"{self.base_url}/inventory/items{created_item_id}",
                     headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
                 )
                 
