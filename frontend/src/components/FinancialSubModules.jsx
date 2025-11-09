@@ -454,43 +454,174 @@ export const TreasuryModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
-  const treasuryData = {
-    balance: 350000,
-    transactions: [
+  const initialTransactions = [
+    { id: 'T001', date: '2024-10-08', type: 'in', description: language === 'ar' ? 'تحصيل من عميل' : 'Customer payment', amount: 50000 },
+    { id: 'T002', date: '2024-10-08', type: 'out', description: language === 'ar' ? 'شراء مستلزمات' : 'Purchase supplies', amount: 15000 },
+    { id: 'T003', date: '2024-10-09', type: 'in', description: language === 'ar' ? 'مبيعات نقدية' : 'Cash sales', amount: 30000 },
+    { id: 'T004', date: '2024-10-09', type: 'out', description: language === 'ar' ? 'دفع فواتير' : 'Bills payment', amount: 20000 }
+  ];
+
+  const [transactions, setTransactions] = React.useState(initialTransactions);
+
+  // Update transactions when language changes
+  React.useEffect(() => {
+    setTransactions([
       { id: 'T001', date: '2024-10-08', type: 'in', description: language === 'ar' ? 'تحصيل من عميل' : 'Customer payment', amount: 50000 },
       { id: 'T002', date: '2024-10-08', type: 'out', description: language === 'ar' ? 'شراء مستلزمات' : 'Purchase supplies', amount: 15000 },
       { id: 'T003', date: '2024-10-09', type: 'in', description: language === 'ar' ? 'مبيعات نقدية' : 'Cash sales', amount: 30000 },
       { id: 'T004', date: '2024-10-09', type: 'out', description: language === 'ar' ? 'دفع فواتير' : 'Bills payment', amount: 20000 }
-    ]
+    ]);
+  }, [language]);
+
+  const handleDeleteConfirm = () => {
+    setTransactions(transactions.filter(t => t.id !== selectedEntry.id));
+    setShowDeleteModal(false);
+    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
+  // Calculate statistics
+  const totalIncome = transactions.filter(t => t.type === 'in').reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = transactions.filter(t => t.type === 'out').reduce((sum, t) => sum + t.amount, 0);
+  const currentBalance = totalIncome - totalExpense;
+
+  // Export to CSV function
+  const exportToCSV = () => {
+    const headers = language === 'ar' 
+      ? ['الكود', 'التاريخ', 'النوع', 'الوصف', 'المبلغ']
+      : ['ID', 'Date', 'Type', 'Description', 'Amount'];
+    
+    const csvData = transactions.map(t => [
+      t.id, t.date, 
+      t.type === 'in' ? (language === 'ar' ? 'إيداع' : 'Deposit') : (language === 'ar' ? 'سحب' : 'Withdrawal'),
+      t.description, t.amount
+    ]);
+
+    const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `treasury_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">
-          {language === 'ar' ? 'الخزنة' : 'Treasury'}
+          {language === 'ar' ? 'الخزينة' : 'Treasury'}
         </h2>
-        {canEdit && (
-          <Button size="sm" className="bg-[#28376B]">
-            <Plus className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'حركة جديدة' : 'New Transaction'}</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-        )}
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
+          </Button>
+          {canEdit && (
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
+              <span>{language === 'ar' ? 'حركة جديدة' : 'New Transaction'}</span>
+            </Button>
+          )}
+        </div>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي الإيرادات' : 'Total Income'}
+                </p>
+                <h3 className="text-3xl font-bold text-green-600">+{totalIncome.toLocaleString()}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي المصروفات' : 'Total Expenses'}
+                </p>
+                <h3 className="text-3xl font-bold text-red-600">-{totalExpense.toLocaleString()}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <TrendingDown className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'الرصيد الحالي' : 'Current Balance'}
+                </p>
+                <h3 className="text-3xl font-bold text-blue-600">{currentBalance.toLocaleString()}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search Section */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>{language === 'ar' ? 'رصيد الخزنة' : 'Treasury Balance'}</span>
-            <span className="text-3xl font-bold text-green-600">{treasuryData.balance.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
-          </CardTitle>
-        </CardHeader>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'البحث بالوصف أو رقم الحركة...' : 'Search by description or transaction ID...'}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <option value="">{language === 'ar' ? 'كل الأنواع' : 'All Types'}</option>
+              <option value="in">{language === 'ar' ? 'إيداع' : 'Deposit'}</option>
+              <option value="out">{language === 'ar' ? 'سحب' : 'Withdrawal'}</option>
+            </select>
+          </div>
+        </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>{language === 'ar' ? 'آخر الحركات' : 'Recent Transactions'}</CardTitle>
-        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
