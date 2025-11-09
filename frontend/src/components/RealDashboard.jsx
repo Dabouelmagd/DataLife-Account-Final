@@ -799,13 +799,76 @@ const RealDashboard = () => {
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl translate-y-32 -translate-x-32"></div>
         
         {/* Company Logo/Name - Modern Header */}
-        <div className="p-6 relative z-10">
+        <div className="p-6 pb-4 relative z-10">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/20 shadow-xl">
             {company?.logo_url ? (
               <img src={company.logo_url} alt={company.name} className="h-14 object-contain mx-auto filter drop-shadow-lg" />
             ) : (
               <h2 className="text-xl font-bold text-white text-center tracking-tight">{company?.name}</h2>
             )}
+          </div>
+        </div>
+
+        {/* Current User Info - Professional Card */}
+        <div className="px-6 pb-4 relative z-10">
+          <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-lg rounded-2xl p-4 border border-white/20 shadow-xl">
+            <div className="flex items-center gap-3">
+              {/* User Avatar */}
+              {user?.profile_photo_url ? (
+                <img
+                  src={user.profile_photo_url}
+                  alt={user.full_name}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-white/50 shadow-lg"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                  {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                </div>
+              )}
+              
+              {/* User Details */}
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-semibold text-sm truncate">
+                  {user?.full_name || 'User'}
+                </p>
+                <div className="flex items-center gap-1 mt-1">
+                  <Badge className={`text-xs px-2 py-0.5 ${
+                    ['CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(user?.role) 
+                      ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0'
+                      : ['General Manager', 'مدير عام'].includes(user?.role)
+                      ? 'bg-gradient-to-r from-purple-400 to-pink-500 text-white border-0'
+                      : ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات'].includes(user?.role)
+                      ? 'bg-gradient-to-r from-green-400 to-teal-500 text-white border-0'
+                      : ['HR Manager', 'مدير الموارد البشرية'].includes(user?.role)
+                      ? 'bg-gradient-to-r from-blue-400 to-cyan-500 text-white border-0'
+                      : 'bg-gray-500 text-white border-0'
+                  }`}>
+                    {user?.role || 'N/A'}
+                  </Badge>
+                </div>
+                <p className="text-gray-300 text-xs mt-1 truncate">
+                  {user?.email || 'No email'}
+                </p>
+              </div>
+            </div>
+            
+            {/* Permissions Indicator */}
+            <div className="mt-3 pt-3 border-t border-white/10">
+              <p className="text-xs text-gray-300 mb-2">
+                {language === 'ar' ? 'الصلاحيات:' : 'Permissions:'}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {modules.map((module, index) => (
+                  <span 
+                    key={index}
+                    className="text-xs px-2 py-1 bg-white/10 text-white rounded-lg"
+                    title={module.name}
+                  >
+                    {React.cloneElement(module.icon, { className: 'h-3 w-3' })}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
