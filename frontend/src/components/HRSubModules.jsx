@@ -98,57 +98,134 @@ export const SalariesModule = ({ language, userRole }) => {
           {language === 'ar' ? 'المرتبات' : 'Salaries'}
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportToCSV}>
+          <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
             <Download className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
+            <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setShowAddModal(true)}>
-            <Plus className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'موظف جديد' : 'New Employee'}</span>
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
           {canEdit && (
-            <Button size="sm" className="bg-[#28376B]" onClick={() => setShowProcessModal(true)}>
-              <DollarSign className="h-4 w-4" />
-              <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'معالجة المرتبات' : 'Process Payroll'}</span>
-            </Button>
+            <>
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 flex items-center gap-2" onClick={() => setShowAddModal(true)}>
+                <Plus className="h-4 w-4" />
+                <span>{language === 'ar' ? 'موظف جديد' : 'New Employee'}</span>
+              </Button>
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2" onClick={() => setShowProcessModal(true)}>
+                <DollarSign className="h-4 w-4" />
+                <span>{language === 'ar' ? 'معالجة المرتبات' : 'Process Payroll'}</span>
+              </Button>
+            </>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي المرتبات' : 'Total Payroll'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">69,200 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي المرتبات' : 'Total Payroll'}
+                </p>
+                <h3 className="text-3xl font-bold text-gray-900">
+                  {salaries.reduce((sum, s) => sum + s.totalSalary, 0).toLocaleString()}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'المدفوع' : 'Paid'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">3</p>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'المدفوع' : 'Paid'}
+                </p>
+                <h3 className="text-3xl font-bold text-green-600">
+                  {salaries.filter(s => s.status === 'paid').length}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'رواتب' : 'salaries'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'قيد الانتظار' : 'Pending'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-yellow-600">1</p>
+
+        <Card className="border-l-4 border-l-yellow-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'قيد الانتظار' : 'Pending'}
+                </p>
+                <h3 className="text-3xl font-bold text-yellow-600">
+                  {salaries.filter(s => s.status === 'pending').length}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'رواتب' : 'salaries'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-yellow-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'عدد الموظفين' : 'Employees'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">4</p>
+
+        <Card className="border-l-4 border-l-purple-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'عدد الموظفين' : 'Employees'}
+                </p>
+                <h3 className="text-3xl font-bold text-purple-600">{salaries.length}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'موظفين' : 'employees'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Search Section */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'البحث بالاسم أو الكود...' : 'Search by name or ID...'}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <option value="">{language === 'ar' ? 'كل الحالات' : 'All Status'}</option>
+              <option value="paid">{language === 'ar' ? 'مدفوع' : 'Paid'}</option>
+              <option value="pending">{language === 'ar' ? 'قيد الانتظار' : 'Pending'}</option>
+            </select>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
