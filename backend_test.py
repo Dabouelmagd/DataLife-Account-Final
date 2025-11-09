@@ -2567,7 +2567,13 @@ class MultiTenantAPITester:
                 await self.test_financial_customers_api()
                 await self.test_financial_suppliers_api()
                 
-                print("\n🔒 PHASE 5: Multi-Tenant Isolation Testing")
+                print("\n📦 PHASE 5: Inventory APIs Testing")
+                print("-" * 50)
+                
+                # Test Inventory APIs
+                await self.test_inventory_api_comprehensive()
+                
+                print("\n🔒 PHASE 6: Multi-Tenant Isolation Testing")
                 print("-" * 50)
                 
                 # Test multi-tenant isolation
