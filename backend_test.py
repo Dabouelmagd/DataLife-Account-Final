@@ -3680,6 +3680,1090 @@ class MultiTenantAPITester:
         
         return self.test_results
 
+    # ==================== EXISTING USER COMPREHENSIVE TESTING ====================
+    
+    async def test_existing_user_login(self):
+        """Test login with existing user credentials"""
+        login_data = {
+            "email": "test-logo@example.com",
+            "password": "testpass123"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/auth/login",
+                json=login_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Store token for other tests
+                self.test_tokens["existing_user"] = data["access_token"]
+                self.test_users["existing_user"] = data["user"]
+                
+                self.log_result("Existing User Login", True, 
+                              f"Successfully logged in as {data['user'].get('full_name')} ({data['user'].get('role')})")
+                return data
+            else:
+                self.log_result("Existing User Login", False, 
+                              f"Expected 200, got {response.status_code}: {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_result("Existing User Login", False, f"Exception: {str(e)}")
+            return None
+
+    async def test_existing_user_company_details(self):
+        """Test GET /api/companies/me"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Company Details", False, "No existing user token available")
+            return
+            
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/companies/me",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Company Details", True, f"Retrieved company: {data.get('name')}")
+                return data
+            else:
+                self.log_result("Company Details", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Company Details", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_logo_upload(self):
+        """Test company logo upload"""
+        if "existing_user" not in self.test_tokens or "existing_user" not in self.test_users:
+            self.log_result("Logo Upload", False, "No existing user data available")
+            return
+            
+        company_id = self.test_users["existing_user"].get("company_id")
+        if not company_id:
+            self.log_result("Logo Upload", False, "No company_id available")
+            return
+            
+        test_image_content = b"fake_image_content_for_testing"
+        
+        try:
+            files = {"file": ("test_logo.jpg", test_image_content, "image/jpeg")}
+            
+            response = await self.client.post(
+                f"{self.base_url}/companies/{company_id}/upload-logo",
+                files=files,
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Logo Upload", True, f"Logo uploaded: {data.get('logo_url')}")
+            else:
+                self.log_result("Logo Upload", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Logo Upload", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_list_users(self):
+        """Test GET /api/users/"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("List Users", False, "No existing user token available")
+            return
+            
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/users/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("List Users", True, f"Retrieved {len(data)} users")
+                return data
+            else:
+                self.log_result("List Users", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("List Users", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_create_user(self):
+        """Test POST /api/users/"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Create User", False, "No existing user token available")
+            return
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        user_data = {
+            "email": f"test.user.{timestamp}@company.com",
+            "full_name": "Test User",
+            "role": "Accountant",
+            "password": "testpass123"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/users/",
+                json=user_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.test_data["created_user_id"] = data.get("id")
+                self.log_result("Create User", True, f"Created user: {data.get('email')}")
+                return data
+            else:
+                self.log_result("Create User", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Create User", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_update_user(self):
+        """Test PUT /api/users/{id}"""
+        if "existing_user" not in self.test_tokens or "created_user_id" not in self.test_data:
+            self.log_result("Update User", False, "No user data available for update")
+            return
+            
+        user_id = self.test_data["created_user_id"]
+        
+        try:
+            response = await self.client.put(
+                f"{self.base_url}/users/{user_id}/role",
+                params={"role": "HR Manager"},
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Update User", True, f"Updated user role to: {data.get('role')}")
+            else:
+                self.log_result("Update User", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Update User", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_delete_user(self):
+        """Test DELETE /api/users/{id}"""
+        if "existing_user" not in self.test_tokens or "created_user_id" not in self.test_data:
+            self.log_result("Delete User", False, "No user data available for deletion")
+            return
+            
+        user_id = self.test_data["created_user_id"]
+        
+        try:
+            response = await self.client.delete(
+                f"{self.base_url}/users/{user_id}",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Delete User", True, "User deleted successfully")
+            else:
+                self.log_result("Delete User", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Delete User", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_upload_photo(self):
+        """Test POST /api/users/{id}/upload-photo"""
+        if "existing_user" not in self.test_tokens or "existing_user" not in self.test_users:
+            self.log_result("Upload Photo", False, "No existing user data available")
+            return
+            
+        user_id = self.test_users["existing_user"].get("id")
+        test_image_content = b"fake_photo_content_for_testing"
+        
+        try:
+            files = {"file": ("profile.jpg", test_image_content, "image/jpeg")}
+            
+            response = await self.client.post(
+                f"{self.base_url}/users/{user_id}/upload-photo",
+                files=files,
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Upload Photo", True, "Profile photo uploaded successfully")
+            else:
+                self.log_result("Upload Photo", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Upload Photo", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_hr_employees(self):
+        """Test HR Employees API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("HR Employees", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/employees/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Employees GET", True, f"Retrieved {len(data)} employees")
+            else:
+                self.log_result("HR Employees GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Employees GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        employee_data = {
+            "name": "Ahmed Hassan",
+            "position": "Software Engineer",
+            "department": "IT",
+            "email": "ahmed.hassan@company.com",
+            "phone": "+201234567890",
+            "hire_date": "2024-01-15",
+            "basic_salary": 15000.0
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/hr/employees/",
+                json=employee_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.test_data["employee_id"] = data.get("id")
+                self.log_result("HR Employees POST", True, f"Created employee: {data.get('name')}")
+            else:
+                self.log_result("HR Employees POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Employees POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_hr_salaries(self):
+        """Test HR Salaries API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("HR Salaries", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/salaries/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Salaries GET", True, f"Retrieved {len(data)} salary records")
+            else:
+                self.log_result("HR Salaries GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Salaries GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        salary_data = {
+            "employee_id": self.test_data.get("employee_id", "emp_123"),
+            "employee_name": "Ahmed Hassan",
+            "basic_salary": 15000.0,
+            "allowances": 2000.0,
+            "deductions": 500.0,
+            "net_salary": 16500.0,
+            "month": "2024-12"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/hr/salaries/",
+                json=salary_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Salaries POST", True, f"Created salary record for {data.get('employee_name')}")
+            else:
+                self.log_result("HR Salaries POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Salaries POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_hr_allowances(self):
+        """Test HR Allowances API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("HR Allowances", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/allowances/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Allowances GET", True, f"Retrieved {len(data)} allowances")
+            else:
+                self.log_result("HR Allowances GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Allowances GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        allowance_data = {
+            "employee_id": self.test_data.get("employee_id", "emp_123"),
+            "employee_name": "Ahmed Hassan",
+            "type": "Transport",
+            "amount": 1500.0,
+            "month": "2024-12"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/hr/allowances/",
+                json=allowance_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Allowances POST", True, f"Created allowance: {data.get('type')}")
+            else:
+                self.log_result("HR Allowances POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Allowances POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_hr_deductions(self):
+        """Test HR Deductions API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("HR Deductions", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/deductions/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Deductions GET", True, f"Retrieved {len(data)} deductions")
+            else:
+                self.log_result("HR Deductions GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Deductions GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        deduction_data = {
+            "employee_id": self.test_data.get("employee_id", "emp_123"),
+            "employee_name": "Ahmed Hassan",
+            "type": "Insurance",
+            "amount": 500.0,
+            "month": "2024-12"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/hr/deductions/",
+                json=deduction_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Deductions POST", True, f"Created deduction: {data.get('type')}")
+            else:
+                self.log_result("HR Deductions POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Deductions POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_hr_leaves(self):
+        """Test HR Leaves API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("HR Leaves", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/leaves/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Leaves GET", True, f"Retrieved {len(data)} leave records")
+            else:
+                self.log_result("HR Leaves GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Leaves GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        leave_data = {
+            "employee_id": self.test_data.get("employee_id", "emp_123"),
+            "employee_name": "Ahmed Hassan",
+            "leave_type": "annual",
+            "start_date": "2024-12-25",
+            "end_date": "2024-12-30",
+            "days": 5,
+            "reason": "Year-end vacation"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/hr/leaves/",
+                json=leave_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Leaves POST", True, f"Created leave: {data.get('leave_type')}")
+            else:
+                self.log_result("HR Leaves POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Leaves POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_hr_attendance(self):
+        """Test HR Attendance API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("HR Attendance", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/hr/attendance/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Attendance GET", True, f"Retrieved {len(data)} attendance records")
+            else:
+                self.log_result("HR Attendance GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Attendance GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        attendance_data = {
+            "employee_id": self.test_data.get("employee_id", "emp_123"),
+            "employee_name": "Ahmed Hassan",
+            "date": "2024-12-15",
+            "check_in": "09:00",
+            "check_out": "17:00",
+            "status": "present",
+            "hours": 8.0
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/hr/attendance/",
+                json=attendance_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("HR Attendance POST", True, f"Created attendance record")
+            else:
+                self.log_result("HR Attendance POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("HR Attendance POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_financial_journal_entries(self):
+        """Test Financial Journal Entries API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Financial Journal Entries", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/journal-entries/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Journal Entries GET", True, f"Retrieved {len(data)} journal entries")
+            else:
+                self.log_result("Financial Journal Entries GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Journal Entries GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        journal_data = {
+            "date": "2024-12-15",
+            "description": "Office supplies purchase",
+            "account": "Office Expenses",
+            "debit": 2500.0,
+            "credit": 0.0
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/financial/journal-entries/",
+                json=journal_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.test_data["journal_entry_id"] = data.get("id")
+                self.log_result("Financial Journal Entries POST", True, f"Created journal entry: {data.get('description')}")
+            else:
+                self.log_result("Financial Journal Entries POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Journal Entries POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_financial_customers(self):
+        """Test Financial Customers API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Financial Customers", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/customers/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Customers GET", True, f"Retrieved {len(data)} customers")
+            else:
+                self.log_result("Financial Customers GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Customers GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        customer_data = {
+            "name": "Mahmoud Ali Trading",
+            "email": "mahmoud@alitrading.com",
+            "phone": "+201555666777",
+            "address": "123 Commerce Street, Cairo",
+            "balance": 25000.0
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/financial/customers/",
+                json=customer_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Customers POST", True, f"Created customer: {data.get('name')}")
+            else:
+                self.log_result("Financial Customers POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Customers POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_financial_suppliers(self):
+        """Test Financial Suppliers API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Financial Suppliers", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/suppliers/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Suppliers GET", True, f"Retrieved {len(data)} suppliers")
+            else:
+                self.log_result("Financial Suppliers GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Suppliers GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        supplier_data = {
+            "name": "Tech Solutions Provider",
+            "email": "sales@techsolutions.com",
+            "phone": "+201444555666",
+            "address": "456 Technology Park, Giza",
+            "balance": -15000.0
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/financial/suppliers/",
+                json=supplier_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Suppliers POST", True, f"Created supplier: {data.get('name')}")
+            else:
+                self.log_result("Financial Suppliers POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Suppliers POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_financial_treasury(self):
+        """Test Financial Treasury API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Financial Treasury", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/treasury/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Treasury GET", True, f"Retrieved {len(data)} treasury transactions")
+            else:
+                self.log_result("Financial Treasury GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Treasury GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        treasury_data = {
+            "date": "2024-12-15",
+            "description": "Cash deposit from sales",
+            "type": "in",
+            "amount": 50000.0
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/financial/treasury/",
+                json=treasury_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Treasury POST", True, f"Created treasury transaction: {data.get('description')}")
+            else:
+                self.log_result("Financial Treasury POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Treasury POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_financial_bank(self):
+        """Test Financial Bank API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Financial Bank", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/bank/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Bank GET", True, f"Retrieved {len(data)} bank transactions")
+            else:
+                self.log_result("Financial Bank GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Bank GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        bank_data = {
+            "date": "2024-12-15",
+            "description": "Client payment received",
+            "bank_name": "National Bank of Egypt",
+            "type": "deposit",
+            "amount": 75000.0,
+            "balance": 125000.0
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/financial/bank/",
+                json=bank_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Bank POST", True, f"Created bank transaction: {data.get('description')}")
+            else:
+                self.log_result("Financial Bank POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Bank POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_financial_custody(self):
+        """Test Financial Custody API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Financial Custody", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/custody/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Custody GET", True, f"Retrieved {len(data)} custody records")
+            else:
+                self.log_result("Financial Custody GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Custody GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        custody_data = {
+            "date": "2024-12-15",
+            "description": "Petty cash custody",
+            "custodian": "Ahmed Hassan",
+            "amount": 5000.0,
+            "type": "out"
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/financial/custody/",
+                json=custody_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Custody POST", True, f"Created custody record: {data.get('description')}")
+            else:
+                self.log_result("Financial Custody POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Custody POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_financial_accounts(self):
+        """Test Financial Chart of Accounts API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Financial Accounts", False, "No existing user token available")
+            return
+            
+        # Test GET
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/financial/accounts/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Accounts GET", True, f"Retrieved {len(data)} accounts")
+            else:
+                self.log_result("Financial Accounts GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Accounts GET", False, f"Exception: {str(e)}")
+        
+        # Test POST
+        account_data = {
+            "code": "1001",
+            "name": "Cash in Hand",
+            "type": "Asset",
+            "parent_code": "1000",
+            "balance": 50000.0
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/financial/accounts/",
+                json=account_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Financial Accounts POST", True, f"Created account: {data.get('name')}")
+            else:
+                self.log_result("Financial Accounts POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Financial Accounts POST", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_inventory_management(self):
+        """Test Inventory Management APIs"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Inventory Management", False, "No existing user token available")
+            return
+            
+        # Test GET /api/inventory/items/
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/inventory/items/",
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Inventory Items GET", True, f"Retrieved {len(data)} inventory items")
+            else:
+                self.log_result("Inventory Items GET", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Inventory Items GET", False, f"Exception: {str(e)}")
+        
+        # Test POST /api/inventory/items/
+        item_data = {
+            "name": "Test Inventory Item",
+            "category": "Raw Materials",
+            "quantity": 100.0,
+            "unit": "kg",
+            "unit_price": 25.50,
+            "min_stock": 20.0
+        }
+        
+        created_item_id = None
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/inventory/items/",
+                json=item_data,
+                headers={
+                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                created_item_id = data.get("id")
+                self.log_result("Inventory Items POST", True, f"Created item: {data.get('name')}")
+            else:
+                self.log_result("Inventory Items POST", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Inventory Items POST", False, f"Exception: {str(e)}")
+        
+        # Test GET /api/inventory/items/{id}
+        if created_item_id:
+            try:
+                response = await self.client.get(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    self.log_result("Inventory Item GET by ID", True, f"Retrieved item: {data.get('name')}")
+                else:
+                    self.log_result("Inventory Item GET by ID", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Inventory Item GET by ID", False, f"Exception: {str(e)}")
+        
+        # Test PUT /api/inventory/items/{id}
+        if created_item_id:
+            update_data = {
+                "quantity": 75.0,
+                "min_stock": 80.0
+            }
+            
+            try:
+                response = await self.client.put(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    json=update_data,
+                    headers={
+                        "Authorization": f"Bearer {self.test_tokens['existing_user']}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    self.log_result("Inventory Item PUT", True, f"Updated item status: {data.get('status')}")
+                else:
+                    self.log_result("Inventory Item PUT", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Inventory Item PUT", False, f"Exception: {str(e)}")
+        
+        # Test DELETE /api/inventory/items/{id}
+        if created_item_id:
+            try:
+                response = await self.client.delete(
+                    f"{self.base_url}/inventory/items/{created_item_id}",
+                    headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    self.log_result("Inventory Item DELETE", True, "Item deleted successfully")
+                else:
+                    self.log_result("Inventory Item DELETE", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result("Inventory Item DELETE", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_analytics_overview(self):
+        """Test Analytics Overview API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Analytics Overview", False, "No existing user token available")
+            return
+            
+        periods = ["monthly", "daily", "yearly"]
+        
+        for period in periods:
+            try:
+                response = await self.client.get(
+                    f"{self.base_url}/analytics/overview",
+                    params={"period": period},
+                    headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    self.log_result(f"Analytics Overview ({period})", True, f"Retrieved {period} analytics overview")
+                else:
+                    self.log_result(f"Analytics Overview ({period})", False, f"Expected 200, got {response.status_code}: {response.text}")
+                    
+            except Exception as e:
+                self.log_result(f"Analytics Overview ({period})", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_analytics_financial(self):
+        """Test Analytics Financial API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Analytics Financial", False, "No existing user token available")
+            return
+            
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/analytics/financial",
+                params={"period": "monthly"},
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Analytics Financial", True, f"Retrieved financial analytics with {len(data.get('revenue_by_month', []))} revenue entries")
+            else:
+                self.log_result("Analytics Financial", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Analytics Financial", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_analytics_hr(self):
+        """Test Analytics HR API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Analytics HR", False, "No existing user token available")
+            return
+            
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/analytics/hr",
+                params={"period": "monthly"},
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Analytics HR", True, f"Retrieved HR analytics with {data.get('total_employees', 0)} employees")
+            else:
+                self.log_result("Analytics HR", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Analytics HR", False, f"Exception: {str(e)}")
+
+    async def test_existing_user_analytics_inventory(self):
+        """Test Analytics Inventory API"""
+        if "existing_user" not in self.test_tokens:
+            self.log_result("Analytics Inventory", False, "No existing user token available")
+            return
+            
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/analytics/inventory",
+                params={"period": "monthly"},
+                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Analytics Inventory", True, f"Retrieved inventory analytics with {data.get('total_items', 0)} items")
+            else:
+                self.log_result("Analytics Inventory", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Analytics Inventory", False, f"Exception: {str(e)}")
+
     async def run_comprehensive_validation(self):
         """Run comprehensive validation of all backend APIs with existing user credentials"""
         print("🚀 Starting Comprehensive Backend API Validation...")
