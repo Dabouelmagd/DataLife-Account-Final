@@ -467,6 +467,164 @@ export const JournalEntriesModule = ({ language, userRole }) => {
         </div>
       )}
 
+      {/* Edit Entry Modal */}
+      {showEditModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل القيد' : 'Edit Entry'}</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const debit = parseFloat(formData.get('debit')) || 0;
+              const credit = parseFloat(formData.get('credit')) || 0;
+              
+              const updatedEntries = journalEntries.map(entry => 
+                entry.id === selectedEntry.id 
+                  ? {
+                      ...entry,
+                      date: formData.get('date'),
+                      description: formData.get('description'),
+                      account: formData.get('account'),
+                      debit: debit,
+                      credit: credit
+                    }
+                  : entry
+              );
+              setJournalEntries(updatedEntries);
+              setShowEditModal(false);
+              setSuccessMessage(language === 'ar' ? 'تم تعديل القيد بنجاح!' : 'Entry updated successfully!');
+              setShowSuccessModal(true);
+              setTimeout(() => setShowSuccessModal(false), 2000);
+            }} className="space-y-4">
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'التاريخ' : 'Date'} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  defaultValue={selectedEntry.date}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'الحساب' : 'Account'} <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="account"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  defaultValue={selectedEntry.account}
+                >
+                  <option value="">{language === 'ar' ? 'اختر الحساب' : 'Select Account'}</option>
+                  <option value={language === 'ar' ? 'المخزون' : 'Inventory'}>{language === 'ar' ? 'المخزون' : 'Inventory'}</option>
+                  <option value={language === 'ar' ? 'المبيعات' : 'Sales'}>{language === 'ar' ? 'المبيعات' : 'Sales'}</option>
+                  <option value={language === 'ar' ? 'المصروفات' : 'Expenses'}>{language === 'ar' ? 'المصروفات' : 'Expenses'}</option>
+                  <option value={language === 'ar' ? 'البنك' : 'Bank'}>{language === 'ar' ? 'البنك' : 'Bank'}</option>
+                  <option value={language === 'ar' ? 'النقدية' : 'Cash'}>{language === 'ar' ? 'النقدية' : 'Cash'}</option>
+                  <option value={language === 'ar' ? 'العملاء' : 'Customers'}>{language === 'ar' ? 'العملاء' : 'Customers'}</option>
+                  <option value={language === 'ar' ? 'الموردين' : 'Suppliers'}>{language === 'ar' ? 'الموردين' : 'Suppliers'}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'الوصف' : 'Description'} <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  name="description"
+                  required
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder={language === 'ar' ? 'أدخل وصف القيد...' : 'Enter entry description...'}
+                  defaultValue={selectedEntry.description}
+                ></textarea>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'مدين' : 'Debit'} <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="debit"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    placeholder="0.00"
+                    defaultValue={selectedEntry.debit}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'دائن' : 'Credit'} <span className="text-gray-400">({language === 'ar' ? 'ج.م' : 'EGP'})</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="credit"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                    placeholder="0.00"
+                    defaultValue={selectedEntry.credit}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                <p className="text-sm text-yellow-800">
+                  {language === 'ar' 
+                    ? '⚠️ ملاحظة: يجب إدخال قيمة في المدين أو الدائن (ليس كلاهما)' 
+                    : '⚠️ Note: Enter value in either Debit or Credit (not both)'}
+                </p>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t">
+                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                  {language === 'ar' ? 'حفظ التعديلات' : 'Save Changes'}
+                </Button>
+                <Button type="button" onClick={() => setShowEditModal(false)} variant="outline" className="flex-1">
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="text-gray-700 mb-6">
+              {language === 'ar' ? `هل أنت متأكد من حذف القيد ${selectedEntry.id}؟` : `Are you sure you want to delete entry ${selectedEntry.id}?`}
+            </p>
+            <div className="flex gap-4">
+              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-600 hover:bg-red-700">
+                {language === 'ar' ? 'حذف' : 'Delete'}
+              </Button>
+              <Button onClick={() => setShowDeleteModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
