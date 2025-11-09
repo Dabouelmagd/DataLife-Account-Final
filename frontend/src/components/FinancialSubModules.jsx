@@ -3498,35 +3498,46 @@ export const InventoryModule = ({ language, userRole }) => {
               <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const formData = new FormData(e.target);
-              const quantity = parseFloat(formData.get('quantity')) || 0;
-              const unitPrice = parseFloat(formData.get('unitPrice')) || 0;
-              const minStock = parseFloat(formData.get('minStock')) || 0;
-              const totalValue = quantity * unitPrice;
-              const status = quantity <= minStock ? 'low-stock' : 'in-stock';
               
-              const updatedInventory = inventory.map(i => 
-                i.id === selectedEntry.id 
-                  ? {
-                      ...i,
-                      name: formData.get('name'),
-                      category: formData.get('category'),
-                      quantity: quantity,
-                      unit: formData.get('unit'),
-                      unitPrice: unitPrice,
-                      totalValue: totalValue,
-                      minStock: minStock,
-                      status: status
-                    }
-                  : i
-              );
-              setInventory(updatedInventory);
-              setShowEditModal(false);
-              setSuccessMessage(language === 'ar' ? 'تم تعديل الصنف بنجاح!' : 'Item updated successfully!');
-              setShowSuccessModal(true);
-              setTimeout(() => setShowSuccessModal(false), 2000);
+              const updateData = {
+                name: formData.get('name'),
+                category: formData.get('category'),
+                quantity: parseFloat(formData.get('quantity')),
+                unit: formData.get('unit'),
+                unit_price: parseFloat(formData.get('unitPrice')),
+                min_stock: parseFloat(formData.get('minStock'))
+              };
+              
+              try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/inventory/items/${selectedEntry.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify(updateData)
+                });
+                
+                if (response.ok) {
+                  const updatedItem = await response.json();
+                  const updatedInventory = inventory.map(i => 
+                    i.id === selectedEntry.id ? updatedItem : i
+                  );
+                  setInventory(updatedInventory);
+                  setShowEditModal(false);
+                  setSuccessMessage(language === 'ar' ? 'تم تعديل الصنف بنجاح!' : 'Item updated successfully!');
+                  setShowSuccessModal(true);
+                  setTimeout(() => setShowSuccessModal(false), 2000);
+                } else {
+                  console.error('Failed to update inventory item');
+                }
+              } catch (error) {
+                console.error('Error updating inventory item:', error);
+              }
             }} className="space-y-4">
               
               <div>
