@@ -3619,7 +3619,7 @@ export const InventoryModule = ({ language, userRole }) => {
                     step="0.01"
                     min="0"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    defaultValue={selectedEntry.unitPrice}
+                    defaultValue={selectedEntry.unit_price || selectedEntry.unitPrice}
                   />
                 </div>
 
@@ -3634,7 +3634,7 @@ export const InventoryModule = ({ language, userRole }) => {
                     step="0.01"
                     min="0"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    defaultValue={selectedEntry.minStock}
+                    defaultValue={selectedEntry.min_stock || selectedEntry.minStock}
                   />
                 </div>
               </div>
