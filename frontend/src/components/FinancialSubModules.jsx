@@ -1980,56 +1980,74 @@ export const FinancialReportsModule = ({ language, userRole }) => {
             {/* جدول تفاصيل السحب والإيداع */}
             <Card>
               <CardHeader>
-                <CardTitle>{language === 'ar' ? 'تفاصيل السحب والإيداع' : 'Deposits & Withdrawals Details'}</CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle>{language === 'ar' ? 'تفاصيل السحب والإيداع' : 'Deposits & Withdrawals Details'}</CardTitle>
+                  <select 
+                    className="border rounded px-3 py-2 text-sm"
+                    value={cashFlowFilter}
+                    onChange={(e) => setCashFlowFilter(e.target.value)}
+                  >
+                    <option value="all">{language === 'ar' ? 'الكل' : 'All'}</option>
+                    <option value="in">{language === 'ar' ? 'الإيداعات فقط' : 'Deposits Only'}</option>
+                    <option value="out">{language === 'ar' ? 'السحوبات فقط' : 'Withdrawals Only'}</option>
+                  </select>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>{language === 'ar' ? 'الكود' : 'ID'}</TableHead>
                       <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                       <TableHead>{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
                       <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
                       <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                       <TableHead>{language === 'ar' ? 'الرصيد' : 'Balance'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow>
-                      <TableCell>2024-10-08</TableCell>
-                      <TableCell>{language === 'ar' ? 'تحصيل من عميل' : 'Customer payment'}</TableCell>
-                      <TableCell>
-                        <Badge variant="success">{language === 'ar' ? 'إيداع' : 'Deposit'}</Badge>
-                      </TableCell>
-                      <TableCell className="text-green-600 font-bold">+50,000</TableCell>
-                      <TableCell className="font-semibold">150,000</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>2024-10-08</TableCell>
-                      <TableCell>{language === 'ar' ? 'شراء مستلزمات' : 'Purchase supplies'}</TableCell>
-                      <TableCell>
-                        <Badge variant="destructive">{language === 'ar' ? 'سحب' : 'Withdrawal'}</Badge>
-                      </TableCell>
-                      <TableCell className="text-red-600 font-bold">-15,000</TableCell>
-                      <TableCell className="font-semibold">135,000</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>2024-10-09</TableCell>
-                      <TableCell>{language === 'ar' ? 'مبيعات نقدية' : 'Cash sales'}</TableCell>
-                      <TableCell>
-                        <Badge variant="success">{language === 'ar' ? 'إيداع' : 'Deposit'}</Badge>
-                      </TableCell>
-                      <TableCell className="text-green-600 font-bold">+30,000</TableCell>
-                      <TableCell className="font-semibold">165,000</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>2024-10-09</TableCell>
-                      <TableCell>{language === 'ar' ? 'دفع فواتير' : 'Bills payment'}</TableCell>
-                      <TableCell>
-                        <Badge variant="destructive">{language === 'ar' ? 'سحب' : 'Withdrawal'}</Badge>
-                      </TableCell>
-                      <TableCell className="text-red-600 font-bold">-20,000</TableCell>
-                      <TableCell className="font-semibold">145,000</TableCell>
-                    </TableRow>
+                    {filteredTransactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan="7" className="text-center py-8 text-gray-500">
+                          {language === 'ar' ? 'لا توجد معاملات' : 'No transactions found'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredTransactions.map((tx) => (
+                        <TableRow key={tx.id}>
+                          <TableCell className="font-medium">{tx.id}</TableCell>
+                          <TableCell>{tx.date}</TableCell>
+                          <TableCell>{tx.description}</TableCell>
+                          <TableCell>
+                            <Badge variant={tx.type === 'in' ? 'success' : 'destructive'}>
+                              {tx.type === 'in' ? (language === 'ar' ? 'إيداع' : 'Deposit') : (language === 'ar' ? 'سحب' : 'Withdrawal')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className={tx.type === 'in' ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                            {tx.type === 'in' ? '+' : '-'}{tx.amount.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="font-semibold">{tx.balance.toLocaleString()}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => { setSelectedTransaction(tx); setShowViewModal(true); }}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {canEdit && (
+                                <>
+                                  <Button variant="ghost" size="sm" onClick={() => { setSelectedTransaction(tx); setShowEditModal(true); }}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => { setSelectedTransaction(tx); setShowDeleteModal(true); }}>
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
