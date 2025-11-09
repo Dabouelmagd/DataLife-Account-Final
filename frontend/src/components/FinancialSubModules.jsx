@@ -3466,15 +3466,15 @@ export const InventoryModule = ({ language, userRole }) => {
               </div>
               <div className="bg-blue-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-600">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</p>
-                <p className="text-lg font-bold text-gray-800">{selectedEntry.unitPrice.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                <p className="text-lg font-bold text-gray-800">{(selectedEntry.unit_price || selectedEntry.unitPrice || 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
               </div>
               <div className="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500">
                 <p className="text-sm text-gray-600">{language === 'ar' ? 'القيمة الإجمالية' : 'Total Value'}</p>
-                <p className="text-2xl font-bold text-purple-600">{selectedEntry.totalValue.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+                <p className="text-2xl font-bold text-purple-600">{(selectedEntry.total_value || selectedEntry.totalValue || 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
               </div>
               <div className="bg-blue-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-600">{language === 'ar' ? 'الحد الأدنى' : 'Min Stock'}</p>
-                <p className="text-lg font-bold text-gray-800">{selectedEntry.minStock} {selectedEntry.unit}</p>
+                <p className="text-lg font-bold text-gray-800">{selectedEntry.min_stock || selectedEntry.minStock} {selectedEntry.unit}</p>
               </div>
               <div className={`${selectedEntry.status === 'in-stock' ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500'} p-4 rounded-lg`}>
                 <p className="text-sm text-gray-600">{language === 'ar' ? 'الحالة' : 'Status'}</p>
