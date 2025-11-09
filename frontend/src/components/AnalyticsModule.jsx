@@ -66,7 +66,12 @@ export const AnalyticsModule = ({ language, userRole }) => {
 
   const exportToPDF = () => {
     const { overview, financial, hr, inventory } = analyticsData;
-    if (!overview) return;
+    if (!overview) {
+      alert(language === 'ar' ? 'لا توجد بيانات للتصدير' : 'No data to export');
+      return;
+    }
+    
+    console.log('Starting PDF export...');
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
