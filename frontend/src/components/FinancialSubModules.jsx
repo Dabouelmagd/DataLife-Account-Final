@@ -1387,40 +1387,129 @@ export const CustodyModule = ({ language, userRole }) => {
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'العهدة' : 'Custody'}
         </h2>
-        {canEdit && (
-          <Button size="sm" className="bg-[#28376B]">
-            <Plus className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'عهدة جديدة' : 'New Custody'}</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-        )}
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
+          </Button>
+          {canEdit && (
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
+              <span>{language === 'ar' ? 'عهدة جديدة' : 'New Custody'}</span>
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'إجمالي العهد' : 'Total Custody'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">30,000 {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'إجمالي العهد' : 'Total Custody'}
+                </p>
+                <h3 className="text-3xl font-bold text-gray-900">{totalAmount.toLocaleString()}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'العهد النشطة' : 'Active Custody'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-yellow-600">2</p>
+
+        <Card className="border-l-4 border-l-yellow-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'العهد النشطة' : 'Active Custody'}
+                </p>
+                <h3 className="text-3xl font-bold text-yellow-600">{activeCount}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'عهدة' : 'custody'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{language === 'ar' ? 'العهد المسددة' : 'Settled Custody'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">1</p>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'العهد المسددة' : 'Settled Custody'}
+                </p>
+                <h3 className="text-3xl font-bold text-green-600">{settledCount}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'عهدة' : 'custody'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-orange-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {language === 'ar' ? 'العهد النشطة (مبلغ)' : 'Active Amount'}
+                </p>
+                <h3 className="text-3xl font-bold text-orange-600">{activeAmount.toLocaleString()}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-orange-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Search and Filter Section */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'البحث بالموظف أو رقم العهدة...' : 'Search by employee or custody ID...'}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <select 
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">{language === 'ar' ? 'كل الحالات' : 'All Status'}</option>
+              <option value="active">{language === 'ar' ? 'النشطة فقط' : 'Active Only'}</option>
+              <option value="settled">{language === 'ar' ? 'المسددة فقط' : 'Settled Only'}</option>
+            </select>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
