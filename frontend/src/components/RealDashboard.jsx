@@ -731,24 +731,7 @@ const RealDashboard = () => {
     
     // Inventory Module
     if (activeModule === 'inventory') {
-      return (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{language === 'ar' ? 'إدارة المخزون' : 'Inventory Management'}</CardTitle>
-              <CardDescription>
-                {language === 'ar' ? 'قريباً - جاري التطوير' : 'Coming Soon - Under Development'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12 text-gray-500">
-                <PieChart className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                <p>{language === 'ar' ? 'هذه الميزة قيد التطوير حالياً' : 'This feature is currently under development'}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      );
+      return <InventoryModule language={language} userRole={user?.role} />;
     }
 
     // Reports Module
