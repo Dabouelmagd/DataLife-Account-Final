@@ -101,13 +101,17 @@ const UserManagement = ({ language = 'ar' }) => {
 
   // Handle add user
   const handleAddUser = async () => {
+    console.log('handleAddUser called', newUser);
+    
     try {
       // Validation
       if (!newUser.full_name || !newUser.email || !newUser.password || !newUser.role) {
+        console.log('Validation failed:', newUser);
         showToast(language === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields', 'error');
         return;
       }
 
+      console.log('Sending request to add user...');
       const token = localStorage.getItem('token');
       const response = await axios.post(
         `${process.env.REACT_APP_BACKEND_URL}/api/users`,
@@ -115,8 +119,11 @@ const UserManagement = ({ language = 'ar' }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      console.log('User created:', response.data);
+
       // Upload profile image if selected
       if (profileImage && response.data.id) {
+        console.log('Uploading profile image...');
         const formData = new FormData();
         formData.append('file', profileImage);
         
@@ -130,6 +137,7 @@ const UserManagement = ({ language = 'ar' }) => {
             }
           }
         );
+        console.log('Profile image uploaded');
       }
 
       setShowAddModal(false);
@@ -137,9 +145,11 @@ const UserManagement = ({ language = 'ar' }) => {
       setProfileImage(null);
       setImagePreview(null);
       showToast(language === 'ar' ? 'تم إضافة المستخدم بنجاح' : 'User added successfully', 'success');
-      fetchUsers();
+      await fetchUsers();
+      console.log('User added successfully');
     } catch (error) {
       console.error('Error adding user:', error);
+      console.error('Error response:', error.response?.data);
       const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
       showToast(
         language === 'ar' 
