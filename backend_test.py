@@ -3927,7 +3927,9 @@ class MultiTenantAPITester:
             self.log_result("HR Employees GET", False, f"Exception: {str(e)}")
         
         # Test POST
+        company_id = self.test_users["existing_user"].get("company_id") if "existing_user" in self.test_users else None
         employee_data = {
+            "company_id": company_id,
             "name": "Ahmed Hassan",
             "position": "Software Engineer",
             "department": "IT",
