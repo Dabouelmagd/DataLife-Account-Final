@@ -1516,6 +1516,15 @@ export const FinancialReportsModule = ({ language, userRole }) => {
   const isRTL = language === 'ar';
   const [financialReportTab, setFinancialReportTab] = useState('overview');
   const [financialPeriod, setFinancialPeriod] = useState('monthly');
+  const [cashFlowFilter, setCashFlowFilter] = useState('all');
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  
+  const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   // بيانات مالية شاملة
   const financialData = {
