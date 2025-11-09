@@ -2604,38 +2604,54 @@ export const SuppliersModule = ({ language, userRole }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {suppliers.map((supplier) => (
-                <TableRow key={supplier.id}>
-                  <TableCell className="font-medium">{supplier.id}</TableCell>
-                  <TableCell>{supplier.name}</TableCell>
-                  <TableCell>{supplier.phone}</TableCell>
-                  <TableCell className={supplier.balance > 0 ? 'text-red-600 font-bold' : 'text-gray-500'}>
-                    {supplier.balance > 0 ? supplier.balance.toLocaleString() : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={supplier.status === 'active' ? 'success' : 'secondary'}>
-                      {supplier.status === 'active' ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(supplier); setShowViewModal(true); }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {canEdit && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(supplier); setShowEditModal(true); }}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(supplier); setShowDeleteModal(true); }}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {(() => {
+                const filteredSuppliers = statusFilter === 'all' 
+                  ? suppliers 
+                  : suppliers.filter(s => s.status === statusFilter);
+                
+                if (filteredSuppliers.length === 0) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan="6" className="text-center py-8 text-gray-500">
+                        {language === 'ar' ? 'لا توجد موردين' : 'No suppliers found'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                
+                return filteredSuppliers.map((supplier) => (
+                  <TableRow key={supplier.id}>
+                    <TableCell className="font-medium">{supplier.id}</TableCell>
+                    <TableCell>{supplier.name}</TableCell>
+                    <TableCell>{supplier.phone}</TableCell>
+                    <TableCell className={supplier.balance > 0 ? 'text-red-600 font-bold' : 'text-gray-500'}>
+                      {supplier.balance > 0 ? supplier.balance.toLocaleString() : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={supplier.status === 'active' ? 'success' : 'secondary'}>
+                        {supplier.status === 'active' ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(supplier); setShowViewModal(true); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(supplier); setShowEditModal(true); }}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(supplier); setShowDeleteModal(true); }}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ));
+              })()}
             </TableBody>
           </Table>
         </CardContent>
