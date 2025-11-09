@@ -2107,6 +2107,448 @@ class MultiTenantAPITester:
         except Exception as e:
             self.log_result("API Health", False, f"Exception: {str(e)}")
 
+    # ==================== ANALYTICS API TESTING ====================
+    
+    async def test_analytics_overview_authentication(self):
+        """Test analytics overview endpoint requires authentication"""
+        try:
+            # Test without authorization header
+            response = await self.client.get(f"{self.base_url}/analytics/overview")
+            
+            if response.status_code == 401:
+                self.log_result("Analytics Overview - No Auth", True, "Correctly rejected request without authentication")
+            else:
+                self.log_result("Analytics Overview - No Auth", False, f"Expected 401, got {response.status_code}")
+            
+            # Test with invalid token
+            response = await self.client.get(
+                f"{self.base_url}/analytics/overview",
+                headers={"Authorization": "Bearer invalid_token"}
+            )
+            
+            if response.status_code == 401:
+                self.log_result("Analytics Overview - Invalid Token", True, "Correctly rejected invalid token")
+            else:
+                self.log_result("Analytics Overview - Invalid Token", False, f"Expected 401, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_result("Analytics Overview Authentication", False, f"Exception: {str(e)}")
+
+    async def test_analytics_overview_success(self):
+        """Test analytics overview endpoint with valid authentication"""
+        # Use existing test user
+        login_data = {"email": "test-logo@example.com", "password": "testpass123"}
+        
+        try:
+            # Login to get token
+            login_response = await self.client.post(
+                f"{self.base_url}/auth/login",
+                json=login_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if login_response.status_code != 200:
+                self.log_result("Analytics Overview Success", False, f"Could not login: {login_response.status_code}")
+                return
+            
+            token = login_response.json()["access_token"]
+            
+            # Test with default period (monthly)
+            response = await self.client.get(
+                f"{self.base_url}/analytics/overview",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response structure
+                required_fields = ["period", "hr_analytics", "financial_analytics", "inventory_analytics"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("Analytics Overview Success", False, f"Missing required fields: {missing_fields}", data)
+                    return
+                
+                # Validate hr_analytics structure
+                hr_required = ["total_employees", "total_allowances", "total_deductions", "total_leaves"]
+                hr_missing = [field for field in hr_required if field not in data["hr_analytics"]]
+                
+                if hr_missing:
+                    self.log_result("Analytics Overview Success", False, f"Missing HR analytics fields: {hr_missing}", data)
+                    return
+                
+                # Validate financial_analytics structure
+                fin_required = ["total_customers", "total_suppliers", "total_revenue", "total_expenses", "net_profit", "profit_margin"]
+                fin_missing = [field for field in fin_required if field not in data["financial_analytics"]]
+                
+                if fin_missing:
+                    self.log_result("Analytics Overview Success", False, f"Missing financial analytics fields: {fin_missing}", data)
+                    return
+                
+                # Validate inventory_analytics structure
+                inv_required = ["total_items", "total_value", "low_stock_items", "in_stock_items"]
+                inv_missing = [field for field in inv_required if field not in data["inventory_analytics"]]
+                
+                if inv_missing:
+                    self.log_result("Analytics Overview Success", False, f"Missing inventory analytics fields: {inv_missing}", data)
+                    return
+                
+                self.log_result("Analytics Overview Success", True, f"Overview analytics retrieved successfully with period: {data['period']}", data)
+                
+                # Store token for other tests
+                self.test_tokens["analytics"] = token
+                
+            else:
+                self.log_result("Analytics Overview Success", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Analytics Overview Success", False, f"Exception: {str(e)}")
+
+    async def test_analytics_overview_periods(self):
+        """Test analytics overview with different period parameters"""
+        if "analytics" not in self.test_tokens:
+            self.log_result("Analytics Overview Periods", False, "No analytics token available")
+            return
+        
+        token = self.test_tokens["analytics"]
+        periods = ["daily", "monthly", "yearly"]
+        
+        for period in periods:
+            try:
+                response = await self.client.get(
+                    f"{self.base_url}/analytics/overview",
+                    params={"period": period},
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("period") == period:
+                        self.log_result(f"Analytics Overview - {period.title()} Period", True, f"Successfully retrieved {period} analytics")
+                    else:
+                        self.log_result(f"Analytics Overview - {period.title()} Period", False, f"Period mismatch: expected {period}, got {data.get('period')}")
+                else:
+                    self.log_result(f"Analytics Overview - {period.title()} Period", False, f"Expected 200, got {response.status_code}")
+                    
+            except Exception as e:
+                self.log_result(f"Analytics Overview - {period.title()} Period", False, f"Exception: {str(e)}")
+
+    async def test_analytics_financial_endpoint(self):
+        """Test financial analytics endpoint"""
+        if "analytics" not in self.test_tokens:
+            self.log_result("Analytics Financial", False, "No analytics token available")
+            return
+        
+        token = self.test_tokens["analytics"]
+        
+        try:
+            # Test without authentication first
+            response = await self.client.get(f"{self.base_url}/analytics/financial")
+            
+            if response.status_code == 401:
+                self.log_result("Analytics Financial - No Auth", True, "Correctly rejected request without authentication")
+            else:
+                self.log_result("Analytics Financial - No Auth", False, f"Expected 401, got {response.status_code}")
+            
+            # Test with valid authentication
+            response = await self.client.get(
+                f"{self.base_url}/analytics/financial",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response structure
+                required_fields = ["revenue_by_month", "expenses_by_month", "customer_balances", "supplier_balances", 
+                                 "total_customers", "total_suppliers", "total_revenue", "total_expenses"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("Analytics Financial", False, f"Missing required fields: {missing_fields}", data)
+                    return
+                
+                # Validate array fields
+                if not isinstance(data["revenue_by_month"], list):
+                    self.log_result("Analytics Financial", False, "revenue_by_month should be a list", data)
+                    return
+                
+                if not isinstance(data["expenses_by_month"], list):
+                    self.log_result("Analytics Financial", False, "expenses_by_month should be a list", data)
+                    return
+                
+                if not isinstance(data["customer_balances"], list):
+                    self.log_result("Analytics Financial", False, "customer_balances should be a list", data)
+                    return
+                
+                if not isinstance(data["supplier_balances"], list):
+                    self.log_result("Analytics Financial", False, "supplier_balances should be a list", data)
+                    return
+                
+                # Validate customer_balances structure (top 10)
+                if len(data["customer_balances"]) > 10:
+                    self.log_result("Analytics Financial", False, f"customer_balances should be limited to 10, got {len(data['customer_balances'])}", data)
+                    return
+                
+                # Validate supplier_balances structure (top 10)
+                if len(data["supplier_balances"]) > 10:
+                    self.log_result("Analytics Financial", False, f"supplier_balances should be limited to 10, got {len(data['supplier_balances'])}", data)
+                    return
+                
+                self.log_result("Analytics Financial", True, f"Financial analytics retrieved successfully with {len(data['revenue_by_month'])} revenue entries and {len(data['customer_balances'])} customers", data)
+                
+            else:
+                self.log_result("Analytics Financial", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Analytics Financial", False, f"Exception: {str(e)}")
+
+    async def test_analytics_hr_endpoint(self):
+        """Test HR analytics endpoint"""
+        if "analytics" not in self.test_tokens:
+            self.log_result("Analytics HR", False, "No analytics token available")
+            return
+        
+        token = self.test_tokens["analytics"]
+        
+        try:
+            # Test without authentication first
+            response = await self.client.get(f"{self.base_url}/analytics/hr")
+            
+            if response.status_code == 401:
+                self.log_result("Analytics HR - No Auth", True, "Correctly rejected request without authentication")
+            else:
+                self.log_result("Analytics HR - No Auth", False, f"Expected 401, got {response.status_code}")
+            
+            # Test with valid authentication
+            response = await self.client.get(
+                f"{self.base_url}/analytics/hr",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response structure
+                required_fields = ["total_employees", "department_distribution", "salary_distribution", 
+                                 "leave_statistics", "attendance_data", "total_allowances", "total_deductions", "total_leaves"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("Analytics HR", False, f"Missing required fields: {missing_fields}", data)
+                    return
+                
+                # Validate array fields
+                if not isinstance(data["department_distribution"], list):
+                    self.log_result("Analytics HR", False, "department_distribution should be a list", data)
+                    return
+                
+                if not isinstance(data["salary_distribution"], list):
+                    self.log_result("Analytics HR", False, "salary_distribution should be a list", data)
+                    return
+                
+                if not isinstance(data["leave_statistics"], list):
+                    self.log_result("Analytics HR", False, "leave_statistics should be a list", data)
+                    return
+                
+                if not isinstance(data["attendance_data"], list):
+                    self.log_result("Analytics HR", False, "attendance_data should be a list", data)
+                    return
+                
+                # Validate salary_distribution has expected ranges
+                salary_ranges = [item["range"] for item in data["salary_distribution"]]
+                expected_ranges = ["0-5000", "5000-10000", "10000-15000", "15000+"]
+                missing_ranges = [r for r in expected_ranges if r not in salary_ranges]
+                
+                if missing_ranges:
+                    self.log_result("Analytics HR", False, f"Missing salary ranges: {missing_ranges}", data)
+                    return
+                
+                self.log_result("Analytics HR", True, f"HR analytics retrieved successfully with {data['total_employees']} employees and {len(data['department_distribution'])} departments", data)
+                
+            else:
+                self.log_result("Analytics HR", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Analytics HR", False, f"Exception: {str(e)}")
+
+    async def test_analytics_inventory_endpoint(self):
+        """Test inventory analytics endpoint"""
+        if "analytics" not in self.test_tokens:
+            self.log_result("Analytics Inventory", False, "No analytics token available")
+            return
+        
+        token = self.test_tokens["analytics"]
+        
+        try:
+            # Test without authentication first
+            response = await self.client.get(f"{self.base_url}/analytics/inventory")
+            
+            if response.status_code == 401:
+                self.log_result("Analytics Inventory - No Auth", True, "Correctly rejected request without authentication")
+            else:
+                self.log_result("Analytics Inventory - No Auth", False, f"Expected 401, got {response.status_code}")
+            
+            # Test with valid authentication
+            response = await self.client.get(
+                f"{self.base_url}/analytics/inventory",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response structure
+                required_fields = ["total_items", "total_value", "category_distribution", "status_distribution", 
+                                 "top_items_by_value", "low_stock_alerts", "in_stock_count", "low_stock_count"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("Analytics Inventory", False, f"Missing required fields: {missing_fields}", data)
+                    return
+                
+                # Validate array fields
+                if not isinstance(data["category_distribution"], list):
+                    self.log_result("Analytics Inventory", False, "category_distribution should be a list", data)
+                    return
+                
+                if not isinstance(data["status_distribution"], list):
+                    self.log_result("Analytics Inventory", False, "status_distribution should be a list", data)
+                    return
+                
+                if not isinstance(data["top_items_by_value"], list):
+                    self.log_result("Analytics Inventory", False, "top_items_by_value should be a list", data)
+                    return
+                
+                if not isinstance(data["low_stock_alerts"], list):
+                    self.log_result("Analytics Inventory", False, "low_stock_alerts should be a list", data)
+                    return
+                
+                # Validate top_items_by_value is limited to 10
+                if len(data["top_items_by_value"]) > 10:
+                    self.log_result("Analytics Inventory", False, f"top_items_by_value should be limited to 10, got {len(data['top_items_by_value'])}", data)
+                    return
+                
+                # Validate status_distribution has expected statuses
+                status_names = [item["status"] for item in data["status_distribution"]]
+                expected_statuses = ["in-stock", "low-stock"]
+                missing_statuses = [s for s in expected_statuses if s not in status_names]
+                
+                if missing_statuses:
+                    self.log_result("Analytics Inventory", False, f"Missing status types: {missing_statuses}", data)
+                    return
+                
+                # Validate count consistency
+                total_from_status = sum(item["count"] for item in data["status_distribution"])
+                if total_from_status != data["total_items"]:
+                    self.log_result("Analytics Inventory", False, f"Status count mismatch: status sum {total_from_status} != total_items {data['total_items']}", data)
+                    return
+                
+                self.log_result("Analytics Inventory", True, f"Inventory analytics retrieved successfully with {data['total_items']} items and {len(data['category_distribution'])} categories", data)
+                
+            else:
+                self.log_result("Analytics Inventory", False, f"Expected 200, got {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Analytics Inventory", False, f"Exception: {str(e)}")
+
+    async def test_analytics_multi_tenant_isolation(self):
+        """Test that analytics endpoints enforce multi-tenant isolation"""
+        if "analytics" not in self.test_tokens:
+            self.log_result("Analytics Multi-Tenant Isolation", False, "No analytics token available")
+            return
+        
+        # Create a second company for isolation testing
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        company_b_data = {
+            "name": "Analytics Test Company B",
+            "industry": "Healthcare", 
+            "size": "Small (1-50)",
+            "contact_email": f"analytics.b.{timestamp}@testcompany.com",
+            "phone": "+201987654321"
+        }
+        
+        admin_b_email = f"analytics.admin.b.{timestamp}@testcompany.com"
+        admin_b_password = "analyticspass123"
+        
+        try:
+            # Create Company B
+            response_b = await self.client.post(
+                f"{self.base_url}/auth/register-company",
+                json=company_b_data,
+                params={
+                    "user_email": admin_b_email,
+                    "user_password": admin_b_password,
+                    "user_full_name": "Analytics Admin B"
+                },
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response_b.status_code != 200:
+                self.log_result("Analytics Multi-Tenant Isolation", False, f"Could not create Company B: {response_b.status_code}")
+                return
+            
+            company_b_token = response_b.json()["access_token"]
+            
+            # Test that Company B sees empty/different analytics data
+            endpoints = [
+                ("overview", "/analytics/overview"),
+                ("financial", "/analytics/financial"),
+                ("hr", "/analytics/hr"),
+                ("inventory", "/analytics/inventory")
+            ]
+            
+            for endpoint_name, endpoint_path in endpoints:
+                try:
+                    response = await self.client.get(
+                        f"{self.base_url}{endpoint_path}",
+                        headers={"Authorization": f"Bearer {company_b_token}"}
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        
+                        # Company B should have empty/zero data since it's new
+                        if endpoint_name == "overview":
+                            hr_totals = sum(data["hr_analytics"].values())
+                            fin_totals = data["financial_analytics"]["total_customers"] + data["financial_analytics"]["total_suppliers"]
+                            inv_totals = data["inventory_analytics"]["total_items"]
+                            
+                            if hr_totals == 0 and fin_totals == 0 and inv_totals == 0:
+                                self.log_result(f"Analytics {endpoint_name.title()} - Company B Isolation", True, "Company B correctly shows empty data (proper isolation)")
+                            else:
+                                self.log_result(f"Analytics {endpoint_name.title()} - Company B Isolation", False, f"Company B shows non-zero data: HR={hr_totals}, Fin={fin_totals}, Inv={inv_totals}")
+                        
+                        elif endpoint_name == "financial":
+                            if data["total_customers"] == 0 and data["total_suppliers"] == 0:
+                                self.log_result(f"Analytics {endpoint_name.title()} - Company B Isolation", True, "Company B correctly shows empty financial data")
+                            else:
+                                self.log_result(f"Analytics {endpoint_name.title()} - Company B Isolation", False, f"Company B shows financial data: customers={data['total_customers']}, suppliers={data['total_suppliers']}")
+                        
+                        elif endpoint_name == "hr":
+                            if data["total_employees"] == 0:
+                                self.log_result(f"Analytics {endpoint_name.title()} - Company B Isolation", True, "Company B correctly shows empty HR data")
+                            else:
+                                self.log_result(f"Analytics {endpoint_name.title()} - Company B Isolation", False, f"Company B shows HR data: employees={data['total_employees']}")
+                        
+                        elif endpoint_name == "inventory":
+                            if data["total_items"] == 0:
+                                self.log_result(f"Analytics {endpoint_name.title()} - Company B Isolation", True, "Company B correctly shows empty inventory data")
+                            else:
+                                self.log_result(f"Analytics {endpoint_name.title()} - Company B Isolation", False, f"Company B shows inventory data: items={data['total_items']}")
+                    
+                    else:
+                        self.log_result(f"Analytics {endpoint_name.title()} - Company B Isolation", False, f"Expected 200, got {response.status_code}")
+                        
+                except Exception as e:
+                    self.log_result(f"Analytics {endpoint_name.title()} - Company B Isolation", False, f"Exception: {str(e)}")
+                    
+        except Exception as e:
+            self.log_result("Analytics Multi-Tenant Isolation", False, f"Exception: {str(e)}")
+
+    # ==================== INVENTORY API TESTING ====================
+
     async def test_inventory_api_with_existing_user(self):
         """Test Inventory API with existing test user: test-logo@example.com"""
         print("\n🔍 Testing with existing user: test-logo@example.com")
