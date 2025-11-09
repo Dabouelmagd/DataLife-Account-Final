@@ -3680,6 +3680,104 @@ class MultiTenantAPITester:
         
         return self.test_results
 
+    async def run_comprehensive_validation(self):
+        """Run comprehensive validation of all backend APIs with existing user credentials"""
+        print("🚀 Starting Comprehensive Backend API Validation...")
+        print(f"Backend URL: {self.base_url}")
+        print("Testing with existing user: test-logo@example.com")
+        print("=" * 80)
+        
+        await self.setup()
+        
+        try:
+            # Test API health first
+            await self.test_api_health()
+            
+            print("\n🔐 PHASE 1: Authentication & Company Management")
+            print("-" * 60)
+            
+            # Login with existing credentials
+            await self.test_existing_user_login()
+            
+            # Test company management
+            await self.test_existing_user_company_details()
+            await self.test_existing_user_logo_upload()
+            
+            print("\n👥 PHASE 2: User Management APIs")
+            print("-" * 60)
+            
+            # Test user management with existing user
+            await self.test_existing_user_list_users()
+            await self.test_existing_user_create_user()
+            await self.test_existing_user_update_user()
+            await self.test_existing_user_delete_user()
+            await self.test_existing_user_upload_photo()
+            
+            print("\n👔 PHASE 3: HR Module APIs")
+            print("-" * 60)
+            
+            # Test all HR APIs
+            await self.test_existing_user_hr_employees()
+            await self.test_existing_user_hr_salaries()
+            await self.test_existing_user_hr_allowances()
+            await self.test_existing_user_hr_deductions()
+            await self.test_existing_user_hr_leaves()
+            await self.test_existing_user_hr_attendance()
+            
+            print("\n💰 PHASE 4: Financial Module APIs")
+            print("-" * 60)
+            
+            # Test all Financial APIs
+            await self.test_existing_user_financial_journal_entries()
+            await self.test_existing_user_financial_customers()
+            await self.test_existing_user_financial_suppliers()
+            await self.test_existing_user_financial_treasury()
+            await self.test_existing_user_financial_bank()
+            await self.test_existing_user_financial_custody()
+            await self.test_existing_user_financial_accounts()
+            
+            print("\n📦 PHASE 5: Inventory Management APIs")
+            print("-" * 60)
+            
+            # Test inventory APIs
+            await self.test_existing_user_inventory_management()
+            
+            print("\n📊 PHASE 6: Analytics APIs")
+            print("-" * 60)
+            
+            # Test analytics APIs
+            await self.test_existing_user_analytics_overview()
+            await self.test_existing_user_analytics_financial()
+            await self.test_existing_user_analytics_hr()
+            await self.test_existing_user_analytics_inventory()
+            
+        finally:
+            await self.cleanup()
+        
+        # Print summary
+        print("\n" + "=" * 80)
+        print("📊 COMPREHENSIVE VALIDATION SUMMARY")
+        print("=" * 80)
+        
+        total_tests = len(self.test_results)
+        passed_tests = sum(1 for result in self.test_results if result["success"])
+        failed_tests = total_tests - passed_tests
+        
+        print(f"Total Tests: {total_tests}")
+        print(f"Passed: {passed_tests}")
+        print(f"Failed: {failed_tests}")
+        print(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        
+        if failed_tests > 0:
+            print("\n❌ FAILED TESTS:")
+            for result in self.test_results:
+                if not result["success"]:
+                    print(f"  - {result['test']}: {result['details']}")
+        else:
+            print("\n✅ ALL TESTS PASSED - SYSTEM IS PRODUCTION READY!")
+        
+        return self.test_results
+
 async def main():
     """Main test runner"""
     tester = MultiTenantAPITester()
