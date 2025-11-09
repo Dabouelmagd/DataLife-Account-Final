@@ -2956,28 +2956,38 @@ export const InventoryModule = ({ language, userRole }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [inventory, setInventory] = useState([]);
+  const [loading, setLoading] = useState(true);
   const isRTL = language === 'ar';
   const canEdit = ['Financial Manager', 'المدير المالي', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
-  const initialInventory = [
-    { id: 'INV001', name: language === 'ar' ? 'مواد خام - نوع A' : 'Raw Material - Type A', category: language === 'ar' ? 'مواد خام' : 'Raw Materials', quantity: 500, unit: language === 'ar' ? 'كجم' : 'kg', unitPrice: 50, totalValue: 25000, minStock: 100, status: 'in-stock' },
-    { id: 'INV002', name: language === 'ar' ? 'منتج نهائي - X' : 'Finished Product - X', category: language === 'ar' ? 'منتجات نهائية' : 'Finished Products', quantity: 200, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 150, totalValue: 30000, minStock: 50, status: 'in-stock' },
-    { id: 'INV003', name: language === 'ar' ? 'قطع غيار' : 'Spare Parts', category: language === 'ar' ? 'قطع غيار' : 'Spare Parts', quantity: 30, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 200, totalValue: 6000, minStock: 50, status: 'low-stock' },
-    { id: 'INV004', name: language === 'ar' ? 'مستلزمات التعبئة' : 'Packaging Materials', category: language === 'ar' ? 'مستلزمات' : 'Supplies', quantity: 1000, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 5, totalValue: 5000, minStock: 200, status: 'in-stock' },
-    { id: 'INV005', name: language === 'ar' ? 'مواد كيميائية' : 'Chemical Materials', category: language === 'ar' ? 'مواد خام' : 'Raw Materials', quantity: 15, unit: language === 'ar' ? 'لتر' : 'ltr', unitPrice: 300, totalValue: 4500, minStock: 20, status: 'low-stock' }
-  ];
-
-  const [inventory, setInventory] = React.useState(initialInventory);
+  // Fetch inventory items from backend
+  const fetchInventoryItems = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/inventory/items`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setInventory(data);
+      } else {
+        console.error('Failed to fetch inventory items');
+      }
+    } catch (error) {
+      console.error('Error fetching inventory items:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   React.useEffect(() => {
-    setInventory([
-      { id: 'INV001', name: language === 'ar' ? 'مواد خام - نوع A' : 'Raw Material - Type A', category: language === 'ar' ? 'مواد خام' : 'Raw Materials', quantity: 500, unit: language === 'ar' ? 'كجم' : 'kg', unitPrice: 50, totalValue: 25000, minStock: 100, status: 'in-stock' },
-      { id: 'INV002', name: language === 'ar' ? 'منتج نهائي - X' : 'Finished Product - X', category: language === 'ar' ? 'منتجات نهائية' : 'Finished Products', quantity: 200, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 150, totalValue: 30000, minStock: 50, status: 'in-stock' },
-      { id: 'INV003', name: language === 'ar' ? 'قطع غيار' : 'Spare Parts', category: language === 'ar' ? 'قطع غيار' : 'Spare Parts', quantity: 30, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 200, totalValue: 6000, minStock: 50, status: 'low-stock' },
-      { id: 'INV004', name: language === 'ar' ? 'مستلزمات التعبئة' : 'Packaging Materials', category: language === 'ar' ? 'مستلزمات' : 'Supplies', quantity: 1000, unit: language === 'ar' ? 'قطعة' : 'pcs', unitPrice: 5, totalValue: 5000, minStock: 200, status: 'in-stock' },
-      { id: 'INV005', name: language === 'ar' ? 'مواد كيميائية' : 'Chemical Materials', category: language === 'ar' ? 'مواد خام' : 'Raw Materials', quantity: 15, unit: language === 'ar' ? 'لتر' : 'ltr', unitPrice: 300, totalValue: 4500, minStock: 20, status: 'low-stock' }
-    ]);
-  }, [language]);
+    fetchInventoryItems();
+  }, []);
 
   const handleDeleteConfirm = () => {
     setInventory(inventory.filter(i => i.id !== selectedEntry.id));
