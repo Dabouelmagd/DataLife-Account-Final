@@ -66,11 +66,251 @@ export const AnalyticsModule = ({ language, userRole }) => {
   };
 
   const exportToPDF = () => {
-    alert(language === 'ar' ? 'جاري التصدير إلى PDF...' : 'Exporting to PDF...');
+    const { overview, financial, hr, inventory } = analyticsData;
+    if (!overview) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    let yPosition = 20;
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text(language === 'ar' ? 'تقرير التحليلات' : 'Analytics Report', pageWidth / 2, yPosition, { align: 'center' });
+    
+    yPosition += 10;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`${language === 'ar' ? 'التاريخ' : 'Date'}: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
+    doc.text(`${language === 'ar' ? 'الفترة' : 'Period'}: ${period}`, pageWidth / 2, yPosition + 5, { align: 'center' });
+
+    yPosition += 15;
+
+    // Overview Section
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text(language === 'ar' ? 'نظرة عامة' : 'Overview', 14, yPosition);
+    yPosition += 8;
+
+    // KPI Table
+    doc.autoTable({
+      startY: yPosition,
+      head: [[
+        language === 'ar' ? 'المؤشر' : 'Metric',
+        language === 'ar' ? 'القيمة' : 'Value'
+      ]],
+      body: [
+        [language === 'ar' ? 'صافي الربح' : 'Net Profit', overview.financial_analytics.net_profit.toLocaleString()],
+        [language === 'ar' ? 'هامش الربح' : 'Profit Margin', `${overview.financial_analytics.profit_margin.toFixed(1)}%`],
+        [language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees', overview.hr_analytics.total_employees],
+        [language === 'ar' ? 'قيمة المخزون' : 'Inventory Value', overview.inventory_analytics.total_value.toLocaleString()],
+        [language === 'ar' ? 'إجمالي العملاء' : 'Total Customers', overview.financial_analytics.total_customers],
+        [language === 'ar' ? 'إجمالي الموردين' : 'Total Suppliers', overview.financial_analytics.total_suppliers]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] }
+    });
+
+    yPosition = doc.lastAutoTable.finalY + 15;
+
+    // Financial Summary
+    if (yPosition > 250) {
+      doc.addPage();
+      yPosition = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text(language === 'ar' ? 'الملخص المالي' : 'Financial Summary', 14, yPosition);
+    yPosition += 8;
+
+    doc.autoTable({
+      startY: yPosition,
+      head: [[language === 'ar' ? 'البند' : 'Item', language === 'ar' ? 'المبلغ' : 'Amount']],
+      body: [
+        [language === 'ar' ? 'الإيرادات' : 'Revenue', overview.financial_analytics.total_revenue.toLocaleString()],
+        [language === 'ar' ? 'المصروفات' : 'Expenses', overview.financial_analytics.total_expenses.toLocaleString()],
+        [language === 'ar' ? 'صافي الربح' : 'Net Profit', overview.financial_analytics.net_profit.toLocaleString()]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [16, 185, 129] }
+    });
+
+    yPosition = doc.lastAutoTable.finalY + 15;
+
+    // HR Summary
+    if (yPosition > 250) {
+      doc.addPage();
+      yPosition = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text(language === 'ar' ? 'ملخص الموارد البشرية' : 'HR Summary', 14, yPosition);
+    yPosition += 8;
+
+    doc.autoTable({
+      startY: yPosition,
+      head: [[language === 'ar' ? 'البند' : 'Item', language === 'ar' ? 'العدد' : 'Count']],
+      body: [
+        [language === 'ar' ? 'الموظفين' : 'Employees', overview.hr_analytics.total_employees],
+        [language === 'ar' ? 'البدلات' : 'Allowances', overview.hr_analytics.total_allowances],
+        [language === 'ar' ? 'الخصومات' : 'Deductions', overview.hr_analytics.total_deductions],
+        [language === 'ar' ? 'الإجازات' : 'Leaves', overview.hr_analytics.total_leaves]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [139, 92, 246] }
+    });
+
+    yPosition = doc.lastAutoTable.finalY + 15;
+
+    // Inventory Summary
+    if (yPosition > 250) {
+      doc.addPage();
+      yPosition = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text(language === 'ar' ? 'ملخص المخزون' : 'Inventory Summary', 14, yPosition);
+    yPosition += 8;
+
+    doc.autoTable({
+      startY: yPosition,
+      head: [[language === 'ar' ? 'البند' : 'Item', language === 'ar' ? 'القيمة' : 'Value']],
+      body: [
+        [language === 'ar' ? 'متوفر' : 'In Stock', overview.inventory_analytics.in_stock_items],
+        [language === 'ar' ? 'مخزون منخفض' : 'Low Stock', overview.inventory_analytics.low_stock_items],
+        [language === 'ar' ? 'القيمة الكلية' : 'Total Value', overview.inventory_analytics.total_value.toLocaleString()]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [245, 158, 11] }
+    });
+
+    // Save PDF
+    const filename = `analytics_report_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
   };
 
   const exportToExcel = () => {
-    alert(language === 'ar' ? 'جاري التصدير إلى Excel...' : 'Exporting to Excel...');
+    const { overview, financial, hr, inventory } = analyticsData;
+    if (!overview) return;
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // Overview Sheet
+    const overviewData = [
+      [language === 'ar' ? 'تقرير التحليلات - نظرة عامة' : 'Analytics Report - Overview'],
+      [language === 'ar' ? 'التاريخ' : 'Date', new Date().toLocaleDateString()],
+      [language === 'ar' ? 'الفترة' : 'Period', period],
+      [],
+      [language === 'ar' ? 'المؤشرات المالية' : 'Financial Metrics'],
+      [language === 'ar' ? 'صافي الربح' : 'Net Profit', overview.financial_analytics.net_profit],
+      [language === 'ar' ? 'هامش الربح' : 'Profit Margin', `${overview.financial_analytics.profit_margin.toFixed(1)}%`],
+      [language === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue', overview.financial_analytics.total_revenue],
+      [language === 'ar' ? 'إجمالي المصروفات' : 'Total Expenses', overview.financial_analytics.total_expenses],
+      [language === 'ar' ? 'إجمالي العملاء' : 'Total Customers', overview.financial_analytics.total_customers],
+      [language === 'ar' ? 'إجمالي الموردين' : 'Total Suppliers', overview.financial_analytics.total_suppliers],
+      [],
+      [language === 'ar' ? 'مؤشرات الموارد البشرية' : 'HR Metrics'],
+      [language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees', overview.hr_analytics.total_employees],
+      [language === 'ar' ? 'البدلات' : 'Allowances', overview.hr_analytics.total_allowances],
+      [language === 'ar' ? 'الخصومات' : 'Deductions', overview.hr_analytics.total_deductions],
+      [language === 'ar' ? 'الإجازات' : 'Leaves', overview.hr_analytics.total_leaves],
+      [],
+      [language === 'ar' ? 'مؤشرات المخزون' : 'Inventory Metrics'],
+      [language === 'ar' ? 'إجمالي الأصناف' : 'Total Items', overview.inventory_analytics.total_items],
+      [language === 'ar' ? 'متوفر' : 'In Stock', overview.inventory_analytics.in_stock_items],
+      [language === 'ar' ? 'مخزون منخفض' : 'Low Stock', overview.inventory_analytics.low_stock_items],
+      [language === 'ar' ? 'القيمة الكلية' : 'Total Value', overview.inventory_analytics.total_value]
+    ];
+    const overviewSheet = XLSX.utils.aoa_to_sheet(overviewData);
+    XLSX.utils.book_append_sheet(wb, overviewSheet, language === 'ar' ? 'نظرة عامة' : 'Overview');
+
+    // Financial Sheet
+    if (financial && financial.revenue_by_month) {
+      const financialData = [
+        [language === 'ar' ? 'التحليلات المالية' : 'Financial Analytics'],
+        [],
+        [language === 'ar' ? 'الإيرادات والمصروفات حسب الشهر' : 'Revenue and Expenses by Month'],
+        [language === 'ar' ? 'الشهر' : 'Month', language === 'ar' ? 'الإيرادات' : 'Revenue', language === 'ar' ? 'المصروفات' : 'Expenses']
+      ];
+      
+      financial.revenue_by_month.forEach((item, idx) => {
+        financialData.push([
+          item.month,
+          item.amount,
+          financial.expenses_by_month[idx]?.amount || 0
+        ]);
+      });
+
+      financialData.push([]);
+      financialData.push([language === 'ar' ? 'أرصدة العملاء' : 'Customer Balances']);
+      financialData.push([language === 'ar' ? 'الاسم' : 'Name', language === 'ar' ? 'الرصيد' : 'Balance']);
+      financial.customer_balances.forEach(customer => {
+        financialData.push([customer.name, customer.balance]);
+      });
+
+      const financialSheet = XLSX.utils.aoa_to_sheet(financialData);
+      XLSX.utils.book_append_sheet(wb, financialSheet, language === 'ar' ? 'المالية' : 'Financial');
+    }
+
+    // HR Sheet
+    if (hr && hr.department_distribution) {
+      const hrData = [
+        [language === 'ar' ? 'تحليلات الموارد البشرية' : 'HR Analytics'],
+        [],
+        [language === 'ar' ? 'توزيع الموظفين حسب القسم' : 'Employee Distribution by Department'],
+        [language === 'ar' ? 'القسم' : 'Department', language === 'ar' ? 'العدد' : 'Count']
+      ];
+      
+      hr.department_distribution.forEach(dept => {
+        hrData.push([dept.department, dept.count]);
+      });
+
+      hrData.push([]);
+      hrData.push([language === 'ar' ? 'توزيع الرواتب' : 'Salary Distribution']);
+      hrData.push([language === 'ar' ? 'النطاق' : 'Range', language === 'ar' ? 'العدد' : 'Count']);
+      hr.salary_distribution.forEach(salary => {
+        hrData.push([salary.range, salary.count]);
+      });
+
+      const hrSheet = XLSX.utils.aoa_to_sheet(hrData);
+      XLSX.utils.book_append_sheet(wb, hrSheet, language === 'ar' ? 'الموارد البشرية' : 'HR');
+    }
+
+    // Inventory Sheet
+    if (inventory && inventory.category_distribution) {
+      const inventoryData = [
+        [language === 'ar' ? 'تحليلات المخزون' : 'Inventory Analytics'],
+        [],
+        [language === 'ar' ? 'توزيع الأصناف حسب الفئة' : 'Items by Category'],
+        [language === 'ar' ? 'الفئة' : 'Category', language === 'ar' ? 'العدد' : 'Count', language === 'ar' ? 'القيمة' : 'Value']
+      ];
+      
+      inventory.category_distribution.forEach(cat => {
+        inventoryData.push([cat.category, cat.count, cat.value]);
+      });
+
+      inventoryData.push([]);
+      inventoryData.push([language === 'ar' ? 'تنبيهات المخزون المنخفض' : 'Low Stock Alerts']);
+      if (inventory.low_stock_alerts.length > 0) {
+        inventoryData.push([language === 'ar' ? 'الصنف' : 'Item', language === 'ar' ? 'الكمية' : 'Quantity', language === 'ar' ? 'الحد الأدنى' : 'Min Stock']);
+        inventory.low_stock_alerts.forEach(item => {
+          inventoryData.push([item.name, item.quantity, item.min_stock]);
+        });
+      } else {
+        inventoryData.push([language === 'ar' ? 'لا توجد تنبيهات' : 'No alerts']);
+      }
+
+      const inventorySheet = XLSX.utils.aoa_to_sheet(inventoryData);
+      XLSX.utils.book_append_sheet(wb, inventorySheet, language === 'ar' ? 'المخزون' : 'Inventory');
+    }
+
+    // Save Excel file
+    const filename = `analytics_report_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, filename);
   };
 
   if (loading) {
