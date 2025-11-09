@@ -982,14 +982,20 @@ export const SuppliersModule = ({ language, userRole }) => {
           {language === 'ar' ? 'الموردين' : 'Suppliers'}
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportToCSV}>
+          <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
             <Download className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
+            <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button size="sm" className="bg-[#28376B]" onClick={() => setShowAddModal(true)}>
-            <Plus className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'مورد جديد' : 'New Supplier'}</span>
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
+          {canEdit && (
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
+              <span>{language === 'ar' ? 'مورد جديد' : 'New Supplier'}</span>
+            </Button>
+          )}
         </div>
       </div>
 
