@@ -3015,7 +3015,7 @@ export const InventoryModule = ({ language, userRole }) => {
     }
   };
 
-  const totalValue = inventory.reduce((sum, i) => sum + i.totalValue, 0);
+  const totalValue = inventory.reduce((sum, i) => sum + (i.total_value || i.totalValue || 0), 0);
   const totalItems = inventory.length;
   const lowStockItems = inventory.filter(i => i.status === 'low-stock').length;
   const inStockItems = inventory.filter(i => i.status === 'in-stock').length;
