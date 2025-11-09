@@ -641,38 +641,54 @@ export const TreasuryModule = ({ language, userRole }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((tx) => (
-                <TableRow key={tx.id}>
-                  <TableCell className="font-medium">{tx.id}</TableCell>
-                  <TableCell>{tx.date}</TableCell>
-                  <TableCell>
-                    <Badge variant={tx.type === 'in' ? 'success' : 'destructive'}>
-                      {tx.type === 'in' ? (language === 'ar' ? 'إيداع' : 'Deposit') : (language === 'ar' ? 'سحب' : 'Withdrawal')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{tx.description}</TableCell>
-                  <TableCell className={tx.type === 'in' ? 'text-green-600' : 'text-red-600'}>
-                    {tx.type === 'in' ? '+' : '-'}{tx.amount.toLocaleString()}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(tx); setShowViewModal(true); }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {canEdit && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(tx); setSuccessMessage(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open'); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(tx); setShowDeleteModal(true); }}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {(() => {
+                const filteredTransactions = treasuryFilter === 'all' 
+                  ? transactions 
+                  : transactions.filter(t => t.type === treasuryFilter);
+                
+                if (filteredTransactions.length === 0) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan="6" className="text-center py-8 text-gray-500">
+                        {language === 'ar' ? 'لا توجد معاملات' : 'No transactions found'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                
+                return filteredTransactions.map((tx) => (
+                  <TableRow key={tx.id}>
+                    <TableCell className="font-medium">{tx.id}</TableCell>
+                    <TableCell>{tx.date}</TableCell>
+                    <TableCell>
+                      <Badge variant={tx.type === 'in' ? 'success' : 'destructive'}>
+                        {tx.type === 'in' ? (language === 'ar' ? 'إيداع' : 'Deposit') : (language === 'ar' ? 'سحب' : 'Withdrawal')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{tx.description}</TableCell>
+                    <TableCell className={tx.type === 'in' ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                      {tx.type === 'in' ? '+' : '-'}{tx.amount.toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(tx); setShowViewModal(true); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {canEdit && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(tx); setShowEditModal(true); }}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(tx); setShowDeleteModal(true); }}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ));
+              })()}
             </TableBody>
           </Table>
         </CardContent>
