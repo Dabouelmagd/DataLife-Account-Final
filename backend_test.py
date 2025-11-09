@@ -3196,7 +3196,7 @@ class MultiTenantAPITester:
                 # Test multi-tenant isolation
                 await self.test_multi_tenant_isolation()
                 
-                print("\n🔐 PHASE 7: Authentication Testing")
+                print("\n🔐 PHASE 8: Authentication Testing")
                 print("-" * 50)
                 
                 # Test authentication requirements
