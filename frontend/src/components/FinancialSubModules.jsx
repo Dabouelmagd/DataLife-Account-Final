@@ -3238,8 +3238,8 @@ export const InventoryModule = ({ language, userRole }) => {
                     <TableCell className="font-semibold">
                       {item.quantity} {item.unit}
                     </TableCell>
-                    <TableCell>{item.unitPrice.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</TableCell>
-                    <TableCell className="font-bold">{item.totalValue.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</TableCell>
+                    <TableCell>{(item.unit_price || item.unitPrice || 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</TableCell>
+                    <TableCell className="font-bold">{(item.total_value || item.totalValue || 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</TableCell>
                     <TableCell>
                       <Badge variant={item.status === 'in-stock' ? 'success' : 'destructive'}>
                         {item.status === 'in-stock' 
