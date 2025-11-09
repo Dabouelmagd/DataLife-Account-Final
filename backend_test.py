@@ -3781,7 +3781,7 @@ class MultiTenantAPITester:
             
         try:
             response = await self.client.get(
-                f"{self.base_url}/users",
+                f"{self.base_url}/users/",
                 headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
             )
             
