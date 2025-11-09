@@ -1912,19 +1912,135 @@ export const AccountsModule = ({ language, userRole }) => {
     setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
+  const getAccountTypeBadge = (type) => {
+    const typeMap = {
+      'Assets': 'أصول',
+      'Liabilities': 'خصوم',
+      'Equity': 'حقوق ملكية',
+      'Revenue': 'إيرادات',
+      'Expenses': 'مصروفات'
+    };
+    
+    const typeColors = {
+      'Assets': 'bg-blue-100 text-blue-700',
+      'Liabilities': 'bg-red-100 text-red-700',
+      'Equity': 'bg-purple-100 text-purple-700',
+      'Revenue': 'bg-green-100 text-green-700',
+      'Expenses': 'bg-orange-100 text-orange-700'
+    };
+    
+    for (const [key, ar] of Object.entries(typeMap)) {
+      if (type === key || type === ar) {
+        return { label: language === 'ar' ? ar : key, color: typeColors[key] };
+      }
+    }
+    return { label: type, color: 'bg-gray-100 text-gray-700' };
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'دليل الحسابات' : 'Chart of Accounts'}
         </h2>
-        {canEdit && (
-          <Button size="sm" className="bg-[#28376B]">
-            <Plus className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'حساب جديد' : 'New Account'}</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-        )}
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
+          </Button>
+          {canEdit && (
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
+              <span>{language === 'ar' ? 'حساب جديد' : 'New Account'}</span>
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-6">
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-2">{language === 'ar' ? 'الأصول' : 'Assets'}</p>
+              <h3 className="text-2xl font-bold text-blue-600">{assetAccounts.length}</h3>
+              <p className="text-xs text-gray-500 mt-1">{totalAssets.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="p-6">
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-2">{language === 'ar' ? 'الخصوم' : 'Liabilities'}</p>
+              <h3 className="text-2xl font-bold text-red-600">{liabilityAccounts.length}</h3>
+              <p className="text-xs text-gray-500 mt-1">{totalLiabilities.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-purple-500">
+          <CardContent className="p-6">
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-2">{language === 'ar' ? 'حقوق الملكية' : 'Equity'}</p>
+              <h3 className="text-2xl font-bold text-purple-600">{equityAccounts.length}</h3>
+              <p className="text-xs text-gray-500 mt-1">{equityAccounts.reduce((s, a) => s + a.balance, 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-6">
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-2">{language === 'ar' ? 'الإيرادات' : 'Revenue'}</p>
+              <h3 className="text-2xl font-bold text-green-600">{revenueAccounts.length}</h3>
+              <p className="text-xs text-gray-500 mt-1">{revenueAccounts.reduce((s, a) => s + a.balance, 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-orange-500">
+          <CardContent className="p-6">
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-2">{language === 'ar' ? 'المصروفات' : 'Expenses'}</p>
+              <h3 className="text-2xl font-bold text-orange-600">{expenseAccounts.length}</h3>
+              <p className="text-xs text-gray-500 mt-1">{expenseAccounts.reduce((s, a) => s + a.balance, 0).toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filter Section */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'البحث بالكود أو اسم الحساب...' : 'Search by code or account name...'}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <select 
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+            >
+              <option value="all">{language === 'ar' ? 'كل الأنواع' : 'All Types'}</option>
+              <option value="Assets">{language === 'ar' ? 'الأصول' : 'Assets'}</option>
+              <option value="Liabilities">{language === 'ar' ? 'الخصوم' : 'Liabilities'}</option>
+              <option value="Equity">{language === 'ar' ? 'حقوق الملكية' : 'Equity'}</option>
+              <option value="Revenue">{language === 'ar' ? 'الإيرادات' : 'Revenue'}</option>
+              <option value="Expenses">{language === 'ar' ? 'المصروفات' : 'Expenses'}</option>
+            </select>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
@@ -1939,37 +2055,104 @@ export const AccountsModule = ({ language, userRole }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {accounts.map((account) => (
-                <TableRow key={account.code}>
-                  <TableCell className="font-medium">{account.code}</TableCell>
-                  <TableCell>{account.name}</TableCell>
-                  <TableCell>
-                    <Badge>{account.type}</Badge>
-                  </TableCell>
-                  <TableCell className="font-bold">{account.balance.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setShowViewModal(true); }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {canEdit && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setSuccessMessage(language === 'ar' ? 'سيتم فتح نموذج التعديل' : 'Edit form will open'); setShowSuccessModal(true); setTimeout(() => setShowSuccessModal(false), 2000); }}>
-                            <Edit className="h-4 w-4" />
+              {(() => {
+                const getTypeKey = (type) => {
+                  const typeMap = {
+                    'أصول': 'Assets',
+                    'خصوم': 'Liabilities',
+                    'حقوق ملكية': 'Equity',
+                    'إيرادات': 'Revenue',
+                    'مصروفات': 'Expenses'
+                  };
+                  return typeMap[type] || type;
+                };
+
+                const filteredAccounts = typeFilter === 'all' 
+                  ? accounts 
+                  : accounts.filter(a => getTypeKey(a.type) === typeFilter);
+                
+                if (filteredAccounts.length === 0) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan="5" className="text-center py-8 text-gray-500">
+                        {language === 'ar' ? 'لا توجد حسابات' : 'No accounts found'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                
+                return filteredAccounts.map((account) => {
+                  const badge = getAccountTypeBadge(account.type);
+                  return (
+                    <TableRow key={account.code}>
+                      <TableCell className="font-bold text-blue-600">{account.code}</TableCell>
+                      <TableCell className="font-medium">{account.name}</TableCell>
+                      <TableCell>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${badge.color}`}>
+                          {badge.label}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-bold text-gray-900">
+                        {account.balance.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setShowViewModal(true); }}>
+                            <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setShowDeleteModal(true); }}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                          {canEdit && (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setShowEditModal(true); }}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setShowDeleteModal(true); }}>
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                });
+              })()}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="text-gray-700 mb-6">
+              {language === 'ar' ? `هل أنت متأكد من حذف حساب ${selectedEntry.name} (${selectedEntry.code})؟` : `Are you sure you want to delete account ${selectedEntry.name} (${selectedEntry.code})?`}
+            </p>
+            <div className="flex gap-4">
+              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-600 hover:bg-red-700">
+                {language === 'ar' ? 'حذف' : 'Delete'}
+              </Button>
+              <Button onClick={() => setShowDeleteModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <div className="text-green-600 text-5xl mb-4">✓</div>
+            <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
