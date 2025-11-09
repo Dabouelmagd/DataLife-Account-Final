@@ -241,8 +241,24 @@ export const JournalEntriesModule = ({ language, userRole }) => {
                   <TableCell>{entry.date}</TableCell>
                   <TableCell>{entry.description}</TableCell>
                   <TableCell>{entry.account}</TableCell>
-                  <TableCell className="text-green-600">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</TableCell>
-                  <TableCell className="text-red-600">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</TableCell>
+                  <TableCell>
+                    {entry.debit > 0 ? (
+                      <span className="inline-block px-3 py-1 bg-green-100 text-green-700 font-bold rounded">
+                        +{entry.debit.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {entry.credit > 0 ? (
+                      <span className="inline-block px-3 py-1 bg-red-100 text-red-700 font-bold rounded">
+                        -{entry.credit.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(entry); setShowViewModal(true); }}>
