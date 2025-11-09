@@ -4035,6 +4035,7 @@ class MultiTenantAPITester:
         
         # Test POST
         deduction_data = {
+            "company_id": company_id,
             "employee_id": self.test_data.get("employee_id", "emp_123"),
             "employee_name": "Ahmed Hassan",
             "type": "Insurance",
@@ -4085,6 +4086,7 @@ class MultiTenantAPITester:
         
         # Test POST
         leave_data = {
+            "company_id": company_id,
             "employee_id": self.test_data.get("employee_id", "emp_123"),
             "employee_name": "Ahmed Hassan",
             "leave_type": "annual",
@@ -4137,6 +4139,7 @@ class MultiTenantAPITester:
         
         # Test POST
         attendance_data = {
+            "company_id": company_id,
             "employee_id": self.test_data.get("employee_id", "emp_123"),
             "employee_name": "Ahmed Hassan",
             "date": "2024-12-15",
@@ -4189,6 +4192,7 @@ class MultiTenantAPITester:
         
         # Test POST
         journal_data = {
+            "company_id": company_id,
             "date": "2024-12-15",
             "description": "Office supplies purchase",
             "account": "Office Expenses",
@@ -4240,6 +4244,7 @@ class MultiTenantAPITester:
         
         # Test POST
         customer_data = {
+            "company_id": company_id,
             "name": "Mahmoud Ali Trading",
             "email": "mahmoud@alitrading.com",
             "phone": "+201555666777",
@@ -4290,6 +4295,7 @@ class MultiTenantAPITester:
         
         # Test POST
         supplier_data = {
+            "company_id": company_id,
             "name": "Tech Solutions Provider",
             "email": "sales@techsolutions.com",
             "phone": "+201444555666",
@@ -4340,6 +4346,7 @@ class MultiTenantAPITester:
         
         # Test POST
         treasury_data = {
+            "company_id": company_id,
             "date": "2024-12-15",
             "description": "Cash deposit from sales",
             "type": "in",
@@ -4389,6 +4396,7 @@ class MultiTenantAPITester:
         
         # Test POST
         bank_data = {
+            "company_id": company_id,
             "date": "2024-12-15",
             "description": "Client payment received",
             "bank_name": "National Bank of Egypt",
