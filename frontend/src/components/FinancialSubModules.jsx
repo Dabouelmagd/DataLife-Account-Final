@@ -2421,6 +2421,25 @@ export const SuppliersModule = ({ language, userRole }) => {
     { id: 'S003', name: language === 'ar' ? 'شركة الإمدادات الحديثة' : 'Modern Supplies Co.', phone: '+201555123456', balance: 0, status: 'inactive' }
   ];
 
+  const [suppliers, setSuppliers] = React.useState(initialSuppliers);
+
+  // Update suppliers when language changes
+  React.useEffect(() => {
+    setSuppliers([
+      { id: 'S001', name: language === 'ar' ? 'شركة المواد الخام المتحدة' : 'United Raw Materials Co.', phone: '+201234567890', balance: 45000, status: 'active' },
+      { id: 'S002', name: language === 'ar' ? 'مؤسسة التوريدات الذهبية' : 'Golden Supplies Est.', phone: '+201098765432', balance: 32000, status: 'active' },
+      { id: 'S003', name: language === 'ar' ? 'شركة الإمدادات الحديثة' : 'Modern Supplies Co.', phone: '+201555123456', balance: 0, status: 'inactive' }
+    ]);
+  }, [language]);
+
+  const handleDeleteConfirm = () => {
+    setSuppliers(suppliers.filter(s => s.id !== selectedEntry.id));
+    setShowDeleteModal(false);
+    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
   // Export to CSV function
   const exportToCSV = () => {
     const headers = language === 'ar' 
