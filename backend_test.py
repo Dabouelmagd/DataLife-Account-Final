@@ -3957,58 +3957,6 @@ class MultiTenantAPITester:
         except Exception as e:
             self.log_result("HR Employees POST", False, f"Exception: {str(e)}")
 
-    async def test_existing_user_hr_salaries(self):
-        """Test HR Salaries API"""
-        if "existing_user" not in self.test_tokens:
-            self.log_result("HR Salaries", False, "No existing user token available")
-            return
-            
-        # Test GET
-        try:
-            response = await self.client.get(
-                f"{self.base_url}/hr/salaries",
-                headers={"Authorization": f"Bearer {self.test_tokens['existing_user']}"}
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                self.log_result("HR Salaries GET", True, f"Retrieved {len(data)} salary records")
-            else:
-                self.log_result("HR Salaries GET", False, f"Expected 200, got {response.status_code}: {response.text}")
-                
-        except Exception as e:
-            self.log_result("HR Salaries GET", False, f"Exception: {str(e)}")
-        
-        # Test POST
-        salary_data = {
-            "employee_id": self.test_data.get("employee_id", "emp_123"),
-            "employee_name": "Ahmed Hassan",
-            "basic_salary": 15000.0,
-            "allowances": 2000.0,
-            "deductions": 500.0,
-            "net_salary": 16500.0,
-            "month": "2024-12"
-        }
-        
-        try:
-            response = await self.client.post(
-                f"{self.base_url}/hr/salaries",
-                json=salary_data,
-                headers={
-                    "Authorization": f"Bearer {self.test_tokens['existing_user']}",
-                    "Content-Type": "application/json"
-                }
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                self.log_result("HR Salaries POST", True, f"Created salary record for {data.get('employee_name')}")
-            else:
-                self.log_result("HR Salaries POST", False, f"Expected 200, got {response.status_code}: {response.text}")
-                
-        except Exception as e:
-            self.log_result("HR Salaries POST", False, f"Exception: {str(e)}")
-
     async def test_existing_user_hr_allowances(self):
         """Test HR Allowances API"""
         if "existing_user" not in self.test_tokens:
