@@ -2412,6 +2412,7 @@ export const SuppliersModule = ({ language, userRole }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const isRTL = language === 'ar';
   const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
