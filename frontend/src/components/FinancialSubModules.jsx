@@ -3278,31 +3278,43 @@ export const InventoryModule = ({ language, userRole }) => {
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const formData = new FormData(e.target);
-              const quantity = parseFloat(formData.get('quantity')) || 0;
-              const unitPrice = parseFloat(formData.get('unitPrice')) || 0;
-              const minStock = parseFloat(formData.get('minStock')) || 0;
-              const totalValue = quantity * unitPrice;
-              const status = quantity <= minStock ? 'low-stock' : 'in-stock';
               
-              const newItem = {
-                id: `INV${String(inventory.length + 1).padStart(3, '0')}`,
+              const newItemData = {
                 name: formData.get('name'),
                 category: formData.get('category'),
-                quantity: quantity,
+                quantity: parseFloat(formData.get('quantity')),
                 unit: formData.get('unit'),
-                unitPrice: unitPrice,
-                totalValue: totalValue,
-                minStock: minStock,
-                status: status
+                unit_price: parseFloat(formData.get('unitPrice')),
+                min_stock: parseFloat(formData.get('minStock'))
               };
-              setInventory([...inventory, newItem]);
-              setShowAddModal(false);
-              setSuccessMessage(language === 'ar' ? 'تم إضافة الصنف بنجاح!' : 'Item added successfully!');
-              setShowSuccessModal(true);
-              setTimeout(() => setShowSuccessModal(false), 2000);
+              
+              try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/inventory/items`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify(newItemData)
+                });
+                
+                if (response.ok) {
+                  const newItem = await response.json();
+                  setInventory([...inventory, newItem]);
+                  setShowAddModal(false);
+                  setSuccessMessage(language === 'ar' ? 'تم إضافة الصنف بنجاح!' : 'Item added successfully!');
+                  setShowSuccessModal(true);
+                  setTimeout(() => setShowSuccessModal(false), 2000);
+                } else {
+                  console.error('Failed to add inventory item');
+                }
+              } catch (error) {
+                console.error('Error adding inventory item:', error);
+              }
             }} className="space-y-4">
               
               <div>
