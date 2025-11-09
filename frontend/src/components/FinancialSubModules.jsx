@@ -1893,7 +1893,29 @@ export const FinancialReportsModule = ({ language, userRole }) => {
         )}
 
         {/* بيان التدفق النقدي */}
-        {financialReportTab === 'cashFlow' && (
+        {financialReportTab === 'cashFlow' && (() => {
+          const cashFlowTransactions = [
+            { id: 'CF001', date: '2024-10-08', description: language === 'ar' ? 'تحصيل من عميل' : 'Customer payment', type: 'in', amount: 50000, balance: 150000 },
+            { id: 'CF002', date: '2024-10-08', description: language === 'ar' ? 'شراء مستلزمات' : 'Purchase supplies', type: 'out', amount: 15000, balance: 135000 },
+            { id: 'CF003', date: '2024-10-09', description: language === 'ar' ? 'مبيعات نقدية' : 'Cash sales', type: 'in', amount: 30000, balance: 165000 },
+            { id: 'CF004', date: '2024-10-09', description: language === 'ar' ? 'دفع فواتير' : 'Bills payment', type: 'out', amount: 20000, balance: 145000 }
+          ];
+
+          const filteredTransactions = cashFlowFilter === 'all' 
+            ? cashFlowTransactions 
+            : cashFlowTransactions.filter(t => t.type === cashFlowFilter);
+
+          const totalDeposits = cashFlowTransactions.filter(t => t.type === 'in').reduce((sum, t) => sum + t.amount, 0);
+          const totalWithdrawals = cashFlowTransactions.filter(t => t.type === 'out').reduce((sum, t) => sum + t.amount, 0);
+
+          const handleDeleteConfirm = () => {
+            setShowDeleteModal(false);
+            setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+            setShowSuccessModal(true);
+            setTimeout(() => setShowSuccessModal(false), 2000);
+          };
+
+          return (
           <div className="space-y-6">
             {/* بطاقات الملخص */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
