@@ -116,7 +116,7 @@ const UserManagement = () => {
       console.log('Sending request to add user...');
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `${process.env.REACT_APP_BACKEND_URL}/api/users`,
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/`,
         newUser,
         { headers: { Authorization: `Bearer ${token}` } }
       );
