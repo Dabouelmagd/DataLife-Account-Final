@@ -37,6 +37,7 @@ import {
   SuppliersModule,
   CustodyModule,
   AccountsModule,
+  InventoryModule,
   FinancialReportsModule
 } from './FinancialSubModules';
 
