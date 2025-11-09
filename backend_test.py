@@ -3178,7 +3178,19 @@ class MultiTenantAPITester:
                 # Test Inventory APIs with multi-tenant setup
                 await self.test_inventory_api_comprehensive()
                 
-                print("\n🔒 PHASE 6: Multi-Tenant Isolation Testing")
+                print("\n📊 PHASE 6: Analytics APIs Testing")
+                print("-" * 50)
+                
+                # Test Analytics APIs
+                await self.test_analytics_overview_authentication()
+                await self.test_analytics_overview_success()
+                await self.test_analytics_overview_periods()
+                await self.test_analytics_financial_endpoint()
+                await self.test_analytics_hr_endpoint()
+                await self.test_analytics_inventory_endpoint()
+                await self.test_analytics_multi_tenant_isolation()
+                
+                print("\n🔒 PHASE 7: Multi-Tenant Isolation Testing")
                 print("-" * 50)
                 
                 # Test multi-tenant isolation
