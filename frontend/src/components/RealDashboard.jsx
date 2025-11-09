@@ -41,6 +41,8 @@ import {
   FinancialReportsModule
 } from './FinancialSubModules';
 
+import { AnalyticsModule } from './AnalyticsModule';
+
 const RealDashboard = () => {
   const { user, logout } = useAuth();
   const { language } = useLanguage();
