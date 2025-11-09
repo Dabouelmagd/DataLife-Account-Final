@@ -614,10 +614,14 @@ export const TreasuryModule = ({ language, userRole }) => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-              <option value="">{language === 'ar' ? 'كل الأنواع' : 'All Types'}</option>
-              <option value="in">{language === 'ar' ? 'إيداع' : 'Deposit'}</option>
-              <option value="out">{language === 'ar' ? 'سحب' : 'Withdrawal'}</option>
+            <select 
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={treasuryFilter}
+              onChange={(e) => setTreasuryFilter(e.target.value)}
+            >
+              <option value="all">{language === 'ar' ? 'كل الأنواع' : 'All Types'}</option>
+              <option value="in">{language === 'ar' ? 'الإيداعات فقط' : 'Deposits Only'}</option>
+              <option value="out">{language === 'ar' ? 'السحوبات فقط' : 'Withdrawals Only'}</option>
             </select>
           </div>
         </CardContent>
