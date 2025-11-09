@@ -3026,7 +3026,10 @@ export const InventoryModule = ({ language, userRole }) => {
       : ['ID', 'Item Name', 'Category', 'Quantity', 'Unit', 'Unit Price', 'Total Value', 'Min Stock', 'Status'];
     
     const csvData = inventory.map(i => [
-      i.id, i.name, i.category, i.quantity, i.unit, i.unitPrice, i.totalValue, i.minStock,
+      i.id, i.name, i.category, i.quantity, i.unit, 
+      i.unit_price || i.unitPrice, 
+      i.total_value || i.totalValue, 
+      i.min_stock || i.minStock,
       i.status === 'in-stock' ? (language === 'ar' ? 'متوفر' : 'In Stock') : (language === 'ar' ? 'مخزون منخفض' : 'Low Stock')
     ]);
 
