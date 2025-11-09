@@ -2748,6 +2748,170 @@ export const SuppliersModule = ({ language, userRole }) => {
         </div>
       )}
 
+      {/* View Supplier Modal */}
+      {showViewModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تفاصيل المورد' : 'Supplier Details'}</h3>
+              <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الكود' : 'ID'}</p>
+                <p className="text-lg font-bold text-blue-600">{selectedEntry.id}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'اسم المورد' : 'Supplier Name'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedEntry.name}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'رقم الهاتف' : 'Phone'}</p>
+                <p className="text-lg font-semibold text-gray-800">{selectedEntry.phone}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'الحالة' : 'Status'}</p>
+                <Badge variant={selectedEntry.status === 'active' ? 'success' : 'secondary'}>
+                  {selectedEntry.status === 'active' ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
+                </Badge>
+              </div>
+              <div className={`${selectedEntry.balance > 0 ? 'bg-red-50 border-l-4 border-red-500' : 'bg-green-50 border-l-4 border-green-500'} p-4 rounded-lg`}>
+                <p className="text-sm text-gray-600">{language === 'ar' ? 'المديونية' : 'Balance'}</p>
+                <p className={`text-2xl font-bold ${selectedEntry.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {selectedEntry.balance > 0 ? selectedEntry.balance.toLocaleString() : '0'} {language === 'ar' ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+            </div>
+            <Button onClick={() => setShowViewModal(false)} className="w-full mt-6 bg-blue-600">
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Supplier Modal */}
+      {showEditModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل بيانات المورد' : 'Edit Supplier'}</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const updatedSuppliers = suppliers.map(s => 
+                s.id === selectedEntry.id 
+                  ? {
+                      ...s,
+                      name: formData.get('name'),
+                      phone: formData.get('phone'),
+                      balance: parseFloat(formData.get('balance')) || 0,
+                      status: formData.get('status')
+                    }
+                  : s
+              );
+              setSuppliers(updatedSuppliers);
+              setShowEditModal(false);
+              setSuccessMessage(language === 'ar' ? 'تم تعديل بيانات المورد بنجاح!' : 'Supplier updated successfully!');
+              setShowSuccessModal(true);
+              setTimeout(() => setShowSuccessModal(false), 2000);
+            }} className="space-y-4">
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'اسم المورد' : 'Supplier Name'} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  defaultValue={selectedEntry.name}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'رقم الهاتف' : 'Phone'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    defaultValue={selectedEntry.phone}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'المديونية' : 'Balance'}
+                  </label>
+                  <input
+                    type="number"
+                    name="balance"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    defaultValue={selectedEntry.balance}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'الحالة' : 'Status'} <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="status"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  defaultValue={selectedEntry.status}
+                >
+                  <option value="active">{language === 'ar' ? 'نشط' : 'Active'}</option>
+                  <option value="inactive">{language === 'ar' ? 'غير نشط' : 'Inactive'}</option>
+                </select>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t">
+                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                  {language === 'ar' ? 'حفظ التعديلات' : 'Save Changes'}
+                </Button>
+                <Button type="button" onClick={() => setShowEditModal(false)} variant="outline" className="flex-1">
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="text-gray-700 mb-6">
+              {language === 'ar' ? `هل أنت متأكد من حذف المورد ${selectedEntry.name} (${selectedEntry.id})؟` : `Are you sure you want to delete supplier ${selectedEntry.name} (${selectedEntry.id})?`}
+            </p>
+            <div className="flex gap-4">
+              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-600 hover:bg-red-700">
+                {language === 'ar' ? 'حذف' : 'Delete'}
+              </Button>
+              <Button onClick={() => setShowDeleteModal(false)} variant="outline" className="flex-1">
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
