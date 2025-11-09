@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Users, Phone, Mail, MapPin, DollarSign, Printer, CheckCircle, TrendingUp } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Users, Phone, Mail, MapPin, DollarSign, Printer, CheckCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import { Badge } from './ui/badge';
 
 // Journal Entries Component
