@@ -44,7 +44,14 @@ const LoginPage = () => {
       forgotPassword: 'نسيت كلمة المرور؟',
       noAccount: 'ليس لديك حساب؟',
       registerCompany: 'تسجيل شركة',
-      backToHome: 'العودة للرئيسية'
+      backToHome: 'العودة للرئيسية',
+      resetPasswordTitle: 'إعادة تعيين كلمة المرور',
+      resetPasswordDesc: 'أدخل بريدك الإلكتروني وسنرسل لك كلمة المرور الجديدة',
+      sendReset: 'إرسال',
+      cancel: 'إلغاء',
+      resetSuccess: 'تم إرسال كلمة المرور الجديدة إلى بريدك الإلكتروني',
+      showPassword: 'إظهار كلمة المرور',
+      hidePassword: 'إخفاء كلمة المرور'
     }
   };
 
