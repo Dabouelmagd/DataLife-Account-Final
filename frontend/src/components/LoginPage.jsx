@@ -194,6 +194,16 @@ const LoginPage = () => {
               <LogIn size={20} />
               {loading ? (language === 'ar' ? 'جاري تسجيل الدخول...' : 'Signing in...') : t.loginButton}
             </button>
+
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                {t.forgotPassword}
+              </button>
+            </div>
           </form>
 
           <div className="mt-6 text-center space-y-4">
@@ -209,6 +219,70 @@ const LoginPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowForgotPassword(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">{t.resetPasswordTitle}</h3>
+            <p className="text-gray-600 mb-6">{t.resetPasswordDesc}</p>
+
+            {resetSuccess && (
+              <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+                {t.resetSuccess}
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+                <AlertCircle size={20} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t.email}
+                </label>
+                <div className="relative">
+                  <Mail className={`absolute top-3 ${isRTL ? 'right-3' : 'left-3'} text-gray-400`} size={20} />
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    required
+                    className={`w-full ${isRTL ? 'pr-10 text-right' : 'pl-10'} py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                    placeholder={t.email}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') : t.sendReset}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setResetEmail('');
+                    setError('');
+                    setResetSuccess(false);
+                  }}
+                  className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                >
+                  {t.cancel}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
