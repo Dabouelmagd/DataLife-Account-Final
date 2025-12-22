@@ -99,6 +99,47 @@ async def login(credentials: UserLogin):
         access_token=access_token,
         token_type="bearer",
         user=user_response
+
+
+@router.post("/reset-password")
+async def reset_password(request_data: dict):
+    """
+    Reset user password and return new temporary password
+    """
+    email = request_data.get("email")
+    
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    # Check if user exists
+    user = await get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User with this email not found")
+    
+    # Generate new temporary password
+    import secrets
+    import string
+    alphabet = string.ascii_letters + string.digits
+    new_password = ''.join(secrets.choice(alphabet) for _ in range(10))
+    
+    # Hash new password
+    import bcrypt
+    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+    
+    # Update password in database
+    await db.users.update_one(
+        {"id": user.id},
+        {"$set": {"password": hashed_password.decode('utf-8')}}
+    )
+    
+    # In production, you would send this via email
+    # For now, we return it directly
+    return {
+        "message": "Password reset successful",
+        "new_password": new_password,
+        "email": email
+    }
+
     )
 
 @router.get("/verify", response_model=UserResponse)
