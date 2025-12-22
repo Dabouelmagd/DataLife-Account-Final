@@ -108,6 +108,7 @@ async def login(credentials: UserLogin):
         access_token=access_token,
         token_type="bearer",
         user=user_response
+    )
 
 
 @router.post("/reset-password")
