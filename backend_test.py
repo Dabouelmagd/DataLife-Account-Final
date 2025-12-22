@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 
 # Get backend URL from environment
-BACKEND_URL = "https://datalife-erp.preview.emergentagent.com/api"
+BACKEND_URL = "https://erp-dashboard-62.preview.emergentagent.com/api"
 
 class MultiTenantAPITester:
     def __init__(self):
