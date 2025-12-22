@@ -33,7 +33,14 @@ const LoginPage = () => {
       forgotPassword: 'Forgot Password?',
       noAccount: "Don't have an account?",
       registerCompany: 'Register Company',
-      backToHome: 'Back to Home'
+      backToHome: 'Back to Home',
+      resetPasswordTitle: 'Reset Password',
+      resetPasswordDesc: 'Enter your email and we will send you a new password',
+      sendReset: 'Send',
+      cancel: 'Cancel',
+      resetSuccess: 'New password sent to your email',
+      showPassword: 'Show Password',
+      hidePassword: 'Hide Password'
     },
     ar: {
       title: 'مرحباً بعودتك',
