@@ -113,7 +113,7 @@ async def login(credentials: UserLogin):
 @router.post("/reset-password")
 async def reset_password(request_data: dict):
     """
-    Reset user password and return new temporary password
+    Reset user password and send new password via email
     """
     email = request_data.get("email")
     
@@ -141,15 +141,57 @@ async def reset_password(request_data: dict):
         {"$set": {"password": hashed_password.decode('utf-8')}}
     )
     
-    # In production, you would send this via email
-    # For now, we return it directly
-    return {
-        "message": "Password reset successful",
-        "new_password": new_password,
-        "email": email
-    }
-
-    )
+    # Send email with new password
+    try:
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; direction: rtl;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+                <h1 style="color: white; margin: 0; text-align: center;">DataLife Account</h1>
+            </div>
+            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                <h2 style="color: #333; text-align: center;">إعادة تعيين كلمة المرور</h2>
+                <p style="color: #666; font-size: 16px; text-align: center;">
+                    تم إعادة تعيين كلمة المرور الخاصة بك بنجاح.
+                </p>
+                <div style="background: #fff; border: 2px dashed #667eea; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                    <p style="color: #333; margin: 0 0 10px 0; font-size: 14px;">كلمة المرور الجديدة:</p>
+                    <p style="color: #667eea; font-size: 24px; font-weight: bold; margin: 0; letter-spacing: 2px;">{new_password}</p>
+                </div>
+                <p style="color: #999; font-size: 12px; text-align: center;">
+                    يرجى تغيير كلمة المرور بعد تسجيل الدخول للحفاظ على أمان حسابك.
+                </p>
+                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="color: #999; font-size: 11px; text-align: center;">
+                    هذا البريد الإلكتروني تم إرساله تلقائياً من DataLife Account
+                </p>
+            </div>
+        </div>
+        """
+        
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [email],
+            "subject": "إعادة تعيين كلمة المرور - DataLife Account",
+            "html": html_content
+        }
+        
+        # Send email asynchronously
+        await asyncio.to_thread(resend.Emails.send, params)
+        
+        return {
+            "message": "Password reset successful. New password sent to your email.",
+            "message_ar": "تم إعادة تعيين كلمة المرور بنجاح. تم إرسال كلمة المرور الجديدة إلى بريدك الإلكتروني.",
+            "email": email
+        }
+    except Exception as e:
+        # If email fails, still return success but with the password (fallback)
+        return {
+            "message": "Password reset successful",
+            "message_ar": "تم إعادة تعيين كلمة المرور بنجاح",
+            "new_password": new_password,
+            "email": email,
+            "email_error": str(e)
+        }
 
 @router.get("/verify", response_model=UserResponse)
 async def verify_user_token(authorization: Optional[str] = Header(None)):
