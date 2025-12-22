@@ -80,6 +80,40 @@ const LoginPage = () => {
     setLoading(false);
   };
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmail })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setResetSuccess(true);
+        setError('');
+        // عرض كلمة المرور الجديدة
+        alert(`${language === 'ar' ? 'كلمة المرور الجديدة' : 'New Password'}: ${data.new_password}`);
+        setTimeout(() => {
+          setShowForgotPassword(false);
+          setResetSuccess(false);
+          setResetEmail('');
+        }, 3000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || (language === 'ar' ? 'فشل إعادة تعيين كلمة المرور' : 'Failed to reset password'));
+      }
+    } catch (error) {
+      setError(language === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'An error occurred, try again');
+    }
+    
+    setLoading(false);
+  };
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
