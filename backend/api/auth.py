@@ -11,7 +11,16 @@ from services.user_service import (
 )
 from services.company_service import create_company, get_company_by_email
 import os
+import asyncio
+import resend
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Initialize Resend
+resend.api_key = os.environ.get("RESEND_API_KEY")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
