@@ -88,7 +88,7 @@ const LoginPage = () => {
     try {
       const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/reset-password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': application/json' },
         body: JSON.stringify({ email: resetEmail })
       });
 
@@ -96,8 +96,10 @@ const LoginPage = () => {
         const data = await response.json();
         setResetSuccess(true);
         setError('');
-        // عرض كلمة المرور الجديدة
-        alert(`${language === 'ar' ? 'كلمة المرور الجديدة' : 'New Password'}: ${data.new_password}`);
+        // إذا كان هناك خطأ في الإيميل، نعرض كلمة المرور
+        if (data.email_error && data.new_password) {
+          alert(`${language === 'ar' ? 'كلمة المرور الجديدة' : 'New Password'}: ${data.new_password}`);
+        }
         setTimeout(() => {
           setShowForgotPassword(false);
           setResetSuccess(false);
