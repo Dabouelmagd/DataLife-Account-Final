@@ -474,6 +474,5 @@ async def main():
     return 0 if failed_count == 0 else 1
 
 if __name__ == "__main__":
-    from typing import Any
     exit_code = asyncio.run(main())
     exit(exit_code)
