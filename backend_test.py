@@ -4920,6 +4920,19 @@ if __name__ == "__main__":
         exit_code = asyncio.run(main_user_management())
     elif len(sys.argv) > 1 and sys.argv[1] == "comprehensive":
         exit_code = asyncio.run(main_comprehensive_validation())
+    elif len(sys.argv) > 1 and sys.argv[1] == "datalife":
+        exit_code = asyncio.run(main_datalife_account())
     else:
         exit_code = asyncio.run(main())
     exit(exit_code)
+
+# ==================== DATALIFE ACCOUNT SPECIFIC TESTS ====================
+
+async def main_datalife_account():
+    """DataLife Account focused test runner"""
+    tester = MultiTenantAPITester()
+    results = await tester.run_datalife_account_tests()
+    
+    # Return exit code based on test results
+    failed_count = sum(1 for result in results if not result["success"])
+    return 0 if failed_count == 0 else 1
