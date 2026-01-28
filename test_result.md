@@ -134,6 +134,24 @@ backend:
         - working: true
         - agent: "testing"
         - comment: "COMPREHENSIVE TESTING COMPLETED: Fixed critical bcrypt password hashing issue (72-byte limit) by switching to direct bcrypt implementation. All Authentication API endpoints working perfectly: POST /api/auth/register-company (200 status, creates company + General Manager user with JWT token), POST /api/auth/login (200 status, validates credentials and returns JWT), GET /api/auth/verify (200 status with valid Bearer token). Proper validation: duplicate company/user rejection (400), invalid credentials (401), missing/invalid tokens (401). JWT token generation and verification working correctly. Database integration confirmed. Test success rate: 100% (8/8 auth tests passed)."
+        - working: true
+        - agent: "testing"
+        - comment: "DATALIFE ACCOUNT COMPREHENSIVE TESTING COMPLETED: Executed comprehensive testing of all authentication endpoints as per review request focusing on Password Reset, Authentication Flow, JWT Verification, and Language Support. ✅ PASSWORD RESET FEATURE (NEW): All password reset functionality working perfectly - POST /api/auth/reset-password endpoint operational with proper validation (valid email: 200 status with bilingual response, invalid email: 404 status, missing email: 400 status). Email integration working with fallback password generation. ✅ AUTHENTICATION FLOW: Complete authentication flow verified - login with correct credentials (200 status), wrong credentials properly rejected (401 status), JWT token generation and verification working correctly. ✅ KEY ENDPOINTS: All endpoints mentioned in review request tested - POST /api/auth/login (proper validation and responses), GET /api/auth/verify (token verification working), POST /api/auth/register-company (company registration functional). ✅ LANGUAGE SUPPORT: Bilingual support confirmed - API returns both English and Arabic messages in password reset responses, backend ready for frontend localStorage language preferences. Test success rate: 100% (19/19 tests passed). System ready for deployment with all critical authentication features operational."
+
+  - task: "Password Reset Feature (NEW)"
+    implemented: true
+    working: true
+    file: "api/auth.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "unknown"
+        - agent: "main"
+        - comment: "NEW FEATURE: Implemented password reset functionality with POST /api/auth/reset-password endpoint. Features: email validation, secure password generation, bcrypt hashing, email integration with Resend API, bilingual support (English/Arabic), fallback password response if email fails. Generates 10-character secure passwords, updates database, sends styled HTML email with new password."
+        - working: true
+        - agent: "testing"
+        - comment: "COMPREHENSIVE PASSWORD RESET TESTING COMPLETED: All password reset functionality working perfectly with 100% test success rate. ✅ VALID EMAIL TEST: Successfully tested with existing user (dalia.abouelmagd@gmail.com) - returns 200 status with proper response structure including message, message_ar, and email fields. Bilingual support confirmed with both English and Arabic messages. ✅ INVALID EMAIL TEST: Correctly rejects non-existent email addresses with 404 status and appropriate error message. ✅ MISSING EMAIL TEST: Properly validates request body and rejects missing email field with 400 status. ✅ DATABASE INTEGRATION: Password successfully updated in database with proper bcrypt hashing. ✅ EMAIL INTEGRATION: Email service working with Resend API, fallback password provided when email service unavailable. ✅ SECURITY: Secure 10-character password generation using secrets module with alphanumeric characters. Password reset feature is production-ready and fully functional as per review request requirements."
 
   - task: "Company Management API"
     implemented: true
