@@ -3721,6 +3721,16 @@ class MultiTenantAPITester:
             await self.test_token_verification_invalid()
             await self.test_token_verification_missing_header()
             
+            # Test password reset functionality (NEW FEATURE)
+            print("\n🔑 Password Reset Testing")
+            print("-" * 30)
+            reset_result = await self.test_password_reset_valid_email()
+            if reset_result and "new_password" in reset_result:
+                self.reset_password_data = reset_result
+                await self.test_login_with_reset_password()
+            await self.test_password_reset_invalid_email()
+            await self.test_password_reset_missing_email()
+            
             # Test user management
             await self.test_list_users()
             await self.test_add_hr_manager()
