@@ -398,6 +398,159 @@ class MultiTenantAPITester:
         except Exception as e:
             self.log_result("Token Verification Missing Header", False, f"Exception: {str(e)}")
 
+    async def test_password_reset_valid_email(self):
+        """Test password reset with valid email (NEW FEATURE)"""
+        # Use the test user email from review request
+        test_email = "dalia.abouelmagd@gmail.com"
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/auth/reset-password",
+                json={"email": test_email},
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response structure
+                required_fields = ["message", "message_ar", "email"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("Password Reset Valid Email", False, 
+                                  f"Missing required fields: {missing_fields}", data)
+                    return None
+                
+                if data.get("email") != test_email:
+                    self.log_result("Password Reset Valid Email", False, 
+                                  f"Email mismatch: expected {test_email}, got {data.get('email')}", data)
+                    return None
+                
+                # Check if password was provided (fallback case) or email was sent
+                if "new_password" in data:
+                    self.log_result("Password Reset Valid Email", True, 
+                                  f"Password reset successful with fallback password: {data.get('new_password')}", data)
+                else:
+                    self.log_result("Password Reset Valid Email", True, 
+                                  "Password reset successful, new password sent via email", data)
+                
+                return data
+            elif response.status_code == 404:
+                data = response.json()
+                if "not found" in data.get("detail", "").lower():
+                    self.log_result("Password Reset Valid Email", False, 
+                                  f"User {test_email} not found in database. Need to create test user first.", data)
+                else:
+                    self.log_result("Password Reset Valid Email", False, 
+                                  f"Unexpected 404 error: {data.get('detail')}", data)
+                return None
+            else:
+                self.log_result("Password Reset Valid Email", False, 
+                              f"Expected 200, got {response.status_code}", response.text)
+                return None
+                
+        except Exception as e:
+            self.log_result("Password Reset Valid Email", False, f"Exception: {str(e)}")
+            return None
+
+    async def test_password_reset_invalid_email(self):
+        """Test password reset with non-existent email"""
+        invalid_email = "nonexistent@example.com"
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/auth/reset-password",
+                json={"email": invalid_email},
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 404:
+                data = response.json()
+                if "not found" in data.get("detail", "").lower():
+                    self.log_result("Password Reset Invalid Email", True, 
+                                  "Correctly rejected non-existent email", data)
+                else:
+                    self.log_result("Password Reset Invalid Email", False, 
+                                  f"Wrong error message: {data.get('detail')}", data)
+            else:
+                self.log_result("Password Reset Invalid Email", False, 
+                              f"Expected 404, got {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_result("Password Reset Invalid Email", False, f"Exception: {str(e)}")
+
+    async def test_password_reset_missing_email(self):
+        """Test password reset with missing email field"""
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/auth/reset-password",
+                json={},
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 400:
+                data = response.json()
+                if "email is required" in data.get("detail", "").lower():
+                    self.log_result("Password Reset Missing Email", True, 
+                                  "Correctly rejected missing email", data)
+                else:
+                    self.log_result("Password Reset Missing Email", False, 
+                                  f"Wrong error message: {data.get('detail')}", data)
+            else:
+                self.log_result("Password Reset Missing Email", False, 
+                              f"Expected 400, got {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_result("Password Reset Missing Email", False, f"Exception: {str(e)}")
+
+    async def test_login_with_reset_password(self):
+        """Test login with password after reset (if reset was successful)"""
+        if not hasattr(self, 'reset_password_data') or not self.reset_password_data:
+            self.log_result("Login with Reset Password", False, "No reset password data available")
+            return
+            
+        reset_data = self.reset_password_data
+        if "new_password" not in reset_data:
+            self.log_result("Login with Reset Password", False, "No new password in reset data")
+            return
+            
+        login_data = {
+            "email": reset_data["email"],
+            "password": reset_data["new_password"]
+        }
+        
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/auth/login",
+                json=login_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate response structure
+                required_fields = ["access_token", "token_type", "user"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("Login with Reset Password", False, 
+                                  f"Missing required fields: {missing_fields}", data)
+                    return None
+                
+                self.log_result("Login with Reset Password", True, 
+                              f"Successfully logged in with reset password", data)
+                return data
+            else:
+                self.log_result("Login with Reset Password", False, 
+                              f"Expected 200, got {response.status_code}", response.text)
+                return None
+                
+        except Exception as e:
+            self.log_result("Login with Reset Password", False, f"Exception: {str(e)}")
+            return None
+
     async def test_list_users(self):
         """Test listing users in company"""
         if "admin" not in self.test_tokens:
