@@ -156,7 +156,11 @@ const FreeTrialModal = ({ isOpen, onClose }) => {
       }
     } catch (error) {
       console.error('Trial registration failed:', error);
-      alert('Failed to start trial. Please try again.');
+      const errorMessage = error.message || 'Failed to start trial. Please try again.';
+      const arabicMessage = errorMessage.includes('already exists') 
+        ? 'يوجد حساب تجريبي نشط بالفعل لهذا البريد الإلكتروني. يرجى تسجيل الدخول أو استخدام بريد إلكتروني آخر.'
+        : (language === 'ar' ? 'فشل في بدء النسخة التجريبية. يرجى المحاولة مرة أخرى.' : errorMessage);
+      alert(language === 'ar' ? arabicMessage : errorMessage);
       setStep('form');
     }
   };
