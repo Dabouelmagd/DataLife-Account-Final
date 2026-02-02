@@ -16,6 +16,9 @@ async def get_user_by_id(db: AsyncIOMotorClient, user_id: str) -> Optional[User]
     """Get a user by ID"""
     user_data = await db.users.find_one({"id": user_id})
     if user_data:
+        # Handle both 'password' and 'password_hash' field names
+        if 'password' in user_data and 'password_hash' not in user_data:
+            user_data['password_hash'] = user_data.pop('password')
         return User(**user_data)
     return None
 
