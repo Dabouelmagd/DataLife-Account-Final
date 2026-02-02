@@ -23,6 +23,9 @@ async def get_user_by_email(db: AsyncIOMotorClient, email: str) -> Optional[User
     """Get a user by email"""
     user_data = await db.users.find_one({"email": email})
     if user_data:
+        # Handle both 'password' and 'password_hash' field names
+        if 'password' in user_data and 'password_hash' not in user_data:
+            user_data['password_hash'] = user_data.pop('password')
         return User(**user_data)
     return None
 
