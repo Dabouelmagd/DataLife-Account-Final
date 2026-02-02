@@ -136,10 +136,13 @@ async def reset_password(request_data: dict):
     import bcrypt
     hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
     
-    # Update password in database
+    # Update password in database (update both fields for compatibility)
     await db.users.update_one(
         {"id": user.id},
-        {"$set": {"password": hashed_password.decode('utf-8')}}
+        {"$set": {
+            "password": hashed_password.decode('utf-8'),
+            "password_hash": hashed_password.decode('utf-8')
+        }}
     )
     
     # Send email with new password
