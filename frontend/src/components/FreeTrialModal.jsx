@@ -54,7 +54,18 @@ const FreeTrialModal = ({ isOpen, onClose }) => {
     }
   ];
 
-  const industries = [
+  const industries = language === 'ar' ? [
+    'التصنيع',
+    'التجزئة',
+    'الرعاية الصحية',
+    'التعليم',
+    'التكنولوجيا',
+    'المالية',
+    'العقارات',
+    'البناء والتشييد',
+    'الأغذية والمشروبات',
+    'أخرى'
+  ] : [
     'Manufacturing',
     'Retail',
     'Healthcare',
@@ -67,14 +78,25 @@ const FreeTrialModal = ({ isOpen, onClose }) => {
     'Other'
   ];
 
-  const companySizes = [
+  const companySizes = language === 'ar' ? [
+    '1-10 موظفين',
+    '11-50 موظف', 
+    '51-200 موظف',
+    'أكثر من 200 موظف'
+  ] : [
     '1-10 employees',
     '11-50 employees', 
     '51-200 employees',
     '200+ employees'
   ];
 
-  const intendedUses = [
+  const intendedUses = language === 'ar' ? [
+    'استبدال برنامج المحاسبة الحالي',
+    'أول نظام لإدارة الأعمال',
+    'التوسع من مسك الدفاتر الأساسي',
+    'دمج الأنظمة المتفرقة',
+    'توسيع نطاق عمليات الأعمال المتنامية'
+  ] : [
     'Replace current accounting software',
     'First-time business management system',
     'Expand from basic bookkeeping',
