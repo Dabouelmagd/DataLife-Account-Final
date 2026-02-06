@@ -11,6 +11,16 @@ from services.user_service import (
     user_to_response
 )
 from typing import Optional, List
+import os
+import asyncio
+import resend
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Initialize Resend
+resend.api_key = os.environ.get("RESEND_API_KEY")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "noreply@datalifeaccount.com")
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
