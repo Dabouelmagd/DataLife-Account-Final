@@ -958,17 +958,32 @@ const RealDashboard = () => {
         {/* Bottom Actions - Modern Glass Effect */}
         <div className="p-4 space-y-2 relative z-10 border-t border-white/10">
           {['General Manager', 'CEO', 'Board Chairman', 'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة'].includes(user?.role) && (
-            <button
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-300 group"
-              onClick={() => navigate('/user-management')}
-            >
-              <div className="p-2 rounded-lg bg-white/5 group-hover:bg-white/10 transition-all duration-300">
-                <Users className="h-5 w-5" />
-              </div>
-              <span className={`flex-1 text-${isRTL ? 'right' : 'left'} font-medium`}>
-                {language === 'ar' ? 'إدارة المستخدمين' : 'User Management'}
-              </span>
-            </button>
+            <>
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-300 group"
+                onClick={() => navigate('/user-management')}
+                data-testid="user-management-btn"
+              >
+                <div className="p-2 rounded-lg bg-white/5 group-hover:bg-white/10 transition-all duration-300">
+                  <Users className="h-5 w-5" />
+                </div>
+                <span className={`flex-1 text-${isRTL ? 'right' : 'left'} font-medium`}>
+                  {language === 'ar' ? 'إدارة المستخدمين' : 'User Management'}
+                </span>
+              </button>
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-all duration-300 group"
+                onClick={() => navigate('/subscription')}
+                data-testid="subscription-btn"
+              >
+                <div className="p-2 rounded-lg bg-amber-500/10 group-hover:bg-amber-500/20 transition-all duration-300">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <span className={`flex-1 text-${isRTL ? 'right' : 'left'} font-medium`}>
+                  {language === 'ar' ? 'الاشتراكات' : 'Subscriptions'}
+                </span>
+              </button>
+            </>
           )}
           <button
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-300 group"
