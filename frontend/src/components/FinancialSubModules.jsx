@@ -3762,6 +3762,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
   // Export to CSV function
   const exportToCSV = () => {
     let headers, csvData, filename;
+    const periodLabel = getSelectedPeriodLabel().replace(/\s+/g, '_');
     
     if (financialReportTab === 'overview') {
       headers = language === 'ar' 
@@ -3772,7 +3773,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
         [language === 'ar' ? 'المصروفات' : 'Expenses', financialData.executiveSummary.currentMonth.expenses, financialData.executiveSummary.previousMonth.expenses, financialData.executiveSummary.yearToDate.expenses],
         [language === 'ar' ? 'صافي الربح' : 'Net Profit', financialData.executiveSummary.currentMonth.netProfit, financialData.executiveSummary.previousMonth.netProfit, financialData.executiveSummary.yearToDate.netProfit]
       ];
-      filename = `executive_summary_${new Date().toISOString().split('T')[0]}.csv`;
+      filename = `executive_summary_${periodLabel}_${new Date().toISOString().split('T')[0]}.csv`;
     } else if (financialReportTab === 'profitLoss') {
       headers = language === 'ar' ? ['البند', 'المبلغ'] : ['Item', 'Amount'];
       csvData = [
@@ -3782,7 +3783,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
         [language === 'ar' ? 'مصاريف التشغيل' : 'Operating Expenses', financialData.profitLoss.operatingExpenses.total],
         [language === 'ar' ? 'صافي الربح' : 'Net Profit', financialData.profitLoss.netProfit]
       ];
-      filename = `profit_loss_${new Date().toISOString().split('T')[0]}.csv`;
+      filename = `profit_loss_${periodLabel}_${new Date().toISOString().split('T')[0]}.csv`;
     } else if (financialReportTab === 'cashFlow') {
       headers = language === 'ar' ? ['البند', 'المبلغ'] : ['Item', 'Amount'];
       csvData = [
@@ -3791,7 +3792,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
         [language === 'ar' ? 'التدفق من التمويل' : 'Financing Cash Flow', financialData.cashFlow.financing.total],
         [language === 'ar' ? 'صافي التدفق النقدي' : 'Net Cash Flow', financialData.cashFlow.netCashFlow]
       ];
-      filename = `cash_flow_${new Date().toISOString().split('T')[0]}.csv`;
+      filename = `cash_flow_${periodLabel}_${new Date().toISOString().split('T')[0]}.csv`;
     } else if (financialReportTab === 'balance') {
       headers = language === 'ar' ? ['البند', 'المبلغ'] : ['Item', 'Amount'];
       csvData = [
@@ -3799,7 +3800,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
         [language === 'ar' ? 'إجمالي الخصوم' : 'Total Liabilities', financialData.balanceSheet.totalLiabilities],
         [language === 'ar' ? 'حقوق الملكية' : 'Equity', financialData.balanceSheet.totalEquity]
       ];
-      filename = `balance_sheet_${new Date().toISOString().split('T')[0]}.csv`;
+      filename = `balance_sheet_${periodLabel}_${new Date().toISOString().split('T')[0]}.csv`;
     } else {
       headers = language === 'ar' ? ['المؤشر', 'القيمة'] : ['KPI', 'Value'];
       csvData = [
