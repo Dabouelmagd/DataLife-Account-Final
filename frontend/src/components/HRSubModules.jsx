@@ -2891,6 +2891,81 @@ export const HRReportsModule = ({ language, userRole }) => {
     { employee: language === 'ar' ? 'فاطمة عمر' : 'Fatima Omar', basic: 10000, allowances: 2200, deductions: 600, net: 11600 }
   ];
 
+  // Export to CSV function
+  const exportToCSV = () => {
+    let headers, csvData, filename;
+    
+    if (reportType === 'attendance') {
+      headers = language === 'ar' 
+        ? ['الموظف', 'أيام الحضور', 'أيام الغياب', 'أيام التأخير', 'إجمالي الأيام']
+        : ['Employee', 'Present Days', 'Absent Days', 'Late Days', 'Total Days'];
+      csvData = attendanceData.map(row => [row.employee, row.present, row.absent, row.late, row.totalDays]);
+      filename = `attendance_report_${new Date().toISOString().split('T')[0]}.csv`;
+    } else {
+      headers = language === 'ar'
+        ? ['الموظف', 'الراتب الأساسي', 'البدلات', 'الخصومات', 'صافي الراتب']
+        : ['Employee', 'Basic Salary', 'Allowances', 'Deductions', 'Net Salary'];
+      csvData = payrollData.map(row => [row.employee, row.basic, row.allowances, row.deductions, row.net]);
+      filename = `payroll_report_${new Date().toISOString().split('T')[0]}.csv`;
+    }
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    alert(language === 'ar' ? 'تم تصدير التقرير بنجاح!' : 'Report exported successfully!');
+  };
+
+  // Export to PDF function
+  const exportToPDF = () => {
+    // Create simple text-based PDF content
+    let content = language === 'ar' ? 'تقارير الموارد البشرية\n\n' : 'HR Reports\n\n';
+    content += `${language === 'ar' ? 'التاريخ' : 'Date'}: ${new Date().toLocaleDateString()}\n`;
+    content += `${language === 'ar' ? 'نوع التقرير' : 'Report Type'}: ${reportTypes.find(r => r.id === reportType)?.name}\n\n`;
+    
+    if (reportType === 'attendance') {
+      content += language === 'ar' ? 'بيانات الحضور:\n' : 'Attendance Data:\n';
+      attendanceData.forEach(row => {
+        content += `${row.employee}: ${language === 'ar' ? 'حضور' : 'Present'}: ${row.present}, ${language === 'ar' ? 'غياب' : 'Absent'}: ${row.absent}\n`;
+      });
+    } else {
+      content += language === 'ar' ? 'بيانات المرتبات:\n' : 'Payroll Data:\n';
+      payrollData.forEach(row => {
+        content += `${row.employee}: ${language === 'ar' ? 'صافي' : 'Net'}: ${row.net.toLocaleString()}\n`;
+      });
+    }
+
+    // Create blob and download
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const filename = `hr_report_${reportType}_${new Date().toISOString().split('T')[0]}.txt`;
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    alert(language === 'ar' ? 'تم تصدير التقرير بنجاح!' : 'Report exported successfully!');
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="flex items-center justify-between">
