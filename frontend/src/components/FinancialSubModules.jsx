@@ -97,7 +97,7 @@ export const JournalEntriesModule = ({ language, userRole }) => {
             <Download className="h-4 w-4" />
             <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
@@ -751,7 +751,7 @@ export const TreasuryModule = ({ language, userRole }) => {
             <Download className="h-4 w-4" />
             <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
@@ -1403,7 +1403,7 @@ export const CustodyModule = ({ language, userRole }) => {
             <Download className="h-4 w-4" />
             <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
@@ -1959,7 +1959,7 @@ export const AccountsModule = ({ language, userRole }) => {
             <Download className="h-4 w-4" />
             <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
@@ -2499,7 +2499,7 @@ export const SuppliersModule = ({ language, userRole }) => {
             <Download className="h-4 w-4" />
             <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
@@ -3073,7 +3073,7 @@ export const InventoryModule = ({ language, userRole }) => {
             <Download className="h-4 w-4" />
             <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
@@ -5075,7 +5075,7 @@ export const BankModule = ({ language, userRole }) => {
             <Download className="h-4 w-4" />
             <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
