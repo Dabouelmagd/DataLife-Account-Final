@@ -182,6 +182,11 @@ export const AnalyticsModule = ({ language, userRole }) => {
     console.log('Saving PDF:', filename);
     doc.save(filename);
     console.log('PDF export completed!');
+    alert(language === 'ar' ? 'تم تصدير التقرير بنجاح! تحقق من مجلد التنزيلات.' : 'Report exported successfully! Check your downloads folder.');
+  } catch (error) {
+    console.error('PDF export error:', error);
+    alert(language === 'ar' ? 'حدث خطأ أثناء التصدير: ' + error.message : 'Export error: ' + error.message);
+  }
   };
 
   const exportToExcel = () => {
