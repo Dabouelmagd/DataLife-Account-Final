@@ -156,6 +156,97 @@ async def add_user(
     
     return user_to_response(user)
 
+@router.post("/{user_id}/resend-invite")
+async def resend_invitation(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Resend invitation email to a user"""
+    check_user_permission(current_user.get("role"), "edit")
+    
+    # Get user
+    user = await db.users.find_one({"id": user_id, "company_id": current_user.get("company_id")})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if not resend.api_key:
+        raise HTTPException(status_code=500, detail="Email service not configured")
+    
+    try:
+        # Generate new temporary password
+        import secrets
+        import string
+        import bcrypt
+        
+        alphabet = string.ascii_letters + string.digits
+        new_password = ''.join(secrets.choice(alphabet) for _ in range(10))
+        hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+        
+        # Update password in database
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {
+                "password": hashed.decode('utf-8'),
+                "password_hash": hashed.decode('utf-8')
+            }}
+        )
+        
+        # Get company name
+        company = await db.companies.find_one({"id": current_user.get("company_id")})
+        company_name = company.get("name", "DataLife Account") if company else "DataLife Account"
+        inviter_name = current_user.get("full_name", "المدير")
+        
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; direction: rtl;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+                <h1 style="color: white; margin: 0; text-align: center;">DataLife Account</h1>
+            </div>
+            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                <h2 style="color: #333; text-align: center;">📧 إعادة إرسال الدعوة</h2>
+                <p style="color: #666; font-size: 16px; text-align: center;">
+                    تم إعادة إرسال دعوتك للانضمام إلى <strong>{company_name}</strong>
+                </p>
+                
+                <div style="background: #fff; border: 2px solid #667eea; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #667eea; margin-top: 0; text-align: center;">بيانات الدخول الجديدة</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">البريد الإلكتروني:</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold;">{user.get('email')}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px; color: #666;">كلمة المرور الجديدة:</td>
+                            <td style="padding: 10px; color: #333; font-weight: bold;">{new_password}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <a href="https://datalifeaccount.com/login" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                        تسجيل الدخول الآن
+                    </a>
+                </div>
+                
+                <p style="color: #999; font-size: 12px; text-align: center;">
+                    تم الإرسال بواسطة: {inviter_name}
+                </p>
+            </div>
+        </div>
+        """
+        
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [user.get('email')],
+            "subject": f"📧 إعادة إرسال دعوة - {company_name}",
+            "html": html_content
+        }
+        
+        await asyncio.to_thread(resend.Emails.send, params)
+        
+        return {"message": "Invitation resent successfully", "email": user.get('email')}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+
 @router.get("/", response_model=List[UserResponse])
 async def list_company_users(
     current_user: dict = Depends(get_current_user)
