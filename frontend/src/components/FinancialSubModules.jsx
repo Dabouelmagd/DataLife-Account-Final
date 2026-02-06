@@ -3724,6 +3724,77 @@ export const FinancialReportsModule = ({ language, userRole }) => {
   
   const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
+  // Export to CSV function
+  const exportToCSV = () => {
+    let headers, csvData, filename;
+    
+    if (financialReportTab === 'overview') {
+      headers = language === 'ar' 
+        ? ['البند', 'الشهر الحالي', 'الشهر السابق', 'السنة حتى تاريخه']
+        : ['Item', 'Current Month', 'Previous Month', 'Year to Date'];
+      csvData = [
+        [language === 'ar' ? 'الإيرادات' : 'Revenue', financialData.executiveSummary.currentMonth.revenue, financialData.executiveSummary.previousMonth.revenue, financialData.executiveSummary.yearToDate.revenue],
+        [language === 'ar' ? 'المصروفات' : 'Expenses', financialData.executiveSummary.currentMonth.expenses, financialData.executiveSummary.previousMonth.expenses, financialData.executiveSummary.yearToDate.expenses],
+        [language === 'ar' ? 'صافي الربح' : 'Net Profit', financialData.executiveSummary.currentMonth.netProfit, financialData.executiveSummary.previousMonth.netProfit, financialData.executiveSummary.yearToDate.netProfit]
+      ];
+      filename = `executive_summary_${new Date().toISOString().split('T')[0]}.csv`;
+    } else if (financialReportTab === 'profitLoss') {
+      headers = language === 'ar' ? ['البند', 'المبلغ'] : ['Item', 'Amount'];
+      csvData = [
+        [language === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue', financialData.profitLoss.revenue.total],
+        [language === 'ar' ? 'تكلفة البضاعة المباعة' : 'COGS', financialData.profitLoss.cogs],
+        [language === 'ar' ? 'إجمالي الربح' : 'Gross Profit', financialData.profitLoss.grossProfit],
+        [language === 'ar' ? 'مصاريف التشغيل' : 'Operating Expenses', financialData.profitLoss.operatingExpenses.total],
+        [language === 'ar' ? 'صافي الربح' : 'Net Profit', financialData.profitLoss.netProfit]
+      ];
+      filename = `profit_loss_${new Date().toISOString().split('T')[0]}.csv`;
+    } else if (financialReportTab === 'cashFlow') {
+      headers = language === 'ar' ? ['البند', 'المبلغ'] : ['Item', 'Amount'];
+      csvData = [
+        [language === 'ar' ? 'التدفق من العمليات' : 'Operating Cash Flow', financialData.cashFlow.operating.total],
+        [language === 'ar' ? 'التدفق من الاستثمار' : 'Investing Cash Flow', financialData.cashFlow.investing.total],
+        [language === 'ar' ? 'التدفق من التمويل' : 'Financing Cash Flow', financialData.cashFlow.financing.total],
+        [language === 'ar' ? 'صافي التدفق النقدي' : 'Net Cash Flow', financialData.cashFlow.netCashFlow]
+      ];
+      filename = `cash_flow_${new Date().toISOString().split('T')[0]}.csv`;
+    } else if (financialReportTab === 'balance') {
+      headers = language === 'ar' ? ['البند', 'المبلغ'] : ['Item', 'Amount'];
+      csvData = [
+        [language === 'ar' ? 'إجمالي الأصول' : 'Total Assets', financialData.balanceSheet.totalAssets],
+        [language === 'ar' ? 'إجمالي الخصوم' : 'Total Liabilities', financialData.balanceSheet.totalLiabilities],
+        [language === 'ar' ? 'حقوق الملكية' : 'Equity', financialData.balanceSheet.totalEquity]
+      ];
+      filename = `balance_sheet_${new Date().toISOString().split('T')[0]}.csv`;
+    } else {
+      headers = language === 'ar' ? ['المؤشر', 'القيمة'] : ['KPI', 'Value'];
+      csvData = [
+        [language === 'ar' ? 'العائد على الأصول' : 'ROA', financialData.kpis.roa + '%'],
+        [language === 'ar' ? 'العائد على حقوق الملكية' : 'ROE', financialData.kpis.roe + '%'],
+        [language === 'ar' ? 'هامش الربح' : 'Profit Margin', financialData.kpis.profitMargin + '%'],
+        [language === 'ar' ? 'النسبة الجارية' : 'Current Ratio', financialData.kpis.currentRatio]
+      ];
+      filename = `financial_kpis_${new Date().toISOString().split('T')[0]}.csv`;
+    }
+
+    const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    setSuccessMessage(language === 'ar' ? 'تم تصدير التقرير بنجاح!' : 'Report exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
   // بيانات مالية شاملة
   const financialData = {
     executiveSummary: {
