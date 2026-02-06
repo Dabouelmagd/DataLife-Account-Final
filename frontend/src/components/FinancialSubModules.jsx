@@ -35,39 +35,50 @@ export const JournalEntriesModule = ({ language, userRole }) => {
 
   // Export to CSV function
   const exportToCSV = () => {
-    const headers = language === 'ar' 
-      ? ['الكود', 'التاريخ', 'الوصف', 'الحساب', 'مدين', 'دائن']
-      : ['ID', 'Date', 'Description', 'Account', 'Debit', 'Credit'];
-    
-    const csvData = journalEntries.map(entry => [
-      entry.id,
-      entry.date,
-      entry.description,
-      entry.account,
-      entry.debit,
-      entry.credit
-    ]);
+    if (!journalEntries || journalEntries.length === 0) {
+      alert(language === 'ar' ? 'لا توجد بيانات للتصدير' : 'No data to export');
+      return;
+    }
 
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.join(','))
-    ].join('\n');
+    try {
+      const headers = language === 'ar' 
+        ? ['الكود', 'التاريخ', 'الوصف', 'الحساب', 'مدين', 'دائن']
+        : ['ID', 'Date', 'Description', 'Account', 'Debit', 'Credit'];
+      
+      const csvData = journalEntries.map(entry => [
+        entry.id,
+        entry.date,
+        entry.description,
+        entry.account,
+        entry.debit,
+        entry.credit
+      ]);
 
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `journal_entries_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => row.join(','))
+      ].join('\n');
 
-    setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
-    setShowSuccessModal(true);
-    setTimeout(() => setShowSuccessModal(false), 2000);
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `journal_entries_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setSuccessMessage(language === 'ar' ? 'تم التصدير بنجاح!' : 'Exported successfully!');
+      setShowSuccessModal(true);
+      setTimeout(() => setShowSuccessModal(false), 2000);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert(language === 'ar' ? 'حدث خطأ أثناء التصدير' : 'Export failed');
+    }
   };
 
   // Calculate statistics
