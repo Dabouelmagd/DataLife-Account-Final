@@ -191,10 +191,14 @@ export const AnalyticsModule = ({ language, userRole }) => {
 
   const exportToExcel = () => {
     const { overview, financial, hr, inventory } = analyticsData;
-    if (!overview) return;
+    if (!overview) {
+      alert(language === 'ar' ? 'لا توجد بيانات للتصدير' : 'No data to export');
+      return;
+    }
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
+    try {
+      // Create workbook
+      const wb = XLSX.utils.book_new();
 
     // Overview Sheet
     const overviewData = [
