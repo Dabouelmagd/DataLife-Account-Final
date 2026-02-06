@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import secrets
 import string
 
-router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
+router = APIRouter(prefix="/api/subscriptions", tags=["Subscriptions"])
 
 # Database connection
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
