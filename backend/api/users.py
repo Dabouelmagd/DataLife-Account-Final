@@ -58,6 +58,7 @@ def check_user_permission(user_role: str, required_permission: str):
 @router.post("/", response_model=UserResponse)
 async def add_user(
     user_data: UserCreate,
+    send_invite: bool = True,
     current_user: dict = Depends(get_current_user)
 ):
     """Add a new user to the company (requires General Manager role)"""
@@ -76,8 +77,82 @@ async def add_user(
     # Set company_id to current user's company
     user_data.company_id = current_user.get("company_id")
     
+    # Store original password for email
+    original_password = user_data.password
+    
     # Create user
     user = await create_user(db, user_data, user_data.password)
+    
+    # Send invitation email
+    if send_invite and resend.api_key:
+        try:
+            # Get company name
+            company = await db.companies.find_one({"id": current_user.get("company_id")})
+            company_name = company.get("name", "DataLife Account") if company else "DataLife Account"
+            inviter_name = current_user.get("full_name", "المدير")
+            
+            html_content = f"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; direction: rtl;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+                    <h1 style="color: white; margin: 0; text-align: center;">DataLife Account</h1>
+                </div>
+                <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                    <h2 style="color: #333; text-align: center;">🎉 مرحباً بك في الفريق!</h2>
+                    <p style="color: #666; font-size: 16px; text-align: center;">
+                        تمت دعوتك للانضمام إلى <strong>{company_name}</strong> على منصة DataLife Account
+                    </p>
+                    <p style="color: #666; font-size: 14px; text-align: center;">
+                        تمت الدعوة بواسطة: <strong>{inviter_name}</strong>
+                    </p>
+                    
+                    <div style="background: #fff; border: 2px solid #667eea; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="color: #667eea; margin-top: 0; text-align: center;">بيانات الدخول</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">البريد الإلكتروني:</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold;">{user_data.email}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">كلمة المرور:</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold;">{original_password}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px; color: #666;">الصلاحية:</td>
+                                <td style="padding: 10px; color: #333; font-weight: bold;">{user_data.role}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 20px 0;">
+                        <a href="https://datalifeaccount.com/login" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                            تسجيل الدخول الآن
+                        </a>
+                    </div>
+                    
+                    <p style="color: #999; font-size: 12px; text-align: center;">
+                        ⚠️ يرجى تغيير كلمة المرور بعد أول تسجيل دخول للحفاظ على أمان حسابك
+                    </p>
+                    
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                    <p style="color: #999; font-size: 11px; text-align: center;">
+                        هذا البريد الإلكتروني تم إرساله تلقائياً من DataLife Account<br>
+                        © 2024 DataLife Account. جميع الحقوق محفوظة.
+                    </p>
+                </div>
+            </div>
+            """
+            
+            params = {
+                "from": SENDER_EMAIL,
+                "to": [user_data.email],
+                "subject": f"🎉 دعوة للانضمام إلى {company_name} - DataLife Account",
+                "html": html_content
+            }
+            
+            await asyncio.to_thread(resend.Emails.send, params)
+        except Exception as e:
+            # Log error but don't fail the user creation
+            print(f"Failed to send invitation email: {e}")
     
     return user_to_response(user)
 
