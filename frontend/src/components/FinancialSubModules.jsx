@@ -3948,7 +3948,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
                 <option value="monthly">{language === 'ar' ? 'شهري' : 'Monthly'}</option>
                 <option value="yearly">{language === 'ar' ? 'سنوي' : 'Yearly'}</option>
               </select>
-              <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline" onClick={exportToCSV}>
                 <Download className="h-4 w-4 mr-2" />
                 {language === 'ar' ? 'تصدير' : 'Export'}
               </Button>
