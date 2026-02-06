@@ -382,6 +382,14 @@ const UserManagement = () => {
                           >
                             <Edit className="h-4 w-4 text-blue-600" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleResendInvite(usr.id, usr.email)}
+                            title={language === 'ar' ? 'إعادة إرسال الدعوة' : 'Resend Invitation'}
+                          >
+                            <Mail className="h-4 w-4 text-green-600" />
+                          </Button>
                           {usr.id !== user?.id && (
                             <Button
                               variant="ghost"
