@@ -3970,23 +3970,166 @@ export const FinancialReportsModule = ({ language, userRole }) => {
       {/* التحكم في التقارير المالية */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center">
-              <span>{language === 'ar' ? 'التقارير المالية' : 'Financial Reports'}</span>
-            </CardTitle>
-            <div className="flex gap-2">
-              <select 
-                className="border rounded px-3 py-2 text-sm"
-                value={financialPeriod}
-                onChange={(e) => setFinancialPeriod(e.target.value)}
-              >
-                <option value="monthly">{language === 'ar' ? 'شهري' : 'Monthly'}</option>
-                <option value="yearly">{language === 'ar' ? 'سنوي' : 'Yearly'}</option>
-              </select>
-              <Button size="sm" variant="outline" onClick={exportToCSV}>
-                <Download className="h-4 w-4 mr-2" />
-                {language === 'ar' ? 'تصدير' : 'Export'}
-              </Button>
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <CardTitle className="flex items-center">
+                <span>{language === 'ar' ? 'التقارير المالية' : 'Financial Reports'}</span>
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={exportToCSV}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {language === 'ar' ? 'تصدير' : 'Export'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => window.print()}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  {language === 'ar' ? 'طباعة' : 'Print'}
+                </Button>
+              </div>
+            </div>
+            
+            {/* فلاتر الفترة الزمنية */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex flex-wrap gap-4 items-end">
+                {/* نوع الفلتر */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-700">
+                    {language === 'ar' ? 'نوع الفترة' : 'Period Type'}
+                  </label>
+                  <select 
+                    className="border rounded px-3 py-2 text-sm min-w-[140px]"
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                  >
+                    <option value="year">{language === 'ar' ? 'سنة كاملة' : 'Full Year'}</option>
+                    <option value="quarter">{language === 'ar' ? 'ربع سنوي' : 'Quarter'}</option>
+                    <option value="month">{language === 'ar' ? 'شهر محدد' : 'Specific Month'}</option>
+                    <option value="custom">{language === 'ar' ? 'فترة مخصصة' : 'Custom Range'}</option>
+                  </select>
+                </div>
+
+                {/* اختيار السنة */}
+                {(filterType === 'year' || filterType === 'quarter' || filterType === 'month') && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">
+                      {language === 'ar' ? 'السنة' : 'Year'}
+                    </label>
+                    <select 
+                      className="border rounded px-3 py-2 text-sm min-w-[100px]"
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    >
+                      {years.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* اختيار الربع */}
+                {filterType === 'quarter' && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">
+                      {language === 'ar' ? 'الربع' : 'Quarter'}
+                    </label>
+                    <select 
+                      className="border rounded px-3 py-2 text-sm min-w-[180px]"
+                      value={selectedQuarter}
+                      onChange={(e) => setSelectedQuarter(parseInt(e.target.value))}
+                    >
+                      {quarters.map((q, idx) => (
+                        <option key={idx + 1} value={idx + 1}>{q}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* اختيار الشهر */}
+                {filterType === 'month' && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">
+                      {language === 'ar' ? 'الشهر' : 'Month'}
+                    </label>
+                    <select 
+                      className="border rounded px-3 py-2 text-sm min-w-[120px]"
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                    >
+                      {months.map((m, idx) => (
+                        <option key={idx + 1} value={idx + 1}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* فترة مخصصة */}
+                {filterType === 'custom' && (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm font-medium text-gray-700">
+                        {language === 'ar' ? 'من تاريخ' : 'From Date'}
+                      </label>
+                      <input 
+                        type="date"
+                        className="border rounded px-3 py-2 text-sm"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm font-medium text-gray-700">
+                        {language === 'ar' ? 'إلى تاريخ' : 'To Date'}
+                      </label>
+                      <input 
+                        type="date"
+                        className="border rounded px-3 py-2 text-sm"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* خيار المقارنة */}
+                {filterType === 'year' && (
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        className="w-4 h-4 rounded"
+                        checked={compareYears}
+                        onChange={(e) => setCompareYears(e.target.checked)}
+                      />
+                      <span className="text-sm text-gray-700">
+                        {language === 'ar' ? 'مقارنة مع سنة' : 'Compare with year'}
+                      </span>
+                    </label>
+                    {compareYears && (
+                      <select 
+                        className="border rounded px-3 py-2 text-sm"
+                        value={comparisonYear}
+                        onChange={(e) => setComparisonYear(parseInt(e.target.value))}
+                      >
+                        {years.filter(y => y !== selectedYear).map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              {/* عرض الفترة المحددة */}
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">{language === 'ar' ? 'الفترة المحددة:' : 'Selected Period:'}</span>{' '}
+                  <span className="text-[#28376B] font-bold">{getSelectedPeriodLabel()}</span>
+                  {compareYears && filterType === 'year' && (
+                    <span className="text-gray-500">
+                      {' '}{language === 'ar' ? 'مقارنة مع' : 'compared with'} {comparisonYear}
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
           </div>
         </CardHeader>
