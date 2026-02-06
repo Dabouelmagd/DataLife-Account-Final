@@ -190,17 +190,22 @@ async def upload_user_photo(
     
     return {"message": "Photo uploaded successfully", "photo_url": photo_url}
 
+from pydantic import BaseModel
+
+class UserUpdateRequest(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+
 @router.put("/{user_id}")
 async def update_user_details(
     user_id: str,
-    full_name: Optional[str] = None,
-    email: Optional[str] = None,
-    role: Optional[str] = None,
+    update_data: UserUpdateRequest,
     current_user: dict = Depends(get_current_user)
 ):
     """Update user details"""
     # Check permissions
-    is_manager = current_user.get("role") in ['General Manager', 'CEO', 'Board Chairman']
+    is_manager = current_user.get("role") in ['General Manager', 'CEO', 'Board Chairman', 'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة']
     is_own_account = user_id == current_user.get("user_id")
     
     # Users can only edit their own name/email, managers can edit everything
@@ -208,7 +213,7 @@ async def update_user_details(
         raise HTTPException(status_code=403, detail="Cannot modify other users")
     
     # Only managers can change roles
-    if role and not is_manager:
+    if update_data.role and not is_manager:
         raise HTTPException(status_code=403, detail="Only managers can change roles")
     
     # Get user
@@ -221,28 +226,32 @@ async def update_user_details(
         raise HTTPException(status_code=403, detail="Cannot modify users from other companies")
     
     # Build update dict
-    update_data = {}
-    if full_name:
-        update_data["full_name"] = full_name
-    if email:
+    update_dict = {}
+    if update_data.full_name:
+        update_dict["full_name"] = update_data.full_name
+    if update_data.email:
         # Check if email is already taken
-        existing = await db.users.find_one({"email": email, "id": {"$ne": user_id}})
+        existing = await db.users.find_one({"email": update_data.email, "id": {"$ne": user_id}})
         if existing:
             raise HTTPException(status_code=400, detail="Email already in use")
-        update_data["email"] = email
-    if role and is_manager:
-        if role not in ROLE_PERMISSIONS:
+        update_dict["email"] = update_data.email
+    if update_data.role and is_manager:
+        if update_data.role not in ROLE_PERMISSIONS:
             raise HTTPException(status_code=400, detail="Invalid role")
-        update_data["role"] = role
+        update_dict["role"] = update_data.role
     
     # Update user
-    if update_data:
+    if update_dict:
         await db.users.update_one(
             {"id": user_id},
-            {"$set": update_data}
+            {"$set": update_dict}
         )
     
     # Get updated user
     updated_user = await db.users.find_one({"id": user_id})
-    return user_to_response(updated_user)
+    # Handle password field mapping
+    if 'password' in updated_user and 'password_hash' not in updated_user:
+        updated_user['password_hash'] = updated_user.pop('password')
+    from models.user import User
+    return user_to_response(User(**updated_user))
 
