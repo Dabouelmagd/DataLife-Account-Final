@@ -82,6 +82,14 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/subscription" 
+                element={
+                  <ProtectedRoute>
+                    <SubscriptionPage />
+                  </ProtectedRoute>
+                } 
+              />
             </Routes>
           </BrowserRouter>
         </div>
