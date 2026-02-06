@@ -312,6 +312,11 @@ export const AnalyticsModule = ({ language, userRole }) => {
     // Save Excel file
     const filename = `analytics_report_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, filename);
+    alert(language === 'ar' ? 'تم تصدير التقرير بنجاح! تحقق من مجلد التنزيلات.' : 'Report exported successfully! Check your downloads folder.');
+    } catch (error) {
+      console.error('Excel export error:', error);
+      alert(language === 'ar' ? 'حدث خطأ أثناء التصدير: ' + error.message : 'Export error: ' + error.message);
+    }
   };
 
   if (loading) {
