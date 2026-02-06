@@ -14,7 +14,70 @@ ROLE_PERMISSIONS = {
             "users": ["view", "create", "edit", "delete", "assign_roles"]
         }
     },
+    "مدير عام": {
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "permissions": {
+            "hr": ["view", "create", "edit", "delete"],
+            "financial": ["view", "create", "edit", "delete"],
+            "inventory": ["view", "create", "edit", "delete"],
+            "reports": ["view", "export"],
+            "analytics": ["view"],
+            "users": ["view", "create", "edit", "delete", "assign_roles"]
+        }
+    },
+    "CEO": {
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "permissions": {
+            "hr": ["view", "create", "edit", "delete"],
+            "financial": ["view", "create", "edit", "delete"],
+            "inventory": ["view", "create", "edit", "delete"],
+            "reports": ["view", "export"],
+            "analytics": ["view"],
+            "users": ["view", "create", "edit", "delete", "assign_roles"]
+        }
+    },
+    "المدير التنفيذي": {
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "permissions": {
+            "hr": ["view", "create", "edit", "delete"],
+            "financial": ["view", "create", "edit", "delete"],
+            "inventory": ["view", "create", "edit", "delete"],
+            "reports": ["view", "export"],
+            "analytics": ["view"],
+            "users": ["view", "create", "edit", "delete", "assign_roles"]
+        }
+    },
+    "Board Chairman": {
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "permissions": {
+            "hr": ["view", "create", "edit", "delete"],
+            "financial": ["view", "create", "edit", "delete"],
+            "inventory": ["view", "create", "edit", "delete"],
+            "reports": ["view", "export"],
+            "analytics": ["view"],
+            "users": ["view", "create", "edit", "delete", "assign_roles"]
+        }
+    },
+    "رئيس مجلس الإدارة": {
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "permissions": {
+            "hr": ["view", "create", "edit", "delete"],
+            "financial": ["view", "create", "edit", "delete"],
+            "inventory": ["view", "create", "edit", "delete"],
+            "reports": ["view", "export"],
+            "analytics": ["view"],
+            "users": ["view", "create", "edit", "delete", "assign_roles"]
+        }
+    },
     "HR Manager": {
+        "modules": ["dashboard", "hr", "reports"],
+        "permissions": {
+            "hr": ["view", "create", "edit", "delete"],
+            "reports": ["view", "export"],
+            "users": ["view"]
+        }
+    },
+    "مدير الموارد البشرية": {
         "modules": ["dashboard", "hr", "reports"],
         "permissions": {
             "hr": ["view", "create", "edit", "delete"],
@@ -31,7 +94,40 @@ ROLE_PERMISSIONS = {
             "users": ["view"]
         }
     },
+    "المدير المالي": {
+        "modules": ["dashboard", "financial", "reports", "analytics"],
+        "permissions": {
+            "financial": ["view", "create", "edit", "delete"],
+            "reports": ["view", "export"],
+            "analytics": ["view"],
+            "users": ["view"]
+        }
+    },
+    "Chief Accountant": {
+        "modules": ["dashboard", "financial", "reports"],
+        "permissions": {
+            "financial": ["view", "create", "edit"],
+            "reports": ["view", "export"],
+            "users": ["view"]
+        }
+    },
+    "رئيس الحسابات": {
+        "modules": ["dashboard", "financial", "reports"],
+        "permissions": {
+            "financial": ["view", "create", "edit"],
+            "reports": ["view", "export"],
+            "users": ["view"]
+        }
+    },
     "Accountant": {
+        "modules": ["dashboard", "financial", "reports"],
+        "permissions": {
+            "financial": ["view"],
+            "reports": ["view", "export"],
+            "users": []
+        }
+    },
+    "محاسب": {
         "modules": ["dashboard", "financial", "reports"],
         "permissions": {
             "financial": ["view"],
