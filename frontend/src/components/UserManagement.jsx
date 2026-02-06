@@ -237,6 +237,33 @@ const UserManagement = () => {
     }
   };
 
+  // Handle resend invitation
+  const handleResendInvite = async (userId, userEmail) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/${userId}/resend-invite`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      showToast(
+        language === 'ar' 
+          ? `تم إرسال الدعوة بنجاح إلى ${userEmail}` 
+          : `Invitation sent successfully to ${userEmail}`,
+        'success'
+      );
+    } catch (error) {
+      console.error('Error resending invite:', error);
+      const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
+      showToast(
+        language === 'ar'
+          ? `خطأ في إرسال الدعوة: ${errorMsg}`
+          : `Error sending invitation: ${errorMsg}`,
+        'error'
+      );
+    }
+  };
+
   // Get role color
   const getRoleColor = (role) => {
     if (['CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(role)) {
