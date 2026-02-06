@@ -3722,6 +3722,41 @@ export const FinancialReportsModule = ({ language, userRole }) => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   
+  // Date filter states
+  const [filterType, setFilterType] = useState('year'); // year, month, quarter, custom
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedQuarter, setSelectedQuarter] = useState(Math.ceil((new Date().getMonth() + 1) / 3));
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [compareYears, setCompareYears] = useState(false);
+  const [comparisonYear, setComparisonYear] = useState(new Date().getFullYear() - 1);
+  
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
+  const months = language === 'ar' 
+    ? ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
+    : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const quarters = language === 'ar'
+    ? ['الربع الأول (يناير-مارس)', 'الربع الثاني (أبريل-يونيو)', 'الربع الثالث (يوليو-سبتمبر)', 'الربع الرابع (أكتوبر-ديسمبر)']
+    : ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
+  
+  // Get selected period label for display and export
+  const getSelectedPeriodLabel = () => {
+    switch (filterType) {
+      case 'year':
+        return `${language === 'ar' ? 'سنة' : 'Year'} ${selectedYear}`;
+      case 'month':
+        return `${months[selectedMonth - 1]} ${selectedYear}`;
+      case 'quarter':
+        return `${quarters[selectedQuarter - 1]} ${selectedYear}`;
+      case 'custom':
+        return `${startDate} - ${endDate}`;
+      default:
+        return '';
+    }
+  };
+  
   const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
   // Export to CSV function
