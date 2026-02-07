@@ -1709,6 +1709,87 @@ const AdminDashboard = () => {
             </Card>
           </div>
         )}
+
+        {/* Edit Role Modal */}
+        {editingUserRole && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="max-w-md w-full border-2 border-orange-200 bg-white shadow-xl">
+              <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-t-lg">
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5" />
+                  {isRTL ? 'تغيير الوظيفة' : 'Change Role'}
+                </CardTitle>
+                <Button variant="ghost" onClick={() => setEditingUserRole(null)} className="text-white hover:bg-white/20">
+                  <XCircle className="h-5 w-5" />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  {/* User Info */}
+                  <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border">
+                    <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-amber-600 rounded-full flex items-center justify-center text-white font-bold">
+                      {editingUserRole.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">{editingUserRole.full_name}</p>
+                      <p className="text-sm text-gray-500">{editingUserRole.email}</p>
+                    </div>
+                  </div>
+
+                  {/* Current Role */}
+                  <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <p className="text-sm text-orange-700">
+                      {isRTL ? 'الوظيفة الحالية:' : 'Current Role:'} <strong>{editingUserRole.role}</strong>
+                    </p>
+                  </div>
+
+                  {/* Role Selection */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      {isRTL ? 'اختر الوظيفة الجديدة:' : 'Select New Role:'}
+                    </label>
+                    <select
+                      value={selectedRole}
+                      onChange={(e) => setSelectedRole(e.target.value)}
+                      className="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      data-testid="role-select"
+                    >
+                      <option value="">{isRTL ? '-- اختر وظيفة --' : '-- Select Role --'}</option>
+                      {availableRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {isRTL ? role.name_ar : role.name_en}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 justify-end pt-4 border-t">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setEditingUserRole(null)}
+                    >
+                      {t.cancel}
+                    </Button>
+                    <Button 
+                      onClick={handleSaveRole} 
+                      disabled={savingRole || !selectedRole || selectedRole === editingUserRole.role}
+                      className="bg-orange-600 hover:bg-orange-700"
+                      data-testid="save-role-btn"
+                    >
+                      {savingRole ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      {isRTL ? 'حفظ التغيير' : 'Save Change'}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
