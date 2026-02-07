@@ -36,6 +36,8 @@ const CompanyRegistrationPage = () => {
   const [logoPreview, setLogoPreview] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [subscriptionCode, setSubscriptionCode] = useState('');
 
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
