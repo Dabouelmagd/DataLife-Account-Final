@@ -329,6 +329,7 @@ const UserManagement = () => {
                     <TableHead className="font-bold">{language === 'ar' ? 'الاسم' : 'Name'}</TableHead>
                     <TableHead className="font-bold">{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</TableHead>
                     <TableHead className="font-bold">{language === 'ar' ? 'الدور' : 'Role'}</TableHead>
+                    <TableHead className="font-bold">{language === 'ar' ? 'الصلاحيات' : 'Permissions'}</TableHead>
                     <TableHead className="font-bold">{language === 'ar' ? 'تاريخ الإنشاء' : 'Created'}</TableHead>
                     <TableHead className="font-bold">{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
                   </TableRow>
