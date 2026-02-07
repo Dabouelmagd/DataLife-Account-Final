@@ -788,8 +788,6 @@ const AdminDashboard = () => {
                             <span className="text-gray-400">-</span>
                           )}
                         </TableCell>
-                        <TableCell>{code.discount_percent}%</TableCell>
-                        <TableCell>{code.current_uses}/{code.max_uses}</TableCell>
                         <TableCell>
                           <Badge className={code.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
                             {code.is_active ? t.active : t.inactive}
