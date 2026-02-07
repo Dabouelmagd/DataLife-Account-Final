@@ -737,6 +737,15 @@ const InvoicesModule = () => {
                             <Eye className="h-4 w-4" />
                           </Button>
                           
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePrintInvoice(invoice)}
+                            data-testid={`print-invoice-${invoice.invoice_number}`}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          
                           {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
                             <>
                               <Button
