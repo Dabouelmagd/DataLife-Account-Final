@@ -213,6 +213,15 @@ async def get_payment_status(session_id: str, http_request: Request):
                     duration=transaction.get("duration"),
                     amount_paid=transaction.get("amount_egp")
                 )
+            
+            # Send payment confirmation email
+            if transaction.get("user_email"):
+                await send_payment_confirmation_email(
+                    email=transaction.get("user_email"),
+                    plan=transaction.get("plan"),
+                    duration=transaction.get("duration"),
+                    amount=transaction.get("amount_egp")
+                )
         
         # Update transaction record
         await db.payment_transactions.update_one(
