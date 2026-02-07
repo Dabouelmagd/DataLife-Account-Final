@@ -11,7 +11,7 @@ from emergentintegrations.payments.stripe.checkout import (
     CheckoutSessionRequest
 )
 
-router = APIRouter(prefix="/payments", tags=["payments"])
+router = APIRouter(prefix="/api/payments", tags=["payments"])
 
 # MongoDB connection
 MONGO_URL = os.environ.get('MONGO_URL')
