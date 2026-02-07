@@ -626,6 +626,14 @@ const PurchasesModule = () => {
                                 <Eye className="h-4 w-4" />
                               </Button>
                               
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePrintOrder(order)}
+                              >
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              
                               {order.status === 'draft' && (
                                 <Button
                                   variant="ghost"
