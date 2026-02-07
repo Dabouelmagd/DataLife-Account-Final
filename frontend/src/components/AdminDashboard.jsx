@@ -73,6 +73,7 @@ const AdminDashboard = () => {
   // Contact messages tab
   const [contactMessages, setContactMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [newMessagesCount, setNewMessagesCount] = useState(0);
   
   // Toast notification
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
