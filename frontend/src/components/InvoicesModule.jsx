@@ -195,6 +195,161 @@ const InvoicesModule = () => {
     }
   };
 
+  // Print invoice
+  const handlePrintInvoice = (invoice) => {
+    const printWindow = window.open('', '_blank');
+    const content = `
+      <!DOCTYPE html>
+      <html dir="${isRTL ? 'rtl' : 'ltr'}">
+      <head>
+        <title>${isRTL ? 'فاتورة' : 'Invoice'} #${invoice.invoice_number}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'}; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .header h1 { margin: 0; color: #1a365d; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+          .info-box { padding: 15px; background: #f7fafc; border-radius: 8px; }
+          .info-box h3 { margin: 0 0 10px 0; color: #2d3748; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'}; }
+          th { background: #edf2f7; font-weight: bold; }
+          .totals { width: 300px; margin-${isRTL ? 'right' : 'left'}: auto; }
+          .totals td { padding: 8px; }
+          .grand-total { font-size: 18px; font-weight: bold; background: #ebf8ff !important; }
+          .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+          .status-paid { background: #c6f6d5; color: #22543d; }
+          .status-pending { background: #fefcbf; color: #744210; }
+          .footer { margin-top: 40px; text-align: center; color: #718096; font-size: 12px; }
+          @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${isRTL ? 'فاتورة' : 'INVOICE'}</h1>
+          <p>${isRTL ? 'رقم الفاتورة' : 'Invoice Number'}: <strong>${invoice.invoice_number}</strong></p>
+          <p>${isRTL ? 'التاريخ' : 'Date'}: ${invoice.issue_date || new Date().toLocaleDateString()}</p>
+          <span class="status ${invoice.status === 'paid' ? 'status-paid' : 'status-pending'}">
+            ${invoice.status === 'paid' ? (isRTL ? 'مدفوعة' : 'PAID') : (isRTL ? 'معلقة' : 'PENDING')}
+          </span>
+        </div>
+        
+        <div class="info-grid">
+          <div class="info-box">
+            <h3>${isRTL ? 'معلومات العميل' : 'Customer Information'}</h3>
+            <p><strong>${invoice.customer_name}</strong></p>
+            <p>${invoice.customer_email || ''}</p>
+            <p>${invoice.customer_phone || ''}</p>
+            <p>${invoice.customer_address || ''}</p>
+          </div>
+          <div class="info-box">
+            <h3>${isRTL ? 'تفاصيل الفاتورة' : 'Invoice Details'}</h3>
+            <p>${isRTL ? 'نوع الفاتورة' : 'Type'}: ${invoice.invoice_type === 'etax' ? (isRTL ? 'إلكترونية' : 'E-Tax') : (isRTL ? 'عادية' : 'Regular')}</p>
+            <p>${isRTL ? 'تاريخ الاستحقاق' : 'Due Date'}: ${invoice.due_date || '-'}</p>
+            ${invoice.customer_tax_id ? `<p>${isRTL ? 'الرقم الضريبي' : 'Tax ID'}: ${invoice.customer_tax_id}</p>` : ''}
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${isRTL ? 'الوصف' : 'Description'}</th>
+              <th>${isRTL ? 'الكمية' : 'Qty'}</th>
+              <th>${isRTL ? 'السعر' : 'Price'}</th>
+              <th>${isRTL ? 'الخصم' : 'Discount'}</th>
+              <th>${isRTL ? 'الضريبة' : 'Tax'}</th>
+              <th>${isRTL ? 'الإجمالي' : 'Total'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(invoice.items || []).map((item, idx) => {
+              const subtotal = item.quantity * item.unit_price;
+              const discount = subtotal * (item.discount || 0) / 100;
+              const afterDiscount = subtotal - discount;
+              const tax = afterDiscount * (item.tax_rate || 0) / 100;
+              const total = afterDiscount + tax;
+              return `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td>${item.description}</td>
+                  <td>${item.quantity}</td>
+                  <td>${item.unit_price.toLocaleString()} EGP</td>
+                  <td>${item.discount || 0}%</td>
+                  <td>${item.tax_rate || 0}%</td>
+                  <td>${total.toLocaleString()} EGP</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+        
+        <table class="totals">
+          <tr>
+            <td>${isRTL ? 'المجموع الفرعي' : 'Subtotal'}</td>
+            <td>${(invoice.subtotal || 0).toLocaleString()} EGP</td>
+          </tr>
+          <tr>
+            <td>${isRTL ? 'الخصم' : 'Discount'}</td>
+            <td>-${(invoice.total_discount || 0).toLocaleString()} EGP</td>
+          </tr>
+          <tr>
+            <td>${isRTL ? 'الضريبة' : 'Tax'} (14%)</td>
+            <td>${(invoice.total_tax || 0).toLocaleString()} EGP</td>
+          </tr>
+          <tr class="grand-total">
+            <td>${isRTL ? 'الإجمالي' : 'Grand Total'}</td>
+            <td>${(invoice.total_amount || 0).toLocaleString()} EGP</td>
+          </tr>
+        </table>
+        
+        <div class="footer">
+          <p>${isRTL ? 'شكراً لتعاملكم معنا' : 'Thank you for your business'}</p>
+          <p>DataLife Account ERP System</p>
+        </div>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
+
+  // Export invoices to CSV
+  const handleExportCSV = () => {
+    const headers = [
+      isRTL ? 'رقم الفاتورة' : 'Invoice Number',
+      isRTL ? 'العميل' : 'Customer',
+      isRTL ? 'المبلغ' : 'Amount',
+      isRTL ? 'الحالة' : 'Status',
+      isRTL ? 'التاريخ' : 'Date',
+      isRTL ? 'النوع' : 'Type'
+    ];
+    
+    const rows = filteredInvoices.map(inv => [
+      inv.invoice_number,
+      inv.customer_name,
+      inv.total_amount,
+      inv.status,
+      inv.issue_date || inv.created_at?.slice(0, 10),
+      inv.invoice_type
+    ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `invoices_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(isRTL ? 'تم تصدير الفواتير' : 'Invoices exported');
+  };
+
   const calculateTotals = () => {
     let subtotal = 0;
     let totalDiscount = 0;
