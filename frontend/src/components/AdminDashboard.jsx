@@ -40,6 +40,24 @@ const AdminDashboard = () => {
     prefix: 'DL'
   });
   const [generating, setGenerating] = useState(false);
+  
+  // Notification form
+  const [showNotificationForm, setShowNotificationForm] = useState(false);
+  const [notificationForm, setNotificationForm] = useState({
+    target_type: 'all',
+    target_id: '',
+    subject: '',
+    message: ''
+  });
+  const [sendingNotification, setSendingNotification] = useState(false);
+  
+  // Selected company for viewing users
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [companyUsers, setCompanyUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  
+  // Toast notification
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
   const API_URL = process.env.REACT_APP_BACKEND_URL;
 
