@@ -381,9 +381,16 @@ const ApprovalsModule = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t.approvals}</h1>
-          <p className="text-gray-500 mt-1">
-            {isRTL ? 'إدارة طلبات الموافقة وسير العمل' : 'Manage approval requests and workflows'}
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-gray-500">
+              {isRTL ? 'إدارة طلبات الموافقة وسير العمل' : 'Manage approval requests and workflows'}
+            </p>
+            {/* Real-time connection indicator */}
+            <Badge variant="outline" className={isConnected ? 'text-green-600 border-green-300' : 'text-gray-400 border-gray-200'}>
+              {isConnected ? <Wifi className="h-3 w-3 mr-1" /> : <WifiOff className="h-3 w-3 mr-1" />}
+              {isConnected ? (isRTL ? 'متصل' : 'Live') : (isRTL ? 'غير متصل' : 'Offline')}
+            </Badge>
+          </div>
         </div>
         <Button onClick={() => setShowCreateDialog(true)} className="gap-2" data-testid="create-request-btn">
           <Plus className="h-4 w-4" />
