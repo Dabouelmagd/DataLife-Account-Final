@@ -843,6 +843,411 @@ const LandingPage = () => {
       {/* Contact Section */}
       <ContactSection />
 
+      {/* About Section */}
+      <section id="about" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-[#28376B]/10 text-[#28376B]">
+              {language === 'ar' ? 'من نحن' : 'About Us'}
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              {language === 'ar' ? 'شريكك في التحول الرقمي' : 'Your Digital Transformation Partner'}
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              {language === 'ar' 
+                ? 'نحن شركة رائدة في تطوير حلول إدارة الأعمال المتكاملة، نساعد الشركات على التحول الرقمي وتحقيق أقصى كفاءة تشغيلية.'
+                : 'We are a leading company in developing integrated business management solutions, helping businesses achieve digital transformation and maximum operational efficiency.'}
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <Card className="text-center p-6 border-2 hover:border-[#28376B]/50 transition-all">
+              <CardContent className="pt-6">
+                <div className="w-16 h-16 bg-[#28376B]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Target className="h-8 w-8 text-[#28376B]" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">
+                  {language === 'ar' ? 'رؤيتنا' : 'Our Vision'}
+                </h3>
+                <p className="text-gray-600">
+                  {language === 'ar' 
+                    ? 'أن نكون الخيار الأول للشركات في المنطقة العربية لحلول إدارة الأعمال الذكية.'
+                    : 'To be the first choice for companies in the Arab region for smart business management solutions.'}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="text-center p-6 border-2 hover:border-[#28376B]/50 transition-all">
+              <CardContent className="pt-6">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Award className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">
+                  {language === 'ar' ? 'مهمتنا' : 'Our Mission'}
+                </h3>
+                <p className="text-gray-600">
+                  {language === 'ar' 
+                    ? 'تمكين الشركات من إدارة عملياتها بكفاءة عالية من خلال تقنيات حديثة وسهلة الاستخدام.'
+                    : 'Empowering companies to manage their operations efficiently through modern and easy-to-use technologies.'}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="text-center p-6 border-2 hover:border-[#28376B]/50 transition-all">
+              <CardContent className="pt-6">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="h-8 w-8 text-purple-600" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">
+                  {language === 'ar' ? 'إنجازاتنا' : 'Our Achievements'}
+                </h3>
+                <p className="text-gray-600">
+                  {language === 'ar' 
+                    ? '+500 شركة تستخدم حلولنا، +10,000 مستخدم نشط، +5 سنوات خبرة في السوق.'
+                    : '500+ companies use our solutions, 10,000+ active users, 5+ years of market experience.'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Documentation Section */}
+      <section id="documentation" className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-blue-100 text-blue-700">
+              {language === 'ar' ? 'التوثيق والدعم' : 'Documentation & Support'}
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              {language === 'ar' ? 'كل ما تحتاجه للبدء' : 'Everything You Need to Get Started'}
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              {language === 'ar' 
+                ? 'وثائق شاملة، دروس تعليمية، ودعم فني متواصل لمساعدتك في كل خطوة.'
+                : 'Comprehensive documentation, tutorials, and continuous technical support to help you every step of the way.'}
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="hover:shadow-lg transition-all cursor-pointer group" onClick={() => navigate('/features')}>
+              <CardContent className="p-6 text-center">
+                <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                  <FileText className="h-7 w-7 text-blue-600" />
+                </div>
+                <h3 className="font-bold text-lg mb-2">
+                  {language === 'ar' ? 'دليل المستخدم' : 'User Guide'}
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  {language === 'ar' ? 'شرح تفصيلي لجميع المميزات' : 'Detailed explanation of all features'}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-lg transition-all cursor-pointer group">
+              <CardContent className="p-6 text-center">
+                <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                  <Play className="h-7 w-7 text-green-600" />
+                </div>
+                <h3 className="font-bold text-lg mb-2">
+                  {language === 'ar' ? 'فيديوهات تعليمية' : 'Video Tutorials'}
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  {language === 'ar' ? 'تعلم بسهولة من خلال الفيديو' : 'Learn easily through video'}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-lg transition-all cursor-pointer group">
+              <CardContent className="p-6 text-center">
+                <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                  <Database className="h-7 w-7 text-purple-600" />
+                </div>
+                <h3 className="font-bold text-lg mb-2">
+                  {language === 'ar' ? 'API للمطورين' : 'Developer API'}
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  {language === 'ar' ? 'وثائق API للتكامل' : 'API documentation for integration'}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-lg transition-all cursor-pointer group">
+              <CardContent className="p-6 text-center">
+                <div className="w-14 h-14 bg-orange-100 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                  <Workflow className="h-7 w-7 text-orange-600" />
+                </div>
+                <h3 className="font-bold text-lg mb-2">
+                  {language === 'ar' ? 'سيناريوهات العمل' : 'Workflows'}
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  {language === 'ar' ? 'أمثلة عملية للاستخدام' : 'Practical usage examples'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Help Center Section */}
+      <section id="help-center" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <Badge className="mb-4 bg-green-100 text-green-700">
+                {language === 'ar' ? 'مركز المساعدة' : 'Help Center'}
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                {language === 'ar' ? 'نحن هنا لمساعدتك' : 'We Are Here to Help'}
+              </h2>
+              <p className="text-xl text-gray-600 mb-8">
+                {language === 'ar' 
+                  ? 'فريق الدعم الفني متاح على مدار الساعة للإجابة على استفساراتك وحل مشاكلك.'
+                  : 'Our technical support team is available 24/7 to answer your questions and solve your problems.'}
+              </p>
+              
+              <div className="space-y-4">
+                <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <HeadphonesIcon className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">{language === 'ar' ? 'دعم فني مباشر' : 'Live Support'}</h4>
+                    <p className="text-gray-600 text-sm">
+                      {language === 'ar' ? 'تحدث مع فريقنا مباشرة عبر الدردشة' : 'Chat directly with our team'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Mail className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">{language === 'ar' ? 'بريد الدعم' : 'Support Email'}</h4>
+                    <p className="text-gray-600 text-sm">support@datalife.com</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Phone className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">{language === 'ar' ? 'خط المساعدة' : 'Help Line'}</h4>
+                    <p className="text-gray-600 text-sm">{t('contact.phone')}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gradient-to-br from-[#28376B] to-[#1e2a5a] rounded-2xl p-8 text-white">
+              <h3 className="text-2xl font-bold mb-6">
+                {language === 'ar' ? 'أرسل استفسارك' : 'Send Your Inquiry'}
+              </h3>
+              <form className="space-y-4">
+                <input
+                  type="text"
+                  placeholder={language === 'ar' ? 'الاسم الكامل' : 'Full Name'}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:border-white/50"
+                />
+                <input
+                  type="email"
+                  placeholder={language === 'ar' ? 'البريد الإلكتروني' : 'Email Address'}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:border-white/50"
+                />
+                <textarea
+                  rows={4}
+                  placeholder={language === 'ar' ? 'رسالتك...' : 'Your message...'}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:border-white/50 resize-none"
+                />
+                <Button className="w-full bg-white text-[#28376B] hover:bg-gray-100 h-12 font-semibold">
+                  {language === 'ar' ? 'إرسال' : 'Send Message'}
+                </Button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Careers Section */}
+      <section id="careers" className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 to-indigo-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-purple-100 text-purple-700">
+              {language === 'ar' ? 'الوظائف' : 'Careers'}
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              {language === 'ar' ? 'انضم إلى فريقنا' : 'Join Our Team'}
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              {language === 'ar' 
+                ? 'نبحث دائماً عن مواهب متميزة للانضمام إلى فريقنا وبناء مستقبل التقنية معاً.'
+                : 'We are always looking for exceptional talents to join our team and build the future of technology together.'}
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card className="hover:shadow-lg transition-all border-2 hover:border-purple-300">
+              <CardHeader>
+                <Badge className="w-fit mb-2 bg-green-100 text-green-700">
+                  {language === 'ar' ? 'متاح' : 'Open'}
+                </Badge>
+                <CardTitle>{language === 'ar' ? 'مطور Full Stack' : 'Full Stack Developer'}</CardTitle>
+                <CardDescription>
+                  {language === 'ar' ? 'القاهرة - دوام كامل' : 'Cairo - Full Time'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 text-sm mb-4">
+                  {language === 'ar' 
+                    ? 'نبحث عن مطور متمرس في React و Python لتطوير منتجاتنا.'
+                    : 'Looking for an experienced developer in React and Python to develop our products.'}
+                </p>
+                <Button variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-50">
+                  {language === 'ar' ? 'تقدم الآن' : 'Apply Now'}
+                </Button>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-lg transition-all border-2 hover:border-purple-300">
+              <CardHeader>
+                <Badge className="w-fit mb-2 bg-green-100 text-green-700">
+                  {language === 'ar' ? 'متاح' : 'Open'}
+                </Badge>
+                <CardTitle>{language === 'ar' ? 'مصمم UI/UX' : 'UI/UX Designer'}</CardTitle>
+                <CardDescription>
+                  {language === 'ar' ? 'عن بُعد - دوام كامل' : 'Remote - Full Time'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 text-sm mb-4">
+                  {language === 'ar' 
+                    ? 'نبحث عن مصمم مبدع لتحسين تجربة المستخدم في منتجاتنا.'
+                    : 'Looking for a creative designer to improve user experience in our products.'}
+                </p>
+                <Button variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-50">
+                  {language === 'ar' ? 'تقدم الآن' : 'Apply Now'}
+                </Button>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-lg transition-all border-2 hover:border-purple-300">
+              <CardHeader>
+                <Badge className="w-fit mb-2 bg-green-100 text-green-700">
+                  {language === 'ar' ? 'متاح' : 'Open'}
+                </Badge>
+                <CardTitle>{language === 'ar' ? 'مدير مبيعات' : 'Sales Manager'}</CardTitle>
+                <CardDescription>
+                  {language === 'ar' ? 'الرياض - دوام كامل' : 'Riyadh - Full Time'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 text-sm mb-4">
+                  {language === 'ar' 
+                    ? 'نبحث عن مدير مبيعات لتوسيع قاعدة عملائنا في السعودية.'
+                    : 'Looking for a sales manager to expand our customer base in Saudi Arabia.'}
+                </p>
+                <Button variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-50">
+                  {language === 'ar' ? 'تقدم الآن' : 'Apply Now'}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div className="text-center mt-8">
+            <p className="text-gray-600 mb-4">
+              {language === 'ar' 
+                ? 'لم تجد الوظيفة المناسبة؟ أرسل سيرتك الذاتية إلى:'
+                : "Didn't find the right position? Send your CV to:"}
+            </p>
+            <a href="mailto:careers@datalife.com" className="text-[#28376B] font-semibold hover:underline">
+              careers@datalife.com
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Privacy Section */}
+      <section id="privacy" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <Badge className="mb-4 bg-gray-100 text-gray-700">
+              {language === 'ar' ? 'الخصوصية والأمان' : 'Privacy & Security'}
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              {language === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy'}
+            </h2>
+            <p className="text-xl text-gray-600">
+              {language === 'ar' 
+                ? 'نلتزم بحماية بياناتك وخصوصيتك'
+                : 'We are committed to protecting your data and privacy'}
+            </p>
+          </div>
+          
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-green-600" />
+                  {language === 'ar' ? 'حماية البيانات' : 'Data Protection'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  {language === 'ar' 
+                    ? 'نستخدم تشفير SSL متقدم لحماية جميع البيانات المنقولة. بياناتك مخزنة بشكل آمن في خوادم محمية بأحدث تقنيات الأمان.'
+                    : 'We use advanced SSL encryption to protect all transmitted data. Your data is securely stored on servers protected with the latest security technologies.'}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="h-5 w-5 text-blue-600" />
+                  {language === 'ar' ? 'جمع البيانات' : 'Data Collection'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  {language === 'ar' 
+                    ? 'نجمع فقط البيانات الضرورية لتقديم خدماتنا. لن نشارك معلوماتك الشخصية مع أي طرف ثالث دون موافقتك الصريحة.'
+                    : 'We only collect data necessary to provide our services. We will not share your personal information with any third party without your explicit consent.'}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-purple-600" />
+                  {language === 'ar' ? 'ملفات تعريف الارتباط' : 'Cookies'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  {language === 'ar' 
+                    ? 'نستخدم ملفات تعريف الارتباط لتحسين تجربتك. يمكنك تعطيلها من إعدادات المتصفح، لكن قد يؤثر ذلك على بعض الوظائف.'
+                    : 'We use cookies to improve your experience. You can disable them from browser settings, but this may affect some functionality.'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div className="mt-8 p-6 bg-gray-50 rounded-xl text-center">
+            <p className="text-gray-600 mb-4">
+              {language === 'ar' 
+                ? 'لأي استفسارات حول الخصوصية، تواصل معنا:'
+                : 'For any privacy inquiries, contact us:'}
+            </p>
+            <a href="mailto:privacy@datalife.com" className="text-[#28376B] font-semibold hover:underline">
+              privacy@datalife.com
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-[#28376B] to-[#1e2a5a]">
         <div className="max-w-4xl mx-auto text-center">
