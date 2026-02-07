@@ -93,6 +93,7 @@ app.include_router(tasks_router)
 app.include_router(customer_portal_router)
 app.include_router(purchases_router)
 app.include_router(approvals_router)
+app.include_router(attachments_router)
 
 app.add_middleware(
     CORSMiddleware,
