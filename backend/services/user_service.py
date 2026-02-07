@@ -143,14 +143,41 @@ async def deactivate_user(db: AsyncIOMotorClient, user_id: str) -> bool:
     
     return result.modified_count > 0
 
+async def update_user_permissions(db: AsyncIOMotorClient, user_id: str, permissions: List[str]) -> Optional[User]:
+    """Update a user's permissions"""
+    from datetime import datetime
+    result = await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "permissions": permissions,
+            "updated_at": datetime.utcnow().isoformat()
+        }}
+    )
+    
+    if result.modified_count > 0 or result.matched_count > 0:
+        return await get_user_by_id(db, user_id)
+    return None
+
+async def activate_user(db: AsyncIOMotorClient, user_id: str) -> bool:
+    """Activate a user"""
+    result = await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"is_active": True}}
+    )
+    return result.modified_count > 0
+
 def user_to_response(user: User, subscription_code: str = None) -> UserResponse:
     """Convert User model to UserResponse"""
+    # Get permissions, defaulting to role-based if not set
+    permissions = user.permissions if user.permissions else get_default_permissions_for_role(user.role)
+    
     return UserResponse(
         id=user.id,
         email=user.email,
         full_name=user.full_name,
         company_id=user.company_id,
         role=user.role,
+        permissions=permissions,
         is_active=user.is_active,
         created_at=user.created_at if isinstance(user.created_at, str) else user.created_at.isoformat(),
         subscription_code=subscription_code or user.company_id[:8].upper()  # First 8 chars of company_id as subscription code
