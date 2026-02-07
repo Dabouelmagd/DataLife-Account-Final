@@ -691,6 +691,38 @@ const AdminDashboard = () => {
                       />
                     </div>
                   </div>
+                  
+                  {/* New Fields: Company Name & Contract Dates */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-blue-50 rounded-lg">
+                    <div>
+                      <label className="text-sm font-medium text-blue-800">{isRTL ? 'اسم الشركة' : 'Company Name'}</label>
+                      <Input
+                        value={generateForm.company_name}
+                        onChange={(e) => setGenerateForm({...generateForm, company_name: e.target.value})}
+                        className="mt-1"
+                        placeholder={isRTL ? 'أدخل اسم الشركة' : 'Enter company name'}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-blue-800">{isRTL ? 'بداية التعاقد' : 'Contract Start'}</label>
+                      <Input
+                        type="date"
+                        value={generateForm.contract_start}
+                        onChange={(e) => setGenerateForm({...generateForm, contract_start: e.target.value})}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-blue-800">{isRTL ? 'نهاية التعاقد' : 'Contract End'}</label>
+                      <Input
+                        type="date"
+                        value={generateForm.contract_end}
+                        onChange={(e) => setGenerateForm({...generateForm, contract_end: e.target.value})}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  
                   <div className="flex gap-2 mt-4">
                     <Button onClick={handleGenerateCodes} disabled={generating}>
                       {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
