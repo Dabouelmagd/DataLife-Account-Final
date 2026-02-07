@@ -181,7 +181,12 @@ const SubscriptionPage = () => {
         }, 2000);
       } else {
         // Use Stripe payment
-        const packageId = `${selectedPlan}_${selectedDuration.replace('_months', '').replace('_', '')}`;
+        // Convert duration format: "3_months" -> "3", "12_months" -> "12", "lifetime" -> "lifetime"
+        let durationKey = selectedDuration;
+        if (selectedDuration.endsWith('_months')) {
+          durationKey = selectedDuration.replace('_months', '');
+        }
+        const packageId = `${selectedPlan}_${durationKey}`;
         
         const response = await axios.post(
           `${API_URL}/api/payments/create-checkout`,
