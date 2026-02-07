@@ -578,3 +578,125 @@ def generate_invoice_email_html(invoice: dict) -> str:
     </body>
     </html>
     """
+
+
+
+# Egyptian E-Tax (الفاتورة الإلكترونية المصرية) Endpoints
+@router.post("/{invoice_number}/etax/submit")
+async def submit_to_etax(
+    invoice_number: str,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Submit invoice to Egyptian Tax Authority (E-Tax)
+    محاكاة إرسال الفاتورة لمنظومة الفاتورة الإلكترونية المصرية
+    
+    Note: This is a simulated endpoint. Real integration requires:
+    - ETA Portal registration
+    - Digital signature (التوقيع الإلكتروني)
+    - SDK integration
+    """
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    
+    invoice = await db.invoices.find_one(
+        {"invoice_number": invoice_number, "company_id": company_id}
+    )
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    if invoice.get("invoice_type") != "etax":
+        raise HTTPException(status_code=400, detail="This is not an E-Tax invoice")
+    
+    if invoice.get("etax_submission_status") == "submitted":
+        raise HTTPException(status_code=400, detail="Invoice already submitted to E-Tax")
+    
+    # Validate required fields for E-Tax
+    if not invoice.get("customer_tax_id"):
+        raise HTTPException(status_code=400, detail="Customer Tax ID is required for E-Tax")
+    
+    # Simulate E-Tax submission (in real implementation, this would call ETA API)
+    etax_response = {
+        "uuid": invoice.get("etax_uuid"),
+        "submissionId": f"SUB-{secrets.token_hex(8).upper()}",
+        "longId": f"LID-{secrets.token_hex(12).upper()}",
+        "internalId": invoice_number,
+        "status": "Valid",
+        "submissionDate": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Update invoice with E-Tax response
+    await db.invoices.update_one(
+        {"invoice_number": invoice_number},
+        {"$set": {
+            "etax_submission_status": "submitted",
+            "etax_submitted_at": datetime.now(timezone.utc).isoformat(),
+            "etax_response": etax_response,
+            "status": "sent" if invoice.get("status") == "draft" else invoice.get("status"),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "success": True,
+        "message": "Invoice submitted to E-Tax successfully / تم إرسال الفاتورة للمنظومة بنجاح",
+        "etax_response": etax_response
+    }
+
+
+@router.get("/{invoice_number}/etax/status")
+async def get_etax_status(
+    invoice_number: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Get E-Tax submission status"""
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    
+    invoice = await db.invoices.find_one(
+        {"invoice_number": invoice_number, "company_id": company_id},
+        {"_id": 0, "etax_uuid": 1, "etax_submission_status": 1, 
+         "etax_submitted_at": 1, "etax_response": 1}
+    )
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    return {
+        "uuid": invoice.get("etax_uuid"),
+        "status": invoice.get("etax_submission_status", "not_submitted"),
+        "submitted_at": invoice.get("etax_submitted_at"),
+        "response": invoice.get("etax_response")
+    }
+
+
+@router.get("/etax/stats")
+async def get_etax_stats(authorization: Optional[str] = Header(None)):
+    """Get E-Tax invoices statistics"""
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    
+    # Get all E-Tax invoices
+    etax_invoices = await db.invoices.find(
+        {"company_id": company_id, "invoice_type": "etax"},
+        {"_id": 0}
+    ).to_list(length=None)
+    
+    total = len(etax_invoices)
+    submitted = sum(1 for i in etax_invoices if i.get("etax_submission_status") == "submitted")
+    pending = sum(1 for i in etax_invoices if i.get("etax_submission_status") == "pending")
+    failed = sum(1 for i in etax_invoices if i.get("etax_submission_status") == "failed")
+    
+    total_amount = sum(i.get("grand_total", 0) for i in etax_invoices)
+    submitted_amount = sum(i.get("grand_total", 0) for i in etax_invoices if i.get("etax_submission_status") == "submitted")
+    
+    return {
+        "total_etax_invoices": total,
+        "submitted": submitted,
+        "pending": pending,
+        "failed": failed,
+        "total_amount": total_amount,
+        "submitted_amount": submitted_amount,
+        "currency": "EGP"
+    }
