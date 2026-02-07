@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { getTranslation } from '../data/translations';
+import NotificationCenter from './NotificationCenter';
 
 // Import sub-modules from existing files
 import {
