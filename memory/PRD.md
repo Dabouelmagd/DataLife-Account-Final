@@ -7,107 +7,116 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## COMPLETED FEATURES (February 7, 2026)
 
-### 1. Real-time Notifications System
+### 1. Real-time Notifications System ✅
 - WebSocket support for real-time updates
 - Multiple notification types
 - Notification center UI with badge
 
-### 2. Invoices System (Regular + E-Tax)
+### 2. Invoices System (Regular + E-Tax) ✅
 - Full invoice CRUD
 - Tax calculation (14% VAT)
-- Egyptian E-Tax support (SIMULATED - not connected to real government API)
+- Egyptian E-Tax support (SIMULATED)
+- **Print Invoice** - Formatted HTML invoice for printing
+- **Export CSV** - Export invoices list with Arabic support
 
-### 3. Customer Portal
+### 3. Customer Portal ✅
 - Customer login & dashboard
 - View invoices and payments
 - Profile management
 
-### 4. Purchases & Supplier Management
+### 4. Purchases & Supplier Management ✅
 - Purchase orders with workflow
 - Supplier CRUD
 - Order tracking
+- **Print Purchase Order** - Formatted HTML PO for printing
+- **Export CSV** - Export orders list
 
-### 5. Approval Workflows
+### 5. Approval Workflows ✅
 - Multi-level approval chains
 - Multiple request types
 - Approval history
 
-### 6. Real-time Sync
+### 6. Real-time Sync ✅
 - WebSocket-based live updates
 - Connection indicator ("Live" badge)
 - Automatic reconnection
 
-### 7. Attachments System
+### 7. Attachments System ✅
 - Upload files to any entity
 - All file types (max 10 MB)
 - Preview images/PDFs
 - Download/Delete
 
-### 8. Attendance Management
+### 8. Attendance Management ✅
 - Check-in/Check-out with manual and QR methods
 - Today's Attendance dashboard with real-time stats
-- Employee Statistics: Total, Present, Absent, Late
+- Employee Statistics
 - Reports: Date range reports with summaries
-- Settings: Work start/end time, late threshold
-- QR Code Generation for attendance
-- Live Updates via WebSocket
+- **Print Report** - Formatted HTML attendance report
+- **Export CSV** - Export attendance data
 
-### 9. Projects & Tasks Management
-- Projects CRUD: Create, read, update, delete projects
-- Tasks CRUD: Create, read, update, delete tasks
-- Task Assignment: Assign tasks to team members
-- Progress Tracking: Automatic progress calculation from completed tasks
-- Status Management: Planning, In Progress, On Hold, Completed, Cancelled
-- Priority Levels: Low, Medium, High, Urgent
-- Task Comments: Add comments to tasks with user attribution
-- My Tasks View: Personal task dashboard
-- Dashboard Stats: Overview with overdue and due-this-week indicators
-- Real-time Sync: Live updates across all connected clients
+### 9. Projects & Tasks Management ✅
+- Projects CRUD
+- Tasks CRUD with assignment
+- Progress Tracking
+- Task Comments
+- **Print Project** - Project summary with tasks
+- **Export CSV** - Export projects and tasks lists
 
-### 10. Document Management System (NEW - Feb 7, 2026) ✅
-- **Folder System**: Create, rename, delete folders with custom colors
-- **Document Upload**: Drag & drop upload with category and tags
-- **Categories**: 8 predefined categories (Contracts, Invoices, HR, Financial, Legal, Policies, Reports, Other)
-- **Search & Filter**: Full-text search, filter by category/type
-- **View Modes**: Grid and List view toggle
-- **Document Actions**: Download, preview, delete (soft/permanent)
-- **Stats Dashboard**: Total documents, total size, folders count, recent uploads
-- **File Types**: Supports all file types with automatic type detection
-- **Breadcrumb Navigation**: Navigate folder hierarchy easily
+### 10. Document Management System ✅
+- Folder System with custom colors
+- Document Upload with categories and tags
+- 8 predefined categories
+- Search & Filter
+- Grid/List view modes
+- Document Download
 
-### 11. Automatic Task Notifications (NEW - Feb 7, 2026) ✅
-- **Due Soon Alerts**: Notifications for tasks due today, tomorrow, or within 3 days
-- **Overdue Tracking**: List of overdue tasks sorted by due date
-- **Automatic Notifications**: System creates notifications for upcoming deadlines
-- **Notification Types**: 
-  - `task_due` - Task due soon (amber)
-  - `task_overdue` - Task overdue (red)
-  - `task_assigned` - New task assigned (blue)
-  - `project_update` - Project updates (purple)
-  - `document_shared` - Document sharing (blue)
+### 11. Automatic Task Notifications ✅
+- Due Soon Alerts (today, tomorrow, 3 days)
+- Overdue Tracking
+- System-generated notifications
+
+### 12. Print & Export Features (NEW - Feb 7, 2026) ✅
+All modules now support:
+- **Print** - Opens new window with formatted, printable HTML
+- **Export CSV** - Downloads CSV file with UTF-8 BOM for Arabic support
+
+| Module | Print | Export CSV |
+|--------|-------|------------|
+| Invoices | ✅ Per invoice | ✅ All invoices |
+| Attendance | ✅ Report | ✅ Report data |
+| Purchases | ✅ Per order | ✅ All orders |
+| Projects | ✅ Per project | ✅ Projects & Tasks |
 
 ---
 
 ## Key API Endpoints
 
-### Documents
-- `GET /api/documents/` - List documents (with filters)
-- `GET /api/documents/categories` - Get 8 categories
-- `GET /api/documents/stats` - Get statistics
-- `GET /api/documents/{id}` - Get single document
-- `GET /api/documents/{id}/download` - Download file
-- `POST /api/documents/upload` - Upload document
-- `DELETE /api/documents/{id}` - Archive document
-- `DELETE /api/documents/{id}?permanent=true` - Permanent delete
-- `POST /api/documents/folders` - Create folder
-- `GET /api/documents/folders` - List folders
-- `PUT /api/documents/folders/{id}` - Update folder
-- `DELETE /api/documents/folders/{id}` - Delete folder
+### Invoices
+- `GET /api/invoices/` - List invoices
+- `POST /api/invoices/` - Create invoice
+- `GET /api/invoices/stats` - Get statistics
 
-### Task Notifications
-- `GET /api/tasks/notifications/due-soon` - Tasks due within 3 days
+### Attendance
+- `POST /api/attendance/check-in` - Employee check-in
+- `GET /api/attendance/today` - Today's attendance
+- `GET /api/attendance/report` - Generate report
+
+### Purchases
+- `GET /api/purchases/orders` - List orders
+- `POST /api/purchases/orders` - Create order
+- `GET /api/purchases/stats` - Statistics
+
+### Projects & Tasks
+- `GET /api/tasks/projects` - List projects
+- `POST /api/tasks/` - Create task
+- `GET /api/tasks/notifications/due-soon` - Due tasks
 - `GET /api/tasks/notifications/overdue` - Overdue tasks
-- `POST /api/tasks/notifications/check-and-send` - Create notifications
+
+### Documents
+- `GET /api/documents/` - List documents
+- `POST /api/documents/upload` - Upload document
+- `POST /api/documents/folders` - Create folder
 
 ---
 
@@ -127,12 +136,13 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [x] Customer Portal
 - [x] Purchases & Supplier Management
 - [x] Approval Workflows
-- [x] Real-time Sync across devices
+- [x] Real-time Sync
 - [x] Attachments System
 - [x] Attendance Management
 - [x] Projects & Tasks Management
 - [x] Document Management System
 - [x] Automatic Task Notifications
+- [x] Print & Export for all modules
 
 ### P1 - Next Priority
 - [ ] WhatsApp Integration (Twilio) - Deferred by user
@@ -146,26 +156,21 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [ ] AI-powered Smart Reports
 - [ ] Mobile App (PWA)
 - [ ] External System Integrations
-- [ ] Automatic Backup System
 - [ ] Audit Trail System
-- [ ] Customizable Dashboard
 - [ ] Employee Performance Evaluation
-- [ ] Bonuses and Incentives System
-- [ ] Ticketing and Support System
 
 ---
 
 ## Known Issues & Mocked Features
 
 ### Mocked/Simulated
-- **E-Tax Invoice Submission**: The `/invoices/e-tax-submit` endpoint is a placeholder and does not connect to Egypt's real E-Tax API
+- **E-Tax Invoice Submission**: `/invoices/e-tax-submit` is a placeholder
 
 ### Fixed Issues (Feb 7, 2026)
-- Employee name "Unknown" in attendance records - Fixed by using correct field name `name`
-- Task comment user_name "Unknown" - Fixed by fetching from database
-- Documents route ordering - `/stats` now correctly matched before `/{id}`
-- Documents upload Form params - Category and tags now received correctly
-- Documents delete logic - Proper error handling for soft vs permanent delete
+- Employee name "Unknown" in attendance - Fixed
+- Task comment user_name "Unknown" - Fixed
+- Documents route ordering - Fixed
+- Print/Export buttons added to all modules
 
 ---
 
@@ -175,23 +180,22 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - FastAPI with async MongoDB (Motor)
 - JWT authentication
 - WebSocket for real-time updates
-- File storage in local filesystem
 
 ### Frontend
 - React with Tailwind CSS + Shadcn UI
-- Context API for state management (Auth, Language)
+- Context API for state management
 - Custom hooks for real-time sync
 
-### Database Collections
-- users, companies, employees, projects, tasks
-- attendance, notifications, invoices
-- documents, folders, attachments
+### Print/Export Implementation
+- Print: `window.open()` with formatted HTML
+- Export: Blob with CSV content and UTF-8 BOM for Arabic
 
 ---
 
 ## Test Reports
-- `/app/test_reports/iteration_6.json` - Projects & Tasks + Attendance
-- `/app/test_reports/iteration_7.json` - Documents + Task Notifications
+- `/app/test_reports/iteration_6.json` - Projects & Tasks
+- `/app/test_reports/iteration_7.json` - Documents & Notifications
+- `/app/test_reports/iteration_8.json` - Print & Export
 
 ---
 
