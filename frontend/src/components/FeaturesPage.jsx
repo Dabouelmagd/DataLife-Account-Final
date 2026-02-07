@@ -1116,7 +1116,14 @@ const FeaturesPage = () => {
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-8">
         <div className="container mx-auto px-4 text-center">
-          <img src="/logo.png" alt="DataLife" className="h-10 mx-auto mb-4 brightness-0 invert" />
+          <img 
+            src={logoSrc} 
+            alt={logoAlt} 
+            className="h-12 mx-auto mb-4 brightness-0 invert"
+            onError={(e) => {
+              e.target.style.display = 'none';
+            }}
+          />
           <p className="text-gray-400">{content.copyright}</p>
         </div>
       </footer>
