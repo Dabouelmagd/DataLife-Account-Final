@@ -711,4 +711,4 @@ const AttendanceManagement = () => {
   );
 };
 
-export default AttendanceModule;
+export default AttendanceManagement;
