@@ -293,6 +293,123 @@ async def activate_subscription(company_id: str, plan: str, duration: str, amoun
     )
 
 
+async def send_payment_confirmation_email(email: str, plan: str, duration: str, amount: float):
+    """Send payment confirmation email to user"""
+    try:
+        import resend
+        
+        resend_api_key = os.environ.get('RESEND_API_KEY')
+        sender_email = os.environ.get('SENDER_EMAIL', 'noreply@datalifeaccount.com')
+        
+        if not resend_api_key:
+            return
+        
+        resend.api_key = resend_api_key
+        
+        # Plan names
+        plan_names = {
+            "starter": {"en": "Starter", "ar": "المبتدئ"},
+            "professional": {"en": "Professional", "ar": "المحترف"},
+            "enterprise": {"en": "Enterprise", "ar": "المؤسسي"}
+        }
+        
+        # Duration names
+        duration_names = {
+            "3_months": {"en": "3 Months", "ar": "3 أشهر"},
+            "6_months": {"en": "6 Months", "ar": "6 أشهر"},
+            "9_months": {"en": "9 Months", "ar": "9 أشهر"},
+            "12_months": {"en": "1 Year", "ar": "سنة"},
+            "lifetime": {"en": "Lifetime", "ar": "مدى الحياة"}
+        }
+        
+        plan_name_en = plan_names.get(plan, {}).get("en", plan)
+        plan_name_ar = plan_names.get(plan, {}).get("ar", plan)
+        duration_name_en = duration_names.get(duration, {}).get("en", duration)
+        duration_name_ar = duration_names.get(duration, {}).get("ar", duration)
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f4f7fa; }}
+                .container {{ max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+                .header {{ background: linear-gradient(135deg, #28376B 0%, #4F46E5 100%); padding: 40px 20px; text-align: center; }}
+                .header h1 {{ color: #ffffff; margin: 0; font-size: 28px; }}
+                .header p {{ color: rgba(255,255,255,0.9); margin-top: 10px; font-size: 16px; }}
+                .content {{ padding: 40px 30px; }}
+                .success-icon {{ text-align: center; margin-bottom: 30px; }}
+                .success-icon .circle {{ display: inline-block; width: 80px; height: 80px; background-color: #10B981; border-radius: 50%; line-height: 80px; }}
+                .success-icon .circle span {{ color: white; font-size: 40px; }}
+                .details {{ background-color: #f8fafc; border-radius: 8px; padding: 25px; margin: 20px 0; }}
+                .detail-row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; }}
+                .detail-row:last-child {{ border-bottom: none; }}
+                .detail-label {{ color: #64748b; font-size: 14px; }}
+                .detail-value {{ color: #1e293b; font-weight: 600; font-size: 14px; }}
+                .footer {{ background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0; }}
+                .footer p {{ color: #64748b; font-size: 12px; margin: 5px 0; }}
+                .btn {{ display: inline-block; background: linear-gradient(135deg, #28376B 0%, #4F46E5 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 8px; margin-top: 20px; font-weight: 600; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>DataLife Account</h1>
+                    <p>تم الدفع بنجاح! | Payment Successful!</p>
+                </div>
+                <div class="content">
+                    <div class="success-icon">
+                        <div class="circle"><span>✓</span></div>
+                    </div>
+                    <h2 style="text-align: center; color: #10B981; margin-bottom: 30px;">
+                        شكراً لاشتراكك!<br/>Thank you for your subscription!
+                    </h2>
+                    <div class="details">
+                        <div class="detail-row">
+                            <span class="detail-label">الخطة | Plan</span>
+                            <span class="detail-value">{plan_name_ar} | {plan_name_en}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">المدة | Duration</span>
+                            <span class="detail-value">{duration_name_ar} | {duration_name_en}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">المبلغ | Amount</span>
+                            <span class="detail-value">{amount:,.0f} جنيه مصري | {amount:,.0f} EGP</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">التاريخ | Date</span>
+                            <span class="detail-value">{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}</span>
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <a href="https://datalifeaccount.com/dashboard" class="btn">
+                            الذهاب إلى لوحة التحكم | Go to Dashboard
+                        </a>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>© 2024 DataLife Account. All rights reserved.</p>
+                    <p>هذا البريد تم إرساله تلقائياً، الرجاء عدم الرد عليه</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        resend.Emails.send({
+            "from": f"DataLife Account <{sender_email}>",
+            "to": email,
+            "subject": "تم تفعيل اشتراكك بنجاح! | Subscription Activated Successfully!",
+            "html": html_content
+        })
+        
+    except Exception as e:
+        # Log error but don't fail the transaction
+        pass
+
+
 @router.get("/transactions")
 async def get_transactions(company_id: Optional[str] = None):
     """Get payment transactions history"""
