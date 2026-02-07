@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { Upload, Building2, Mail, Phone, MapPin } from 'lucide-react';
+import { Upload, Building2, Mail, Phone, MapPin, User, Shield, Key, Globe, Bell, Copy, Check } from 'lucide-react';
 import axios from 'axios';
 
 const CompanySettings = () => {
@@ -12,7 +12,12 @@ const CompanySettings = () => {
   const [company, setCompany] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('company');
+  const [copied, setCopied] = useState(false);
   const isRTL = language === 'ar';
+
+  // Get subscription code
+  const subscriptionCode = user?.subscription_code || user?.company_id?.slice(0, 8).toUpperCase() || '--------';
 
   useEffect(() => {
     fetchCompanyData();
