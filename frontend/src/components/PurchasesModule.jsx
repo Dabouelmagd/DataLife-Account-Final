@@ -188,6 +188,115 @@ const PurchasesModule = () => {
     }
   };
 
+  // Export orders to CSV
+  const handleExportOrdersCSV = () => {
+    const headers = [
+      isRTL ? 'رقم الطلب' : 'Order Number',
+      isRTL ? 'المورد' : 'Supplier',
+      isRTL ? 'المبلغ' : 'Amount',
+      isRTL ? 'الحالة' : 'Status',
+      isRTL ? 'التاريخ' : 'Date'
+    ];
+    
+    const rows = orders.map(order => [
+      order.order_number,
+      order.supplier_name,
+      order.total_amount,
+      order.status,
+      order.created_at?.slice(0, 10)
+    ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `purchase_orders_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(isRTL ? 'تم تصدير الطلبات' : 'Orders exported');
+  };
+
+  // Print purchase order
+  const handlePrintOrder = (order) => {
+    const printWindow = window.open('', '_blank');
+    const content = `
+      <!DOCTYPE html>
+      <html dir="${isRTL ? 'rtl' : 'ltr'}">
+      <head>
+        <title>${isRTL ? 'أمر شراء' : 'Purchase Order'} #${order.order_number}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'}; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .header h1 { margin: 0; color: #1a365d; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+          .info-box { padding: 15px; background: #f7fafc; border-radius: 8px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'}; }
+          th { background: #edf2f7; }
+          .totals { width: 300px; margin-${isRTL ? 'right' : 'left'}: auto; }
+          .footer { margin-top: 40px; text-align: center; color: #718096; font-size: 12px; }
+          @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${isRTL ? 'أمر شراء' : 'PURCHASE ORDER'}</h1>
+          <p>${isRTL ? 'رقم الطلب' : 'Order Number'}: <strong>${order.order_number}</strong></p>
+          <p>${isRTL ? 'التاريخ' : 'Date'}: ${order.created_at?.slice(0, 10)}</p>
+        </div>
+        
+        <div class="info-grid">
+          <div class="info-box">
+            <h3>${isRTL ? 'معلومات المورد' : 'Supplier Information'}</h3>
+            <p><strong>${order.supplier_name}</strong></p>
+          </div>
+          <div class="info-box">
+            <h3>${isRTL ? 'تفاصيل الطلب' : 'Order Details'}</h3>
+            <p>${isRTL ? 'الحالة' : 'Status'}: ${order.status}</p>
+            <p>${isRTL ? 'تاريخ التسليم' : 'Delivery Date'}: ${order.expected_delivery || '-'}</p>
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${isRTL ? 'الوصف' : 'Description'}</th>
+              <th>${isRTL ? 'الكمية' : 'Qty'}</th>
+              <th>${isRTL ? 'السعر' : 'Price'}</th>
+              <th>${isRTL ? 'الإجمالي' : 'Total'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(order.items || []).map((item, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>${item.description}</td>
+                <td>${item.quantity}</td>
+                <td>${item.unit_price?.toLocaleString()} EGP</td>
+                <td>${(item.quantity * item.unit_price).toLocaleString()} EGP</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <table class="totals">
+          <tr><td><strong>${isRTL ? 'الإجمالي' : 'Total'}</strong></td><td><strong>${order.total_amount?.toLocaleString()} EGP</strong></td></tr>
+        </table>
+        
+        <div class="footer"><p>DataLife Account ERP System</p></div>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.onload = () => printWindow.print();
+  };
+
   const handleCreateOrder = async () => {
     try {
       await axios.post(
