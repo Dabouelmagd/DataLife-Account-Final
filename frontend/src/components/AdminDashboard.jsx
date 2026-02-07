@@ -70,6 +70,10 @@ const AdminDashboard = () => {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   
+  // Contact messages tab
+  const [contactMessages, setContactMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  
   // Toast notification
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
