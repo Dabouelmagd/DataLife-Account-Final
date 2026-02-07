@@ -37,7 +37,10 @@ const AdminDashboard = () => {
     duration: '12_months',
     discount_percent: 0,
     count: 1,
-    prefix: 'DL'
+    prefix: 'DL',
+    company_name: '',
+    contract_start: '',
+    contract_end: ''
   });
   const [generating, setGenerating] = useState(false);
   
