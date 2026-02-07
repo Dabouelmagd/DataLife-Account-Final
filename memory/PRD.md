@@ -5,7 +5,7 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ---
 
-## ✅ COMPLETED FEATURES (February 7, 2026)
+## COMPLETED FEATURES (February 7, 2026)
 
 ### 1. Real-time Notifications System
 - WebSocket support for real-time updates
@@ -15,7 +15,7 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 ### 2. Invoices System (Regular + E-Tax)
 - Full invoice CRUD
 - Tax calculation (14% VAT)
-- Egyptian E-Tax support (simulated)
+- Egyptian E-Tax support (SIMULATED - not connected to real government API)
 
 ### 3. Customer Portal
 - Customer login & dashboard
@@ -43,14 +43,28 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - Preview images/PDFs
 - Download/Delete
 
-### 8. Attendance Management (NEW)
-- **Check-in/Check-out** with manual and QR methods
-- **Today's Attendance** dashboard with real-time stats
-- **Employee Statistics:** Total, Present, Absent, Late
-- **Reports:** Date range reports with summaries
-- **Settings:** Work start/end time, late threshold
-- **QR Code Generation** for attendance
-- **Live Updates** via WebSocket
+### 8. Attendance Management
+- Check-in/Check-out with manual and QR methods
+- Today's Attendance dashboard with real-time stats
+- Employee Statistics: Total, Present, Absent, Late
+- Reports: Date range reports with summaries
+- Settings: Work start/end time, late threshold
+- QR Code Generation for attendance
+- Live Updates via WebSocket
+- **Bug Fixed**: Employee names now display correctly (was showing "Unknown")
+
+### 9. Projects & Tasks Management (NEW - Feb 7, 2026)
+- **Projects CRUD**: Create, read, update, delete projects
+- **Tasks CRUD**: Create, read, update, delete tasks
+- **Task Assignment**: Assign tasks to team members
+- **Progress Tracking**: Automatic progress calculation from completed tasks
+- **Status Management**: Planning, In Progress, On Hold, Completed, Cancelled
+- **Priority Levels**: Low, Medium, High, Urgent
+- **Task Comments**: Add comments to tasks with user attribution
+- **My Tasks View**: Personal task dashboard
+- **Dashboard Stats**: Overview with overdue and due-this-week indicators
+- **Real-time Sync**: Live updates across all connected clients
+- **Kanban-style View**: Tasks grouped by status
 
 ---
 
@@ -64,6 +78,21 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - `GET /api/attendance/settings` - Get settings
 - `PUT /api/attendance/settings` - Update settings
 - `POST /api/attendance/qr/generate` - Generate QR code
+
+### Projects & Tasks
+- `POST /api/tasks/projects` - Create project
+- `GET /api/tasks/projects` - List projects
+- `GET /api/tasks/projects/{id}` - Get project with tasks
+- `PUT /api/tasks/projects/{id}` - Update project
+- `DELETE /api/tasks/projects/{id}` - Delete project
+- `POST /api/tasks/` - Create task
+- `GET /api/tasks/` - List tasks
+- `GET /api/tasks/{id}` - Get task
+- `PUT /api/tasks/{id}` - Update task
+- `DELETE /api/tasks/{id}` - Delete task
+- `GET /api/tasks/my-tasks` - Get user's tasks
+- `GET /api/tasks/dashboard/stats` - Get dashboard stats
+- `POST /api/tasks/{id}/comments` - Add comment to task
 
 ---
 
@@ -81,7 +110,7 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Prioritized Backlog
 
-### ✅ Completed (P0)
+### P0 - Completed
 - [x] Real-time Notifications
 - [x] Invoices System (Regular + E-Tax)
 - [x] Customer Portal
@@ -90,9 +119,10 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [x] Real-time Sync across devices
 - [x] Attachments System
 - [x] Attendance Management
+- [x] Projects & Tasks Management
 
 ### P1 - Next Priority
-- [ ] Project & Task Management
+- [ ] WhatsApp Integration (Twilio) - Deferred by user
 
 ### P2 - Medium Priority
 - [ ] Local Payment Gateways (Fawry, Paymob)
@@ -110,8 +140,33 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [ ] Bonuses and Incentives System
 - [ ] Ticketing and Support System
 
-### Deferred
-- [ ] WhatsApp Integration (Twilio)
+---
+
+## Known Issues & Mocked Features
+
+### Mocked/Simulated
+- **E-Tax Invoice Submission**: The `/invoices/e-tax-submit` endpoint is a placeholder and does not connect to Egypt's real E-Tax API
+
+### Fixed Issues (Feb 7, 2026)
+- Employee name "Unknown" in attendance records - Fixed by using correct field name `name` instead of `full_name`
+- Task comment user_name "Unknown" - Fixed by fetching user full_name from database
+
+---
+
+## Architecture Notes
+
+### Backend
+- FastAPI with async MongoDB (Motor)
+- JWT authentication
+- WebSocket for real-time updates
+
+### Frontend
+- React with Tailwind CSS + Shadcn UI
+- Context API for state management (Auth, Language)
+- Custom hooks for real-time sync
+
+### Database
+- MongoDB with collections: users, companies, employees, projects, tasks, attendance, notifications, invoices, etc.
 
 ---
 
