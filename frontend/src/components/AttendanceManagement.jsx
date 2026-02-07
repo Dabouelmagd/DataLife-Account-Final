@@ -616,6 +616,14 @@ const AttendanceManagement = () => {
                     <BarChart3 className="h-4 w-4" />
                     {t.generateReport}
                   </Button>
+                  <Button variant="outline" onClick={handleExportCSV} className="gap-2" disabled={!reportData}>
+                    <FileDown className="h-4 w-4" />
+                    {isRTL ? 'تصدير CSV' : 'Export CSV'}
+                  </Button>
+                  <Button variant="outline" onClick={handlePrintReport} className="gap-2" disabled={!reportData}>
+                    <Printer className="h-4 w-4" />
+                    {isRTL ? 'طباعة' : 'Print'}
+                  </Button>
                 </div>
               </div>
             </CardHeader>
