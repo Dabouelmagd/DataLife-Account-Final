@@ -841,7 +841,6 @@ const UserManagement = () => {
             </div>
           </div>
         )}
-        )}
       </div>
 
         {/* Permissions Edit Modal */}
