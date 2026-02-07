@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 router = APIRouter(prefix="/api/contact", tags=["contact"])
 
 # Get database
-from services.database import db
+from database import db
 
 class ContactMessage(BaseModel):
     name: str
