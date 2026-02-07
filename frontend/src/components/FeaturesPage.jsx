@@ -16,14 +16,531 @@ import {
 } from 'lucide-react';
 
 const FeaturesPage = () => {
-  const { language } = useLanguage();
+  const { language: globalLang } = useLanguage();
   const navigate = useNavigate();
-  const isRTL = language === 'ar';
+  const [pageLang, setPageLang] = useState(globalLang || 'ar');
+  const isRTL = pageLang === 'ar';
   const [expandedSection, setExpandedSection] = useState(null);
+
+  const toggleLanguage = () => {
+    setPageLang(pageLang === 'ar' ? 'en' : 'ar');
+  };
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
+
+  // Translations object
+  const t = {
+    ar: {
+      // Header
+      systemName: 'نظام إدارة الموارد المؤسسية',
+      backToHome: 'العودة للرئيسية',
+      login: 'تسجيل الدخول',
+      
+      // Hero
+      badge: 'الدليل الشامل',
+      heroTitle: 'دليل مميزات نظام DataLife ERP',
+      heroDesc: 'نظام متكامل لإدارة موارد المؤسسات يدعم اللغة العربية والإنجليزية، مصمم خصيصاً لتلبية احتياجات الشركات العربية',
+      bilingual: 'دعم ثنائي اللغة',
+      cloudBased: 'سحابي 100%',
+      advancedSecurity: 'حماية متقدمة',
+      
+      // Quick Navigation
+      quickNav: 'الانتقال السريع',
+      navItems: {
+        overview: 'نظرة عامة',
+        modules: 'الوحدات الرئيسية',
+        hr: 'الموارد البشرية',
+        finance: 'الإدارة المالية',
+        projects: 'المشاريع',
+        reports: 'التقارير',
+        admin: 'لوحة الإدارة',
+        howto: 'طريقة التشغيل',
+      },
+      
+      // Section 1: Overview
+      overviewBadge: 'مقدمة',
+      overviewTitle: 'نظرة عامة على النظام',
+      overviewDesc: 'DataLife ERP هو نظام متكامل لإدارة موارد المؤسسات، مصمم بأحدث التقنيات لتوفير حلول شاملة للشركات',
+      overviewCards: [
+        { title: 'متعدد الشركات', desc: 'إدارة عدة شركات من حساب واحد مع فصل كامل للبيانات' },
+        { title: 'متعدد المستخدمين', desc: 'صلاحيات مخصصة لكل مستخدم حسب دوره الوظيفي' },
+        { title: 'ثنائي اللغة', desc: 'دعم كامل للعربية والإنجليزية مع واجهة RTL' },
+        { title: 'سحابي آمن', desc: 'الوصول من أي مكان مع حماية متقدمة للبيانات' },
+      ],
+      
+      // Section 2: Modules
+      modulesBadge: 'الوحدات',
+      modulesTitle: 'الوحدات الرئيسية للنظام',
+      modulesData: [
+        { 
+          title: 'إدارة الموارد البشرية', 
+          features: ['إدارة بيانات الموظفين', 'نظام الرواتب والمستحقات', 'الحضور والانصراف', 'الإجازات والغياب', 'تقارير HR متقدمة']
+        },
+        { 
+          title: 'الإدارة المالية', 
+          features: ['دليل الحسابات', 'القيود المحاسبية', 'الميزانية العمومية', 'قائمة الدخل', 'التقارير المالية']
+        },
+        { 
+          title: 'الفواتير والمبيعات', 
+          features: ['إنشاء الفواتير', 'إدارة العملاء', 'تتبع المدفوعات', 'تقارير المبيعات', 'الفواتير المتكررة']
+        },
+        { 
+          title: 'إدارة المشتريات', 
+          features: ['أوامر الشراء', 'إدارة الموردين', 'متابعة الطلبات', 'تقارير المشتريات', 'إدارة المخزون']
+        },
+        { 
+          title: 'إدارة المشاريع', 
+          features: ['إنشاء المشاريع', 'إدارة المهام', 'تتبع التقدم', 'الجدول الزمني', 'فريق العمل']
+        },
+        { 
+          title: 'التحليلات والتقارير', 
+          features: ['لوحات بيانية', 'تقارير تفاعلية', 'تصدير PDF/CSV', 'رسوم بيانية', 'مؤشرات الأداء']
+        },
+      ],
+      
+      // Section 3: HR
+      hrTitle: 'وحدة الموارد البشرية',
+      hrDesc: 'إدارة شاملة للموظفين والرواتب والحضور',
+      employeeMgmt: 'إدارة الموظفين',
+      employeeFeatures: [
+        'إضافة وتعديل بيانات الموظفين',
+        'رفع صور الموظفين والمستندات',
+        'تتبع تاريخ التوظيف',
+        'إدارة الأقسام والإدارات',
+        'بطاقات تعريف الموظفين',
+        'سجل البيانات الشخصية والمهنية',
+      ],
+      salarySystem: 'نظام الرواتب',
+      salaryFeatures: [
+        'حساب الرواتب الشهرية تلقائياً',
+        'إدارة البدلات والعلاوات',
+        'حساب الخصومات والاستقطاعات',
+        'تقارير الرواتب التفصيلية',
+        'كشوفات المرتبات',
+        'تصدير بيانات الرواتب',
+      ],
+      attendance: 'الحضور والانصراف',
+      attendanceFeatures: [
+        'تسجيل الحضور والانصراف',
+        'حساب ساعات العمل الإضافي',
+        'تتبع التأخير والغياب',
+        'تقارير الحضور الشهرية',
+        'ربط مع أجهزة البصمة',
+        'تقويم العمل المخصص',
+      ],
+      leaves: 'الإجازات',
+      leaveFeatures: [
+        'طلبات الإجازة الإلكترونية',
+        'أنواع إجازات متعددة',
+        'رصيد الإجازات التلقائي',
+        'موافقات الإجازات',
+        'تقارير الإجازات السنوية',
+        'إشعارات الإجازات',
+      ],
+      
+      // Section 4: Finance
+      financeTitle: 'وحدة الإدارة المالية',
+      financeDesc: 'نظام محاسبي متكامل لإدارة الشؤون المالية',
+      financeModules: [
+        { title: 'دليل الحسابات', items: ['شجرة حسابات متعددة المستويات', 'أنواع الحسابات المختلفة', 'أرصدة افتتاحية', 'تصنيف الحسابات'] },
+        { title: 'القيود المحاسبية', items: ['قيود يومية', 'قيود آلية', 'قيود التسوية', 'مراجعة القيود'] },
+        { title: 'التقارير المالية', items: ['الميزانية العمومية', 'قائمة الدخل', 'التدفقات النقدية', 'ميزان المراجعة'] },
+        { title: 'إدارة العملاء', items: ['سجل العملاء', 'كشف حساب العميل', 'أعمار الديون', 'المتابعة والتحصيل'] },
+        { title: 'إدارة الموردين', items: ['سجل الموردين', 'كشف حساب المورد', 'المستحقات للموردين', 'تقارير الموردين'] },
+        { title: 'الفواتير', items: ['فواتير المبيعات', 'فواتير المشتريات', 'إشعارات دائنة/مدينة', 'تقارير الفواتير'] },
+      ],
+      
+      // Section 5: Projects
+      projectsTitle: 'وحدة إدارة المشاريع',
+      projectsDesc: 'تخطيط وتنفيذ ومتابعة المشاريع بكفاءة',
+      projectMgmt: 'إدارة المشاريع',
+      projectFeatures: [
+        'إنشاء مشاريع جديدة مع تفاصيل كاملة',
+        'تحديد الميزانية والجدول الزمني',
+        'تعيين مدير المشروع وفريق العمل',
+        'تتبع حالة المشروع (قيد التنفيذ/مكتمل/معلق)',
+        'نسبة الإنجاز التلقائية',
+        'مؤشرات الأداء الرئيسية KPIs',
+      ],
+      taskMgmt: 'إدارة المهام',
+      taskFeatures: [
+        'إنشاء وتعيين المهام للموظفين',
+        'تحديد الأولويات (عاجل/عالي/متوسط/منخفض)',
+        'تواريخ البدء والانتهاء',
+        'التعليقات والملاحظات على المهام',
+        'إشعارات المهام التلقائية',
+        'تقارير إنتاجية الفريق',
+      ],
+      
+      // Section 6: Reports
+      reportsBadge: 'التقارير',
+      reportsTitle: 'التقارير والتصدير',
+      reportsDesc: 'نظام تقارير متقدم مع إمكانية الطباعة والتصدير بصيغ متعددة',
+      printing: 'الطباعة',
+      printingDesc: 'طباعة التقارير مباشرة بتنسيق احترافي مع إخفاء القوائم',
+      pdfExport: 'تصدير PDF',
+      pdfExportDesc: 'تصدير التقارير بصيغة PDF للأرشفة والمشاركة',
+      excelExport: 'تصدير Excel',
+      excelExportDesc: 'تصدير البيانات بصيغة CSV للتحليل في Excel',
+      reportTypes: 'أنواع التقارير المتوفرة',
+      reportList: [
+        'تقارير الموظفين', 'تقارير الرواتب', 'تقارير الحضور', 'تقارير الإجازات',
+        'التقارير المالية', 'تقارير المبيعات', 'تقارير المشتريات', 'تقارير المخزون',
+        'تقارير المشاريع', 'تقارير المهام', 'تقارير الأداء', 'تقارير مخصصة'
+      ],
+      
+      // Section 7: Admin
+      adminTitle: 'لوحة تحكم المسؤول',
+      adminDesc: 'إدارة شاملة للنظام والشركات والمستخدمين',
+      adminCards: [
+        { title: 'إدارة الشركات', desc: 'عرض جميع الشركات المسجلة وتفعيلها أو تعطيلها' },
+        { title: 'إدارة المستخدمين', desc: 'التحكم في المستخدمين وصلاحياتهم' },
+        { title: 'أكواد التفعيل', desc: 'إنشاء وإدارة أكواد الاشتراك' },
+        { title: 'الإشعارات', desc: 'إرسال إشعارات للشركات والمستخدمين' },
+        { title: 'الإحصائيات', desc: 'عرض إحصائيات النظام والإيرادات' },
+        { title: 'الأمان', desc: 'صلاحيات متقدمة للمسؤولين فقط' },
+      ],
+      adminNote: 'ملاحظة: لوحة تحكم المسؤول متاحة فقط لـ: المدير العام، المدير التنفيذي (CEO)، رئيس مجلس الإدارة',
+      
+      // Section 8: Permissions
+      permissionsTitle: 'نظام الصلاحيات',
+      permissionsDesc: 'تحكم دقيق في صلاحيات كل مستخدم',
+      availablePermissions: 'الصلاحيات المتاحة',
+      permissionsList: [
+        { name: 'لوحة التحكم', required: true },
+        { name: 'الموارد البشرية', required: false },
+        { name: 'الإدارة المالية', required: false },
+        { name: 'الفواتير', required: false },
+        { name: 'المشتريات', required: false },
+        { name: 'المشاريع', required: false },
+        { name: 'التحليلات', required: false },
+        { name: 'الإعدادات', required: false },
+        { name: 'إدارة المستخدمين', required: false },
+        { name: 'الموافقات', required: false },
+      ],
+      displayMethod: 'طريقة العرض',
+      greenColor: 'اللون الأخضر',
+      greenDesc: 'صلاحية متاحة للمستخدم',
+      redColor: 'اللون الأحمر',
+      redDesc: 'صلاحية غير متاحة للمستخدم',
+      required: 'إلزامي',
+      
+      // Section 9: How to Use
+      howtoBadge: 'دليل الاستخدام',
+      howtoTitle: 'طريقة تشغيل النظام',
+      steps: [
+        {
+          title: 'تسجيل الشركة',
+          desc: 'قم بتسجيل شركتك من خلال صفحة التسجيل مع إدخال بيانات الشركة والمستخدم الرئيسي',
+          details: ['أدخل اسم الشركة ونوع النشاط', 'أدخل بيانات المستخدم الرئيسي (المدير العام)', 'اختر كلمة مرور قوية', 'ستحصل على كود اشتراك فريد']
+        },
+        {
+          title: 'تسجيل الدخول',
+          desc: 'سجل دخولك باستخدام البريد الإلكتروني وكلمة المرور',
+          details: ['أدخل البريد الإلكتروني المسجل', 'أدخل كلمة المرور', 'سيظهر كود الاشتراك بعد الدخول', 'احتفظ بكود الاشتراك في مكان آمن']
+        },
+        {
+          title: 'إضافة المستخدمين',
+          desc: 'أضف مستخدمين جدد وحدد صلاحياتهم',
+          details: ['اذهب إلى إدارة المستخدمين', 'أضف مستخدم جديد مع تحديد الدور', 'حدد الصلاحيات المناسبة لكل مستخدم', 'أرسل دعوة للمستخدم عبر البريد الإلكتروني']
+        },
+        {
+          title: 'إدخال البيانات الأساسية',
+          desc: 'أدخل بيانات الموظفين والعملاء والموردين',
+          details: ['أضف بيانات الموظفين في وحدة الموارد البشرية', 'أضف العملاء والموردين في الوحدة المالية', 'أنشئ دليل الحسابات المناسب لشركتك', 'حدد إعدادات الرواتب والبدلات']
+        },
+        {
+          title: 'البدء بالعمل اليومي',
+          desc: 'استخدم النظام للعمليات اليومية',
+          details: ['سجل الحضور والانصراف يومياً', 'أنشئ الفواتير وأوامر الشراء', 'تابع المشاريع والمهام', 'استخرج التقارير المطلوبة']
+        },
+      ],
+      
+      // Section 10: Technical
+      techBadge: 'المواصفات التقنية',
+      techTitle: 'البنية التقنية للنظام',
+      techSpecs: [
+        { title: 'الواجهة الأمامية', desc: 'React.js مع Tailwind CSS', tech: 'Frontend' },
+        { title: 'الخادم', desc: 'Python FastAPI', tech: 'Backend' },
+        { title: 'قاعدة البيانات', desc: 'MongoDB Atlas', tech: 'Database' },
+        { title: 'الاستضافة', desc: 'سحابية مع SSL', tech: 'Hosting' },
+      ],
+      techFeatures: [
+        'تشفير SSL/TLS لجميع الاتصالات',
+        'نسخ احتياطي يومي تلقائي',
+        'متوافق مع جميع المتصفحات',
+        'تصميم متجاوب للجوال',
+        'دعم RTL للعربية',
+        'تحديثات مستمرة ومجانية'
+      ],
+      
+      // CTA
+      ctaTitle: 'جاهز للبدء؟',
+      ctaDesc: 'انضم إلى مئات الشركات التي تستخدم DataLife ERP لإدارة أعمالها بكفاءة',
+      registerNow: 'سجل شركتك الآن',
+      tryDemo: 'جرب النسخة التجريبية',
+      
+      // Footer
+      copyright: 'جميع الحقوق محفوظة © 2025 DataLife ERP',
+    },
+    en: {
+      // Header
+      systemName: 'Enterprise Resource Management System',
+      backToHome: 'Back to Home',
+      login: 'Sign In',
+      
+      // Hero
+      badge: 'Complete Guide',
+      heroTitle: 'DataLife ERP Features Guide',
+      heroDesc: 'A comprehensive enterprise resource management system supporting Arabic and English, designed specifically to meet the needs of businesses',
+      bilingual: 'Bilingual Support',
+      cloudBased: '100% Cloud-Based',
+      advancedSecurity: 'Advanced Security',
+      
+      // Quick Navigation
+      quickNav: 'Quick Navigation',
+      navItems: {
+        overview: 'Overview',
+        modules: 'Main Modules',
+        hr: 'Human Resources',
+        finance: 'Financial Management',
+        projects: 'Projects',
+        reports: 'Reports',
+        admin: 'Admin Panel',
+        howto: 'How to Use',
+      },
+      
+      // Section 1: Overview
+      overviewBadge: 'Introduction',
+      overviewTitle: 'System Overview',
+      overviewDesc: 'DataLife ERP is a comprehensive enterprise resource management system, designed with the latest technologies to provide complete solutions for businesses',
+      overviewCards: [
+        { title: 'Multi-Company', desc: 'Manage multiple companies from one account with complete data separation' },
+        { title: 'Multi-User', desc: 'Custom permissions for each user based on their role' },
+        { title: 'Bilingual', desc: 'Full support for Arabic and English with RTL interface' },
+        { title: 'Secure Cloud', desc: 'Access from anywhere with advanced data protection' },
+      ],
+      
+      // Section 2: Modules
+      modulesBadge: 'Modules',
+      modulesTitle: 'Main System Modules',
+      modulesData: [
+        { 
+          title: 'Human Resources Management', 
+          features: ['Employee data management', 'Payroll system', 'Attendance tracking', 'Leave management', 'Advanced HR reports']
+        },
+        { 
+          title: 'Financial Management', 
+          features: ['Chart of accounts', 'Journal entries', 'Balance sheet', 'Income statement', 'Financial reports']
+        },
+        { 
+          title: 'Invoices & Sales', 
+          features: ['Invoice creation', 'Customer management', 'Payment tracking', 'Sales reports', 'Recurring invoices']
+        },
+        { 
+          title: 'Purchases Management', 
+          features: ['Purchase orders', 'Supplier management', 'Order tracking', 'Purchase reports', 'Inventory management']
+        },
+        { 
+          title: 'Project Management', 
+          features: ['Create projects', 'Task management', 'Progress tracking', 'Timeline', 'Team management']
+        },
+        { 
+          title: 'Analytics & Reports', 
+          features: ['Dashboards', 'Interactive reports', 'PDF/CSV export', 'Charts', 'KPIs']
+        },
+      ],
+      
+      // Section 3: HR
+      hrTitle: 'Human Resources Module',
+      hrDesc: 'Comprehensive management of employees, payroll, and attendance',
+      employeeMgmt: 'Employee Management',
+      employeeFeatures: [
+        'Add and edit employee data',
+        'Upload employee photos and documents',
+        'Track employment history',
+        'Manage departments',
+        'Employee ID cards',
+        'Personal and professional records',
+      ],
+      salarySystem: 'Payroll System',
+      salaryFeatures: [
+        'Automatic monthly salary calculation',
+        'Manage allowances and bonuses',
+        'Calculate deductions',
+        'Detailed salary reports',
+        'Payslips',
+        'Export salary data',
+      ],
+      attendance: 'Attendance & Time',
+      attendanceFeatures: [
+        'Record attendance',
+        'Calculate overtime hours',
+        'Track tardiness and absences',
+        'Monthly attendance reports',
+        'Biometric device integration',
+        'Custom work calendar',
+      ],
+      leaves: 'Leave Management',
+      leaveFeatures: [
+        'Electronic leave requests',
+        'Multiple leave types',
+        'Automatic leave balance',
+        'Leave approvals',
+        'Annual leave reports',
+        'Leave notifications',
+      ],
+      
+      // Section 4: Finance
+      financeTitle: 'Financial Management Module',
+      financeDesc: 'Comprehensive accounting system for financial management',
+      financeModules: [
+        { title: 'Chart of Accounts', items: ['Multi-level account tree', 'Different account types', 'Opening balances', 'Account classification'] },
+        { title: 'Journal Entries', items: ['Daily entries', 'Automatic entries', 'Adjustment entries', 'Entry review'] },
+        { title: 'Financial Reports', items: ['Balance sheet', 'Income statement', 'Cash flows', 'Trial balance'] },
+        { title: 'Customer Management', items: ['Customer records', 'Customer statements', 'Aging receivables', 'Collection follow-up'] },
+        { title: 'Supplier Management', items: ['Supplier records', 'Supplier statements', 'Payables', 'Supplier reports'] },
+        { title: 'Invoices', items: ['Sales invoices', 'Purchase invoices', 'Credit/debit notes', 'Invoice reports'] },
+      ],
+      
+      // Section 5: Projects
+      projectsTitle: 'Project Management Module',
+      projectsDesc: 'Efficient project planning, execution, and tracking',
+      projectMgmt: 'Project Management',
+      projectFeatures: [
+        'Create new projects with full details',
+        'Set budget and timeline',
+        'Assign project manager and team',
+        'Track project status (in progress/completed/on hold)',
+        'Automatic progress percentage',
+        'Key Performance Indicators (KPIs)',
+      ],
+      taskMgmt: 'Task Management',
+      taskFeatures: [
+        'Create and assign tasks to employees',
+        'Set priorities (urgent/high/medium/low)',
+        'Start and end dates',
+        'Task comments and notes',
+        'Automatic task notifications',
+        'Team productivity reports',
+      ],
+      
+      // Section 6: Reports
+      reportsBadge: 'Reports',
+      reportsTitle: 'Reports & Export',
+      reportsDesc: 'Advanced reporting system with printing and multi-format export capabilities',
+      printing: 'Printing',
+      printingDesc: 'Print reports directly in professional format without menus',
+      pdfExport: 'PDF Export',
+      pdfExportDesc: 'Export reports in PDF format for archiving and sharing',
+      excelExport: 'Excel Export',
+      excelExportDesc: 'Export data in CSV format for Excel analysis',
+      reportTypes: 'Available Report Types',
+      reportList: [
+        'Employee reports', 'Salary reports', 'Attendance reports', 'Leave reports',
+        'Financial reports', 'Sales reports', 'Purchase reports', 'Inventory reports',
+        'Project reports', 'Task reports', 'Performance reports', 'Custom reports'
+      ],
+      
+      // Section 7: Admin
+      adminTitle: 'Admin Control Panel',
+      adminDesc: 'Comprehensive management of system, companies, and users',
+      adminCards: [
+        { title: 'Company Management', desc: 'View all registered companies and enable/disable them' },
+        { title: 'User Management', desc: 'Control users and their permissions' },
+        { title: 'Activation Codes', desc: 'Create and manage subscription codes' },
+        { title: 'Notifications', desc: 'Send notifications to companies and users' },
+        { title: 'Statistics', desc: 'View system statistics and revenue' },
+        { title: 'Security', desc: 'Advanced permissions for admins only' },
+      ],
+      adminNote: 'Note: Admin control panel is only available to: General Manager, CEO, Board Chairman',
+      
+      // Section 8: Permissions
+      permissionsTitle: 'Permissions System',
+      permissionsDesc: 'Precise control over each user\'s permissions',
+      availablePermissions: 'Available Permissions',
+      permissionsList: [
+        { name: 'Dashboard', required: true },
+        { name: 'Human Resources', required: false },
+        { name: 'Financial Management', required: false },
+        { name: 'Invoices', required: false },
+        { name: 'Purchases', required: false },
+        { name: 'Projects', required: false },
+        { name: 'Analytics', required: false },
+        { name: 'Settings', required: false },
+        { name: 'User Management', required: false },
+        { name: 'Approvals', required: false },
+      ],
+      displayMethod: 'Display Method',
+      greenColor: 'Green Color',
+      greenDesc: 'Permission available to user',
+      redColor: 'Red Color',
+      redDesc: 'Permission not available to user',
+      required: 'Required',
+      
+      // Section 9: How to Use
+      howtoBadge: 'User Guide',
+      howtoTitle: 'How to Operate the System',
+      steps: [
+        {
+          title: 'Register Company',
+          desc: 'Register your company through the registration page with company and main user details',
+          details: ['Enter company name and business type', 'Enter main user details (General Manager)', 'Choose a strong password', 'You will receive a unique subscription code']
+        },
+        {
+          title: 'Sign In',
+          desc: 'Log in using your email and password',
+          details: ['Enter registered email', 'Enter password', 'Subscription code will appear after login', 'Keep subscription code in a safe place']
+        },
+        {
+          title: 'Add Users',
+          desc: 'Add new users and set their permissions',
+          details: ['Go to User Management', 'Add new user with role', 'Set appropriate permissions for each user', 'Send invitation via email']
+        },
+        {
+          title: 'Enter Basic Data',
+          desc: 'Enter employee, customer, and supplier data',
+          details: ['Add employee data in HR module', 'Add customers and suppliers in Financial module', 'Create chart of accounts suitable for your company', 'Set salary and allowance settings']
+        },
+        {
+          title: 'Start Daily Operations',
+          desc: 'Use the system for daily operations',
+          details: ['Record daily attendance', 'Create invoices and purchase orders', 'Track projects and tasks', 'Generate required reports']
+        },
+      ],
+      
+      // Section 10: Technical
+      techBadge: 'Technical Specifications',
+      techTitle: 'System Technical Architecture',
+      techSpecs: [
+        { title: 'Frontend', desc: 'React.js with Tailwind CSS', tech: 'Frontend' },
+        { title: 'Server', desc: 'Python FastAPI', tech: 'Backend' },
+        { title: 'Database', desc: 'MongoDB Atlas', tech: 'Database' },
+        { title: 'Hosting', desc: 'Cloud with SSL', tech: 'Hosting' },
+      ],
+      techFeatures: [
+        'SSL/TLS encryption for all connections',
+        'Automatic daily backup',
+        'Compatible with all browsers',
+        'Mobile responsive design',
+        'RTL support for Arabic',
+        'Continuous free updates'
+      ],
+      
+      // CTA
+      ctaTitle: 'Ready to Start?',
+      ctaDesc: 'Join hundreds of companies using DataLife ERP to manage their business efficiently',
+      registerNow: 'Register Your Company Now',
+      tryDemo: 'Try Demo Version',
+      
+      // Footer
+      copyright: 'All Rights Reserved © 2025 DataLife ERP',
+    }
+  };
+
+  const content = t[pageLang];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50" dir="rtl">
