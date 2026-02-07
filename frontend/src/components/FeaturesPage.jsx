@@ -22,6 +22,10 @@ const FeaturesPage = () => {
   const isRTL = pageLang === 'ar';
   const [expandedSection, setExpandedSection] = useState(null);
 
+  // Logo source based on language
+  const logoSrc = pageLang === 'ar' ? '/datalife-logo-arabic.svg' : '/datalife-logo-english.svg';
+  const logoAlt = pageLang === 'ar' ? 'داتا لايف أكونت' : 'DataLife Account';
+
   const toggleLanguage = () => {
     setPageLang(pageLang === 'ar' ? 'en' : 'ar');
   };
