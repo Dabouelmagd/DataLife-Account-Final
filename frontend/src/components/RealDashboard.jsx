@@ -225,7 +225,7 @@ const RealDashboard = () => {
     const hrRoles = ['General Manager', 'CEO', 'HR Manager', 'مدير عام', 'المدير التنفيذي', 'مدير الموارد البشرية'];
     if (hrRoles.includes(role) || financialRoles.includes(role)) {
       modules.push({ 
-        id: 'attendance', 
+        id: 'attendance-mgmt', 
         name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance', 
         icon: <Clock /> 
       });
