@@ -59,6 +59,12 @@ const AdminDashboard = () => {
   const [companyUsers, setCompanyUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   
+  // Permission editing
+  const [editingUserPermissions, setEditingUserPermissions] = useState(null);
+  const [availablePermissions, setAvailablePermissions] = useState([]);
+  const [userPermissions, setUserPermissions] = useState([]);
+  const [savingPermissions, setSavingPermissions] = useState(false);
+  
   // Toast notification
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
