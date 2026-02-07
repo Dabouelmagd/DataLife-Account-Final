@@ -5,9 +5,31 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ---
 
-## Session Updates (December 2025 - Current Session)
+## Session Updates (February 2026 - Current Session)
 
 ### ✅ COMPLETED IN THIS SESSION:
+
+#### 0. Super Admin - User Permissions Editor (NEW - Feb 7, 2026)
+- **Backend API Endpoints**:
+  - `GET /api/admin/permissions` - Returns all 10 available permissions
+  - `PUT /api/admin/users/{user_id}/permissions` - Updates user permissions
+- **Frontend Features**:
+  - 🛡️ Shield icon button in Company Users table for editing permissions
+  - 📋 Modal with all available permissions as clickable cards/checkboxes
+  - ✅ Select All / Deselect All buttons
+  - 💾 Save Permissions button with success toast notification
+  - 📊 Permission count display (Selected X of Y)
+- **Available Permissions**:
+  - Dashboard, HR, Financial, Invoices, Purchases
+  - Projects, Analytics, Settings, User Management, Approvals
+- **Files Modified**:
+  - `/app/backend/api/admin.py` - Added permissions endpoints
+  - `/app/frontend/src/components/AdminDashboard.jsx` - Added permissions UI
+- **Test Status**: ✅ All tests passed (Backend 100%, Frontend 100%)
+
+---
+
+## Previous Session Updates (December 2025)
 
 #### 1. Features Guide Page - Bilingual Support (NEW)
 - **Language Toggle Button**: Added a prominent button in the header to switch between Arabic and English
