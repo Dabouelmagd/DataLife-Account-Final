@@ -221,12 +221,12 @@ const RealDashboard = () => {
       icon: <CheckCircle /> 
     });
 
-    // Attendance module - available to HR and managers
-    const hrRoles = ['General Manager', 'CEO', 'HR Manager', 'مدير عام', 'المدير التنفيذي', 'مدير الموارد البشرية'];
-    if (hrRoles.includes(role) || financialRoles.includes(role)) {
+    // Attendance Management module - available to managers
+    const attendanceRoles = ['General Manager', 'CEO', 'HR Manager', 'مدير عام', 'المدير التنفيذي', 'مدير الموارد البشرية'];
+    if (attendanceRoles.includes(role) || financialRoles.includes(role)) {
       modules.push({ 
         id: 'attendance-mgmt', 
-        name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance', 
+        name: language === 'ar' ? 'إدارة الحضور' : 'Attendance Mgmt', 
         icon: <Clock /> 
       });
     }
