@@ -12,13 +12,15 @@ import {
   Gift, TrendingUp, TrendingDown, Clock, CheckCircle, XCircle,
   RefreshCw, Plus, Trash2, Copy, AlertCircle, Loader2,
   Calendar, BarChart3, Settings, ChevronDown, Power, Mail, 
-  Send, Eye, UserX, UserCheck, Bell, Shield, Save, MessageSquare, Briefcase
+  Send, Eye, UserX, UserCheck, Bell, Shield, Save, MessageSquare, Briefcase,
+  LogOut, Globe, LayoutDashboard
 } from 'lucide-react';
 import axios from 'axios';
+import CompanyLogo from './CompanyLogo';
 
 const AdminDashboard = () => {
-  const { token } = useAuth();
-  const { language } = useLanguage();
+  const { token, user, logout } = useAuth();
+  const { language, toggleLanguage } = useLanguage();
   const navigate = useNavigate();
   const isRTL = language === 'ar';
   
