@@ -298,6 +298,79 @@ const PurchasesModule = () => {
     printWindow.onload = () => printWindow.print();
   };
 
+  // Export purchase order to PDF
+  const handleExportPDF = (order) => {
+    const content = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'};">
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+          <h1 style="margin: 0; color: #1a365d;">${isRTL ? 'أمر شراء' : 'PURCHASE ORDER'}</h1>
+          <p style="margin: 10px 0;">${isRTL ? 'رقم الطلب' : 'Order Number'}: <strong>${order.order_number}</strong></p>
+          <p style="margin: 5px 0;">${isRTL ? 'التاريخ' : 'Date'}: ${order.created_at?.slice(0, 10)}</p>
+        </div>
+        
+        <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+          <div style="flex: 1; padding: 15px; background: #f7fafc; border-radius: 8px;">
+            <h3 style="margin: 0 0 10px 0; color: #2d3748;">${isRTL ? 'معلومات المورد' : 'Supplier Information'}</h3>
+            <p style="margin: 5px 0;"><strong>${order.supplier_name}</strong></p>
+          </div>
+          <div style="flex: 1; padding: 15px; background: #f7fafc; border-radius: 8px;">
+            <h3 style="margin: 0 0 10px 0; color: #2d3748;">${isRTL ? 'تفاصيل الطلب' : 'Order Details'}</h3>
+            <p style="margin: 5px 0;">${isRTL ? 'الحالة' : 'Status'}: ${order.status}</p>
+            <p style="margin: 5px 0;">${isRTL ? 'تاريخ التسليم' : 'Delivery Date'}: ${order.expected_delivery || '-'}</p>
+          </div>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="background: #edf2f7;">
+              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">#</th>
+              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'الوصف' : 'Description'}</th>
+              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'الكمية' : 'Qty'}</th>
+              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'السعر' : 'Price'}</th>
+              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'الإجمالي' : 'Total'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(order.items || []).map((item, idx) => `
+              <tr>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${idx + 1}</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${item.description}</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${item.quantity}</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${item.unit_price?.toLocaleString()} EGP</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${(item.quantity * item.unit_price).toLocaleString()} EGP</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <table style="width: 300px; margin-${isRTL ? 'right' : 'left'}: auto;">
+          <tr style="font-weight: bold; background: #ebf8ff;">
+            <td style="padding: 10px;"><strong>${isRTL ? 'الإجمالي' : 'Total'}</strong></td>
+            <td style="padding: 10px;"><strong>${order.total_amount?.toLocaleString()} EGP</strong></td>
+          </tr>
+        </table>
+        
+        <div style="margin-top: 40px; text-align: center; color: #718096; font-size: 12px;">
+          <p>DataLife Account ERP System</p>
+        </div>
+      </div>
+    `;
+    
+    const element = document.createElement('div');
+    element.innerHTML = content;
+    
+    const opt = {
+      margin: 10,
+      filename: `purchase_order_${order.order_number}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    
+    html2pdf().set(opt).from(element).save();
+    toast.success(isRTL ? 'تم تصدير الطلب PDF' : 'Order exported as PDF');
+  };
+
   const handleCreateOrder = async () => {
     try {
       await axios.post(
