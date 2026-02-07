@@ -199,9 +199,13 @@ export const SalariesModule = ({ language, userRole }) => {
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
             <Download className="h-4 w-4" />
-            <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
+            <span>{language === 'ar' ? 'CSV' : 'CSV'}</span>
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportPDF} className="flex items-center gap-2 text-red-600 hover:text-red-700">
+            <File className="h-4 w-4" />
+            <span>PDF</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={handlePrint} className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
