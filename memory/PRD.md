@@ -27,13 +27,11 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - Stripe payment integration
 - Activation codes system
 - Multiple plans (Starter, Professional, Enterprise)
-- Multiple durations (3, 6, 9, 12 months, lifetime)
 
 ### Admin Dashboard
 - Statistics overview
 - Subscription management
 - Activation codes management
-- Company management
 
 ---
 
@@ -41,89 +39,78 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ### 1. Real-time Notifications System ✅
 - WebSocket support for real-time updates
-- Multiple notification types (subscription, payment, inventory, leave, employee, report)
+- Multiple notification types
 - Notification center UI with unread count badge
 - Mark as read / Mark all as read
-- Delete notifications
 - Arabic/English support
-- Background tasks for subscription expiry alerts
 
 ### 2. Invoices System (Regular + E-Tax) ✅
-- Full invoice management (create, read, update, delete)
-- Tax calculation (14% VAT - Egyptian standard)
-- Discount support per item
-- Payment tracking with multiple payment methods
-- Email sending via Resend
-- Invoice statistics dashboard
+- Full invoice management (CRUD)
+- Tax calculation (14% VAT)
+- Payment tracking
+- Email sending
+- Egyptian E-Tax support (simulated)
 
-### 3. Egyptian E-Tax (الفاتورة الإلكترونية المصرية) ✅
-- E-Tax invoice creation with unique UUID
-- Customer and Issuer Tax ID support
-- Simulated submission to Egyptian Tax Authority
-- E-Tax status tracking (pending, submitted)
-- E-Tax statistics dashboard
-- **Note**: Real integration requires ETA Portal registration and digital signature
-
-### 4. Customer Portal ✅
+### 3. Customer Portal ✅
 **Customer Side:**
-- Customer login with email/password
-- Dashboard with invoice statistics (total, paid, pending)
-- View all invoices and their details
-- View payment history
-- Profile management (update info, change password)
+- Customer login
+- Dashboard with invoice statistics
+- View invoices and payments
+- Profile management
 
 **Company Side:**
-- Portal setup with unique portal code
-- Invite customers via email with temporary password
-- View all portal customers
-- Enable/Disable customer access
-- Copy portal URL and code
+- Portal setup with unique code
+- Invite customers
+- Manage portal access
+
+### 4. Purchases & Supplier Management ✅
+**Purchase Orders:**
+- Create purchase orders with multiple items
+- Tax calculation (14%)
+- Status workflow: Draft → Pending Approval → Approved → Ordered → Received
+- Order cancellation
+- Payment tracking
+
+**Supplier Management:**
+- Supplier CRUD
+- Contact information
+- Payment terms
+- Category classification
+- Order history per supplier
+
+**Features:**
+- Purchase statistics dashboard
+- Status filtering
+- Search functionality
+- Top suppliers tracking
 
 ---
 
-## API Endpoints
+## API Endpoints Summary
 
-### Notifications API
-- `GET /api/notifications/` - Get all notifications
-- `POST /api/notifications/` - Create notification
-- `PUT /api/notifications/{id}/read` - Mark as read
-- `PUT /api/notifications/read-all` - Mark all as read
-- `DELETE /api/notifications/{id}` - Delete notification
-- `WS /api/notifications/ws/{user_id}` - WebSocket
+### Notifications
+- `GET/POST /api/notifications/`
+- `PUT /api/notifications/{id}/read`
+- `WS /api/notifications/ws/{user_id}`
 
-### Invoices API
-- `GET /api/invoices/` - Get all invoices
-- `POST /api/invoices/` - Create invoice
-- `GET /api/invoices/stats` - Invoice statistics
-- `GET /api/invoices/{number}` - Get single invoice
-- `PUT /api/invoices/{number}/status` - Update status
-- `POST /api/invoices/{number}/payment` - Record payment
-- `POST /api/invoices/{number}/send` - Send via email
+### Invoices
+- `GET/POST /api/invoices/`
+- `GET /api/invoices/stats`
+- `POST /api/invoices/{number}/etax/submit`
 
-### E-Tax API
-- `POST /api/invoices/{number}/etax/submit` - Submit to E-Tax (MOCKED)
-- `GET /api/invoices/{number}/etax/status` - E-Tax status
-- `GET /api/invoices/etax/stats` - E-Tax statistics
+### Customer Portal
+- `POST /api/customer-portal/login`
+- `GET /api/customer-portal/dashboard`
+- `GET /api/customer-portal/invoices`
+- `POST /api/customer-portal/customers/invite`
 
-### Customer Portal API
-- `POST /api/customer-portal/login` - Customer login
-- `GET /api/customer-portal/dashboard` - Dashboard data
-- `GET /api/customer-portal/invoices` - Customer invoices
-- `GET /api/customer-portal/payments` - Customer payments
-- `GET /api/customer-portal/profile` - Get profile
-- `PUT /api/customer-portal/profile` - Update profile
-- `PUT /api/customer-portal/change-password` - Change password
-- `POST /api/customer-portal/setup-portal` - Setup portal (company)
-- `GET /api/customer-portal/customers` - List customers (company)
-- `POST /api/customer-portal/customers/invite` - Invite customer
-- `PUT /api/customer-portal/customers/{id}/toggle` - Toggle access
-
----
-
-## Third-Party Integrations
-- Resend (Email)
-- Stripe (Payments)
-- recharts, xlsx, jspdf (Reports)
+### Purchases
+- `GET/POST /api/purchases/suppliers`
+- `PUT /api/purchases/suppliers/{id}`
+- `GET/POST /api/purchases/orders`
+- `PUT /api/purchases/orders/{po}/status`
+- `DELETE /api/purchases/orders/{po}`
+- `GET /api/purchases/stats`
 
 ---
 
@@ -135,7 +122,7 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ### Portal Customer
 - Email: customer@example.com
-- Password: ZWU0KdwRNzti (temporary)
+- Password: ZWU0KdwRNzti
 
 ### Production Admin
 - Email: dalia@ddaadvertising.net
@@ -143,15 +130,15 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ---
 
-## Prioritized Backlog (P0/P1/P2)
+## Prioritized Backlog
 
 ### ✅ Completed (P0)
 - [x] Real-time Notifications
 - [x] Invoices System (Regular + E-Tax)
 - [x] Customer Portal
+- [x] Purchases & Supplier Management
 
 ### P1 - Next Priority
-- [ ] Purchasing & Supplier System
 - [ ] Approval Workflows
 - [ ] Attendance System (Clock-in/Clock-out)
 
@@ -173,12 +160,12 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [ ] Ticketing and Support System
 
 ### Deferred
-- [ ] WhatsApp Integration (Twilio) - User deferred
+- [ ] WhatsApp Integration (Twilio)
 
 ---
 
-## Mocked/Simulated Features
-- **E-Tax Submission**: Simulated - requires ETA Portal registration and digital signature
+## Mocked Features
+- **E-Tax Submission**: Simulated (requires ETA Portal registration)
 
 ---
 
@@ -186,9 +173,16 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - `/` - Landing Page
 - `/login` - Company User Login
 - `/dashboard` - Main Dashboard
-- `/customer-portal` - Customer Portal (separate auth)
+- `/customer-portal` - Customer Portal
 - `/admin` - Admin Dashboard
 - `/subscription` - Subscription Management
+
+---
+
+## Test Files
+- `/app/backend/tests/test_customer_portal.py`
+- `/app/backend/tests/test_purchases.py`
+- `/app/test_reports/iteration_*.json`
 
 ---
 
