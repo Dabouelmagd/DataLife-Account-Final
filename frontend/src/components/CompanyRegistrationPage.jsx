@@ -162,7 +162,10 @@ const CompanyRegistrationPage = () => {
         }
       }
       
-      navigate('/dashboard');
+      // Show subscription code modal
+      const code = result.user?.subscription_code || result.user?.company_id?.slice(0, 8).toUpperCase() || '';
+      setSubscriptionCode(code);
+      setShowSubscriptionModal(true);
     } else {
       setError(result.error);
     }
