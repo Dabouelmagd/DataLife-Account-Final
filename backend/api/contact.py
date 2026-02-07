@@ -180,3 +180,16 @@ async def get_contact_messages():
     """Get all contact messages (admin only)"""
     messages = await db.contact_messages.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=100)
     return messages
+
+
+@router.put("/messages/mark-read")
+async def mark_messages_as_read():
+    """Mark all messages as read"""
+    result = await db.contact_messages.update_many(
+        {"read": False},
+        {"$set": {"read": True}}
+    )
+    return {
+        "success": True,
+        "updated_count": result.modified_count
+    }
