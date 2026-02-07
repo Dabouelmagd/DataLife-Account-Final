@@ -289,7 +289,7 @@ async def get_attendance_report(
         
         employee_stats[emp_id] = {
             "employee_id": emp_id,
-            "employee_name": emp.get("full_name"),
+            "employee_name": emp.get("name"),
             "department": emp.get("department"),
             "position": emp.get("position"),
             "present_days": len([r for r in emp_records if r.get("status") in ["present", "late"]]),
