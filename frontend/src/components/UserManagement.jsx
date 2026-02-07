@@ -841,7 +841,141 @@ const UserManagement = () => {
             </div>
           </div>
         )}
+        )}
       </div>
+
+        {/* Permissions Edit Modal */}
+        {showPermissionsModal && editingPermissionsUser && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowPermissionsModal(false)}>
+            <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+              {/* Header */}
+              <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-6 rounded-t-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                      <Shield className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-white">
+                        {language === 'ar' ? 'تعديل الصلاحيات' : 'Edit Permissions'}
+                      </h3>
+                      <p className="text-purple-100 text-sm">
+                        {editingPermissionsUser.full_name}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowPermissionsModal(false)}
+                    className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-4">
+                {/* User Info */}
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center text-white font-bold">
+                    {editingPermissionsUser.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold">{editingPermissionsUser.full_name}</p>
+                    <p className="text-sm text-gray-500">{editingPermissionsUser.email}</p>
+                  </div>
+                  <Badge className={getRoleColor(editingPermissionsUser.role)}>
+                    {editingPermissionsUser.role}
+                  </Badge>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllPermissions}
+                    className="border-purple-200 text-purple-600 hover:bg-purple-50"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    {language === 'ar' ? 'تحديد الكل' : 'Select All'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={deselectAllPermissions}
+                    className="border-gray-200"
+                  >
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {language === 'ar' ? 'إلغاء الكل' : 'Deselect All'}
+                  </Button>
+                </div>
+
+                {/* Permissions Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {availablePermissions.map((perm) => (
+                    <div
+                      key={perm.id}
+                      onClick={() => togglePermission(perm.id)}
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                        userPermissions.includes(perm.id)
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                      data-testid={`permission-${perm.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${
+                          userPermissions.includes(perm.id)
+                            ? 'border-purple-500 bg-purple-500'
+                            : 'border-gray-300'
+                        }`}>
+                          {userPermissions.includes(perm.id) && (
+                            <CheckCircle className="h-3 w-3 text-white" />
+                          )}
+                        </div>
+                        <span className="text-sm font-medium">
+                          {isRTL ? perm.name_ar : perm.name_en}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Count */}
+                <div className="text-center text-sm text-gray-500">
+                  {isRTL 
+                    ? `الصلاحيات المحددة: ${userPermissions.length} من ${availablePermissions.length}`
+                    : `Selected: ${userPermissions.length} of ${availablePermissions.length} permissions`
+                  }
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 bg-gray-50 rounded-b-2xl flex gap-3">
+                <Button
+                  onClick={handleSavePermissions}
+                  disabled={savingPermissions}
+                  className="flex-1 h-12 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-lg"
+                >
+                  {savingPermissions ? (
+                    <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : (
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                  )}
+                  {language === 'ar' ? 'حفظ الصلاحيات' : 'Save Permissions'}
+                </Button>
+                <Button
+                  onClick={() => setShowPermissionsModal(false)}
+                  variant="outline"
+                  className="flex-1 h-12 border-2 rounded-xl font-semibold"
+                >
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* Toast Notification - Modern Design */}
       {toast.show && (
