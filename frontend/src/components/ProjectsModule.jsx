@@ -570,6 +570,10 @@ const ProjectsModule = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportProjectsCSV} className="gap-2">
+            <FileDown className="h-4 w-4" />
+            {isRTL ? 'تصدير' : 'Export'}
+          </Button>
           <Button variant="outline" onClick={() => setShowTaskDialog(true)} className="gap-2">
             <ListTodo className="h-4 w-4" />
             {t.createTask}
