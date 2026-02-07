@@ -103,6 +103,24 @@ const ModernSidebar = ({
               {/* Notifications */}
               <NotificationCenter />
             </div>
+            
+            {/* Permissions Icons */}
+            <div className="mt-3 pt-3 border-t border-white/10">
+              <p className="text-xs text-slate-400 mb-2">
+                {language === 'ar' ? 'الصلاحيات:' : 'Permissions:'}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {modules.map((module, index) => (
+                  <span 
+                    key={index}
+                    className="p-1.5 bg-white/10 text-slate-300 rounded-lg hover:bg-white/20 transition-colors cursor-default"
+                    title={module.name}
+                  >
+                    {React.cloneElement(module.icon, { className: 'h-3.5 w-3.5' })}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
