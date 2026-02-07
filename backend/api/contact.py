@@ -45,7 +45,6 @@ def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
         
         return True
     except Exception as e:
-        print(f"SMTP Error: {e}")
         return False
 
 
