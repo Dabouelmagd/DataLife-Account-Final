@@ -52,6 +52,9 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - PDF/CSV/Excel export
 - Print functionality
 - Analytics visualization with charts
+- **NEW** Advanced date filtering for financial reports (year, quarter, month, custom range)
+- **NEW** Period comparison functionality
+- **NEW** Monthly breakdown analysis
 
 ### Subscription System ✅
 - Backend API for plans and activation codes
