@@ -355,8 +355,16 @@ const InvoicesModule = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t.invoices}</h1>
           <p className="text-gray-500 mt-1">
-            {isRTL ? 'إدارة الفواتير العادية والإلكترونية' : 'Manage regular and electronic invoices'}
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-gray-500">
+              {isRTL ? 'إدارة الفواتير العادية والإلكترونية' : 'Manage regular and electronic invoices'}
+            </p>
+            {/* Real-time connection indicator */}
+            <Badge variant="outline" className={isConnected ? 'text-green-600 border-green-300' : 'text-gray-400 border-gray-200'}>
+              {isConnected ? <Wifi className="h-3 w-3 mr-1" /> : <WifiOff className="h-3 w-3 mr-1" />}
+              {isConnected ? (isRTL ? 'متصل' : 'Live') : (isRTL ? 'غير متصل' : 'Offline')}
+            </Badge>
+          </div>
         </div>
         <Button onClick={() => setShowCreateDialog(true)} className="gap-2" data-testid="create-invoice-btn">
           <Plus className="h-4 w-4" />
