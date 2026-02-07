@@ -87,8 +87,7 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 ### P1 - Future Enhancements
 - [ ] WhatsApp Integration (Twilio)
 - [ ] Local Payment Gateways
-- [ ] Profile page with subscription code
-- [ ] Additional analytics charts
+- [ ] Dark mode toggle
 
 ### P2 - Backlog
 - [ ] Dark mode toggle
