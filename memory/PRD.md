@@ -111,6 +111,12 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
   - نظام الصلاحيات
   - طريقة التشغيل (5 خطوات)
   - البنية التقنية للنظام
+- [x] **تحديث الصفحة الرئيسية (LandingPage)**:
+  - قسم الإحصائيات (27+ شركة، 68+ مستخدم، 10 وحدات، 24/7 دعم)
+  - قسم "المميزات الاحترافية الجديدة" مع 6 كروت
+  - دعم كامل للعربية والإنجليزية
+  - رابط "الدليل الشامل" في شريط التنقل
+  - زر "Explore Full Guide" للانتقال للدليل
 
 ### P1 - Future Enhancements
 - [ ] WhatsApp Integration (Twilio)
