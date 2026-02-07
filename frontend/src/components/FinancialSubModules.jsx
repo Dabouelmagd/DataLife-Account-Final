@@ -3721,6 +3721,8 @@ export const FinancialReportsModule = ({ language, userRole }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [apiData, setApiData] = useState(null);
   
   // Date filter states
   const [filterType, setFilterType] = useState('year'); // year, month, quarter, custom
@@ -3740,6 +3742,49 @@ export const FinancialReportsModule = ({ language, userRole }) => {
   const quarters = language === 'ar'
     ? ['الربع الأول (يناير-مارس)', 'الربع الثاني (أبريل-يونيو)', 'الربع الثالث (يوليو-سبتمبر)', 'الربع الرابع (أكتوبر-ديسمبر)']
     : ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
+
+  // Fetch financial reports data from API
+  const fetchFinancialReports = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        period_type: filterType,
+        year: selectedYear,
+        compare: compareYears
+      });
+      
+      if (filterType === 'month') {
+        params.append('month', selectedMonth);
+      } else if (filterType === 'quarter') {
+        params.append('quarter', selectedQuarter);
+      } else if (filterType === 'custom' && startDate && endDate) {
+        params.append('start_date', startDate);
+        params.append('end_date', endDate);
+      }
+      
+      const response = await fetch(
+        `${process.env.REACT_APP_BACKEND_URL}/api/analytics/financial-reports?${params.toString()}`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setApiData(data);
+      }
+    } catch (error) {
+      // Error fetching data - use default
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch data when filters change
+  useEffect(() => {
+    fetchFinancialReports();
+  }, [filterType, selectedYear, selectedMonth, selectedQuarter, startDate, endDate, compareYears]);
   
   // Get selected period label for display and export
   const getSelectedPeriodLabel = () => {
