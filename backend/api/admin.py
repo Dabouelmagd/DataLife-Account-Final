@@ -311,8 +311,164 @@ async def get_all_companies(authorization: Optional[str] = Header(None)):
         # Get user count
         user_count = await db.users.count_documents({"company_id": company_id})
         company["user_count"] = user_count
+        
+        # Get active users count
+        active_users = await db.users.count_documents({"company_id": company_id, "is_active": True})
+        company["active_users"] = active_users
     
     return companies
+
+
+@router.put("/companies/{company_id}/toggle")
+async def toggle_company_status(
+    company_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Enable/disable a company (suspends all users)"""
+    await verify_admin(authorization)
+    
+    company = await db.companies.find_one({"id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Toggle company status
+    current_status = company.get("is_active", True)
+    new_status = not current_status
+    
+    # Update company
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {
+            "is_active": new_status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Update all users in this company
+    await db.users.update_many(
+        {"company_id": company_id},
+        {"$set": {"is_active": new_status}}
+    )
+    
+    # Update subscription status
+    if not new_status:
+        await db.subscriptions.update_one(
+            {"company_id": company_id},
+            {"$set": {"status": "suspended"}}
+        )
+    else:
+        await db.subscriptions.update_one(
+            {"company_id": company_id},
+            {"$set": {"status": "active"}}
+        )
+    
+    return {
+        "company_id": company_id,
+        "company_name": company.get("name"),
+        "is_active": new_status,
+        "message": f"Company {'activated' if new_status else 'suspended'} successfully"
+    }
+
+
+@router.get("/companies/{company_id}/users")
+async def get_company_users(
+    company_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Get all users for a specific company"""
+    await verify_admin(authorization)
+    
+    users = await db.users.find(
+        {"company_id": company_id}, 
+        {"_id": 0, "password_hash": 0, "password": 0}
+    ).to_list(length=None)
+    
+    return users
+
+
+@router.put("/users/{user_id}/toggle")
+async def toggle_user_status(
+    user_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Enable/disable a specific user"""
+    await verify_admin(authorization)
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_status = not user.get("is_active", True)
+    
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"is_active": new_status}}
+    )
+    
+    return {
+        "user_id": user_id,
+        "full_name": user.get("full_name"),
+        "is_active": new_status
+    }
+
+
+@router.post("/send-notification")
+async def send_notification(
+    request_data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Send notification/email to company or user"""
+    await verify_admin(authorization)
+    
+    target_type = request_data.get("target_type")  # "company" or "user" or "all"
+    target_id = request_data.get("target_id")
+    subject = request_data.get("subject", "Notification from DataLife")
+    message = request_data.get("message")
+    
+    if not message:
+        raise HTTPException(status_code=400, detail="Message is required")
+    
+    emails = []
+    
+    if target_type == "company":
+        company = await db.companies.find_one({"id": target_id})
+        if company:
+            emails.append(company.get("contact_email"))
+            # Get all users in company
+            users = await db.users.find({"company_id": target_id}).to_list(length=None)
+            for user in users:
+                if user.get("email"):
+                    emails.append(user.get("email"))
+    elif target_type == "user":
+        user = await db.users.find_one({"id": target_id})
+        if user:
+            emails.append(user.get("email"))
+    elif target_type == "all":
+        users = await db.users.find({}).to_list(length=None)
+        for user in users:
+            if user.get("email"):
+                emails.append(user.get("email"))
+    
+    # Remove duplicates
+    emails = list(set(filter(None, emails)))
+    
+    # Store notification
+    notification = {
+        "target_type": target_type,
+        "target_id": target_id,
+        "subject": subject,
+        "message": message,
+        "emails_sent": emails,
+        "sent_at": datetime.now(timezone.utc).isoformat(),
+        "sent_by": "admin"
+    }
+    await db.notifications.insert_one(notification)
+    
+    return {
+        "success": True,
+        "emails_sent": len(emails),
+        "recipients": emails
+    }
 
 
 @router.put("/subscriptions/{company_id}/extend")
