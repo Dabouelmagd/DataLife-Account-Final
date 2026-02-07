@@ -48,6 +48,27 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
   - Can I export data and reports?
   - What payment methods are available?
 
+#### 3. AI Support Chatbot (NEW)
+- **AI-Powered**: Uses OpenAI GPT-5.2 via Emergent Universal Key
+- **Floating Widget**: Appears on all pages in bottom-right corner
+- **Bilingual Support**: Works in Arabic and English
+- **Features**:
+  - 🤖 Intelligent AI responses about DataLife ERP
+  - 💬 Real-time chat with typing indicator
+  - 🗑️ Clear chat history
+  - 📧 Email chat transcript to user
+  - 👤 Request human support (creates support ticket)
+  - ⬆️ Minimize/maximize chat window
+- **Backend API Endpoints**:
+  - POST `/api/chatbot/send` - Send message and get AI response
+  - GET `/api/chatbot/history/{session_id}` - Get chat history
+  - POST `/api/chatbot/email-transcript` - Email conversation
+  - POST `/api/chatbot/request-human-support` - Create support ticket
+  - DELETE `/api/chatbot/session/{session_id}` - Clear session
+- **Files Created**:
+  - `/app/backend/api/chatbot.py` - Backend API
+  - `/app/frontend/src/components/SupportChatbot.jsx` - Frontend component
+
 ---
 
 ## Previous Session Completions
