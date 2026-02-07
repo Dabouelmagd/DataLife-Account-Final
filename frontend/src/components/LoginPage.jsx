@@ -84,10 +84,18 @@ const LoginPage = () => {
     const result = await login(formData.email, formData.password);
     
     if (result.success) {
-      // Get subscription code from user data
-      const code = result.user?.subscription_code || result.user?.company_id?.slice(0, 8).toUpperCase() || '';
-      setSubscriptionCode(code);
-      setShowSubscriptionModal(true);
+      // Check if user is Super Admin
+      const isSuperAdmin = result.user?.role === 'Super Admin' || result.user?.role === 'مدير النظام';
+      
+      if (isSuperAdmin) {
+        // Redirect Super Admin directly to Admin Dashboard
+        navigate('/admin');
+      } else {
+        // Show subscription code for regular users
+        const code = result.user?.subscription_code || result.user?.company_id?.slice(0, 8).toUpperCase() || '';
+        setSubscriptionCode(code);
+        setShowSubscriptionModal(true);
+      }
     } else {
       setError(result.error);
     }
