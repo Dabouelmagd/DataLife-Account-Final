@@ -665,10 +665,10 @@ const ProjectsModule = () => {
 
             <div className="space-y-2">
               <Label>{t.project}</Label>
-              <Select value={taskForm.project_id} onValueChange={(v) => setTaskForm({...taskForm, project_id: v})}>
+              <Select value={taskForm.project_id || "none"} onValueChange={(v) => setTaskForm({...taskForm, project_id: v === "none" ? "" : v})}>
                 <SelectTrigger><SelectValue placeholder={isRTL ? 'اختر المشروع' : 'Select Project'} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{isRTL ? 'بدون مشروع' : 'No Project'}</SelectItem>
+                  <SelectItem value="none">{isRTL ? 'بدون مشروع' : 'No Project'}</SelectItem>
                   {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
