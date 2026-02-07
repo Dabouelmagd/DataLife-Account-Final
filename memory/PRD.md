@@ -56,7 +56,15 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - **NEW** Period comparison functionality
 - **NEW** Monthly breakdown analysis
 
-### Subscription System ✅
+### Admin Dashboard ✅ (NEW)
+- Statistics overview (companies, users, subscriptions, revenue)
+- Plan breakdown visualization
+- Expiring subscriptions alerts
+- Recent transactions list
+- Subscription management
+- Payment transactions history
+- Activation codes management (generate, bulk generate, toggle, delete)
+- Companies list with subscription info
 - Backend API for plans and activation codes
 - **NEW** Frontend UI for subscriptions (`/subscription` route)
 - **NEW** Stripe payment integration (fully functional)
