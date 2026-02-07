@@ -80,7 +80,7 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [BLOCKED] Production database user migration (password_hash consistency)
 
 ### P1 - High Priority
-- Date filtering for financial reports (UI added, needs backend wiring)
+- None currently
 
 ### P2 - Medium Priority
 - Remove console.log statements from frontend
