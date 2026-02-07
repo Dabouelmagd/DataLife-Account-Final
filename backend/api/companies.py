@@ -35,6 +35,19 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     
     return payload
 
+@router.get("/current", response_model=None)
+async def get_current_company(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get current user's company details"""
+    company_id = current_user.get("company_id")
+    
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    return company
+
 @router.get("/{company_id}", response_model=CompanyResponse)
 async def get_company(
     company_id: str,
