@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 
 # Get backend URL from environment
-BACKEND_URL = "https://workflow-engine-42.preview.emergentagent.com/api"
+BACKEND_URL = "https://erp-projects-app.preview.emergentagent.com/api"
 
 class ComprehensiveAPITester:
     def __init__(self):
