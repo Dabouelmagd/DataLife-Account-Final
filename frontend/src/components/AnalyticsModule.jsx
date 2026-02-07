@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { Button } from './ui/button';
 import { 
   TrendingUp, TrendingDown, Users, DollarSign, Package, 
-  Download, FileText, Calendar, BarChart3, PieChart as PieChartIcon
+  Download, FileText, Calendar, BarChart3, PieChart as PieChartIcon, Printer, File
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
+import { printContent, exportToPDF, generateTableHTML, generateStatsHTML } from '../utils/printExport';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
