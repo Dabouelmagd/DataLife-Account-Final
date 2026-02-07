@@ -26,6 +26,7 @@ from api.whatsapp import router as whatsapp_router
 from api.invoices import router as invoices_router
 from api.attendance import router as attendance_router
 from api.tasks import router as tasks_router
+from api.customer_portal import router as customer_portal_router
 
 
 ROOT_DIR = Path(__file__).parent
