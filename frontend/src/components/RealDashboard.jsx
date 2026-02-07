@@ -20,6 +20,7 @@ import { getTranslation } from '../data/translations';
 import NotificationCenter from './NotificationCenter';
 import InvoicesModule from './InvoicesModule';
 import CustomerPortalManagement from './CustomerPortalManagement';
+import PurchasesModule from './PurchasesModule';
 
 // Import sub-modules from existing files
 import {
