@@ -205,6 +205,28 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Stats Section */}
+      <section className="py-12 bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { value: '27+', label: language === 'ar' ? 'شركة مسجلة' : 'Registered Companies', icon: Building2 },
+              { value: '68+', label: language === 'ar' ? 'مستخدم نشط' : 'Active Users', icon: Users },
+              { value: '10', label: language === 'ar' ? 'وحدات متكاملة' : 'Integrated Modules', icon: Database },
+              { value: '24/7', label: language === 'ar' ? 'دعم فني' : 'Technical Support', icon: HeadphonesIcon },
+            ].map((stat, idx) => (
+              <div key={idx} className="text-center">
+                <div className="w-12 h-12 bg-[#28376B]/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <stat.icon className="h-6 w-6 text-[#28376B]" />
+                </div>
+                <div className="text-3xl md:text-4xl font-bold text-[#28376B] mb-1">{stat.value}</div>
+                <div className="text-gray-600 text-sm">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
