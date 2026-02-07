@@ -256,74 +256,70 @@ const PricingSection = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
               {subscriptionPlans.map((plan, index) => {
                 const discount = getDiscountPercentage(plan);
+                // Different colors for each plan
+                const planColors = [
+                  { bg: 'from-blue-500 to-blue-600', light: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600', badge: 'bg-blue-100 text-blue-700' },
+                  { bg: 'from-purple-500 to-indigo-600', light: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-600', badge: 'bg-purple-100 text-purple-700' },
+                  { bg: 'from-amber-500 to-orange-600', light: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-600', badge: 'bg-amber-100 text-amber-700' }
+                ];
+                const colors = planColors[index];
+                
                 return (
                   <Card 
                     key={plan.id} 
-                    className={`relative ${
+                    className={`relative overflow-hidden ${
                       plan.popular 
-                        ? 'border-[#28376B] border-2 shadow-xl scale-105' 
-                        : 'border-gray-200 hover:shadow-lg'
-                    } transition-all duration-300`}
+                        ? `border-2 ${colors.border} shadow-2xl scale-105` 
+                        : 'border-gray-200 hover:shadow-xl'
+                    } transition-all duration-300 hover:-translate-y-1`}
                   >
-                    {plan.popular && (
-                      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                        <Badge className="bg-[#28376B] text-white px-4 py-1">
-                          <Star className="h-3 w-3 mr-1" />
-                          {t('pricing.popular')}
-                        </Badge>
-                      </div>
-                    )}
-
-                    <CardHeader className="text-center pb-4">
-                      <div className="flex justify-center mb-4">
-                        <div className={`p-3 rounded-full ${
-                          plan.popular ? 'bg-[#28376B]' : 'bg-gray-100'
-                        }`}>
-                          <div className={plan.popular ? 'text-white' : 'text-gray-600'}>
-                            {plan.icon}
-                          </div>
+                    {/* Colored Header */}
+                    <div className={`bg-gradient-to-r ${colors.bg} p-6 text-white`}>
+                      {plan.popular && (
+                        <div className="absolute top-3 right-3">
+                          <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm">
+                            <Star className="h-3 w-3 mr-1" />
+                            {t('pricing.popular')}
+                          </Badge>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                          {plan.icon}
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl font-bold text-white">{plan.name}</CardTitle>
+                          <p className="text-white/80 text-sm">{plan.employees} {t('pricing.employees')}</p>
                         </div>
                       </div>
-                      <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
-                      <CardDescription className="text-gray-600 mt-2">
-                        {plan.description}
-                      </CardDescription>
                       
-                      <div className="mt-6">
+                      <div className="mt-4">
                         {discount > 0 && (
-                          <div className="text-sm text-gray-500 line-through">
+                          <div className="text-sm text-white/60 line-through">
                             {plan.monthlyPrice * 12} {plan.currency}/{t('pricing.billing.year')}
                           </div>
                         )}
-                        <div className="text-4xl font-bold text-gray-900">
-                          {getCurrentPrice(plan)}
-                          <span className="text-sm text-gray-500 font-normal ml-1">
-                            {plan.currency}
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-bold">{getCurrentPrice(plan)}</span>
+                          <span className="text-lg text-white/80">{plan.currency}</span>
+                          <span className="text-sm text-white/60">
+                            /{billingCycle === 'monthly' ? t('pricing.billing.month') : t('pricing.billing.year')}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-600">
-                          /{billingCycle === 'monthly' ? t('pricing.billing.month') : t('pricing.billing.year')}
-                        </div>
                         {discount > 0 && (
-                          <Badge className="mt-2 bg-green-100 text-green-800">
+                          <Badge className="mt-2 bg-white/20 text-white border-0">
                             {t('pricing.billing.savePercent').replace('%d', discount)}
                           </Badge>
                         )}
                       </div>
+                    </div>
 
-                      <div className="mt-4 text-sm text-gray-600">
-                        {plan.employees} {t('pricing.employees')}
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="pt-0">
+                    <CardContent className="p-6">
+                      <p className="text-gray-600 text-sm mb-6">{plan.description}</p>
+                      
                       <Button 
                         onClick={() => handlePlanSelect(plan)}
-                        className={`w-full mb-6 ${
-                          plan.popular 
-                            ? 'bg-[#28376B] hover:bg-[#1e2a5a]' 
-                            : 'bg-gray-900 hover:bg-gray-800'
-                        }`}
+                        className={`w-full mb-6 bg-gradient-to-r ${colors.bg} hover:opacity-90 transition-opacity`}
                       >
                         {plan.buttonText}
                       </Button>
@@ -331,13 +327,17 @@ const PricingSection = () => {
                       <div className="space-y-3">
                         {plan.features.map((feature, featureIndex) => (
                           <div key={featureIndex} className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3`}>
-                            <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                            <span className="text-sm text-gray-600">{feature}</span>
+                            <div className={`w-5 h-5 rounded-full ${colors.light} flex items-center justify-center flex-shrink-0`}>
+                              <CheckCircle className={`h-3.5 w-3.5 ${colors.text}`} />
+                            </div>
+                            <span className="text-sm text-gray-700">{feature}</span>
                           </div>
                         ))}
                         {plan.notIncluded.map((feature, featureIndex) => (
                           <div key={featureIndex} className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3 opacity-50`}>
-                            <X className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                            <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                              <X className="h-3.5 w-3.5 text-gray-400" />
+                            </div>
                             <span className="text-sm text-gray-400">{feature}</span>
                           </div>
                         ))}
