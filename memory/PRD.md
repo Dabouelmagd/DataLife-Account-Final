@@ -137,6 +137,7 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [ ] Local Payment Gateways
 - [ ] Dark mode toggle
 - [ ] Actual video content for video modal
+- [ ] Email integration for chatbot transcripts (SendGrid/SMTP)
 
 ### P2 - Backlog
 - [ ] Custom themes
