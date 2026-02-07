@@ -162,21 +162,45 @@ const SubscriptionPage = () => {
     setError('');
     
     try {
-      const response = await axios.post(
-        `${API_URL}/api/subscriptions/create`,
-        {
-          plan: selectedPlan,
-          duration: selectedDuration,
-          payment_method: 'manual',
-          activation_code: activationCode || null
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      setSuccess(isRTL ? 'تم الاشتراك بنجاح!' : 'Subscription successful!');
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+      // If activation code is valid, use manual subscription
+      if (activationCode && codeValidation?.valid) {
+        const response = await axios.post(
+          `${API_URL}/api/subscriptions/create`,
+          {
+            plan: selectedPlan,
+            duration: selectedDuration,
+            payment_method: 'manual',
+            activation_code: activationCode
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        
+        setSuccess(isRTL ? 'تم الاشتراك بنجاح!' : 'Subscription successful!');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 2000);
+      } else {
+        // Use Stripe payment
+        const packageId = `${selectedPlan}_${selectedDuration.replace('_months', '').replace('_', '')}`;
+        
+        const response = await axios.post(
+          `${API_URL}/api/payments/create-checkout`,
+          {
+            package_id: packageId,
+            origin_url: window.location.origin,
+            user_email: user?.email,
+            company_id: user?.company_id
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        
+        // Redirect to Stripe checkout
+        if (response.data.url) {
+          window.location.href = response.data.url;
+        } else {
+          throw new Error('No checkout URL received');
+        }
+      }
     } catch (error) {
       setError(error.response?.data?.detail || (isRTL ? 'فشل الاشتراك' : 'Subscription failed'));
     } finally {
