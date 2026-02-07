@@ -898,42 +898,22 @@ const RealDashboard = () => {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100" dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* Modern Sidebar */}
-      <div className="w-72 bg-gradient-to-b from-[#1e293b] to-[#0f172a] shadow-2xl flex flex-col relative overflow-hidden">
-        {/* Decorative Background Elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-32 translate-x-32"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl translate-y-32 -translate-x-32"></div>
-        
-        {/* Company Logo/Name - Modern Header */}
-        <div className="p-6 pb-4 relative z-10">
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/20 shadow-xl">
-            {company?.logo_url ? (
-              <img src={company.logo_url} alt={company.name} className="h-14 object-contain mx-auto filter drop-shadow-lg" />
-            ) : (
-              <h2 className="text-xl font-bold text-white text-center tracking-tight">{company?.name}</h2>
-            )}
-          </div>
-        </div>
-
-        {/* Current User Info - Professional Card */}
-        <div className="px-6 pb-4 relative z-10">
-          <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-lg rounded-2xl p-4 border border-white/20 shadow-xl">
-            <div className="flex items-center gap-3">
-              {/* Notification Bell */}
-              <NotificationCenter />
-              
-              {/* User Avatar */}
-              {user?.profile_photo_url ? (
-                <img
-                  src={user.profile_photo_url}
-                  alt={user.full_name}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-white/50 shadow-lg"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                  {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
-                </div>
-              )}
+      {/* Modern Sidebar - Redesigned */}
+      <ModernSidebar
+        user={user}
+        language={language}
+        modules={modules}
+        activeModule={activeModule}
+        setActiveModule={setActiveModule}
+        activeHRSubModule={activeHRSubModule}
+        setActiveHRSubModule={setActiveHRSubModule}
+        activeFinancialSubModule={activeFinancialSubModule}
+        setActiveFinancialSubModule={setActiveFinancialSubModule}
+        hrSubModules={hrSubModules}
+        financialSubModules={financialSubModules}
+        onLogout={handleLogout}
+        navigate={navigate}
+      />
               
               {/* User Details */}
               <div className="flex-1 min-w-0">
