@@ -1263,6 +1263,86 @@ const AdminDashboard = () => {
             </Card>
           </div>
         )}
+
+        {/* All Users Tab */}
+        {activeTab === 'users' && (
+          <div className="space-y-4">
+            {/* Search and Filter */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={userSearchQuery}
+                      onChange={(e) => handleUserSearch(e.target.value)}
+                      placeholder={isRTL ? 'بحث بالاسم، البريد، الشركة...' : 'Search by name, email, company...'}
+                      className="w-full px-4 py-2 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      data-testid="user-search-input"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Users className="h-5 w-5" />
+                    {filteredUsers.length} {isRTL ? 'مستخدم' : 'users'}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Users Table */}
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{isRTL ? 'الاسم' : 'Name'}</TableHead>
+                      <TableHead>{t.email}</TableHead>
+                      <TableHead>{t.company}</TableHead>
+                      <TableHead>{isRTL ? 'الدور' : 'Role'}</TableHead>
+                      <TableHead>{t.status}</TableHead>
+                      <TableHead>{isRTL ? 'الصلاحيات' : 'Permissions'}</TableHead>
+                      <TableHead>{t.actions}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((usr, idx) => (
+                      <TableRow key={idx} className={!usr.is_active ? 'bg-red-50' : ''}>
+                        <TableCell className="font-medium">{usr.full_name || '-'}</TableCell>
+                        <TableCell>{usr.email}</TableCell>
+                        <TableCell>{usr.company_name || '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{usr.role || '-'}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={usr.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                            {usr.is_active ? (isRTL ? 'نشط' : 'Active') : (isRTL ? 'معلق' : 'Suspended')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-gray-500">
+                            {usr.permissions?.length || 0} {isRTL ? 'صلاحية' : 'perms'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditPermissions(usr)}
+                            className="text-blue-600 hover:text-blue-700"
+                            title={t.editPermissions}
+                            data-testid={`edit-user-permissions-${usr.id}`}
+                          >
+                            <Shield className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
