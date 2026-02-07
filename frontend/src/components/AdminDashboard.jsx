@@ -104,7 +104,23 @@ const AdminDashboard = () => {
     endDate: isRTL ? 'تاريخ الانتهاء' : 'End Date',
     userCount: isRTL ? 'عدد المستخدمين' : 'Users',
     copied: isRTL ? 'تم النسخ!' : 'Copied!',
-    currency: isRTL ? 'ج.م' : 'EGP'
+    currency: isRTL ? 'ج.م' : 'EGP',
+    suspend: isRTL ? 'إيقاف' : 'Suspend',
+    activate: isRTL ? 'تفعيل' : 'Activate',
+    suspended: isRTL ? 'موقوف' : 'Suspended',
+    viewUsers: isRTL ? 'عرض المستخدمين' : 'View Users',
+    sendNotification: isRTL ? 'إرسال إشعار' : 'Send Notification',
+    subject: isRTL ? 'الموضوع' : 'Subject',
+    message: isRTL ? 'الرسالة' : 'Message',
+    send: isRTL ? 'إرسال' : 'Send',
+    targetType: isRTL ? 'نوع الهدف' : 'Target Type',
+    allUsers: isRTL ? 'جميع المستخدمين' : 'All Users',
+    specificCompany: isRTL ? 'شركة محددة' : 'Specific Company',
+    specificUser: isRTL ? 'مستخدم محدد' : 'Specific User',
+    companyUsers: isRTL ? 'مستخدمو الشركة' : 'Company Users',
+    close: isRTL ? 'إغلاق' : 'Close',
+    role: isRTL ? 'الدور' : 'Role',
+    lastLogin: isRTL ? 'آخر دخول' : 'Last Login'
   };
 
   const planNames = {
