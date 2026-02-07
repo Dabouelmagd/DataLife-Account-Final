@@ -27,7 +27,6 @@ export const useRealTimeSync = (onUpdate) => {
       wsRef.current.onopen = () => {
         setIsConnected(true);
         reconnectAttempts.current = 0;
-        console.log('Real-time sync connected');
       };
 
       wsRef.current.onmessage = (event) => {
@@ -52,13 +51,12 @@ export const useRealTimeSync = (onUpdate) => {
             toast.info('تم تحديث أمر شراء');
           }
         } catch (e) {
-          console.error('Error parsing WebSocket message:', e);
+          // Silent error handling for WebSocket messages
         }
       };
 
       wsRef.current.onclose = () => {
         setIsConnected(false);
-        console.log('Real-time sync disconnected');
 
         // Attempt to reconnect
         if (reconnectAttempts.current < maxReconnectAttempts) {
