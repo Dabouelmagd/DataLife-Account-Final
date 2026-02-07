@@ -239,6 +239,237 @@ const CompanySettings = () => {
           </CardContent>
         </Card>
       </div>
+        )}
+
+        {/* Profile Tab */}
+        {activeTab === 'profile' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* User Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-[#28376B]" />
+                  {language === 'ar' ? 'معلومات المستخدم' : 'User Information'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  {user?.profile_photo_url ? (
+                    <img
+                      src={user.profile_photo_url}
+                      alt={user.full_name}
+                      className="w-20 h-20 rounded-full object-cover border-4 border-[#28376B]/20"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#28376B] to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                      {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">{user?.full_name}</h3>
+                    <p className="text-gray-500">{user?.email}</p>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{language === 'ar' ? 'الدور الوظيفي' : 'Role'}</span>
+                    <span className="font-semibold text-[#28376B]">{user?.role}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{language === 'ar' ? 'الحالة' : 'Status'}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      user?.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {user?.is_active ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{language === 'ar' ? 'تاريخ الانضمام' : 'Joined'}</span>
+                    <span className="font-semibold">{new Date(user?.created_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Subscription Code Card */}
+            <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-amber-700">
+                  <Key className="h-5 w-5" />
+                  {language === 'ar' ? 'كود الاشتراك' : 'Subscription Code'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-6">
+                  <p className="text-sm text-amber-600 mb-3">
+                    {language === 'ar' ? 'احفظ هذا الكود، ستحتاجه لإدارة حسابك' : 'Save this code, you will need it to manage your account'}
+                  </p>
+                  <div className="bg-white rounded-xl p-4 border-2 border-amber-200 inline-block">
+                    <code className="text-3xl font-mono font-bold text-amber-600 tracking-widest">
+                      {subscriptionCode}
+                    </code>
+                  </div>
+                  <div className="mt-4">
+                    <Button
+                      onClick={handleCopyCode}
+                      className={`${copied ? 'bg-green-600' : 'bg-amber-600'} hover:bg-amber-700`}
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          {language === 'ar' ? 'تم النسخ!' : 'Copied!'}
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4 mr-2" />
+                          {language === 'ar' ? 'نسخ الكود' : 'Copy Code'}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Permissions Card */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-[#28376B]" />
+                  {language === 'ar' ? 'الصلاحيات' : 'Permissions'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { id: 'dashboard', name: language === 'ar' ? 'لوحة التحكم' : 'Dashboard' },
+                    { id: 'hr', name: language === 'ar' ? 'الموارد البشرية' : 'Human Resources' },
+                    { id: 'financial', name: language === 'ar' ? 'الإدارة المالية' : 'Financial' },
+                    { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices' },
+                    { id: 'purchases', name: language === 'ar' ? 'المشتريات' : 'Purchases' },
+                    { id: 'projects', name: language === 'ar' ? 'المشاريع' : 'Projects' },
+                    { id: 'analytics', name: language === 'ar' ? 'التحليلات' : 'Analytics' },
+                    { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings' },
+                  ].map((module) => {
+                    // Check if user has access based on role (simplified check)
+                    const hasAccess = true; // In real app, check against user's actual permissions
+                    return (
+                      <div
+                        key={module.id}
+                        className={`p-3 rounded-lg border-2 flex items-center gap-2 ${
+                          hasAccess
+                            ? 'bg-green-50 border-green-200 text-green-700'
+                            : 'bg-red-50 border-red-200 text-red-700'
+                        }`}
+                      >
+                        <div className={`w-3 h-3 rounded-full ${hasAccess ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className="font-medium text-sm">{module.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Subscription Tab */}
+        {activeTab === 'subscription' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Subscription Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Key className="h-5 w-5 text-[#28376B]" />
+                  {language === 'ar' ? 'تفاصيل الاشتراك' : 'Subscription Details'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-gradient-to-r from-amber-100 to-orange-100 rounded-xl p-4 text-center">
+                  <p className="text-sm text-amber-600 mb-2">{language === 'ar' ? 'كود الاشتراك' : 'Subscription Code'}</p>
+                  <code className="text-2xl font-mono font-bold text-amber-700 tracking-widest">
+                    {subscriptionCode}
+                  </code>
+                  <Button
+                    onClick={handleCopyCode}
+                    size="sm"
+                    className="mt-3 bg-amber-600 hover:bg-amber-700"
+                  >
+                    {copied ? (
+                      <><Check className="h-3 w-3 mr-1" /> {language === 'ar' ? 'تم!' : 'Done!'}</>
+                    ) : (
+                      <><Copy className="h-3 w-3 mr-1" /> {language === 'ar' ? 'نسخ' : 'Copy'}</>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="space-y-3 pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">{language === 'ar' ? 'نوع الاشتراك' : 'Plan Type'}</span>
+                    <span className="font-semibold text-[#28376B]">
+                      {company?.subscription_status === 'active' 
+                        ? (language === 'ar' ? 'اشتراك مدفوع' : 'Paid Plan')
+                        : (language === 'ar' ? 'فترة تجريبية' : 'Trial Period')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">{language === 'ar' ? 'الحالة' : 'Status'}</span>
+                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                      company?.subscription_status === 'active' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {company?.subscription_status === 'active' 
+                        ? (language === 'ar' ? 'نشط' : 'Active')
+                        : (language === 'ar' ? 'تجريبي' : 'Trial')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">{language === 'ar' ? 'الشركة' : 'Company'}</span>
+                    <span className="font-semibold">{company?.name}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Features Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-[#28376B]" />
+                  {language === 'ar' ? 'المميزات المتاحة' : 'Available Features'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {[
+                    { name: language === 'ar' ? 'إدارة الموظفين' : 'Employee Management', included: true },
+                    { name: language === 'ar' ? 'إدارة الرواتب' : 'Payroll Management', included: true },
+                    { name: language === 'ar' ? 'الفواتير والمبيعات' : 'Invoices & Sales', included: true },
+                    { name: language === 'ar' ? 'إدارة المشتريات' : 'Purchases Management', included: true },
+                    { name: language === 'ar' ? 'إدارة المشاريع' : 'Projects Management', included: true },
+                    { name: language === 'ar' ? 'التقارير المتقدمة' : 'Advanced Reports', included: true },
+                    { name: language === 'ar' ? 'التحليلات الذكية' : 'Smart Analytics', included: true },
+                    { name: language === 'ar' ? 'الدعم الفني' : 'Technical Support', included: true },
+                  ].map((feature, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                        feature.included ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                      }`}>
+                        <Check className="h-3 w-3" />
+                      </div>
+                      <span className={feature.included ? 'text-gray-700' : 'text-gray-400'}>
+                        {feature.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+    </div>
     </div>
   );
 };
