@@ -510,3 +510,85 @@ async def extend_subscription(
         "new_end": new_end.isoformat(),
         "days_added": days
     }
+
+
+@router.get("/permissions")
+async def get_all_permissions(authorization: Optional[str] = Header(None)):
+    """Get all available permissions in the system"""
+    await verify_admin(authorization)
+    
+    # All available permissions with their labels
+    ALL_PERMISSIONS = [
+        {'id': 'dashboard', 'name_en': 'Dashboard', 'name_ar': 'لوحة التحكم'},
+        {'id': 'hr', 'name_en': 'Human Resources', 'name_ar': 'الموارد البشرية'},
+        {'id': 'financial', 'name_en': 'Financial', 'name_ar': 'الإدارة المالية'},
+        {'id': 'invoices', 'name_en': 'Invoices', 'name_ar': 'الفواتير'},
+        {'id': 'purchases', 'name_en': 'Purchases', 'name_ar': 'المشتريات'},
+        {'id': 'projects', 'name_en': 'Projects', 'name_ar': 'المشاريع'},
+        {'id': 'analytics', 'name_en': 'Analytics', 'name_ar': 'التحليلات'},
+        {'id': 'settings', 'name_en': 'Settings', 'name_ar': 'الإعدادات'},
+        {'id': 'users', 'name_en': 'User Management', 'name_ar': 'إدارة المستخدمين'},
+        {'id': 'approvals', 'name_en': 'Approvals', 'name_ar': 'الموافقات'},
+    ]
+    
+    return ALL_PERMISSIONS
+
+
+@router.get("/users/{user_id}/permissions")
+async def get_user_permissions(
+    user_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Get permissions for a specific user"""
+    await verify_admin(authorization)
+    
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "permissions": 1, "role": 1, "full_name": 1})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "user_id": user_id,
+        "full_name": user.get("full_name", ""),
+        "role": user.get("role", ""),
+        "permissions": user.get("permissions", [])
+    }
+
+
+@router.put("/users/{user_id}/permissions")
+async def update_user_permissions(
+    user_id: str,
+    request_data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Update permissions for a specific user - Super Admin only"""
+    await verify_admin(authorization)
+    
+    permissions = request_data.get("permissions", [])
+    
+    # Validate permissions
+    valid_permission_ids = ['dashboard', 'hr', 'financial', 'invoices', 'purchases', 
+                           'projects', 'analytics', 'settings', 'users', 'approvals']
+    
+    for perm in permissions:
+        if perm not in valid_permission_ids:
+            raise HTTPException(status_code=400, detail=f"Invalid permission: {perm}")
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update user permissions
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "permissions": permissions,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "user_id": user_id,
+        "full_name": user.get("full_name"),
+        "permissions": permissions,
+        "message": "Permissions updated successfully"
+    }
