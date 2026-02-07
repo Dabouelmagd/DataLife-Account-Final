@@ -222,7 +222,8 @@ async def create_notification(
     }
     
     await db.notifications.insert_one(notification)
-    del notification["_id"] if "_id" in notification else None
+    if "_id" in notification:
+        del notification["_id"]
     
     # Send real-time notification
     if notification.get("user_id"):
