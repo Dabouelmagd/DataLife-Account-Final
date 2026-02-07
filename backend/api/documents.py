@@ -570,52 +570,6 @@ async def advanced_search(
     return documents
 
 
-# ============ STATISTICS ============
-
-@router.get("/stats")
-async def get_document_stats(authorization: Optional[str] = Header(None)):
-    """Get document statistics"""
-    user_data = await verify_token(authorization)
-    company_id = user_data.get("company_id")
-    
-    documents = await db.documents.find(
-        {"company_id": company_id},
-        {"_id": 0}
-    ).to_list(length=None)
-    
-    total_docs = len(documents)
-    total_size = sum(d.get("file_size", 0) for d in documents)
-    
-    # By category
-    by_category = {}
-    for doc in documents:
-        cat = doc.get("category", "other")
-        if cat not in by_category:
-            by_category[cat] = {"count": 0, "size": 0}
-        by_category[cat]["count"] += 1
-        by_category[cat]["size"] += doc.get("file_size", 0)
-    
-    # By type
-    by_type = {}
-    for doc in documents:
-        ftype = doc.get("file_type", "other")
-        if ftype not in by_type:
-            by_type[ftype] = 0
-        by_type[ftype] += 1
-    
-    # Recent uploads
-    recent = sorted(documents, key=lambda x: x.get("created_at", ""), reverse=True)[:10]
-    
-    return {
-        "total_documents": total_docs,
-        "total_size_bytes": total_size,
-        "total_size_mb": round(total_size / (1024 * 1024), 2),
-        "by_category": by_category,
-        "by_type": by_type,
-        "recent_uploads": [{"id": d.get("id"), "name": d.get("name"), "created_at": d.get("created_at")} for d in recent]
-    }
-
-
 def get_file_type(extension: str) -> str:
     """Get file type from extension"""
     types = {
