@@ -114,8 +114,14 @@ async def authenticate_user(db: AsyncIOMotorClient, email: str, password: str) -
 
 async def get_users_by_company(db: AsyncIOMotorClient, company_id: str) -> List[User]:
     """Get all users in a company"""
-    users = await db.users.find({"company_id": company_id}).to_list(length=1000)
-    return [User(**user) for user in users]
+    users_data = await db.users.find({"company_id": company_id}).to_list(length=1000)
+    users = []
+    for user_data in users_data:
+        # Ensure permissions field exists
+        if 'permissions' not in user_data:
+            user_data['permissions'] = get_default_permissions_for_role(user_data.get('role', 'Accountant'))
+        users.append(User(**user_data))
+    return users
 
 async def update_user_role(db: AsyncIOMotorClient, user_id: str, role: str) -> Optional[User]:
     """Update a user's role"""
