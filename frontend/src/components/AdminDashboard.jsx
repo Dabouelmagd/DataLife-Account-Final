@@ -65,6 +65,11 @@ const AdminDashboard = () => {
   const [userPermissions, setUserPermissions] = useState([]);
   const [savingPermissions, setSavingPermissions] = useState(false);
   
+  // All users tab
+  const [allUsers, setAllUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  
   // Toast notification
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
