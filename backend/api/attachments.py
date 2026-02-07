@@ -88,17 +88,23 @@ async def upload_attachment(
     
     await db.attachments.insert_one(attachment)
     
-    # Don't return file_data in response
-    del attachment["file_data"]
-    
-    # Broadcast update via WebSocket
-    await broadcast_update(company_id, "attachment_added", {
+    # Return response without _id and file_data
+    response = {
+        "id": attachment_id,
+        "company_id": company_id,
         "entity_type": entity_type,
         "entity_id": entity_id,
-        "attachment": attachment
-    })
+        "filename": filename,
+        "content_type": content_type,
+        "file_size": file_size,
+        "file_extension": file_extension,
+        "description": description,
+        "uploaded_by": user_id,
+        "uploaded_by_name": user_data.get("name", "Unknown"),
+        "created_at": attachment["created_at"]
+    }
     
-    return attachment
+    return response
 
 
 @router.get("/entity/{entity_type}/{entity_id}")
