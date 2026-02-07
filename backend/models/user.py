@@ -33,6 +33,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     created_at: str
+    subscription_code: Optional[str] = None  # Subscription/Company code for display
 
 class Token(BaseModel):
     access_token: str
