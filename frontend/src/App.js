@@ -16,6 +16,7 @@ import AdminDashboard from "./components/AdminDashboard";
 import AdminLogin from "./components/AdminLogin";
 import CustomerPortal from "./components/CustomerPortal";
 import FeaturesPage from "./components/FeaturesPage";
+import SupportChatbot from "./components/SupportChatbot";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
