@@ -542,8 +542,20 @@ const FeaturesPage = () => {
 
   const content = t[pageLang];
 
+  const moduleIcons = [Users, DollarSign, FileText, Package, FolderKanban, BarChart3];
+  const moduleColors = [
+    'from-blue-500 to-blue-600',
+    'from-green-500 to-emerald-600',
+    'from-purple-500 to-violet-600',
+    'from-orange-500 to-amber-600',
+    'from-pink-500 to-rose-600',
+    'from-cyan-500 to-teal-600'
+  ];
+  const adminIcons = [Building2, Users, CreditCard, Bell, BarChart3, Lock];
+  const techIcons = [Monitor, Database, Layers, Cloud];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
@@ -552,16 +564,25 @@ const FeaturesPage = () => {
               <img src="/logo.png" alt="DataLife" className="h-12" />
               <div>
                 <h1 className="text-2xl font-bold text-[#1e3a5f]">DataLife ERP</h1>
-                <p className="text-sm text-gray-500">نظام إدارة الموارد المؤسسية</p>
+                <p className="text-sm text-gray-500">{content.systemName}</p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center">
+              {/* Language Toggle Button */}
+              <Button 
+                variant="outline" 
+                onClick={toggleLanguage}
+                className="flex items-center gap-2 border-amber-500 text-amber-600 hover:bg-amber-50"
+              >
+                <Languages className="h-4 w-4" />
+                {pageLang === 'ar' ? 'English' : 'العربية'}
+              </Button>
               <Button variant="outline" onClick={() => navigate('/')}>
-                <ArrowRight className="h-4 w-4 ml-2" />
-                العودة للرئيسية
+                {isRTL ? <ArrowRight className="h-4 w-4 ml-2" /> : <ArrowLeft className="h-4 w-4 mr-2" />}
+                {content.backToHome}
               </Button>
               <Button onClick={() => navigate('/login')} className="bg-[#1e3a5f]">
-                تسجيل الدخول
+                {content.login}
               </Button>
             </div>
           </div>
@@ -571,26 +592,25 @@ const FeaturesPage = () => {
       {/* Hero Section */}
       <section className="py-16 bg-gradient-to-r from-[#1e3a5f] to-[#2d5a87] text-white">
         <div className="container mx-auto px-4 text-center">
-          <Badge className="bg-amber-500 text-white mb-4">الدليل الشامل</Badge>
+          <Badge className="bg-amber-500 text-white mb-4">{content.badge}</Badge>
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            دليل مميزات نظام DataLife ERP
+            {content.heroTitle}
           </h1>
           <p className="text-xl text-blue-100 max-w-3xl mx-auto mb-8">
-            نظام متكامل لإدارة موارد المؤسسات يدعم اللغة العربية والإنجليزية، 
-            مصمم خصيصاً لتلبية احتياجات الشركات العربية
+            {content.heroDesc}
           </p>
           <div className="flex justify-center gap-4 flex-wrap">
             <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full">
               <Globe className="h-5 w-5" />
-              <span>دعم ثنائي اللغة</span>
+              <span>{content.bilingual}</span>
             </div>
             <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full">
               <Cloud className="h-5 w-5" />
-              <span>سحابي 100%</span>
+              <span>{content.cloudBased}</span>
             </div>
             <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full">
               <Shield className="h-5 w-5" />
-              <span>حماية متقدمة</span>
+              <span>{content.advancedSecurity}</span>
             </div>
           </div>
         </div>
@@ -599,17 +619,17 @@ const FeaturesPage = () => {
       {/* Quick Navigation */}
       <section className="py-8 bg-white border-b">
         <div className="container mx-auto px-4">
-          <h2 className="text-xl font-bold text-center mb-6 text-gray-700">الانتقال السريع</h2>
+          <h2 className="text-xl font-bold text-center mb-6 text-gray-700">{content.quickNav}</h2>
           <div className="flex flex-wrap justify-center gap-3">
             {[
-              { id: 'overview', label: 'نظرة عامة', icon: BookOpen },
-              { id: 'modules', label: 'الوحدات الرئيسية', icon: Layers },
-              { id: 'hr', label: 'الموارد البشرية', icon: Users },
-              { id: 'finance', label: 'الإدارة المالية', icon: DollarSign },
-              { id: 'projects', label: 'المشاريع', icon: FolderKanban },
-              { id: 'reports', label: 'التقارير', icon: BarChart3 },
-              { id: 'admin', label: 'لوحة الإدارة', icon: Shield },
-              { id: 'howto', label: 'طريقة التشغيل', icon: Play },
+              { id: 'overview', label: content.navItems.overview, icon: BookOpen },
+              { id: 'modules', label: content.navItems.modules, icon: Layers },
+              { id: 'hr', label: content.navItems.hr, icon: Users },
+              { id: 'finance', label: content.navItems.finance, icon: DollarSign },
+              { id: 'projects', label: content.navItems.projects, icon: FolderKanban },
+              { id: 'reports', label: content.navItems.reports, icon: BarChart3 },
+              { id: 'admin', label: content.navItems.admin, icon: Shield },
+              { id: 'howto', label: content.navItems.howto, icon: Play },
             ].map((item) => (
               <a
                 key={item.id}
