@@ -129,7 +129,13 @@ const AdminDashboard = () => {
     companyUsers: isRTL ? 'مستخدمو الشركة' : 'Company Users',
     close: isRTL ? 'إغلاق' : 'Close',
     role: isRTL ? 'الدور' : 'Role',
-    lastLogin: isRTL ? 'آخر دخول' : 'Last Login'
+    lastLogin: isRTL ? 'آخر دخول' : 'Last Login',
+    editPermissions: isRTL ? 'تعديل الصلاحيات' : 'Edit Permissions',
+    permissions: isRTL ? 'الصلاحيات' : 'Permissions',
+    savePermissions: isRTL ? 'حفظ الصلاحيات' : 'Save Permissions',
+    permissionsUpdated: isRTL ? 'تم تحديث الصلاحيات بنجاح' : 'Permissions updated successfully',
+    selectAll: isRTL ? 'تحديد الكل' : 'Select All',
+    deselectAll: isRTL ? 'إلغاء تحديد الكل' : 'Deselect All'
   };
 
   const planNames = {
