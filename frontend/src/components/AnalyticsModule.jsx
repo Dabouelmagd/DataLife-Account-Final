@@ -72,8 +72,6 @@ export const AnalyticsModule = ({ language, userRole }) => {
     }
     
     try {
-      console.log('Starting PDF export...');
-
       const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     let yPosition = 20;
