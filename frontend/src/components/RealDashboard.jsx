@@ -203,6 +203,15 @@ const RealDashboard = () => {
       });
     }
 
+    // Purchases module - available to financial roles
+    if (financialRoles.includes(role)) {
+      modules.push({ 
+        id: 'purchases', 
+        name: language === 'ar' ? 'المشتريات' : 'Purchases', 
+        icon: <ShoppingCart /> 
+      });
+    }
+
     // Customer Portal Management - available to managers
     const managerRoles = ['General Manager', 'CEO', 'Board Chairman', 'Financial Manager', 
                           'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'المدير المالي'];
