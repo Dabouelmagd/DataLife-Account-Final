@@ -26,6 +26,26 @@ const UserManagement = () => {
   const [profileImage, setProfileImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
+  
+  // Permissions editing state
+  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [editingPermissionsUser, setEditingPermissionsUser] = useState(null);
+  const [userPermissions, setUserPermissions] = useState([]);
+  const [savingPermissions, setSavingPermissions] = useState(false);
+  
+  // All available permissions
+  const availablePermissions = [
+    { id: 'dashboard', name_en: 'Dashboard', name_ar: 'لوحة التحكم' },
+    { id: 'hr', name_en: 'Human Resources', name_ar: 'الموارد البشرية' },
+    { id: 'financial', name_en: 'Financial', name_ar: 'الإدارة المالية' },
+    { id: 'invoices', name_en: 'Invoices', name_ar: 'الفواتير' },
+    { id: 'purchases', name_en: 'Purchases', name_ar: 'المشتريات' },
+    { id: 'projects', name_en: 'Projects', name_ar: 'المشاريع' },
+    { id: 'analytics', name_en: 'Analytics', name_ar: 'التحليلات' },
+    { id: 'settings', name_en: 'Settings', name_ar: 'الإعدادات' },
+    { id: 'users', name_en: 'User Management', name_ar: 'إدارة المستخدمين' },
+    { id: 'approvals', name_en: 'Approvals', name_ar: 'الموافقات' },
+  ];
 
   // Show toast notification
   const showToast = (message, type = 'error') => {
