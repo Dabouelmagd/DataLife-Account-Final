@@ -127,7 +127,7 @@ const SubscriptionPage = () => {
       setCurrentSubscription(subscriptionRes.data);
       setPlans(plansRes.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      // Error fetching subscription data
     } finally {
       setLoading(false);
     }
