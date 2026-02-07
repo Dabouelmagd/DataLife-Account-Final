@@ -589,6 +589,38 @@ const AdminDashboard = () => {
               </Card>
             </div>
 
+            {/* Messages Card - Separate Row */}
+            <Card 
+              className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white cursor-pointer hover:shadow-xl transition-all"
+              onClick={() => setActiveTab('messages')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                      <MessageSquare className="h-7 w-7" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold">{isRTL ? 'رسائل الاتصال' : 'Contact Messages'}</h3>
+                      <p className="text-blue-100 text-sm">{isRTL ? 'اضغط لعرض جميع الرسائل' : 'Click to view all messages'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    {newMessagesCount > 0 && (
+                      <div className="text-center">
+                        <p className="text-3xl font-bold">{newMessagesCount}</p>
+                        <p className="text-sm opacity-80">{isRTL ? 'جديدة' : 'New'}</p>
+                      </div>
+                    )}
+                    <div className="text-center">
+                      <p className="text-3xl font-bold">{contactMessages.length}</p>
+                      <p className="text-sm opacity-80">{isRTL ? 'إجمالي' : 'Total'}</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Plan Breakdown & Expiring Soon */}
             <div className="grid md:grid-cols-2 gap-6">
               <Card>
