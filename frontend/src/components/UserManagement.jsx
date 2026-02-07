@@ -275,6 +275,72 @@ const UserManagement = () => {
     }
   };
 
+  // Open permissions modal
+  const handleEditPermissions = (usr) => {
+    setEditingPermissionsUser(usr);
+    setUserPermissions(usr.permissions || []);
+    setShowPermissionsModal(true);
+  };
+
+  // Toggle permission
+  const togglePermission = (permId) => {
+    setUserPermissions(prev => {
+      if (prev.includes(permId)) {
+        return prev.filter(p => p !== permId);
+      } else {
+        return [...prev, permId];
+      }
+    });
+  };
+
+  // Select all permissions
+  const selectAllPermissions = () => {
+    setUserPermissions(availablePermissions.map(p => p.id));
+  };
+
+  // Deselect all permissions
+  const deselectAllPermissions = () => {
+    setUserPermissions([]);
+  };
+
+  // Save permissions
+  const handleSavePermissions = async () => {
+    if (!editingPermissionsUser) return;
+    
+    setSavingPermissions(true);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/${editingPermissionsUser.id}/permissions`,
+        { permissions: userPermissions },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      showToast(
+        language === 'ar' ? 'تم تحديث الصلاحيات بنجاح' : 'Permissions updated successfully',
+        'success'
+      );
+      
+      // Update local state
+      setUsers(prev => prev.map(u => 
+        u.id === editingPermissionsUser.id 
+          ? { ...u, permissions: userPermissions }
+          : u
+      ));
+      
+      setShowPermissionsModal(false);
+      setEditingPermissionsUser(null);
+    } catch (error) {
+      console.error('Error saving permissions:', error);
+      showToast(
+        language === 'ar' ? 'خطأ في حفظ الصلاحيات' : 'Error saving permissions',
+        'error'
+      );
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
   // Get role color
   const getRoleColor = (role) => {
     if (['CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(role)) {
