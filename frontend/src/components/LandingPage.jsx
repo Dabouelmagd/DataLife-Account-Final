@@ -263,6 +263,207 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* NEW: Advanced Features Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <Badge className="bg-amber-500 text-white mb-4">
+              {language === 'ar' ? 'جديد' : 'NEW'}
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+              {language === 'ar' ? 'المميزات الاحترافية الجديدة' : 'New Professional Features'}
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              {language === 'ar' 
+                ? 'تحديثات جديدة تجعل إدارة أعمالك أسهل وأكثر احترافية'
+                : 'New updates that make managing your business easier and more professional'}
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* Permissions System */}
+            <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-purple-500 to-violet-600" />
+              <CardHeader>
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl flex items-center justify-center mb-4">
+                  <Shield className="h-7 w-7 text-white" />
+                </div>
+                <CardTitle className="text-xl">
+                  {language === 'ar' ? 'نظام الصلاحيات المتقدم' : 'Advanced Permissions System'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {[
+                    language === 'ar' ? '10 صلاحيات قابلة للتخصيص' : '10 customizable permissions',
+                    language === 'ar' ? 'تحكم كامل لكل مستخدم' : 'Full control for each user',
+                    language === 'ar' ? 'ألوان مميزة (أخضر/أحمر)' : 'Color indicators (green/red)',
+                    language === 'ar' ? 'صلاحية Dashboard إلزامية' : 'Dashboard permission required'
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-2 text-gray-600">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-sm">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Admin Panel */}
+            <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-amber-500 to-orange-600" />
+              <CardHeader>
+                <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mb-4">
+                  <Building2 className="h-7 w-7 text-white" />
+                </div>
+                <CardTitle className="text-xl">
+                  {language === 'ar' ? 'لوحة تحكم المسؤول' : 'Super Admin Panel'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {[
+                    language === 'ar' ? 'إدارة جميع الشركات' : 'Manage all companies',
+                    language === 'ar' ? 'تعطيل/تفعيل المستخدمين' : 'Enable/disable users',
+                    language === 'ar' ? 'إرسال الإشعارات' : 'Send notifications',
+                    language === 'ar' ? 'إنشاء أكواد الاشتراك' : 'Generate subscription codes'
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-2 text-gray-600">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-sm">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Subscription Code */}
+            <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-green-500 to-emerald-600" />
+              <CardHeader>
+                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mb-4">
+                  <CreditCard className="h-7 w-7 text-white" />
+                </div>
+                <CardTitle className="text-xl">
+                  {language === 'ar' ? 'كود الاشتراك الفريد' : 'Unique Subscription Code'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {[
+                    language === 'ar' ? 'يظهر بعد تسجيل الدخول' : 'Appears after login',
+                    language === 'ar' ? 'متاح في الشريط الجانبي' : 'Available in sidebar',
+                    language === 'ar' ? 'صفحة إعدادات مخصصة' : 'Dedicated settings page',
+                    language === 'ar' ? 'نسخ بضغطة واحدة' : 'One-click copy'
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-2 text-gray-600">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-sm">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Print & Export */}
+            <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-blue-500 to-cyan-600" />
+              <CardHeader>
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center mb-4">
+                  <FileText className="h-7 w-7 text-white" />
+                </div>
+                <CardTitle className="text-xl">
+                  {language === 'ar' ? 'الطباعة والتصدير' : 'Print & Export'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {[
+                    language === 'ar' ? 'طباعة احترافية بدون القوائم' : 'Professional print without menus',
+                    language === 'ar' ? 'تصدير PDF عالي الجودة' : 'High-quality PDF export',
+                    language === 'ar' ? 'تصدير CSV للتحليل' : 'CSV export for analysis',
+                    language === 'ar' ? 'متاح في جميع الوحدات' : 'Available in all modules'
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-2 text-gray-600">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-sm">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Modern Sidebar */}
+            <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-pink-500 to-rose-600" />
+              <CardHeader>
+                <div className="w-14 h-14 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl flex items-center justify-center mb-4">
+                  <Workflow className="h-7 w-7 text-white" />
+                </div>
+                <CardTitle className="text-xl">
+                  {language === 'ar' ? 'واجهة مستخدم حديثة' : 'Modern User Interface'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {[
+                    language === 'ar' ? 'شريط جانبي عصري' : 'Modern sidebar design',
+                    language === 'ar' ? 'أيقونات صلاحيات ملونة' : 'Colored permission icons',
+                    language === 'ar' ? 'تنقل سلس وسريع' : 'Smooth navigation',
+                    language === 'ar' ? 'دعم كامل للعربية RTL' : 'Full Arabic RTL support'
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-2 text-gray-600">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-sm">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Settings Page */}
+            <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-indigo-500 to-purple-600" />
+              <CardHeader>
+                <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4">
+                  <Database className="h-7 w-7 text-white" />
+                </div>
+                <CardTitle className="text-xl">
+                  {language === 'ar' ? 'إعدادات شاملة' : 'Comprehensive Settings'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {[
+                    language === 'ar' ? 'إعدادات الشركة' : 'Company settings',
+                    language === 'ar' ? 'الملف الشخصي' : 'Profile management',
+                    language === 'ar' ? 'تفاصيل الاشتراك' : 'Subscription details',
+                    language === 'ar' ? 'قائمة الصلاحيات' : 'Permissions list'
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-2 text-gray-600">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-sm">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* CTA Button */}
+          <div className="text-center mt-12">
+            <Button 
+              onClick={() => navigate('/features')}
+              size="lg"
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-8 py-6 rounded-xl text-lg shadow-lg hover:shadow-xl transition-all"
+            >
+              <FileText className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+              {language === 'ar' ? 'اكتشف الدليل الشامل' : 'Explore Full Guide'}
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* Modules Section */}
       <section id="modules" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-4xl mx-auto">
