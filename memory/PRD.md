@@ -5,63 +5,75 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ---
 
-## Session Updates (February 7, 2026 - Session 3)
+## Session Updates (December 2025 - Current Session)
 
 ### ✅ COMPLETED IN THIS SESSION:
 
-#### 1. Subscription Code Display (All 3 locations)
-- **Popup after Login**: Modal shows subscription code with copy button after successful login
-- **Popup after Registration**: Modal shows subscription code after company registration
-- **Sidebar**: Subscription code displayed in bottom section with copy functionality
-- Backend updated to return `subscription_code` in UserResponse model
+#### 1. Features Guide Page - Bilingual Support (NEW)
+- **Language Toggle Button**: Added a prominent button in the header to switch between Arabic and English
+- **Full Arabic Translation**: Complete Arabic content for all sections
+- **Full English Translation**: Complete English content for all sections
+- **RTL/LTR Support**: Dynamic direction change based on selected language
+- **Sections Translated**:
+  - System Overview
+  - Main Modules (6 modules)
+  - HR Module Details
+  - Financial Module Details
+  - Projects Module Details
+  - Reports & Export
+  - Admin Control Panel
+  - Permissions System
+  - How to Use (5 steps)
+  - Technical Specifications
+  - CTA Section
+  - Footer
 
-#### 2. Permission Icons with Colors
-- **Green icons**: Modules user has access to (allowed)
-- **Red icons**: Modules user doesn't have access to (not allowed)
-- Icons displayed in sidebar under user profile with tooltips
-
-#### 3. Print Excludes Sidebar
-- Added comprehensive `@media print` CSS rules in `index.css`
-- Hides sidebar, navigation elements when printing
-- Expands main content to full width
-- Print-friendly colors and formatting
-
-#### 4. All Print/Export Functions Verified Working
-- **HR > Salaries**: Print, CSV, PDF ✅
-- **HR > Reports**: Print, CSV, PDF ✅
-- **Financial Reports**: Print, CSV, PDF ✅
-- **Attendance**: Export CSV, PDF, Print ✅
-- **Projects**: Print, PDF ✅
-- **Purchases**: Print, PDF ✅
-- **Analytics**: Print ✅
+#### 2. FAQ Section Added to Landing Page (NEW)
+- **8 Frequently Asked Questions**: Comprehensive Q&A section
+- **Bilingual Content**: Both Arabic and English versions
+- **Accordion UI**: Expandable questions with smooth animations
+- **Contact CTA**: "Didn't find your answer?" section with contact button
+- **Questions Covered**:
+  - What is DataLife ERP?
+  - Can I try the system before purchasing?
+  - How is data stored and is it secure?
+  - Can I add multiple users?
+  - Does the system support Arabic?
+  - How can I get technical support?
+  - Can I export data and reports?
+  - What payment methods are available?
 
 ---
 
-### ✅ ALL ISSUES FROM USER FEEDBACK - RESOLVED:
+## Previous Session Completions
 
-1. ✅ **HR > Salaries print icon** - Fixed and working
-2. ✅ **HR > Salaries report display** - Working correctly
-3. ✅ **HR Reports print function** - Added and working
-4. ✅ **Attendance CSV export** - Working (requires generating report first)
-5. ✅ **Financial Reports PDF export** - Added and working
-6. ✅ **Purchases PDF export** - Working
-7. ✅ **Projects Print/PDF export** - Working
-8. ✅ **Advanced Analytics print** - Working
-9. ✅ **Subscription code display** - Added to all 3 locations
-10. ✅ **Sidebar hidden during print** - CSS @media print rules added
-11. ✅ **Permission icons** - Green (allowed) / Red (not allowed) colors
+### Session 3 (February 7, 2026):
+- ✅ Subscription Code Display (3 locations)
+- ✅ Permission Icons with Colors (green/red)
+- ✅ Print Excludes Sidebar
+- ✅ All Print/Export Functions
+- ✅ Advanced Permissions Management System
+- ✅ Super Admin Control Panel
+- ✅ Comprehensive Settings Page
+- ✅ Features Guide Page (Arabic only - now bilingual)
+- ✅ Homepage Updates with new features sections
+- ✅ Video Modal in Hero section
 
 ---
 
 ## Key Files Modified
 
-### Modified Files:
-- `/app/frontend/src/components/LoginPage.jsx` - Added subscription code popup after login
-- `/app/frontend/src/components/CompanyRegistrationPage.jsx` - Added subscription code popup after registration
-- `/app/frontend/src/components/ModernSidebar.jsx` - Added subscription code display, permission icons with colors
-- `/app/frontend/src/index.css` - Added @media print rules to hide sidebar
-- `/app/backend/models/user.py` - Added subscription_code field to UserResponse
-- `/app/backend/services/user_service.py` - Updated user_to_response to include subscription_code
+### Current Session:
+- `/app/frontend/src/components/FeaturesPage.jsx` - Added bilingual support with language toggle
+- `/app/frontend/src/components/LandingPage.jsx` - Added FAQ section with bilingual content
+
+### Previous Sessions:
+- `/app/frontend/src/components/LoginPage.jsx`
+- `/app/frontend/src/components/CompanyRegistrationPage.jsx`
+- `/app/frontend/src/components/ModernSidebar.jsx`
+- `/app/frontend/src/index.css`
+- `/app/backend/models/user.py`
+- `/app/backend/services/user_service.py`
 
 ---
 
@@ -71,6 +83,11 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - Email: finance.20251010_154022@company.com
 - Password: password123
 
+### Super Admin
+- URL: `/admin-login`
+- Email: admin@datalife.com
+- Password: adminpassword
+
 ---
 
 ## Prioritized Backlog
@@ -79,62 +96,27 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [x] All core ERP modules
 - [x] Print/Export for all major modules
 - [x] Modern Sidebar redesign
-- [x] Subscription code display (popup + sidebar + profile page)
+- [x] Subscription code display
 - [x] Permission icons with colors
 - [x] Print excludes sidebar
-- [x] Settings page with full content (3 tabs: Company, Profile, Subscription)
-- [x] **User Permissions Management System**:
-  - Permissions column in User Management page
-  - Dedicated Permissions Manager page (/permissions/:userId)
-  - Toggle switches for all 10 modules
-  - Admin-only access (General Manager, CEO, Board Chairman)
-  - Dashboard permission is required and cannot be disabled
-  - Green (enabled) / Red (disabled) color coding
-- [x] **Super Admin Control Panel** (/admin-login, /admin-dashboard):
-  - Separate Admin login page with secure design
-  - View all companies (27 companies)
-  - View all users (68 users)
-  - Toggle company status (suspend/activate)
-  - Toggle user status (suspend/activate)
-  - Send notifications to all users / specific company / specific user
-  - View company users in modal
-  - Generate activation codes
-  - Statistics dashboard (Companies, Users, Revenue, Active Codes)
-- [x] **صفحة الدليل الشامل للمميزات** (/features):
-  - نظرة عامة على النظام
-  - الوحدات الرئيسية (6 وحدات)
-  - تفاصيل وحدة الموارد البشرية
-  - تفاصيل وحدة الإدارة المالية
-  - تفاصيل وحدة إدارة المشاريع
-  - التقارير والتصدير (PDF/CSV/طباعة)
-  - لوحة تحكم المسؤول
-  - نظام الصلاحيات
-  - طريقة التشغيل (5 خطوات)
-  - البنية التقنية للنظام
-- [x] **تحديث الصفحة الرئيسية (LandingPage)**:
-  - قسم الإحصائيات (27+ شركة، 68+ مستخدم، 10 وحدات، 24/7 دعم)
-  - قسم "المميزات الاحترافية الجديدة" مع 6 كروت
-  - دعم كامل للعربية والإنجليزية
-  - رابط "الدليل الشامل" في شريط التنقل
-  - زر "Explore Full Guide" للانتقال للدليل
+- [x] Settings page with full content
+- [x] User Permissions Management System
+- [x] Super Admin Control Panel
+- [x] Features Guide Page (Bilingual)
+- [x] FAQ Section on Landing Page
+- [x] Video Modal in Hero section
 
 ### P1 - Future Enhancements
 - [ ] WhatsApp Integration (Twilio)
 - [ ] Local Payment Gateways
 - [ ] Dark mode toggle
+- [ ] Actual video content for video modal
 
 ### P2 - Backlog
-- [ ] Dark mode toggle
 - [ ] Custom themes
 - [ ] Advanced reporting
+- [ ] Email notifications
 
 ---
 
-## Test Results Summary (Session 3)
-- Frontend Success Rate: **100%**
-- All 9 test cases PASSED
-- No critical issues found
-
----
-
-*Last Updated: February 7, 2026 - Session 3*
+*Last Updated: December 2025 - Current Session*
