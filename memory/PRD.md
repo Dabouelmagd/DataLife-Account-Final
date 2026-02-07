@@ -83,6 +83,13 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [x] Permission icons with colors
 - [x] Print excludes sidebar
 - [x] Settings page with full content (3 tabs: Company, Profile, Subscription)
+- [x] **User Permissions Management System**:
+  - Permissions column in User Management page
+  - Dedicated Permissions Manager page (/permissions/:userId)
+  - Toggle switches for all 10 modules
+  - Admin-only access (General Manager, CEO, Board Chairman)
+  - Dashboard permission is required and cannot be disabled
+  - Green (enabled) / Red (disabled) color coding
 
 ### P1 - Future Enhancements
 - [ ] WhatsApp Integration (Twilio)
