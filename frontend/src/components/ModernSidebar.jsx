@@ -23,6 +23,7 @@ const ModernSidebar = ({
 }) => {
   const isRTL = language === 'ar';
   const [expandedMenus, setExpandedMenus] = useState({});
+  const { toggleLanguage } = useLanguage();
 
   const toggleMenu = (menuId) => {
     setExpandedMenus(prev => ({
