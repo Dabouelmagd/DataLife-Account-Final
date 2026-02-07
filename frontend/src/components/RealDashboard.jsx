@@ -24,6 +24,7 @@ import PurchasesModule from './PurchasesModule';
 import ApprovalsModule from './ApprovalsModule';
 import AttendanceManagement from './AttendanceManagement';
 import ProjectsModule from './ProjectsModule';
+import DocumentsModule from './DocumentsModule';
 
 // Import sub-modules from existing files
 import {
