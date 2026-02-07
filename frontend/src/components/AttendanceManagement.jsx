@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import useRealTimeSync from '../hooks/useRealTimeSync';
 
-const AttendanceModule = () => {
+const AttendanceManagement = () => {
   const { token, user } = useAuth();
   const { language } = useLanguage();
   const isRTL = language === 'ar';
