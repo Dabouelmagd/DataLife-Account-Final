@@ -3877,6 +3877,108 @@ export const FinancialReportsModule = ({ language, userRole }) => {
     setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
+  // Export to PDF
+  const handleExportPDF = () => {
+    const periodLabel = getSelectedPeriodLabel();
+    let title, content;
+    
+    if (financialReportTab === 'overview') {
+      title = isRTL ? 'الملخص التنفيذي' : 'Executive Summary';
+      content = `
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #3182ce; padding-bottom: 20px;">
+          <h1 style="margin: 0; color: #1a365d; font-size: 28px;">${title}</h1>
+          <p style="margin-top: 8px; color: #4a5568;">${periodLabel}</p>
+        </div>
+        <div style="display: flex; gap: 15px; margin-bottom: 25px;">
+          <div style="flex: 1; background: #ebf8ff; padding: 20px; border-radius: 8px; text-align: center;">
+            <h3 style="margin: 0; font-size: 24px; color: #2b6cb0;">${financialData.executiveSummary.currentMonth.revenue.toLocaleString()} EGP</h3>
+            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'الإيرادات' : 'Revenue'}</p>
+          </div>
+          <div style="flex: 1; background: #fed7d7; padding: 20px; border-radius: 8px; text-align: center;">
+            <h3 style="margin: 0; font-size: 24px; color: #c53030;">${financialData.executiveSummary.currentMonth.expenses.toLocaleString()} EGP</h3>
+            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'المصروفات' : 'Expenses'}</p>
+          </div>
+          <div style="flex: 1; background: #c6f6d5; padding: 20px; border-radius: 8px; text-align: center;">
+            <h3 style="margin: 0; font-size: 24px; color: #276749;">${financialData.executiveSummary.currentMonth.netProfit.toLocaleString()} EGP</h3>
+            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'صافي الربح' : 'Net Profit'}</p>
+          </div>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead>
+            <tr style="background: #edf2f7;">
+              <th style="border: 1px solid #e2e8f0; padding: 12px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'البند' : 'Item'}</th>
+              <th style="border: 1px solid #e2e8f0; padding: 12px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'الشهر الحالي' : 'Current Month'}</th>
+              <th style="border: 1px solid #e2e8f0; padding: 12px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'الشهر السابق' : 'Previous Month'}</th>
+              <th style="border: 1px solid #e2e8f0; padding: 12px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'السنة حتى تاريخه' : 'Year to Date'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="border: 1px solid #e2e8f0; padding: 10px;">${isRTL ? 'الإيرادات' : 'Revenue'}</td><td style="border: 1px solid #e2e8f0; padding: 10px;">${financialData.executiveSummary.currentMonth.revenue.toLocaleString()}</td><td style="border: 1px solid #e2e8f0; padding: 10px;">${financialData.executiveSummary.previousMonth.revenue.toLocaleString()}</td><td style="border: 1px solid #e2e8f0; padding: 10px;">${financialData.executiveSummary.yearToDate.revenue.toLocaleString()}</td></tr>
+            <tr><td style="border: 1px solid #e2e8f0; padding: 10px;">${isRTL ? 'المصروفات' : 'Expenses'}</td><td style="border: 1px solid #e2e8f0; padding: 10px;">${financialData.executiveSummary.currentMonth.expenses.toLocaleString()}</td><td style="border: 1px solid #e2e8f0; padding: 10px;">${financialData.executiveSummary.previousMonth.expenses.toLocaleString()}</td><td style="border: 1px solid #e2e8f0; padding: 10px;">${financialData.executiveSummary.yearToDate.expenses.toLocaleString()}</td></tr>
+            <tr style="font-weight: bold; background: #f7fafc;"><td style="border: 1px solid #e2e8f0; padding: 10px;">${isRTL ? 'صافي الربح' : 'Net Profit'}</td><td style="border: 1px solid #e2e8f0; padding: 10px;">${financialData.executiveSummary.currentMonth.netProfit.toLocaleString()}</td><td style="border: 1px solid #e2e8f0; padding: 10px;">${financialData.executiveSummary.previousMonth.netProfit.toLocaleString()}</td><td style="border: 1px solid #e2e8f0; padding: 10px;">${financialData.executiveSummary.yearToDate.netProfit.toLocaleString()}</td></tr>
+          </tbody>
+        </table>
+      `;
+    } else if (financialReportTab === 'profitLoss') {
+      title = isRTL ? 'قائمة الدخل' : 'Profit & Loss Statement';
+      content = `
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #3182ce; padding-bottom: 20px;">
+          <h1 style="margin: 0; color: #1a365d; font-size: 28px;">${title}</h1>
+          <p style="margin-top: 8px; color: #4a5568;">${periodLabel}</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tbody>
+            <tr style="background: #ebf8ff;"><td style="border: 1px solid #e2e8f0; padding: 12px; font-weight: bold;">${isRTL ? 'إجمالي الإيرادات' : 'Total Revenue'}</td><td style="border: 1px solid #e2e8f0; padding: 12px; text-align: right; font-weight: bold;">${financialData.profitLoss.revenue.total.toLocaleString()} EGP</td></tr>
+            <tr><td style="border: 1px solid #e2e8f0; padding: 10px;">${isRTL ? 'تكلفة البضاعة المباعة' : 'Cost of Goods Sold'}</td><td style="border: 1px solid #e2e8f0; padding: 10px; text-align: right;">(${financialData.profitLoss.cogs.toLocaleString()}) EGP</td></tr>
+            <tr style="background: #c6f6d5;"><td style="border: 1px solid #e2e8f0; padding: 12px; font-weight: bold;">${isRTL ? 'إجمالي الربح' : 'Gross Profit'}</td><td style="border: 1px solid #e2e8f0; padding: 12px; text-align: right; font-weight: bold;">${financialData.profitLoss.grossProfit.toLocaleString()} EGP</td></tr>
+            <tr><td style="border: 1px solid #e2e8f0; padding: 10px;">${isRTL ? 'مصاريف التشغيل' : 'Operating Expenses'}</td><td style="border: 1px solid #e2e8f0; padding: 10px; text-align: right;">(${financialData.profitLoss.operatingExpenses.total.toLocaleString()}) EGP</td></tr>
+            <tr style="background: #fefcbf;"><td style="border: 1px solid #e2e8f0; padding: 12px; font-weight: bold;">${isRTL ? 'صافي الربح' : 'Net Profit'}</td><td style="border: 1px solid #e2e8f0; padding: 12px; text-align: right; font-weight: bold;">${financialData.profitLoss.netProfit.toLocaleString()} EGP</td></tr>
+          </tbody>
+        </table>
+      `;
+    } else {
+      title = isRTL ? 'التقارير المالية' : 'Financial Reports';
+      content = `
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #3182ce; padding-bottom: 20px;">
+          <h1 style="margin: 0; color: #1a365d; font-size: 28px;">${title}</h1>
+          <p style="margin-top: 8px; color: #4a5568;">${periodLabel}</p>
+        </div>
+        <p style="text-align: center; color: #718096;">${isRTL ? 'تم تصدير التقرير بنجاح' : 'Report exported successfully'}</p>
+      `;
+    }
+    
+    const filename = `financial_${financialReportTab}_${new Date().toISOString().slice(0,10)}.pdf`;
+    exportToPDF(content, filename, isRTL);
+    
+    setSuccessMessage(isRTL ? 'تم تصدير PDF بنجاح!' : 'PDF exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
+  // Print function
+  const handlePrint = () => {
+    const periodLabel = getSelectedPeriodLabel();
+    let title, content;
+    
+    if (financialReportTab === 'overview') {
+      title = isRTL ? 'الملخص التنفيذي' : 'Executive Summary';
+      const headers = isRTL 
+        ? ['البند', 'الشهر الحالي', 'الشهر السابق', 'السنة حتى تاريخه']
+        : ['Item', 'Current Month', 'Previous Month', 'Year to Date'];
+      const rows = [
+        [isRTL ? 'الإيرادات' : 'Revenue', financialData.executiveSummary.currentMonth.revenue.toLocaleString() + ' EGP', financialData.executiveSummary.previousMonth.revenue.toLocaleString() + ' EGP', financialData.executiveSummary.yearToDate.revenue.toLocaleString() + ' EGP'],
+        [isRTL ? 'المصروفات' : 'Expenses', financialData.executiveSummary.currentMonth.expenses.toLocaleString() + ' EGP', financialData.executiveSummary.previousMonth.expenses.toLocaleString() + ' EGP', financialData.executiveSummary.yearToDate.expenses.toLocaleString() + ' EGP'],
+        [isRTL ? 'صافي الربح' : 'Net Profit', financialData.executiveSummary.currentMonth.netProfit.toLocaleString() + ' EGP', financialData.executiveSummary.previousMonth.netProfit.toLocaleString() + ' EGP', financialData.executiveSummary.yearToDate.netProfit.toLocaleString() + ' EGP']
+      ];
+      content = `<div class="header"><h1>${title}</h1><p>${periodLabel}</p></div>${generateTableHTML(headers, rows, isRTL)}`;
+    } else {
+      title = isRTL ? 'التقارير المالية' : 'Financial Reports';
+      content = `<div class="header"><h1>${title}</h1><p>${periodLabel}</p></div>`;
+    }
+    
+    printContent(content, title, isRTL);
+  };
+
   // بيانات مالية شاملة
   const financialData = {
     executiveSummary: {
