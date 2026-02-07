@@ -169,7 +169,6 @@ async def send_contact_message(contact: ContactMessage):
         }
         
     except Exception as e:
-        print(f"Contact form error: {e}")
         raise HTTPException(status_code=500, detail="حدث خطأ في إرسال الرسالة")
 
 
