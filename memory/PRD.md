@@ -100,6 +100,17 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
   - View company users in modal
   - Generate activation codes
   - Statistics dashboard (Companies, Users, Revenue, Active Codes)
+- [x] **صفحة الدليل الشامل للمميزات** (/features):
+  - نظرة عامة على النظام
+  - الوحدات الرئيسية (6 وحدات)
+  - تفاصيل وحدة الموارد البشرية
+  - تفاصيل وحدة الإدارة المالية
+  - تفاصيل وحدة إدارة المشاريع
+  - التقارير والتصدير (PDF/CSV/طباعة)
+  - لوحة تحكم المسؤول
+  - نظام الصلاحيات
+  - طريقة التشغيل (5 خطوات)
+  - البنية التقنية للنظام
 
 ### P1 - Future Enhancements
 - [ ] WhatsApp Integration (Twilio)
