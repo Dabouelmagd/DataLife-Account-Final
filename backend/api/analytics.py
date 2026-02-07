@@ -339,3 +339,179 @@ async def get_inventory_analytics(
         "in_stock_count": status_count["in-stock"],
         "low_stock_count": status_count["low-stock"]
     }
+
+
+@router.get("/financial-reports")
+async def get_financial_reports(
+    period_type: str = "year",  # year, quarter, month, custom
+    year: Optional[int] = None,
+    quarter: Optional[int] = None,
+    month: Optional[int] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    compare: bool = False,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Get financial reports with advanced date filtering
+    
+    period_type: year, quarter, month, custom
+    year: Year to filter (e.g., 2024)
+    quarter: Quarter number (1-4)
+    month: Month number (1-12)
+    start_date: Custom start date (ISO format)
+    end_date: Custom end date (ISO format)
+    compare: Compare with previous period
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+    
+    token = authorization.split(" ")[1]
+    user_data = verify_token(token)
+    
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    company_id = user_data.get("company_id")
+    now = datetime.utcnow()
+    
+    # Determine date range based on period type
+    if period_type == "custom" and start_date and end_date:
+        try:
+            filter_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            filter_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+        except:
+            raise HTTPException(status_code=400, detail="Invalid date format")
+    elif period_type == "year":
+        filter_year = year or now.year
+        filter_start = datetime(filter_year, 1, 1)
+        filter_end = datetime(filter_year, 12, 31, 23, 59, 59)
+    elif period_type == "quarter":
+        filter_year = year or now.year
+        filter_quarter = quarter or ((now.month - 1) // 3 + 1)
+        quarter_start_month = (filter_quarter - 1) * 3 + 1
+        filter_start = datetime(filter_year, quarter_start_month, 1)
+        if filter_quarter == 4:
+            filter_end = datetime(filter_year, 12, 31, 23, 59, 59)
+        else:
+            filter_end = datetime(filter_year, quarter_start_month + 3, 1) - timedelta(seconds=1)
+    elif period_type == "month":
+        filter_year = year or now.year
+        filter_month = month or now.month
+        filter_start = datetime(filter_year, filter_month, 1)
+        if filter_month == 12:
+            filter_end = datetime(filter_year + 1, 1, 1) - timedelta(seconds=1)
+        else:
+            filter_end = datetime(filter_year, filter_month + 1, 1) - timedelta(seconds=1)
+    else:
+        # Default to current year
+        filter_start = datetime(now.year, 1, 1)
+        filter_end = datetime(now.year, 12, 31, 23, 59, 59)
+    
+    # Calculate previous period for comparison
+    period_duration = filter_end - filter_start
+    prev_start = filter_start - period_duration - timedelta(days=1)
+    prev_end = filter_start - timedelta(seconds=1)
+    
+    # Get financial data with date filter
+    async def get_period_data(start, end):
+        # Journal Entries
+        journal_entries = await db.journal_entries.find({"company_id": company_id}).to_list(length=None)
+        
+        # Filter by date
+        filtered_entries = []
+        for entry in journal_entries:
+            if 'date' in entry:
+                try:
+                    if isinstance(entry['date'], str):
+                        entry_date = datetime.fromisoformat(entry['date'].replace('Z', '+00:00'))
+                    else:
+                        entry_date = entry['date']
+                    
+                    if start <= entry_date <= end:
+                        filtered_entries.append(entry)
+                except:
+                    pass
+        
+        # Calculate totals
+        total_revenue = sum(e.get('credit', 0) for e in filtered_entries if e.get('credit', 0) > 0)
+        total_expenses = sum(e.get('debit', 0) for e in filtered_entries if e.get('debit', 0) > 0)
+        net_profit = total_revenue - total_expenses
+        
+        # Revenue by category
+        revenue_by_category = defaultdict(float)
+        expenses_by_category = defaultdict(float)
+        
+        for entry in filtered_entries:
+            category = entry.get('category', 'Other')
+            if entry.get('credit', 0) > 0:
+                revenue_by_category[category] += entry.get('credit', 0)
+            if entry.get('debit', 0) > 0:
+                expenses_by_category[category] += entry.get('debit', 0)
+        
+        # Monthly breakdown
+        monthly_data = defaultdict(lambda: {"revenue": 0, "expenses": 0, "profit": 0})
+        for entry in filtered_entries:
+            if 'date' in entry:
+                try:
+                    if isinstance(entry['date'], str):
+                        entry_date = datetime.fromisoformat(entry['date'].replace('Z', '+00:00'))
+                    else:
+                        entry_date = entry['date']
+                    month_key = entry_date.strftime("%Y-%m")
+                    
+                    if entry.get('credit', 0) > 0:
+                        monthly_data[month_key]["revenue"] += entry.get('credit', 0)
+                    if entry.get('debit', 0) > 0:
+                        monthly_data[month_key]["expenses"] += entry.get('debit', 0)
+                    monthly_data[month_key]["profit"] = monthly_data[month_key]["revenue"] - monthly_data[month_key]["expenses"]
+                except:
+                    pass
+        
+        return {
+            "total_revenue": total_revenue,
+            "total_expenses": total_expenses,
+            "net_profit": net_profit,
+            "profit_margin": round((net_profit / total_revenue * 100), 2) if total_revenue > 0 else 0,
+            "revenue_by_category": [{"category": k, "amount": v} for k, v in revenue_by_category.items()],
+            "expenses_by_category": [{"category": k, "amount": v} for k, v in expenses_by_category.items()],
+            "monthly_breakdown": [
+                {"month": k, **v} for k, v in sorted(monthly_data.items())
+            ],
+            "transactions_count": len(filtered_entries)
+        }
+    
+    # Get current period data
+    current_data = await get_period_data(filter_start, filter_end)
+    
+    # Get comparison data if requested
+    comparison_data = None
+    growth_rates = None
+    if compare:
+        comparison_data = await get_period_data(prev_start, prev_end)
+        
+        # Calculate growth rates
+        prev_revenue = comparison_data["total_revenue"] or 1
+        prev_expenses = comparison_data["total_expenses"] or 1
+        prev_profit = comparison_data["net_profit"] or 1
+        
+        growth_rates = {
+            "revenue_growth": round(((current_data["total_revenue"] - comparison_data["total_revenue"]) / prev_revenue * 100), 2),
+            "expenses_growth": round(((current_data["total_expenses"] - comparison_data["total_expenses"]) / prev_expenses * 100), 2),
+            "profit_growth": round(((current_data["net_profit"] - comparison_data["net_profit"]) / abs(prev_profit) * 100), 2) if prev_profit != 0 else 0
+        }
+    
+    return {
+        "period": {
+            "type": period_type,
+            "start_date": filter_start.isoformat(),
+            "end_date": filter_end.isoformat(),
+            "year": year or filter_start.year,
+            "quarter": quarter,
+            "month": month
+        },
+        "current": current_data,
+        "comparison": comparison_data,
+        "growth_rates": growth_rates
+    }
+
