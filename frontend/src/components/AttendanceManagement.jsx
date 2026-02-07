@@ -704,6 +704,10 @@ const AttendanceManagement = () => {
                     <FileDown className="h-4 w-4" />
                     {isRTL ? 'تصدير CSV' : 'Export CSV'}
                   </Button>
+                  <Button variant="outline" onClick={handleExportPDF} className="gap-2 text-red-600" disabled={!reportData}>
+                    <File className="h-4 w-4" />
+                    {isRTL ? 'تصدير PDF' : 'Export PDF'}
+                  </Button>
                   <Button variant="outline" onClick={handlePrintReport} className="gap-2" disabled={!reportData}>
                     <Printer className="h-4 w-4" />
                     {isRTL ? 'طباعة' : 'Print'}
