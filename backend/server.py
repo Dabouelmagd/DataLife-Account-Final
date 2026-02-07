@@ -21,6 +21,7 @@ from api.inventory_data import router as inventory_data_router
 from api.analytics import router as analytics_router
 from api.webhook import router as webhook_router
 from api.admin import router as admin_router
+from api.notifications import router as notifications_router
 
 
 ROOT_DIR = Path(__file__).parent
