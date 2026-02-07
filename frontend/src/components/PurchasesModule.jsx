@@ -704,8 +704,19 @@ const PurchasesModule = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handlePrintOrder(order)}
+                                title={isRTL ? 'طباعة' : 'Print'}
                               >
                                 <Printer className="h-4 w-4" />
+                              </Button>
+                              
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleExportPDF(order)}
+                                title={isRTL ? 'تصدير PDF' : 'Export PDF'}
+                                className="text-red-600"
+                              >
+                                <File className="h-4 w-4" />
                               </Button>
                               
                               {order.status === 'draft' && (
