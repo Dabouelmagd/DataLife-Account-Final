@@ -235,6 +235,15 @@ const AdminDashboard = () => {
         const messagesRes = await axios.get(`${API_URL}/api/contact/messages`, config);
         setContactMessages(messagesRes.data);
         setLoadingMessages(false);
+        
+        // Mark all messages as read
+        const unreadCount = messagesRes.data.filter(m => !m.read).length;
+        if (unreadCount > 0) {
+          await axios.put(`${API_URL}/api/contact/messages/mark-read`, {}, config);
+          setNewMessagesCount(0);
+          // Update local state to reflect read status
+          setContactMessages(prev => prev.map(m => ({ ...m, read: true })));
+        }
       }
     } catch (error) {
       // Error fetching data
