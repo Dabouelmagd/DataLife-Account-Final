@@ -742,10 +742,10 @@ const AdminDashboard = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t.code}</TableHead>
+                      <TableHead>{isRTL ? 'اسم الشركة' : 'Company'}</TableHead>
                       <TableHead>{t.plan}</TableHead>
-                      <TableHead>{t.duration}</TableHead>
-                      <TableHead>{t.discount}</TableHead>
-                      <TableHead>{t.uses}</TableHead>
+                      <TableHead>{isRTL ? 'بداية التعاقد' : 'Start'}</TableHead>
+                      <TableHead>{isRTL ? 'نهاية التعاقد' : 'End'}</TableHead>
                       <TableHead>{t.status}</TableHead>
                       <TableHead>{t.actions}</TableHead>
                     </TableRow>
@@ -768,8 +768,26 @@ const AdminDashboard = () => {
                             </Button>
                           </div>
                         </TableCell>
+                        <TableCell>
+                          <span className={code.company_name ? 'font-medium' : 'text-gray-400'}>
+                            {code.company_name || (isRTL ? 'غير محدد' : 'Not set')}
+                          </span>
+                        </TableCell>
                         <TableCell>{planNames[code.plan] || code.plan}</TableCell>
-                        <TableCell>{durationNames[code.duration] || code.duration}</TableCell>
+                        <TableCell>
+                          {code.contract_start ? (
+                            <span className="text-green-600">{code.contract_start}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {code.contract_end ? (
+                            <span className="text-red-600">{code.contract_end}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
                         <TableCell>{code.discount_percent}%</TableCell>
                         <TableCell>{code.current_uses}/{code.max_uses}</TableCell>
                         <TableCell>
