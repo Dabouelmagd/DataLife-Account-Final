@@ -102,6 +102,7 @@ const CompanySettings = () => {
     { id: 'company', label: language === 'ar' ? 'الشركة' : 'Company', icon: Building2 },
     { id: 'profile', label: language === 'ar' ? 'الملف الشخصي' : 'Profile', icon: User },
     { id: 'subscription', label: language === 'ar' ? 'الاشتراك' : 'Subscription', icon: Key },
+    { id: 'language', label: language === 'ar' ? 'اللغة' : 'Language', icon: Globe },
   ];
 
   return (
