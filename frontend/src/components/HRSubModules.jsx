@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Calendar, DollarSign, FileText, CheckCircle, Printer, Users, TrendingUp, TrendingDown, Award, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Calendar, DollarSign, FileText, CheckCircle, Printer, Users, TrendingUp, TrendingDown, Award, AlertCircle, File } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { printContent, exportToPDF, generateTableHTML, generateStatsHTML } from '../utils/printExport';
 
 // Salaries Module
 export const SalariesModule = ({ language, userRole }) => {
