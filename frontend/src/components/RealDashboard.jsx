@@ -869,6 +869,11 @@ const RealDashboard = () => {
       return <AttendanceManagement />;
     }
 
+    // Projects & Tasks Module
+    if (activeModule === 'projects') {
+      return <ProjectsModule />;
+    }
+
     return null;
   };
 
