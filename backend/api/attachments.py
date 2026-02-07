@@ -24,12 +24,14 @@ async def verify_token(authorization: str):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing authorization")
     
-    token = authorization.replace("Bearer ", "")
-    session = await db.sessions.find_one({"token": token})
-    if not session:
+    from services.auth_service import verify_token as auth_verify
+    token = authorization.split(" ")[1]
+    user_data = auth_verify(token)
+    
+    if not user_data:
         raise HTTPException(status_code=401, detail="Invalid token")
     
-    return session
+    return user_data
 
 
 @router.post("/upload")
