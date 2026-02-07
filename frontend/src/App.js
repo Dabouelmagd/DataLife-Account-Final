@@ -138,6 +138,8 @@ function App() {
             </Routes>
             {/* Support Chatbot - appears on all pages */}
             <SupportChatbot />
+            {/* Notification Permission Request */}
+            <NotificationPermissionRequest />
           </BrowserRouter>
         </div>
       </AuthProvider>
