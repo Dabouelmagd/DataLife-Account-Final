@@ -1,19 +1,22 @@
 from fastapi import APIRouter, HTTPException, Depends, Header
 from motor.motor_asyncio import AsyncIOMotorClient
-from models.user import UserCreate, UserLogin, Token, User, UserResponse
+from models.user import UserCreate, UserLogin, Token, User, UserResponse, UserPermissionsUpdate, ALL_PERMISSIONS
 from models.company import CompanyCreate, CompanyResponse
 from services.auth_service import create_access_token, verify_token
 from services.user_service import (
     create_user, 
     authenticate_user, 
     get_user_by_email,
-    user_to_response
+    get_user_by_id,
+    user_to_response,
+    update_user_permissions,
+    get_default_permissions_for_role
 )
 from services.company_service import create_company, get_company_by_email
 import os
 import asyncio
 import resend
-from typing import Optional
+from typing import Optional, List
 from dotenv import load_dotenv
 
 load_dotenv()
