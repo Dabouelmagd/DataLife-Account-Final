@@ -138,6 +138,17 @@ const InvoicesModule = () => {
     cancelled: XCircle
   };
 
+  // Real-time sync handler
+  const handleRealTimeUpdate = useCallback((message) => {
+    if (message.type === 'invoice_created' || message.type === 'invoice_updated') {
+      fetchInvoices();
+      fetchStats();
+      fetchEtaxStats();
+    }
+  }, []);
+
+  const { isConnected } = useRealTimeSync(handleRealTimeUpdate);
+
   useEffect(() => {
     fetchInvoices();
     fetchStats();
