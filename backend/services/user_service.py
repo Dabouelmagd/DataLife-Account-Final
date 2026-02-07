@@ -34,36 +34,64 @@ async def get_user_by_email(db: AsyncIOMotorClient, email: str) -> Optional[User
 
 async def authenticate_user(db: AsyncIOMotorClient, email: str, password: str) -> Optional[User]:
     """Authenticate a user with email and password"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     # First, get raw user data to check password field format
     user_data = await db.users.find_one({"email": email})
     if not user_data:
+        logger.warning(f"User not found: {email}")
         return None
     
-    # Get the stored password (could be in different fields or formats)
-    stored_password = user_data.get('password_hash') or user_data.get('password')
+    # Get the stored password - check both fields
+    stored_password_hash = user_data.get('password_hash')
+    stored_password = user_data.get('password')
     
-    if not stored_password:
+    logger.info(f"Auth attempt for: {email}")
+    logger.info(f"Has password_hash: {bool(stored_password_hash)}")
+    logger.info(f"Has password: {bool(stored_password)}")
+    
+    # Try password_hash first, then password field
+    passwords_to_try = []
+    if stored_password_hash:
+        passwords_to_try.append(stored_password_hash)
+    if stored_password and stored_password != stored_password_hash:
+        passwords_to_try.append(stored_password)
+    
+    if not passwords_to_try:
+        logger.warning(f"No password stored for: {email}")
         return None
     
-    # Check if password is hashed or plain text
     password_valid = False
     
-    # Try bcrypt verification first (for hashed passwords)
-    try:
-        password_valid = verify_password(password, stored_password)
-    except Exception:
-        pass
-    
-    # If bcrypt failed, check if it's plain text (legacy support)
-    if not password_valid and stored_password == password:
-        password_valid = True
-        # Optionally: Update to hashed password for security
-        # await db.users.update_one(
-        #     {"email": email},
-        #     {"$set": {"password_hash": hash_password(password)}, "$unset": {"password": ""}}
-        # )
+    for stored_pwd in passwords_to_try:
+        # Try bcrypt verification
+        try:
+            if verify_password(password, stored_pwd):
+                password_valid = True
+                logger.info(f"Bcrypt verification successful for: {email}")
+                break
+        except Exception as e:
+            logger.warning(f"Bcrypt verification failed: {e}")
+        
+        # Try plain text comparison (legacy)
+        if stored_pwd == password:
+            password_valid = True
+            logger.info(f"Plain text match for: {email}")
+            # Update to hashed password for security
+            try:
+                hashed = hash_password(password)
+                await db.users.update_one(
+                    {"email": email},
+                    {"$set": {"password_hash": hashed}}
+                )
+                logger.info(f"Updated password hash for: {email}")
+            except Exception as e:
+                logger.error(f"Failed to update password hash: {e}")
+            break
     
     if not password_valid:
+        logger.warning(f"Invalid password for: {email}")
         return None
     
     # Now get the user object
