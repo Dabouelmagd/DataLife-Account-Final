@@ -513,7 +513,7 @@ const AdminDashboard = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
+                className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 relative ${
                   activeTab === tab.id
                     ? 'border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -522,6 +522,11 @@ const AdminDashboard = () => {
               >
                 <tab.icon className="h-4 w-4" />
                 {tab.label}
+                {tab.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                    {tab.badge > 9 ? '9+' : tab.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
