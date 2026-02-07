@@ -185,6 +185,9 @@ async def generate_activation_code(
     discount_percent = request_data.get("discount_percent", 0)
     max_uses = request_data.get("max_uses", 1)
     prefix = request_data.get("prefix", "DL")
+    company_name = request_data.get("company_name", "")
+    contract_start = request_data.get("contract_start", "")
+    contract_end = request_data.get("contract_end", "")
     
     # Generate unique code
     random_part = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
@@ -198,6 +201,9 @@ async def generate_activation_code(
         "max_uses": max_uses,
         "current_uses": 0,
         "is_active": True,
+        "company_name": company_name,
+        "contract_start": contract_start,
+        "contract_end": contract_end,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "created_by": "admin"
     }
