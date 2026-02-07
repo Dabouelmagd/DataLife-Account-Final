@@ -988,6 +988,15 @@ const InvoicesModule = () => {
                   )}
                 </div>
               )}
+
+              {/* Attachments Section */}
+              <div className="pt-4 border-t">
+                <AttachmentsManager 
+                  entityType="invoice" 
+                  entityId={selectedInvoice.invoice_number}
+                  readOnly={selectedInvoice.status === 'cancelled'}
+                />
+              </div>
             </div>
           )}
         </DialogContent>
