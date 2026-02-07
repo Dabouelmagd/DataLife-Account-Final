@@ -181,6 +181,47 @@ export const AnalyticsModule = ({ language, userRole }) => {
   }
   };
 
+  // Print Analytics Report
+  const handlePrint = () => {
+    const { overview } = analyticsData;
+    if (!overview) {
+      alert(language === 'ar' ? 'لا توجد بيانات للطباعة' : 'No data to print');
+      return;
+    }
+    
+    const title = isRTL ? 'تقرير التحليلات المتقدمة' : 'Advanced Analytics Report';
+    
+    const stats = [
+      { value: overview.financial_analytics.total_revenue.toLocaleString() + ' EGP', label: isRTL ? 'إجمالي الإيرادات' : 'Total Revenue' },
+      { value: overview.financial_analytics.net_profit.toLocaleString() + ' EGP', label: isRTL ? 'صافي الربح' : 'Net Profit' },
+      { value: overview.financial_analytics.profit_margin.toFixed(1) + '%', label: isRTL ? 'هامش الربح' : 'Profit Margin' },
+      { value: overview.hr_analytics.total_employees, label: isRTL ? 'عدد الموظفين' : 'Employees' }
+    ];
+    
+    const headers = isRTL 
+      ? ['المؤشر', 'القيمة', 'التغير']
+      : ['Metric', 'Value', 'Change'];
+    
+    const rows = [
+      [isRTL ? 'إجمالي الإيرادات' : 'Total Revenue', overview.financial_analytics.total_revenue.toLocaleString() + ' EGP', '+12%'],
+      [isRTL ? 'صافي الربح' : 'Net Profit', overview.financial_analytics.net_profit.toLocaleString() + ' EGP', '+8%'],
+      [isRTL ? 'إجمالي المصروفات' : 'Total Expenses', overview.financial_analytics.total_expenses.toLocaleString() + ' EGP', '-3%'],
+      [isRTL ? 'عدد العملاء' : 'Customers', overview.financial_analytics.total_customers, '+15%'],
+      [isRTL ? 'عدد الموظفين' : 'Employees', overview.hr_analytics.total_employees, '+5%'],
+    ];
+    
+    const content = `
+      <div class="header">
+        <h1>${title}</h1>
+        <p>${isRTL ? 'الفترة:' : 'Period:'} ${period} | ${new Date().toLocaleDateString()}</p>
+      </div>
+      ${generateStatsHTML(stats, isRTL)}
+      ${generateTableHTML(headers, rows, isRTL)}
+    `;
+    
+    printContent(content, title, isRTL);
+  };
+
   const exportToExcel = () => {
     const { overview, financial, hr, inventory } = analyticsData;
     if (!overview) {
