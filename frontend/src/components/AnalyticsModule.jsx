@@ -26,11 +26,6 @@ export const AnalyticsModule = ({ language, userRole }) => {
   });
 
   const isRTL = language === 'ar';
-  
-  // Version check - v2.0 - PDF/Excel export fixed
-  useEffect(() => {
-    console.log('AnalyticsModule v2.0 loaded - PDF/Excel export available');
-  }, []);
 
   useEffect(() => {
     fetchAnalyticsData();
