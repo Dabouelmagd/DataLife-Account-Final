@@ -13,12 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import axios from 'axios';
+import html2pdf from 'html2pdf.js';
 import { 
   FileText, Plus, Send, DollarSign, Eye, Edit, Trash2, 
   Download, Mail, CheckCircle, Clock, XCircle, AlertCircle,
   Building2, User, Phone, MapPin, Calculator, Receipt,
   FileCheck, Upload, Search, Filter, RefreshCw, Wifi, WifiOff,
-  Printer, FileDown
+  Printer, FileDown, File
 } from 'lucide-react';
 import AttachmentsManager from './AttachmentsManager';
 import useRealTimeSync from '../hooks/useRealTimeSync';
