@@ -9,7 +9,7 @@ import httpx
 from datetime import datetime
 from typing import Any
 
-BACKEND_URL = "https://erp-bugfix-9.preview.emergentagent.com/api"
+BACKEND_URL = "https://landing-page-update-3.preview.emergentagent.com/api"
 
 class DataLifeAccountFinalTester:
     def __init__(self):

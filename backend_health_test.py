@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 
 # Get backend URL from environment
-BACKEND_URL = "https://erp-bugfix-9.preview.emergentagent.com/api"
+BACKEND_URL = "https://landing-page-update-3.preview.emergentagent.com/api"
 
 # Test user credentials from review request
 TEST_USER = {
