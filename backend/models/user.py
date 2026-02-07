@@ -60,9 +60,13 @@ class UserResponse(BaseModel):
     full_name: str
     company_id: str
     role: str
+    permissions: List[str] = []  # List of permission IDs
     is_active: bool
     created_at: str
     subscription_code: Optional[str] = None  # Subscription/Company code for display
+
+class UserPermissionsUpdate(BaseModel):
+    permissions: List[str]  # List of permission IDs to set
 
 class Token(BaseModel):
     access_token: str
