@@ -227,6 +227,19 @@ const ModernSidebar = ({
 
         {/* Bottom Section */}
         <div className="p-4 border-t border-white/10 space-y-2">
+          {/* Language Switcher */}
+          <button
+            onClick={toggleLanguage}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-500/10 to-blue-500/10 border border-indigo-500/20 text-indigo-300 hover:from-indigo-500/20 hover:to-blue-500/20 transition-all"
+            data-testid="language-switcher-sidebar"
+          >
+            <Globe className="h-4 w-4" />
+            <span className="text-sm flex-1 text-start">{language === 'ar' ? 'تغيير اللغة' : 'Change Language'}</span>
+            <span className="px-2 py-0.5 bg-indigo-500/20 rounded text-xs font-medium">
+              {language === 'ar' ? 'EN' : 'عربي'}
+            </span>
+          </button>
+          
           {/* Subscription Code Display */}
           <div className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
             <div className="flex items-center gap-3 mb-2">
