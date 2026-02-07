@@ -191,6 +191,15 @@ const RealDashboard = () => {
       });
     }
     
+    // Invoices module - available to financial roles
+    if (financialRoles.includes(role)) {
+      modules.push({ 
+        id: 'invoices', 
+        name: language === 'ar' ? 'الفواتير' : 'Invoices', 
+        icon: <FileText /> 
+      });
+    }
+
     // Inventory, Reports, Analytics modules available to managers
     const managerRoles = ['General Manager', 'CEO', 'Board Chairman', 'Financial Manager', 
                           'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'المدير المالي'];
