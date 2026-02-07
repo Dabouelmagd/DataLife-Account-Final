@@ -121,6 +121,17 @@ const ApprovalsModule = () => {
     document: FileText
   };
 
+  // Real-time sync handler
+  const handleRealTimeUpdate = useCallback((message) => {
+    if (message.type === 'approval_updated' || message.type === 'approval_created') {
+      fetchPendingApprovals();
+      fetchMyRequests();
+      fetchStats();
+    }
+  }, []);
+
+  const { isConnected } = useRealTimeSync(handleRealTimeUpdate);
+
   useEffect(() => {
     fetchPendingApprovals();
     fetchMyRequests();
