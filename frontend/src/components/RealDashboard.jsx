@@ -202,9 +202,18 @@ const RealDashboard = () => {
       });
     }
 
-    // Inventory, Reports, Analytics modules available to managers
+    // Customer Portal Management - available to managers
     const managerRoles = ['General Manager', 'CEO', 'Board Chairman', 'Financial Manager', 
                           'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'المدير المالي'];
+    if (managerRoles.includes(role)) {
+      modules.push({ 
+        id: 'customer-portal-mgmt', 
+        name: language === 'ar' ? 'بوابة العملاء' : 'Customer Portal', 
+        icon: <Users /> 
+      });
+    }
+
+    // Inventory, Reports, Analytics modules available to managers
     if (managerRoles.includes(role)) {
       modules.push({ 
         id: 'inventory', 
