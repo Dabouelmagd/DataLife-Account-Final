@@ -79,9 +79,10 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [x] All core ERP modules
 - [x] Print/Export for all major modules
 - [x] Modern Sidebar redesign
-- [x] Subscription code display (popup + sidebar)
+- [x] Subscription code display (popup + sidebar + profile page)
 - [x] Permission icons with colors
 - [x] Print excludes sidebar
+- [x] Settings page with full content (3 tabs: Company, Profile, Subscription)
 
 ### P1 - Future Enhancements
 - [ ] WhatsApp Integration (Twilio)
