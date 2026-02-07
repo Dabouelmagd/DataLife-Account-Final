@@ -448,6 +448,61 @@ const AdminDashboard = () => {
     setUserPermissions([]);
   };
 
+  // Fetch available roles
+  const fetchAvailableRoles = async () => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.get(`${API_URL}/api/admin/roles`, config);
+      setAvailableRoles(response.data);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+    }
+  };
+
+  // Open edit role modal
+  const handleEditRole = async (user) => {
+    setEditingUserRole(user);
+    setSelectedRole(user.role || '');
+    
+    if (availableRoles.length === 0) {
+      await fetchAvailableRoles();
+    }
+  };
+
+  // Save user role
+  const handleSaveRole = async () => {
+    if (!editingUserRole || !selectedRole) return;
+    
+    setSavingRole(true);
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.put(
+        `${API_URL}/api/admin/users/${editingUserRole.id}/role`,
+        { role: selectedRole },
+        config
+      );
+      
+      showToastMessage(isRTL ? 'تم تغيير الوظيفة بنجاح' : 'Role updated successfully', 'success');
+      
+      // Update local state
+      setAllUsers(prev => prev.map(u => 
+        u.id === editingUserRole.id ? { ...u, role: selectedRole } : u
+      ));
+      setFilteredUsers(prev => prev.map(u => 
+        u.id === editingUserRole.id ? { ...u, role: selectedRole } : u
+      ));
+      setCompanyUsers(prev => prev.map(u => 
+        u.id === editingUserRole.id ? { ...u, role: selectedRole } : u
+      ));
+      
+      setEditingUserRole(null);
+    } catch (error) {
+      showToastMessage(isRTL ? 'حدث خطأ في تغيير الوظيفة' : 'Error updating role', 'error');
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
   // Filter users based on search query
   const handleUserSearch = (query) => {
     setUserSearchQuery(query);
