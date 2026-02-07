@@ -117,8 +117,14 @@ async def create_invoice(
     
     grand_total = subtotal - total_discount + total_tax
     
+    # Generate invoice number based on type
+    if invoice_data.invoice_type == "etax":
+        invoice_number = f"ETAX-{datetime.now().strftime('%Y%m')}-{secrets.token_hex(4).upper()}"
+    else:
+        invoice_number = generate_invoice_number()
+    
     invoice = {
-        "invoice_number": generate_invoice_number(),
+        "invoice_number": invoice_number,
         "company_id": company_id,
         "customer_id": invoice_data.customer_id,
         "customer_name": invoice_data.customer_name,
@@ -126,6 +132,7 @@ async def create_invoice(
         "customer_phone": invoice_data.customer_phone,
         "customer_address": invoice_data.customer_address,
         "customer_tax_id": invoice_data.customer_tax_id,
+        "issuer_tax_id": invoice_data.issuer_tax_id,
         "items": items_with_totals,
         "subtotal": subtotal,
         "total_discount": total_discount,
@@ -133,6 +140,7 @@ async def create_invoice(
         "grand_total": grand_total,
         "currency": invoice_data.currency,
         "notes": invoice_data.notes,
+        "invoice_type": invoice_data.invoice_type,
         "status": "draft",  # draft, sent, paid, overdue, cancelled
         "issue_date": datetime.now(timezone.utc).isoformat(),
         "due_date": invoice_data.due_date,
@@ -140,7 +148,11 @@ async def create_invoice(
         "paid_amount": 0,
         "created_by": user_data.get("user_id"),
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat()
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        # E-Tax specific fields
+        "etax_uuid": secrets.token_hex(16) if invoice_data.invoice_type == "etax" else None,
+        "etax_submission_status": None if invoice_data.invoice_type != "etax" else "pending",
+        "etax_submitted_at": None
     }
     
     await db.invoices.insert_one(invoice)
