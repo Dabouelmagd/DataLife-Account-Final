@@ -18,7 +18,7 @@ import {
   FolderKanban, Plus, ListTodo, Calendar, Users, Clock, AlertCircle,
   CheckCircle, Circle, PlayCircle, PauseCircle, Trash2, Edit, Eye,
   RefreshCw, Target, TrendingUp, ChevronRight, MessageSquare, Wifi, WifiOff,
-  Flag, User, CalendarDays, Timer
+  Flag, User, CalendarDays, Timer, FileDown, Printer
 } from 'lucide-react';
 import useRealTimeSync from '../hooks/useRealTimeSync';
 
