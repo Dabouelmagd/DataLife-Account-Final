@@ -232,6 +232,15 @@ const RealDashboard = () => {
       });
     }
 
+    // Projects & Tasks module - available to managers and financial roles
+    if (attendanceRoles.includes(role) || financialRoles.includes(role)) {
+      modules.push({ 
+        id: 'projects', 
+        name: language === 'ar' ? 'المشاريع والمهام' : 'Projects & Tasks', 
+        icon: <FolderKanban /> 
+      });
+    }
+
     // Customer Portal Management - available to managers
     const managerRoles = ['General Manager', 'CEO', 'Board Chairman', 'Financial Manager', 
                           'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'المدير المالي'];
