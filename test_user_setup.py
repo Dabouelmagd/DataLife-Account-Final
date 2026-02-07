@@ -7,7 +7,7 @@ import asyncio
 import httpx
 from datetime import datetime
 
-BACKEND_URL = "https://multi-tenant-erp-14.preview.emergentagent.com/api"
+BACKEND_URL = "https://workflow-engine-42.preview.emergentagent.com/api"
 
 async def test_create_user_and_password_reset():
     client = httpx.AsyncClient(timeout=30.0)
