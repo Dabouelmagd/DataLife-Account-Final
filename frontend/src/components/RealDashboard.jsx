@@ -21,6 +21,7 @@ import NotificationCenter from './NotificationCenter';
 import InvoicesModule from './InvoicesModule';
 import CustomerPortalManagement from './CustomerPortalManagement';
 import PurchasesModule from './PurchasesModule';
+import ApprovalsModule from './ApprovalsModule';
 
 // Import sub-modules from existing files
 import {
