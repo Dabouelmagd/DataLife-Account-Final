@@ -12,6 +12,7 @@ import UserManagement from "./components/UserManagement";
 import SubscriptionPage from "./components/SubscriptionPage";
 import SubscriptionSuccess from "./components/SubscriptionSuccess";
 import AdminDashboard from "./components/AdminDashboard";
+import CustomerPortal from "./components/CustomerPortal";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
