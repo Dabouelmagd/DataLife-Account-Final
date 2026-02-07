@@ -99,6 +99,7 @@ app.include_router(approvals_router)
 app.include_router(attachments_router)
 app.include_router(documents_router)
 app.include_router(chatbot_router)
+app.include_router(contact_router)
 
 app.add_middleware(
     CORSMiddleware,
