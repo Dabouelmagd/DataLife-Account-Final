@@ -76,7 +76,6 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [BLOCKED] Production database user migration (password_hash consistency)
 
 ### P1 - High Priority
-- Stripe payment integration for subscriptions
 - Date filtering for financial reports (UI added, needs backend wiring)
 
 ### P2 - Medium Priority
