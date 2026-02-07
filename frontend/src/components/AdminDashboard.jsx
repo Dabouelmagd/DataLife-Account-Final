@@ -1472,16 +1472,28 @@ const AdminDashboard = () => {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditPermissions(usr)}
-                            className="text-blue-600 hover:text-blue-700"
-                            title={t.editPermissions}
-                            data-testid={`edit-user-permissions-${usr.id}`}
-                          >
-                            <Shield className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditRole(usr)}
+                              className="text-orange-600 hover:text-orange-700"
+                              title={isRTL ? 'تغيير الوظيفة' : 'Change Role'}
+                              data-testid={`edit-role-${usr.id}`}
+                            >
+                              <Briefcase className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditPermissions(usr)}
+                              className="text-blue-600 hover:text-blue-700"
+                              title={t.editPermissions}
+                              data-testid={`edit-user-permissions-${usr.id}`}
+                            >
+                              <Shield className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
