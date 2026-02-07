@@ -253,6 +253,15 @@ const RealDashboard = () => {
       });
     }
 
+    // Documents module - available to all with file access
+    if (managerRoles.includes(role) || financialRoles.includes(role)) {
+      modules.push({ 
+        id: 'documents', 
+        name: language === 'ar' ? 'المستندات' : 'Documents', 
+        icon: <FileText /> 
+      });
+    }
+
     // Inventory, Reports, Analytics modules available to managers
     if (managerRoles.includes(role)) {
       modules.push({ 
