@@ -473,3 +473,212 @@ async def get_task_stats(authorization: Optional[str] = Header(None)):
         "by_status": get_status_counts(all_tasks),
         "my_tasks_by_status": get_status_counts(my_tasks)
     }
+
+
+# ============ TASK NOTIFICATIONS ============
+
+@router.get("/notifications/due-soon")
+async def get_due_soon_tasks(authorization: Optional[str] = Header(None)):
+    """Get tasks due soon (within 3 days) for notifications"""
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    user_id = user_data.get("user_id")
+    
+    today = datetime.now(timezone.utc).date()
+    three_days = (today + timedelta(days=3)).isoformat()
+    today_str = today.isoformat()
+    
+    # Find tasks assigned to user that are due soon
+    tasks = await db.tasks.find({
+        "company_id": company_id,
+        "assigned_to": user_id,
+        "status": {"$nin": ["completed", "cancelled"]},
+        "due_date": {"$lte": three_days, "$gte": today_str}
+    }, {"_id": 0}).to_list(length=None)
+    
+    # Categorize by urgency
+    due_today = []
+    due_tomorrow = []
+    due_soon = []
+    
+    tomorrow = (today + timedelta(days=1)).isoformat()
+    day_after = (today + timedelta(days=2)).isoformat()
+    
+    for task in tasks:
+        due = task.get("due_date")
+        if due == today_str:
+            due_today.append(task)
+        elif due == tomorrow:
+            due_tomorrow.append(task)
+        else:
+            due_soon.append(task)
+    
+    return {
+        "due_today": due_today,
+        "due_tomorrow": due_tomorrow,
+        "due_within_3_days": due_soon,
+        "total_urgent": len(due_today) + len(due_tomorrow) + len(due_soon)
+    }
+
+
+@router.get("/notifications/overdue")
+async def get_overdue_tasks(authorization: Optional[str] = Header(None)):
+    """Get overdue tasks for notifications"""
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    user_id = user_data.get("user_id")
+    
+    today = datetime.now(timezone.utc).date().isoformat()
+    
+    # Find overdue tasks assigned to user
+    tasks = await db.tasks.find({
+        "company_id": company_id,
+        "assigned_to": user_id,
+        "status": {"$nin": ["completed", "cancelled"]},
+        "due_date": {"$lt": today}
+    }, {"_id": 0}).sort("due_date", 1).to_list(length=None)
+    
+    return {
+        "overdue_tasks": tasks,
+        "total_overdue": len(tasks)
+    }
+
+
+@router.post("/notifications/check-and-send")
+async def check_and_send_task_notifications(authorization: Optional[str] = Header(None)):
+    """Check for tasks due soon and create notifications"""
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    
+    today = datetime.now(timezone.utc).date()
+    today_str = today.isoformat()
+    tomorrow_str = (today + timedelta(days=1)).isoformat()
+    
+    # Find all tasks due today or tomorrow
+    tasks = await db.tasks.find({
+        "company_id": company_id,
+        "status": {"$nin": ["completed", "cancelled"]},
+        "due_date": {"$in": [today_str, tomorrow_str]},
+        "assigned_to": {"$ne": None}
+    }, {"_id": 0}).to_list(length=None)
+    
+    notifications_created = 0
+    
+    for task in tasks:
+        assigned_to = task.get("assigned_to")
+        due_date = task.get("due_date")
+        
+        # Check if notification already sent today for this task
+        existing = await db.notifications.find_one({
+            "data.task_id": task.get("id"),
+            "created_at": {"$gte": today_str}
+        })
+        
+        if existing:
+            continue
+        
+        # Determine notification type
+        if due_date == today_str:
+            title_en = "Task Due Today"
+            title_ar = "مهمة مستحقة اليوم"
+            message_en = f"Task '{task.get('title')}' is due today"
+            message_ar = f"المهمة '{task.get('title')}' مستحقة اليوم"
+            color = "red"
+        else:
+            title_en = "Task Due Tomorrow"
+            title_ar = "مهمة مستحقة غداً"
+            message_en = f"Task '{task.get('title')}' is due tomorrow"
+            message_ar = f"المهمة '{task.get('title')}' مستحقة غداً"
+            color = "amber"
+        
+        # Create notification
+        notification = {
+            "id": f"notif_{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{task.get('id')[:8]}",
+            "type": "task_due",
+            "title_en": title_en,
+            "title_ar": title_ar,
+            "message_en": message_en,
+            "message_ar": message_ar,
+            "icon": "clock",
+            "color": color,
+            "user_id": assigned_to,
+            "company_id": company_id,
+            "broadcast": False,
+            "data": {
+                "task_id": task.get("id"),
+                "task_title": task.get("title"),
+                "due_date": due_date,
+                "project_id": task.get("project_id")
+            },
+            "read": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_by": "system"
+        }
+        
+        await db.notifications.insert_one(notification)
+        notifications_created += 1
+    
+    return {
+        "success": True,
+        "notifications_created": notifications_created,
+        "tasks_checked": len(tasks)
+    }
+
+
+# Background task function to be called by scheduler
+async def check_task_due_dates():
+    """Background function to check all companies for due tasks"""
+    today = datetime.now(timezone.utc).date()
+    today_str = today.isoformat()
+    tomorrow_str = (today + timedelta(days=1)).isoformat()
+    
+    # Find all tasks due today or tomorrow across all companies
+    tasks = await db.tasks.find({
+        "status": {"$nin": ["completed", "cancelled"]},
+        "due_date": {"$in": [today_str, tomorrow_str]},
+        "assigned_to": {"$ne": None}
+    }).to_list(length=None)
+    
+    for task in tasks:
+        assigned_to = task.get("assigned_to")
+        company_id = task.get("company_id")
+        due_date = task.get("due_date")
+        
+        # Check if notification already sent
+        existing = await db.notifications.find_one({
+            "data.task_id": task.get("id"),
+            "type": "task_due",
+            "created_at": {"$gte": today_str}
+        })
+        
+        if existing:
+            continue
+        
+        # Create notification
+        if due_date == today_str:
+            title_en, title_ar = "Task Due Today", "مهمة مستحقة اليوم"
+            color = "red"
+        else:
+            title_en, title_ar = "Task Due Tomorrow", "مهمة مستحقة غداً"
+            color = "amber"
+        
+        notification = {
+            "id": f"notif_{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
+            "type": "task_due",
+            "title_en": title_en,
+            "title_ar": title_ar,
+            "message_en": f"Task '{task.get('title')}' is due {'today' if due_date == today_str else 'tomorrow'}",
+            "message_ar": f"المهمة '{task.get('title')}' مستحقة {'اليوم' if due_date == today_str else 'غداً'}",
+            "icon": "clock",
+            "color": color,
+            "user_id": assigned_to,
+            "company_id": company_id,
+            "broadcast": False,
+            "data": {"task_id": task.get("id"), "due_date": due_date},
+            "read": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_by": "system"
+        }
+        
+        await db.notifications.insert_one(notification)
+
