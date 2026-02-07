@@ -310,6 +310,78 @@ const AdminDashboard = () => {
     }
   };
 
+  // Fetch available permissions
+  const fetchAvailablePermissions = async () => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.get(`${API_URL}/api/admin/permissions`, config);
+      setAvailablePermissions(response.data);
+    } catch (error) {
+      console.error('Error fetching permissions:', error);
+    }
+  };
+
+  // Open edit permissions modal
+  const handleEditPermissions = async (user) => {
+    setEditingUserPermissions(user);
+    setUserPermissions(user.permissions || []);
+    
+    // Fetch available permissions if not loaded
+    if (availablePermissions.length === 0) {
+      await fetchAvailablePermissions();
+    }
+  };
+
+  // Toggle a permission
+  const togglePermission = (permId) => {
+    setUserPermissions(prev => {
+      if (prev.includes(permId)) {
+        return prev.filter(p => p !== permId);
+      } else {
+        return [...prev, permId];
+      }
+    });
+  };
+
+  // Save user permissions
+  const handleSavePermissions = async () => {
+    if (!editingUserPermissions) return;
+    
+    setSavingPermissions(true);
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.put(
+        `${API_URL}/api/admin/users/${editingUserPermissions.id}/permissions`,
+        { permissions: userPermissions },
+        config
+      );
+      
+      showToastMessage(t.permissionsUpdated, 'success');
+      
+      // Update the user in the local state
+      setCompanyUsers(prev => prev.map(u => 
+        u.id === editingUserPermissions.id 
+          ? { ...u, permissions: userPermissions }
+          : u
+      ));
+      
+      setEditingUserPermissions(null);
+    } catch (error) {
+      showToastMessage(isRTL ? 'حدث خطأ في الحفظ' : 'Error saving permissions', 'error');
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
+  // Select/Deselect all permissions
+  const selectAllPermissions = () => {
+    setUserPermissions(availablePermissions.map(p => p.id));
+  };
+
+  const deselectAllPermissions = () => {
+    setUserPermissions([]);
+  };
+
   const tabs = [
     { id: 'overview', label: t.overview, icon: BarChart3 },
     { id: 'subscriptions', label: t.subscriptions, icon: CreditCard },
