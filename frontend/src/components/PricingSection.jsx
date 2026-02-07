@@ -427,6 +427,7 @@ const PricingSection = () => {
           </TabsContent>
 
           {/* One-time Packages */}
+          {/* One-time Packages */}
           <TabsContent value="onetime">
             <div className="text-center mb-12">
               <h3 className="text-2xl font-bold text-gray-900 mb-4">
@@ -438,63 +439,76 @@ const PricingSection = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              {oneTimePackages.map((pkg, index) => (
-                <Card 
-                  key={pkg.id} 
-                  className={`border-gray-200 hover:shadow-lg transition-all duration-300 ${
-                    pkg.popular ? 'border-[#28376B] border-2' : ''
-                  }`}
-                >
-                  {pkg.popular && (
-                    <div className="bg-[#28376B] text-white text-center py-2 rounded-t-lg">
-                      <Badge className="bg-white text-[#28376B]">
-                        {t('pricing.recommended')}
-                      </Badge>
-                    </div>
-                  )}
-
-                  <CardHeader className="text-center pb-4">
-                    <CardTitle className="text-2xl font-bold">{pkg.name}</CardTitle>
-                    <CardDescription className="text-gray-600 mt-2">
-                      {pkg.description}
-                    </CardDescription>
-                    
-                    <div className="mt-6">
-                      <div className="text-4xl font-bold text-gray-900">
-                        {pkg.price}
-                        <span className="text-sm text-gray-500 font-normal ml-1">
-                          {pkg.currency}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {t('pricing.oneTime.onetime')}
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="pt-0">
-                    <Button 
-                      onClick={() => handlePlanSelect({...pkg, type: 'onetime', monthlyPrice: pkg.price, annualPrice: pkg.price})}
-                      className={`w-full mb-6 ${
-                        pkg.popular 
-                          ? 'bg-[#28376B] hover:bg-[#1e2a5a]' 
-                          : 'bg-gray-900 hover:bg-gray-800'
-                      }`}
-                    >
-                      {t('pricing.oneTime.button')}
-                    </Button>
-
-                    <div className="space-y-3">
-                      {pkg.features.map((feature, featureIndex) => (
-                        <div key={featureIndex} className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3`}>
-                          <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                          <span className="text-sm text-gray-600">{feature}</span>
+              {oneTimePackages.map((pkg, index) => {
+                // Different colors for each package
+                const packageColors = [
+                  { bg: 'from-slate-600 to-slate-800', light: 'bg-slate-50', border: 'border-slate-300', text: 'text-slate-600', iconBg: 'bg-gradient-to-br from-slate-500 to-slate-700' },
+                  { bg: 'from-violet-500 to-purple-700', light: 'bg-violet-50', border: 'border-violet-300', text: 'text-violet-600', iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600' }
+                ];
+                const colors = packageColors[index];
+                
+                return (
+                  <Card 
+                    key={pkg.id} 
+                    className={`overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 ${
+                      pkg.popular ? `border-2 ${colors.border} shadow-xl` : 'border-gray-200'
+                    }`}
+                  >
+                    {/* Colored Header */}
+                    <div className={`bg-gradient-to-r ${colors.bg} p-6 text-white relative`}>
+                      {pkg.popular && (
+                        <div className="absolute top-3 right-3">
+                          <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-3">
+                            <Star className="h-3 w-3 mr-1" />
+                            {t('pricing.recommended')}
+                          </Badge>
                         </div>
-                      ))}
+                      )}
+                      
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className={`p-3 ${colors.iconBg} rounded-xl shadow-lg`}>
+                          {index === 0 ? <Zap className="h-6 w-6 text-white" /> : <Crown className="h-6 w-6 text-white" />}
+                        </div>
+                        <div>
+                          <CardTitle className="text-2xl font-bold text-white">{pkg.name}</CardTitle>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-bold">{pkg.price}</span>
+                          <span className="text-lg text-white/80">{pkg.currency}</span>
+                        </div>
+                        <div className="text-sm text-white/70 mt-1">
+                          {t('pricing.oneTime.onetime')}
+                        </div>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+
+                    <CardContent className="p-6">
+                      <p className="text-gray-600 text-sm mb-6">{pkg.description}</p>
+                      
+                      <Button 
+                        onClick={() => handlePlanSelect({...pkg, type: 'onetime', monthlyPrice: pkg.price, annualPrice: pkg.price})}
+                        className={`w-full mb-6 bg-gradient-to-r ${colors.bg} hover:opacity-90 transition-opacity shadow-md`}
+                      >
+                        {t('pricing.oneTime.button')}
+                      </Button>
+
+                      <div className="space-y-3">
+                        {pkg.features.map((feature, featureIndex) => (
+                          <div key={featureIndex} className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3`}>
+                            <div className={`w-5 h-5 rounded-full ${colors.light} flex items-center justify-center flex-shrink-0`}>
+                              <CheckCircle className={`h-3.5 w-3.5 ${colors.text}`} />
+                            </div>
+                            <span className="text-sm text-gray-700">{feature}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </TabsContent>
         </Tabs>
