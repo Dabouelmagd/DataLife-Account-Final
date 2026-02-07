@@ -31,35 +31,39 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - Tax calculation
 - Order tracking
 
-### 5. Approval Workflows (NEW)
-**Request Types:**
-- Expense approval
-- Leave requests
-- Purchase orders
-- Invoice approval
-- Salary changes
-- Document approval
-
-**Features:**
+### 5. Approval Workflows
 - Multi-level approval chains
-- Status tracking (pending → approved/rejected)
+- Multiple request types (expense, leave, PO, invoice, salary, document)
+- Status tracking
 - Approval history
-- Automatic notifications
-- Workflow configuration
+
+### 6. Real-time Sync (NEW)
+- **WebSocket-based live updates** across all devices
+- Connection indicator showing "Live" status
+- Automatic reconnection on disconnect
+- Updates for: Invoices, Purchases, Approvals
+
+### 7. Attachments System (NEW)
+- **Upload files to any entity** (invoices, approvals, purchase orders)
+- **All file types supported**
+- **Max file size: 10 MB**
+- Drag & drop upload
+- File preview (images, PDFs)
+- Download functionality
+- Delete attachments
 
 ---
 
 ## Key API Endpoints
 
-### Approvals
-- `POST /api/approvals/request` - Create request
-- `GET /api/approvals/pending` - Pending approvals
-- `GET /api/approvals/my-requests` - My requests
-- `GET /api/approvals/stats` - Statistics
-- `GET /api/approvals/workflows/list` - Workflows
-- `POST /api/approvals/{id}/approve` - Approve
-- `POST /api/approvals/{id}/reject` - Reject
-- `POST /api/approvals/{id}/cancel` - Cancel
+### Attachments
+- `POST /api/attachments/upload` - Upload file (multipart/form-data)
+- `GET /api/attachments/entity/{type}/{id}` - Get entity attachments
+- `GET /api/attachments/{id}/download` - Download file
+- `DELETE /api/attachments/{id}` - Delete attachment
+
+### Real-time Sync
+- `WS /api/attachments/ws/sync/{company_id}` - WebSocket for live updates
 
 ---
 
@@ -83,6 +87,8 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [x] Customer Portal
 - [x] Purchases & Supplier Management
 - [x] Approval Workflows
+- [x] Real-time Sync across devices
+- [x] Attachments System
 
 ### P1 - Next Priority
 - [ ] Attendance System (Clock-in/Clock-out)
@@ -109,10 +115,19 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ---
 
-## Test Files Created
-- `/app/backend/tests/test_purchases.py`
-- `/app/backend/tests/test_approvals.py`
-- `/app/test_reports/iteration_*.json`
+## Architecture Notes
+
+### Real-time Sync
+- WebSocket connection per company
+- Broadcast updates to all connected clients
+- Automatic reconnection with exponential backoff
+- Ping/pong keep-alive every 30 seconds
+
+### Attachments Storage
+- Files stored as Base64 in MongoDB (development)
+- Production recommendation: Use S3 or cloud storage
+- File metadata stored separately from content
+- Content-type detection using mimetypes
 
 ---
 
