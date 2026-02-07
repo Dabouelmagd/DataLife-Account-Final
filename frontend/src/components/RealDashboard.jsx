@@ -221,6 +221,16 @@ const RealDashboard = () => {
       icon: <CheckCircle /> 
     });
 
+    // Attendance module - available to HR and managers
+    const hrRoles = ['General Manager', 'CEO', 'HR Manager', 'مدير عام', 'المدير التنفيذي', 'مدير الموارد البشرية'];
+    if (hrRoles.includes(role) || financialRoles.includes(role)) {
+      modules.push({ 
+        id: 'attendance', 
+        name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance', 
+        icon: <Clock /> 
+      });
+    }
+
     // Customer Portal Management - available to managers
     const managerRoles = ['General Manager', 'CEO', 'Board Chairman', 'Financial Manager', 
                           'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'المدير المالي'];
