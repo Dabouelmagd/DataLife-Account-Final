@@ -810,6 +810,11 @@ const RealDashboard = () => {
       return <InvoicesModule />;
     }
 
+    // Customer Portal Management Module
+    if (activeModule === 'customer-portal-mgmt') {
+      return <CustomerPortalManagement />;
+    }
+
     return null;
   };
 
