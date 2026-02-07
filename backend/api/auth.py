@@ -312,3 +312,102 @@ async def force_reset_password(request_data: dict):
         "message": f"Password reset for {email}",
         "new_password": new_password
     }
+
+
+# Admin roles that can manage permissions
+ADMIN_ROLES = ['General Manager', 'CEO', 'Board Chairman', 'رئيس مجلس الإدارة', 'المدير التنفيذي', 'مدير عام']
+
+@router.get("/permissions/all")
+async def get_all_permissions():
+    """Get list of all available permissions/modules"""
+    return {"permissions": ALL_PERMISSIONS}
+
+@router.get("/users/{user_id}/permissions")
+async def get_user_permissions(
+    user_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Get permissions for a specific user"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    payload = verify_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    # Get target user
+    target_user = await get_user_by_id(db, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get permissions, defaulting to role-based if not set
+    permissions = target_user.permissions if target_user.permissions else get_default_permissions_for_role(target_user.role)
+    
+    return {
+        "user_id": user_id,
+        "role": target_user.role,
+        "permissions": permissions,
+        "all_permissions": ALL_PERMISSIONS
+    }
+
+@router.put("/users/{user_id}/permissions")
+async def update_permissions(
+    user_id: str,
+    permissions_data: UserPermissionsUpdate,
+    authorization: Optional[str] = Header(None)
+):
+    """Update permissions for a specific user (Admin only)"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    payload = verify_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    # Get current user (the one making the request)
+    current_user = await get_user_by_id(db, payload.get("user_id"))
+    if not current_user:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    # Check if current user has admin privileges
+    if current_user.role not in ADMIN_ROLES:
+        raise HTTPException(
+            status_code=403, 
+            detail="Only General Manager, CEO, or Board Chairman can modify permissions"
+        )
+    
+    # Get target user
+    target_user = await get_user_by_id(db, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found")
+    
+    # Check if they're in the same company
+    if current_user.company_id != target_user.company_id:
+        raise HTTPException(status_code=403, detail="Cannot modify users from other companies")
+    
+    # Cannot modify permissions of other admins (only self or lower roles)
+    if target_user.role in ADMIN_ROLES and target_user.id != current_user.id:
+        raise HTTPException(
+            status_code=403, 
+            detail="Cannot modify permissions of other administrators"
+        )
+    
+    # Validate permissions
+    valid_permission_ids = [p['id'] for p in ALL_PERMISSIONS]
+    for perm in permissions_data.permissions:
+        if perm not in valid_permission_ids:
+            raise HTTPException(status_code=400, detail=f"Invalid permission: {perm}")
+    
+    # Update permissions
+    updated_user = await update_user_permissions(db, user_id, permissions_data.permissions)
+    if not updated_user:
+        raise HTTPException(status_code=500, detail="Failed to update permissions")
+    
+    return {
+        "success": True,
+        "message": "Permissions updated successfully",
+        "user_id": user_id,
+        "permissions": permissions_data.permissions
+    }
