@@ -884,6 +884,11 @@ const RealDashboard = () => {
       return <ProjectsModule />;
     }
 
+    // Documents Module
+    if (activeModule === 'documents') {
+      return <DocumentsModule />;
+    }
+
     return null;
   };
 
