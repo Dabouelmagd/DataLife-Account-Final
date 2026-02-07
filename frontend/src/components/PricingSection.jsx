@@ -213,10 +213,25 @@ const PricingSection = () => {
 
         {/* Pricing Tabs */}
         <Tabs defaultValue="subscription" className="w-full">
-          <TabsList className={`grid w-full grid-cols-3 mb-12 ${isRTL ? 'text-right' : ''}`}>
-            <TabsTrigger value="subscription">{t('pricing.tabs.subscription')}</TabsTrigger>
-            <TabsTrigger value="modules">{t('pricing.tabs.modules')}</TabsTrigger>
-            <TabsTrigger value="onetime">{t('pricing.tabs.onetime')}</TabsTrigger>
+          <TabsList className={`grid w-full grid-cols-3 mb-12 bg-gray-100 p-1 rounded-xl ${isRTL ? 'text-right' : ''}`}>
+            <TabsTrigger 
+              value="subscription"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg transition-all duration-300"
+            >
+              {t('pricing.tabs.subscription')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="modules"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white rounded-lg transition-all duration-300"
+            >
+              {t('pricing.tabs.modules')}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="onetime"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-700 data-[state=active]:text-white rounded-lg transition-all duration-300"
+            >
+              {t('pricing.tabs.onetime')}
+            </TabsTrigger>
           </TabsList>
 
           {/* Subscription Plans */}
