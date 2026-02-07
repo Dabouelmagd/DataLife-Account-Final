@@ -408,6 +408,64 @@ const CompanyRegistrationPage = () => {
           )}
         </div>
       </div>
+
+      {/* Subscription Code Modal - Shows after successful registration */}
+      {showSubscriptionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full" dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                {language === 'ar' ? 'تم التسجيل بنجاح!' : 'Registration Successful!'}
+              </h3>
+              <p className="text-gray-600">
+                {language === 'ar' ? 'كود الاشتراك الخاص بك - احفظه في مكان آمن' : 'Your subscription code - save it securely'}
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-6 mb-6">
+              <div className="text-center">
+                <p className="text-sm text-amber-600 mb-2">
+                  {language === 'ar' ? 'كود الاشتراك' : 'Subscription Code'}
+                </p>
+                <code className="text-3xl font-mono font-bold text-amber-600 tracking-widest">
+                  {subscriptionCode}
+                </code>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(subscriptionCode);
+                  const btn = document.getElementById('copy-btn-reg');
+                  if (btn) {
+                    btn.textContent = language === 'ar' ? 'تم النسخ!' : 'Copied!';
+                    setTimeout(() => {
+                      btn.textContent = language === 'ar' ? 'نسخ الكود' : 'Copy Code';
+                    }, 2000);
+                  }
+                }}
+                id="copy-btn-reg"
+                className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+              >
+                {language === 'ar' ? 'نسخ الكود' : 'Copy Code'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowSubscriptionModal(false);
+                  navigate('/dashboard');
+                }}
+                className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
+                {language === 'ar' ? 'الانتقال للتطبيق' : 'Continue to Application'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
