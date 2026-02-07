@@ -640,6 +640,135 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* FAQ Section */}
+      <section id="faq" className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-gray-100">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-[#28376B]/10 text-[#28376B] border-[#28376B]/20">
+              {language === 'ar' ? 'الأسئلة الشائعة' : 'FAQ'}
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+              {language === 'ar' ? 'الأسئلة الأكثر شيوعاً' : 'Frequently Asked Questions'}
+            </h2>
+            <p className="text-xl text-gray-600">
+              {language === 'ar' 
+                ? 'إجابات على الأسئلة الشائعة حول نظام DataLife ERP'
+                : 'Answers to common questions about DataLife ERP system'}
+            </p>
+          </div>
+          
+          <Accordion type="single" collapsible className="space-y-4">
+            {(language === 'ar' ? [
+              {
+                q: 'ما هو نظام DataLife ERP؟',
+                a: 'DataLife ERP هو نظام متكامل لإدارة موارد المؤسسات، يشمل إدارة الموارد البشرية، المحاسبة المالية، إدارة المشاريع، الفواتير، والمشتريات. مصمم خصيصاً للشركات العربية مع دعم كامل للغة العربية والإنجليزية.'
+              },
+              {
+                q: 'هل يمكنني تجربة النظام قبل الشراء؟',
+                a: 'نعم! نوفر فترة تجريبية مجانية لمدة 14 يوماً يمكنك خلالها تجربة جميع مميزات النظام. لا تحتاج لإدخال بيانات بطاقة ائتمان للبدء.'
+              },
+              {
+                q: 'كيف يتم تخزين البيانات وهل هي آمنة؟',
+                a: 'نستخدم تقنية السحابة مع تشفير SSL/TLS لجميع الاتصالات. بياناتك مخزنة على خوادم MongoDB Atlas المؤمنة مع نسخ احتياطي يومي تلقائي. كل شركة لديها بيانات منفصلة تماماً.'
+              },
+              {
+                q: 'هل يمكنني إضافة مستخدمين متعددين؟',
+                a: 'نعم، يمكنك إضافة عدد غير محدود من المستخدمين (حسب الباقة المختارة) وتحديد صلاحيات مخصصة لكل مستخدم. يدعم النظام 10 أنواع مختلفة من الصلاحيات.'
+              },
+              {
+                q: 'هل يدعم النظام اللغة العربية؟',
+                a: 'نعم، النظام مصمم خصيصاً لدعم اللغة العربية والإنجليزية مع واجهة RTL كاملة. يمكنك التبديل بين اللغتين بسهولة من أي صفحة.'
+              },
+              {
+                q: 'كيف يمكنني الحصول على الدعم الفني؟',
+                a: 'نوفر دعم فني على مدار الساعة عبر البريد الإلكتروني والهاتف. كما يتوفر دليل شامل للمستخدم ومقاطع فيديو تعليمية داخل النظام.'
+              },
+              {
+                q: 'هل يمكنني تصدير البيانات والتقارير؟',
+                a: 'نعم، يمكنك تصدير جميع التقارير بصيغة PDF للأرشفة أو CSV للتحليل في Excel. كما يمكنك طباعة التقارير مباشرة بتنسيق احترافي.'
+              },
+              {
+                q: 'ما هي طرق الدفع المتاحة؟',
+                a: 'نقبل الدفع عبر البطاقات الائتمانية (Visa, MasterCard)، التحويل البنكي، وبعض المحافظ الإلكترونية. جميع المعاملات مشفرة وآمنة.'
+              }
+            ] : [
+              {
+                q: 'What is DataLife ERP?',
+                a: 'DataLife ERP is a comprehensive enterprise resource management system that includes HR management, financial accounting, project management, invoicing, and purchases. It is designed specifically for businesses with full support for Arabic and English languages.'
+              },
+              {
+                q: 'Can I try the system before purchasing?',
+                a: 'Yes! We offer a free 14-day trial period during which you can test all system features. No credit card required to get started.'
+              },
+              {
+                q: 'How is data stored and is it secure?',
+                a: 'We use cloud technology with SSL/TLS encryption for all connections. Your data is stored on secure MongoDB Atlas servers with automatic daily backups. Each company has completely separate data.'
+              },
+              {
+                q: 'Can I add multiple users?',
+                a: 'Yes, you can add unlimited users (depending on your plan) and set custom permissions for each user. The system supports 10 different permission types.'
+              },
+              {
+                q: 'Does the system support Arabic?',
+                a: 'Yes, the system is specifically designed to support Arabic and English with a full RTL interface. You can easily switch between languages from any page.'
+              },
+              {
+                q: 'How can I get technical support?',
+                a: 'We provide 24/7 technical support via email and phone. A comprehensive user guide and tutorial videos are also available within the system.'
+              },
+              {
+                q: 'Can I export data and reports?',
+                a: 'Yes, you can export all reports in PDF format for archiving or CSV for Excel analysis. You can also print reports directly in a professional format.'
+              },
+              {
+                q: 'What payment methods are available?',
+                a: 'We accept payment via credit cards (Visa, MasterCard), bank transfer, and some e-wallets. All transactions are encrypted and secure.'
+              }
+            ]).map((faq, index) => (
+              <AccordionItem 
+                key={index} 
+                value={`faq-${index}`} 
+                className="bg-white border rounded-xl px-6 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <AccordionTrigger className="text-lg font-semibold text-gray-900 hover:text-[#28376B] py-5">
+                  <div className="flex items-center gap-3 text-start">
+                    <div className="w-8 h-8 bg-[#28376B]/10 rounded-full flex items-center justify-center flex-shrink-0">
+                      <HelpCircle className="h-4 w-4 text-[#28376B]" />
+                    </div>
+                    <span>{faq.q}</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-5 text-gray-600 leading-relaxed">
+                  <div className={`${isRTL ? 'pr-11' : 'pl-11'}`}>
+                    {faq.a}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+
+          {/* Contact CTA */}
+          <div className="mt-12 text-center p-8 bg-gradient-to-r from-[#28376B] to-[#1e2a5a] rounded-2xl text-white">
+            <h3 className="text-xl font-bold mb-3">
+              {language === 'ar' ? 'لم تجد إجابة لسؤالك؟' : "Didn't find your answer?"}
+            </h3>
+            <p className="text-blue-100 mb-6">
+              {language === 'ar' 
+                ? 'فريق الدعم الفني جاهز لمساعدتك على مدار الساعة'
+                : 'Our support team is ready to help you 24/7'}
+            </p>
+            <Button 
+              variant="secondary"
+              className="bg-white text-[#28376B] hover:bg-gray-100"
+              onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              <Mail className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+              {language === 'ar' ? 'تواصل معنا' : 'Contact Us'}
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing Section */}
       <section id="pricing">
         <PricingSection />
