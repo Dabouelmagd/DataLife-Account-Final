@@ -193,6 +193,15 @@ const AdminDashboard = () => {
       if (activeTab === 'overview' || !dashboardData) {
         const dashRes = await axios.get(`${API_URL}/api/admin/dashboard`, config);
         setDashboardData(dashRes.data);
+        
+        // Also fetch messages count for overview
+        try {
+          const messagesRes = await axios.get(`${API_URL}/api/contact/messages`, config);
+          setContactMessages(messagesRes.data);
+          setNewMessagesCount(messagesRes.data.filter(m => !m.read).length);
+        } catch (e) {
+          console.error('Error fetching messages:', e);
+        }
       }
       
       if (activeTab === 'subscriptions') {
