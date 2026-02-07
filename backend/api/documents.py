@@ -441,15 +441,16 @@ async def delete_document(
                 pass
         
         result = await db.documents.delete_one({"id": document_id, "company_id": company_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
     else:
         # Archive
         result = await db.documents.update_one(
             {"id": document_id, "company_id": company_id},
             {"$set": {"is_archived": True, "archived_at": datetime.now(timezone.utc).isoformat()}}
         )
-    
-    if result.deleted_count == 0 and result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Document not found")
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
     
     return {"success": True}
 
