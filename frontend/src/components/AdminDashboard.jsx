@@ -190,6 +190,12 @@ const AdminDashboard = () => {
         const companiesRes = await axios.get(`${API_URL}/api/admin/companies`, config);
         setCompanies(companiesRes.data);
       }
+      
+      if (activeTab === 'users') {
+        const usersRes = await axios.get(`${API_URL}/api/admin/all-users`, config);
+        setAllUsers(usersRes.data);
+        setFilteredUsers(usersRes.data);
+      }
     } catch (error) {
       // Error fetching data
     } finally {
