@@ -13,7 +13,7 @@ import {
   Building2, TrendingUp, PieChart, BarChart, Calculator,
   Home, PlayCircle, ArrowUp, ArrowDown, AlertCircle, CheckCircle,
   Eye, Edit, Plus, Download, Printer, Clock, Award, TrendingDown,
-  ChevronDown, ChevronRight, CreditCard, ShoppingCart
+  ChevronDown, ChevronRight, CreditCard, ShoppingCart, FolderKanban
 } from 'lucide-react';
 import axios from 'axios';
 import { getTranslation } from '../data/translations';
