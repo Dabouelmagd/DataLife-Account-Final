@@ -650,27 +650,22 @@ const FeaturesPage = () => {
         {/* Section 1: Overview */}
         <section id="overview" className="scroll-mt-24">
           <div className="text-center mb-10">
-            <Badge className="bg-blue-100 text-blue-800 mb-3">مقدمة</Badge>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">نظرة عامة على النظام</h2>
+            <Badge className="bg-blue-100 text-blue-800 mb-3">{content.overviewBadge}</Badge>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">{content.overviewTitle}</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              DataLife ERP هو نظام متكامل لإدارة موارد المؤسسات، مصمم بأحدث التقنيات لتوفير حلول شاملة للشركات
+              {content.overviewDesc}
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: Building2, title: 'متعدد الشركات', desc: 'إدارة عدة شركات من حساب واحد مع فصل كامل للبيانات' },
-              { icon: Users, title: 'متعدد المستخدمين', desc: 'صلاحيات مخصصة لكل مستخدم حسب دوره الوظيفي' },
-              { icon: Languages, title: 'ثنائي اللغة', desc: 'دعم كامل للعربية والإنجليزية مع واجهة RTL' },
-              { icon: Cloud, title: 'سحابي آمن', desc: 'الوصول من أي مكان مع حماية متقدمة للبيانات' },
-            ].map((item, idx) => (
+            {[Building2, Users, Languages, Cloud].map((Icon, idx) => (
               <Card key={idx} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-6 text-center">
                   <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <item.icon className="h-7 w-7 text-white" />
+                    <Icon className="h-7 w-7 text-white" />
                   </div>
-                  <h3 className="font-bold text-lg mb-2">{item.title}</h3>
-                  <p className="text-gray-600 text-sm">{item.desc}</p>
+                  <h3 className="font-bold text-lg mb-2">{content.overviewCards[idx].title}</h3>
+                  <p className="text-gray-600 text-sm">{content.overviewCards[idx].desc}</p>
                 </CardContent>
               </Card>
             ))}
@@ -680,68 +675,34 @@ const FeaturesPage = () => {
         {/* Section 2: Main Modules */}
         <section id="modules" className="scroll-mt-24">
           <div className="text-center mb-10">
-            <Badge className="bg-green-100 text-green-800 mb-3">الوحدات</Badge>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">الوحدات الرئيسية للنظام</h2>
+            <Badge className="bg-green-100 text-green-800 mb-3">{content.modulesBadge}</Badge>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">{content.modulesTitle}</h2>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { 
-                icon: Users, 
-                title: 'إدارة الموارد البشرية', 
-                color: 'from-blue-500 to-blue-600',
-                features: ['إدارة بيانات الموظفين', 'نظام الرواتب والمستحقات', 'الحضور والانصراف', 'الإجازات والغياب', 'تقارير HR متقدمة']
-              },
-              { 
-                icon: DollarSign, 
-                title: 'الإدارة المالية', 
-                color: 'from-green-500 to-emerald-600',
-                features: ['دليل الحسابات', 'القيود المحاسبية', 'الميزانية العمومية', 'قائمة الدخل', 'التقارير المالية']
-              },
-              { 
-                icon: FileText, 
-                title: 'الفواتير والمبيعات', 
-                color: 'from-purple-500 to-violet-600',
-                features: ['إنشاء الفواتير', 'إدارة العملاء', 'تتبع المدفوعات', 'تقارير المبيعات', 'الفواتير المتكررة']
-              },
-              { 
-                icon: Package, 
-                title: 'إدارة المشتريات', 
-                color: 'from-orange-500 to-amber-600',
-                features: ['أوامر الشراء', 'إدارة الموردين', 'متابعة الطلبات', 'تقارير المشتريات', 'إدارة المخزون']
-              },
-              { 
-                icon: FolderKanban, 
-                title: 'إدارة المشاريع', 
-                color: 'from-pink-500 to-rose-600',
-                features: ['إنشاء المشاريع', 'إدارة المهام', 'تتبع التقدم', 'الجدول الزمني', 'فريق العمل']
-              },
-              { 
-                icon: BarChart3, 
-                title: 'التحليلات والتقارير', 
-                color: 'from-cyan-500 to-teal-600',
-                features: ['لوحات بيانية', 'تقارير تفاعلية', 'تصدير PDF/CSV', 'رسوم بيانية', 'مؤشرات الأداء']
-              },
-            ].map((module, idx) => (
-              <Card key={idx} className="hover:shadow-xl transition-all duration-300 overflow-hidden group">
-                <CardHeader className={`bg-gradient-to-r ${module.color} text-white`}>
-                  <CardTitle className="flex items-center gap-3">
-                    <module.icon className="h-6 w-6" />
-                    {module.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4">
-                  <ul className="space-y-2">
-                    {module.features.map((feature, i) => (
-                      <li key={i} className="flex items-center gap-2 text-gray-700">
-                        <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                        <span className="text-sm">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            ))}
+            {content.modulesData.map((module, idx) => {
+              const Icon = moduleIcons[idx];
+              return (
+                <Card key={idx} className="hover:shadow-xl transition-all duration-300 overflow-hidden group">
+                  <CardHeader className={`bg-gradient-to-r ${moduleColors[idx]} text-white`}>
+                    <CardTitle className="flex items-center gap-3">
+                      <Icon className="h-6 w-6" />
+                      {module.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    <ul className="space-y-2">
+                      {module.features.map((feature, i) => (
+                        <li key={i} className="flex items-center gap-2 text-gray-700">
+                          <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                          <span className="text-sm">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </section>
 
@@ -752,8 +713,8 @@ const FeaturesPage = () => {
               <Users className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h2 className="text-3xl font-bold text-gray-900">وحدة الموارد البشرية</h2>
-              <p className="text-gray-600">إدارة شاملة للموظفين والرواتب والحضور</p>
+              <h2 className="text-3xl font-bold text-gray-900">{content.hrTitle}</h2>
+              <p className="text-gray-600">{content.hrDesc}</p>
             </div>
           </div>
 
@@ -762,17 +723,10 @@ const FeaturesPage = () => {
             <div className="space-y-4">
               <h3 className="text-xl font-bold flex items-center gap-2 text-[#1e3a5f]">
                 <UserCheck className="h-5 w-5" />
-                إدارة الموظفين
+                {content.employeeMgmt}
               </h3>
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                {[
-                  'إضافة وتعديل بيانات الموظفين',
-                  'رفع صور الموظفين والمستندات',
-                  'تتبع تاريخ التوظيف',
-                  'إدارة الأقسام والإدارات',
-                  'بطاقات تعريف الموظفين',
-                  'سجل البيانات الشخصية والمهنية',
-                ].map((item, i) => (
+                {content.employeeFeatures.map((item, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
                     <span>{item}</span>
@@ -785,17 +739,10 @@ const FeaturesPage = () => {
             <div className="space-y-4">
               <h3 className="text-xl font-bold flex items-center gap-2 text-[#1e3a5f]">
                 <DollarSign className="h-5 w-5" />
-                نظام الرواتب
+                {content.salarySystem}
               </h3>
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                {[
-                  'حساب الرواتب الشهرية تلقائياً',
-                  'إدارة البدلات والعلاوات',
-                  'حساب الخصومات والاستقطاعات',
-                  'تقارير الرواتب التفصيلية',
-                  'كشوفات المرتبات',
-                  'تصدير بيانات الرواتب',
-                ].map((item, i) => (
+                {content.salaryFeatures.map((item, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
                     <span>{item}</span>
@@ -808,17 +755,10 @@ const FeaturesPage = () => {
             <div className="space-y-4">
               <h3 className="text-xl font-bold flex items-center gap-2 text-[#1e3a5f]">
                 <Clock className="h-5 w-5" />
-                الحضور والانصراف
+                {content.attendance}
               </h3>
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                {[
-                  'تسجيل الحضور والانصراف',
-                  'حساب ساعات العمل الإضافي',
-                  'تتبع التأخير والغياب',
-                  'تقارير الحضور الشهرية',
-                  'ربط مع أجهزة البصمة',
-                  'تقويم العمل المخصص',
-                ].map((item, i) => (
+                {content.attendanceFeatures.map((item, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
                     <span>{item}</span>
@@ -831,17 +771,10 @@ const FeaturesPage = () => {
             <div className="space-y-4">
               <h3 className="text-xl font-bold flex items-center gap-2 text-[#1e3a5f]">
                 <Calendar className="h-5 w-5" />
-                الإجازات
+                {content.leaves}
               </h3>
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                {[
-                  'طلبات الإجازة الإلكترونية',
-                  'أنواع إجازات متعددة',
-                  'رصيد الإجازات التلقائي',
-                  'موافقات الإجازات',
-                  'تقارير الإجازات السنوية',
-                  'إشعارات الإجازات',
-                ].map((item, i) => (
+                {content.leaveFeatures.map((item, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
                     <span>{item}</span>
@@ -859,63 +792,36 @@ const FeaturesPage = () => {
               <DollarSign className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h2 className="text-3xl font-bold text-gray-900">وحدة الإدارة المالية</h2>
-              <p className="text-gray-600">نظام محاسبي متكامل لإدارة الشؤون المالية</p>
+              <h2 className="text-3xl font-bold text-gray-900">{content.financeTitle}</h2>
+              <p className="text-gray-600">{content.financeDesc}</p>
             </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                title: 'دليل الحسابات',
-                icon: Layers,
-                items: ['شجرة حسابات متعددة المستويات', 'أنواع الحسابات المختلفة', 'أرصدة افتتاحية', 'تصنيف الحسابات']
-              },
-              {
-                title: 'القيود المحاسبية',
-                icon: FileText,
-                items: ['قيود يومية', 'قيود آلية', 'قيود التسوية', 'مراجعة القيود']
-              },
-              {
-                title: 'التقارير المالية',
-                icon: PieChart,
-                items: ['الميزانية العمومية', 'قائمة الدخل', 'التدفقات النقدية', 'ميزان المراجعة']
-              },
-              {
-                title: 'إدارة العملاء',
-                icon: Users,
-                items: ['سجل العملاء', 'كشف حساب العميل', 'أعمار الديون', 'المتابعة والتحصيل']
-              },
-              {
-                title: 'إدارة الموردين',
-                icon: Package,
-                items: ['سجل الموردين', 'كشف حساب المورد', 'المستحقات للموردين', 'تقارير الموردين']
-              },
-              {
-                title: 'الفواتير',
-                icon: Receipt,
-                items: ['فواتير المبيعات', 'فواتير المشتريات', 'إشعارات دائنة/مدينة', 'تقارير الفواتير']
-              },
-            ].map((section, idx) => (
-              <Card key={idx} className="bg-white">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <section.icon className="h-5 w-5 text-green-600" />
-                    {section.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {section.items.map((item, i) => (
-                      <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
-                        <CheckCircle className="h-3 w-3 text-green-500" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            ))}
+            {content.financeModules.map((section, idx) => {
+              const icons = [Layers, FileText, PieChart, Users, Package, Receipt];
+              const Icon = icons[idx];
+              return (
+                <Card key={idx} className="bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Icon className="h-5 w-5 text-green-600" />
+                      {section.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {section.items.map((item, i) => (
+                        <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </section>
 
@@ -926,8 +832,8 @@ const FeaturesPage = () => {
               <FolderKanban className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h2 className="text-3xl font-bold text-gray-900">وحدة إدارة المشاريع</h2>
-              <p className="text-gray-600">تخطيط وتنفيذ ومتابعة المشاريع بكفاءة</p>
+              <h2 className="text-3xl font-bold text-gray-900">{content.projectsTitle}</h2>
+              <p className="text-gray-600">{content.projectsDesc}</p>
             </div>
           </div>
 
@@ -935,17 +841,10 @@ const FeaturesPage = () => {
             <div className="bg-white rounded-2xl p-6 shadow-lg">
               <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                 <Target className="h-5 w-5 text-pink-600" />
-                إدارة المشاريع
+                {content.projectMgmt}
               </h3>
               <ul className="space-y-3">
-                {[
-                  'إنشاء مشاريع جديدة مع تفاصيل كاملة',
-                  'تحديد الميزانية والجدول الزمني',
-                  'تعيين مدير المشروع وفريق العمل',
-                  'تتبع حالة المشروع (قيد التنفيذ/مكتمل/معلق)',
-                  'نسبة الإنجاز التلقائية',
-                  'مؤشرات الأداء الرئيسية KPIs',
-                ].map((item, i) => (
+                {content.projectFeatures.map((item, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-500" />
                     <span>{item}</span>
@@ -957,17 +856,10 @@ const FeaturesPage = () => {
             <div className="bg-white rounded-2xl p-6 shadow-lg">
               <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                 <Briefcase className="h-5 w-5 text-pink-600" />
-                إدارة المهام
+                {content.taskMgmt}
               </h3>
               <ul className="space-y-3">
-                {[
-                  'إنشاء وتعيين المهام للموظفين',
-                  'تحديد الأولويات (عاجل/عالي/متوسط/منخفض)',
-                  'تواريخ البدء والانتهاء',
-                  'التعليقات والملاحظات على المهام',
-                  'إشعارات المهام التلقائية',
-                  'تقارير إنتاجية الفريق',
-                ].map((item, i) => (
+                {content.taskFeatures.map((item, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-500" />
                     <span>{item}</span>
@@ -981,10 +873,10 @@ const FeaturesPage = () => {
         {/* Section 6: Reports & Export */}
         <section id="reports" className="scroll-mt-24">
           <div className="text-center mb-10">
-            <Badge className="bg-cyan-100 text-cyan-800 mb-3">التقارير</Badge>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">التقارير والتصدير</h2>
+            <Badge className="bg-cyan-100 text-cyan-800 mb-3">{content.reportsBadge}</Badge>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">{content.reportsTitle}</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              نظام تقارير متقدم مع إمكانية الطباعة والتصدير بصيغ متعددة
+              {content.reportsDesc}
             </p>
           </div>
 
@@ -992,36 +884,32 @@ const FeaturesPage = () => {
             <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
               <CardContent className="p-6 text-center">
                 <Printer className="h-12 w-12 mx-auto mb-4" />
-                <h3 className="text-xl font-bold mb-2">الطباعة</h3>
-                <p className="text-blue-100">طباعة التقارير مباشرة بتنسيق احترافي مع إخفاء القوائم</p>
+                <h3 className="text-xl font-bold mb-2">{content.printing}</h3>
+                <p className="text-blue-100">{content.printingDesc}</p>
               </CardContent>
             </Card>
             
             <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white">
               <CardContent className="p-6 text-center">
                 <FileText className="h-12 w-12 mx-auto mb-4" />
-                <h3 className="text-xl font-bold mb-2">تصدير PDF</h3>
-                <p className="text-red-100">تصدير التقارير بصيغة PDF للأرشفة والمشاركة</p>
+                <h3 className="text-xl font-bold mb-2">{content.pdfExport}</h3>
+                <p className="text-red-100">{content.pdfExportDesc}</p>
               </CardContent>
             </Card>
             
             <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
               <CardContent className="p-6 text-center">
                 <Download className="h-12 w-12 mx-auto mb-4" />
-                <h3 className="text-xl font-bold mb-2">تصدير Excel</h3>
-                <p className="text-green-100">تصدير البيانات بصيغة CSV للتحليل في Excel</p>
+                <h3 className="text-xl font-bold mb-2">{content.excelExport}</h3>
+                <p className="text-green-100">{content.excelExportDesc}</p>
               </CardContent>
             </Card>
           </div>
 
           <div className="mt-8 bg-white rounded-2xl p-6 shadow-lg">
-            <h3 className="text-xl font-bold mb-4">أنواع التقارير المتوفرة</h3>
+            <h3 className="text-xl font-bold mb-4">{content.reportTypes}</h3>
             <div className="grid md:grid-cols-4 gap-4">
-              {[
-                'تقارير الموظفين', 'تقارير الرواتب', 'تقارير الحضور', 'تقارير الإجازات',
-                'التقارير المالية', 'تقارير المبيعات', 'تقارير المشتريات', 'تقارير المخزون',
-                'تقارير المشاريع', 'تقارير المهام', 'تقارير الأداء', 'تقارير مخصصة'
-              ].map((report, i) => (
+              {content.reportList.map((report, i) => (
                 <div key={i} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
                   <FileSearch className="h-4 w-4 text-blue-600" />
                   <span className="text-sm">{report}</span>
@@ -1038,31 +926,27 @@ const FeaturesPage = () => {
               <Shield className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h2 className="text-3xl font-bold">لوحة تحكم المسؤول</h2>
-              <p className="text-gray-400">إدارة شاملة للنظام والشركات والمستخدمين</p>
+              <h2 className="text-3xl font-bold">{content.adminTitle}</h2>
+              <p className="text-gray-400">{content.adminDesc}</p>
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { icon: Building2, title: 'إدارة الشركات', desc: 'عرض جميع الشركات المسجلة وتفعيلها أو تعطيلها' },
-              { icon: Users, title: 'إدارة المستخدمين', desc: 'التحكم في المستخدمين وصلاحياتهم' },
-              { icon: CreditCard, title: 'أكواد التفعيل', desc: 'إنشاء وإدارة أكواد الاشتراك' },
-              { icon: Bell, title: 'الإشعارات', desc: 'إرسال إشعارات للشركات والمستخدمين' },
-              { icon: BarChart3, title: 'الإحصائيات', desc: 'عرض إحصائيات النظام والإيرادات' },
-              { icon: Lock, title: 'الأمان', desc: 'صلاحيات متقدمة للمسؤولين فقط' },
-            ].map((item, idx) => (
-              <div key={idx} className="bg-white/10 backdrop-blur rounded-xl p-5">
-                <item.icon className="h-8 w-8 text-amber-400 mb-3" />
-                <h3 className="font-bold text-lg mb-2">{item.title}</h3>
-                <p className="text-gray-400 text-sm">{item.desc}</p>
-              </div>
-            ))}
+            {content.adminCards.map((item, idx) => {
+              const Icon = adminIcons[idx];
+              return (
+                <div key={idx} className="bg-white/10 backdrop-blur rounded-xl p-5">
+                  <Icon className="h-8 w-8 text-amber-400 mb-3" />
+                  <h3 className="font-bold text-lg mb-2">{item.title}</h3>
+                  <p className="text-gray-400 text-sm">{item.desc}</p>
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-8 p-4 bg-amber-500/20 rounded-xl border border-amber-500/30">
             <p className="text-amber-200 text-sm">
-              <strong>ملاحظة:</strong> لوحة تحكم المسؤول متاحة فقط لـ: المدير العام، المدير التنفيذي (CEO)، رئيس مجلس الإدارة
+              <strong>{pageLang === 'ar' ? 'ملاحظة:' : 'Note:'}</strong> {content.adminNote}
             </p>
           </div>
         </section>
@@ -1074,46 +958,35 @@ const FeaturesPage = () => {
               <Shield className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h2 className="text-3xl font-bold text-gray-900">نظام الصلاحيات</h2>
-              <p className="text-gray-600">تحكم دقيق في صلاحيات كل مستخدم</p>
+              <h2 className="text-3xl font-bold text-gray-900">{content.permissionsTitle}</h2>
+              <p className="text-gray-600">{content.permissionsDesc}</p>
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
             <div>
-              <h3 className="text-xl font-bold mb-4">الصلاحيات المتاحة</h3>
+              <h3 className="text-xl font-bold mb-4">{content.availablePermissions}</h3>
               <div className="grid grid-cols-2 gap-3">
-                {[
-                  { name: 'لوحة التحكم', id: 'dashboard', required: true },
-                  { name: 'الموارد البشرية', id: 'hr' },
-                  { name: 'الإدارة المالية', id: 'financial' },
-                  { name: 'الفواتير', id: 'invoices' },
-                  { name: 'المشتريات', id: 'purchases' },
-                  { name: 'المشاريع', id: 'projects' },
-                  { name: 'التحليلات', id: 'analytics' },
-                  { name: 'الإعدادات', id: 'settings' },
-                  { name: 'إدارة المستخدمين', id: 'users' },
-                  { name: 'الموافقات', id: 'approvals' },
-                ].map((perm, i) => (
+                {content.permissionsList.map((perm, i) => (
                   <div key={i} className={`flex items-center gap-2 p-3 rounded-lg ${perm.required ? 'bg-green-100' : 'bg-gray-100'}`}>
                     <CheckCircle className={`h-4 w-4 ${perm.required ? 'text-green-600' : 'text-gray-500'}`} />
                     <span className="text-sm">{perm.name}</span>
-                    {perm.required && <Badge className="bg-green-500 text-white text-xs">إلزامي</Badge>}
+                    {perm.required && <Badge className="bg-green-500 text-white text-xs">{content.required}</Badge>}
                   </div>
                 ))}
               </div>
             </div>
 
             <div>
-              <h3 className="text-xl font-bold mb-4">طريقة العرض</h3>
+              <h3 className="text-xl font-bold mb-4">{content.displayMethod}</h3>
               <div className="space-y-4">
                 <div className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
                   <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
                     <CheckCircle className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <p className="font-bold text-green-800">اللون الأخضر</p>
-                    <p className="text-green-600 text-sm">صلاحية متاحة للمستخدم</p>
+                    <p className="font-bold text-green-800">{content.greenColor}</p>
+                    <p className="text-green-600 text-sm">{content.greenDesc}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 p-4 bg-red-50 rounded-xl border border-red-200">
@@ -1121,8 +994,8 @@ const FeaturesPage = () => {
                     <Lock className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <p className="font-bold text-red-800">اللون الأحمر</p>
-                    <p className="text-red-600 text-sm">صلاحية غير متاحة للمستخدم</p>
+                    <p className="font-bold text-red-800">{content.redColor}</p>
+                    <p className="text-red-600 text-sm">{content.redDesc}</p>
                   </div>
                 </div>
               </div>
@@ -1133,92 +1006,36 @@ const FeaturesPage = () => {
         {/* Section 9: How to Use */}
         <section id="howto" className="scroll-mt-24">
           <div className="text-center mb-10">
-            <Badge className="bg-amber-100 text-amber-800 mb-3">دليل الاستخدام</Badge>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">طريقة تشغيل النظام</h2>
+            <Badge className="bg-amber-100 text-amber-800 mb-3">{content.howtoBadge}</Badge>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">{content.howtoTitle}</h2>
           </div>
 
           <div className="space-y-6">
-            {[
-              {
-                step: 1,
-                title: 'تسجيل الشركة',
-                desc: 'قم بتسجيل شركتك من خلال صفحة التسجيل مع إدخال بيانات الشركة والمستخدم الرئيسي',
-                details: [
-                  'أدخل اسم الشركة ونوع النشاط',
-                  'أدخل بيانات المستخدم الرئيسي (المدير العام)',
-                  'اختر كلمة مرور قوية',
-                  'ستحصل على كود اشتراك فريد'
-                ]
-              },
-              {
-                step: 2,
-                title: 'تسجيل الدخول',
-                desc: 'سجل دخولك باستخدام البريد الإلكتروني وكلمة المرور',
-                details: [
-                  'أدخل البريد الإلكتروني المسجل',
-                  'أدخل كلمة المرور',
-                  'سيظهر كود الاشتراك بعد الدخول',
-                  'احتفظ بكود الاشتراك في مكان آمن'
-                ]
-              },
-              {
-                step: 3,
-                title: 'إضافة المستخدمين',
-                desc: 'أضف مستخدمين جدد وحدد صلاحياتهم',
-                details: [
-                  'اذهب إلى إدارة المستخدمين',
-                  'أضف مستخدم جديد مع تحديد الدور',
-                  'حدد الصلاحيات المناسبة لكل مستخدم',
-                  'أرسل دعوة للمستخدم عبر البريد الإلكتروني'
-                ]
-              },
-              {
-                step: 4,
-                title: 'إدخال البيانات الأساسية',
-                desc: 'أدخل بيانات الموظفين والعملاء والموردين',
-                details: [
-                  'أضف بيانات الموظفين في وحدة الموارد البشرية',
-                  'أضف العملاء والموردين في الوحدة المالية',
-                  'أنشئ دليل الحسابات المناسب لشركتك',
-                  'حدد إعدادات الرواتب والبدلات'
-                ]
-              },
-              {
-                step: 5,
-                title: 'البدء بالعمل اليومي',
-                desc: 'استخدم النظام للعمليات اليومية',
-                details: [
-                  'سجل الحضور والانصراف يومياً',
-                  'أنشئ الفواتير وأوامر الشراء',
-                  'تابع المشاريع والمهام',
-                  'استخرج التقارير المطلوبة'
-                ]
-              },
-            ].map((item) => (
-              <Card key={item.step} className="overflow-hidden">
+            {content.steps.map((item, stepIdx) => (
+              <Card key={stepIdx} className="overflow-hidden">
                 <div 
                   className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => toggleSection(item.step)}
+                  onClick={() => toggleSection(stepIdx + 1)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
-                        {item.step}
+                        {stepIdx + 1}
                       </div>
                       <div>
                         <h3 className="text-xl font-bold">{item.title}</h3>
                         <p className="text-gray-600">{item.desc}</p>
                       </div>
                     </div>
-                    {expandedSection === item.step ? 
+                    {expandedSection === stepIdx + 1 ? 
                       <ChevronUp className="h-6 w-6 text-gray-400" /> : 
                       <ChevronDown className="h-6 w-6 text-gray-400" />
                     }
                   </div>
                 </div>
-                {expandedSection === item.step && (
+                {expandedSection === stepIdx + 1 && (
                   <div className="px-6 pb-6 pt-0">
-                    <div className="mr-16 bg-blue-50 rounded-xl p-4">
+                    <div className={`${isRTL ? 'mr-16' : 'ml-16'} bg-blue-50 rounded-xl p-4`}>
                       <ul className="space-y-2">
                         {item.details.map((detail, i) => (
                           <li key={i} className="flex items-center gap-2">
@@ -1240,37 +1057,28 @@ const FeaturesPage = () => {
         {/* Section 10: Technical Specs */}
         <section className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-8 text-white">
           <div className="text-center mb-10">
-            <Badge className="bg-gray-700 text-white mb-3">المواصفات التقنية</Badge>
-            <h2 className="text-3xl font-bold mb-4">البنية التقنية للنظام</h2>
+            <Badge className="bg-gray-700 text-white mb-3">{content.techBadge}</Badge>
+            <h2 className="text-3xl font-bold mb-4">{content.techTitle}</h2>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: Monitor, title: 'الواجهة الأمامية', desc: 'React.js مع Tailwind CSS', tech: 'Frontend' },
-              { icon: Database, title: 'الخادم', desc: 'Python FastAPI', tech: 'Backend' },
-              { icon: Layers, title: 'قاعدة البيانات', desc: 'MongoDB Atlas', tech: 'Database' },
-              { icon: Cloud, title: 'الاستضافة', desc: 'سحابية مع SSL', tech: 'Hosting' },
-            ].map((item, idx) => (
-              <div key={idx} className="text-center">
-                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <item.icon className="h-8 w-8 text-blue-400" />
+            {content.techSpecs.map((item, idx) => {
+              const Icon = techIcons[idx];
+              return (
+                <div key={idx} className="text-center">
+                  <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Icon className="h-8 w-8 text-blue-400" />
+                  </div>
+                  <Badge className="bg-blue-500/20 text-blue-300 mb-2">{item.tech}</Badge>
+                  <h3 className="font-bold text-lg">{item.title}</h3>
+                  <p className="text-gray-400 text-sm">{item.desc}</p>
                 </div>
-                <Badge className="bg-blue-500/20 text-blue-300 mb-2">{item.tech}</Badge>
-                <h3 className="font-bold text-lg">{item.title}</h3>
-                <p className="text-gray-400 text-sm">{item.desc}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="mt-8 grid md:grid-cols-3 gap-4">
-            {[
-              'تشفير SSL/TLS لجميع الاتصالات',
-              'نسخ احتياطي يومي تلقائي',
-              'متوافق مع جميع المتصفحات',
-              'تصميم متجاوب للجوال',
-              'دعم RTL للعربية',
-              'تحديثات مستمرة ومجانية'
-            ].map((feature, i) => (
+            {content.techFeatures.map((feature, i) => (
               <div key={i} className="flex items-center gap-2 text-gray-300">
                 <CheckCircle className="h-4 w-4 text-green-400" />
                 <span className="text-sm">{feature}</span>
@@ -1281,18 +1089,18 @@ const FeaturesPage = () => {
 
         {/* CTA Section */}
         <section className="text-center py-12">
-          <h2 className="text-3xl font-bold mb-4">جاهز للبدء؟</h2>
+          <h2 className="text-3xl font-bold mb-4">{content.ctaTitle}</h2>
           <p className="text-gray-600 mb-8 max-w-xl mx-auto">
-            انضم إلى مئات الشركات التي تستخدم DataLife ERP لإدارة أعمالها بكفاءة
+            {content.ctaDesc}
           </p>
           <div className="flex justify-center gap-4 flex-wrap">
             <Button size="lg" onClick={() => navigate('/register')} className="bg-[#1e3a5f] hover:bg-[#2d5a87]">
-              <Star className="h-5 w-5 ml-2" />
-              سجل شركتك الآن
+              <Star className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+              {content.registerNow}
             </Button>
             <Button size="lg" variant="outline" onClick={() => navigate('/demo')}>
-              <Play className="h-5 w-5 ml-2" />
-              جرب النسخة التجريبية
+              <Play className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+              {content.tryDemo}
             </Button>
           </div>
         </section>
@@ -1302,7 +1110,7 @@ const FeaturesPage = () => {
       <footer className="bg-gray-900 text-white py-8">
         <div className="container mx-auto px-4 text-center">
           <img src="/logo.png" alt="DataLife" className="h-10 mx-auto mb-4 brightness-0 invert" />
-          <p className="text-gray-400">جميع الحقوق محفوظة © 2025 DataLife ERP</p>
+          <p className="text-gray-400">{content.copyright}</p>
         </div>
       </footer>
     </div>
