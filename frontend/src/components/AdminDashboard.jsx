@@ -387,7 +387,8 @@ const AdminDashboard = () => {
     { id: 'subscriptions', label: t.subscriptions, icon: CreditCard },
     { id: 'transactions', label: t.transactions, icon: DollarSign },
     { id: 'codes', label: t.codes, icon: Gift },
-    { id: 'companies', label: t.companies, icon: Building2 }
+    { id: 'companies', label: t.companies, icon: Building2 },
+    { id: 'users', label: isRTL ? 'جميع المستخدمين' : 'All Users', icon: Users }
   ];
 
   const formatDate = (dateStr) => {
