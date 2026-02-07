@@ -89,6 +89,7 @@ app.include_router(invoices_router)
 app.include_router(attendance_router)
 app.include_router(tasks_router)
 app.include_router(customer_portal_router)
+app.include_router(purchases_router)
 
 app.add_middleware(
     CORSMiddleware,
