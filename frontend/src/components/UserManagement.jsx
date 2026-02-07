@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from './ui/badge';
 import { 
   Plus, Edit, Trash2, Eye, Upload, ArrowLeft, Users, 
-  Mail, Shield, Calendar, CheckCircle, AlertCircle, Camera
+  Mail, Shield, Calendar, CheckCircle, AlertCircle, Camera, Key
 } from 'lucide-react';
 import axios from 'axios';
 
