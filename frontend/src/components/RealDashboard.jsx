@@ -18,6 +18,7 @@ import {
 import axios from 'axios';
 import { getTranslation } from '../data/translations';
 import NotificationCenter from './NotificationCenter';
+import ModernSidebar from './ModernSidebar';
 import InvoicesModule from './InvoicesModule';
 import CustomerPortalManagement from './CustomerPortalManagement';
 import PurchasesModule from './PurchasesModule';
