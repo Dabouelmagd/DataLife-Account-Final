@@ -171,7 +171,7 @@ const LandingPage = () => {
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
               {t('hero.description')}
             </p>
-            <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-12 ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
+            <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-8 ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
               <Button 
                 size="lg" 
                 className="bg-[#28376B] hover:bg-[#1e2a5a] text-white px-8 py-4 text-lg"
@@ -188,6 +188,25 @@ const LandingPage = () => {
                 {t('hero.watchDemo')}
               </Button>
             </div>
+            
+            {/* Video Button */}
+            <div className="mb-12">
+              <button
+                onClick={() => setIsVideoModalOpen(true)}
+                className="group inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-full hover:from-red-600 hover:to-rose-700 transition-all shadow-lg hover:shadow-xl"
+              >
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Play className="h-5 w-5 text-white fill-white" />
+                </div>
+                <span className="font-semibold">
+                  {language === 'ar' ? 'شاهد الفيديو التعريفي' : 'Watch Introduction Video'}
+                </span>
+                <span className="text-white/80 text-sm">
+                  {language === 'ar' ? '(3 دقائق)' : '(3 min)'}
+                </span>
+              </button>
+            </div>
+            
             <div className={`flex flex-wrap justify-center gap-8 text-sm text-gray-500 ${isRTL ? 'space-x-reverse' : ''}`}>
               <div className="flex items-center">
                 <CheckCircle className={`h-4 w-4 text-green-500 ${isRTL ? 'ml-2' : 'mr-2'}`} />
@@ -205,6 +224,80 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
+
+      {/* Video Modal */}
+      {isVideoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-4xl bg-black rounded-2xl overflow-hidden shadow-2xl">
+            {/* Close Button */}
+            <button
+              onClick={() => setIsVideoModalOpen(false)}
+              className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            
+            {/* Video Container */}
+            <div className="aspect-video bg-gradient-to-br from-[#28376B] to-[#1e2a5a] flex flex-col items-center justify-center text-white p-8">
+              {/* Animated Play Icon */}
+              <div className="relative mb-6">
+                <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                  <div className="w-20 h-20 bg-white/30 rounded-full flex items-center justify-center">
+                    <Play className="h-10 w-10 text-white fill-white ml-1" />
+                  </div>
+                </div>
+              </div>
+              
+              <h3 className="text-2xl font-bold mb-4">
+                {language === 'ar' ? 'فيديو تعريفي بنظام DataLife ERP' : 'DataLife ERP Introduction Video'}
+              </h3>
+              
+              <div className="max-w-2xl text-center space-y-4 text-white/80">
+                <p>
+                  {language === 'ar' 
+                    ? 'اكتشف كيف يمكن لنظام DataLife ERP أن يحول طريقة إدارة أعمالك'
+                    : 'Discover how DataLife ERP can transform the way you manage your business'}
+                </p>
+                
+                <div className="grid grid-cols-3 gap-4 mt-8">
+                  {[
+                    { icon: Users, label: language === 'ar' ? 'إدارة الموظفين' : 'HR Management' },
+                    { icon: DollarSign, label: language === 'ar' ? 'المحاسبة المالية' : 'Financial Accounting' },
+                    { icon: BarChart3, label: language === 'ar' ? 'التقارير الذكية' : 'Smart Reports' },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex flex-col items-center gap-2 p-4 bg-white/10 rounded-xl">
+                      <item.icon className="h-8 w-8" />
+                      <span className="text-sm">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="mt-8 flex gap-4">
+                <Button
+                  onClick={() => {
+                    setIsVideoModalOpen(false);
+                    setIsTrialModalOpen(true);
+                  }}
+                  className="bg-white text-[#28376B] hover:bg-gray-100"
+                >
+                  {language === 'ar' ? 'ابدأ تجربتك المجانية' : 'Start Free Trial'}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsVideoModalOpen(false);
+                    navigate('/features');
+                  }}
+                  variant="outline"
+                  className="border-white text-white hover:bg-white/20"
+                >
+                  {language === 'ar' ? 'اكتشف المميزات' : 'Explore Features'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Section */}
       <section className="py-12 bg-white border-b">
