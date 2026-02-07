@@ -79,6 +79,7 @@ app.include_router(analytics_router)
 app.include_router(webhook_router)
 app.include_router(admin_router)
 app.include_router(notifications_router)
+app.include_router(whatsapp_router)
 
 app.add_middleware(
     CORSMiddleware,
