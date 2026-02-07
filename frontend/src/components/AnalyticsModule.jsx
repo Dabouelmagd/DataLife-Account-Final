@@ -172,9 +172,7 @@ export const AnalyticsModule = ({ language, userRole }) => {
 
     // Save PDF
     const filename = `analytics_report_${new Date().toISOString().split('T')[0]}.pdf`;
-    console.log('Saving PDF:', filename);
     doc.save(filename);
-    console.log('PDF export completed!');
     alert(language === 'ar' ? 'تم تصدير التقرير بنجاح! تحقق من مجلد التنزيلات.' : 'Report exported successfully! Check your downloads folder.');
   } catch (error) {
     console.error('PDF export error:', error);
