@@ -179,9 +179,9 @@ async def delete_folder(
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
-    folder_id: Optional[str] = None,
-    category: Optional[str] = None,
-    tags: Optional[str] = None,
+    folder_id: Optional[str] = Form(None),
+    category: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
     authorization: Optional[str] = Header(None)
 ):
     """Upload a document"""
