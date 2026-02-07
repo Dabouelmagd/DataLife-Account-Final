@@ -17,8 +17,6 @@ const ModernSidebar = ({
   setActiveHRSubModule,
   activeFinancialSubModule,
   setActiveFinancialSubModule,
-  hrSubModules,
-  financialSubModules,
   onLogout,
   navigate
 }) => {
