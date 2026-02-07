@@ -521,10 +521,16 @@ const InvoicesModule = () => {
             </Badge>
           </div>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)} className="gap-2" data-testid="create-invoice-btn">
-          <Plus className="h-4 w-4" />
-          {t.createInvoice}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportCSV} className="gap-2" data-testid="export-csv-btn">
+            <FileDown className="h-4 w-4" />
+            {isRTL ? 'تصدير CSV' : 'Export CSV'}
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)} className="gap-2" data-testid="create-invoice-btn">
+            <Plus className="h-4 w-4" />
+            {t.createInvoice}
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
