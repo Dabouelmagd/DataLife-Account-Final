@@ -854,6 +854,11 @@ const RealDashboard = () => {
       return <ApprovalsModule />;
     }
 
+    // Attendance Module
+    if (activeModule === 'attendance') {
+      return <AttendanceModule />;
+    }
+
     return null;
   };
 
