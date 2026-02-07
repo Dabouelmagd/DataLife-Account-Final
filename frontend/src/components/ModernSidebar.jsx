@@ -104,21 +104,38 @@ const ModernSidebar = ({
               <NotificationCenter />
             </div>
             
-            {/* Permissions Icons */}
+            {/* Permissions Icons - Green = Allowed, Red = Not Allowed */}
             <div className="mt-3 pt-3 border-t border-white/10">
               <p className="text-xs text-slate-400 mb-2">
                 {language === 'ar' ? 'الصلاحيات:' : 'Permissions:'}
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {modules.map((module, index) => (
-                  <span 
-                    key={index}
-                    className="p-1.5 bg-white/10 text-slate-300 rounded-lg hover:bg-white/20 transition-colors cursor-default"
-                    title={module.name}
-                  >
-                    {React.cloneElement(module.icon, { className: 'h-3.5 w-3.5' })}
-                  </span>
-                ))}
+                {/* All possible modules for permission display */}
+                {[
+                  { id: 'dashboard', name: language === 'ar' ? 'لوحة التحكم' : 'Dashboard', icon: <Home /> },
+                  { id: 'hr', name: language === 'ar' ? 'الموارد البشرية' : 'HR', icon: <Users /> },
+                  { id: 'financial', name: language === 'ar' ? 'المالية' : 'Financial', icon: <Building2 /> },
+                  { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices', icon: <FileText /> },
+                  { id: 'purchases', name: language === 'ar' ? 'المشتريات' : 'Purchases', icon: <Package /> },
+                  { id: 'projects', name: language === 'ar' ? 'المشاريع' : 'Projects', icon: <FolderKanban /> },
+                  { id: 'analytics', name: language === 'ar' ? 'التحليلات' : 'Analytics', icon: <BarChart3 /> },
+                  { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings', icon: <Settings /> },
+                ].map((allModule, index) => {
+                  const hasAccess = modules.some(m => m.id === allModule.id);
+                  return (
+                    <span 
+                      key={index}
+                      className={`p-1.5 rounded-lg transition-colors cursor-default ${
+                        hasAccess 
+                          ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
+                          : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                      }`}
+                      title={`${allModule.name} - ${hasAccess ? (language === 'ar' ? 'مسموح' : 'Allowed') : (language === 'ar' ? 'غير مسموح' : 'Not Allowed')}`}
+                    >
+                      {React.cloneElement(allModule.icon, { className: 'h-3.5 w-3.5' })}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           </div>
