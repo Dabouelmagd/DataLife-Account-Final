@@ -22,7 +22,7 @@ import InvoicesModule from './InvoicesModule';
 import CustomerPortalManagement from './CustomerPortalManagement';
 import PurchasesModule from './PurchasesModule';
 import ApprovalsModule from './ApprovalsModule';
-import AttendanceModule from './AttendanceModule';
+import AttendanceManagement from './AttendanceManagement';
 
 // Import sub-modules from existing files
 import {
