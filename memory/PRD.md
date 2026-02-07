@@ -32,6 +32,11 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - **8 Frequently Asked Questions**: Comprehensive Q&A section
 - **Bilingual Content**: Both Arabic and English versions
 - **Accordion UI**: Expandable questions with smooth animations
+- **🔍 Search Feature**: Real-time search to filter questions
+  - Search in both questions and answers
+  - Shows result count when searching
+  - Clear search button (X)
+  - "No results found" message with clear button
 - **Contact CTA**: "Didn't find your answer?" section with contact button
 - **Questions Covered**:
   - What is DataLife ERP?
