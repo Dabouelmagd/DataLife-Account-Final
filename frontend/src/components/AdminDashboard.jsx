@@ -393,6 +393,22 @@ const AdminDashboard = () => {
     setUserPermissions([]);
   };
 
+  // Filter users based on search query
+  const handleUserSearch = (query) => {
+    setUserSearchQuery(query);
+    if (!query.trim()) {
+      setFilteredUsers(allUsers);
+    } else {
+      const filtered = allUsers.filter(u => 
+        u.full_name?.toLowerCase().includes(query.toLowerCase()) ||
+        u.email?.toLowerCase().includes(query.toLowerCase()) ||
+        u.company_name?.toLowerCase().includes(query.toLowerCase()) ||
+        u.role?.toLowerCase().includes(query.toLowerCase())
+      );
+      setFilteredUsers(filtered);
+    }
+  };
+
   const tabs = [
     { id: 'overview', label: t.overview, icon: BarChart3 },
     { id: 'subscriptions', label: t.subscriptions, icon: CreditCard },
