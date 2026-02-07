@@ -638,7 +638,7 @@ const RealDashboard = () => {
         case 'annual-leave':
           return <AnnualLeaveModule language={language} userRole={user?.role} />;
         case 'attendance':
-          return <AttendanceModule language={language} userRole={user?.role} />;
+          return <AttendanceManagement />;
         case 'hr-reports':
           return <HRReportsModule language={language} userRole={user?.role} />;
         default:
