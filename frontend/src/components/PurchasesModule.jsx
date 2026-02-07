@@ -523,10 +523,16 @@ const PurchasesModule = () => {
           </TabsList>
           
           {activeTab === 'orders' ? (
-            <Button onClick={() => setShowOrderDialog(true)} className="gap-2" data-testid="create-order-btn">
-              <Plus className="h-4 w-4" />
-              {t.createOrder}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleExportOrdersCSV} className="gap-2">
+                <FileDown className="h-4 w-4" />
+                {isRTL ? 'تصدير CSV' : 'Export CSV'}
+              </Button>
+              <Button onClick={() => setShowOrderDialog(true)} className="gap-2" data-testid="create-order-btn">
+                <Plus className="h-4 w-4" />
+                {t.createOrder}
+              </Button>
+            </div>
           ) : (
             <Button onClick={() => setShowSupplierDialog(true)} className="gap-2" data-testid="add-supplier-btn">
               <Plus className="h-4 w-4" />
