@@ -85,6 +85,7 @@ app.include_router(notifications_router)
 app.include_router(whatsapp_router)
 app.include_router(invoices_router)
 app.include_router(attendance_router)
+app.include_router(tasks_router)
 
 app.add_middleware(
     CORSMiddleware,
