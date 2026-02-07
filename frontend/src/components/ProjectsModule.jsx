@@ -721,6 +721,9 @@ const ProjectsModule = () => {
                       </div>
 
                       <div className="mt-4 pt-3 border-t flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" onClick={() => handlePrintProject(project)}>
+                          <Printer className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEditProject(project)}>
                           <Edit className="h-4 w-4" />
                         </Button>
