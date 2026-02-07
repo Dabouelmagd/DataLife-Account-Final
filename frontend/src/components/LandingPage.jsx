@@ -130,6 +130,13 @@ const LandingPage = () => {
               <a href="#features" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.features')}</a>
               <a href="#modules" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.modules')}</a>
               <a href="#pricing" className="text-gray-600 hover:text-[#28376B] transition-colors">{t('nav.pricing')}</a>
+              <button 
+                onClick={() => navigate('/features')}
+                className="text-[#28376B] font-semibold hover:text-[#1e2a5a] transition-colors flex items-center gap-1"
+              >
+                <FileText className="h-4 w-4" />
+                {language === 'ar' ? 'الدليل الشامل' : 'Full Guide'}
+              </button>
               <LanguageSwitcher />
               <Button 
                 onClick={() => navigate('/login')}
