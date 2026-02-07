@@ -200,6 +200,13 @@ const AdminDashboard = () => {
         setAllUsers(usersRes.data);
         setFilteredUsers(usersRes.data);
       }
+      
+      if (activeTab === 'messages') {
+        setLoadingMessages(true);
+        const messagesRes = await axios.get(`${API_URL}/api/contact/messages`, config);
+        setContactMessages(messagesRes.data);
+        setLoadingMessages(false);
+      }
     } catch (error) {
       // Error fetching data
     } finally {
