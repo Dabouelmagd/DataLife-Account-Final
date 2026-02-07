@@ -60,6 +60,7 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/features" element={<FeaturesPage />} />
               <Route path="/demo" element={<DemoPage onClose={() => window.history.back()} />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register-company" element={<CompanyRegistrationPage />} />
