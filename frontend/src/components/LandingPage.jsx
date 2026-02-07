@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
-import { CheckCircle, BarChart3, Users, DollarSign, Shield, Cloud, Bell, Calculator, PieChart, FileText, Database, Zap, Globe, TrendingUp, Lock, HeadphonesIcon, Workflow, Building2, ClipboardList, CreditCard, Timer, Target, Award, MapPin, Phone, Mail, Play, X, HelpCircle, ChevronDown, Search } from 'lucide-react';
+import { CheckCircle, BarChart3, Users, DollarSign, Shield, Cloud, Bell, Calculator, PieChart, FileText, Database, Zap, Globe, TrendingUp, Lock, HeadphonesIcon, Workflow, Building2, ClipboardList, CreditCard, Timer, Target, Award, MapPin, Phone, Mail, Play, X, HelpCircle, ChevronDown, Search, Loader2 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../data/translations';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -14,15 +15,46 @@ import PricingSection from './PricingSection';
 import ContactSection from './ContactSection';
 import FreeTrialModal from './FreeTrialModal';
 
+const API_URL = process.env.REACT_APP_BACKEND_URL;
+
 const LandingPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [faqSearchQuery, setFaqSearchQuery] = useState('');
+  const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contactSuccess, setContactSuccess] = useState(false);
+  const [contactError, setContactError] = useState('');
   const { language, isRTL } = useLanguage();
   const navigate = useNavigate();
 
   const t = (key) => getTranslation(language, key);
+
+  // Handle contact form submission
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    if (!contactForm.name || !contactForm.email || !contactForm.message) {
+      setContactError(language === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields');
+      return;
+    }
+    
+    setContactLoading(true);
+    setContactError('');
+    
+    try {
+      const response = await axios.post(`${API_URL}/api/contact/send`, contactForm);
+      if (response.data.success) {
+        setContactSuccess(true);
+        setContactForm({ name: '', email: '', message: '' });
+        setTimeout(() => setContactSuccess(false), 5000);
+      }
+    } catch (error) {
+      setContactError(language === 'ar' ? 'حدث خطأ، يرجى المحاولة مرة أخرى' : 'An error occurred, please try again');
+    } finally {
+      setContactLoading(false);
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
