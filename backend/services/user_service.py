@@ -27,6 +27,9 @@ async def get_user_by_id(db: AsyncIOMotorClient, user_id: str) -> Optional[User]
         # Handle both 'password' and 'password_hash' field names
         if 'password' in user_data and 'password_hash' not in user_data:
             user_data['password_hash'] = user_data.pop('password')
+        # Ensure permissions field exists
+        if 'permissions' not in user_data:
+            user_data['permissions'] = get_default_permissions_for_role(user_data.get('role', 'Accountant'))
         return User(**user_data)
     return None
 
@@ -37,6 +40,9 @@ async def get_user_by_email(db: AsyncIOMotorClient, email: str) -> Optional[User
         # Handle both 'password' and 'password_hash' field names
         if 'password' in user_data and 'password_hash' not in user_data:
             user_data['password_hash'] = user_data.pop('password')
+        # Ensure permissions field exists
+        if 'permissions' not in user_data:
+            user_data['permissions'] = get_default_permissions_for_role(user_data.get('role', 'Accountant'))
         return User(**user_data)
     return None
 
