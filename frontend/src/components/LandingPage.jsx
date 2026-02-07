@@ -644,22 +644,45 @@ const LandingPage = () => {
       {/* FAQ Section */}
       <section id="faq" className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-gray-100">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <Badge className="mb-4 bg-[#28376B]/10 text-[#28376B] border-[#28376B]/20">
               {language === 'ar' ? 'الأسئلة الشائعة' : 'FAQ'}
             </Badge>
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
               {language === 'ar' ? 'الأسئلة الأكثر شيوعاً' : 'Frequently Asked Questions'}
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="text-xl text-gray-600 mb-8">
               {language === 'ar' 
                 ? 'إجابات على الأسئلة الشائعة حول نظام DataLife ERP'
                 : 'Answers to common questions about DataLife ERP system'}
             </p>
+            
+            {/* Search Box */}
+            <div className="max-w-xl mx-auto relative">
+              <div className="relative">
+                <Search className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 ${isRTL ? 'right-4' : 'left-4'}`} />
+                <input
+                  type="text"
+                  value={faqSearchQuery}
+                  onChange={(e) => setFaqSearchQuery(e.target.value)}
+                  placeholder={language === 'ar' ? 'ابحث في الأسئلة الشائعة...' : 'Search FAQ...'}
+                  className={`w-full py-4 ${isRTL ? 'pr-12 pl-4' : 'pl-12 pr-4'} bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#28376B]/20 focus:border-[#28376B] transition-all text-gray-700`}
+                  dir={isRTL ? 'rtl' : 'ltr'}
+                />
+                {faqSearchQuery && (
+                  <button
+                    onClick={() => setFaqSearchQuery('')}
+                    className={`absolute top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition-colors ${isRTL ? 'left-3' : 'right-3'}`}
+                  >
+                    <X className="h-4 w-4 text-gray-400" />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
           
-          <Accordion type="single" collapsible className="space-y-4">
-            {(language === 'ar' ? [
+          {(() => {
+            const faqData = language === 'ar' ? [
               {
                 q: 'ما هو نظام DataLife ERP؟',
                 a: 'DataLife ERP هو نظام متكامل لإدارة موارد المؤسسات، يشمل إدارة الموارد البشرية، المحاسبة المالية، إدارة المشاريع، الفواتير، والمشتريات. مصمم خصيصاً للشركات العربية مع دعم كامل للغة العربية والإنجليزية.'
@@ -725,28 +748,70 @@ const LandingPage = () => {
                 q: 'What payment methods are available?',
                 a: 'We accept payment via credit cards (Visa, MasterCard), bank transfer, and some e-wallets. All transactions are encrypted and secure.'
               }
-            ]).map((faq, index) => (
-              <AccordionItem 
-                key={index} 
-                value={`faq-${index}`} 
-                className="bg-white border rounded-xl px-6 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <AccordionTrigger className="text-lg font-semibold text-gray-900 hover:text-[#28376B] py-5">
-                  <div className="flex items-center gap-3 text-start">
-                    <div className="w-8 h-8 bg-[#28376B]/10 rounded-full flex items-center justify-center flex-shrink-0">
-                      <HelpCircle className="h-4 w-4 text-[#28376B]" />
-                    </div>
-                    <span>{faq.q}</span>
+            ];
+            
+            const filteredFaqs = faqSearchQuery.trim() 
+              ? faqData.filter(faq => 
+                  faq.q.toLowerCase().includes(faqSearchQuery.toLowerCase()) ||
+                  faq.a.toLowerCase().includes(faqSearchQuery.toLowerCase())
+                )
+              : faqData;
+            
+            return (
+              <>
+                {filteredFaqs.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+                    <HelpCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 text-lg">
+                      {language === 'ar' 
+                        ? 'لم يتم العثور على نتائج. جرب كلمات بحث مختلفة.'
+                        : 'No results found. Try different search terms.'}
+                    </p>
+                    <Button 
+                      variant="link" 
+                      onClick={() => setFaqSearchQuery('')}
+                      className="mt-2 text-[#28376B]"
+                    >
+                      {language === 'ar' ? 'مسح البحث' : 'Clear search'}
+                    </Button>
                   </div>
-                </AccordionTrigger>
-                <AccordionContent className="pb-5 text-gray-600 leading-relaxed">
-                  <div className={`${isRTL ? 'pr-11' : 'pl-11'}`}>
-                    {faq.a}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+                ) : (
+                  <>
+                    {faqSearchQuery && (
+                      <p className="text-sm text-gray-500 mb-4 text-center">
+                        {language === 'ar' 
+                          ? `تم العثور على ${filteredFaqs.length} نتيجة`
+                          : `Found ${filteredFaqs.length} result${filteredFaqs.length !== 1 ? 's' : ''}`}
+                      </p>
+                    )}
+                    <Accordion type="single" collapsible className="space-y-4">
+                      {filteredFaqs.map((faq, index) => (
+                        <AccordionItem 
+                          key={index} 
+                          value={`faq-${index}`} 
+                          className="bg-white border rounded-xl px-6 shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <AccordionTrigger className="text-lg font-semibold text-gray-900 hover:text-[#28376B] py-5">
+                            <div className="flex items-center gap-3 text-start">
+                              <div className="w-8 h-8 bg-[#28376B]/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                <HelpCircle className="h-4 w-4 text-[#28376B]" />
+                              </div>
+                              <span>{faq.q}</span>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-5 text-gray-600 leading-relaxed">
+                            <div className={`${isRTL ? 'pr-11' : 'pl-11'}`}>
+                              {faq.a}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </>
+                )}
+              </>
+            );
+          })()}
 
           {/* Contact CTA */}
           <div className="mt-12 text-center p-8 bg-gradient-to-r from-[#28376B] to-[#1e2a5a] rounded-2xl text-white">
