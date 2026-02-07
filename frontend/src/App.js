@@ -90,6 +90,14 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/subscription/success" 
+                element={
+                  <ProtectedRoute>
+                    <SubscriptionSuccess />
+                  </ProtectedRoute>
+                } 
+              />
             </Routes>
           </BrowserRouter>
         </div>
