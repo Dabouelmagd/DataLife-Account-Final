@@ -127,8 +127,8 @@ const ModernSidebar = ({
                       key={index}
                       className={`p-1.5 rounded-lg transition-colors cursor-default ${
                         hasAccess 
-                          ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
-                          : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                          ? 'bg-green-500/30 text-green-300 hover:bg-green-500/40 ring-1 ring-green-500/50' 
+                          : 'bg-red-500/30 text-red-300 hover:bg-red-500/40 ring-1 ring-red-500/50'
                       }`}
                       title={`${allModule.name} - ${hasAccess ? (language === 'ar' ? 'مسموح' : 'Allowed') : (language === 'ar' ? 'غير مسموح' : 'Not Allowed')}`}
                     >
