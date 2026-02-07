@@ -225,14 +225,30 @@ const ModernSidebar = ({
 
         {/* Bottom Section */}
         <div className="p-4 border-t border-white/10 space-y-2">
-          {/* Subscription Status */}
-          <button
-            onClick={() => navigate?.('/subscription')}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-500/20 transition-all"
-          >
-            <CreditCard className="h-4 w-4" />
-            <span className="text-sm">{language === 'ar' ? 'الاشتراك' : 'Subscription'}</span>
-          </button>
+          {/* Subscription Code Display */}
+          <div className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
+            <div className="flex items-center gap-3 mb-2">
+              <CreditCard className="h-4 w-4 text-amber-300" />
+              <span className="text-sm text-amber-300">{language === 'ar' ? 'كود الاشتراك' : 'Subscription Code'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <code className="text-lg font-mono font-bold text-amber-400 tracking-wider">
+                {user?.subscription_code || user?.company_id?.slice(0, 8).toUpperCase() || '--------'}
+              </code>
+              <button
+                onClick={() => {
+                  const code = user?.subscription_code || user?.company_id?.slice(0, 8).toUpperCase();
+                  if (code) {
+                    navigator.clipboard.writeText(code);
+                  }
+                }}
+                className="p-1.5 bg-amber-500/20 rounded-lg hover:bg-amber-500/30 transition-colors text-amber-300"
+                title={language === 'ar' ? 'نسخ الكود' : 'Copy Code'}
+              >
+                <FileCheck className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
           
           {/* Settings */}
           <button
