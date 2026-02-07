@@ -474,10 +474,11 @@ const UserManagement = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/permissions/${usr.id}`)}
-                            title={language === 'ar' ? 'إدارة الصلاحيات' : 'Manage Permissions'}
+                            onClick={() => handleEditPermissions(usr)}
+                            title={language === 'ar' ? 'تعديل الصلاحيات' : 'Edit Permissions'}
+                            data-testid={`edit-permissions-${usr.id}`}
                           >
-                            <Key className="h-4 w-4 text-purple-600" />
+                            <Shield className="h-4 w-4 text-purple-600" />
                           </Button>
                           <Button
                             variant="ghost"
