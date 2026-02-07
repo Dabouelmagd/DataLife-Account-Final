@@ -223,6 +223,141 @@ const AttendanceManagement = () => {
     }
   };
 
+  // Export attendance to CSV
+  const handleExportCSV = () => {
+    if (!reportData?.employee_stats) {
+      toast.error(isRTL ? 'لا توجد بيانات للتصدير، قم بإنشاء تقرير أولاً' : 'No data to export, generate a report first');
+      return;
+    }
+    
+    const headers = [
+      isRTL ? 'الموظف' : 'Employee',
+      isRTL ? 'القسم' : 'Department',
+      isRTL ? 'أيام الحضور' : 'Present Days',
+      isRTL ? 'أيام التأخير' : 'Late Days',
+      isRTL ? 'ساعات العمل' : 'Total Hours',
+      isRTL ? 'الوقت الإضافي' : 'Overtime (min)',
+      isRTL ? 'التأخير' : 'Late (min)'
+    ];
+    
+    const rows = Object.values(reportData.employee_stats).map(emp => [
+      emp.employee_name,
+      emp.department || '-',
+      emp.present_days,
+      emp.late_days,
+      emp.total_hours,
+      emp.overtime_minutes,
+      emp.late_minutes
+    ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `attendance_report_${reportDates.from}_${reportDates.to}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(isRTL ? 'تم تصدير التقرير' : 'Report exported');
+  };
+
+  // Print attendance report
+  const handlePrintReport = () => {
+    if (!reportData) {
+      toast.error(isRTL ? 'لا توجد بيانات للطباعة' : 'No data to print');
+      return;
+    }
+    
+    const printWindow = window.open('', '_blank');
+    const content = `
+      <!DOCTYPE html>
+      <html dir="${isRTL ? 'rtl' : 'ltr'}">
+      <head>
+        <title>${isRTL ? 'تقرير الحضور' : 'Attendance Report'}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'}; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .header h1 { margin: 0; color: #1a365d; }
+          .period { background: #f7fafc; padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+          .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+          .summary-card { background: #ebf8ff; padding: 15px; border-radius: 8px; text-align: center; }
+          .summary-card h3 { margin: 0; font-size: 24px; color: #2b6cb0; }
+          .summary-card p { margin: 5px 0 0; color: #4a5568; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'}; }
+          th { background: #edf2f7; font-weight: bold; }
+          .footer { margin-top: 40px; text-align: center; color: #718096; font-size: 12px; }
+          @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${isRTL ? 'تقرير الحضور والانصراف' : 'Attendance Report'}</h1>
+        </div>
+        
+        <div class="period">
+          <strong>${isRTL ? 'الفترة:' : 'Period:'}</strong> ${reportDates.from} ${isRTL ? 'إلى' : 'to'} ${reportDates.to}
+        </div>
+        
+        <div class="summary">
+          <div class="summary-card">
+            <h3>${reportData.summary?.total_records || 0}</h3>
+            <p>${isRTL ? 'إجمالي السجلات' : 'Total Records'}</p>
+          </div>
+          <div class="summary-card">
+            <h3>${reportData.summary?.unique_employees || 0}</h3>
+            <p>${isRTL ? 'عدد الموظفين' : 'Employees'}</p>
+          </div>
+          <div class="summary-card">
+            <h3>${reportData.summary?.total_late || 0}</h3>
+            <p>${isRTL ? 'حالات التأخير' : 'Late Arrivals'}</p>
+          </div>
+          <div class="summary-card">
+            <h3>${(reportData.summary?.avg_work_hours || 0).toFixed(1)}</h3>
+            <p>${isRTL ? 'متوسط ساعات العمل' : 'Avg Work Hours'}</p>
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>${isRTL ? 'الموظف' : 'Employee'}</th>
+              <th>${isRTL ? 'القسم' : 'Department'}</th>
+              <th>${isRTL ? 'أيام الحضور' : 'Present'}</th>
+              <th>${isRTL ? 'التأخير' : 'Late'}</th>
+              <th>${isRTL ? 'ساعات العمل' : 'Hours'}</th>
+              <th>${isRTL ? 'الإضافي' : 'Overtime'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.values(reportData.employee_stats || {}).map(emp => `
+              <tr>
+                <td>${emp.employee_name}</td>
+                <td>${emp.department || '-'}</td>
+                <td>${emp.present_days}</td>
+                <td>${emp.late_days}</td>
+                <td>${emp.total_hours}</td>
+                <td>${emp.overtime_minutes} min</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <div class="footer">
+          <p>${isRTL ? 'تم إنشاء التقرير بواسطة' : 'Generated by'} DataLife Account ERP</p>
+          <p>${new Date().toLocaleDateString()}</p>
+        </div>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.onload = () => printWindow.print();
+  };
+
   const handleSaveSettings = async () => {
     try {
       await axios.put(
