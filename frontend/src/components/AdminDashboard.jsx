@@ -11,7 +11,8 @@ import {
   ArrowLeft, ArrowRight, Building2, Users, CreditCard, DollarSign,
   Gift, TrendingUp, TrendingDown, Clock, CheckCircle, XCircle,
   RefreshCw, Plus, Trash2, Copy, AlertCircle, Loader2,
-  Calendar, BarChart3, Settings, ChevronDown
+  Calendar, BarChart3, Settings, ChevronDown, Power, Mail, 
+  Send, Eye, UserX, UserCheck, Bell
 } from 'lucide-react';
 import axios from 'axios';
 
