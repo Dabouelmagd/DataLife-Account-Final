@@ -909,8 +909,6 @@ const RealDashboard = () => {
         setActiveHRSubModule={setActiveHRSubModule}
         activeFinancialSubModule={activeFinancialSubModule}
         setActiveFinancialSubModule={setActiveFinancialSubModule}
-        hrSubModules={hrSubModules}
-        financialSubModules={financialSubModules}
         onLogout={handleLogout}
         navigate={navigate}
       />
