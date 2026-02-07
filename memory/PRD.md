@@ -90,6 +90,16 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
   - Admin-only access (General Manager, CEO, Board Chairman)
   - Dashboard permission is required and cannot be disabled
   - Green (enabled) / Red (disabled) color coding
+- [x] **Super Admin Control Panel** (/admin-login, /admin-dashboard):
+  - Separate Admin login page with secure design
+  - View all companies (27 companies)
+  - View all users (68 users)
+  - Toggle company status (suspend/activate)
+  - Toggle user status (suspend/activate)
+  - Send notifications to all users / specific company / specific user
+  - View company users in modal
+  - Generate activation codes
+  - Statistics dashboard (Companies, Users, Revenue, Active Codes)
 
 ### P1 - Future Enhancements
 - [ ] WhatsApp Integration (Twilio)
