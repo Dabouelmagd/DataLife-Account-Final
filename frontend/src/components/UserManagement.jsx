@@ -388,6 +388,14 @@ const UserManagement = () => {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => navigate(`/permissions/${usr.id}`)}
+                            title={language === 'ar' ? 'إدارة الصلاحيات' : 'Manage Permissions'}
+                          >
+                            <Key className="h-4 w-4 text-purple-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                               setEditUser(usr);
                               setImagePreview(usr.profile_photo_url);
