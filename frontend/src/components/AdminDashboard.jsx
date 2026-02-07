@@ -1,0 +1,708 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from './ui/card';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { Input } from './ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { 
+  ArrowLeft, ArrowRight, Building2, Users, CreditCard, DollarSign,
+  Gift, TrendingUp, TrendingDown, Clock, CheckCircle, XCircle,
+  RefreshCw, Plus, Trash2, Copy, AlertCircle, Loader2,
+  Calendar, BarChart3, Settings, ChevronDown
+} from 'lucide-react';
+import axios from 'axios';
+
+const AdminDashboard = () => {
+  const { token } = useAuth();
+  const { language } = useLanguage();
+  const navigate = useNavigate();
+  const isRTL = language === 'ar';
+  
+  const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [activationCodes, setActivationCodes] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  
+  // Generate code form
+  const [showGenerateForm, setShowGenerateForm] = useState(false);
+  const [generateForm, setGenerateForm] = useState({
+    plan: 'starter',
+    duration: '12_months',
+    discount_percent: 0,
+    count: 1,
+    prefix: 'DL'
+  });
+  const [generating, setGenerating] = useState(false);
+
+  const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+  const t = {
+    title: isRTL ? 'لوحة تحكم الإدارة' : 'Admin Dashboard',
+    back: isRTL ? 'رجوع' : 'Back',
+    overview: isRTL ? 'نظرة عامة' : 'Overview',
+    subscriptions: isRTL ? 'الاشتراكات' : 'Subscriptions',
+    transactions: isRTL ? 'المدفوعات' : 'Transactions',
+    codes: isRTL ? 'أكواد التفعيل' : 'Activation Codes',
+    companies: isRTL ? 'الشركات' : 'Companies',
+    totalCompanies: isRTL ? 'إجمالي الشركات' : 'Total Companies',
+    totalUsers: isRTL ? 'إجمالي المستخدمين' : 'Total Users',
+    activeSubscriptions: isRTL ? 'الاشتراكات النشطة' : 'Active Subscriptions',
+    totalRevenue: isRTL ? 'إجمالي الإيرادات' : 'Total Revenue',
+    monthlyRevenue: isRTL ? 'إيرادات الشهر' : 'Monthly Revenue',
+    activeCodes: isRTL ? 'أكواد نشطة' : 'Active Codes',
+    expiringSoon: isRTL ? 'تنتهي قريباً' : 'Expiring Soon',
+    recentTransactions: isRTL ? 'آخر المعاملات' : 'Recent Transactions',
+    planBreakdown: isRTL ? 'توزيع الخطط' : 'Plan Breakdown',
+    generateCode: isRTL ? 'إنشاء كود' : 'Generate Code',
+    bulkGenerate: isRTL ? 'إنشاء مجموعة' : 'Bulk Generate',
+    plan: isRTL ? 'الخطة' : 'Plan',
+    duration: isRTL ? 'المدة' : 'Duration',
+    discount: isRTL ? 'الخصم' : 'Discount',
+    count: isRTL ? 'العدد' : 'Count',
+    prefix: isRTL ? 'البادئة' : 'Prefix',
+    generate: isRTL ? 'إنشاء' : 'Generate',
+    cancel: isRTL ? 'إلغاء' : 'Cancel',
+    code: isRTL ? 'الكود' : 'Code',
+    uses: isRTL ? 'الاستخدامات' : 'Uses',
+    status: isRTL ? 'الحالة' : 'Status',
+    actions: isRTL ? 'الإجراءات' : 'Actions',
+    active: isRTL ? 'نشط' : 'Active',
+    inactive: isRTL ? 'غير نشط' : 'Inactive',
+    paid: isRTL ? 'مدفوع' : 'Paid',
+    pending: isRTL ? 'معلق' : 'Pending',
+    failed: isRTL ? 'فشل' : 'Failed',
+    company: isRTL ? 'الشركة' : 'Company',
+    email: isRTL ? 'البريد' : 'Email',
+    amount: isRTL ? 'المبلغ' : 'Amount',
+    date: isRTL ? 'التاريخ' : 'Date',
+    daysLeft: isRTL ? 'أيام متبقية' : 'Days Left',
+    endDate: isRTL ? 'تاريخ الانتهاء' : 'End Date',
+    userCount: isRTL ? 'عدد المستخدمين' : 'Users',
+    copied: isRTL ? 'تم النسخ!' : 'Copied!',
+    currency: isRTL ? 'ج.م' : 'EGP'
+  };
+
+  const planNames = {
+    starter: isRTL ? 'المبتدئ' : 'Starter',
+    professional: isRTL ? 'المحترف' : 'Professional',
+    enterprise: isRTL ? 'المؤسسي' : 'Enterprise'
+  };
+
+  const durationNames = {
+    '3_months': isRTL ? '3 أشهر' : '3 Months',
+    '6_months': isRTL ? '6 أشهر' : '6 Months',
+    '9_months': isRTL ? '9 أشهر' : '9 Months',
+    '12_months': isRTL ? 'سنة' : '1 Year',
+    'lifetime': isRTL ? 'مدى الحياة' : 'Lifetime'
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [activeTab]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      
+      if (activeTab === 'overview' || !dashboardData) {
+        const dashRes = await axios.get(`${API_URL}/api/admin/dashboard`, config);
+        setDashboardData(dashRes.data);
+      }
+      
+      if (activeTab === 'subscriptions') {
+        const subsRes = await axios.get(`${API_URL}/api/admin/subscriptions`, config);
+        setSubscriptions(subsRes.data);
+      }
+      
+      if (activeTab === 'transactions') {
+        const transRes = await axios.get(`${API_URL}/api/admin/transactions`, config);
+        setTransactions(transRes.data);
+      }
+      
+      if (activeTab === 'codes') {
+        const codesRes = await axios.get(`${API_URL}/api/admin/activation-codes`, config);
+        setActivationCodes(codesRes.data);
+      }
+      
+      if (activeTab === 'companies') {
+        const companiesRes = await axios.get(`${API_URL}/api/admin/companies`, config);
+        setCompanies(companiesRes.data);
+      }
+    } catch (error) {
+      // Error fetching data
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateCodes = async () => {
+    setGenerating(true);
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      
+      if (generateForm.count > 1) {
+        await axios.post(`${API_URL}/api/admin/activation-codes/bulk-generate`, generateForm, config);
+      } else {
+        await axios.post(`${API_URL}/api/admin/activation-codes/generate`, generateForm, config);
+      }
+      
+      setShowGenerateForm(false);
+      fetchData();
+    } catch (error) {
+      // Error generating
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const toggleCodeStatus = async (code) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.put(`${API_URL}/api/admin/activation-codes/${code}/toggle`, {}, config);
+      fetchData();
+    } catch (error) {
+      // Error toggling
+    }
+  };
+
+  const deleteCode = async (code) => {
+    if (!window.confirm(isRTL ? 'هل أنت متأكد من الحذف؟' : 'Are you sure you want to delete?')) return;
+    
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.delete(`${API_URL}/api/admin/activation-codes/${code}`, config);
+      fetchData();
+    } catch (error) {
+      // Error deleting
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  const tabs = [
+    { id: 'overview', label: t.overview, icon: BarChart3 },
+    { id: 'subscriptions', label: t.subscriptions, icon: CreditCard },
+    { id: 'transactions', label: t.transactions, icon: DollarSign },
+    { id: 'codes', label: t.codes, icon: Gift },
+    { id: 'companies', label: t.companies, icon: Building2 }
+  ];
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString(isRTL ? 'ar-EG' : 'en-US');
+  };
+
+  const formatCurrency = (amount) => {
+    return `${(amount || 0).toLocaleString()} ${t.currency}`;
+  };
+
+  if (loading && !dashboardData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/dashboard')}
+              className="text-white hover:bg-white/10"
+              data-testid="back-button"
+            >
+              {isRTL ? <ArrowRight className="h-5 w-5" /> : <ArrowLeft className="h-5 w-5" />}
+              {t.back}
+            </Button>
+            <h1 className="text-2xl font-bold">{t.title}</h1>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={fetchData}
+            className="text-white hover:bg-white/10"
+            data-testid="refresh-button"
+          >
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex gap-1 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
+                  activeTab === tab.id
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+                data-testid={`tab-${tab.id}`}
+              >
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        {/* Overview Tab */}
+        {activeTab === 'overview' && dashboardData && (
+          <div className="space-y-6">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                <CardContent className="p-4">
+                  <Building2 className="h-8 w-8 mb-2 opacity-80" />
+                  <p className="text-2xl font-bold">{dashboardData.statistics.total_companies}</p>
+                  <p className="text-sm opacity-80">{t.totalCompanies}</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                <CardContent className="p-4">
+                  <Users className="h-8 w-8 mb-2 opacity-80" />
+                  <p className="text-2xl font-bold">{dashboardData.statistics.total_users}</p>
+                  <p className="text-sm opacity-80">{t.totalUsers}</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+                <CardContent className="p-4">
+                  <CreditCard className="h-8 w-8 mb-2 opacity-80" />
+                  <p className="text-2xl font-bold">{dashboardData.statistics.active_subscriptions}</p>
+                  <p className="text-sm opacity-80">{t.activeSubscriptions}</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
+                <CardContent className="p-4">
+                  <DollarSign className="h-8 w-8 mb-2 opacity-80" />
+                  <p className="text-2xl font-bold">{formatCurrency(dashboardData.statistics.total_revenue)}</p>
+                  <p className="text-sm opacity-80">{t.totalRevenue}</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white">
+                <CardContent className="p-4">
+                  <TrendingUp className="h-8 w-8 mb-2 opacity-80" />
+                  <p className="text-2xl font-bold">{formatCurrency(dashboardData.statistics.monthly_revenue)}</p>
+                  <p className="text-sm opacity-80">{t.monthlyRevenue}</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-pink-500 to-pink-600 text-white">
+                <CardContent className="p-4">
+                  <Gift className="h-8 w-8 mb-2 opacity-80" />
+                  <p className="text-2xl font-bold">{dashboardData.statistics.active_codes}</p>
+                  <p className="text-sm opacity-80">{t.activeCodes}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Plan Breakdown & Expiring Soon */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t.planBreakdown}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {dashboardData.plan_breakdown.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <span className="font-medium">{planNames[item.plan] || item.plan}</span>
+                        <Badge variant="secondary">{item.count}</Badge>
+                      </div>
+                    ))}
+                    {dashboardData.plan_breakdown.length === 0 && (
+                      <p className="text-gray-500 text-center py-4">
+                        {isRTL ? 'لا توجد اشتراكات' : 'No subscriptions yet'}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-amber-500" />
+                    {t.expiringSoon}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {dashboardData.expiring_soon.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-amber-50 rounded-lg">
+                        <div>
+                          <p className="font-medium">{item.company_id}</p>
+                          <p className="text-sm text-gray-500">{planNames[item.plan]}</p>
+                        </div>
+                        <Badge variant="outline" className="text-amber-600 border-amber-300">
+                          {item.days_left} {t.daysLeft}
+                        </Badge>
+                      </div>
+                    ))}
+                    {dashboardData.expiring_soon.length === 0 && (
+                      <p className="text-gray-500 text-center py-4">
+                        {isRTL ? 'لا توجد اشتراكات تنتهي قريباً' : 'No subscriptions expiring soon'}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Transactions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{t.recentTransactions}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.email}</TableHead>
+                      <TableHead>{t.plan}</TableHead>
+                      <TableHead>{t.amount}</TableHead>
+                      <TableHead>{t.status}</TableHead>
+                      <TableHead>{t.date}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dashboardData.recent_transactions.map((tx, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{tx.user_email || '-'}</TableCell>
+                        <TableCell>{planNames[tx.plan] || tx.plan}</TableCell>
+                        <TableCell>{formatCurrency(tx.amount_egp)}</TableCell>
+                        <TableCell>
+                          <Badge className={tx.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>
+                            {tx.payment_status === 'paid' ? t.paid : t.pending}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate(tx.created_at)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Subscriptions Tab */}
+        {activeTab === 'subscriptions' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.subscriptions}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t.company}</TableHead>
+                    <TableHead>{t.plan}</TableHead>
+                    <TableHead>{t.duration}</TableHead>
+                    <TableHead>{t.status}</TableHead>
+                    <TableHead>{t.endDate}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subscriptions.map((sub, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{sub.company_name || sub.company_id}</p>
+                          <p className="text-sm text-gray-500">{sub.company_email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{planNames[sub.plan] || sub.plan}</TableCell>
+                      <TableCell>{durationNames[sub.duration] || sub.duration}</TableCell>
+                      <TableCell>
+                        <Badge className={sub.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                          {sub.status === 'active' ? t.active : t.inactive}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatDate(sub.end_date)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Transactions Tab */}
+        {activeTab === 'transactions' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.transactions}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t.email}</TableHead>
+                    <TableHead>{t.plan}</TableHead>
+                    <TableHead>{t.amount}</TableHead>
+                    <TableHead>{t.status}</TableHead>
+                    <TableHead>{t.date}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((tx, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>{tx.user_email || '-'}</TableCell>
+                      <TableCell>{planNames[tx.plan] || tx.plan}</TableCell>
+                      <TableCell>{formatCurrency(tx.amount_egp)}</TableCell>
+                      <TableCell>
+                        <Badge className={
+                          tx.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 
+                          tx.payment_status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                          'bg-red-100 text-red-700'
+                        }>
+                          {tx.payment_status === 'paid' ? t.paid : 
+                           tx.payment_status === 'pending' ? t.pending : t.failed}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatDate(tx.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Activation Codes Tab */}
+        {activeTab === 'codes' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">{t.codes}</h2>
+              <Button onClick={() => setShowGenerateForm(true)} data-testid="generate-code-btn">
+                <Plus className="h-4 w-4 mr-2" />
+                {t.generateCode}
+              </Button>
+            </div>
+
+            {/* Generate Form Modal */}
+            {showGenerateForm && (
+              <Card className="border-2 border-blue-200 bg-blue-50">
+                <CardHeader>
+                  <CardTitle>{t.generateCode}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-5 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">{t.plan}</label>
+                      <select
+                        value={generateForm.plan}
+                        onChange={(e) => setGenerateForm({...generateForm, plan: e.target.value})}
+                        className="w-full mt-1 p-2 border rounded-lg"
+                      >
+                        <option value="starter">Starter</option>
+                        <option value="professional">Professional</option>
+                        <option value="enterprise">Enterprise</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t.duration}</label>
+                      <select
+                        value={generateForm.duration}
+                        onChange={(e) => setGenerateForm({...generateForm, duration: e.target.value})}
+                        className="w-full mt-1 p-2 border rounded-lg"
+                      >
+                        <option value="3_months">3 Months</option>
+                        <option value="6_months">6 Months</option>
+                        <option value="9_months">9 Months</option>
+                        <option value="12_months">1 Year</option>
+                        <option value="lifetime">Lifetime</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t.discount} %</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={generateForm.discount_percent}
+                        onChange={(e) => setGenerateForm({...generateForm, discount_percent: parseInt(e.target.value) || 0})}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t.count}</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={generateForm.count}
+                        onChange={(e) => setGenerateForm({...generateForm, count: parseInt(e.target.value) || 1})}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">{t.prefix}</label>
+                      <Input
+                        value={generateForm.prefix}
+                        onChange={(e) => setGenerateForm({...generateForm, prefix: e.target.value.toUpperCase()})}
+                        className="mt-1"
+                        maxLength={4}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button onClick={handleGenerateCodes} disabled={generating}>
+                      {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {t.generate}
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowGenerateForm(false)}>
+                      {t.cancel}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.code}</TableHead>
+                      <TableHead>{t.plan}</TableHead>
+                      <TableHead>{t.duration}</TableHead>
+                      <TableHead>{t.discount}</TableHead>
+                      <TableHead>{t.uses}</TableHead>
+                      <TableHead>{t.status}</TableHead>
+                      <TableHead>{t.actions}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activationCodes.map((code, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <code className="bg-gray-100 px-2 py-1 rounded font-mono text-sm">
+                              {code.code}
+                            </code>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(code.code)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>{planNames[code.plan] || code.plan}</TableCell>
+                        <TableCell>{durationNames[code.duration] || code.duration}</TableCell>
+                        <TableCell>{code.discount_percent}%</TableCell>
+                        <TableCell>{code.current_uses}/{code.max_uses}</TableCell>
+                        <TableCell>
+                          <Badge className={code.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                            {code.is_active ? t.active : t.inactive}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleCodeStatus(code.code)}
+                              className="h-8 w-8 p-0"
+                            >
+                              {code.is_active ? <XCircle className="h-4 w-4 text-red-500" /> : <CheckCircle className="h-4 w-4 text-green-500" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteCode(code.code)}
+                              className="h-8 w-8 p-0 text-red-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Companies Tab */}
+        {activeTab === 'companies' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.companies}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t.company}</TableHead>
+                    <TableHead>{t.email}</TableHead>
+                    <TableHead>{t.userCount}</TableHead>
+                    <TableHead>{t.plan}</TableHead>
+                    <TableHead>{t.status}</TableHead>
+                    <TableHead>{t.endDate}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {companies.map((company, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-medium">{company.name}</TableCell>
+                      <TableCell>{company.contact_email || company.owner_email}</TableCell>
+                      <TableCell>{company.user_count}</TableCell>
+                      <TableCell>
+                        {company.subscription ? planNames[company.subscription.plan] || company.subscription.plan : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {company.subscription ? (
+                          <Badge className={company.subscription.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                            {company.subscription.status === 'active' ? t.active : t.inactive}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">-</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {company.subscription ? formatDate(company.subscription.end_date) : '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AdminDashboard;
