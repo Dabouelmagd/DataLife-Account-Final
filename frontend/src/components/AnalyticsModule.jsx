@@ -354,13 +354,17 @@ export const AnalyticsModule = ({ language, userRole }) => {
             </button>
           </div>
 
-          <Button variant="outline" size="sm" onClick={exportToPDF} className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            <span>{language === 'ar' ? 'PDF' : 'PDF'}</span>
+          <Button variant="outline" size="sm" onClick={handlePrint} className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToPDF} className="flex items-center gap-2 text-red-600 hover:text-red-700">
+            <File className="h-4 w-4" />
+            <span>PDF</span>
           </Button>
           <Button variant="outline" size="sm" onClick={exportToExcel} className="flex items-center gap-2">
             <Download className="h-4 w-4" />
-            <span>{language === 'ar' ? 'Excel' : 'Excel'}</span>
+            <span>Excel</span>
           </Button>
         </div>
       </div>
