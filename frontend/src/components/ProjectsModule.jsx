@@ -799,8 +799,11 @@ const ProjectsModule = () => {
                       </div>
 
                       <div className="mt-4 pt-3 border-t flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm" onClick={() => handlePrintProject(project)}>
+                        <Button variant="ghost" size="sm" onClick={() => handlePrintProject(project)} title={isRTL ? 'طباعة' : 'Print'}>
                           <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleExportProjectPDF(project)} title={isRTL ? 'تصدير PDF' : 'Export PDF'} className="text-red-600">
+                          <File className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEditProject(project)}>
                           <Edit className="h-4 w-4" />
