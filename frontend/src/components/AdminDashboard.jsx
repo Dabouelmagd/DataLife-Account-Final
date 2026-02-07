@@ -322,6 +322,16 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center gap-3 ${
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+          {toast.message}
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
