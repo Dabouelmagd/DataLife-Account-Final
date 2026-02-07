@@ -1,12 +1,20 @@
 from motor.motor_asyncio import AsyncIOMotorClient
-from models.user import User, UserCreate, UserResponse
+from models.user import User, UserCreate, UserResponse, DEFAULT_PERMISSIONS, ALL_PERMISSIONS
 from services.auth_service import hash_password, verify_password
 from typing import Optional, List
+
+def get_default_permissions_for_role(role: str) -> List[str]:
+    """Get default permissions for a given role"""
+    return DEFAULT_PERMISSIONS.get(role, ['dashboard'])
 
 async def create_user(db: AsyncIOMotorClient, user_data: UserCreate, password: str) -> User:
     """Create a new user"""
     user_dict = user_data.dict(exclude={'password'})
     user_dict['password_hash'] = hash_password(password)
+    
+    # Set default permissions based on role
+    role = user_dict.get('role', 'Accountant')
+    user_dict['permissions'] = get_default_permissions_for_role(role)
     
     user = User(**user_dict)
     await db.users.insert_one(user.dict())
