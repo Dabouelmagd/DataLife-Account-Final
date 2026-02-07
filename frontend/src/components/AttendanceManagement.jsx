@@ -15,7 +15,8 @@ import axios from 'axios';
 import { 
   Clock, LogIn, LogOut, Users, Calendar, BarChart3, Settings,
   CheckCircle, XCircle, AlertCircle, RefreshCw, QrCode, MapPin,
-  Timer, TrendingUp, UserCheck, UserX, Wifi, WifiOff, Download
+  Timer, TrendingUp, UserCheck, UserX, Wifi, WifiOff, Download,
+  Printer, FileDown
 } from 'lucide-react';
 import useRealTimeSync from '../hooks/useRealTimeSync';
 
