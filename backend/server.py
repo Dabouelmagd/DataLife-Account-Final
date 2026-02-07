@@ -23,6 +23,7 @@ from api.webhook import router as webhook_router
 from api.admin import router as admin_router
 from api.notifications import router as notifications_router
 from api.whatsapp import router as whatsapp_router
+from api.invoices import router as invoices_router
 
 
 ROOT_DIR = Path(__file__).parent
