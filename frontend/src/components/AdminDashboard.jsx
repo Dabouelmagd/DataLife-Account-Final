@@ -447,7 +447,7 @@ const AdminDashboard = () => {
     { id: 'codes', label: t.codes, icon: Gift },
     { id: 'companies', label: t.companies, icon: Building2 },
     { id: 'users', label: isRTL ? 'جميع المستخدمين' : 'All Users', icon: Users },
-    { id: 'messages', label: isRTL ? 'الرسائل' : 'Messages', icon: Mail }
+    { id: 'messages', label: isRTL ? 'الرسائل' : 'Messages', icon: Mail, badge: newMessagesCount }
   ];
 
   const formatDate = (dateStr) => {
