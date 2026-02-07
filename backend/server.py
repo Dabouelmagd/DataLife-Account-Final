@@ -31,6 +31,7 @@ from api.purchases import router as purchases_router
 from api.approvals import router as approvals_router
 from api.attachments import router as attachments_router
 from api.documents import router as documents_router
+from api.chatbot import router as chatbot_router
 
 
 ROOT_DIR = Path(__file__).parent
