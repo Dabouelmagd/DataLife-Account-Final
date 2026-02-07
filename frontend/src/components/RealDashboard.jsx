@@ -825,6 +825,11 @@ const RealDashboard = () => {
       return <CustomerPortalManagement />;
     }
 
+    // Purchases Module
+    if (activeModule === 'purchases') {
+      return <PurchasesModule />;
+    }
+
     return null;
   };
 
