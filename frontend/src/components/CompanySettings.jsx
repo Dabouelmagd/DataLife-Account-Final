@@ -8,7 +8,7 @@ import axios from 'axios';
 
 const CompanySettings = () => {
   const { user } = useAuth();
-  const { language } = useLanguage();
+  const { language, toggleLanguage } = useLanguage();
   const [company, setCompany] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
