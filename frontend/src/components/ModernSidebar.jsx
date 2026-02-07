@@ -265,6 +265,18 @@ const ModernSidebar = ({
             </div>
           </div>
           
+          {/* Admin Dashboard Link - Only for Super Admin */}
+          {(user?.role === 'Super Admin' || user?.role === 'مدير النظام') && (
+            <button
+              onClick={() => navigate('/admin')}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 text-red-300 hover:from-red-500/30 hover:to-pink-500/30 transition-all"
+              data-testid="admin-dashboard-link"
+            >
+              <Shield className="h-4 w-4" />
+              <span className="text-sm font-medium">{language === 'ar' ? 'لوحة الإدارة' : 'Admin Dashboard'}</span>
+            </button>
+          )}
+          
           {/* Settings */}
           <button
             onClick={() => setActiveModule?.('settings')}
