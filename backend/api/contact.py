@@ -26,7 +26,6 @@ def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
         smtp_password = os.environ.get("SMTP_PASSWORD", "")
         
         if not smtp_password:
-            print("SMTP password not configured")
             return False
         
         # Create message
