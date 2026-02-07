@@ -86,6 +86,14 @@ function App() {
                 } 
               />
               <Route 
+                path="/permissions/:userId" 
+                element={
+                  <ProtectedRoute>
+                    <PermissionsManager />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
                 path="/subscription" 
                 element={
                   <ProtectedRoute>
