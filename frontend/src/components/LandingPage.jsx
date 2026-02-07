@@ -1308,25 +1308,25 @@ const LandingPage = () => {
             <div>
               <h3 className="font-semibold mb-4">{t('footer.product')}</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">{t('footer.features')}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">{t('footer.pricing')}</a></li>
+                <li><a href="#features" className="hover:text-white transition-colors">{t('footer.features')}</a></li>
+                <li><a href="#pricing" className="hover:text-white transition-colors">{t('footer.pricing')}</a></li>
                 <li><a href="#" className="hover:text-white transition-colors cursor-pointer" onClick={() => navigate('/demo')}>{t('footer.demo')}</a></li>
               </ul>
             </div>
             <div>
               <h3 className="font-semibold mb-4">{t('footer.support')}</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">{t('footer.documentation')}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">{t('footer.helpCenter')}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">{t('footer.contact')}</a></li>
+                <li><a href="#documentation" className="hover:text-white transition-colors">{t('footer.documentation')}</a></li>
+                <li><a href="#help-center" className="hover:text-white transition-colors">{t('footer.helpCenter')}</a></li>
+                <li><a href="#contact" className="hover:text-white transition-colors">{t('footer.contact')}</a></li>
               </ul>
             </div>
             <div>
               <h3 className="font-semibold mb-4">{t('footer.company')}</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">{t('footer.about')}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">{t('footer.careers')}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">{t('footer.privacy')}</a></li>
+                <li><a href="#about" className="hover:text-white transition-colors">{t('footer.about')}</a></li>
+                <li><a href="#careers" className="hover:text-white transition-colors">{t('footer.careers')}</a></li>
+                <li><a href="#privacy" className="hover:text-white transition-colors">{t('footer.privacy')}</a></li>
               </ul>
             </div>
           </div>
