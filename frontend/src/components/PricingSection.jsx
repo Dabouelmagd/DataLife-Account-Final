@@ -361,51 +361,68 @@ const PricingSection = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-              {modulePackages.map((module, index) => (
-                <Card key={module.id} className="border-gray-200 hover:shadow-lg transition-all duration-300">
-                  <CardHeader className="text-center pb-4">
-                    <div className="flex justify-center mb-4">
-                      <div className="p-4 bg-[#28376B]/10 rounded-full">
-                        <div className="text-[#28376B]">{module.icon}</div>
-                      </div>
-                    </div>
-                    <CardTitle className="text-xl font-bold">{module.name}</CardTitle>
-                    <CardDescription className="text-gray-600 mt-2">
-                      {module.description}
-                    </CardDescription>
+              {modulePackages.map((module, index) => {
+                // Different colors for each module
+                const moduleColors = [
+                  { bg: 'from-emerald-500 to-teal-600', light: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600', iconBg: 'bg-gradient-to-br from-emerald-400 to-teal-500' },
+                  { bg: 'from-rose-500 to-pink-600', light: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-600', iconBg: 'bg-gradient-to-br from-rose-400 to-pink-500' },
+                  { bg: 'from-cyan-500 to-blue-600', light: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-600', iconBg: 'bg-gradient-to-br from-cyan-400 to-blue-500' }
+                ];
+                const colors = moduleColors[index];
+                
+                return (
+                  <Card key={module.id} className={`${colors.border} border-2 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden`}>
+                    {/* Colored Top Bar */}
+                    <div className={`h-2 bg-gradient-to-r ${colors.bg}`}></div>
                     
-                    <div className="mt-6">
-                      <div className="text-3xl font-bold text-gray-900">
-                        {billingCycle === 'monthly' ? module.monthlyPrice : module.annualPrice}
-                        <span className="text-sm text-gray-500 font-normal ml-1">
-                          {module.currency}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        /{billingCycle === 'monthly' ? t('pricing.billing.month') : t('pricing.billing.year')}
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="pt-0">
-                    <Button 
-                      onClick={() => handlePlanSelect({...module, type: 'module'})}
-                      className="w-full mb-6 bg-[#28376B] hover:bg-[#1e2a5a]"
-                    >
-                      {t('pricing.modules.button')}
-                    </Button>
-
-                    <div className="space-y-3">
-                      {module.features.map((feature, featureIndex) => (
-                        <div key={featureIndex} className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3`}>
-                          <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                          <span className="text-sm text-gray-600">{feature}</span>
+                    <CardHeader className="text-center pb-4">
+                      <div className="flex justify-center mb-4">
+                        <div className={`p-4 ${colors.iconBg} rounded-2xl shadow-lg`}>
+                          <div className="text-white">{module.icon}</div>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </div>
+                      <CardTitle className="text-xl font-bold text-gray-900">{module.name}</CardTitle>
+                      <CardDescription className="text-gray-600 mt-2">
+                        {module.description}
+                      </CardDescription>
+                      
+                      <div className="mt-6 p-4 rounded-xl bg-gray-50">
+                        <div className="flex items-baseline justify-center gap-1">
+                          <span className={`text-3xl font-bold ${colors.text}`}>
+                            {billingCycle === 'monthly' ? module.monthlyPrice : module.annualPrice}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            {module.currency}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          /{billingCycle === 'monthly' ? t('pricing.billing.month') : t('pricing.billing.year')}
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="pt-0">
+                      <Button 
+                        onClick={() => handlePlanSelect({...module, type: 'module'})}
+                        className={`w-full mb-6 bg-gradient-to-r ${colors.bg} hover:opacity-90 transition-opacity shadow-md`}
+                      >
+                        {t('pricing.modules.button')}
+                      </Button>
+
+                      <div className="space-y-3">
+                        {module.features.map((feature, featureIndex) => (
+                          <div key={featureIndex} className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-3`}>
+                            <div className={`w-5 h-5 rounded-full ${colors.light} flex items-center justify-center flex-shrink-0`}>
+                              <CheckCircle className={`h-3.5 w-3.5 ${colors.text}`} />
+                            </div>
+                            <span className="text-sm text-gray-700">{feature}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </TabsContent>
 
