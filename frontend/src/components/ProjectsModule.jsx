@@ -441,6 +441,83 @@ const ProjectsModule = () => {
     printWindow.onload = () => printWindow.print();
   };
 
+  // Export project to PDF
+  const handleExportProjectPDF = (project) => {
+    const projectTasks = tasks.filter(t => t.project_id === project.id);
+    const content = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'};">
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+          <h1 style="margin: 0; color: #1a365d;">${project.name}</h1>
+          <p style="margin: 10px 0; color: #4a5568;">${project.description || ''}</p>
+        </div>
+        
+        <div style="height: 20px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 20px 0;">
+          <div style="height: 100%; background: #48bb78; border-radius: 10px; width: ${project.progress || 0}%;"></div>
+        </div>
+        <p style="text-align: center; margin-bottom: 20px;">${isRTL ? 'التقدم' : 'Progress'}: ${project.progress || 0}%</p>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+          <div style="flex: 1; background: #ebf8ff; padding: 15px; border-radius: 8px; text-align: center;">
+            <h3 style="margin: 0; font-size: 24px; color: #2b6cb0;">${projectTasks.length}</h3>
+            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'إجمالي المهام' : 'Total Tasks'}</p>
+          </div>
+          <div style="flex: 1; background: #c6f6d5; padding: 15px; border-radius: 8px; text-align: center;">
+            <h3 style="margin: 0; font-size: 24px; color: #276749;">${projectTasks.filter(t => t.status === 'completed').length}</h3>
+            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'مكتملة' : 'Completed'}</p>
+          </div>
+          <div style="flex: 1; background: #fefcbf; padding: 15px; border-radius: 8px; text-align: center;">
+            <h3 style="margin: 0; font-size: 24px; color: #975a16;">${projectTasks.filter(t => t.status === 'in_progress').length}</h3>
+            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'جارية' : 'In Progress'}</p>
+          </div>
+          <div style="flex: 1; background: #e9d8fd; padding: 15px; border-radius: 8px; text-align: center;">
+            <h3 style="margin: 0; font-size: 24px; color: #553c9a;">${projectTasks.filter(t => t.status === 'todo').length}</h3>
+            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'قيد الانتظار' : 'To Do'}</p>
+          </div>
+        </div>
+        
+        <h3 style="margin-bottom: 10px;">${isRTL ? 'المهام' : 'Tasks'}</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #edf2f7;">
+              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'المهمة' : 'Task'}</th>
+              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'الحالة' : 'Status'}</th>
+              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'الأولوية' : 'Priority'}</th>
+              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'تاريخ الاستحقاق' : 'Due Date'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${projectTasks.map(t => `
+              <tr>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${t.title}</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${t.status}</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${t.priority}</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${t.due_date || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <div style="margin-top: 40px; text-align: center; color: #718096; font-size: 12px;">
+          <p>DataLife Account ERP System - ${new Date().toLocaleDateString()}</p>
+        </div>
+      </div>
+    `;
+    
+    const element = document.createElement('div');
+    element.innerHTML = content;
+    
+    const opt = {
+      margin: 10,
+      filename: `project_${project.name.replace(/\s+/g, '_')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    
+    html2pdf().set(opt).from(element).save();
+    toast.success(isRTL ? 'تم تصدير المشروع PDF' : 'Project exported as PDF');
+  };
+
   const handleUpdateTask = async (taskId, updates) => {
     try {
       await axios.put(
