@@ -4127,9 +4127,13 @@ export const FinancialReportsModule = ({ language, userRole }) => {
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={exportToCSV}>
                   <Download className="h-4 w-4 mr-2" />
-                  {language === 'ar' ? 'تصدير' : 'Export'}
+                  CSV
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => window.print()}>
+                <Button size="sm" variant="outline" onClick={handleExportPDF} className="text-red-600 hover:text-red-700">
+                  <File className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+                <Button size="sm" variant="outline" onClick={handlePrint}>
                   <Printer className="h-4 w-4 mr-2" />
                   {language === 'ar' ? 'طباعة' : 'Print'}
                 </Button>
