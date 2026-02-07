@@ -1356,6 +1356,99 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {/* Messages Tab */}
+        {activeTab === 'messages' && (
+          <div className="space-y-4">
+            {/* Header */}
+            <Card className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                      <MessageSquare className="h-7 w-7" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold">{isRTL ? 'رسائل الاتصال' : 'Contact Messages'}</h2>
+                      <p className="text-blue-100">{isRTL ? 'إدارة رسائل الزوار والعملاء' : 'Manage visitor and customer messages'}</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-white/20 text-white text-lg px-4 py-2">
+                    {contactMessages.length} {isRTL ? 'رسالة' : 'messages'}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Messages List */}
+            {loadingMessages ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              </div>
+            ) : contactMessages.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <MessageSquare className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                    {isRTL ? 'لا توجد رسائل' : 'No Messages Yet'}
+                  </h3>
+                  <p className="text-gray-500">
+                    {isRTL ? 'ستظهر رسائل الزوار هنا' : 'Visitor messages will appear here'}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {contactMessages.map((msg, idx) => (
+                  <Card key={idx} className={`hover:shadow-lg transition-all ${!msg.read ? 'border-l-4 border-l-blue-500' : ''}`}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
+                              {msg.name?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-lg">{msg.name}</h3>
+                              <a href={`mailto:${msg.email}`} className="text-blue-600 hover:underline text-sm">
+                                {msg.email}
+                              </a>
+                            </div>
+                            {!msg.read && (
+                              <Badge className="bg-blue-100 text-blue-700">
+                                {isRTL ? 'جديد' : 'New'}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="bg-gray-50 p-4 rounded-lg mt-3">
+                            <p className="text-gray-700 whitespace-pre-wrap">{msg.message}</p>
+                          </div>
+                          <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-4 w-4" />
+                              {new Date(msg.created_at).toLocaleString(isRTL ? 'ar-EG' : 'en-US')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => window.location.href = `mailto:${msg.email}?subject=رد على استفسارك - DataLife`}
+                            className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                          >
+                            <Mail className="h-4 w-4 mr-1" />
+                            {isRTL ? 'رد' : 'Reply'}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Edit Permissions Modal - Shared across tabs */}
         {editingUserPermissions && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
