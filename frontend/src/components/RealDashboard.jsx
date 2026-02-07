@@ -18,6 +18,7 @@ import {
 import axios from 'axios';
 import { getTranslation } from '../data/translations';
 import NotificationCenter from './NotificationCenter';
+import InvoicesModule from './InvoicesModule';
 
 // Import sub-modules from existing files
 import {
