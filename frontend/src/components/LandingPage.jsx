@@ -1077,24 +1077,59 @@ const LandingPage = () => {
               <h3 className="text-2xl font-bold mb-6">
                 {language === 'ar' ? 'أرسل استفسارك' : 'Send Your Inquiry'}
               </h3>
-              <form className="space-y-4">
+              
+              {contactSuccess && (
+                <div className="mb-4 p-4 bg-green-500/20 border border-green-400 rounded-xl flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-400" />
+                  <span>{language === 'ar' ? 'تم إرسال رسالتك بنجاح! سنتواصل معك قريباً.' : 'Your message was sent successfully! We will contact you soon.'}</span>
+                </div>
+              )}
+              
+              {contactError && (
+                <div className="mb-4 p-4 bg-red-500/20 border border-red-400 rounded-xl">
+                  <span>{contactError}</span>
+                </div>
+              )}
+              
+              <form className="space-y-4" onSubmit={handleContactSubmit}>
                 <input
                   type="text"
+                  value={contactForm.name}
+                  onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
                   placeholder={language === 'ar' ? 'الاسم الكامل' : 'Full Name'}
                   className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:border-white/50"
+                  data-testid="contact-name-input"
                 />
                 <input
                   type="email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
                   placeholder={language === 'ar' ? 'البريد الإلكتروني' : 'Email Address'}
                   className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:border-white/50"
+                  data-testid="contact-email-input"
                 />
                 <textarea
                   rows={4}
+                  value={contactForm.message}
+                  onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
                   placeholder={language === 'ar' ? 'رسالتك...' : 'Your message...'}
                   className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:border-white/50 resize-none"
+                  data-testid="contact-message-input"
                 />
-                <Button className="w-full bg-white text-[#28376B] hover:bg-gray-100 h-12 font-semibold">
-                  {language === 'ar' ? 'إرسال' : 'Send Message'}
+                <Button 
+                  type="submit"
+                  disabled={contactLoading}
+                  className="w-full bg-white text-[#28376B] hover:bg-gray-100 h-12 font-semibold disabled:opacity-50"
+                  data-testid="contact-submit-btn"
+                >
+                  {contactLoading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                      {language === 'ar' ? 'جاري الإرسال...' : 'Sending...'}
+                    </>
+                  ) : (
+                    language === 'ar' ? 'إرسال' : 'Send Message'
+                  )}
                 </Button>
               </form>
             </div>
