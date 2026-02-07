@@ -382,12 +382,19 @@ async def add_task_comment(
 ):
     """Add comment to task"""
     user_data = await verify_token_from_header(authorization)
+    user_id = user_data.get("user_id")
+    
+    # Fetch user's full name from database
+    user_name = "Unknown"
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "full_name": 1})
+    if user:
+        user_name = user.get("full_name", "Unknown")
     
     comment = {
         "id": generate_id("comment_"),
         "text": comment_data.get("text"),
-        "user_id": user_data.get("user_id"),
-        "user_name": user_data.get("full_name", "Unknown"),
+        "user_id": user_id,
+        "user_name": user_name,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
