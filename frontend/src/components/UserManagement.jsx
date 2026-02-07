@@ -298,7 +298,6 @@ const UserManagement = () => {
           </div>
           <Button
             onClick={() => {
-              console.log('Opening Add User Modal');
               setShowAddModal(true);
             }}
             className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl h-12"
