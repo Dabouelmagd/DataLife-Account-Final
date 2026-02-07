@@ -3033,40 +3033,76 @@ export const HRReportsModule = ({ language, userRole }) => {
     alert(language === 'ar' ? 'تم تصدير التقرير بنجاح!' : 'Report exported successfully!');
   };
 
-  // Export to PDF function
-  const exportToPDF = () => {
-    // Create simple text-based PDF content
-    let content = language === 'ar' ? 'تقارير الموارد البشرية\n\n' : 'HR Reports\n\n';
-    content += `${language === 'ar' ? 'التاريخ' : 'Date'}: ${new Date().toLocaleDateString()}\n`;
-    content += `${language === 'ar' ? 'نوع التقرير' : 'Report Type'}: ${reportTypes.find(r => r.id === reportType)?.name}\n\n`;
+  // Export to PDF function - Real PDF
+  const handleExportPDF = () => {
+    let headers, rows, title;
     
     if (reportType === 'attendance') {
-      content += language === 'ar' ? 'بيانات الحضور:\n' : 'Attendance Data:\n';
-      attendanceData.forEach(row => {
-        content += `${row.employee}: ${language === 'ar' ? 'حضور' : 'Present'}: ${row.present}, ${language === 'ar' ? 'غياب' : 'Absent'}: ${row.absent}\n`;
-      });
+      title = isRTL ? 'تقرير الحضور' : 'Attendance Report';
+      headers = isRTL 
+        ? ['الموظف', 'أيام الحضور', 'أيام الغياب', 'أيام التأخير', 'إجمالي الأيام']
+        : ['Employee', 'Present', 'Absent', 'Late', 'Total'];
+      rows = attendanceData.map(row => [row.employee, row.present, row.absent, row.late, row.totalDays]);
     } else {
-      content += language === 'ar' ? 'بيانات المرتبات:\n' : 'Payroll Data:\n';
-      payrollData.forEach(row => {
-        content += `${row.employee}: ${language === 'ar' ? 'صافي' : 'Net'}: ${row.net.toLocaleString()}\n`;
-      });
+      title = isRTL ? 'تقرير المرتبات' : 'Payroll Report';
+      headers = isRTL
+        ? ['الموظف', 'الراتب الأساسي', 'البدلات', 'الخصومات', 'صافي الراتب']
+        : ['Employee', 'Basic', 'Allowances', 'Deductions', 'Net'];
+      rows = payrollData.map(row => [row.employee, row.basic.toLocaleString(), row.allowances.toLocaleString(), row.deductions.toLocaleString(), row.net.toLocaleString()]);
     }
+    
+    const content = `
+      <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #3182ce; padding-bottom: 20px;">
+        <h1 style="margin: 0; color: #1a365d; font-size: 28px;">${title}</h1>
+        <p style="margin-top: 8px; color: #4a5568;">${new Date().toLocaleDateString()}</p>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #edf2f7;">
+            ${headers.map(h => `<th style="border: 1px solid #e2e8f0; padding: 12px; text-align: ${isRTL ? 'right' : 'left'};">${h}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              ${row.map(cell => `<td style="border: 1px solid #e2e8f0; padding: 10px;">${cell}</td>`).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    
+    exportToPDF(content, `hr_${reportType}_report_${new Date().toISOString().slice(0,10)}.pdf`, isRTL);
+    alert(isRTL ? 'تم تصدير PDF بنجاح!' : 'PDF exported successfully!');
+  };
 
-    // Create blob and download
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    const filename = `hr_report_${reportType}_${new Date().toISOString().split('T')[0]}.txt`;
+  // Print function
+  const handlePrint = () => {
+    let headers, rows, title;
     
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    if (reportType === 'attendance') {
+      title = isRTL ? 'تقرير الحضور' : 'Attendance Report';
+      headers = isRTL 
+        ? ['الموظف', 'أيام الحضور', 'أيام الغياب', 'أيام التأخير', 'إجمالي الأيام']
+        : ['Employee', 'Present', 'Absent', 'Late', 'Total'];
+      rows = attendanceData.map(row => [row.employee, row.present, row.absent, row.late, row.totalDays]);
+    } else {
+      title = isRTL ? 'تقرير المرتبات' : 'Payroll Report';
+      headers = isRTL
+        ? ['الموظف', 'الراتب الأساسي', 'البدلات', 'الخصومات', 'صافي الراتب']
+        : ['Employee', 'Basic', 'Allowances', 'Deductions', 'Net'];
+      rows = payrollData.map(row => [row.employee, row.basic.toLocaleString() + ' EGP', row.allowances.toLocaleString() + ' EGP', row.deductions.toLocaleString() + ' EGP', row.net.toLocaleString() + ' EGP']);
+    }
     
-    alert(language === 'ar' ? 'تم تصدير التقرير بنجاح!' : 'Report exported successfully!');
+    const content = `
+      <div class="header">
+        <h1>${title}</h1>
+        <p>${new Date().toLocaleDateString()}</p>
+      </div>
+      ${generateTableHTML(headers, rows, isRTL)}
+    `;
+    
+    printContent(content, title, isRTL);
   };
 
   return (
@@ -3076,13 +3112,17 @@ export const HRReportsModule = ({ language, userRole }) => {
           {language === 'ar' ? 'تقارير الموارد البشرية' : 'HR Reports'}
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportToPDF}>
-            <Download className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير PDF' : 'Export PDF'}</span>
-          </Button>
           <Button variant="outline" size="sm" onClick={exportToCSV}>
             <Download className="h-4 w-4" />
-            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير CSV' : 'Export CSV'}</span>
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>CSV</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} className="text-red-600 hover:text-red-700">
+            <File className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>PDF</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={handlePrint}>
+            <Printer className="h-4 w-4" />
+            <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'طباعة' : 'Print'}</span>
           </Button>
         </div>
       </div>
