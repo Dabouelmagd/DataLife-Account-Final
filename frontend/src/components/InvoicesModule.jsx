@@ -17,7 +17,8 @@ import {
   FileText, Plus, Send, DollarSign, Eye, Edit, Trash2, 
   Download, Mail, CheckCircle, Clock, XCircle, AlertCircle,
   Building2, User, Phone, MapPin, Calculator, Receipt,
-  FileCheck, Upload, Search, Filter, RefreshCw, Wifi, WifiOff
+  FileCheck, Upload, Search, Filter, RefreshCw, Wifi, WifiOff,
+  Printer, FileDown
 } from 'lucide-react';
 import AttachmentsManager from './AttachmentsManager';
 import useRealTimeSync from '../hooks/useRealTimeSync';
