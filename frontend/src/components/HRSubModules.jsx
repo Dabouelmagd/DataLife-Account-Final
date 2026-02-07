@@ -75,6 +75,104 @@ export const SalariesModule = ({ language, userRole }) => {
     setTimeout(() => setShowSuccessModal(false), 2000);
   };
 
+  // Print salaries
+  const handlePrint = () => {
+    const headers = isRTL 
+      ? ['الكود', 'الاسم', 'الوظيفة', 'الراتب الأساسي', 'الراتب الإجمالي', 'الحالة']
+      : ['ID', 'Name', 'Position', 'Basic Salary', 'Total Salary', 'Status'];
+    
+    const rows = salaries.map(s => [
+      s.id,
+      s.name,
+      s.position,
+      s.basicSalary.toLocaleString() + ' EGP',
+      s.totalSalary.toLocaleString() + ' EGP',
+      `<span class="status ${s.status === 'paid' ? 'status-paid' : 'status-pending'}">${s.status === 'paid' ? (isRTL ? 'مدفوع' : 'Paid') : (isRTL ? 'معلق' : 'Pending')}</span>`
+    ]);
+    
+    const totalBasic = salaries.reduce((sum, s) => sum + s.basicSalary, 0);
+    const totalSalary = salaries.reduce((sum, s) => sum + s.totalSalary, 0);
+    
+    const stats = [
+      { value: salaries.length, label: isRTL ? 'إجمالي الموظفين' : 'Total Employees' },
+      { value: salaries.filter(s => s.status === 'paid').length, label: isRTL ? 'مدفوع' : 'Paid' },
+      { value: salaries.filter(s => s.status === 'pending').length, label: isRTL ? 'معلق' : 'Pending' },
+      { value: totalSalary.toLocaleString() + ' EGP', label: isRTL ? 'إجمالي المرتبات' : 'Total Salaries' }
+    ];
+    
+    const content = `
+      <div class="header">
+        <h1>${isRTL ? 'تقرير المرتبات' : 'Salaries Report'}</h1>
+        <p>${new Date().toLocaleDateString()}</p>
+      </div>
+      ${generateStatsHTML(stats, isRTL)}
+      ${generateTableHTML(headers, rows, isRTL)}
+    `;
+    
+    printContent(content, isRTL ? 'تقرير المرتبات' : 'Salaries Report', isRTL);
+  };
+
+  // Export to PDF
+  const handleExportPDF = () => {
+    const headers = isRTL 
+      ? ['الكود', 'الاسم', 'الوظيفة', 'الراتب الأساسي', 'الراتب الإجمالي', 'الحالة']
+      : ['ID', 'Name', 'Position', 'Basic Salary', 'Total Salary', 'Status'];
+    
+    const rows = salaries.map(s => [
+      s.id,
+      s.name,
+      s.position,
+      s.basicSalary.toLocaleString() + ' EGP',
+      s.totalSalary.toLocaleString() + ' EGP',
+      s.status === 'paid' ? (isRTL ? 'مدفوع' : 'Paid') : (isRTL ? 'معلق' : 'Pending')
+    ]);
+    
+    const totalSalary = salaries.reduce((sum, s) => sum + s.totalSalary, 0);
+    
+    const content = `
+      <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #3182ce; padding-bottom: 20px;">
+        <h1 style="margin: 0; color: #1a365d; font-size: 28px;">${isRTL ? 'تقرير المرتبات' : 'Salaries Report'}</h1>
+        <p style="margin-top: 8px; color: #4a5568;">${new Date().toLocaleDateString()}</p>
+      </div>
+      <div style="display: flex; gap: 15px; margin-bottom: 25px;">
+        <div style="flex: 1; background: #ebf8ff; padding: 15px; border-radius: 8px; text-align: center;">
+          <h3 style="margin: 0; font-size: 24px; color: #2b6cb0;">${salaries.length}</h3>
+          <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'إجمالي الموظفين' : 'Total Employees'}</p>
+        </div>
+        <div style="flex: 1; background: #c6f6d5; padding: 15px; border-radius: 8px; text-align: center;">
+          <h3 style="margin: 0; font-size: 24px; color: #276749;">${salaries.filter(s => s.status === 'paid').length}</h3>
+          <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'مدفوع' : 'Paid'}</p>
+        </div>
+        <div style="flex: 1; background: #fefcbf; padding: 15px; border-radius: 8px; text-align: center;">
+          <h3 style="margin: 0; font-size: 24px; color: #975a16;">${salaries.filter(s => s.status === 'pending').length}</h3>
+          <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'معلق' : 'Pending'}</p>
+        </div>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #edf2f7;">
+            ${headers.map(h => `<th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${h}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              ${row.map(cell => `<td style="border: 1px solid #e2e8f0; padding: 10px;">${cell}</td>`).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div style="margin-top: 20px; text-align: ${isRTL ? 'left' : 'right'};">
+        <p style="font-size: 16px; font-weight: bold; color: #2b6cb0;">${isRTL ? 'إجمالي المرتبات:' : 'Total Salaries:'} ${totalSalary.toLocaleString()} EGP</p>
+      </div>
+    `;
+    
+    exportToPDF(content, `salaries_${new Date().toISOString().slice(0,10)}.pdf`, isRTL);
+    setSuccessMessage(isRTL ? 'تم تصدير PDF بنجاح!' : 'PDF exported successfully!');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
   const handleProcessPayroll = () => {
     // Process all pending salaries
     setSalaries(salaries.map(s => ({ ...s, status: 'paid' })));
