@@ -9,6 +9,7 @@ import CompanyRegistrationPage from "./components/CompanyRegistrationPage";
 import RealDashboard from "./components/RealDashboard";
 import CompanySettings from "./components/CompanySettings";
 import UserManagement from "./components/UserManagement";
+import PermissionsManager from "./components/PermissionsManager";
 import SubscriptionPage from "./components/SubscriptionPage";
 import SubscriptionSuccess from "./components/SubscriptionSuccess";
 import AdminDashboard from "./components/AdminDashboard";
