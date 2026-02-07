@@ -142,10 +142,11 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Third-Party Integrations
 - **Resend** - Email delivery (password reset, invitations)
+- **Stripe** - Payment processing (fully integrated)
 - **recharts** - Data visualization
 - **xlsx** - Excel export
 - **jspdf** - PDF generation
-- **Stripe** - Payment processing (pending integration)
+- **emergentintegrations** - Stripe checkout library
 
 ---
 
