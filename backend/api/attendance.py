@@ -176,14 +176,14 @@ async def get_today_attendance(authorization: Optional[str] = Header(None)):
     employee_ids = [r.get("employee_id") for r in records]
     employees = await db.employees.find(
         {"id": {"$in": employee_ids}},
-        {"_id": 0, "id": 1, "full_name": 1, "department": 1, "position": 1}
+        {"_id": 0, "id": 1, "name": 1, "department": 1, "position": 1}
     ).to_list(length=None)
     
     employee_map = {e.get("id"): e for e in employees}
     
     for record in records:
         emp = employee_map.get(record.get("employee_id"), {})
-        record["employee_name"] = emp.get("full_name", "Unknown")
+        record["employee_name"] = emp.get("name", "Unknown")
         record["department"] = emp.get("department", "-")
         record["position"] = emp.get("position", "-")
     

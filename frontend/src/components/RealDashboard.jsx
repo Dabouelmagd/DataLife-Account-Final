@@ -23,6 +23,7 @@ import CustomerPortalManagement from './CustomerPortalManagement';
 import PurchasesModule from './PurchasesModule';
 import ApprovalsModule from './ApprovalsModule';
 import AttendanceManagement from './AttendanceManagement';
+import ProjectsModule from './ProjectsModule';
 
 // Import sub-modules from existing files
 import {
