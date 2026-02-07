@@ -110,8 +110,7 @@ const ModernSidebar = ({
         <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1 scrollbar-thin scrollbar-thumb-white/10">
           {modules.map((module) => {
             const isActive = activeModule === module.id;
-            const hasSubModules = (module.id === 'hr' && hrSubModules?.length > 0) || 
-                                  (module.id === 'financial' && financialSubModules?.length > 0);
+            const hasSubModules = module.hasSubModules && module.subModules?.length > 0;
             const isExpanded = expandedMenus[module.id];
 
             return (
