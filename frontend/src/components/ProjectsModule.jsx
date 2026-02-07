@@ -284,6 +284,162 @@ const ProjectsModule = () => {
     }
   };
 
+  // Export projects to CSV
+  const handleExportProjectsCSV = () => {
+    const headers = [
+      isRTL ? 'المشروع' : 'Project',
+      isRTL ? 'الوصف' : 'Description',
+      isRTL ? 'الحالة' : 'Status',
+      isRTL ? 'التقدم' : 'Progress',
+      isRTL ? 'عدد المهام' : 'Tasks',
+      isRTL ? 'تاريخ البدء' : 'Start Date',
+      isRTL ? 'تاريخ الانتهاء' : 'End Date'
+    ];
+    
+    const rows = projects.map(p => [
+      p.name,
+      p.description || '',
+      p.status,
+      `${p.progress || 0}%`,
+      p.task_count || 0,
+      p.start_date || '-',
+      p.end_date || '-'
+    ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `projects_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(isRTL ? 'تم تصدير المشاريع' : 'Projects exported');
+  };
+
+  // Export tasks to CSV
+  const handleExportTasksCSV = () => {
+    const headers = [
+      isRTL ? 'المهمة' : 'Task',
+      isRTL ? 'المشروع' : 'Project',
+      isRTL ? 'الحالة' : 'Status',
+      isRTL ? 'الأولوية' : 'Priority',
+      isRTL ? 'تاريخ الاستحقاق' : 'Due Date',
+      isRTL ? 'المكلف' : 'Assignee'
+    ];
+    
+    const rows = tasks.map(t => [
+      t.title,
+      t.project_name || '-',
+      t.status,
+      t.priority,
+      t.due_date || '-',
+      t.assigned_to_name || '-'
+    ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tasks_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(isRTL ? 'تم تصدير المهام' : 'Tasks exported');
+  };
+
+  // Print project summary
+  const handlePrintProject = (project) => {
+    const printWindow = window.open('', '_blank');
+    const projectTasks = tasks.filter(t => t.project_id === project.id);
+    const content = `
+      <!DOCTYPE html>
+      <html dir="${isRTL ? 'rtl' : 'ltr'}">
+      <head>
+        <title>${project.name}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'}; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .header h1 { margin: 0; color: #1a365d; }
+          .progress-bar { height: 20px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+          .progress-fill { height: 100%; background: #48bb78; border-radius: 10px; }
+          .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+          .stat-card { background: #ebf8ff; padding: 15px; border-radius: 8px; text-align: center; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'}; }
+          th { background: #edf2f7; }
+          .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+          .footer { margin-top: 40px; text-align: center; color: #718096; font-size: 12px; }
+          @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${project.name}</h1>
+          <p>${project.description || ''}</p>
+        </div>
+        
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: ${project.progress || 0}%"></div>
+        </div>
+        <p style="text-align: center">${isRTL ? 'التقدم' : 'Progress'}: ${project.progress || 0}%</p>
+        
+        <div class="stats">
+          <div class="stat-card">
+            <h3>${projectTasks.length}</h3>
+            <p>${isRTL ? 'إجمالي المهام' : 'Total Tasks'}</p>
+          </div>
+          <div class="stat-card">
+            <h3>${projectTasks.filter(t => t.status === 'completed').length}</h3>
+            <p>${isRTL ? 'مكتملة' : 'Completed'}</p>
+          </div>
+          <div class="stat-card">
+            <h3>${projectTasks.filter(t => t.status === 'in_progress').length}</h3>
+            <p>${isRTL ? 'جارية' : 'In Progress'}</p>
+          </div>
+          <div class="stat-card">
+            <h3>${projectTasks.filter(t => t.status === 'todo').length}</h3>
+            <p>${isRTL ? 'قيد الانتظار' : 'To Do'}</p>
+          </div>
+        </div>
+        
+        <h3>${isRTL ? 'المهام' : 'Tasks'}</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>${isRTL ? 'المهمة' : 'Task'}</th>
+              <th>${isRTL ? 'الحالة' : 'Status'}</th>
+              <th>${isRTL ? 'الأولوية' : 'Priority'}</th>
+              <th>${isRTL ? 'تاريخ الاستحقاق' : 'Due Date'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${projectTasks.map(t => `
+              <tr>
+                <td>${t.title}</td>
+                <td>${t.status}</td>
+                <td>${t.priority}</td>
+                <td>${t.due_date || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <div class="footer"><p>DataLife Account ERP System - ${new Date().toLocaleDateString()}</p></div>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.onload = () => printWindow.print();
+  };
+
   const handleUpdateTask = async (taskId, updates) => {
     try {
       await axios.put(
