@@ -437,7 +437,7 @@ async def delete_document(
         if document and document.get("file_path"):
             try:
                 os.remove(document.get("file_path"))
-            except:
+            except OSError:
                 pass
         
         result = await db.documents.delete_one({"id": document_id, "company_id": company_id})
