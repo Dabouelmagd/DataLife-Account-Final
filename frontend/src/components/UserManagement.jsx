@@ -357,6 +357,29 @@ const UserManagement = () => {
                           {usr.role}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {(usr.permissions || []).slice(0, 4).map((perm, idx) => (
+                            <span 
+                              key={idx}
+                              className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full"
+                              title={perm}
+                            >
+                              {perm}
+                            </span>
+                          ))}
+                          {(usr.permissions || []).length > 4 && (
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
+                              +{usr.permissions.length - 4}
+                            </span>
+                          )}
+                          {(!usr.permissions || usr.permissions.length === 0) && (
+                            <span className="text-xs text-gray-400">
+                              {language === 'ar' ? 'افتراضي' : 'Default'}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm text-gray-600">
                         {new Date(usr.created_at).toLocaleDateString()}
                       </TableCell>
