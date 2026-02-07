@@ -763,49 +763,209 @@ const AdminDashboard = () => {
 
         {/* Companies Tab */}
         {activeTab === 'companies' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.companies}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t.company}</TableHead>
-                    <TableHead>{t.email}</TableHead>
-                    <TableHead>{t.userCount}</TableHead>
-                    <TableHead>{t.plan}</TableHead>
-                    <TableHead>{t.status}</TableHead>
-                    <TableHead>{t.endDate}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {companies.map((company, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-medium">{company.name}</TableCell>
-                      <TableCell>{company.contact_email || company.owner_email}</TableCell>
-                      <TableCell>{company.user_count}</TableCell>
-                      <TableCell>
-                        {company.subscription ? planNames[company.subscription.plan] || company.subscription.plan : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {company.subscription ? (
-                          <Badge className={company.subscription.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
-                            {company.subscription.status === 'active' ? t.active : t.inactive}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">-</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {company.subscription ? formatDate(company.subscription.end_date) : '-'}
-                      </TableCell>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">{t.companies}</h2>
+              <Button onClick={() => setShowNotificationForm(true)}>
+                <Bell className="h-4 w-4 mr-2" />
+                {t.sendNotification}
+              </Button>
+            </div>
+
+            {/* Notification Form Modal */}
+            {showNotificationForm && (
+              <Card className="border-2 border-blue-200 bg-blue-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Send className="h-5 w-5" />
+                    {t.sendNotification}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">{t.targetType}</label>
+                      <select
+                        value={notificationForm.target_type}
+                        onChange={(e) => setNotificationForm({...notificationForm, target_type: e.target.value})}
+                        className="w-full mt-1 p-2 border rounded-lg"
+                      >
+                        <option value="all">{t.allUsers}</option>
+                        <option value="company">{t.specificCompany}</option>
+                        <option value="user">{t.specificUser}</option>
+                      </select>
+                    </div>
+                    {notificationForm.target_type !== 'all' && (
+                      <div>
+                        <label className="text-sm font-medium">ID</label>
+                        <Input
+                          value={notificationForm.target_id}
+                          onChange={(e) => setNotificationForm({...notificationForm, target_id: e.target.value})}
+                          className="mt-1"
+                          placeholder={notificationForm.target_type === 'company' ? 'Company ID' : 'User ID'}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">{t.subject}</label>
+                    <Input
+                      value={notificationForm.subject}
+                      onChange={(e) => setNotificationForm({...notificationForm, subject: e.target.value})}
+                      className="mt-1"
+                      placeholder={isRTL ? 'موضوع الإشعار' : 'Notification subject'}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">{t.message}</label>
+                    <textarea
+                      value={notificationForm.message}
+                      onChange={(e) => setNotificationForm({...notificationForm, message: e.target.value})}
+                      className="w-full mt-1 p-2 border rounded-lg min-h-[100px]"
+                      placeholder={isRTL ? 'نص الرسالة...' : 'Message text...'}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleSendNotification} disabled={sendingNotification}>
+                      {sendingNotification ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                      {t.send}
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowNotificationForm(false)}>
+                      {t.cancel}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Company Users Modal */}
+            {selectedCompany && (
+              <Card className="border-2 border-purple-200">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-purple-600" />
+                    {t.companyUsers}: {selectedCompany.name}
+                  </CardTitle>
+                  <Button variant="ghost" onClick={() => setSelectedCompany(null)}>
+                    <XCircle className="h-5 w-5" />
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {loadingUsers ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{isRTL ? 'الاسم' : 'Name'}</TableHead>
+                          <TableHead>{t.email}</TableHead>
+                          <TableHead>{t.role}</TableHead>
+                          <TableHead>{t.status}</TableHead>
+                          <TableHead>{t.actions}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {companyUsers.map((user, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{user.full_name}</TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{user.role}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={user.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                                {user.is_active ? t.active : t.suspended}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleUserStatus(user.id)}
+                                className={user.is_active ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
+                              >
+                                {user.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.company}</TableHead>
+                      <TableHead>{t.email}</TableHead>
+                      <TableHead>{t.userCount}</TableHead>
+                      <TableHead>{t.plan}</TableHead>
+                      <TableHead>{t.status}</TableHead>
+                      <TableHead>{t.endDate}</TableHead>
+                      <TableHead>{t.actions}</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {companies.map((company, idx) => (
+                      <TableRow key={idx} className={!company.is_active && company.is_active !== undefined ? 'bg-red-50' : ''}>
+                        <TableCell className="font-medium">{company.name}</TableCell>
+                        <TableCell>{company.contact_email || company.owner_email}</TableCell>
+                        <TableCell>
+                          <span className="font-medium">{company.active_users || company.user_count}</span>
+                          <span className="text-gray-400">/{company.user_count}</span>
+                        </TableCell>
+                        <TableCell>
+                          {company.subscription ? planNames[company.subscription.plan] || company.subscription.plan : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {company.is_active === false ? (
+                            <Badge className="bg-red-100 text-red-700">{t.suspended}</Badge>
+                          ) : company.subscription ? (
+                            <Badge className={company.subscription.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                              {company.subscription.status === 'active' ? t.active : t.inactive}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">-</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {company.subscription ? formatDate(company.subscription.end_date) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewCompanyUsers(company)}
+                              title={t.viewUsers}
+                            >
+                              <Eye className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleCompanyStatus(company.id, company.is_active)}
+                              className={company.is_active !== false ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
+                              title={company.is_active !== false ? t.suspend : t.activate}
+                            >
+                              <Power className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </div>
