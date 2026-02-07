@@ -95,7 +95,6 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
 
   const sendPaymentNotifications = () => {
     // This would be implemented in the backend
-    console.log('Sending payment notifications...');
   };
 
   const renderPaymentMethodSelection = () => (
