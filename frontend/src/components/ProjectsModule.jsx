@@ -14,11 +14,12 @@ import { Progress } from './ui/progress';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
 import axios from 'axios';
+import html2pdf from 'html2pdf.js';
 import { 
   FolderKanban, Plus, ListTodo, Calendar, Users, Clock, AlertCircle,
   CheckCircle, Circle, PlayCircle, PauseCircle, Trash2, Edit, Eye,
   RefreshCw, Target, TrendingUp, ChevronRight, MessageSquare, Wifi, WifiOff,
-  Flag, User, CalendarDays, Timer, FileDown, Printer
+  Flag, User, CalendarDays, Timer, FileDown, Printer, File
 } from 'lucide-react';
 import useRealTimeSync from '../hooks/useRealTimeSync';
 
