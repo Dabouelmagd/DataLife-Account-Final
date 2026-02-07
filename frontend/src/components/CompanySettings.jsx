@@ -92,13 +92,46 @@ const CompanySettings = () => {
   // Check if user can upload logo
   const canUploadLogo = ['General Manager', 'CEO', 'Board Chairman', 'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة'].includes(user.role);
 
-  return (
-    <div className="container mx-auto p-6" dir={isRTL ? 'rtl' : 'ltr'}>
-      <h1 className="text-3xl font-bold text-[#28376B] mb-6">
-        {language === 'ar' ? 'إعدادات الشركة' : 'Company Settings'}
-      </h1>
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(subscriptionCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  const tabs = [
+    { id: 'company', label: language === 'ar' ? 'الشركة' : 'Company', icon: Building2 },
+    { id: 'profile', label: language === 'ar' ? 'الملف الشخصي' : 'Profile', icon: User },
+    { id: 'subscription', label: language === 'ar' ? 'الاشتراك' : 'Subscription', icon: Key },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="container mx-auto p-6">
+        <h1 className="text-3xl font-bold text-[#28376B] mb-6">
+          {language === 'ar' ? 'الإعدادات' : 'Settings'}
+        </h1>
+
+        {/* Tabs Navigation */}
+        <div className="flex gap-2 mb-6 border-b border-gray-200 pb-4">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-[#28376B] text-white shadow-lg'
+                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              }`}
+            >
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Company Tab */}
+        {activeTab === 'company' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Company Logo */}
         <Card>
           <CardHeader>
