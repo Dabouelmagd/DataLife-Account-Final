@@ -221,6 +221,78 @@ const AdminDashboard = () => {
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+    showToastMessage(t.copied, 'success');
+  };
+
+  const showToastMessage = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: '' }), 3000);
+  };
+
+  const toggleCompanyStatus = async (companyId, currentStatus) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.put(`${API_URL}/api/admin/companies/${companyId}/toggle`, {}, config);
+      showToastMessage(response.data.message, 'success');
+      fetchData();
+    } catch (error) {
+      showToastMessage(isRTL ? 'حدث خطأ' : 'Error occurred', 'error');
+    }
+  };
+
+  const toggleUserStatus = async (userId) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.put(`${API_URL}/api/admin/users/${userId}/toggle`, {}, config);
+      // Refresh company users
+      if (selectedCompany) {
+        fetchCompanyUsers(selectedCompany.id);
+      }
+      showToastMessage(isRTL ? 'تم تحديث حالة المستخدم' : 'User status updated', 'success');
+    } catch (error) {
+      showToastMessage(isRTL ? 'حدث خطأ' : 'Error occurred', 'error');
+    }
+  };
+
+  const fetchCompanyUsers = async (companyId) => {
+    setLoadingUsers(true);
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.get(`${API_URL}/api/admin/companies/${companyId}/users`, config);
+      setCompanyUsers(response.data);
+    } catch (error) {
+      setCompanyUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleViewCompanyUsers = async (company) => {
+    setSelectedCompany(company);
+    await fetchCompanyUsers(company.id);
+  };
+
+  const handleSendNotification = async () => {
+    if (!notificationForm.message) {
+      showToastMessage(isRTL ? 'الرسالة مطلوبة' : 'Message is required', 'error');
+      return;
+    }
+    
+    setSendingNotification(true);
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.post(`${API_URL}/api/admin/send-notification`, notificationForm, config);
+      showToastMessage(
+        isRTL ? `تم إرسال الإشعار إلى ${response.data.emails_sent} مستخدم` : `Notification sent to ${response.data.emails_sent} users`,
+        'success'
+      );
+      setShowNotificationForm(false);
+      setNotificationForm({ target_type: 'all', target_id: '', subject: '', message: '' });
+    } catch (error) {
+      showToastMessage(isRTL ? 'حدث خطأ في الإرسال' : 'Error sending notification', 'error');
+    } finally {
+      setSendingNotification(false);
+    }
   };
 
   const tabs = [
