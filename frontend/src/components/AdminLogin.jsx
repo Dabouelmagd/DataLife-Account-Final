@@ -43,18 +43,12 @@ const AdminLogin = () => {
 
     try {
       const result = await login(formData.email, formData.password);
-      console.log('Login result:', result);
-      console.log('User role:', result.user?.role);
-      console.log('Admin roles:', adminRoles);
-      console.log('Is admin:', adminRoles.includes(result.user?.role));
       
       if (result.success) {
         // Check if user has admin role
         if (adminRoles.includes(result.user?.role)) {
-          console.log('Navigating to admin-dashboard...');
           navigate('/admin-dashboard');
         } else {
-          console.log('Not an admin, showing error');
           setError(t.notAdmin);
           // Logout the non-admin user
           localStorage.removeItem('token');
@@ -63,7 +57,6 @@ const AdminLogin = () => {
         setError(result.error || t.invalidCredentials);
       }
     } catch (err) {
-      console.error('Login error:', err);
       setError(t.invalidCredentials);
     } finally {
       setLoading(false);
