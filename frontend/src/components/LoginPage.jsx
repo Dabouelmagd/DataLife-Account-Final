@@ -84,7 +84,10 @@ const LoginPage = () => {
     const result = await login(formData.email, formData.password);
     
     if (result.success) {
-      navigate('/dashboard');
+      // Get subscription code from user data
+      const code = result.user?.subscription_code || result.user?.company_id?.slice(0, 8).toUpperCase() || '';
+      setSubscriptionCode(code);
+      setShowSubscriptionModal(true);
     } else {
       setError(result.error);
     }
