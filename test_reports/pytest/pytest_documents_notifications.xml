@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="5" failures="10" skipped="0" tests="20" time="1.869" timestamp="2026-02-07T11:16:14.892656+00:00" hostname="agent-env-cfd67ee6-106f-4d0a-9cea-c5f614e36b64"><testcase classname="backend.tests.test_documents_notifications.TestDocumentCategories" name="test_get_categories" time="0.404" /><testcase classname="backend.tests.test_documents_notifications.TestDocumentStats" name="test_get_stats" time="0.057"><failure message="AssertionError: Failed to get stats: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_documents_notifications.py:77: in test_get_stats
+    assert response.status_code == 200, f"Failed to get stats: {response.text}"
+E   AssertionError: Failed to get stats: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentFolders" name="test_create_folder" time="0.061"><failure message="AssertionError: Failed to create folder: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_documents_notifications.py:131: in test_create_folder
+    assert response.status_code == 200, f"Failed to create folder: {response.text}"
+E   AssertionError: Failed to create folder: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentFolders" name="test_get_folders" time="0.058"><error message="failed on setup with &quot;AssertionError: Failed to create test folder: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_documents_notifications.py:109: in test_folder
+    assert response.status_code == 200, f"Failed to create test folder: {response.text}"
+E   AssertionError: Failed to create test folder: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentFolders" name="test_update_folder" time="0.052"><error message="failed on setup with &quot;AssertionError: Failed to create test folder: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_documents_notifications.py:109: in test_folder
+    assert response.status_code == 200, f"Failed to create test folder: {response.text}"
+E   AssertionError: Failed to create test folder: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentFolders" name="test_delete_folder" time="0.057"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_documents_notifications.py:181: in test_delete_folder
+    assert create_response.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentUpload" name="test_upload_document" time="0.057"><failure message="AssertionError: Failed to upload: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_documents_notifications.py:251: in test_upload_document
+    assert response.status_code == 200, f"Failed to upload: {response.text}"
+E   AssertionError: Failed to upload: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentUpload" name="test_get_documents" time="0.058"><error message="failed on setup with &quot;AssertionError: Failed to upload test document: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_documents_notifications.py:219: in uploaded_doc
+    assert response.status_code == 200, f"Failed to upload test document: {response.text}"
+E   AssertionError: Failed to upload test document: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentUpload" name="test_get_single_document" time="0.059"><error message="failed on setup with &quot;AssertionError: Failed to upload test document: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_documents_notifications.py:219: in uploaded_doc
+    assert response.status_code == 200, f"Failed to upload test document: {response.text}"
+E   AssertionError: Failed to upload test document: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentUpload" name="test_download_document" time="0.053"><error message="failed on setup with &quot;AssertionError: Failed to upload test document: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code&quot;">backend/tests/test_documents_notifications.py:219: in uploaded_doc
+    assert response.status_code == 200, f"Failed to upload test document: {response.text}"
+E   AssertionError: Failed to upload test document: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</error></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentUpload" name="test_delete_document" time="0.057"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_documents_notifications.py:318: in test_delete_document
+    assert upload_response.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentSearch" name="test_search_by_name" time="0.055"><failure message="AssertionError: Failed to search: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_documents_notifications.py:345: in test_search_by_name
+    assert response.status_code == 200, f"Failed to search: {response.text}"
+E   AssertionError: Failed to search: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_documents_notifications.TestDocumentSearch" name="test_filter_by_category" time="0.054"><failure message="AssertionError: Failed to filter: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_documents_notifications.py:354: in test_filter_by_category
+    assert response.status_code == 200, f"Failed to filter: {response.text}"
+E   AssertionError: Failed to filter: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_documents_notifications.TestTaskNotificationsDueSoon" name="test_get_due_soon_tasks" time="0.058"><failure message="AssertionError: Failed to get due soon tasks: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_documents_notifications.py:371: in test_get_due_soon_tasks
+    assert response.status_code == 200, f"Failed to get due soon tasks: {response.text}"
+E   AssertionError: Failed to get due soon tasks: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_documents_notifications.TestTaskNotificationsOverdue" name="test_get_overdue_tasks" time="0.052"><failure message="AssertionError: Failed to get overdue tasks: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_documents_notifications.py:393: in test_get_overdue_tasks
+    assert response.status_code == 200, f"Failed to get overdue tasks: {response.text}"
+E   AssertionError: Failed to get overdue tasks: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_documents_notifications.TestTaskNotificationsCheckAndSend" name="test_check_and_send_notifications" time="0.057"><failure message="AssertionError: Failed to check and send: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_documents_notifications.py:411: in test_check_and_send_notifications
+    assert response.status_code == 200, f"Failed to check and send: {response.text}"
+E   AssertionError: Failed to check and send: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_documents_notifications.TestUnauthorizedAccess" name="test_documents_requires_auth" time="0.054" /><testcase classname="backend.tests.test_documents_notifications.TestUnauthorizedAccess" name="test_folders_requires_auth" time="0.051" /><testcase classname="backend.tests.test_documents_notifications.TestUnauthorizedAccess" name="test_stats_requires_auth" time="0.059" /><testcase classname="backend.tests.test_documents_notifications.TestUnauthorizedAccess" name="test_task_notifications_requires_auth" time="0.165" /></testsuite></testsuites>
