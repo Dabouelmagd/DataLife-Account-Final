@@ -108,6 +108,7 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              <Route path="/customer-portal" element={<CustomerPortal />} />
             </Routes>
           </BrowserRouter>
         </div>
