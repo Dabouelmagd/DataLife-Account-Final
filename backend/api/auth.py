@@ -227,3 +227,85 @@ async def verify_user_token(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=403, detail="User account is deactivated")
     
     return user_to_response(user)
+
+
+@router.post("/debug-user")
+async def debug_user(request_data: dict):
+    """Debug endpoint to check user status in database"""
+    email = request_data.get("email")
+    
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    # Get raw user data
+    user_data = await db.users.find_one({"email": email}, {"_id": 0})
+    
+    if not user_data:
+        return {"found": False, "message": "User not found"}
+    
+    # Check password fields
+    has_password = "password" in user_data
+    has_password_hash = "password_hash" in user_data
+    
+    password_info = {}
+    if has_password:
+        pwd = user_data.get("password", "")
+        password_info["password_field"] = {
+            "exists": True,
+            "length": len(pwd),
+            "starts_with_$2": pwd.startswith("$2") if pwd else False
+        }
+    if has_password_hash:
+        pwd_hash = user_data.get("password_hash", "")
+        password_info["password_hash_field"] = {
+            "exists": True,
+            "length": len(pwd_hash),
+            "starts_with_$2": pwd_hash.startswith("$2") if pwd_hash else False
+        }
+    
+    return {
+        "found": True,
+        "email": email,
+        "is_active": user_data.get("is_active"),
+        "role": user_data.get("role"),
+        "company_id": user_data.get("company_id"),
+        "password_info": password_info
+    }
+
+
+@router.post("/force-reset-password")
+async def force_reset_password(request_data: dict):
+    """Force reset password for a user - sets a known password"""
+    email = request_data.get("email")
+    new_password = request_data.get("new_password", "DataLife@2024")
+    
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    # Check if user exists
+    user_data = await db.users.find_one({"email": email})
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Hash new password using auth_service function
+    from services.auth_service import hash_password
+    hashed_password = hash_password(new_password)
+    
+    # Update password in database - set both fields
+    result = await db.users.update_one(
+        {"email": email},
+        {
+            "$set": {
+                "password_hash": hashed_password
+            },
+            "$unset": {
+                "password": ""
+            }
+        }
+    )
+    
+    return {
+        "success": result.modified_count > 0,
+        "message": f"Password reset for {email}",
+        "new_password": new_password
+    }
