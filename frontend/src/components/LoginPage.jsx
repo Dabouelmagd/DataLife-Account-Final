@@ -42,7 +42,12 @@ const LoginPage = () => {
       cancel: 'Cancel',
       resetSuccess: 'New password sent to your email',
       showPassword: 'Show Password',
-      hidePassword: 'Hide Password'
+      hidePassword: 'Hide Password',
+      subscriptionCodeTitle: 'Your Subscription Code',
+      subscriptionCodeDesc: 'Save this code, you will need it to manage your account',
+      copyCode: 'Copy Code',
+      copiedCode: 'Copied!',
+      continueToApp: 'Continue to Application'
     },
     ar: {
       title: 'مرحباً بعودتك',
@@ -60,7 +65,12 @@ const LoginPage = () => {
       cancel: 'إلغاء',
       resetSuccess: 'تم إرسال كلمة المرور الجديدة إلى بريدك الإلكتروني',
       showPassword: 'إظهار كلمة المرور',
-      hidePassword: 'إخفاء كلمة المرور'
+      hidePassword: 'إخفاء كلمة المرور',
+      subscriptionCodeTitle: 'كود الاشتراك الخاص بك',
+      subscriptionCodeDesc: 'احفظ هذا الكود، ستحتاجه لإدارة حسابك',
+      copyCode: 'نسخ الكود',
+      copiedCode: 'تم النسخ!',
+      continueToApp: 'الانتقال للتطبيق'
     }
   };
 
