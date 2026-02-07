@@ -18,6 +18,7 @@ const LandingPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [faqSearchQuery, setFaqSearchQuery] = useState('');
   const { language, isRTL } = useLanguage();
   const navigate = useNavigate();
 
