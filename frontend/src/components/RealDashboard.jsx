@@ -838,6 +838,11 @@ const RealDashboard = () => {
       return <PurchasesModule />;
     }
 
+    // Approvals Module
+    if (activeModule === 'approvals') {
+      return <ApprovalsModule />;
+    }
+
     return null;
   };
 
