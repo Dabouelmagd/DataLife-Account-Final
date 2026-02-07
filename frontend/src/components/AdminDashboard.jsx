@@ -75,6 +75,12 @@ const AdminDashboard = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
   
+  // Role editing
+  const [editingUserRole, setEditingUserRole] = useState(null);
+  const [availableRoles, setAvailableRoles] = useState([]);
+  const [selectedRole, setSelectedRole] = useState('');
+  const [savingRole, setSavingRole] = useState(false);
+  
   // Toast notification
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
