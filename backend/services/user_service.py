@@ -123,7 +123,7 @@ async def deactivate_user(db: AsyncIOMotorClient, user_id: str) -> bool:
     
     return result.modified_count > 0
 
-def user_to_response(user: User) -> UserResponse:
+def user_to_response(user: User, subscription_code: str = None) -> UserResponse:
     """Convert User model to UserResponse"""
     return UserResponse(
         id=user.id,
@@ -132,5 +132,6 @@ def user_to_response(user: User) -> UserResponse:
         company_id=user.company_id,
         role=user.role,
         is_active=user.is_active,
-        created_at=user.created_at if isinstance(user.created_at, str) else user.created_at.isoformat()
+        created_at=user.created_at if isinstance(user.created_at, str) else user.created_at.isoformat(),
+        subscription_code=subscription_code or user.company_id[:8].upper()  # First 8 chars of company_id as subscription code
     )
