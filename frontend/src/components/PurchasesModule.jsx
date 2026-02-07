@@ -16,7 +16,8 @@ import axios from 'axios';
 import { 
   ShoppingCart, Plus, Eye, Edit, Trash2, Search, Filter, RefreshCw,
   Package, Truck, CheckCircle, Clock, XCircle, AlertCircle, Building2,
-  DollarSign, TrendingUp, Users, FileText, Star, Phone, Mail, MapPin
+  DollarSign, TrendingUp, Users, FileText, Star, Phone, Mail, MapPin,
+  Printer, FileDown
 } from 'lucide-react';
 
 const PurchasesModule = () => {
