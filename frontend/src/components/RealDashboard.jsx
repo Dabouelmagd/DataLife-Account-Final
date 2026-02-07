@@ -213,6 +213,13 @@ const RealDashboard = () => {
       });
     }
 
+    // Approvals module - available to all users
+    modules.push({ 
+      id: 'approvals', 
+      name: language === 'ar' ? 'الموافقات' : 'Approvals', 
+      icon: <CheckCircle /> 
+    });
+
     // Customer Portal Management - available to managers
     const managerRoles = ['General Manager', 'CEO', 'Board Chairman', 'Financial Manager', 
                           'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'المدير المالي'];
