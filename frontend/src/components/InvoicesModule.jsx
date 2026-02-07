@@ -835,8 +835,20 @@ const InvoicesModule = () => {
                             size="sm"
                             onClick={() => handlePrintInvoice(invoice)}
                             data-testid={`print-invoice-${invoice.invoice_number}`}
+                            title={isRTL ? 'طباعة' : 'Print'}
                           >
                             <Printer className="h-4 w-4" />
+                          </Button>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleExportPDF(invoice)}
+                            data-testid={`pdf-invoice-${invoice.invoice_number}`}
+                            title={isRTL ? 'تصدير PDF' : 'Export PDF'}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <File className="h-4 w-4" />
                           </Button>
                           
                           {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
