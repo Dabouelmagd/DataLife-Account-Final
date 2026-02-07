@@ -34,7 +34,7 @@ async def create_trial(trial_data: TrialCreate, request: Request):
         return trial
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to create trial")
 
 @router.get("/customer/{email}")
@@ -61,7 +61,7 @@ async def get_trial_progress(trial_id: str):
         return progress
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to get trial progress")
 
 @router.post("/{trial_id}/track-usage")
@@ -70,7 +70,7 @@ async def track_trial_usage(trial_id: str, action: str, details: dict = None):
     try:
         await trial_service.track_usage(trial_id, action, details)
         return {"status": "success", "message": "Usage tracked successfully"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to track usage")
 
 @router.post("/{trial_id}/extend")
@@ -81,7 +81,7 @@ async def extend_trial(trial_id: str, additional_days: int, reason: str, extende
         return {"status": "success", "message": f"Trial extended by {additional_days} days"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to extend trial")
 
 @router.post("/{trial_id}/convert")
@@ -90,7 +90,7 @@ async def convert_trial(trial_id: str, payment_id: str):
     try:
         await trial_service.convert_trial_to_paid(trial_id, payment_id)
         return {"status": "success", "message": "Trial converted to paid subscription"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to convert trial")
 
 @router.post("/check-expiry")
@@ -99,7 +99,7 @@ async def check_trial_expiry():
     try:
         await trial_service.check_trial_expiry()
         return {"status": "success", "message": "Trial expiry check completed"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to check trial expiry")
 
 @router.get("/admin/all")
@@ -108,7 +108,7 @@ async def get_all_trials(limit: int = 100):
     try:
         trials = await trial_service.get_all_trials(limit)
         return trials
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to get trials")
 
 @router.get("/admin/statistics")
@@ -117,5 +117,5 @@ async def get_trial_statistics():
     try:
         stats = await trial_service.get_trial_statistics()
         return stats
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to get trial statistics")

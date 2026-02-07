@@ -487,7 +487,7 @@ class TestAttendanceEmployeeName:
         
         # Store the employee ID for later tests
         TestAttendanceEmployeeName.created_employee_id = data.get("id")
-        print(f"Created employee for attendance test")
+        print("Created employee for attendance test")
     
     def test_employee_has_name_field(self, headers):
         """Verify employee model uses 'name' field not 'full_name'"""

@@ -259,7 +259,7 @@ class TrialService:
     async def _send_trial_welcome_email(self, trial: Trial):
         """Send welcome email to trial user"""
         try:
-            subject = f"Welcome to DataLife Account - Your 14-Day Free Trial is Ready!"
+            subject = "Welcome to DataLife Account - Your 14-Day Free Trial is Ready!"
             
             content = f"""
             <!DOCTYPE html>

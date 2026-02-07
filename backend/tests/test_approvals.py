@@ -306,7 +306,7 @@ class TestPendingApprovals:
         
         # All should be pending status
         for req in data:
-            assert req["status"] == "pending", f"Non-pending request in pending list"
+            assert req["status"] == "pending", "Non-pending request in pending list"
         
         print(f"✓ Found {len(data)} pending approvals")
 
@@ -406,7 +406,7 @@ class TestApprovalActions:
             assert data.get("success") == True
             print(f"✓ Approved request: {request_id}")
         else:
-            print(f"✓ User not authorized to approve at this level (expected)")
+            print("✓ User not authorized to approve at this level (expected)")
     
     def test_reject_request(self, auth_headers):
         """POST /api/approvals/{id}/reject - Reject a request"""
@@ -445,7 +445,7 @@ class TestApprovalActions:
             assert data.get("status") == "rejected"
             print(f"✓ Rejected request: {request_id}")
         else:
-            print(f"✓ User not authorized to reject at this level (expected)")
+            print("✓ User not authorized to reject at this level (expected)")
 
 
 class TestGetSingleRequest:

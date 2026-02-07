@@ -405,7 +405,7 @@ async def send_payment_confirmation_email(email: str, plan: str, duration: str, 
             "html": html_content
         })
         
-    except Exception as e:
+    except Exception:
         # Log error but don't fail the transaction
         pass
 
