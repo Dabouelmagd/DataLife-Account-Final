@@ -77,6 +77,7 @@ app.include_router(inventory_data_router)
 app.include_router(analytics_router)
 app.include_router(webhook_router)
 app.include_router(admin_router)
+app.include_router(notifications_router)
 
 app.add_middleware(
     CORSMiddleware,
