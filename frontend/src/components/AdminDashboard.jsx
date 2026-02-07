@@ -660,44 +660,7 @@ const AdminDashboard = () => {
 
         {/* Content */}
         <div className="p-6">
-            className="text-white hover:bg-white/10"
-            data-testid="refresh-button"
-          >
-            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="bg-white border-b shadow-sm">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex gap-1 overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 relative ${
-                  activeTab === tab.id
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-                data-testid={`tab-${tab.id}`}
-              >
-                <tab.icon className="h-4 w-4" />
-                {tab.label}
-                {tab.badge > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
-                    {tab.badge > 9 ? '9+' : tab.badge}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
         {/* Overview Tab */}
         {activeTab === 'overview' && dashboardData && (
           <div className="space-y-6">
