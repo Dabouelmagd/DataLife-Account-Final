@@ -12,7 +12,7 @@ import {
   Gift, TrendingUp, TrendingDown, Clock, CheckCircle, XCircle,
   RefreshCw, Plus, Trash2, Copy, AlertCircle, Loader2,
   Calendar, BarChart3, Settings, ChevronDown, Power, Mail, 
-  Send, Eye, UserX, UserCheck, Bell, Shield, Save, MessageSquare
+  Send, Eye, UserX, UserCheck, Bell, Shield, Save, MessageSquare, Briefcase
 } from 'lucide-react';
 import axios from 'axios';
 
