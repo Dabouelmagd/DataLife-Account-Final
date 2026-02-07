@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 
 # Get backend URL from environment
-BACKEND_URL = "https://perms-editor.preview.emergentagent.com/api"
+BACKEND_URL = "https://super-admin-suite.preview.emergentagent.com/api"
 
 class MultiTenantAPITester:
     def __init__(self):

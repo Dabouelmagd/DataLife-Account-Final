@@ -13,13 +13,13 @@ DB_NAME="test_database"
 JWT_SECRET_KEY="feWfN9igT1P1NpiWI3_M1WK_bpK1JZzbY9nbfu81gLI"
 
 # CORS Configuration
-CORS_ORIGINS="https://perms-editor.preview.emergentagent.com,http://localhost:3000,https://localhost:3000"
+CORS_ORIGINS="https://super-admin-suite.preview.emergentagent.com,http://localhost:3000,https://localhost:3000"
 ```
 
 ### Frontend Configuration (`/app/frontend/.env`)
 
 ```env
-REACT_APP_BACKEND_URL=https://perms-editor.preview.emergentagent.com
+REACT_APP_BACKEND_URL=https://super-admin-suite.preview.emergentagent.com
 WDS_SOCKET_PORT=443
 ```
 
@@ -70,7 +70,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 ## CORS Configuration
 
 Current allowed origins:
-- https://perms-editor.preview.emergentagent.com (Production on Emergent)
+- https://super-admin-suite.preview.emergentagent.com (Production on Emergent)
 - http://localhost:3000 (Local development)
 - https://localhost:3000 (Local development with SSL)
 
