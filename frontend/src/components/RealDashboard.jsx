@@ -814,6 +814,9 @@ const RealDashboard = () => {
         <div className="px-6 pb-4 relative z-10">
           <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-lg rounded-2xl p-4 border border-white/20 shadow-xl">
             <div className="flex items-center gap-3">
+              {/* Notification Bell */}
+              <NotificationCenter />
+              
               {/* User Avatar */}
               {user?.profile_photo_url ? (
                 <img
