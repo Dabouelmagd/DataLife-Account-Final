@@ -142,7 +142,7 @@ class TestCompanyManagerPermissionsEndpoint:
         new_permissions = ['dashboard', 'hr', 'invoices']
         
         response = self.session.put(
-            f"{BASE_URL}/api/users/{user_id}/permissions",
+            f"{BASE_URL}/api/admin/users/{user_id}/permissions",
             json={"permissions": new_permissions}
         )
         
@@ -169,7 +169,7 @@ class TestCompanyManagerPermissionsEndpoint:
         invalid_permissions = ['invalid_permission_xyz']
         
         response = self.session.put(
-            f"{BASE_URL}/api/users/{user_id}/permissions",
+            f"{BASE_URL}/api/admin/users/{user_id}/permissions",
             json={"permissions": invalid_permissions}
         )
         
@@ -181,7 +181,7 @@ class TestCompanyManagerPermissionsEndpoint:
         fake_user_id = "non_existent_user_xyz_12345"
         
         response = self.session.put(
-            f"{BASE_URL}/api/users/{fake_user_id}/permissions",
+            f"{BASE_URL}/api/admin/users/{fake_user_id}/permissions",
             json={"permissions": ['dashboard']}
         )
         
@@ -194,7 +194,7 @@ class TestCompanyManagerPermissionsEndpoint:
         session.headers.update({"Content-Type": "application/json"})
         
         response = session.put(
-            f"{BASE_URL}/api/users/some_user_id/permissions",
+            f"{BASE_URL}/api/admin/users/some_user_id/permissions",
             json={"permissions": ['dashboard']}
         )
         
