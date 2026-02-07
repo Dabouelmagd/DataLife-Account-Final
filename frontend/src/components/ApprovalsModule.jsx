@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
@@ -16,8 +16,10 @@ import axios from 'axios';
 import { 
   ClipboardCheck, ClipboardList, Clock, CheckCircle, XCircle, AlertCircle,
   User, Calendar, DollarSign, FileText, Send, Eye, ChevronRight,
-  RefreshCw, Settings, Plus, Inbox, ArrowRight, History
+  RefreshCw, Settings, Plus, Inbox, ArrowRight, History, Wifi, WifiOff
 } from 'lucide-react';
+import AttachmentsManager from './AttachmentsManager';
+import useRealTimeSync from '../hooks/useRealTimeSync';
 
 const ApprovalsModule = () => {
   const { token, user } = useAuth();
