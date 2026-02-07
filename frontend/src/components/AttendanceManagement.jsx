@@ -12,11 +12,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
 import axios from 'axios';
+import html2pdf from 'html2pdf.js';
 import { 
   Clock, LogIn, LogOut, Users, Calendar, BarChart3, Settings,
   CheckCircle, XCircle, AlertCircle, RefreshCw, QrCode, MapPin,
   Timer, TrendingUp, UserCheck, UserX, Wifi, WifiOff, Download,
-  Printer, FileDown
+  Printer, FileDown, File
 } from 'lucide-react';
 import useRealTimeSync from '../hooks/useRealTimeSync';
 
