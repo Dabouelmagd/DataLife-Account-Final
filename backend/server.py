@@ -29,6 +29,7 @@ from api.tasks import router as tasks_router
 from api.customer_portal import router as customer_portal_router
 from api.purchases import router as purchases_router
 from api.approvals import router as approvals_router
+from api.attachments import router as attachments_router
 
 
 ROOT_DIR = Path(__file__).parent
