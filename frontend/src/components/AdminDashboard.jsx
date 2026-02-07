@@ -166,6 +166,25 @@ const AdminDashboard = () => {
     fetchData();
   }, [activeTab]);
 
+  // Fetch new messages count every minute
+  useEffect(() => {
+    const fetchNewMessagesCount = async () => {
+      try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const response = await axios.get(`${API_URL}/api/contact/messages`, config);
+        const newCount = response.data.filter(m => !m.read).length;
+        setNewMessagesCount(newCount);
+      } catch (error) {
+        console.error('Error fetching messages count:', error);
+      }
+    };
+    
+    fetchNewMessagesCount();
+    const interval = setInterval(fetchNewMessagesCount, 60000); // Every minute
+    
+    return () => clearInterval(interval);
+  }, [token]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
