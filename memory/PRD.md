@@ -168,6 +168,7 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [x] Features Guide Page (Bilingual)
 - [x] FAQ Section on Landing Page
 - [x] Video Modal in Hero section
+- [x] **Super Admin - User Permissions Editor** (Feb 2026)
 
 ### P1 - Future Enhancements
 - [ ] WhatsApp Integration (Twilio)
