@@ -115,6 +115,36 @@ NOTIFICATION_TYPES = {
         "icon": "file-text",
         "color": "green"
     },
+    "task_due": {
+        "title_en": "Task Due Soon",
+        "title_ar": "مهمة مستحقة قريباً",
+        "icon": "clock",
+        "color": "amber"
+    },
+    "task_overdue": {
+        "title_en": "Task Overdue",
+        "title_ar": "مهمة متأخرة",
+        "icon": "alert-triangle",
+        "color": "red"
+    },
+    "task_assigned": {
+        "title_en": "New Task Assigned",
+        "title_ar": "تم تعيين مهمة جديدة",
+        "icon": "user-check",
+        "color": "blue"
+    },
+    "project_update": {
+        "title_en": "Project Update",
+        "title_ar": "تحديث المشروع",
+        "icon": "folder",
+        "color": "purple"
+    },
+    "document_shared": {
+        "title_en": "Document Shared",
+        "title_ar": "تمت مشاركة مستند",
+        "icon": "file-text",
+        "color": "blue"
+    },
     "system": {
         "title_en": "System Notification",
         "title_ar": "إشعار النظام",
