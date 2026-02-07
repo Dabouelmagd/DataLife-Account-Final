@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from './ui/card';
@@ -17,8 +17,10 @@ import {
   FileText, Plus, Send, DollarSign, Eye, Edit, Trash2, 
   Download, Mail, CheckCircle, Clock, XCircle, AlertCircle,
   Building2, User, Phone, MapPin, Calculator, Receipt,
-  FileCheck, Upload, Search, Filter, RefreshCw
+  FileCheck, Upload, Search, Filter, RefreshCw, Wifi, WifiOff
 } from 'lucide-react';
+import AttachmentsManager from './AttachmentsManager';
+import useRealTimeSync from '../hooks/useRealTimeSync';
 
 const InvoicesModule = () => {
   const { token } = useAuth();
