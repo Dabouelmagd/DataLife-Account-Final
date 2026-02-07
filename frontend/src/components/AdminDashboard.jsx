@@ -1055,6 +1055,117 @@ const AdminDashboard = () => {
               </Card>
             )}
 
+            {/* Edit Permissions Modal */}
+            {editingUserPermissions && (
+              <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                    {t.editPermissions}: {editingUserPermissions.full_name}
+                  </CardTitle>
+                  <Button variant="ghost" onClick={() => setEditingUserPermissions(null)}>
+                    <XCircle className="h-5 w-5" />
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* User Info */}
+                    <div className="flex items-center gap-4 p-3 bg-white rounded-lg border">
+                      <div className="flex-1">
+                        <p className="font-medium">{editingUserPermissions.full_name}</p>
+                        <p className="text-sm text-gray-500">{editingUserPermissions.email}</p>
+                      </div>
+                      <Badge variant="outline">{editingUserPermissions.role}</Badge>
+                    </div>
+
+                    {/* Select All / Deselect All Buttons */}
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={selectAllPermissions}
+                        data-testid="select-all-permissions"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        {t.selectAll}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={deselectAllPermissions}
+                        data-testid="deselect-all-permissions"
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        {t.deselectAll}
+                      </Button>
+                    </div>
+
+                    {/* Permissions Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                      {availablePermissions.map((perm) => (
+                        <div
+                          key={perm.id}
+                          onClick={() => togglePermission(perm.id)}
+                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            userPermissions.includes(perm.id)
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-gray-200 bg-white hover:border-gray-300'
+                          }`}
+                          data-testid={`permission-${perm.id}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                              userPermissions.includes(perm.id)
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-gray-300'
+                            }`}>
+                              {userPermissions.includes(perm.id) && (
+                                <CheckCircle className="h-3 w-3 text-white" />
+                              )}
+                            </div>
+                            <span className="text-sm font-medium">
+                              {isRTL ? perm.name_ar : perm.name_en}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Current Permissions Count */}
+                    <div className="text-sm text-gray-500 text-center">
+                      {isRTL 
+                        ? `الصلاحيات المحددة: ${userPermissions.length} من ${availablePermissions.length}`
+                        : `Selected: ${userPermissions.length} of ${availablePermissions.length} permissions`
+                      }
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 justify-end pt-4 border-t">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setEditingUserPermissions(null)}
+                      >
+                        {t.cancel}
+                      </Button>
+                      <Button 
+                        onClick={handleSavePermissions} 
+                        disabled={savingPermissions}
+                        className="bg-blue-600 hover:bg-blue-700"
+                        data-testid="save-permissions-btn"
+                      >
+                        {savingPermissions ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-2" />
+                        )}
+                        {t.savePermissions}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardContent className="p-0">
                 <Table>
