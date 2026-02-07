@@ -13,6 +13,8 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - **Backend API Endpoints**:
   - `GET /api/admin/permissions` - Returns all 10 available permissions
   - `PUT /api/admin/users/{user_id}/permissions` - Updates user permissions
+  - `GET /api/admin/all-users` - Returns all users from all companies
+  - `PUT /api/users/{user_id}/permissions` - For company managers to update their employees
 - **Frontend Features**:
   - 🛡️ Shield icon button in Company Users table for editing permissions
   - 📋 Modal with all available permissions as clickable cards/checkboxes
@@ -23,9 +25,46 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
   - Dashboard, HR, Financial, Invoices, Purchases
   - Projects, Analytics, Settings, User Management, Approvals
 - **Files Modified**:
-  - `/app/backend/api/admin.py` - Added permissions endpoints
+  - `/app/backend/api/admin.py` - Added permissions and all-users endpoints
+  - `/app/backend/api/users.py` - Added permissions update for managers
   - `/app/frontend/src/components/AdminDashboard.jsx` - Added permissions UI
 - **Test Status**: ✅ All tests passed (Backend 100%, Frontend 100%)
+
+#### 1. All Users Tab in Admin Dashboard (NEW - Feb 7, 2026)
+- **New Tab**: "All Users" tab in Super Admin dashboard
+- **Features**:
+  - Shows ALL users from ALL companies (69+ users)
+  - Search functionality (by name, email, company, role)
+  - User count display
+  - Edit permissions button (Shield icon) for each user
+  - Shows user status (Active/Suspended)
+  - Shows permissions count for each user
+- **Files Modified**:
+  - `/app/frontend/src/components/AdminDashboard.jsx`
+- **Test Status**: ✅ Working
+
+#### 2. Language Switcher in App (NEW - Feb 7, 2026)
+- **Sidebar**: Added "Change Language" button with globe icon
+  - Shows current language toggle (EN/عربي)
+  - One-click language switch
+- **Settings Page**: New "Language" tab with visual language selection
+  - Card-based UI for Arabic/English selection
+  - Shows current language indicator
+  - Auto-saves preference
+- **Files Modified**:
+  - `/app/frontend/src/components/ModernSidebar.jsx`
+  - `/app/frontend/src/components/CompanySettings.jsx`
+- **Test Status**: ✅ Working
+
+#### 3. Company Manager - Edit Employee Permissions (NEW - Feb 7, 2026)
+- **New API**: `PUT /api/users/{user_id}/permissions`
+- **Permission**: Only company managers (General Manager, CEO, Board Chairman) can edit
+- **Company Isolation**: Managers can only edit users in their own company
+- **UI**: Shield icon in UserManagement.jsx with Modal
+- **Files Modified**:
+  - `/app/backend/api/users.py`
+  - `/app/frontend/src/components/UserManagement.jsx`
+- **Test Status**: ✅ Backend tested, Frontend UI added
 
 ---
 
