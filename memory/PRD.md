@@ -142,14 +142,16 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Test Credentials
 
+### Super Admin (Full System Access)
+- **URL Path**: `/login` then navigate to `/admin`
+- **Email**: superadmin@datalife.com
+- **Password**: Admin@2024
+- **Role**: Super Admin
+- **Permissions**: All permissions
+
 ### Test User (Financial Manager)
 - Email: finance.20251010_154022@company.com
 - Password: password123
-
-### Super Admin
-- URL: `/admin-login`
-- Email: admin@datalife.com
-- Password: adminpassword
 
 ---
 
