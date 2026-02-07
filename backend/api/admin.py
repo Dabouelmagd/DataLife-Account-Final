@@ -534,6 +534,24 @@ async def get_all_permissions(authorization: Optional[str] = Header(None)):
     return ALL_PERMISSIONS
 
 
+@router.get("/all-users")
+async def get_all_users(authorization: Optional[str] = Header(None)):
+    """Get all users from all companies"""
+    await verify_admin(authorization)
+    
+    users = await db.users.find({}, {"_id": 0, "password": 0, "password_hash": 0}).to_list(length=None)
+    
+    # Get company names
+    companies = await db.companies.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(length=None)
+    company_map = {c["id"]: c.get("name", "Unknown") for c in companies}
+    
+    # Add company name to each user
+    for user in users:
+        user["company_name"] = company_map.get(user.get("company_id"), "Unknown")
+    
+    return users
+
+
 @router.get("/users/{user_id}/permissions")
 async def get_user_permissions(
     user_id: str,
