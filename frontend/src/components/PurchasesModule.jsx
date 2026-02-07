@@ -13,11 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import axios from 'axios';
+import html2pdf from 'html2pdf.js';
 import { 
   ShoppingCart, Plus, Eye, Edit, Trash2, Search, Filter, RefreshCw,
   Package, Truck, CheckCircle, Clock, XCircle, AlertCircle, Building2,
   DollarSign, TrendingUp, Users, FileText, Star, Phone, Mail, MapPin,
-  Printer, FileDown
+  Printer, FileDown, File
 } from 'lucide-react';
 
 const PurchasesModule = () => {
