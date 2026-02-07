@@ -855,8 +855,8 @@ const RealDashboard = () => {
     }
 
     // Attendance Module
-    if (activeModule === 'attendance') {
-      return <AttendanceModule />;
+    if (activeModule === 'attendance-mgmt') {
+      return <AttendanceManagement />;
     }
 
     return null;
