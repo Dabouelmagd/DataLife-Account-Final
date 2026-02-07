@@ -1025,14 +1025,26 @@ const AdminDashboard = () => {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleUserStatus(user.id)}
-                                className={user.is_active ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
-                              >
-                                {user.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditPermissions(user)}
+                                  className="text-blue-600 hover:text-blue-700"
+                                  title={t.editPermissions}
+                                  data-testid={`edit-permissions-${user.id}`}
+                                >
+                                  <Shield className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleUserStatus(user.id)}
+                                  className={user.is_active ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
+                                >
+                                  {user.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
