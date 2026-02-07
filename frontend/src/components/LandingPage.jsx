@@ -180,11 +180,11 @@ const LandingPage = () => {
                 {language === 'ar' ? 'تسجيل الدخول' : 'Sign In'}
               </Button>
               <Button 
-                onClick={() => navigate('/admin')}
+                onClick={() => navigate('/admin-login')}
                 variant="ghost"
                 size="icon"
                 className="text-gray-500 hover:text-[#28376B] hover:bg-[#28376B]/10"
-                title={language === 'ar' ? 'لوحة الإدارة' : 'Admin Panel'}
+                title={language === 'ar' ? 'دخول المدير' : 'Admin Login'}
               >
                 <Shield className="h-5 w-5" />
               </Button>
