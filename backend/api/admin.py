@@ -552,6 +552,68 @@ async def get_all_users(authorization: Optional[str] = Header(None)):
     return users
 
 
+# Available roles
+AVAILABLE_ROLES = [
+    {'id': 'General Manager', 'name_en': 'General Manager', 'name_ar': 'مدير عام'},
+    {'id': 'CEO', 'name_en': 'CEO', 'name_ar': 'المدير التنفيذي'},
+    {'id': 'Board Chairman', 'name_en': 'Board Chairman', 'name_ar': 'رئيس مجلس الإدارة'},
+    {'id': 'Financial Manager', 'name_en': 'Financial Manager', 'name_ar': 'المدير المالي'},
+    {'id': 'HR Manager', 'name_en': 'HR Manager', 'name_ar': 'مدير الموارد البشرية'},
+    {'id': 'Accountant', 'name_en': 'Accountant', 'name_ar': 'محاسب'},
+    {'id': 'Employee', 'name_en': 'Employee', 'name_ar': 'موظف'},
+    {'id': 'Sales Manager', 'name_en': 'Sales Manager', 'name_ar': 'مدير المبيعات'},
+    {'id': 'Project Manager', 'name_en': 'Project Manager', 'name_ar': 'مدير المشاريع'},
+    {'id': 'IT Manager', 'name_en': 'IT Manager', 'name_ar': 'مدير تقنية المعلومات'},
+]
+
+
+@router.get("/roles")
+async def get_available_roles(authorization: Optional[str] = Header(None)):
+    """Get all available roles in the system"""
+    await verify_admin(authorization)
+    return AVAILABLE_ROLES
+
+
+@router.put("/users/{user_id}/role")
+async def update_user_role(
+    user_id: str,
+    request_data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Update a user's role - Super Admin only"""
+    await verify_admin(authorization)
+    
+    new_role = request_data.get("role")
+    if not new_role:
+        raise HTTPException(status_code=400, detail="Role is required")
+    
+    # Validate role
+    valid_roles = [r['id'] for r in AVAILABLE_ROLES]
+    if new_role not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Invalid role: {new_role}")
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update user role
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "role": new_role,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "user_id": user_id,
+        "full_name": user.get("full_name"),
+        "old_role": user.get("role"),
+        "new_role": new_role,
+        "message": "Role updated successfully"
+    }
+
+
 @router.get("/users/{user_id}/permissions")
 async def get_user_permissions(
     user_id: str,
