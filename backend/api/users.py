@@ -431,3 +431,58 @@ async def update_user_details(
     from models.user import User
     return user_to_response(User(**updated_user))
 
+
+from pydantic import BaseModel as PydanticBaseModel
+from typing import List as TypeList
+
+class PermissionsUpdateRequest(PydanticBaseModel):
+    permissions: TypeList[str]
+
+
+@router.put("/{user_id}/permissions")
+async def update_user_permissions_endpoint(
+    user_id: str,
+    permissions_data: PermissionsUpdateRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update a user's permissions (requires manager role)"""
+    # Check if current user has permission to manage users
+    is_manager = current_user.get("role") in ['General Manager', 'CEO', 'Board Chairman', 'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة']
+    if not is_manager:
+        raise HTTPException(status_code=403, detail="Only managers can update permissions")
+    
+    # Get the user to update
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check company isolation - manager can only update users in their company
+    if user.get("company_id") != current_user.get("company_id"):
+        raise HTTPException(status_code=403, detail="Cannot modify users from other companies")
+    
+    # Validate permissions
+    valid_permission_ids = ['dashboard', 'hr', 'financial', 'invoices', 'purchases', 
+                           'projects', 'analytics', 'settings', 'users', 'approvals']
+    
+    for perm in permissions_data.permissions:
+        if perm not in valid_permission_ids:
+            raise HTTPException(status_code=400, detail=f"Invalid permission: {perm}")
+    
+    # Update permissions
+    from datetime import datetime
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "permissions": permissions_data.permissions,
+            "updated_at": datetime.utcnow().isoformat()
+        }}
+    )
+    
+    return {
+        "user_id": user_id,
+        "full_name": user.get("full_name"),
+        "permissions": permissions_data.permissions,
+        "message": "Permissions updated successfully"
+    }
+
+
