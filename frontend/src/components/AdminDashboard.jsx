@@ -549,7 +549,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Toast Notification */}
       {toast.show && (
         <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center gap-3 ${
@@ -560,24 +560,106 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/dashboard')}
-              className="text-white hover:bg-white/10"
-              data-testid="back-button"
-            >
-              {isRTL ? <ArrowRight className="h-5 w-5" /> : <ArrowLeft className="h-5 w-5" />}
-              {t.back}
-            </Button>
-            <h1 className="text-2xl font-bold">{t.title}</h1>
+      {/* Admin Sidebar */}
+      <aside className="w-64 bg-gradient-to-b from-slate-800 to-slate-900 text-white min-h-screen flex flex-col print:hidden">
+        {/* Logo */}
+        <div className="p-6 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+              <Shield className="h-6 w-6 text-blue-400" />
+            </div>
+            <div>
+              <h1 className="font-bold text-lg">DataLife</h1>
+              <p className="text-xs text-gray-400">{isRTL ? 'لوحة الإدارة' : 'Admin Panel'}</p>
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            onClick={fetchData}
+        </div>
+
+        {/* User Info */}
+        <div className="p-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-red-400 to-pink-600 rounded-full flex items-center justify-center font-bold">
+              {user?.full_name?.charAt(0)?.toUpperCase() || 'A'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm truncate">{user?.full_name || 'Admin'}</p>
+              <Badge className="bg-red-500/20 text-red-300 text-xs">Super Admin</Badge>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative ${
+                activeTab === tab.id
+                  ? 'bg-white/10 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <tab.icon className="h-5 w-5" />
+              <span className="text-sm font-medium">{tab.label}</span>
+              {tab.badge > 0 && (
+                <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                  {tab.badge > 9 ? '9+' : tab.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {/* Bottom Section */}
+        <div className="p-4 border-t border-white/10 space-y-2">
+          {/* Language Switcher */}
+          <button
+            onClick={toggleLanguage}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 text-gray-300 hover:bg-white/10 transition-all"
+          >
+            <Globe className="h-4 w-4" />
+            <span className="text-sm flex-1 text-start">{isRTL ? 'English' : 'عربي'}</span>
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={() => { logout(); navigate('/login'); }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="text-sm">{isRTL ? 'تسجيل الخروج' : 'Logout'}</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto">
+        {/* Header */}
+        <div className="bg-white border-b px-6 py-4 sticky top-0 z-10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {tabs.find(t => t.id === activeTab)?.label || t.title}
+              </h1>
+              <p className="text-gray-500 text-sm">
+                {isRTL ? 'إدارة النظام والمستخدمين' : 'System and user management'}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={fetchData}
+              disabled={loading}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              {isRTL ? 'تحديث' : 'Refresh'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
             className="text-white hover:bg-white/10"
             data-testid="refresh-button"
           >
