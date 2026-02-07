@@ -30,11 +30,29 @@ class InvoiceCreate(BaseModel):
     customer_email: Optional[str] = None
     customer_phone: Optional[str] = None
     customer_address: Optional[str] = None
-    customer_tax_id: Optional[str] = None
+    customer_tax_id: Optional[str] = None  # الرقم الضريبي للعميل
     items: List[InvoiceItem]
     notes: Optional[str] = None
     due_date: Optional[str] = None
     currency: str = "EGP"
+    invoice_type: str = "regular"  # regular, etax (الفاتورة الإلكترونية المصرية)
+    issuer_tax_id: Optional[str] = None  # الرقم الضريبي للمنشأة
+
+
+# Egyptian E-Tax Invoice types
+ETAX_DOCUMENT_TYPES = {
+    "I": "Invoice (فاتورة)",
+    "C": "Credit Note (إشعار دائن)",
+    "D": "Debit Note (إشعار مدين)"
+}
+
+# Egyptian Tax Authority activity codes (sample)
+ETAX_ACTIVITY_CODES = {
+    "4610": "Wholesale of agricultural raw materials",
+    "4620": "Wholesale of food, beverages and tobacco",
+    "4690": "Non-specialized wholesale trade",
+    "4711": "Retail sale in non-specialized stores"
+}
 
 
 async def verify_token_from_header(authorization: str):
