@@ -155,9 +155,9 @@ const ModernSidebar = ({
                 </button>
 
                 {/* Sub-modules */}
-                {hasSubModules && isExpanded && (
+                {hasSubModules && isExpanded && module.subModules && (
                   <div className={`mt-1 ${isRTL ? 'mr-4' : 'ml-4'} space-y-1`}>
-                    {(module.id === 'hr' ? hrSubModules : financialSubModules)?.map((subModule) => {
+                    {module.subModules.map((subModule) => {
                       const isSubActive = (module.id === 'hr' ? activeHRSubModule : activeFinancialSubModule) === subModule.id;
                       
                       return (
