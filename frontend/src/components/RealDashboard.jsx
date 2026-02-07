@@ -795,6 +795,11 @@ const RealDashboard = () => {
       return <AnalyticsModule language={language} userRole={user?.role} />;
     }
 
+    // Invoices Module
+    if (activeModule === 'invoices') {
+      return <InvoicesModule />;
+    }
+
     return null;
   };
 
