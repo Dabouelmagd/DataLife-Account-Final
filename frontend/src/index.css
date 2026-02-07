@@ -278,6 +278,63 @@ body.ltr {
     .rtl {
         font-family: 'Cairo', 'Tajawal', sans-serif !important;
     }
+    
+    /* Hide sidebar when printing */
+    aside,
+    .sidebar,
+    [class*="sidebar"],
+    nav[aria-label="sidebar"],
+    .fixed.left-0,
+    .fixed.right-0,
+    .w-72,
+    .modern-sidebar {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* Expand main content to full width */
+    main,
+    .main-content,
+    [class*="main-content"],
+    .ml-72,
+    .mr-72 {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* Hide navigation elements */
+    .no-print,
+    [data-no-print],
+    button:not([data-print]),
+    .notification-center,
+    .logout-btn {
+        display: none !important;
+    }
+    
+    /* Better print styles */
+    body {
+        font-size: 12pt !important;
+        line-height: 1.5 !important;
+        color: #000 !important;
+        background: #fff !important;
+    }
+    
+    /* Print-friendly colors */
+    * {
+        background: transparent !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+    
+    /* Keep table borders visible */
+    table, th, td {
+        border: 1px solid #000 !important;
+    }
 }
 
 @layer base {
