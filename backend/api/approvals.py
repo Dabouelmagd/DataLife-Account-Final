@@ -208,6 +208,89 @@ async def get_my_requests(
     return requests
 
 
+@router.get("/stats")
+async def get_approval_stats(authorization: Optional[str] = Header(None)):
+    """Get approval statistics"""
+    user_data = await verify_token(authorization)
+    company_id = user_data.get("company_id")
+    user_id = user_data.get("user_id")
+    
+    all_requests = await db.approval_requests.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(length=None)
+    
+    # My pending approvals
+    my_pending = 0
+    for req in all_requests:
+        if req.get("status") == "pending":
+            current_level = req.get("current_level", 1)
+            user_levels = [a.get("level") for a in req.get("approvers", []) if a.get("user_id") == user_id]
+            if current_level in user_levels:
+                my_pending += 1
+    
+    # By status
+    by_status = {}
+    for req in all_requests:
+        status = req.get("status", "unknown")
+        if status not in by_status:
+            by_status[status] = 0
+        by_status[status] += 1
+    
+    # By type
+    by_type = {}
+    for req in all_requests:
+        req_type = req.get("type", "unknown")
+        if req_type not in by_type:
+            by_type[req_type] = 0
+        by_type[req_type] += 1
+    
+    # Average approval time
+    approved_requests = [r for r in all_requests if r.get("status") == "approved" and r.get("approved_at")]
+    avg_time = 0
+    if approved_requests:
+        total_hours = 0
+        for req in approved_requests:
+            created = datetime.fromisoformat(req.get("created_at").replace('Z', '+00:00'))
+            approved = datetime.fromisoformat(req.get("approved_at").replace('Z', '+00:00'))
+            total_hours += (approved - created).total_seconds() / 3600
+        avg_time = round(total_hours / len(approved_requests), 1)
+    
+    return {
+        "my_pending": my_pending,
+        "total_requests": len(all_requests),
+        "by_status": by_status,
+        "by_type": by_type,
+        "average_approval_hours": avg_time
+    }
+
+
+@router.get("/workflows/list")
+async def get_workflows(authorization: Optional[str] = Header(None)):
+    """Get all approval workflows"""
+    user_data = await verify_token(authorization)
+    company_id = user_data.get("company_id")
+    
+    workflows = await db.approval_workflows.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(length=None)
+    
+    # Add default types that don't have custom workflows
+    existing_types = [w.get("type") for w in workflows]
+    for type_key, type_config in APPROVAL_TYPES.items():
+        if type_key not in existing_types:
+            workflows.append({
+                "type": type_key,
+                "name_en": type_config["name_en"],
+                "name_ar": type_config["name_ar"],
+                "is_default": True,
+                "default_approvers": type_config["default_approvers"]
+            })
+    
+    return workflows
+
+
 @router.get("/{request_id}")
 async def get_approval_request(
     request_id: str,
