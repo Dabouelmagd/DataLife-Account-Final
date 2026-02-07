@@ -811,6 +811,15 @@ const ApprovalsModule = () => {
                   </div>
                 </div>
               )}
+
+              {/* Attachments Section */}
+              <div className="pt-4 border-t">
+                <AttachmentsManager 
+                  entityType="approval" 
+                  entityId={selectedRequest.id}
+                  readOnly={selectedRequest.status !== 'pending'}
+                />
+              </div>
             </div>
           )}
         </DialogContent>
