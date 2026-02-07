@@ -135,6 +135,8 @@ function App() {
               />
               <Route path="/customer-portal" element={<CustomerPortal />} />
             </Routes>
+            {/* Support Chatbot - appears on all pages */}
+            <SupportChatbot />
           </BrowserRouter>
         </div>
       </AuthProvider>
