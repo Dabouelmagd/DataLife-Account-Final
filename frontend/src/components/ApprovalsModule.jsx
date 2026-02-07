@@ -168,7 +168,7 @@ const ApprovalsModule = () => {
   const fetchWorkflows = async () => {
     try {
       const response = await axios.get(
-        `${API_URL}/api/approvals/workflows`,
+        `${API_URL}/api/approvals/workflows/list`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setWorkflows(response.data || []);
