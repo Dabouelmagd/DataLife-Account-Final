@@ -61,6 +61,7 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - **NEW** Frontend UI for subscriptions (`/subscription` route)
 - **NEW** Stripe payment integration (fully functional)
 - **NEW** Payment success page with polling
+- **NEW** Email notifications on successful payment
 - Pricing for Starter, Professional, Enterprise plans
 - Individual module packages (HR, Financial, Inventory)
 - Duration options (3, 6, 9, 12 months, lifetime)
