@@ -143,7 +143,8 @@ function App() {
             {/* Notification Permission Request */}
             <NotificationPermissionRequest />
           </BrowserRouter>
-        </div>
+          </div>
+        </PermissionsProvider>
       </AuthProvider>
     </LanguageProvider>
   );
