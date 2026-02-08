@@ -66,15 +66,15 @@ const ModernSidebar = ({
         {/* Logo Section with Subscription Code */}
         <div className="p-5 border-b border-white/10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-lg overflow-hidden">
+            <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center shadow-lg overflow-hidden">
               <img 
                 src={language === 'ar' ? '/datalife-logo-arabic.jpg' : '/datalife-logo-english.jpg'} 
                 alt="DataLife Logo" 
-                className="w-10 h-10 object-contain"
+                className="w-12 h-12 object-contain"
               />
             </div>
             <div>
-              <h1 className="text-white font-bold text-lg tracking-tight">DataLife</h1>
+              <h1 className="text-white font-bold text-xl tracking-tight">DataLife</h1>
               <p className="text-slate-400 text-xs">ERP System</p>
             </div>
           </div>
