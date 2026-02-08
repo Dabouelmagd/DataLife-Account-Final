@@ -21,21 +21,23 @@ class Company(BaseModel):
 
 class CompanyCreate(BaseModel):
     name: str
-    industry: str
-    size: str
-    contact_email: EmailStr
-    phone: str
+    industry: Optional[str] = "Technology"
+    size: Optional[str] = "Small"
+    contact_email: Optional[str] = None
+    phone: Optional[str] = None
     address: Optional[str] = None
     trial_id: Optional[str] = None
 
 class CompanyResponse(BaseModel):
     id: str
     name: str
-    industry: str
-    size: str
-    contact_email: EmailStr
-    phone: str
-    address: Optional[str]
-    logo_url: Optional[str]
-    subscription_status: str
+    name_ar: Optional[str] = None
+    industry: Optional[str] = None
+    size: Optional[str] = None
+    contact_email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    logo_url: Optional[str] = None
+    subscription_status: str = "active"
+    subscription_code: Optional[str] = None
     created_at: str
