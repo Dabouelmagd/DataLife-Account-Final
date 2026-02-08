@@ -34,6 +34,7 @@ from api.attachments import router as attachments_router
 from api.documents import router as documents_router
 from api.chatbot import router as chatbot_router
 from api.contact import router as contact_router
+from api.permissions import router as permissions_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -108,6 +109,7 @@ app.include_router(attachments_router)
 app.include_router(documents_router)
 app.include_router(chatbot_router)
 app.include_router(contact_router)
+app.include_router(permissions_router)
 
 app.add_middleware(
     CORSMiddleware,
