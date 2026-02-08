@@ -83,6 +83,11 @@ const AdminDashboard = () => {
   const [selectedRole, setSelectedRole] = useState('');
   const [savingRole, setSavingRole] = useState(false);
   
+  // Subscription status editing
+  const [editingSubscription, setEditingSubscription] = useState(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState('');
+  const [savingSubscription, setSavingSubscription] = useState(false);
+  
   // Toast notification
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
