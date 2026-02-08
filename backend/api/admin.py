@@ -376,6 +376,63 @@ async def toggle_company_status(
     }
 
 
+from pydantic import BaseModel
+
+class SubscriptionStatusUpdate(BaseModel):
+    subscription_status: str
+
+@router.put("/companies/{company_id}/subscription")
+async def update_company_subscription(
+    company_id: str,
+    data: SubscriptionStatusUpdate,
+    authorization: Optional[str] = Header(None)
+):
+    """Update company subscription status"""
+    await verify_admin(authorization)
+    
+    # Validate status
+    valid_statuses = ['trial', 'active', 'expired', 'suspended']
+    if data.subscription_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    
+    # Find company
+    company = await db.companies.find_one({"id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Update company subscription status
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {
+            "subscription_status": data.subscription_status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Also update in subscriptions collection if exists
+    await db.subscriptions.update_one(
+        {"company_id": company_id},
+        {"$set": {
+            "status": data.subscription_status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    status_names = {
+        'trial': 'تجريبي',
+        'active': 'نشط',
+        'expired': 'منتهي',
+        'suspended': 'معلق'
+    }
+    
+    return {
+        "company_id": company_id,
+        "company_name": company.get("name"),
+        "subscription_status": data.subscription_status,
+        "message": f"تم تحديث حالة الاشتراك إلى {status_names.get(data.subscription_status, data.subscription_status)}"
+    }
+
+
 @router.get("/companies/{company_id}/users")
 async def get_company_users(
     company_id: str,
