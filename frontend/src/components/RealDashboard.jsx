@@ -155,10 +155,39 @@ const RealDashboard = () => {
       icon: <Home /> 
     });
 
-    // HR Module
-    const hrRoles = ['General Manager', 'CEO', 'Board Chairman', 'HR Manager', 'Financial Manager', 'Chief Accountant',
-                     'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'مدير الموارد البشرية', 'المدير المالي', 'رئيس الحسابات'];
-    if (hrRoles.includes(role)) {
+    // ========================================
+    // الأدوار الإدارية العليا (صلاحيات كاملة)
+    // ========================================
+    const topManagementRoles = [
+      'General Manager', 'CEO', 'Board Chairman',
+      'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة'
+    ];
+
+    // ========================================
+    // أدوار HR فقط
+    // ========================================
+    const hrOnlyRoles = ['HR Manager', 'مدير الموارد البشرية'];
+
+    // ========================================
+    // أدوار المالية
+    // ========================================
+    const financialRoles = [
+      'Financial Manager', 'Chief Accountant', 'Accountant',
+      'المدير المالي', 'رئيس الحسابات', 'محاسب'
+    ];
+
+    // ========================================
+    // أدوار المشاريع فقط
+    // ========================================
+    const projectOnlyRoles = ['Project Manager', 'مدير المشاريع'];
+
+    // ========================================
+    // الأدوار التنفيذية
+    // ========================================
+    const executiveRoles = ['Employee', 'موظف', 'Accountant', 'محاسب'];
+
+    // HR Module - للإدارة العليا ومدير HR فقط
+    if (topManagementRoles.includes(role) || hrOnlyRoles.includes(role)) {
       modules.push({ 
         id: 'hr', 
         name: language === 'ar' ? 'الموارد البشرية' : 'Human Resources', 
@@ -177,10 +206,8 @@ const RealDashboard = () => {
       });
     }
 
-    // Financial Module
-    const financialRoles = ['General Manager', 'CEO', 'Board Chairman', 'Financial Manager', 'Chief Accountant', 'Accountant',
-                            'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'المدير المالي', 'رئيس الحسابات', 'محاسب'];
-    if (financialRoles.includes(role)) {
+    // Financial Module - للإدارة العليا والأدوار المالية والتنفيذية
+    if (topManagementRoles.includes(role) || financialRoles.includes(role) || executiveRoles.includes(role)) {
       modules.push({ 
         id: 'financial', 
         name: language === 'ar' ? 'المالية' : 'Financial', 
@@ -200,8 +227,8 @@ const RealDashboard = () => {
       });
     }
     
-    // Invoices module - available to financial roles
-    if (financialRoles.includes(role)) {
+    // Invoices module - للإدارة العليا والأدوار المالية (ليس للتنفيذية)
+    if (topManagementRoles.includes(role) || financialRoles.includes(role)) {
       modules.push({ 
         id: 'invoices', 
         name: language === 'ar' ? 'الفواتير' : 'Invoices', 
@@ -209,8 +236,8 @@ const RealDashboard = () => {
       });
     }
 
-    // Purchases module - available to financial roles
-    if (financialRoles.includes(role)) {
+    // Purchases module - للإدارة العليا والأدوار المالية (ليس للتنفيذية)
+    if (topManagementRoles.includes(role) || financialRoles.includes(role)) {
       modules.push({ 
         id: 'purchases', 
         name: language === 'ar' ? 'المشتريات' : 'Purchases', 
@@ -218,25 +245,8 @@ const RealDashboard = () => {
       });
     }
 
-    // Approvals module - available to all users
-    modules.push({ 
-      id: 'approvals', 
-      name: language === 'ar' ? 'الموافقات' : 'Approvals', 
-      icon: <CheckCircle /> 
-    });
-
-    // Attendance Management module - available to managers
-    const attendanceRoles = ['General Manager', 'CEO', 'HR Manager', 'مدير عام', 'المدير التنفيذي', 'مدير الموارد البشرية'];
-    if (attendanceRoles.includes(role) || financialRoles.includes(role)) {
-      modules.push({ 
-        id: 'attendance-mgmt', 
-        name: language === 'ar' ? 'إدارة الحضور' : 'Attendance Mgmt', 
-        icon: <Clock /> 
-      });
-    }
-
-    // Projects & Tasks module - available to managers and financial roles
-    if (attendanceRoles.includes(role) || financialRoles.includes(role)) {
+    // Projects & Tasks module - للإدارة العليا ومدير المشاريع فقط
+    if (topManagementRoles.includes(role) || projectOnlyRoles.includes(role)) {
       modules.push({ 
         id: 'projects', 
         name: language === 'ar' ? 'المشاريع والمهام' : 'Projects & Tasks', 
@@ -244,42 +254,48 @@ const RealDashboard = () => {
       });
     }
 
-    // Customer Portal Management - available to managers
-    const managerRoles = ['General Manager', 'CEO', 'Board Chairman', 'Financial Manager', 
-                          'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'المدير المالي'];
-    if (managerRoles.includes(role)) {
-      modules.push({ 
-        id: 'customer-portal-mgmt', 
-        name: language === 'ar' ? 'بوابة العملاء' : 'Customer Portal', 
-        icon: <Users /> 
-      });
-    }
-
-    // Documents module - available to all with file access
-    if (managerRoles.includes(role) || financialRoles.includes(role)) {
-      modules.push({ 
-        id: 'documents', 
-        name: language === 'ar' ? 'المستندات' : 'Documents', 
-        icon: <FileText /> 
-      });
-    }
-
-    // Inventory, Reports, Analytics modules available to managers
-    if (managerRoles.includes(role)) {
-      modules.push({ 
-        id: 'inventory', 
-        name: language === 'ar' ? 'المخزون' : 'Inventory', 
-        icon: <PieChart /> 
-      });
+    // Reports module - للإدارة العليا والأدوار المالية والتنفيذية (طباعة فقط)
+    if (topManagementRoles.includes(role) || financialRoles.includes(role) || executiveRoles.includes(role)) {
       modules.push({ 
         id: 'reports', 
         name: language === 'ar' ? 'التقارير' : 'Reports', 
         icon: <FileText /> 
       });
+    }
+
+    // Analytics module - للإدارة العليا والأدوار المالية العليا فقط
+    if (topManagementRoles.includes(role) || ['Financial Manager', 'المدير المالي'].includes(role)) {
       modules.push({ 
         id: 'analytics', 
         name: language === 'ar' ? 'التحليلات' : 'Analytics', 
         icon: <BarChart /> 
+      });
+    }
+
+    // Approvals module - للإدارة العليا فقط
+    if (topManagementRoles.includes(role)) {
+      modules.push({ 
+        id: 'approvals', 
+        name: language === 'ar' ? 'الموافقات' : 'Approvals', 
+        icon: <CheckCircle /> 
+      });
+    }
+
+    // Settings module - للإدارة العليا فقط
+    if (topManagementRoles.includes(role)) {
+      modules.push({ 
+        id: 'settings', 
+        name: language === 'ar' ? 'الإعدادات' : 'Settings', 
+        icon: <Settings /> 
+      });
+    }
+
+    // Inventory module - للإدارة العليا فقط
+    if (topManagementRoles.includes(role)) {
+      modules.push({ 
+        id: 'inventory', 
+        name: language === 'ar' ? 'المخزون' : 'Inventory', 
+        icon: <PieChart /> 
       });
     }
 
