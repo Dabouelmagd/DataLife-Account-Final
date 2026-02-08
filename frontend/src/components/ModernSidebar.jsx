@@ -150,6 +150,7 @@ const ModernSidebar = ({
                   { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices', icon: <FileText /> },
                   { id: 'purchases', name: language === 'ar' ? 'المشتريات' : 'Purchases', icon: <Package /> },
                   { id: 'projects', name: language === 'ar' ? 'المشاريع' : 'Projects', icon: <FolderKanban /> },
+                  { id: 'reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <ClipboardList /> },
                   { id: 'analytics', name: language === 'ar' ? 'التحليلات' : 'Analytics', icon: <BarChart3 /> },
                   { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings', icon: <Settings /> },
                 ].map((allModule, index) => {
