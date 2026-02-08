@@ -204,6 +204,7 @@ const CompanySettings = () => {
   const tabs = [
     { id: 'company', label: language === 'ar' ? 'الشركة' : 'Company', icon: Building2 },
     { id: 'profile', label: language === 'ar' ? 'الملف الشخصي' : 'Profile', icon: User },
+    ...(canManageEmployees ? [{ id: 'employees', label: language === 'ar' ? 'الموظفين' : 'Employees', icon: Users }] : []),
     { id: 'subscription', label: language === 'ar' ? 'الاشتراك' : 'Subscription', icon: Key },
     { id: 'language', label: language === 'ar' ? 'اللغة' : 'Language', icon: Globe },
   ];
