@@ -66,8 +66,12 @@ const ModernSidebar = ({
         {/* Logo Section with Subscription Code */}
         <div className="p-5 border-b border-white/10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-              <Building2 className="h-5 w-5 text-white" />
+            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-lg overflow-hidden">
+              <img 
+                src={language === 'ar' ? '/datalife-logo-arabic.jpg' : '/datalife-logo-english.jpg'} 
+                alt="DataLife Logo" 
+                className="w-10 h-10 object-contain"
+              />
             </div>
             <div>
               <h1 className="text-white font-bold text-lg tracking-tight">DataLife</h1>
