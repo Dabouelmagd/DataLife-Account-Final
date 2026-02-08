@@ -51,6 +51,7 @@ import {
 } from './FinancialSubModules';
 
 import { AnalyticsModule } from './AnalyticsModule';
+import CompanySettings from './CompanySettings';
 
 const RealDashboard = () => {
   const { user, logout } = useAuth();
