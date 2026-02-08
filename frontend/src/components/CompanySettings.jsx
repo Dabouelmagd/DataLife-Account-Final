@@ -474,20 +474,40 @@ const CompanySettings = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
-                  {user?.profile_photo_url ? (
-                    <img
-                      src={user.profile_photo_url}
-                      alt={user.full_name}
-                      className="w-20 h-20 rounded-full object-cover border-4 border-[#28376B]/20"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#28376B] to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-                      {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
-                    </div>
-                  )}
+                  <div className="relative group">
+                    {user?.profile_photo_url || user?.profile_photo ? (
+                      <img
+                        src={user.profile_photo_url || user.profile_photo}
+                        alt={user.full_name}
+                        className="w-24 h-24 rounded-full object-cover border-4 border-[#28376B]/20"
+                      />
+                    ) : (
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#28376B] to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                        {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                      </div>
+                    )}
+                    {/* Upload Photo Button Overlay */}
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfilePhotoUpload}
+                        className="hidden"
+                        disabled={uploadingPhoto}
+                      />
+                      {uploadingPhoto ? (
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+                      ) : (
+                        <Upload className="h-6 w-6 text-white" />
+                      )}
+                    </label>
+                  </div>
                   <div>
                     <h3 className="text-xl font-bold text-gray-800">{user?.full_name}</h3>
                     <p className="text-gray-500">{user?.email}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {language === 'ar' ? 'مرر الماوس على الصورة للتغيير' : 'Hover over photo to change'}
+                    </p>
                   </div>
                 </div>
 
