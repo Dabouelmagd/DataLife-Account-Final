@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from typing import Dict, List, Any
 from models.permission import ROLE_PERMISSIONS
 
-router = APIRouter(prefix="/permissions", tags=["permissions"])
+router = APIRouter(prefix="/api/permissions", tags=["permissions"])
 
 # Available modules with their metadata
 AVAILABLE_MODULES = [
