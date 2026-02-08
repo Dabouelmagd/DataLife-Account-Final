@@ -207,7 +207,7 @@ const RealDashboard = () => {
     }
 
     // Financial Module - للإدارة العليا والأدوار المالية والتنفيذية
-    if (topManagementRoles.includes(role) || financialRoles.includes(role) || executiveRoles.includes(role)) {
+    if (topManagementRoles.includes(role) || financialManagerRoles.includes(role) || executiveRoles.includes(role)) {
       modules.push({ 
         id: 'financial', 
         name: language === 'ar' ? 'المالية' : 'Financial', 
