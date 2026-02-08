@@ -1495,6 +1495,92 @@ const AdminDashboard = () => {
                 </Table>
               </CardContent>
             </Card>
+
+            {/* Subscription Status Editing Modal */}
+            {editingSubscription && (
+              <Card className="border-2 border-green-200 bg-green-50 mt-4">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-green-600" />
+                    {isRTL ? 'تغيير حالة الاشتراك' : 'Change Subscription Status'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                      <Building2 className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{editingSubscription.name}</p>
+                      <p className="text-sm text-gray-500">{editingSubscription.contact_email || editingSubscription.owner_email}</p>
+                    </div>
+                    <Badge variant="outline">
+                      {isRTL ? 'كود: ' : 'Code: '}{editingSubscription.subscription_code || editingSubscription.id?.slice(0, 8).toUpperCase()}
+                    </Badge>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">{isRTL ? 'حالة الاشتراك' : 'Subscription Status'}</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <button
+                        onClick={() => setSubscriptionStatus('trial')}
+                        className={`p-4 rounded-lg border-2 text-center transition-all ${
+                          subscriptionStatus === 'trial' 
+                            ? 'border-yellow-500 bg-yellow-50 text-yellow-700' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Clock className="h-6 w-6 mx-auto mb-2" />
+                        <span className="font-medium block">{isRTL ? 'تجريبي' : 'Trial'}</span>
+                      </button>
+                      <button
+                        onClick={() => setSubscriptionStatus('active')}
+                        className={`p-4 rounded-lg border-2 text-center transition-all ${
+                          subscriptionStatus === 'active' 
+                            ? 'border-green-500 bg-green-50 text-green-700' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <CheckCircle className="h-6 w-6 mx-auto mb-2" />
+                        <span className="font-medium block">{isRTL ? 'نشط' : 'Active'}</span>
+                      </button>
+                      <button
+                        onClick={() => setSubscriptionStatus('expired')}
+                        className={`p-4 rounded-lg border-2 text-center transition-all ${
+                          subscriptionStatus === 'expired' 
+                            ? 'border-red-500 bg-red-50 text-red-700' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <XCircle className="h-6 w-6 mx-auto mb-2" />
+                        <span className="font-medium block">{isRTL ? 'منتهي' : 'Expired'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 justify-end pt-4 border-t">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setEditingSubscription(null)}
+                    >
+                      {t.cancel}
+                    </Button>
+                    <Button 
+                      onClick={() => handleUpdateSubscription(editingSubscription.id)}
+                      disabled={savingSubscription}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {savingSubscription ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      {isRTL ? 'حفظ التغييرات' : 'Save Changes'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
