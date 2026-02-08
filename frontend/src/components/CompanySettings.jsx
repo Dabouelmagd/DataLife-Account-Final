@@ -122,8 +122,8 @@ const CompanySettings = () => {
       // Update role if changed
       if (selectedRole !== selectedEmployee.role) {
         await axios.put(
-          `${process.env.REACT_APP_BACKEND_URL}/api/users/${selectedEmployee.id}/role`,
-          { role: selectedRole },
+          `${process.env.REACT_APP_BACKEND_URL}/api/users/${selectedEmployee.id}/role?role=${encodeURIComponent(selectedRole)}`,
+          {},
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }
