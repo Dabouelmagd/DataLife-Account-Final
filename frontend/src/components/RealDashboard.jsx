@@ -236,8 +236,8 @@ const RealDashboard = () => {
       });
     }
 
-    // Purchases module - للإدارة العليا والأدوار المالية (ليس للتنفيذية)
-    if (topManagementRoles.includes(role) || financialRoles.includes(role)) {
+    // Purchases module - للإدارة العليا والأدوار المالية العليا فقط (ليس للتنفيذية)
+    if (topManagementRoles.includes(role) || financialManagerRoles.includes(role)) {
       modules.push({ 
         id: 'purchases', 
         name: language === 'ar' ? 'المشتريات' : 'Purchases', 
