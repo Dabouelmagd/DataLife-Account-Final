@@ -255,7 +255,7 @@ const RealDashboard = () => {
     }
 
     // Reports module - للإدارة العليا والأدوار المالية والتنفيذية (طباعة فقط)
-    if (topManagementRoles.includes(role) || financialRoles.includes(role) || executiveRoles.includes(role)) {
+    if (topManagementRoles.includes(role) || financialManagerRoles.includes(role) || executiveRoles.includes(role)) {
       modules.push({ 
         id: 'reports', 
         name: language === 'ar' ? 'التقارير' : 'Reports', 
