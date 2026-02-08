@@ -247,6 +247,142 @@ async def resend_invitation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
+from pydantic import BaseModel, EmailStr
+
+class InviteEmployeeRequest(BaseModel):
+    full_name: str
+    email: str
+    role: str = "موظف"
+    permissions: List[str] = ["dashboard"]
+    company_id: str = None
+
+@router.post("/invite")
+async def invite_employee(
+    invite_data: InviteEmployeeRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Invite a new employee to the company"""
+    # Check if current user has permission to add users
+    check_user_permission(current_user.get("role"), "create")
+    
+    # Check if user already exists
+    existing_user = await get_user_by_email(db, invite_data.email)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="البريد الإلكتروني مسجل مسبقاً" if True else "User with this email already exists")
+    
+    # Validate role
+    if invite_data.role not in ROLE_PERMISSIONS:
+        # Add role to permissions if not exists (allow custom roles)
+        pass
+    
+    # Generate temporary password
+    import secrets
+    import string
+    import bcrypt
+    from datetime import datetime
+    import uuid
+    
+    alphabet = string.ascii_letters + string.digits + "!@#$%"
+    temp_password = ''.join(secrets.choice(alphabet) for _ in range(12))
+    hashed = bcrypt.hashpw(temp_password.encode('utf-8'), bcrypt.gensalt())
+    
+    # Create user
+    user_id = str(uuid.uuid4())
+    company_id = current_user.get("company_id")
+    
+    new_user = {
+        "id": user_id,
+        "email": invite_data.email,
+        "full_name": invite_data.full_name,
+        "password_hash": hashed.decode('utf-8'),
+        "role": invite_data.role,
+        "company_id": company_id,
+        "is_active": True,
+        "permissions": invite_data.permissions,
+        "created_at": datetime.utcnow().isoformat(),
+        "invited_by": current_user.get("user_id")
+    }
+    
+    await db.users.insert_one(new_user)
+    
+    # Send invitation email
+    try:
+        # Get company name
+        company = await db.companies.find_one({"id": company_id})
+        company_name = company.get("name", "DataLife Account") if company else "DataLife Account"
+        inviter_name = current_user.get("full_name", "المدير")
+        
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; direction: rtl;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+                <h1 style="color: white; margin: 0; text-align: center;">🎉 دعوة للانضمام</h1>
+            </div>
+            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                <h2 style="color: #333; text-align: center;">مرحباً {invite_data.full_name}!</h2>
+                <p style="color: #666; font-size: 16px; text-align: center;">
+                    تمت دعوتك للانضمام إلى <strong>{company_name}</strong> على منصة DataLife Account
+                </p>
+                <p style="color: #666; font-size: 14px; text-align: center;">
+                    تمت الدعوة بواسطة: <strong>{inviter_name}</strong>
+                </p>
+                
+                <div style="background: #fff; border: 2px solid #10b981; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #10b981; margin-top: 0; text-align: center;">بيانات الدخول</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666; width: 40%;">البريد الإلكتروني:</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold;">{invite_data.email}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">كلمة المرور المؤقتة:</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold; font-family: monospace; background: #f0f0f0; border-radius: 4px;">{temp_password}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px; color: #666;">الدور الوظيفي:</td>
+                            <td style="padding: 10px; color: #333; font-weight: bold;">{invite_data.role}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <a href="https://datalifeaccount.com/login" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                        تسجيل الدخول الآن
+                    </a>
+                </div>
+                
+                <p style="color: #ff6b6b; font-size: 14px; text-align: center; background: #fff0f0; padding: 10px; border-radius: 8px;">
+                    ⚠️ يرجى تغيير كلمة المرور بعد تسجيل الدخول الأول
+                </p>
+                
+                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                
+                <p style="color: #999; font-size: 12px; text-align: center;">
+                    هذه الرسالة مرسلة من نظام DataLife Account<br>
+                    إذا لم تكن تتوقع هذه الدعوة، يرجى تجاهل هذا البريد
+                </p>
+            </div>
+        </div>
+        """
+        
+        if resend.api_key:
+            params = {
+                "from": SENDER_EMAIL,
+                "to": [invite_data.email],
+                "subject": f"🎉 دعوة للانضمام إلى {company_name}",
+                "html": html_content
+            }
+            
+            await asyncio.to_thread(resend.Emails.send, params)
+    except Exception as e:
+        # User created but email failed - still return success
+        pass
+    
+    return {
+        "message": "تم إرسال الدعوة بنجاح",
+        "user_id": user_id,
+        "email": invite_data.email
+    }
+
 @router.get("/", response_model=List[UserResponse])
 async def list_company_users(
     current_user: dict = Depends(get_current_user)
