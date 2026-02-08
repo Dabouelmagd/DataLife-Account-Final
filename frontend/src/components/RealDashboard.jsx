@@ -227,8 +227,8 @@ const RealDashboard = () => {
       });
     }
     
-    // Invoices module - للإدارة العليا والأدوار المالية (ليس للتنفيذية)
-    if (topManagementRoles.includes(role) || financialRoles.includes(role)) {
+    // Invoices module - للإدارة العليا والأدوار المالية العليا فقط (ليس للتنفيذية)
+    if (topManagementRoles.includes(role) || financialManagerRoles.includes(role)) {
       modules.push({ 
         id: 'invoices', 
         name: language === 'ar' ? 'الفواتير' : 'Invoices', 
