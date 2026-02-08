@@ -264,7 +264,7 @@ const RealDashboard = () => {
     }
 
     // Analytics module - للإدارة العليا والأدوار المالية العليا فقط
-    if (topManagementRoles.includes(role) || ['Financial Manager', 'المدير المالي'].includes(role)) {
+    if (topManagementRoles.includes(role) || financialManagerRoles.includes(role)) {
       modules.push({ 
         id: 'analytics', 
         name: language === 'ar' ? 'التحليلات' : 'Analytics', 
