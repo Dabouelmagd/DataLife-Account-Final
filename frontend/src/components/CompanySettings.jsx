@@ -57,6 +57,9 @@ const CompanySettings = () => {
 
   useEffect(() => {
     fetchCompanyData();
+    if (canManageEmployees) {
+      fetchEmployees();
+    }
   }, []);
 
   const fetchCompanyData = async () => {
@@ -69,6 +72,70 @@ const CompanySettings = () => {
       setCompany(response.data);
     } catch (error) {
       console.error('Error fetching company:', error);
+    }
+  };
+
+  const fetchEmployees = async () => {
+    setLoadingEmployees(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setEmployees(response.data || []);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  const openPermissionModal = (employee) => {
+    setSelectedEmployee(employee);
+    setSelectedPermissions(employee.permissions || []);
+    setSelectedRole(employee.role || '');
+    setShowPermissionModal(true);
+  };
+
+  const handlePermissionToggle = (permissionId) => {
+    setSelectedPermissions(prev => 
+      prev.includes(permissionId)
+        ? prev.filter(p => p !== permissionId)
+        : [...prev, permissionId]
+    );
+  };
+
+  const saveEmployeeSettings = async () => {
+    if (!selectedEmployee) return;
+    setSavingPermissions(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Update permissions
+      await axios.put(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/${selectedEmployee.id}/permissions`,
+        { permissions: selectedPermissions },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update role if changed
+      if (selectedRole !== selectedEmployee.role) {
+        await axios.put(
+          `${process.env.REACT_APP_BACKEND_URL}/api/users/${selectedEmployee.id}/role`,
+          { role: selectedRole },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+
+      setMessage(language === 'ar' ? 'تم حفظ التغييرات بنجاح' : 'Changes saved successfully');
+      setShowPermissionModal(false);
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error saving:', error);
+      setMessage(language === 'ar' ? 'فشل حفظ التغييرات' : 'Failed to save changes');
+    } finally {
+      setSavingPermissions(false);
     }
   };
 
