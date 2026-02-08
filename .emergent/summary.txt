@@ -1,176 +1,164 @@
 <analysis>**original_problem_statement:**
-The user initially requested a series of updates and fixes for their ERP application. Over the course of the session, the scope expanded significantly. The requests were:
-1.  **Permission Icons**: Change the color of module access icons in the sidebar to green for granted permissions and red for denied permissions.
-2.  **Subscription Code**: Display a unique subscription code for each company in three places:
-    *   In a popup modal immediately after a user logs in or registers.
-    *   Permanently visible in the user's sidebar.
-    *   On the user's profile page.
-3.  **Printing & Exporting Issues**:
-    *   Ensure the sidebar is not included when printing pages.
-    *   Fix any issues with PDF and CSV export functionalities across different modules.
-4.  **Full Permission Management System (New)**: The user requested a comprehensive system for managing user permissions, including:
-    *   Adding a Permissions column to the user management table.
-    *   Creating a dedicated page to edit the permissions for each user with on/off toggles.
-    *   Restricting the ability to edit permissions to high-level roles like General Manager and Board Chairman.
-5.  **Super Admin Panel (New)**: The user requested a separate, powerful admin account and panel to:
-    *   View all registered companies and their users.
-    *   Enable or disable any company's access to the program.
-    *   Manage activation codes and view system-wide statistics.
-    *   Have a separate, secure login page.
-6.  **Program Guide (New)**: Create a comprehensive guide in Arabic detailing all the program's features and how to operate it, to be added as a page on the main website.
-7.  **Homepage Update (New)**: Update the main landing page to reflect all the new features added, including a new statistics section.
-8.  **Homepage Enhancements (New)**: Add an introductory video and a Frequently Asked Questions (FAQ) section to the homepage.
+The user's initial high-level requirements were to:
+1.  Complete the language switcher functionality.
+2.  Set specific permissions for the roles: رئيس مجلس الادارة (Board Chairman), المدير العام (General Manager), and المدير التنفيذي (CEO).
 
-**User's preferred language**: العربية (Arabic). The next agent MUST respond in Arabic.
+During the session, the user added several more feature requests and bug reports:
+-   Add a dedicated, easy-access login button/icon for the Super Admin on the homepage.
+-   Fix an issue where newly registered companies defaulted to the General Manager role instead of Board Chairman.
+-   Redesign the sidebar to move the subscription code under the program name and add the company logo.
+-   Fix a bug where the Settings page would not load.
+-   Add an Employees tab in the settings page for managers to define roles and permissions for their staff.
+-   Implement a feature to allow managers to invite new employees to their company via email.
+-   Review and overhaul the entire permissions system for all roles, defining specific capabilities for each.
+-   Implement a feature for the Super Admin to manage the subscription status (e.g., Trial, Active) of companies.
+-   Add functionality for users to upload a profile picture and for companies to upload their logo.
+-   Fix the Advanced Analytics page, which is not working.
+
+**User's preferred language**:
+Arabic (عربي). The next agent MUST respond in Arabic.
 
 **what currently exists?**
-The project is a full-stack ERP application named DataLife. It features a React frontend (with Tailwind CSS and Zustand) and a Python/FastAPI backend with a MongoDB database. The application is now equipped with a granular user permission system, a comprehensive super admin panel for global management, a detailed features guide page, and an updated homepage reflecting these additions. The core modules include HR, Finance, Invoices, Projects, and Analytics.
+A full-stack multi-tenant ERP application built with a React frontend and a FastAPI backend using MongoDB. The system features a comprehensive role-based access control (RBAC) system with a Super Admin who oversees all companies and Company Admins (e.g., Board Chairman) who manage their own company's users and settings. Key features include user/employee management, a settings panel, and a Super Admin dashboard for company administration.
 
 **Last working item**:
--   **Last item agent was working**: Adding a Frequently Asked Questions (FAQ) section and a button for a video modal to the main landing page (). The agent had just finished adding the JSX for the FAQ component.
--   **Status**: IN PROGRESS
--   **Agent Testing Done**: N
--   **Which testing method agent to use?**: Frontend testing agent or screenshot tool. The agent should verify that the new FAQ section and the Watch Video button are displayed correctly on the homepage. They also need to implement and test the modal functionality for the video.
--   **User Testing Done**: N
+-   **Last item agent was working on:** The user reported that the التحليلات المتقدمة (Advanced Analytics) page is not working. The agent started investigating the issue by viewing the main dashboard component file.
+-   **Status:** IN PROGRESS
+-   **Agent Testing Done:** N
+-   **Which testing method agent to use?** both. The agent should start by investigating the frontend code ( and the corresponding analytics component) to identify rendering issues or failed API calls. Then, investigate the backend API endpoint for analytics, checking logs and testing it directly.
+-   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1**: The implementation of the FAQ and Video sections on the homepage is incomplete.
-    -   **Attempted fixes**: The agent added the JSX for the FAQ component and a Watch Video button.
-    -   **Next debug checklist**:
-        1.  Verify the visual layout of the newly added FAQ section on .
-        2.  Implement the modal logic in  to open a video player when the Watch Video button is clicked.
-        3.  Ensure the styling is correct and responsive for both additions.
-    -   **Why fix this issue and what will be achieved with the fix?**: To complete the user's latest request and enhance the homepage with more engaging and informative content.
-    -   **Status**: IN PROGRESS
-    -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: Frontend
-    -   **Blocked on other issue**: None
+-   **Issue 1 (P0):** The Advanced Analytics page does not load or function correctly.
+
+**Issues Detail:**
+-   **Issue 1:** The Advanced Analytics page is not working.
+    -   **Attempted fixes:** None. The investigation has just begun. The agent's last action was .
+    -   **Next debug checklist:**
+        1.  In , identify which component is rendered when  is .
+        2.  Inspect the code of that specific analytics component for errors.
+        3.  Use browser developer tools to check for console errors or failed network requests when navigating to the analytics page.
+        4.  Identify the backend API endpoint(s) being called.
+        5.  Check the backend logs () for any errors related to that endpoint.
+    -   **Why fix this issue and what will be achieved with the fix?** The analytics module is a core part of the ERP system. Fixing it will restore critical functionality for users to analyze their business data.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on other issue:** None
 
 **In progress Task List**:
--   **Task 1**: Complete the homepage enhancement with a video and FAQ section.
-    -   **Where to resume**: Review the changes made to . Implement the state and modal component for the video player functionality.
-    -   **What will be achieved with this?**: The homepage will be more professional and provide better information for new and potential users.
-    -   **Status**: IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?**: Frontend
-    -   **Blocked on something**: None
+None.
 
 **Upcoming and Future Tasks**
-There are no other pending tasks. All user requests have either been completed or are currently in progress.
+-   **Upcoming Tasks:**
+    -   **(P1) Deploy to Production:** After all current issues are fixed and verified, the user wants the changes deployed to the live production environment. The agent needs to manage this process.
+-   **Future Tasks:**
+    -   No other future tasks have been explicitly requested.
 
 **Completed work in this session**
--   **Advanced Permission Management System**:
-    -   Backend logic and API endpoints (, ) were created to support granular, per-user permissions.
-    -   Frontend UI was built, including a Permissions column in the user list () and a dedicated page () for editing permissions with toggles.
--   **Super Admin Panel**:
-    -   A secure, separate login page () was created at .
-    -   The admin dashboard () was implemented to view system-wide stats, manage all companies (enable/disable), view users per company, and manage activation codes.
--   **Unique Subscription Code**:
-    -   The feature was fully implemented. The code now appears in a modal after login/registration, in the sidebar (), and on the profile page within the new settings area ().
--   **Comprehensive Settings Page**:
-    -   Created a multi-tabbed settings page () accessible from the sidebar, containing Profile, Company, and Subscription information.
--   **Program Features Guide**:
-    -   A new, detailed guide page () was created in Arabic and linked from the homepage navigation bar as Full Guide.
--   **Homepage Update**:
-    -   The landing page () was updated with a new statistics section and a New Professional Features section that showcases the recently completed work.
--   **Printing CSS Fix**:
-    -   Print-specific styles were added to  to hide the sidebar and other navigation elements, ensuring clean printing.
+-   **Super Admin Access:** An admin-specific login icon (🛡️) was added to the header of , linking directly to the  route.
+-   **Role & Permission System Overhaul:**
+    -   The permission structure for all roles was updated as per the user's detailed requirements in  and .
+    -   The UI in  was updated to correctly display active/inactive permission icons (green/red) based on the user's role.
+-   **Bug Fixes:**
+    -   Fixed a bug where new company registrations defaulted to General Manager; they now correctly default to رئيس مجلس الإدارة ().
+    -   Fixed a critical bug where the Settings page was blank by correctly rendering the  component within the main dashboard layout ().
+    -   Fixed a backend crash on the settings page by making  and  fields optional in the  model ().
+-   **New Features:**
+    -   **Employee Management:** Added a new Employees tab in  for managers to edit roles and permissions of their staff.
+    -   **Employee Invitations:** Implemented a feature for managers to invite new employees from a modal within the Employees tab, including a new  endpoint.
+    -   **Subscription Management:** A new feature was added to the Super Admin panel () to allow changing a company's subscription status (Trial, Active, Expired).
+    -   **Image Uploads:** Implemented functionality for users to upload a profile picture and for companies to upload their logo via the settings page (), supported by new backend endpoints and static file serving.
+-   **UI/UX Improvements:**
+    -   Redesigned the sidebar () to feature the company logo, program name, and subscription code at the top for better visibility. The logo size was also increased per user feedback.
 
 **Earlier issues found/mentioned but not fixed**
-None. All identified issues and user requests were addressed during the session.
+None. The agent has addressed all issues raised by the user so far.
 
 **Known issue recurrence from previous fork**
-None.
+None. This is the first summary in the history.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Frontend**: React.js, Tailwind CSS, React Router, Zustand (for state management), Axios.
--   **Backend**: Python, FastAPI, Pydantic for data validation.
--   **Database**: MongoDB (Atlas cloud).
--   **Architecture**: Monorepo with separate  and  directories, communicating via a RESTful API. The system now supports three access levels: public website, authenticated user application, and super admin panel.
+-   **Frontend:** React, Tailwind CSS, Heroicons
+-   **Backend:** FastAPI (Python)
+-   **Database:** MongoDB (asynchronous with )
+-   **Authentication:** JSON Web Tokens (JWT)
+-   **Architecture:** Multi-tenant Single Page Application (SPA) with a RESTful API.
 
 **key DB schema**
--   **users**: 
--   **companies**: 
+-   **users:** 
+-   **companies:** 
 
 **changes in tech stack**
-No changes were made to the core technologies.
+None.
 
 **All files of reference**
--   : Updated to add new feature sections, stats, and now adding FAQ/video.
--   : New file created to manage permissions for a specific user.
--   : New file for the super admin panel.
--   : New file for the super admin login.
--   : New file for the comprehensive program guide.
--   : New file for the user/company settings.
--   : Modified to display the subscription code and colored permission icons.
--   : Modified to add endpoints for getting/setting user permissions.
--   : Modified to add logic for enabling/disabling companies.
--   : Modified to include the  field.
+-   : Major changes for new endpoints (invites, subscription status, image uploads) and bug fixes.
+-   : Updated with the new, more granular permission structure.
+-   : Updated to add  to the user schema and make company fields optional.
+-   : Updated to serve uploaded images statically.
+-   : Heavily refactored for the new design and to display the user profile picture.
+-   : Modified to fix the rendering of the Settings page.
+-   : Heavily modified to add the Employees tab, invitation modal, and image upload UI.
+-   : Modified to add the subscription management UI.
+-   : Modified to add the Super Admin login icon.
+-   : Updated to align frontend permissions with the backend.
 
 **Areas that need refactoring**:
-The agent noted some pre-existing linting errors in several backend files. While these did not break the new functionality, they should be reviewed and fixed to maintain code quality.
+-   The  component has grown very large and complex. It manages logic for multiple tabs (Company, Profile, Employees), modals, and API calls. It should be refactored by splitting each tab into its own component to improve maintainability.
+-   The permissions logic is duplicated between  and . This could lead to inconsistencies. A better approach would be for the frontend to fetch the permission configuration from a single source of truth in the backend upon login.
 
 **key api endpoints**
--   : User login.
--   : Get current user details, including .
--   : Returns a list of all possible permission strings.
--   : Get a specific user's assigned permissions.
--   : Update a specific user's permissions.
--   : Super Admin login.
--   : (Admin) Get a list of all companies.
--   : (Admin) Enable or disable a company.
+-   : User authentication.
+-   : Creates a new company and its first user.
+-   : Invites a new employee to a company.
+-   : Uploads a profile picture for the current user.
+-   : Uploads a logo for a specific company.
+-   : (Super Admin) Updates a company's subscription status.
 
 **Critical Info for New Agent**
--   The application now has three distinct entry points/UIs: the public landing page, the main application for authenticated users, and the super admin panel at .
--   User access to modules is now controlled by a  list () on the  model, not just their . A user must have the specific permission string (e.g., 'hr', 'financial') in their list to access that module.
--   The ability to *edit* permissions is restricted to users with the roles  or . This logic is enforced on the frontend in .
+-   **Respond in Arabic.** The user exclusively communicates in Arabic.
+-   **Environment Distinction:** The user is often confused between the **preview environment** (where you work) and the **production environment** (). Always clarify that your changes are in the preview environment and need to be deployed to go live.
+-   The immediate priority is to fix the **Advanced Analytics** page, as reported by the user in their last message.
 
 **documents and test reports created in this job**
--    (updated multiple times)
--    (Permissions feature test report)
--    (Initial features test report)
+No persistent documents were created.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Add a video to the Hero section and an FAQ section. (In Progress)
-2.  **User**: Update the homepage with the new features added to the program. (Completed)
-3.  **User**: I want a comprehensive and integrated report about the program in Arabic... and add it to the site... (Completed)
-4.  **User**: I want an admin account to log in, see all companies, send invitations, create codes, and control the program as a whole, and the ability to disable or enable any client on the program. (Completed)
-5.  **User**: Show me the user permissions in the application. (Completed)
-6.  **User**: Add a Permissions column in the user management page, create a custom page for managing each user's permissions, and allow the Chairman of the Board and the General Manager to add or remove permissions for other users... (Completed)
-7.  **User**:  (Continue). (Handled)
-8.  **User**:  (Continue). (Handled)
-9.  **User**:  (Continue). (Handled)
-10. **User**:  (Continue). (Handled)
+1.  **التحليلات المتقدمة لا تعمل** (Advanced analytics is not working) - **Status: IN PROGRESS**
+2.  **اظهار لوجو الشركة المسجلة علي الموقع واضافة صورة للمستخدم** (Show the registered company's logo on the site and add a user photo) - **Status: COMPLETED**
+3.  **ما هذا؟** (What is this?) - User asking for clarification on the difference between preview and production environments. - **Status: ADDRESSED**
+4.  **هل سوبر ادمن متصل بقاعدة البيانات الخاصة بالبرنامجويتحكم في الشركات التي تسجل بالبرنامج ؟** (Is the Super Admin connected to the program's database and does it control the companies that register?) - **Status: ADDRESSED**
+5.  **نعم** (Yes) - User confirmed they wanted a subscription management feature for the Super Admin. - **Status: COMPLETED**
+6.  **يوجد كود في الاكونت ومكتوب ان الحساب تجريبي** (There is a code in the account and it says the account is a trial) - **Status: COMPLETED** (feature to change status was implemented).
+7.  **هذه التعديلات تطبيق علي العلامات الخضراء والحمراء...** (These modifications apply to the green and red marks...) - User requested that permission changes reflect in the UI icons. - **Status: COMPLETED**
+8.  **الأدوار الإدارية العليا...** (The higher administrative roles...) - User provided a detailed breakdown of new permission requirements. - **Status: COMPLETED**
+9.  **مراجعة الصلاحيات** (Review permissions) - **Status: COMPLETED**
+10. **اللوجو اكبر** (The logo is bigger) - **Status: COMPLETED**
 
 **Project Health Check:**
--   **Working**: The entire application, including the new permissions system and admin panel, is functional.
--   **Broken**: None.
--   **Mocked**: None.
+-   **Broken:** The Advanced Analytics module is non-functional.
+-   **Mocked:** No mocked features.
 
 **3rd Party Integrations**
-None. The application is self-contained.
+None.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES. The testing agent was used to validate the initial feature set and the new permissions management system. Both test runs passed 100%.
--   **Troubleshoot agent used after agent stuck in loop**: NO.
--   **Test files created**: Test reports were generated at .
--   **Known regressions**: None.
+-   **Testing agent used after significant changes:** YES, but not after the most recent changes. The last run showed 91% backend and 100% frontend success. It should be run again after the analytics bug is fixed.
+-   **Troubleshoot agent used after agent stuck in loop:** NO
+-   **Test files created:** None
+-   **Known regressions:** The Advanced Analytics page is not working.
 
 **Credentials to test flow:**
--   **Super Admin**:
-    -   URL: 
+-   **Super Admin (Preview):**
     -   Email: 
     -   Password: 
--   **General Manager (can edit permissions)**:
-    -   URL: 
-    -   Email: 
-    -   Password: 
--   **Financial Manager (limited permissions)**:
-    -   URL: 
+-   **Company Manager (Preview - رئيس مجلس الإدارة):**
     -   Email: 
     -   Password: 
 
 **What agent forgot to execute**
-The agent has successfully addressed all user requests presented in this session. The final request is currently in progress, not forgotten.</analysis>
+The agent did not run the testing agent after the major overhaul of the permissions system and the addition of several new features. This would have been a good practice to catch potential regressions, such as the now-broken analytics page.</analysis>

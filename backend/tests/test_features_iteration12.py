@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://super-admin-suite.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://erp-debug-2.preview.emergentagent.com')
 
 # Test Credentials
 SUPER_ADMIN = {"email": "superadmin@datalife.com", "password": "Admin@2024"}
