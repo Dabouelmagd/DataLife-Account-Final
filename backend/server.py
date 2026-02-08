@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -38,11 +39,18 @@ from api.contact import router as contact_router
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# Create uploads directories
+os.makedirs("/app/uploads/photos", exist_ok=True)
+os.makedirs("/app/uploads/logos", exist_ok=True)
+
 # Import database
 from database import db, client
 
 # Create the main app without a prefix
 app = FastAPI()
+
+# Mount static files for uploads
+app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
