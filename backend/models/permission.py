@@ -3,165 +3,236 @@ from typing import List, Dict
 
 # Define role permissions
 ROLE_PERMISSIONS = {
+    # ========================================
+    # الأدوار الإدارية العليا (صلاحيات كاملة)
+    # ========================================
     "General Manager": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
         "permissions": {
-            "hr": ["view", "create", "edit", "delete"],
-            "financial": ["view", "create", "edit", "delete"],
+            "dashboard": ["view"],
+            "hr": ["view", "create", "edit", "delete", "send"],
+            "financial": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
-            "analytics": ["view"],
-            "users": ["view", "create", "edit", "delete", "assign_roles"]
+            "reports": ["view", "export", "print"],
+            "analytics": ["view", "export"],
+            "projects": ["view", "create", "edit", "delete"],
+            "invoices": ["view", "create", "edit", "delete", "send", "print"],
+            "purchases": ["view", "create", "edit", "delete", "send"],
+            "settings": ["view", "edit"],
+            "users": ["view", "create", "edit", "delete", "assign_roles", "invite"],
+            "approvals": ["view", "approve", "reject"]
         }
     },
     "مدير عام": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
         "permissions": {
-            "hr": ["view", "create", "edit", "delete"],
-            "financial": ["view", "create", "edit", "delete"],
+            "dashboard": ["view"],
+            "hr": ["view", "create", "edit", "delete", "send"],
+            "financial": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
-            "analytics": ["view"],
-            "users": ["view", "create", "edit", "delete", "assign_roles"]
+            "reports": ["view", "export", "print"],
+            "analytics": ["view", "export"],
+            "projects": ["view", "create", "edit", "delete"],
+            "invoices": ["view", "create", "edit", "delete", "send", "print"],
+            "purchases": ["view", "create", "edit", "delete", "send"],
+            "settings": ["view", "edit"],
+            "users": ["view", "create", "edit", "delete", "assign_roles", "invite"],
+            "approvals": ["view", "approve", "reject"]
         }
     },
     "CEO": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
         "permissions": {
-            "hr": ["view", "create", "edit", "delete"],
-            "financial": ["view", "create", "edit", "delete"],
+            "dashboard": ["view"],
+            "hr": ["view", "create", "edit", "delete", "send"],
+            "financial": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
-            "analytics": ["view"],
-            "users": ["view", "create", "edit", "delete", "assign_roles"]
+            "reports": ["view", "export", "print"],
+            "analytics": ["view", "export"],
+            "projects": ["view", "create", "edit", "delete"],
+            "invoices": ["view", "create", "edit", "delete", "send", "print"],
+            "purchases": ["view", "create", "edit", "delete", "send"],
+            "settings": ["view", "edit"],
+            "users": ["view", "create", "edit", "delete", "assign_roles", "invite"],
+            "approvals": ["view", "approve", "reject"]
         }
     },
     "المدير التنفيذي": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
         "permissions": {
-            "hr": ["view", "create", "edit", "delete"],
-            "financial": ["view", "create", "edit", "delete"],
+            "dashboard": ["view"],
+            "hr": ["view", "create", "edit", "delete", "send"],
+            "financial": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
-            "analytics": ["view"],
-            "users": ["view", "create", "edit", "delete", "assign_roles"]
+            "reports": ["view", "export", "print"],
+            "analytics": ["view", "export"],
+            "projects": ["view", "create", "edit", "delete"],
+            "invoices": ["view", "create", "edit", "delete", "send", "print"],
+            "purchases": ["view", "create", "edit", "delete", "send"],
+            "settings": ["view", "edit"],
+            "users": ["view", "create", "edit", "delete", "assign_roles", "invite"],
+            "approvals": ["view", "approve", "reject"]
         }
     },
     "Board Chairman": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
         "permissions": {
-            "hr": ["view", "create", "edit", "delete"],
-            "financial": ["view", "create", "edit", "delete"],
+            "dashboard": ["view"],
+            "hr": ["view", "create", "edit", "delete", "send"],
+            "financial": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
-            "analytics": ["view"],
-            "users": ["view", "create", "edit", "delete", "assign_roles"]
+            "reports": ["view", "export", "print"],
+            "analytics": ["view", "export"],
+            "projects": ["view", "create", "edit", "delete"],
+            "invoices": ["view", "create", "edit", "delete", "send", "print"],
+            "purchases": ["view", "create", "edit", "delete", "send"],
+            "settings": ["view", "edit"],
+            "users": ["view", "create", "edit", "delete", "assign_roles", "invite"],
+            "approvals": ["view", "approve", "reject"]
         }
     },
     "رئيس مجلس الإدارة": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
         "permissions": {
-            "hr": ["view", "create", "edit", "delete"],
-            "financial": ["view", "create", "edit", "delete"],
+            "dashboard": ["view"],
+            "hr": ["view", "create", "edit", "delete", "send"],
+            "financial": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
-            "analytics": ["view"],
-            "users": ["view", "create", "edit", "delete", "assign_roles"]
+            "reports": ["view", "export", "print"],
+            "analytics": ["view", "export"],
+            "projects": ["view", "create", "edit", "delete"],
+            "invoices": ["view", "create", "edit", "delete", "send", "print"],
+            "purchases": ["view", "create", "edit", "delete", "send"],
+            "settings": ["view", "edit"],
+            "users": ["view", "create", "edit", "delete", "assign_roles", "invite"],
+            "approvals": ["view", "approve", "reject"]
         }
     },
-    "HR Manager": {
-        "modules": ["dashboard", "hr", "reports"],
-        "permissions": {
-            "hr": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
-            "users": ["view"]
-        }
-    },
-    "مدير الموارد البشرية": {
-        "modules": ["dashboard", "hr", "reports"],
-        "permissions": {
-            "hr": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
-            "users": ["view"]
-        }
-    },
+    
+    # ========================================
+    # الأدوار الإدارية المتوسطة (إضافة، تعديل، إرسال)
+    # ========================================
     "Financial Manager": {
-        "modules": ["dashboard", "financial", "reports", "analytics"],
+        "modules": ["dashboard", "financial", "reports", "analytics", "invoices", "purchases"],
         "permissions": {
-            "financial": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
+            "dashboard": ["view"],
+            "financial": ["view", "create", "edit", "send", "print"],
+            "reports": ["view", "export", "print"],
             "analytics": ["view"],
+            "invoices": ["view", "create", "edit", "send", "print"],
+            "purchases": ["view", "create", "edit", "send"],
             "users": ["view"]
         }
     },
     "المدير المالي": {
-        "modules": ["dashboard", "financial", "reports", "analytics"],
+        "modules": ["dashboard", "financial", "reports", "analytics", "invoices", "purchases"],
         "permissions": {
-            "financial": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
+            "dashboard": ["view"],
+            "financial": ["view", "create", "edit", "send", "print"],
+            "reports": ["view", "export", "print"],
             "analytics": ["view"],
+            "invoices": ["view", "create", "edit", "send", "print"],
+            "purchases": ["view", "create", "edit", "send"],
             "users": ["view"]
         }
     },
     "Chief Accountant": {
-        "modules": ["dashboard", "financial", "reports"],
+        "modules": ["dashboard", "financial", "reports", "invoices"],
         "permissions": {
-            "financial": ["view", "create", "edit"],
-            "reports": ["view", "export"],
+            "dashboard": ["view"],
+            "financial": ["view", "create", "edit", "send", "print"],
+            "reports": ["view", "export", "print"],
+            "invoices": ["view", "create", "edit", "send", "print"],
             "users": ["view"]
         }
     },
     "رئيس الحسابات": {
-        "modules": ["dashboard", "financial", "reports"],
+        "modules": ["dashboard", "financial", "reports", "invoices"],
         "permissions": {
-            "financial": ["view", "create", "edit"],
-            "reports": ["view", "export"],
+            "dashboard": ["view"],
+            "financial": ["view", "create", "edit", "send", "print"],
+            "reports": ["view", "export", "print"],
+            "invoices": ["view", "create", "edit", "send", "print"],
             "users": ["view"]
         }
     },
+    
+    # ========================================
+    # مدير الموارد البشرية (HR فقط)
+    # ========================================
+    "HR Manager": {
+        "modules": ["dashboard", "hr"],
+        "permissions": {
+            "dashboard": ["view"],
+            "hr": ["view", "create", "edit", "delete", "send"],
+            "users": ["view"]
+        }
+    },
+    "مدير الموارد البشرية": {
+        "modules": ["dashboard", "hr"],
+        "permissions": {
+            "dashboard": ["view"],
+            "hr": ["view", "create", "edit", "delete", "send"],
+            "users": ["view"]
+        }
+    },
+    
+    # ========================================
+    # مدير المشاريع (المشروعات والمهام فقط)
+    # ========================================
+    "Project Manager": {
+        "modules": ["dashboard", "projects"],
+        "permissions": {
+            "dashboard": ["view"],
+            "projects": ["view", "create", "edit", "delete"],
+            "users": ["view"]
+        }
+    },
+    "مدير المشاريع": {
+        "modules": ["dashboard", "projects"],
+        "permissions": {
+            "dashboard": ["view"],
+            "projects": ["view", "create", "edit", "delete"],
+            "users": ["view"]
+        }
+    },
+    
+    # ========================================
+    # الأدوار التنفيذية (المالية + طباعة التقارير)
+    # ========================================
     "Accountant": {
         "modules": ["dashboard", "financial", "reports"],
         "permissions": {
-            "financial": ["view"],
-            "reports": ["view", "export"],
+            "dashboard": ["view"],
+            "financial": ["view", "create", "edit"],
+            "reports": ["view", "print"],
             "users": []
         }
     },
     "محاسب": {
         "modules": ["dashboard", "financial", "reports"],
         "permissions": {
-            "financial": ["view"],
-            "reports": ["view", "export"],
+            "dashboard": ["view"],
+            "financial": ["view", "create", "edit"],
+            "reports": ["view", "print"],
             "users": []
         }
     },
-    "Project Manager": {
-        "modules": ["dashboard", "projects", "reports"],
-        "permissions": {
-            "projects": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
-            "users": ["view"]
-        }
-    },
-    "مدير المشاريع": {
-        "modules": ["dashboard", "projects", "reports"],
-        "permissions": {
-            "projects": ["view", "create", "edit", "delete"],
-            "reports": ["view", "export"],
-            "users": ["view"]
-        }
-    },
     "Employee": {
-        "modules": ["dashboard"],
+        "modules": ["dashboard", "financial", "reports"],
         "permissions": {
             "dashboard": ["view"],
+            "financial": ["view", "create", "edit"],
+            "reports": ["view", "print"],
             "users": []
         }
     },
     "موظف": {
-        "modules": ["dashboard"],
+        "modules": ["dashboard", "financial", "reports"],
         "permissions": {
             "dashboard": ["view"],
+            "financial": ["view", "create", "edit"],
+            "reports": ["view", "print"],
             "users": []
         }
     }
