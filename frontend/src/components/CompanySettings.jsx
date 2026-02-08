@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { Upload, Building2, Mail, Phone, MapPin, User, Shield, Key, Globe, Bell, Copy, Check, Languages } from 'lucide-react';
+import { Upload, Building2, Mail, Phone, MapPin, User, Shield, Key, Globe, Bell, Copy, Check, Languages, Users, Edit2, Trash2, Plus, Save, X } from 'lucide-react';
 import axios from 'axios';
 
 const CompanySettings = () => {
