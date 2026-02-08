@@ -63,15 +63,41 @@ const ModernSidebar = ({
 
       {/* Content */}
       <div className="relative h-full flex flex-col z-10">
-        {/* Logo Section */}
-        <div className="p-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-              <Building2 className="h-6 w-6 text-white" />
+        {/* Logo Section with Subscription Code */}
+        <div className="p-5 border-b border-white/10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+              <Building2 className="h-5 w-5 text-white" />
             </div>
             <div>
               <h1 className="text-white font-bold text-lg tracking-tight">DataLife</h1>
               <p className="text-slate-400 text-xs">ERP System</p>
+            </div>
+          </div>
+          {/* Subscription Code - Under Logo */}
+          <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-xl px-3 py-2 border border-amber-500/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-3.5 w-3.5 text-amber-400" />
+                <span className="text-xs text-amber-300/80">{language === 'ar' ? 'كود الاشتراك' : 'Code'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <code className="text-sm font-mono font-bold text-amber-400 tracking-wider">
+                  {user?.subscription_code || user?.company_id?.slice(0, 8).toUpperCase() || '--------'}
+                </code>
+                <button
+                  onClick={() => {
+                    const code = user?.subscription_code || user?.company_id?.slice(0, 8).toUpperCase();
+                    if (code) {
+                      navigator.clipboard.writeText(code);
+                    }
+                  }}
+                  className="p-1 bg-amber-500/20 rounded hover:bg-amber-500/30 transition-colors text-amber-300"
+                  title={language === 'ar' ? 'نسخ الكود' : 'Copy Code'}
+                >
+                  <FileCheck className="h-3 w-3" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
