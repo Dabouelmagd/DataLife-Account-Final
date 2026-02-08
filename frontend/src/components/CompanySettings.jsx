@@ -14,7 +14,43 @@ const CompanySettings = () => {
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState('company');
   const [copied, setCopied] = useState(false);
+  const [employees, setEmployees] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [selectedPermissions, setSelectedPermissions] = useState([]);
+  const [selectedRole, setSelectedRole] = useState('');
+  const [savingPermissions, setSavingPermissions] = useState(false);
   const isRTL = language === 'ar';
+
+  // Check if user can manage employees
+  const canManageEmployees = ['General Manager', 'CEO', 'Board Chairman', 'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة'].includes(user?.role);
+
+  // Available roles
+  const availableRoles = [
+    { value: 'رئيس مجلس الإدارة', label: language === 'ar' ? 'رئيس مجلس الإدارة' : 'Board Chairman' },
+    { value: 'مدير عام', label: language === 'ar' ? 'المدير العام' : 'General Manager' },
+    { value: 'المدير التنفيذي', label: language === 'ar' ? 'المدير التنفيذي' : 'CEO' },
+    { value: 'المدير المالي', label: language === 'ar' ? 'المدير المالي' : 'Finance Director' },
+    { value: 'مدير الموارد البشرية', label: language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager' },
+    { value: 'محاسب', label: language === 'ar' ? 'محاسب' : 'Accountant' },
+    { value: 'مدير المشاريع', label: language === 'ar' ? 'مدير المشاريع' : 'Project Manager' },
+    { value: 'موظف', label: language === 'ar' ? 'موظف' : 'Employee' },
+  ];
+
+  // Available permissions
+  const availablePermissions = [
+    { id: 'dashboard', label: language === 'ar' ? 'لوحة التحكم' : 'Dashboard', icon: '🏠' },
+    { id: 'hr', label: language === 'ar' ? 'الموارد البشرية' : 'Human Resources', icon: '👥' },
+    { id: 'financial', label: language === 'ar' ? 'المالية' : 'Financial', icon: '💰' },
+    { id: 'invoices', label: language === 'ar' ? 'الفواتير' : 'Invoices', icon: '📄' },
+    { id: 'purchases', label: language === 'ar' ? 'المشتريات' : 'Purchases', icon: '🛒' },
+    { id: 'projects', label: language === 'ar' ? 'المشاريع' : 'Projects', icon: '📊' },
+    { id: 'analytics', label: language === 'ar' ? 'التحليلات' : 'Analytics', icon: '📈' },
+    { id: 'settings', label: language === 'ar' ? 'الإعدادات' : 'Settings', icon: '⚙️' },
+    { id: 'users', label: language === 'ar' ? 'إدارة المستخدمين' : 'User Management', icon: '👤' },
+    { id: 'approvals', label: language === 'ar' ? 'الموافقات' : 'Approvals', icon: '✅' },
+  ];
 
   // Get subscription code
   const subscriptionCode = user?.subscription_code || user?.company_id?.slice(0, 8).toUpperCase() || '--------';
