@@ -383,6 +383,55 @@ async def invite_employee(
         "email": invite_data.email
     }
 
+from fastapi import UploadFile, File
+import shutil
+import uuid as uuid_module
+from datetime import datetime, timezone
+
+@router.post("/upload-photo")
+async def upload_profile_photo(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload user profile photo"""
+    # Validate file type
+    allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="نوع الملف غير مدعوم. يرجى رفع صورة (JPEG, PNG, GIF, WEBP)")
+    
+    # Create uploads directory if not exists
+    upload_dir = "/app/uploads/photos"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Generate unique filename
+    file_ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    unique_filename = f"{current_user.get('user_id')}_{uuid_module.uuid4().hex[:8]}.{file_ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
+    
+    # Save file
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"فشل حفظ الملف: {str(e)}")
+    
+    # Generate URL path
+    photo_url = f"/uploads/photos/{unique_filename}"
+    
+    # Update user in database
+    await db.users.update_one(
+        {"id": current_user.get("user_id")},
+        {"$set": {
+            "profile_photo": photo_url,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "message": "تم رفع الصورة بنجاح",
+        "photo_url": photo_url
+    }
+
 @router.get("/", response_model=List[UserResponse])
 async def list_company_users(
     current_user: dict = Depends(get_current_user)
