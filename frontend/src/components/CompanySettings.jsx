@@ -202,6 +202,58 @@ const CompanySettings = () => {
     }));
   };
 
+  // Upload user profile photo
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  
+  const handleProfilePhotoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setMessage(language === 'ar' ? 'يرجى اختيار ملف صورة فقط' : 'Please select an image file only');
+      setMessageType('error');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage(language === 'ar' ? 'حجم الملف كبير جداً (الحد الأقصى 5 ميجابايت)' : 'File size too large (max 5MB)');
+      setMessageType('error');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/upload-photo`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      setMessage(language === 'ar' ? 'تم رفع الصورة بنجاح!' : 'Photo uploaded successfully!');
+      setMessageType('success');
+      
+      // Update user in localStorage
+      const updatedUser = { ...user, profile_photo: response.data.photo_url };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      window.location.reload(); // Refresh to show new photo
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      setMessage(language === 'ar' ? 'فشل رفع الصورة' : 'Failed to upload photo');
+      setMessageType('error');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handleLogoUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
