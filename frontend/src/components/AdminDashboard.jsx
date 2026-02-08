@@ -328,6 +328,32 @@ const AdminDashboard = () => {
     }
   };
 
+  // Update company subscription status
+  const handleUpdateSubscription = async (companyId) => {
+    if (!subscriptionStatus) return;
+    
+    setSavingSubscription(true);
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.put(`${API_URL}/api/admin/companies/${companyId}/subscription`, 
+        { subscription_status: subscriptionStatus },
+        config
+      );
+      showToastMessage(isRTL ? 'تم تحديث حالة الاشتراك بنجاح' : 'Subscription status updated successfully', 'success');
+      setEditingSubscription(null);
+      fetchData();
+    } catch (error) {
+      showToastMessage(isRTL ? 'حدث خطأ في تحديث الاشتراك' : 'Error updating subscription', 'error');
+    } finally {
+      setSavingSubscription(false);
+    }
+  };
+
+  const openSubscriptionEdit = (company) => {
+    setEditingSubscription(company);
+    setSubscriptionStatus(company.subscription_status || company.subscription?.status || 'trial');
+  };
+
   const toggleUserStatus = async (userId) => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
