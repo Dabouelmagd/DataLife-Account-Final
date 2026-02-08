@@ -181,6 +181,11 @@ const RealDashboard = () => {
     // ========================================
     const executiveRoles = ['Employee', 'موظف', 'Accountant', 'محاسب'];
 
+    // ========================================
+    // أدوار المشاريع فقط
+    // ========================================
+    const projectOnlyRoles = ['Project Manager', 'مدير المشاريع'];
+
     // HR Module - للإدارة العليا ومدير HR فقط
     if (topManagementRoles.includes(role) || hrOnlyRoles.includes(role)) {
       modules.push({ 
