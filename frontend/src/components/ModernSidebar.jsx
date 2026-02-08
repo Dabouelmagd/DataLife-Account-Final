@@ -111,9 +111,9 @@ const ModernSidebar = ({
           <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-4 border border-white/10">
             <div className="flex items-center gap-3">
               {/* Avatar */}
-              {user?.profile_photo_url ? (
+              {(user?.profile_photo_url || user?.profile_photo) ? (
                 <img
-                  src={user.profile_photo_url}
+                  src={user.profile_photo_url || user.profile_photo}
                   alt={user.full_name}
                   className="w-12 h-12 rounded-xl object-cover ring-2 ring-white/20"
                 />
