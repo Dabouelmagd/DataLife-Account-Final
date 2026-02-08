@@ -1473,6 +1473,14 @@ const AdminDashboard = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => openSubscriptionEdit(company)}
+                              title={isRTL ? 'تعديل الاشتراك' : 'Edit Subscription'}
+                            >
+                              <CreditCard className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => toggleCompanyStatus(company.id, company.is_active)}
                               className={company.is_active !== false ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
                               title={company.is_active !== false ? t.suspend : t.activate}
