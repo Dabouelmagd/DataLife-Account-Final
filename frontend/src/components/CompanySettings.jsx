@@ -552,9 +552,18 @@ const CompanySettings = () => {
                     <Users className="h-5 w-5 text-[#28376B]" />
                     {language === 'ar' ? 'إدارة الموظفين' : 'Employee Management'}
                   </div>
-                  <span className="text-sm font-normal text-gray-500">
-                    {employees.length} {language === 'ar' ? 'موظف' : 'employees'}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-normal text-gray-500">
+                      {employees.length} {language === 'ar' ? 'موظف' : 'employees'}
+                    </span>
+                    <Button
+                      onClick={() => setShowInviteModal(true)}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      {language === 'ar' ? 'دعوة موظف جديد' : 'Invite Employee'}
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
