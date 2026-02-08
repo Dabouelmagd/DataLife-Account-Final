@@ -6,16 +6,18 @@ import uuid
 class Company(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
-    industry: str
-    size: str  # Small (1-50), Medium (51-200), Large (201+)
-    contact_email: EmailStr
-    phone: str
+    name_ar: Optional[str] = None  # Arabic name
+    industry: Optional[str] = "Technology"  # Made optional with default
+    size: Optional[str] = "Small"  # Made optional with default - Small (1-50), Medium (51-200), Large (201+)
+    contact_email: Optional[str] = None  # Made optional
+    phone: Optional[str] = None  # Made optional
     address: Optional[str] = None
     logo_url: Optional[str] = None  # Company logo URL
     trial_id: Optional[str] = None  # Link to trial if converted from trial
-    subscription_status: str = "trial"  # trial, active, expired
-    created_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    subscription_status: str = "active"  # trial, active, expired
+    subscription_code: Optional[str] = None  # Subscription code
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
 class CompanyCreate(BaseModel):
     name: str
