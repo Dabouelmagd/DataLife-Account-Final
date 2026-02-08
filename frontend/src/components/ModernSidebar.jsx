@@ -256,7 +256,7 @@ const ModernSidebar = ({
           {/* Language Switcher */}
           <button
             onClick={toggleLanguage}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-500/10 to-blue-500/10 border border-indigo-500/20 text-indigo-300 hover:from-indigo-500/20 hover:to-blue-500/20 transition-all"
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500/10 to-blue-500/10 border border-indigo-500/20 text-indigo-300 hover:from-indigo-500/20 hover:to-blue-500/20 transition-all"
             data-testid="language-switcher-sidebar"
           >
             <Globe className="h-4 w-4" />
@@ -266,36 +266,11 @@ const ModernSidebar = ({
             </span>
           </button>
           
-          {/* Subscription Code Display */}
-          <div className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
-            <div className="flex items-center gap-3 mb-2">
-              <CreditCard className="h-4 w-4 text-amber-300" />
-              <span className="text-sm text-amber-300">{language === 'ar' ? 'كود الاشتراك' : 'Subscription Code'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <code className="text-lg font-mono font-bold text-amber-400 tracking-wider">
-                {user?.subscription_code || user?.company_id?.slice(0, 8).toUpperCase() || '--------'}
-              </code>
-              <button
-                onClick={() => {
-                  const code = user?.subscription_code || user?.company_id?.slice(0, 8).toUpperCase();
-                  if (code) {
-                    navigator.clipboard.writeText(code);
-                  }
-                }}
-                className="p-1.5 bg-amber-500/20 rounded-lg hover:bg-amber-500/30 transition-colors text-amber-300"
-                title={language === 'ar' ? 'نسخ الكود' : 'Copy Code'}
-              >
-                <FileCheck className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-          
           {/* Admin Dashboard Link - Only for Super Admin */}
           {(user?.role === 'Super Admin' || user?.role === 'مدير النظام') && (
             <button
               onClick={() => navigate('/admin')}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 text-red-300 hover:from-red-500/30 hover:to-pink-500/30 transition-all"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 text-red-300 hover:from-red-500/30 hover:to-pink-500/30 transition-all"
               data-testid="admin-dashboard-link"
             >
               <Shield className="h-4 w-4" />
@@ -306,7 +281,7 @@ const ModernSidebar = ({
           {/* Settings */}
           <button
             onClick={() => setActiveModule?.('settings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all
+            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all
               ${activeModule === 'settings' 
                 ? 'bg-white/10 text-white' 
                 : 'text-slate-400 hover:bg-white/5 hover:text-white'
@@ -320,7 +295,7 @@ const ModernSidebar = ({
           {/* Logout */}
           <button
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all"
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all"
           >
             <LogOut className="h-4 w-4" />
             <span className="text-sm">{language === 'ar' ? 'تسجيل الخروج' : 'Logout'}</span>
