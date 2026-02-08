@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { Upload, Building2, Mail, Phone, MapPin, User, Shield, Key, Globe, Bell, Copy, Check, Languages, Users, Edit2, Trash2, Plus, Save, X } from 'lucide-react';
+import { Upload, Building2, Mail, Phone, MapPin, User, Shield, Key, Globe, Bell, Copy, Check, Languages, Users, Edit2, Trash2, Plus, Save, X, Send, UserPlus } from 'lucide-react';
 import axios from 'axios';
 
 const CompanySettings = () => {
@@ -12,6 +12,7 @@ const CompanySettings = () => {
   const [company, setCompany] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('success');
   const [activeTab, setActiveTab] = useState('company');
   const [copied, setCopied] = useState(false);
   const [employees, setEmployees] = useState([]);
@@ -21,6 +22,17 @@ const CompanySettings = () => {
   const [selectedPermissions, setSelectedPermissions] = useState([]);
   const [selectedRole, setSelectedRole] = useState('');
   const [savingPermissions, setSavingPermissions] = useState(false);
+  
+  // Invite Employee States
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteData, setInviteData] = useState({
+    full_name: '',
+    email: '',
+    role: 'موظف',
+    permissions: ['dashboard']
+  });
+  const [sendingInvite, setSendingInvite] = useState(false);
+  
   const isRTL = language === 'ar';
 
   // Check if user can manage employees
