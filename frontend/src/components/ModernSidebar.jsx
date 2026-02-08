@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Home, Users, Wallet, FileText, Settings, LogOut, ChevronDown, ChevronRight,
   BarChart3, Shield, Bell, Clock, FolderKanban, Package, CreditCard, 
-  UserCheck, FileCheck, Building2, PieChart, TrendingUp, Globe
+  UserCheck, FileCheck, Building2, PieChart, TrendingUp, Globe, ClipboardList
 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import NotificationCenter from './NotificationCenter';
