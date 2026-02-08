@@ -62,6 +62,7 @@ class UserResponse(BaseModel):
     company_id: str
     role: str
     permissions: List[str] = []  # List of permission IDs
+    profile_photo: Optional[str] = None  # URL to profile photo
     is_active: bool
     created_at: str
     subscription_code: Optional[str] = None  # Subscription/Company code for display
