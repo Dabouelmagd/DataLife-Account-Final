@@ -28,9 +28,27 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
   - `InviteModal.jsx` (161 lines)
   - `SubscriptionTab.jsx` (109 lines)
   - `LanguageTab.jsx` (95 lines)
-  - `constants.js` (30 lines) - Shared roles & permissions
+  - `constants.js` (40 lines) - Shared roles & permissions
   - `index.js` (9 lines) - Export barrel
 - **Test Status**: ✅ All tabs working correctly after refactoring
+
+#### 7. Unified Permissions System ✅
+- **Backend API**: `/api/permissions/config` - Single source of truth for all roles and permissions
+- **Frontend Context**: `PermissionsContext.jsx` - React context to consume backend permissions
+- **New Files Created**:
+  - `/app/backend/api/permissions.py` - Permissions API endpoints
+  - `/app/frontend/src/contexts/PermissionsContext.jsx` - Permissions context provider
+- **API Endpoints**:
+  - `GET /api/permissions/config` - Complete permissions configuration
+  - `GET /api/permissions/roles` - All available roles
+  - `GET /api/permissions/modules` - All available modules
+  - `GET /api/permissions/role/{role_name}` - Permissions for specific role
+  - `GET /api/permissions/check/{role}/{module}/{action}` - Check specific permission
+- **Benefits**: 
+  - No duplication of permission definitions
+  - Backend is the single source of truth
+  - Frontend automatically syncs with backend
+- **Test Status**: ✅ API working, integrated with App.js
 
 ---
 
