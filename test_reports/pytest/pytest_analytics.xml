@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="9" skipped="0" tests="11" time="1.449" timestamp="2026-02-08T23:17:30.178731+00:00" hostname="agent-env-07205ff3-b48e-4ea1-97fa-62431e89a669"><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_login_company_manager" time="0.358"><failure message="AssertionError: Token not returned in response&#10;assert 'token' in {'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTNlYTQ4MzUtYjljYS00YjgyLWIxN2UtMzM4OGQ5MGE0ZjUzIiwiZW1haWwiOiJkYWxpYUBkYXRhbGlmZWFpLmNvbSIsImNvbXBhbnlfaWQiOiJiYzc3ODEzNC1iNjhiLTQ4ZmItYWMyMy04NTg2YzkxYzljM2EiLCJyb2xlIjoiXHUwNjMxXHUwNjI2XHUwNjRhXHUwNjMzIFx1MDY0NVx1MDYyY1x1MDY0NFx1MDYzMyBcdTA2MjdcdTA2NDRcdTA2MjVcdTA2MmZcdTA2MjdcdTA2MzFcdTA2MjkiLCJleHAiOjE3NzA2NzkwNTB9.zj_BMhjs7mnmWxWmzx_lKMUiiN4DYrbOLBRQe0SiIq8', 'token_type': 'bearer', 'user': {'company_id': 'bc778134-b68b-48fb-ac23-8586c91c9c3a', 'created_at': '2026-02-08T00:28:50.353747', 'email': 'dalia@datalifeai.com', 'full_name': 'Dalia Abou El Magd', ...}}">tests/test_analytics.py:48: in test_login_company_manager
+    assert "token" in data, "Token not returned in response"
+E   AssertionError: Token not returned in response
+E   assert 'token' in {'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTNlYTQ4MzUtYjljYS00YjgyLWIxN2UtMzM4OGQ5MGE0ZjUzIiwiZW1haWwiOiJkYWxpYUBkYXRhbGlmZWFpLmNvbSIsImNvbXBhbnlfaWQiOiJiYzc3ODEzNC1iNjhiLTQ4ZmItYWMyMy04NTg2YzkxYzljM2EiLCJyb2xlIjoiXHUwNjMxXHUwNjI2XHUwNjRhXHUwNjMzIFx1MDY0NVx1MDYyY1x1MDY0NFx1MDYzMyBcdTA2MjdcdTA2NDRcdTA2MjVcdTA2MmZcdTA2MjdcdTA2MzFcdTA2MjkiLCJleHAiOjE3NzA2NzkwNTB9.zj_BMhjs7mnmWxWmzx_lKMUiiN4DYrbOLBRQe0SiIq8', 'token_type': 'bearer', 'user': {'company_id': 'bc778134-b68b-48fb-ac23-8586c91c9c3a', 'created_at': '2026-02-08T00:28:50.353747', 'email': 'dalia@datalifeai.com', 'full_name': 'Dalia Abou El Magd', ...}}</failure></testcase><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_analytics_overview_daily" time="0.361"><failure message="AssertionError: API returned 401: {&quot;detail&quot;:&quot;Invalid or expired token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">tests/test_analytics.py:57: in test_analytics_overview_daily
+    assert response.status_code == 200, f"API returned {response.status_code}: {response.text}"
+E   AssertionError: API returned 401: {"detail":"Invalid or expired token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_analytics_overview_monthly" time="0.052"><failure message="AssertionError: API returned 401: {&quot;detail&quot;:&quot;Invalid or expired token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">tests/test_analytics.py:96: in test_analytics_overview_monthly
+    assert response.status_code == 200, f"API returned {response.status_code}: {response.text}"
+E   AssertionError: API returned 401: {"detail":"Invalid or expired token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_analytics_overview_yearly" time="0.059"><failure message="AssertionError: API returned 401: {&quot;detail&quot;:&quot;Invalid or expired token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">tests/test_analytics.py:111: in test_analytics_overview_yearly
+    assert response.status_code == 200, f"API returned {response.status_code}: {response.text}"
+E   AssertionError: API returned 401: {"detail":"Invalid or expired token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_analytics_financial" time="0.051"><failure message="AssertionError: API returned 401: {&quot;detail&quot;:&quot;Invalid or expired token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">tests/test_analytics.py:123: in test_analytics_financial
+    assert response.status_code == 200, f"API returned {response.status_code}: {response.text}"
+E   AssertionError: API returned 401: {"detail":"Invalid or expired token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_analytics_hr" time="0.059"><failure message="AssertionError: API returned 401: {&quot;detail&quot;:&quot;Invalid or expired token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">tests/test_analytics.py:150: in test_analytics_hr
+    assert response.status_code == 200, f"API returned {response.status_code}: {response.text}"
+E   AssertionError: API returned 401: {"detail":"Invalid or expired token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_analytics_inventory" time="0.053"><failure message="AssertionError: API returned 401: {&quot;detail&quot;:&quot;Invalid or expired token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">tests/test_analytics.py:177: in test_analytics_inventory
+    assert response.status_code == 200, f"API returned {response.status_code}: {response.text}"
+E   AssertionError: API returned 401: {"detail":"Invalid or expired token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_analytics_without_auth" time="0.062" /><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_analytics_with_invalid_token" time="0.050" /><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_financial_reports_year" time="0.051"><failure message="AssertionError: API returned 401: {&quot;detail&quot;:&quot;Invalid or expired token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">tests/test_analytics.py:221: in test_financial_reports_year
+    assert response.status_code == 200, f"API returned {response.status_code}: {response.text}"
+E   AssertionError: API returned 401: {"detail":"Invalid or expired token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="tests.test_analytics.TestAnalyticsAPIs" name="test_financial_reports_with_comparison" time="0.049"><failure message="AssertionError: API returned 401: {&quot;detail&quot;:&quot;Invalid or expired token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">tests/test_analytics.py:248: in test_financial_reports_with_comparison
+    assert response.status_code == 200, f"API returned {response.status_code}: {response.text}"
+E   AssertionError: API returned 401: {"detail":"Invalid or expired token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase></testsuite></testsuites>
