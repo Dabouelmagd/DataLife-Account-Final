@@ -28,7 +28,8 @@ class TestAnalyticsAPIs:
         """Get authentication token for company manager"""
         response = requests.post(f"{BASE_URL}/api/auth/login", json=COMPANY_MANAGER)
         if response.status_code == 200:
-            return response.json().get("token")
+            # API returns access_token, not token
+            return response.json().get("access_token")
         pytest.skip("Authentication failed - skipping authenticated tests")
     
     @pytest.fixture(scope="class")
@@ -36,7 +37,7 @@ class TestAnalyticsAPIs:
         """Get authentication token for super admin"""
         response = requests.post(f"{BASE_URL}/api/auth/login", json=SUPER_ADMIN)
         if response.status_code == 200:
-            return response.json().get("token")
+            return response.json().get("access_token")
         pytest.skip("Super admin authentication failed")
     
     # --- Authentication Tests ---
@@ -45,8 +46,9 @@ class TestAnalyticsAPIs:
         response = requests.post(f"{BASE_URL}/api/auth/login", json=COMPANY_MANAGER)
         assert response.status_code == 200, f"Login failed: {response.text}"
         data = response.json()
-        assert "token" in data, "Token not returned in response"
-        print(f"Company manager login successful")
+        assert "access_token" in data, "access_token not returned in response"
+        assert "user" in data, "user info not returned in response"
+        print(f"Company manager login successful - user: {data['user'].get('full_name')}")
     
     # --- Analytics Overview Tests ---
     def test_analytics_overview_daily(self, auth_token):
