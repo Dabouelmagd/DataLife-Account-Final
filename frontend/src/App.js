@@ -20,6 +20,7 @@ import SupportChatbot from "./components/SupportChatbot";
 import NotificationPermissionRequest from "./components/NotificationPermissionRequest";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { PermissionsProvider } from "./contexts/PermissionsContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -58,8 +59,9 @@ function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <div className="App">
-          <BrowserRouter>
+        <PermissionsProvider>
+          <div className="App">
+            <BrowserRouter>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/features" element={<FeaturesPage />} />
