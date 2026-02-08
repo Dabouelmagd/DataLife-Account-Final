@@ -141,14 +141,65 @@ const CompanySettings = () => {
       }
 
       setMessage(language === 'ar' ? 'تم حفظ التغييرات بنجاح' : 'Changes saved successfully');
+      setMessageType('success');
       setShowPermissionModal(false);
       fetchEmployees();
     } catch (error) {
       console.error('Error saving:', error);
       setMessage(language === 'ar' ? 'فشل حفظ التغييرات' : 'Failed to save changes');
+      setMessageType('error');
     } finally {
       setSavingPermissions(false);
     }
+  };
+
+  // Send Invitation to new employee
+  const sendInvitation = async () => {
+    if (!inviteData.full_name || !inviteData.email) {
+      setMessage(language === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields');
+      setMessageType('error');
+      return;
+    }
+
+    setSendingInvite(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Create user with invitation
+      const response = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/invite`,
+        {
+          full_name: inviteData.full_name,
+          email: inviteData.email,
+          role: inviteData.role,
+          permissions: inviteData.permissions,
+          company_id: user.company_id
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setMessage(language === 'ar' ? 'تم إرسال الدعوة بنجاح! سيتلقى الموظف بريد إلكتروني ببيانات الدخول.' : 'Invitation sent successfully! The employee will receive an email with login credentials.');
+      setMessageType('success');
+      setShowInviteModal(false);
+      setInviteData({ full_name: '', email: '', role: 'موظف', permissions: ['dashboard'] });
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      const errorMsg = error.response?.data?.detail || (language === 'ar' ? 'فشل إرسال الدعوة' : 'Failed to send invitation');
+      setMessage(errorMsg);
+      setMessageType('error');
+    } finally {
+      setSendingInvite(false);
+    }
+  };
+
+  const handleInvitePermissionToggle = (permissionId) => {
+    setInviteData(prev => ({
+      ...prev,
+      permissions: prev.permissions.includes(permissionId)
+        ? prev.permissions.filter(p => p !== permissionId)
+        : [...prev.permissions, permissionId]
+    }));
   };
 
   const handleLogoUpload = async (event) => {
