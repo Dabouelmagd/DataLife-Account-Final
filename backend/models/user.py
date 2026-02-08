@@ -39,6 +39,7 @@ class User(BaseModel):
     company_id: str
     role: str  # General Manager, CEO (Chief Executive Officer), Board Chairman, Financial Manager, Chief Accountant, HR Manager, Accountant
     permissions: List[str] = Field(default_factory=list)  # List of permission IDs
+    profile_photo: Optional[str] = None  # URL to profile photo
     is_active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
