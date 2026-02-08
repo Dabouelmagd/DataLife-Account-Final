@@ -55,13 +55,13 @@ async def register_company(
     # Create company
     company = await create_company(db, company_data)
     
-    # Create first user as General Manager
+    # Create first user as Board Chairman (مؤسس الشركة)
     user_data = UserCreate(
         email=user_email,
         password=user_password,
         full_name=user_full_name,
         company_id=company.id,
-        role="General Manager"
+        role="رئيس مجلس الإدارة"
     )
     
     user = await create_user(db, user_data, user_password)
