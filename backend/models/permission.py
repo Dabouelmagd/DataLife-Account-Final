@@ -134,6 +134,36 @@ ROLE_PERMISSIONS = {
             "reports": ["view", "export"],
             "users": []
         }
+    },
+    "Project Manager": {
+        "modules": ["dashboard", "projects", "reports"],
+        "permissions": {
+            "projects": ["view", "create", "edit", "delete"],
+            "reports": ["view", "export"],
+            "users": ["view"]
+        }
+    },
+    "مدير المشاريع": {
+        "modules": ["dashboard", "projects", "reports"],
+        "permissions": {
+            "projects": ["view", "create", "edit", "delete"],
+            "reports": ["view", "export"],
+            "users": ["view"]
+        }
+    },
+    "Employee": {
+        "modules": ["dashboard"],
+        "permissions": {
+            "dashboard": ["view"],
+            "users": []
+        }
+    },
+    "موظف": {
+        "modules": ["dashboard"],
+        "permissions": {
+            "dashboard": ["view"],
+            "users": []
+        }
     }
 }
 
