@@ -891,6 +891,11 @@ const RealDashboard = () => {
       return <DocumentsModule />;
     }
 
+    // Settings Module
+    if (activeModule === 'settings') {
+      return <CompanySettings />;
+    }
+
     return null;
   };
 
