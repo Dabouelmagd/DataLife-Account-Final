@@ -131,16 +131,18 @@ const ProfileTab = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
               { id: 'dashboard', name: language === 'ar' ? 'لوحة التحكم' : 'Dashboard' },
               { id: 'hr', name: language === 'ar' ? 'الموارد البشرية' : 'Human Resources' },
-              { id: 'financial', name: language === 'ar' ? 'الإدارة المالية' : 'Financial' },
+              { id: 'financial', name: language === 'ar' ? 'المالية' : 'Financial' },
               { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices' },
               { id: 'purchases', name: language === 'ar' ? 'المشتريات' : 'Purchases' },
               { id: 'projects', name: language === 'ar' ? 'المشاريع' : 'Projects' },
+              { id: 'reports', name: language === 'ar' ? 'التقارير' : 'Reports' },
               { id: 'analytics', name: language === 'ar' ? 'التحليلات' : 'Analytics' },
-              { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings' },
+              { id: 'inventory', name: language === 'ar' ? 'المخزون' : 'Inventory' },
+              { id: 'approvals', name: language === 'ar' ? 'الموافقات' : 'Approvals' },
             ].map((module) => {
               const hasAccess = true;
               return (
