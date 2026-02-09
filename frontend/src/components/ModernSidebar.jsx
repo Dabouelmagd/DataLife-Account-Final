@@ -152,7 +152,8 @@ const ModernSidebar = ({
                   { id: 'projects', name: language === 'ar' ? 'المشاريع' : 'Projects', icon: <FolderKanban /> },
                   { id: 'reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <ClipboardList /> },
                   { id: 'analytics', name: language === 'ar' ? 'التحليلات' : 'Analytics', icon: <BarChart3 /> },
-                  { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings', icon: <Settings /> },
+                  { id: 'inventory', name: language === 'ar' ? 'المخزون' : 'Inventory', icon: <Package /> },
+                  { id: 'approvals', name: language === 'ar' ? 'الموافقات' : 'Approvals', icon: <ClipboardList /> },
                 ].map((allModule, index) => {
                   const hasAccess = modules.some(m => m.id === allModule.id);
                   return (
