@@ -147,6 +147,7 @@ function App() {
           </div>
         </PermissionsProvider>
       </AuthProvider>
+    </ThemeProvider>
     </LanguageProvider>
   );
 }
