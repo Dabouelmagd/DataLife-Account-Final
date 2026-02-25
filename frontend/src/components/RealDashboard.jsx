@@ -302,7 +302,7 @@ const RealDashboard = () => {
     }
 
     // Import Data module - للإدارة العليا والأدوار المالية والموارد البشرية
-    if (topManagementRoles.includes(role) || financialManagerRoles.includes(role) || hrManagerRoles.includes(role)) {
+    if (topManagementRoles.includes(role) || financialManagerRoles.includes(role) || hrOnlyRoles.includes(role)) {
       modules.push({ 
         id: 'import', 
         name: language === 'ar' ? 'استيراد البيانات' : 'Import Data', 
