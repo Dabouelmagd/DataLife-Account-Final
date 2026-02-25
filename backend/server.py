@@ -35,6 +35,7 @@ from api.documents import router as documents_router
 from api.chatbot import router as chatbot_router
 from api.contact import router as contact_router
 from api.permissions import router as permissions_router
+from api.import_data import router as import_data_router
 
 
 ROOT_DIR = Path(__file__).parent
