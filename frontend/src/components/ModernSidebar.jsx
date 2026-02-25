@@ -343,34 +343,6 @@ const ModernSidebar = ({
             <span className="text-sm">{language === 'ar' ? 'تسجيل الخروج' : 'Logout'}</span>
           </button>
         </div>
-
-        {/* Footer Bar - DataLife Branding */}
-        <div className="mt-auto border-t border-white/10 p-4 bg-gradient-to-b from-slate-900/50 to-slate-950/80">
-          <div className="flex flex-col items-center gap-3">
-            {/* DataLife Account Logo */}
-            <div className="w-full bg-white rounded-xl p-4 shadow-lg flex items-center justify-center">
-              <img 
-                src={language === 'ar' ? '/datalife-account-ar.jpg' : '/datalife-account-en.jpg'}
-                alt="DataLife Account"
-                className="w-32 h-32 object-contain"
-              />
-            </div>
-            {/* Divider with text */}
-            <div className="w-full flex items-center gap-3">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent to-slate-500"></div>
-              <span className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Powered by</span>
-              <div className="flex-1 h-px bg-gradient-to-l from-transparent to-slate-500"></div>
-            </div>
-            {/* DataLife AI Logo */}
-            <div className="w-full bg-white rounded-xl p-3 shadow-lg flex items-center justify-center">
-              <img 
-                src="/datalife-ai.png"
-                alt="DataLife AI"
-                className="w-28 h-28 object-contain"
-              />
-            </div>
-          </div>
-        </div>
       </div>
     </aside>
   );
