@@ -264,77 +264,252 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Video Modal */}
-      {isVideoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-4xl bg-black rounded-2xl overflow-hidden shadow-2xl">
+      {/* Comprehensive Guide Modal */}
+      {isGuideModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative w-full max-w-5xl bg-white rounded-2xl overflow-hidden shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
             {/* Close Button */}
             <button
-              onClick={() => setIsVideoModalOpen(false)}
-              className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors"
+              onClick={() => setIsGuideModalOpen(false)}
+              className="absolute top-4 right-4 z-10 w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-600 transition-colors"
             >
               <X className="h-6 w-6" />
             </button>
             
-            {/* Video Container */}
-            <div className="aspect-video bg-gradient-to-br from-[#28376B] to-[#1e2a5a] flex flex-col items-center justify-center text-white p-8">
-              {/* Animated Play Icon */}
-              <div className="relative mb-6">
-                <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
-                  <div className="w-20 h-20 bg-white/30 rounded-full flex items-center justify-center">
-                    <Play className="h-10 w-10 text-white fill-white ml-1" />
-                  </div>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-[#28376B] to-[#1e2a5a] text-white p-8">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                  <BookOpen className="h-8 w-8" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold">
+                    {language === 'ar' ? 'الدليل الشامل للبرنامج' : 'Complete Program Guide'}
+                  </h2>
+                  <p className="text-white/80">
+                    {language === 'ar' ? 'كل ما تحتاج معرفته عن DataLife ERP' : 'Everything you need to know about DataLife ERP'}
+                  </p>
                 </div>
               </div>
+            </div>
+            
+            {/* Content */}
+            <div className="p-8 space-y-8">
               
-              <h3 className="text-2xl font-bold mb-4">
-                {language === 'ar' ? 'فيديو تعريفي بنظام DataLife ERP' : 'DataLife ERP Introduction Video'}
-              </h3>
-              
-              <div className="max-w-2xl text-center space-y-4 text-white/80">
-                <p>
+              {/* Overview Section */}
+              <section>
+                <h3 className="text-2xl font-bold text-[#28376B] mb-4 flex items-center gap-2">
+                  <Globe className="h-6 w-6" />
+                  {language === 'ar' ? 'نظرة عامة' : 'Overview'}
+                </h3>
+                <p className="text-gray-600 leading-relaxed">
                   {language === 'ar' 
-                    ? 'اكتشف كيف يمكن لنظام DataLife ERP أن يحول طريقة إدارة أعمالك'
-                    : 'Discover how DataLife ERP can transform the way you manage your business'}
+                    ? 'DataLife Account هو نظام ERP (تخطيط موارد المؤسسات) متكامل ومتعدد المستأجرين مصمم للشركات العربية. يوفر النظام إدارة شاملة للموارد البشرية، المالية، المشتريات، الفواتير، المشاريع، والتحليلات مع دعم كامل للغة العربية والإنجليزية.'
+                    : 'DataLife Account is a comprehensive multi-tenant ERP (Enterprise Resource Planning) system designed for businesses. It provides complete management of Human Resources, Finance, Purchases, Invoices, Projects, and Analytics with full support for Arabic and English languages.'}
                 </p>
-                
-                <div className="grid grid-cols-3 gap-4 mt-8">
+              </section>
+
+              {/* Key Features */}
+              <section>
+                <h3 className="text-2xl font-bold text-[#28376B] mb-4 flex items-center gap-2">
+                  <Zap className="h-6 w-6" />
+                  {language === 'ar' ? 'المميزات الرئيسية' : 'Key Features'}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
-                    { icon: Users, label: language === 'ar' ? 'إدارة الموظفين' : 'HR Management' },
-                    { icon: DollarSign, label: language === 'ar' ? 'المحاسبة المالية' : 'Financial Accounting' },
-                    { icon: BarChart3, label: language === 'ar' ? 'التقارير الذكية' : 'Smart Reports' },
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex flex-col items-center gap-2 p-4 bg-white/10 rounded-xl">
-                      <item.icon className="h-8 w-8" />
-                      <span className="text-sm">{item.label}</span>
+                    { icon: Users, title: language === 'ar' ? 'دخول متعدد المستخدمين' : 'Multi-user Login', desc: language === 'ar' ? 'دخول متزامن لموظفي نفس الشركة' : 'Concurrent login for same company employees' },
+                    { icon: Key, title: language === 'ar' ? 'كود اشتراك فريد' : 'Unique Subscription Code', desc: language === 'ar' ? 'كل شركة لها كود خاص' : 'Each company has its own code' },
+                    { icon: Shield, title: language === 'ar' ? 'صلاحيات متقدمة' : 'Advanced Permissions', desc: language === 'ar' ? '10 صلاحيات و9 أدوار وظيفية' : '10 permissions and 9 job roles' },
+                    { icon: Globe, title: language === 'ar' ? 'ثنائي اللغة' : 'Bilingual', desc: language === 'ar' ? 'دعم كامل للعربية والإنجليزية' : 'Full Arabic and English support' },
+                  ].map((feature, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
+                      <div className="w-10 h-10 bg-[#28376B]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <feature.icon className="h-5 w-5 text-[#28376B]" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-800">{feature.title}</h4>
+                        <p className="text-sm text-gray-600">{feature.desc}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-              
-              <div className="mt-8 flex gap-4">
-                <Button
-                  onClick={() => {
-                    setIsVideoModalOpen(false);
-                    setIsTrialModalOpen(true);
-                  }}
-                  className="bg-white text-[#28376B] hover:bg-gray-100"
-                >
-                  {language === 'ar' ? 'ابدأ تجربتك المجانية' : 'Start Free Trial'}
-                </Button>
-                <Button
-                  onClick={() => {
-                    setIsVideoModalOpen(false);
-                    navigate('/features');
-                  }}
-                  variant="outline"
-                  className="border-white text-white hover:bg-white/20"
-                >
-                  {language === 'ar' ? 'اكتشف المميزات' : 'Explore Features'}
-                </Button>
-              </div>
+              </section>
+
+              {/* Available Modules */}
+              <section>
+                <h3 className="text-2xl font-bold text-[#28376B] mb-4 flex items-center gap-2">
+                  <FolderKanban className="h-6 w-6" />
+                  {language === 'ar' ? 'الوحدات المتاحة (10 وحدات)' : 'Available Modules (10 Modules)'}
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {[
+                    { name: language === 'ar' ? 'لوحة التحكم' : 'Dashboard', icon: BarChart3 },
+                    { name: language === 'ar' ? 'الموارد البشرية' : 'HR', icon: Users },
+                    { name: language === 'ar' ? 'المالية' : 'Financial', icon: DollarSign },
+                    { name: language === 'ar' ? 'الفواتير' : 'Invoices', icon: FileText },
+                    { name: language === 'ar' ? 'المشتريات' : 'Purchases', icon: CreditCard },
+                    { name: language === 'ar' ? 'المشاريع' : 'Projects', icon: FolderKanban },
+                    { name: language === 'ar' ? 'التقارير' : 'Reports', icon: ClipboardList },
+                    { name: language === 'ar' ? 'التحليلات' : 'Analytics', icon: PieChart },
+                    { name: language === 'ar' ? 'المخزون' : 'Inventory', icon: Package },
+                    { name: language === 'ar' ? 'الموافقات' : 'Approvals', icon: CheckCircle },
+                  ].map((module, idx) => (
+                    <div key={idx} className="flex flex-col items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-center">
+                      <module.icon className="h-6 w-6 text-green-600" />
+                      <span className="text-sm font-medium text-green-700">{module.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Roles */}
+              <section>
+                <h3 className="text-2xl font-bold text-[#28376B] mb-4 flex items-center gap-2">
+                  <UserCheck className="h-6 w-6" />
+                  {language === 'ar' ? 'الأدوار الوظيفية (9 أدوار)' : 'Job Roles (9 Roles)'}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Top Management */}
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                    <h4 className="font-bold text-purple-700 mb-3">{language === 'ar' ? 'الإدارة العليا' : 'Top Management'}</h4>
+                    <ul className="space-y-2 text-sm text-purple-600">
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> {language === 'ar' ? 'رئيس مجلس الإدارة' : 'Board Chairman'}</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> {language === 'ar' ? 'المدير العام' : 'General Manager'}</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> {language === 'ar' ? 'المدير التنفيذي' : 'CEO'}</li>
+                    </ul>
+                  </div>
+                  {/* Middle Management */}
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                    <h4 className="font-bold text-blue-700 mb-3">{language === 'ar' ? 'الإدارة الوسطى' : 'Middle Management'}</h4>
+                    <ul className="space-y-2 text-sm text-blue-600">
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> {language === 'ar' ? 'المدير المالي' : 'Finance Director'}</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> {language === 'ar' ? 'رئيس الحسابات' : 'Chief Accountant'}</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> {language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> {language === 'ar' ? 'مدير المشاريع' : 'Project Manager'}</li>
+                    </ul>
+                  </div>
+                  {/* Staff */}
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <h4 className="font-bold text-gray-700 mb-3">{language === 'ar' ? 'الموظفين' : 'Staff'}</h4>
+                    <ul className="space-y-2 text-sm text-gray-600">
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> {language === 'ar' ? 'محاسب' : 'Accountant'}</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> {language === 'ar' ? 'موظف' : 'Employee'}</li>
+                    </ul>
+                  </div>
+                </div>
+              </section>
+
+              {/* Test Credentials */}
+              <section>
+                <h3 className="text-2xl font-bold text-[#28376B] mb-4 flex items-center gap-2">
+                  <Key className="h-6 w-6" />
+                  {language === 'ar' ? 'بيانات الدخول التجريبية' : 'Test Login Credentials'}
+                </h3>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                  <p className="text-amber-700 text-sm">
+                    {language === 'ar' 
+                      ? 'هذه بيانات تجريبية للاختبار فقط. كود الاشتراك: BC778134'
+                      : 'These are test credentials for testing only. Subscription Code: BC778134'}
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="p-3 text-right">{language === 'ar' ? 'الدور' : 'Role'}</th>
+                        <th className="p-3 text-right">{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</th>
+                        <th className="p-3 text-right">{language === 'ar' ? 'كلمة المرور' : 'Password'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      <tr className="bg-purple-50">
+                        <td className="p-3 font-medium">{language === 'ar' ? 'رئيس مجلس الإدارة' : 'Board Chairman'}</td>
+                        <td className="p-3 font-mono text-xs">dalia@datalifeai.com</td>
+                        <td className="p-3 font-mono text-xs">Dalia@2024</td>
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-medium">{language === 'ar' ? 'المدير المالي' : 'Finance Director'}</td>
+                        <td className="p-3 font-mono text-xs">finance@datalifeai.com</td>
+                        <td className="p-3 font-mono text-xs">Finance@2024</td>
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-medium">{language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}</td>
+                        <td className="p-3 font-mono text-xs">hr@datalifeai.com</td>
+                        <td className="p-3 font-mono text-xs">HR@2024</td>
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-medium">{language === 'ar' ? 'محاسب' : 'Accountant'}</td>
+                        <td className="p-3 font-mono text-xs">accountant@datalifeai.com</td>
+                        <td className="p-3 font-mono text-xs">Account@2024</td>
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-medium">{language === 'ar' ? 'موظف' : 'Employee'}</td>
+                        <td className="p-3 font-mono text-xs">employee@datalifeai.com</td>
+                        <td className="p-3 font-mono text-xs">Employee@2024</td>
+                      </tr>
+                      <tr className="bg-red-50">
+                        <td className="p-3 font-medium text-red-700">{language === 'ar' ? 'سوبر أدمن' : 'Super Admin'}</td>
+                        <td className="p-3 font-mono text-xs">superadmin@datalife.com</td>
+                        <td className="p-3 font-mono text-xs">Admin@2024</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              {/* How to Use */}
+              <section>
+                <h3 className="text-2xl font-bold text-[#28376B] mb-4 flex items-center gap-2">
+                  <Settings className="h-6 w-6" />
+                  {language === 'ar' ? 'كيفية الاستخدام' : 'How to Use'}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-blue-50 rounded-xl">
+                    <h4 className="font-bold text-blue-700 mb-2">{language === 'ar' ? 'تسجيل الدخول' : 'Login'}</h4>
+                    <ol className="text-sm text-blue-600 space-y-1 list-decimal list-inside">
+                      <li>{language === 'ar' ? 'أدخل البريد الإلكتروني وكلمة المرور' : 'Enter email and password'}</li>
+                      <li>{language === 'ar' ? 'اضغط "دخول"' : 'Click "Login"'}</li>
+                      <li>{language === 'ar' ? 'اضغط "Continue to Application"' : 'Click "Continue to Application"'}</li>
+                    </ol>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-xl">
+                    <h4 className="font-bold text-green-700 mb-2">{language === 'ar' ? 'إضافة موظف' : 'Add Employee'}</h4>
+                    <ol className="text-sm text-green-600 space-y-1 list-decimal list-inside">
+                      <li>{language === 'ar' ? 'اذهب إلى الإعدادات > الموظفين' : 'Go to Settings > Employees'}</li>
+                      <li>{language === 'ar' ? 'اضغط "دعوة موظف جديد"' : 'Click "Invite Employee"'}</li>
+                      <li>{language === 'ar' ? 'أدخل البيانات والصلاحيات' : 'Enter details and permissions'}</li>
+                    </ol>
+                  </div>
+                </div>
+              </section>
+
+            </div>
+            
+            {/* Footer */}
+            <div className="bg-gray-50 p-6 flex flex-wrap justify-center gap-4">
+              <Button
+                onClick={() => {
+                  setIsGuideModalOpen(false);
+                  navigate('/login');
+                }}
+                className="bg-[#28376B] hover:bg-[#1e2a5a]"
+              >
+                {language === 'ar' ? 'تسجيل الدخول' : 'Login Now'}
+              </Button>
+              <Button
+                onClick={() => {
+                  setIsGuideModalOpen(false);
+                  setIsTrialModalOpen(true);
+                }}
+                variant="outline"
+                className="border-[#28376B] text-[#28376B]"
+              >
+                {language === 'ar' ? 'ابدأ تجربتك المجانية' : 'Start Free Trial'}
+              </Button>
             </div>
           </div>
+        </div>
+      )}
         </div>
       )}
 
