@@ -360,6 +360,8 @@ const CompanySettings = () => {
             loadingEmployees={loadingEmployees}
             onInviteClick={() => setShowInviteModal(true)}
             onEditClick={openPermissionModal}
+            onDeleteEmployee={handleDeleteEmployee}
+            currentUserId={user?.id}
           />
         )}
 
