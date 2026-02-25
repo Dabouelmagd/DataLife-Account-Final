@@ -415,8 +415,8 @@ async def upload_profile_photo(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"فشل حفظ الملف: {str(e)}")
     
-    # Generate URL path
-    photo_url = f"/uploads/photos/{unique_filename}"
+    # Generate URL path - use /api/uploads for ingress compatibility
+    photo_url = f"/api/uploads/photos/{unique_filename}"
     
     # Update user in database
     await db.users.update_one(
