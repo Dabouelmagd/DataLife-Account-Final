@@ -20,7 +20,8 @@ const ModernSidebar = ({
   activeFinancialSubModule,
   setActiveFinancialSubModule,
   onLogout,
-  navigate
+  navigate,
+  company
 }) => {
   const isRTL = language === 'ar';
   const [expandedMenus, setExpandedMenus] = useState({});
