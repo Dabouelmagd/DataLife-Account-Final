@@ -3,11 +3,12 @@ import {
   Home, Users, Wallet, FileText, Settings, LogOut, ChevronDown, ChevronRight,
   BarChart3, Shield, Bell, Clock, FolderKanban, Package, CreditCard, 
   UserCheck, FileCheck, Building2, PieChart, TrendingUp, Globe, ClipboardList,
-  Boxes, CheckCircle2
+  Boxes, CheckCircle2, Moon, Sun
 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import NotificationCenter from './NotificationCenter';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 const ModernSidebar = ({ 
   user, 
