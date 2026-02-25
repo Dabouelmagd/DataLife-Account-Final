@@ -81,7 +81,9 @@ async def upload_logo(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Upload company logo"""
+    """Upload company logo - stores as Base64 in database"""
+    import base64
+    
     # Check if user belongs to this company
     if current_user.get("company_id") != company_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -92,52 +94,31 @@ async def upload_logo(
         raise HTTPException(status_code=403, detail="Only company administrators can upload logo")
     
     # Validate file type - accept all image types
-    allowed_types = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/svg+xml", "image/bmp"]
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files are allowed")
     
-    # Get file extension from content type or filename
-    content_type_extensions = {
-        "image/jpeg": "jpg",
-        "image/jpg": "jpg", 
-        "image/png": "png",
-        "image/gif": "gif",
-        "image/webp": "webp",
-        "image/svg+xml": "svg",
-        "image/bmp": "bmp"
-    }
-    
-    # Try to get extension from content type first, then from filename
-    file_extension = content_type_extensions.get(file.content_type)
-    if not file_extension and file.filename:
-        file_extension = file.filename.split(".")[-1].lower()
-    if not file_extension:
-        file_extension = "jpg"  # Default
-    
-    new_filename = f"{company_id}.{file_extension}"
-    file_path = UPLOAD_DIR / new_filename
-    
-    # Delete old logo files with different extensions
-    for ext in ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"]:
-        old_file = UPLOAD_DIR / f"{company_id}.{ext}"
-        if old_file.exists() and old_file != file_path:
-            try:
-                old_file.unlink()
-            except:
-                pass
-    
-    # Save file
+    # Read file content
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        file_content = await file.read()
+        
+        # Check file size (max 5MB)
+        if len(file_content) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File size too large (max 5MB)")
+        
+        # Convert to Base64 data URL
+        base64_data = base64.b64encode(file_content).decode('utf-8')
+        logo_data_url = f"data:{file.content_type};base64,{base64_data}"
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
     
-    # Update company logo_url in database
-    logo_url = f"/uploads/logos/{new_filename}"
+    # Update company logo_url in database (store as data URL)
     await db.companies.update_one(
         {"id": company_id},
-        {"$set": {"logo_url": logo_url}}
+        {"$set": {"logo_url": logo_data_url}}
+    )
+    
+    return {"message": "Logo uploaded successfully", "logo_url": logo_data_url}
     )
     
     return {"message": "Logo uploaded successfully", "logo_url": logo_url}
