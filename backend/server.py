@@ -111,6 +111,7 @@ app.include_router(documents_router)
 app.include_router(chatbot_router)
 app.include_router(contact_router)
 app.include_router(permissions_router)
+app.include_router(import_data_router)
 
 app.add_middleware(
     CORSMiddleware,
