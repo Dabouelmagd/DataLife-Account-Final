@@ -510,8 +510,6 @@ const LandingPage = () => {
           </div>
         </div>
       )}
-        </div>
-      )}
 
       {/* Stats Section */}
       <section className="py-12 bg-white border-b">
