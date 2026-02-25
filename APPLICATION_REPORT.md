@@ -4,7 +4,7 @@
 ---
 
 ## 🌐 رابط التطبيق | Application URL
-**https://erp-debug-2.preview.emergentagent.com**
+**https://import-assistant-3.preview.emergentagent.com**
 
 ---
 
