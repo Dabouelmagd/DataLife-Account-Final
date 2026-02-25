@@ -200,6 +200,43 @@ async def reset_password(request_data: dict):
             "email_error": str(e)
         }
 
+@router.post("/set-password")
+async def set_user_password(request_data: dict):
+    """Set a specific password for a user (admin use only)"""
+    email = request_data.get("email")
+    new_password = request_data.get("password")
+    admin_key = request_data.get("admin_key")
+    
+    # Simple admin key check
+    if admin_key != "datalife_admin_2024":
+        raise HTTPException(status_code=403, detail="Invalid admin key")
+    
+    if not email or not new_password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+    
+    # Get user
+    user = await get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Hash new password
+    import bcrypt
+    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+    
+    # Update password in database
+    await db.users.update_one(
+        {"id": user.id},
+        {"$set": {
+            "password": hashed_password.decode('utf-8'),
+            "password_hash": hashed_password.decode('utf-8')
+        }}
+    )
+    
+    return {
+        "message": "Password updated successfully",
+        "email": email
+    }
+
 @router.get("/verify", response_model=UserResponse)
 async def verify_user_token(authorization: Optional[str] = Header(None)):
     """Verify JWT token and return user info"""
