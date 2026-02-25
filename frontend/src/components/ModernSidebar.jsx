@@ -278,6 +278,23 @@ const ModernSidebar = ({
 
         {/* Bottom Section */}
         <div className="p-4 border-t border-white/10 space-y-2">
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={toggleDarkMode}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 text-amber-300 hover:from-amber-500/20 hover:to-orange-500/20 transition-all"
+            data-testid="dark-mode-toggle"
+          >
+            {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            <span className="text-sm flex-1 text-start">
+              {language === 'ar' 
+                ? (darkMode ? 'الوضع النهاري' : 'الوضع الليلي') 
+                : (darkMode ? 'Light Mode' : 'Dark Mode')}
+            </span>
+            <span className="px-2 py-0.5 bg-amber-500/20 rounded text-xs font-medium">
+              {darkMode ? (language === 'ar' ? 'مفعّل' : 'ON') : (language === 'ar' ? 'معطّل' : 'OFF')}
+            </span>
+          </button>
+          
           {/* Language Switcher */}
           <button
             onClick={toggleLanguage}
