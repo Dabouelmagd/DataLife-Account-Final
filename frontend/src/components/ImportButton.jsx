@@ -118,6 +118,24 @@ const ImportButton = ({
     }
   };
 
+  // Download errors as CSV
+  const downloadErrors = () => {
+    if (!uploadResult?.error_details?.length) return;
+    
+    const errorContent = uploadResult.error_details.map((error, idx) => 
+      `${idx + 1},${error}`
+    ).join('\n');
+    
+    const headers = language === 'ar' ? 'رقم,الخطأ' : 'Number,Error';
+    const csvContent = `\uFEFF${headers}\n${errorContent}`;
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `import_errors_${importType}_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+  };
+
   const label = typeLabels[importType] || { ar: importType, en: importType };
 
   return (
