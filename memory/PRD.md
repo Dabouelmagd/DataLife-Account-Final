@@ -9,48 +9,31 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ### ✅ COMPLETED AND VERIFIED (Feb 25, 2026)
 
-#### 12. Enhanced Dark Mode
-- **Request**: Improve dark mode for more components
+#### 14. Sidebar Logo Restructure
+- **Request**: 
+  - Company logo at top of sidebar menu
+  - DataLife Account logo + DataLife AI logo in footer bar
+  - Support for Arabic and English logos
 - **Implementation**:
-  - Extended CSS variables for comprehensive theming
-  - Dark backgrounds for: pages, cards, tables, modals, inputs, dropdowns
-  - Custom scrollbar styling for dark mode
-  - Proper hover states and focus rings
-  - Smooth transitions between modes
-- **Components Covered**:
-  - Page backgrounds (--bg-primary: #0f172a)
-  - Cards and card content
-  - Tables (headers, rows, hover states)
-  - Modals and dialogs
-  - Input fields and textareas
-  - Dropdown menus
-  - Badges and alerts
-  - Shadows and borders
-- **Test Status**: ✅ 100% (All components verified)
-
-#### 13. File Format Preview in Import Modal
-- **Request**: Show required file format before importing
-- **Implementation**:
-  - Added "Required File Format" collapsible section
-  - Table showing: Column Name | Required? | Example
-  - Required fields marked with red "Yes" badge
-  - Optional fields marked with gray "Optional" badge
-  - Example data for each column
-  - Note: "You can use Arabic or English column names"
-- **Supported Types**:
-  - Employees (7 columns)
-  - Customers (5 columns)
-  - Suppliers (5 columns)
-  - Inventory (6 columns)
-  - Invoices (6 columns)
-  - Purchases (5 columns)
-  - Revenues (4 columns)
-  - Expenses (4 columns)
-- **Test Status**: ✅ 100% (All import types verified)
+  - Top: Company logo (from DB) or default icon if no logo uploaded
+  - Footer bar with:
+    - DataLife Account logo (Arabic: داتا لايف أكونت / English)
+    - "POWERED BY" divider
+    - DataLife AI logo with globe design
+  - Language-aware logo switching
+- **Files Added**:
+  - `/app/frontend/public/datalife-account-en.jpg`
+  - `/app/frontend/public/datalife-account-ar.jpg`
+  - `/app/frontend/public/datalife-ai.png`
+- **Test Status**: ✅ Visual verification complete
 
 ---
 
 ### ✅ Previously Completed (Feb 25, 2026)
+
+#### 12-13. Dark Mode & File Format Preview
+- Enhanced dark mode for all components
+- File format preview in import modal
 
 #### 8-11. Data Import Features
 - Import from Excel/CSV
@@ -71,31 +54,49 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Key Files Modified (Latest Session)
 
-### Dark Mode
-- `/app/frontend/src/App.css` - Extended CSS variables and dark mode styles
-- `/app/frontend/src/contexts/ThemeContext.jsx` - Theme state management
+### Sidebar Logo Structure
+- `/app/frontend/src/components/ModernSidebar.jsx` - Restructured sidebar with:
+  - Company logo at top
+  - Footer bar with DataLife Account + DataLife AI logos
 
-### File Format Preview
-- `/app/frontend/src/components/ImportButton.jsx` - Added columnRequirements object
-- `/app/frontend/src/components/ImportDataPage.jsx` - Added columnRequirements object
+### Logo Files
+- `/app/frontend/public/datalife-account-en.jpg` - English logo
+- `/app/frontend/public/datalife-account-ar.jpg` - Arabic logo (داتا لايف أكونت)
+- `/app/frontend/public/datalife-ai.png` - DataLife AI logo with globe
 
 ---
 
-## CSS Variables (Dark Mode)
+## Sidebar Structure
 
-```css
-html.dark {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --bg-card: #1e293b;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --border-color: #334155;
-  --modal-bg: #1e293b;
-  --input-bg: #0f172a;
-  --table-header: #334155;
-}
+```
+┌─────────────────────────────┐
+│  [Company Logo]  Company    │ ← From DB or default icon
+│                  ERP System │
+│  [Subscription Code: XXX]   │
+├─────────────────────────────┤
+│  [User Profile Card]        │
+│  [Permissions Icons]        │
+├─────────────────────────────┤
+│  Dashboard                  │
+│  Human Resources  >         │
+│  Financial  >               │
+│  ...                        │
+├─────────────────────────────┤
+│  Dark Mode  [ON/OFF]        │
+│  Change Language [AR/EN]    │
+│  Settings                   │
+│  Logout                     │
+├─────────────────────────────┤
+│  ┌───────────────────────┐  │
+│  │  DataLife Account     │  │ ← Arabic or English based on lang
+│  │  (Logo)               │  │
+│  └───────────────────────┘  │
+│  ────── POWERED BY ──────   │
+│  ┌───────────────────────┐  │
+│  │  DataLife AI          │  │ ← Globe + Arabic text
+│  │  (Logo)               │  │
+│  └───────────────────────┘  │
+└─────────────────────────────┘
 ```
 
 ---
@@ -104,8 +105,7 @@ html.dark {
 - **Frontend**: React 18, TailwindCSS, Shadcn/UI
 - **Backend**: Python, FastAPI
 - **Database**: MongoDB
-- **File Processing**: pandas, openpyxl
-- **Theme**: Dark mode with CSS variables + localStorage
+- **Theme**: Dark mode with CSS variables
 
 ---
 
@@ -115,9 +115,9 @@ html.dark {
 - [x] Data Import from Excel/CSV
 - [x] Import buttons on all pages
 - [x] Error export for failed imports
-- [x] Dark Mode toggle
-- [x] Enhanced Dark Mode styling
+- [x] Dark Mode toggle + enhanced styling
 - [x] File Format Preview in import modal
+- [x] Sidebar Logo Restructure
 
 ### P1 - Future Enhancements
 - [ ] Deploy to production (datalifeaccount.com)
@@ -128,7 +128,6 @@ html.dark {
 
 ## Test Reports
 - Latest: `/app/test_reports/iteration_16.json`
-- Success Rate: 100% (All features verified)
 
 ---
 
