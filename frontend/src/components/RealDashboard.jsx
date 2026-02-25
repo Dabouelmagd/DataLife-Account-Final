@@ -954,8 +954,12 @@ const RealDashboard = () => {
       />
 
       {/* Main Content */}
-      <div className={`flex-1 overflow-y-auto p-6 ${isRTL ? 'mr-72' : 'ml-72'}`}>
-        {renderContent()}
+      <div className={`flex-1 flex flex-col overflow-y-auto ${isRTL ? 'mr-72' : 'ml-72'}`}>
+        <div className="flex-1 p-6">
+          {renderContent()}
+        </div>
+        {/* Footer */}
+        <AppFooter />
       </div>
     </div>
   );
