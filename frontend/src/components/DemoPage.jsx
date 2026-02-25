@@ -312,9 +312,15 @@ const DemoPage = ({ onClose }) => {
       icon: <Calculator className="h-5 w-5" />,
       hasSubModules: true
     },
+    { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices', icon: <FileText className="h-5 w-5" /> },
+    { id: 'purchases', name: language === 'ar' ? 'المشتريات' : 'Purchases', icon: <DollarSign className="h-5 w-5" /> },
+    { id: 'projects', name: language === 'ar' ? 'المشاريع' : 'Projects', icon: <Building2 className="h-5 w-5" /> },
     { id: 'inventory', name: t('demo.modules.inventory'), icon: <PieChart className="h-5 w-5" /> },
     { id: 'reports', name: t('demo.modules.reports'), icon: <FileText className="h-5 w-5" /> },
-    { id: 'analytics', name: t('demo.modules.analytics'), icon: <BarChart3 className="h-5 w-5" /> }
+    { id: 'analytics', name: t('demo.modules.analytics'), icon: <BarChart3 className="h-5 w-5" /> },
+    { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings', icon: <Settings className="h-5 w-5" /> },
+    { id: 'users', name: language === 'ar' ? 'إدارة المستخدمين' : 'User Management', icon: <Users className="h-5 w-5" /> },
+    { id: 'approvals', name: language === 'ar' ? 'الموافقات' : 'Approvals', icon: <CheckCircle className="h-5 w-5" /> }
   ];
 
   const hrSubModules = [
