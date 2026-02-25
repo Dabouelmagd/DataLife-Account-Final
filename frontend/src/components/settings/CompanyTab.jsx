@@ -22,7 +22,7 @@ const CompanyTab = ({
           <div className="flex flex-col items-center space-y-4">
             {company.logo_url ? (
               <img
-                src={company.logo_url.startsWith('http') ? company.logo_url : `${process.env.REACT_APP_BACKEND_URL}${company.logo_url}`}
+                src={`${company.logo_url.startsWith('http') ? company.logo_url : `${process.env.REACT_APP_BACKEND_URL}${company.logo_url}`}?t=${Date.now()}`}
                 alt="Company Logo"
                 className="w-40 h-40 object-contain border-2 border-gray-200 rounded-lg p-2"
                 onError={(e) => {
