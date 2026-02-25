@@ -48,47 +48,7 @@ Introduction This README provides a concise overview of a multi-tenant ERP desig
 o	دعم حاويات Docker و/أو Kubernetes (للنشر السريع).
 o	الوصول إلى قاعدة بيانات مناسبة (PostgreSQL/MySQL أو ما يحدَّد من قِبل فريق التطوير).
 o	واجهة ويب للوصول إلى التطبيق.
-•	مثال بسيط للنشر باستخدام Docker Compose (مثال توضيحي فقط):
-•	version: "3.8"
-•	services:
-•	  api:
-•	    image: your-org/erp-api:latest
-•	    environment:
-•	      - DATABASE_URL=postgres://user:pass@db/erp
-•	      - APP_BASE_URL=http://localhost:3000
-•	    ports:
-•	      - "3000:3000"
-•	  web:
-•	    image: your-org/erp-web:latest
-•	    depends_on:
-•	      - api
-•	    environment:
-•	      - REACT_APP_API_BASE_URL=http://api:3000
-•	    ports:
-•	      - "8080:80"
-•	  db:
-•	    image: postgres:15
-•	    environment:
-•	      - POSTGRES_USER=user
-•	      - POSTGRES_PASSWORD=pass
-•	      - POSTGRES_DB=erp
-•	    volumes:
-•	      - db_data:/var/lib/postgresql/data
-•	volumes:
-•	  db_data:
-ملاحظات:
-o	استبدل الصور (images) بأسماء الصور الفعلية لديك.
-o	قد تحتاج إلى تعريف خدمات إضافية مثل خدمة التوثيق (auth) وخدمة التحليلات وفق بنية مشروعك.
-•	مثال ملف بيئة توضيحي (.env):
-•	APP_ENV=production
-•	BASE_URL=https://erp.your-domain.com
-•	DB_HOST=db
-•	DB_NAME=erp
-•	DB_USER=user
-•	DB_PASSWORD=pass
-•	DEFAULT_LANGUAGE=ar
-•	ENABLE_SSO=true
-التهيئة والتكوين / Configuration
+ / Configuration
 •	نموذج الوصول والدور: RBAC مبني على تعريف Roles وPermissions المرتبطة بكل دور.
 •	اللغة والواجهة: دعم ثنائي اللغة مع تبديل تلقائي بناءً على إعدادات المستخدم/النظام.
 •	الإعدادات الأساسية تشمل: 
@@ -115,4 +75,4 @@ o	إعدادات التدقيق وسجلات الوصول.
 •	يعتمد الترخيص على إطار العمل الذي تم اختياره للمشروع. يمكن تخصيص قسم الرخصة وفق اختيار الفريق.
 •	مساهمة المجتمع مرحب بها. يرجى اتباع إجراءات CONTRIBUTING الخاصة بمشروعك (فتح قضايا، تقديم طلب سحب، إلخ).
 
-<img width="482" height="685" alt="image" src="https://github.com/user-attachments/assets/a5fe9ba4-0d4f-4fb4-a4e7-0d7910ee64a4" />
+<img width="482" height="685" alt="image" src="https://github.com/user-attachments/assets/92150832-e02a-4970-8661-86251c9a750c" />
