@@ -9,93 +9,94 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ### ✅ COMPLETED AND VERIFIED (Feb 25, 2026)
 
-#### 9. Import Buttons on All Pages
-- **Request**: User wanted import buttons on each page next to Print, PDF, Export
-- **Implementation**: Added `ImportButton` component to:
-  - Salaries/Employees page (HRSubModules.jsx)
-  - Customers page (FinancialSubModules.jsx)
-  - Suppliers page (FinancialSubModules.jsx)
-  - Inventory page (FinancialSubModules.jsx)
-  - Invoices page (InvoicesModule.jsx)
-  - Purchases page (PurchasesModule.jsx)
-- **Test Status**: ✅ 100% (All buttons visible and functional)
-
-#### 10. Error Export Feature
-- **Request**: Download failed import rows as CSV for easy correction
-- **Implementation**: 
-  - Added `downloadErrors()` function in ImportButton.jsx
-  - Shows "Download Errors" button when import has failures
-  - Exports CSV with row number and error description
-  - Supports Arabic/English headers
-- **Test Status**: ✅ 100% PASSED
-
-#### 11. Dark Mode
-- **Request**: Add dark mode toggle to the application
+#### 12. Enhanced Dark Mode
+- **Request**: Improve dark mode for more components
 - **Implementation**:
-  - Created `ThemeContext.jsx` for theme state management
-  - Added toggle button in sidebar (ModernSidebar.jsx)
-  - CSS variables and dark mode styles in App.css
-  - Persists preference in localStorage
-  - Shows "Light Mode"/"Dark Mode" with ON/OFF indicator
-- **Test Status**: ✅ 100% PASSED
+  - Extended CSS variables for comprehensive theming
+  - Dark backgrounds for: pages, cards, tables, modals, inputs, dropdowns
+  - Custom scrollbar styling for dark mode
+  - Proper hover states and focus rings
+  - Smooth transitions between modes
+- **Components Covered**:
+  - Page backgrounds (--bg-primary: #0f172a)
+  - Cards and card content
+  - Tables (headers, rows, hover states)
+  - Modals and dialogs
+  - Input fields and textareas
+  - Dropdown menus
+  - Badges and alerts
+  - Shadows and borders
+- **Test Status**: ✅ 100% (All components verified)
+
+#### 13. File Format Preview in Import Modal
+- **Request**: Show required file format before importing
+- **Implementation**:
+  - Added "Required File Format" collapsible section
+  - Table showing: Column Name | Required? | Example
+  - Required fields marked with red "Yes" badge
+  - Optional fields marked with gray "Optional" badge
+  - Example data for each column
+  - Note: "You can use Arabic or English column names"
+- **Supported Types**:
+  - Employees (7 columns)
+  - Customers (5 columns)
+  - Suppliers (5 columns)
+  - Inventory (6 columns)
+  - Invoices (6 columns)
+  - Purchases (5 columns)
+  - Revenues (4 columns)
+  - Expenses (4 columns)
+- **Test Status**: ✅ 100% (All import types verified)
 
 ---
 
-### ✅ COMPLETED (Feb 25, 2026)
+### ✅ Previously Completed (Feb 25, 2026)
 
-#### 8. Data Import Feature (Excel/CSV)
-- **Implementation**:
-  - Backend API endpoints at `/api/import/{type}`
-  - Support for: employees, customers, suppliers, inventory, invoices, purchases, revenues, expenses
-  - Template download at `/api/import/template/{type}`
-  - Import history tracking
-- **Frontend**:
-  - Dedicated "Import Data" page in sidebar
-  - 8 import type cards with file upload modal
-  - Import history table
-- **Test Status**: ✅ 100% (23/23 backend tests passed)
-
----
-
-### ✅ COMPLETED (Feb 8, 2026)
-
-#### Previous Features
-- Advanced Analytics Page
-- CompanySettings.jsx Refactoring
-- Unified Permissions System
-- Language Switcher
-- Super Admin Dashboard
-- Contact Form & Messages
-- Company Logo Display (Base64)
-- Demo Page Update
-- Permission Icon Display Fix
+#### 8-11. Data Import Features
+- Import from Excel/CSV
+- Import buttons on all pages
+- Error export feature
+- Dark mode toggle
 
 ---
 
 ## Test Credentials
 
-| Role | Email | Password | Redirects To |
-|------|-------|----------|--------------|
-| Super Admin | superadmin@datalife.com | Admin@2024 | /admin |
-| Board Chairman | dalia@datalifeai.com | Dalia@2024 | /dashboard |
+| Role | Email | Password |
+|------|-------|----------|
+| Super Admin | superadmin@datalife.com | Admin@2024 |
+| Board Chairman | dalia@datalifeai.com | Dalia@2024 |
 
 ---
 
-## Key Files Reference
+## Key Files Modified (Latest Session)
 
-### New/Modified Files (Feb 25)
-- `/app/frontend/src/components/ImportButton.jsx` - Reusable import button with error export
-- `/app/frontend/src/contexts/ThemeContext.jsx` - Dark mode context
-- `/app/frontend/src/components/ModernSidebar.jsx` - Dark mode toggle added
-- `/app/frontend/src/App.css` - Dark mode CSS styles
-- `/app/frontend/src/components/HRSubModules.jsx` - Import button added
-- `/app/frontend/src/components/FinancialSubModules.jsx` - Import buttons added
-- `/app/frontend/src/components/InvoicesModule.jsx` - Import button added
-- `/app/frontend/src/components/PurchasesModule.jsx` - Import button added
+### Dark Mode
+- `/app/frontend/src/App.css` - Extended CSS variables and dark mode styles
+- `/app/frontend/src/contexts/ThemeContext.jsx` - Theme state management
 
-### Backend
-- `/app/backend/api/import_data.py` - Import API endpoints
-- `/app/backend/server.py` - Router registration
+### File Format Preview
+- `/app/frontend/src/components/ImportButton.jsx` - Added columnRequirements object
+- `/app/frontend/src/components/ImportDataPage.jsx` - Added columnRequirements object
+
+---
+
+## CSS Variables (Dark Mode)
+
+```css
+html.dark {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --bg-card: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border-color: #334155;
+  --modal-bg: #1e293b;
+  --input-bg: #0f172a;
+  --table-header: #334155;
+}
+```
 
 ---
 
@@ -103,36 +104,31 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - **Frontend**: React 18, TailwindCSS, Shadcn/UI
 - **Backend**: Python, FastAPI
 - **Database**: MongoDB
-- **Authentication**: JWT
-- **File Processing**: pandas, openpyxl (for Excel)
-- **Theme**: Dark mode with CSS variables
+- **File Processing**: pandas, openpyxl
+- **Theme**: Dark mode with CSS variables + localStorage
 
 ---
 
 ## Prioritized Backlog
 
 ### P0 - Completed ✅
-- [x] User authentication & authorization
-- [x] Role-based permissions system
-- [x] Super Admin control panel
-- [x] Language switcher
 - [x] Data Import from Excel/CSV
 - [x] Import buttons on all pages
 - [x] Error export for failed imports
 - [x] Dark Mode toggle
+- [x] Enhanced Dark Mode styling
+- [x] File Format Preview in import modal
 
 ### P1 - Future Enhancements
 - [ ] Deploy to production (datalifeaccount.com)
-- [ ] Email notifications for import completion
+- [ ] Email notifications
 - [ ] WhatsApp Integration
-- [ ] Dark mode for more components (cards, modals)
 
 ---
 
 ## Test Reports
-- Latest: `/app/test_reports/iteration_15.json`
-- Import API Tests: 100% (23/23 passed)
-- Frontend UI Tests: 100% (8/8 features verified)
+- Latest: `/app/test_reports/iteration_16.json`
+- Success Rate: 100% (All features verified)
 
 ---
 
