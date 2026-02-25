@@ -428,21 +428,21 @@ const ImportDataPage = ({ language }) => {
           onClick={() => setShowImportModal(false)}
         >
           <div 
-            className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl"
+            className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
             dir={isRTL ? 'rtl' : 'ltr'}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${selectedType.color} text-white`}>
                   {selectedType.icon}
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                     {language === 'ar' ? `استيراد ${selectedType.name}` : `Import ${selectedType.name}`}
                   </h2>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     {language === 'ar' 
                       ? 'اختر ملف Excel أو CSV'
                       : 'Select an Excel or CSV file'}
@@ -451,10 +451,86 @@ const ImportDataPage = ({ language }) => {
               </div>
               <button 
                 onClick={() => setShowImportModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X className="h-6 w-6" />
               </button>
+            </div>
+
+            {/* File Format Section */}
+            <div className="mb-4">
+              <button
+                onClick={() => setShowFormat(!showFormat)}
+                className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-700 rounded-lg hover:from-purple-100 hover:to-indigo-100 transition-all"
+              >
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  <span className="font-medium text-purple-800 dark:text-purple-300">
+                    {language === 'ar' ? 'شكل الملف المطلوب' : 'Required File Format'}
+                  </span>
+                </div>
+                {showFormat ? (
+                  <EyeOff className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                ) : (
+                  <Eye className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                )}
+              </button>
+
+              {showFormat && (
+                <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-100 dark:bg-gray-700">
+                        <th className="px-4 py-2 text-start font-semibold text-gray-700 dark:text-gray-200">
+                          {language === 'ar' ? 'العمود' : 'Column'}
+                        </th>
+                        <th className="px-4 py-2 text-center font-semibold text-gray-700 dark:text-gray-200">
+                          {language === 'ar' ? 'مطلوب؟' : 'Required?'}
+                        </th>
+                        <th className="px-4 py-2 text-start font-semibold text-gray-700 dark:text-gray-200">
+                          {language === 'ar' ? 'مثال' : 'Example'}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {getCurrentColumns().map((col, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-4 py-2">
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {language === 'ar' ? col.ar : col.en}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            {col.required ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                {language === 'ar' ? 'نعم' : 'Yes'}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                                {language === 'ar' ? 'اختياري' : 'Optional'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
+                            <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs">
+                              {col.example}
+                            </code>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border-t border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      {language === 'ar' 
+                        ? 'يمكن استخدام الأسماء العربية أو الإنجليزية للأعمدة'
+                        : 'You can use Arabic or English column names'}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Template Download */}
