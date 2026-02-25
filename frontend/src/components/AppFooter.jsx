@@ -13,8 +13,27 @@ const AppFooter = () => {
     >
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          {/* DataLife Account Logo */}
+          {/* DataLife AI - Company/Owner */}
           <div className="flex items-center gap-4">
+            <div className="bg-white rounded-xl p-3 shadow-lg">
+              <img 
+                src="/datalife-ai.png"
+                alt="DataLife AI"
+                className="h-14 w-auto object-contain"
+              />
+            </div>
+            <div className="hidden md:block">
+              <p className="text-white font-semibold text-sm">
+                {language === 'ar' ? 'داتا لايف لخدمات الذكاء الاصطناعي' : 'DataLife AI Services'}
+              </p>
+              <p className="text-slate-400 text-xs">
+                {language === 'ar' ? 'حلول ذكية للأعمال' : 'Smart Business Solutions'}
+              </p>
+            </div>
+          </div>
+
+          {/* Center - Product Info */}
+          <div className="flex flex-col items-center gap-2">
             <div className="bg-white rounded-xl p-3 shadow-lg">
               <img 
                 src={language === 'ar' ? '/datalife-account-ar.jpg' : '/datalife-account-en.jpg'}
@@ -22,50 +41,20 @@ const AppFooter = () => {
                 className="h-12 w-auto object-contain"
               />
             </div>
-            <div className="hidden md:block">
-              <p className="text-slate-400 text-sm">
-                {language === 'ar' ? 'نظام إدارة الموارد' : 'Enterprise Resource Planning'}
-              </p>
-              <p className="text-slate-500 text-xs">
-                © {currentYear} {language === 'ar' ? 'جميع الحقوق محفوظة' : 'All Rights Reserved'}
-              </p>
-            </div>
+            <p className="text-slate-400 text-xs text-center">
+              {language === 'ar' ? 'نظام إدارة موارد المؤسسات' : 'Enterprise Resource Planning System'}
+            </p>
           </div>
 
-          {/* Powered By Divider */}
-          <div className="flex items-center gap-4">
-            <div className="h-px w-12 bg-gradient-to-r from-transparent to-slate-600 hidden md:block"></div>
-            <span className="text-xs text-slate-500 uppercase tracking-widest font-medium">
-              Powered by
-            </span>
-            <div className="h-px w-12 bg-gradient-to-l from-transparent to-slate-600 hidden md:block"></div>
+          {/* Copyright */}
+          <div className="text-center md:text-end">
+            <p className="text-slate-400 text-sm">
+              © {currentYear} {language === 'ar' ? 'داتا لايف' : 'DataLife'}
+            </p>
+            <p className="text-slate-500 text-xs">
+              {language === 'ar' ? 'جميع الحقوق محفوظة' : 'All Rights Reserved'}
+            </p>
           </div>
-
-          {/* DataLife AI Logo */}
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block text-end">
-              <p className="text-slate-400 text-sm">
-                {language === 'ar' ? 'داتا لايف للذكاء الاصطناعي' : 'DataLife AI'}
-              </p>
-              <p className="text-slate-500 text-xs">
-                {language === 'ar' ? 'حلول ذكية للأعمال' : 'Smart Business Solutions'}
-              </p>
-            </div>
-            <div className="bg-white rounded-xl p-3 shadow-lg">
-              <img 
-                src="/datalife-ai.png"
-                alt="DataLife AI"
-                className="h-12 w-auto object-contain"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Copyright */}
-        <div className="md:hidden text-center mt-4">
-          <p className="text-slate-500 text-xs">
-            © {currentYear} {language === 'ar' ? 'جميع الحقوق محفوظة' : 'All Rights Reserved'}
-          </p>
         </div>
       </div>
     </footer>
