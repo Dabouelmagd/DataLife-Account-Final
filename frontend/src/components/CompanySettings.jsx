@@ -242,8 +242,8 @@ const CompanySettings = () => {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage(language === 'ar' ? 'حجم الملف كبير جداً (الحد الأقصى 5 ميجابايت)' : 'File size too large (max 5MB)');
+    if (file.size > 10 * 1024 * 1024) {
+      setMessage(language === 'ar' ? 'حجم الملف كبير جداً (الحد الأقصى 10 ميجابايت)' : 'File size too large (max 10MB)');
       return;
     }
 
@@ -255,7 +255,7 @@ const CompanySettings = () => {
       formData.append('file', file);
 
       const token = localStorage.getItem('token');
-      await axios.post(
+      const response = await axios.post(
         `${process.env.REACT_APP_BACKEND_URL}/api/companies/${user.company_id}/upload-logo`,
         formData,
         {
@@ -267,10 +267,19 @@ const CompanySettings = () => {
       );
 
       setMessage(language === 'ar' ? 'تم رفع الشعار بنجاح!' : 'Logo uploaded successfully!');
-      fetchCompanyData();
+      setMessageType('success');
+      
+      // Force refresh company data and reload page to show new logo
+      await fetchCompanyData();
+      
+      // Add cache-busting and reload
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       console.error('Error uploading logo:', error);
       setMessage(language === 'ar' ? 'فشل رفع الشعار' : 'Failed to upload logo');
+      setMessageType('error');
     } finally {
       setUploading(false);
     }
