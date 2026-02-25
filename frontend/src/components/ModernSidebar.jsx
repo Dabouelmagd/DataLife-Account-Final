@@ -114,14 +114,9 @@ const ModernSidebar = ({
               {/* Avatar */}
               {(user?.profile_photo_url || user?.profile_photo) ? (
                 <img
-                  src={(user.profile_photo_url || user.profile_photo).startsWith('http') 
-                    ? (user.profile_photo_url || user.profile_photo) 
-                    : `${process.env.REACT_APP_BACKEND_URL}${user.profile_photo_url || user.profile_photo}`}
+                  src={user.profile_photo_url || user.profile_photo}
                   alt={user.full_name}
                   className="w-12 h-12 rounded-xl object-cover ring-2 ring-white/20"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                  }}
                 />
               ) : (
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
