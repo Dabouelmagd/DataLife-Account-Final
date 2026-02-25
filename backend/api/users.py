@@ -647,7 +647,7 @@ async def update_user_permissions_endpoint(
     
     # Validate permissions
     valid_permission_ids = ['dashboard', 'hr', 'financial', 'invoices', 'purchases', 
-                           'projects', 'analytics', 'settings', 'users', 'approvals']
+                           'projects', 'reports', 'analytics', 'inventory', 'settings', 'users', 'approvals']
     
     for perm in permissions_data.permissions:
         if perm not in valid_permission_ids:
