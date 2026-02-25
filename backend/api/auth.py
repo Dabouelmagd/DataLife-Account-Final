@@ -237,6 +237,68 @@ async def set_user_password(request_data: dict):
         "email": email
     }
 
+@router.post("/change-password")
+async def change_password(
+    request_data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Change user's own password (requires current password)"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header missing")
+    
+    try:
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            raise HTTPException(status_code=401, detail="Invalid authentication scheme")
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid authorization header format")
+    
+    payload = verify_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    current_password = request_data.get("current_password")
+    new_password = request_data.get("new_password")
+    
+    if not current_password or not new_password:
+        raise HTTPException(status_code=400, detail="Current password and new password are required")
+    
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    
+    # Get user from database
+    user_id = payload.get("user_id")
+    user_doc = await db.users.find_one({"id": user_id})
+    
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify current password
+    stored_password = user_doc.get("password") or user_doc.get("password_hash")
+    if not stored_password:
+        raise HTTPException(status_code=400, detail="User has no password set")
+    
+    import bcrypt
+    if not bcrypt.checkpw(current_password.encode('utf-8'), stored_password.encode('utf-8')):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    
+    # Hash new password
+    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+    
+    # Update password
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "password": hashed_password.decode('utf-8'),
+            "password_hash": hashed_password.decode('utf-8')
+        }}
+    )
+    
+    return {
+        "message": "Password changed successfully",
+        "message_ar": "تم تغيير كلمة المرور بنجاح"
+    }
+
 @router.get("/verify", response_model=UserResponse)
 async def verify_user_token(authorization: Optional[str] = Header(None)):
     """Verify JWT token and return user info"""
