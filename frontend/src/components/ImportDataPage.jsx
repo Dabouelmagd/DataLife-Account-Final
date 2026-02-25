@@ -6,7 +6,7 @@ import { Badge } from './ui/badge';
 import {
   Upload, FileSpreadsheet, Users, Building2, Package, FileText,
   ShoppingCart, Wallet, Download, CheckCircle, XCircle, Clock,
-  AlertCircle, Loader2, X, Info, ChevronDown, ChevronUp
+  AlertCircle, Loader2, X, Info, ChevronDown, ChevronUp, Eye, EyeOff
 } from 'lucide-react';
 
 const ImportDataPage = ({ language }) => {
@@ -19,8 +19,76 @@ const ImportDataPage = ({ language }) => {
   const [uploadResult, setUploadResult] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
+  const [showFormat, setShowFormat] = useState(true);
 
   const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+  // Column requirements for each type
+  const columnRequirements = {
+    employees: [
+      { key: 'name', ar: 'الاسم', en: 'Name', required: true, example: 'أحمد محمد' },
+      { key: 'position', ar: 'الوظيفة', en: 'Position', required: true, example: 'مهندس برمجيات' },
+      { key: 'department', ar: 'القسم', en: 'Department', required: false, example: 'تكنولوجيا المعلومات' },
+      { key: 'email', ar: 'البريد الإلكتروني', en: 'Email', required: false, example: 'ahmed@example.com' },
+      { key: 'phone', ar: 'الهاتف', en: 'Phone', required: false, example: '01234567890' },
+      { key: 'hire_date', ar: 'تاريخ التعيين', en: 'Hire Date', required: false, example: '2024-01-15' },
+      { key: 'basic_salary', ar: 'الراتب الأساسي', en: 'Basic Salary', required: false, example: '15000' }
+    ],
+    customers: [
+      { key: 'name', ar: 'الاسم', en: 'Name', required: true, example: 'شركة ABC' },
+      { key: 'email', ar: 'البريد الإلكتروني', en: 'Email', required: false, example: 'info@abc.com' },
+      { key: 'phone', ar: 'الهاتف', en: 'Phone', required: false, example: '01234567890' },
+      { key: 'address', ar: 'العنوان', en: 'Address', required: false, example: 'القاهرة' },
+      { key: 'balance', ar: 'الرصيد', en: 'Balance', required: false, example: '5000' }
+    ],
+    suppliers: [
+      { key: 'name', ar: 'الاسم', en: 'Name', required: true, example: 'مورد XYZ' },
+      { key: 'email', ar: 'البريد الإلكتروني', en: 'Email', required: false, example: 'info@xyz.com' },
+      { key: 'phone', ar: 'الهاتف', en: 'Phone', required: false, example: '01234567890' },
+      { key: 'address', ar: 'العنوان', en: 'Address', required: false, example: 'الجيزة' },
+      { key: 'balance', ar: 'الرصيد', en: 'Balance', required: false, example: '10000' }
+    ],
+    inventory: [
+      { key: 'name', ar: 'الاسم', en: 'Name', required: true, example: 'منتج 1' },
+      { key: 'category', ar: 'الفئة', en: 'Category', required: false, example: 'مواد خام' },
+      { key: 'quantity', ar: 'الكمية', en: 'Quantity', required: false, example: '100' },
+      { key: 'unit', ar: 'الوحدة', en: 'Unit', required: false, example: 'كيلو' },
+      { key: 'unit_price', ar: 'سعر الوحدة', en: 'Unit Price', required: false, example: '50' },
+      { key: 'min_stock', ar: 'الحد الأدنى', en: 'Min Stock', required: false, example: '20' }
+    ],
+    invoices: [
+      { key: 'invoice_number', ar: 'رقم الفاتورة', en: 'Invoice Number', required: false, example: 'INV-001' },
+      { key: 'customer_name', ar: 'اسم العميل', en: 'Customer Name', required: true, example: 'عميل 1' },
+      { key: 'date', ar: 'التاريخ', en: 'Date', required: false, example: '2024-01-15' },
+      { key: 'due_date', ar: 'تاريخ الاستحقاق', en: 'Due Date', required: false, example: '2024-02-15' },
+      { key: 'amount', ar: 'المبلغ', en: 'Amount', required: true, example: '5000' },
+      { key: 'status', ar: 'الحالة', en: 'Status', required: false, example: 'pending' }
+    ],
+    purchases: [
+      { key: 'purchase_number', ar: 'رقم الشراء', en: 'Purchase Number', required: false, example: 'PO-001' },
+      { key: 'supplier_name', ar: 'اسم المورد', en: 'Supplier Name', required: true, example: 'مورد 1' },
+      { key: 'date', ar: 'التاريخ', en: 'Date', required: false, example: '2024-01-15' },
+      { key: 'amount', ar: 'المبلغ', en: 'Amount', required: true, example: '10000' },
+      { key: 'status', ar: 'الحالة', en: 'Status', required: false, example: 'pending' }
+    ],
+    revenue: [
+      { key: 'date', ar: 'التاريخ', en: 'Date', required: true, example: '2024-01-15' },
+      { key: 'description', ar: 'الوصف', en: 'Description', required: true, example: 'مبيعات منتجات' },
+      { key: 'amount', ar: 'المبلغ', en: 'Amount', required: true, example: '25000' },
+      { key: 'category', ar: 'الفئة', en: 'Category', required: false, example: 'مبيعات' }
+    ],
+    expenses: [
+      { key: 'date', ar: 'التاريخ', en: 'Date', required: true, example: '2024-01-15' },
+      { key: 'description', ar: 'الوصف', en: 'Description', required: true, example: 'إيجار مكتب' },
+      { key: 'amount', ar: 'المبلغ', en: 'Amount', required: true, example: '5000' },
+      { key: 'category', ar: 'الفئة', en: 'Category', required: false, example: 'إيجارات' }
+    ]
+  };
+
+  const getCurrentColumns = () => {
+    if (!selectedType) return [];
+    return columnRequirements[selectedType.dataType || selectedType.id] || [];
+  };
 
   // Import types configuration
   const importTypes = [
