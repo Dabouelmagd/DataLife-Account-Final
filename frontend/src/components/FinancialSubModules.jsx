@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Users, Phone, Mail, MapPin, DollarSign, Printer, CheckCircle, TrendingUp, TrendingDown, Loader2, RefreshCw, File } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Users, Phone, Mail, MapPin, DollarSign, Printer, CheckCircle, TrendingUp, TrendingDown, Loader2, RefreshCw, File, Upload } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { printContent, exportToPDF, generateTableHTML, generateStatsHTML } from '../utils/printExport';
+import ImportButton from './ImportButton';
 
 // Journal Entries Component
 export const JournalEntriesModule = ({ language, userRole }) => {
