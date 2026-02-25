@@ -365,23 +365,23 @@ const ImportButton = ({
               <div 
                 className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
                   selectedFile 
-                    ? 'border-green-300 bg-green-50' 
-                    : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                    ? 'border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700' 
+                    : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                 }`}
                 onClick={() => fileInputRef.current?.click()}
               >
                 {selectedFile ? (
                   <div className="space-y-1">
                     <CheckCircle className="h-8 w-8 mx-auto text-green-500" />
-                    <p className="font-medium text-green-700 text-sm">{selectedFile.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="font-medium text-green-700 dark:text-green-400 text-sm">{selectedFile.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {(selectedFile.size / 1024).toFixed(2)} KB
                     </p>
                   </div>
                 ) : (
                   <>
                     <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-600 text-sm">
+                    <p className="text-gray-600 dark:text-gray-300 text-sm">
                       {language === 'ar' 
                         ? 'انقر لاختيار ملف'
                         : 'Click to select a file'}
