@@ -616,6 +616,7 @@ const InvoicesModule = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          <ImportButton language={language} importType="invoices" onSuccess={() => fetchInvoices()} />
           <Button variant="outline" onClick={handleExportCSV} className="gap-2" data-testid="export-csv-btn">
             <FileDown className="h-4 w-4" />
             {isRTL ? 'تصدير CSV' : 'Export CSV'}
