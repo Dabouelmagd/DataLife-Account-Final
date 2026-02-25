@@ -599,6 +599,7 @@ const PurchasesModule = () => {
           
           {activeTab === 'orders' ? (
             <div className="flex gap-2">
+              <ImportButton language={language} importType="purchases" onSuccess={() => fetchOrders()} />
               <Button variant="outline" onClick={handleExportOrdersCSV} className="gap-2">
                 <FileDown className="h-4 w-4" />
                 {isRTL ? 'تصدير CSV' : 'Export CSV'}
@@ -609,10 +610,13 @@ const PurchasesModule = () => {
               </Button>
             </div>
           ) : (
-            <Button onClick={() => setShowSupplierDialog(true)} className="gap-2" data-testid="add-supplier-btn">
-              <Plus className="h-4 w-4" />
-              {t.addSupplier}
-            </Button>
+            <div className="flex gap-2">
+              <ImportButton language={language} importType="suppliers" onSuccess={() => fetchSuppliers()} />
+              <Button onClick={() => setShowSupplierDialog(true)} className="gap-2" data-testid="add-supplier-btn">
+                <Plus className="h-4 w-4" />
+                {t.addSupplier}
+              </Button>
+            </div>
           )}
         </div>
 
