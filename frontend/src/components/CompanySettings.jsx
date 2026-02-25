@@ -241,7 +241,12 @@ const CompanySettings = () => {
       setMessage(language === 'ar' ? 'تم رفع الصورة بنجاح!' : 'Photo uploaded successfully!');
       setMessageType('success');
       
-      const updatedUser = { ...user, profile_photo: response.data.photo_url };
+      // Build full URL for the photo
+      const photoUrl = response.data.photo_url.startsWith('http') 
+        ? response.data.photo_url 
+        : `${process.env.REACT_APP_BACKEND_URL}${response.data.photo_url}`;
+      
+      const updatedUser = { ...user, profile_photo: photoUrl, profile_photo_url: photoUrl };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       window.location.reload();
     } catch (error) {
