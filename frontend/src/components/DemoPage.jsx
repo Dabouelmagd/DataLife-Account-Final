@@ -2309,91 +2309,164 @@ const DemoPage = ({ onClose }) => {
       </div>
 
       <div className="flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-white h-screen shadow-sm overflow-y-auto">
-          <div className="p-6">
-            <div className="space-y-2">
-              {modules.map((module) => (
-                <div key={module.id}>
-                  <Button
-                    variant={activeModule === module.id && !activeFinancialSubModule && !activeHRSubModule ? "default" : "ghost"}
-                    className={`w-full justify-start ${activeModule === module.id && !activeFinancialSubModule && !activeHRSubModule ? 'bg-[#28376B]' : ''}`}
-                    onClick={() => {
-                      if (module.hasSubModules) {
-                        setExpandedModule(expandedModule === module.id ? null : module.id);
-                        setActiveModule(module.id);
-                        if (expandedModule !== module.id) {
-                          setActiveFinancialSubModule(null);
-                          setActiveHRSubModule(null);
-                        }
-                      } else {
-                        setActiveModule(module.id);
-                        setActiveFinancialSubModule(null);
-                        setActiveHRSubModule(null);
-                        setExpandedModule(null);
-                      }
-                    }}
-                  >
-                    {module.icon}
-                    <span className={`${isRTL ? 'mr-2' : 'ml-2'} flex-1 text-${isRTL ? 'right' : 'left'}`}>{module.name}</span>
-                    {module.hasSubModules && (
-                      expandedModule === module.id ? 
-                        <ChevronDown className="h-4 w-4" /> : 
-                        <ChevronRight className="h-4 w-4" />
-                    )}
-                  </Button>
-                  
-                  {/* Sub-modules for HR */}
-                  {module.hasSubModules && module.id === 'hr' && expandedModule === module.id && (
-                    <div className={`${isRTL ? 'mr-4' : 'ml-4'} mt-1 space-y-1`}>
-                      {hrSubModules.map((subModule) => (
-                        <Button
-                          key={subModule.id}
-                          variant={activeHRSubModule === subModule.id ? "default" : "ghost"}
-                          size="sm"
-                          className={`w-full justify-start ${activeHRSubModule === subModule.id ? 'bg-[#28376B]' : ''}`}
-                          onClick={() => {
-                            setActiveHRSubModule(subModule.id);
-                            setActiveFinancialSubModule(null);
-                            setActiveModule('hr');
-                          }}
-                        >
-                          {subModule.icon}
-                          <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-sm`}>{subModule.name}</span>
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Sub-modules for Financial */}
-                  {module.hasSubModules && module.id === 'financial' && expandedModule === module.id && (
-                    <div className={`${isRTL ? 'mr-4' : 'ml-4'} mt-1 space-y-1`}>
-                      {financialSubModules.map((subModule) => (
-                        <Button
-                          key={subModule.id}
-                          variant={activeFinancialSubModule === subModule.id ? "default" : "ghost"}
-                          size="sm"
-                          className={`w-full justify-start ${activeFinancialSubModule === subModule.id ? 'bg-[#28376B]' : ''}`}
-                          onClick={() => {
-                            setActiveFinancialSubModule(subModule.id);
-                            setActiveHRSubModule(null);
-                            setActiveModule('financial');
-                          }}
-                        >
-                          {subModule.icon}
-                          <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-sm`}>{subModule.name}</span>
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+        {/* Modern Sidebar */}
+        <div className="w-72 bg-gradient-to-b from-[#28376B] via-[#1e2a5a] to-[#162045] h-screen shadow-xl overflow-y-auto">
+          {/* Logo & Company Section */}
+          <div className="p-4 border-b border-white/10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                <Building2 className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <h2 className="text-white font-bold text-lg">DataLife ERP</h2>
+                <p className="text-white/60 text-xs">{language === 'ar' ? 'العرض التوضيحي' : 'Demo Mode'}</p>
+              </div>
+            </div>
+            <div className="bg-white/5 rounded-lg px-3 py-2 flex items-center justify-between">
+              <span className="text-white/70 text-xs">{language === 'ar' ? 'كود الاشتراك' : 'Subscription Code'}</span>
+              <code className="text-amber-400 font-mono text-sm">DEMO2024</code>
             </div>
           </div>
+
+          {/* Demo User Profile */}
+          <div className="p-4 border-b border-white/10">
+            <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
+                  {language === 'ar' ? 'م' : 'A'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-white font-semibold truncate">
+                    {language === 'ar' ? 'مدير النظام' : 'Admin User'}
+                  </h3>
+                  <p className="text-white/60 text-xs truncate">
+                    {language === 'ar' ? 'رئيس مجلس الإدارة' : 'Board Chairman'}
+                  </p>
+                </div>
+              </div>
+              {/* Permission Icons - All Green for Demo */}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {[
+                  <Home key="1" className="h-3.5 w-3.5" />,
+                  <Users key="2" className="h-3.5 w-3.5" />,
+                  <Calculator key="3" className="h-3.5 w-3.5" />,
+                  <FileText key="4" className="h-3.5 w-3.5" />,
+                  <DollarSign key="5" className="h-3.5 w-3.5" />,
+                  <Building2 key="6" className="h-3.5 w-3.5" />,
+                  <PieChart key="7" className="h-3.5 w-3.5" />,
+                  <FileText key="8" className="h-3.5 w-3.5" />,
+                  <BarChart3 key="9" className="h-3.5 w-3.5" />,
+                  <Settings key="10" className="h-3.5 w-3.5" />,
+                  <Users key="11" className="h-3.5 w-3.5" />,
+                  <CheckCircle key="12" className="h-3.5 w-3.5" />,
+                ].map((icon, index) => (
+                  <span 
+                    key={index}
+                    className="p-1.5 rounded-lg bg-green-500/30 text-green-300 ring-1 ring-green-500/50"
+                    title={language === 'ar' ? 'مسموح' : 'Allowed'}
+                  >
+                    {icon}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Modules */}
+          <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+            {modules.map((module) => (
+              <div key={module.id}>
+                <button
+                  onClick={() => {
+                    if (module.hasSubModules) {
+                      setExpandedModule(expandedModule === module.id ? null : module.id);
+                      setActiveModule(module.id);
+                      if (expandedModule !== module.id) {
+                        setActiveFinancialSubModule(null);
+                        setActiveHRSubModule(null);
+                      }
+                    } else {
+                      setActiveModule(module.id);
+                      setActiveFinancialSubModule(null);
+                      setActiveHRSubModule(null);
+                      setExpandedModule(null);
+                    }
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                    activeModule === module.id && !activeFinancialSubModule && !activeHRSubModule
+                      ? 'bg-white/20 text-white shadow-lg'
+                      : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <span className={`p-2 rounded-lg ${
+                    activeModule === module.id && !activeFinancialSubModule && !activeHRSubModule
+                      ? 'bg-white/20'
+                      : 'bg-white/5'
+                  }`}>
+                    {module.icon}
+                  </span>
+                  <span className="flex-1 text-sm font-medium text-left">{module.name}</span>
+                  {module.hasSubModules && (
+                    expandedModule === module.id ? 
+                      <ChevronDown className="h-4 w-4" /> : 
+                      <ChevronRight className="h-4 w-4" />
+                  )}
+                </button>
+                
+                {/* Sub-modules for HR */}
+                {module.hasSubModules && module.id === 'hr' && expandedModule === module.id && (
+                  <div className="ml-4 mt-1 space-y-1">
+                    {hrSubModules.map((subModule) => (
+                      <button
+                        key={subModule.id}
+                        onClick={() => {
+                          setActiveHRSubModule(subModule.id);
+                          setActiveFinancialSubModule(null);
+                          setActiveModule('hr');
+                        }}
+                        className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm ${
+                          activeHRSubModule === subModule.id
+                            ? 'bg-white/15 text-white'
+                            : 'text-white/60 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        {subModule.icon}
+                        <span>{subModule.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Sub-modules for Financial */}
+                {module.hasSubModules && module.id === 'financial' && expandedModule === module.id && (
+                  <div className="ml-4 mt-1 space-y-1">
+                    {financialSubModules.map((subModule) => (
+                      <button
+                        key={subModule.id}
+                        onClick={() => {
+                          setActiveFinancialSubModule(subModule.id);
+                          setActiveHRSubModule(null);
+                          setActiveModule('financial');
+                        }}
+                        className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm ${
+                          activeFinancialSubModule === subModule.id
+                            ? 'bg-white/15 text-white'
+                            : 'text-white/60 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        {subModule.icon}
+                        <span>{subModule.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </nav>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 p-6">
+        <div className="flex-1 p-6 bg-gray-50">
           {renderModule()}
         </div>
       </div>
