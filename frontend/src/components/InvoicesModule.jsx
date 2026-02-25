@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import AttachmentsManager from './AttachmentsManager';
 import ImportButton from './ImportButton';
+import useRealTimeSync from '../hooks/useRealTimeSync';
 
 const InvoicesModule = () => {
   const { token } = useAuth();
