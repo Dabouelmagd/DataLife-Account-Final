@@ -399,64 +399,6 @@ const LandingPage = () => {
                 </div>
               </section>
 
-              {/* Test Credentials */}
-              <section>
-                <h3 className="text-2xl font-bold text-[#28376B] mb-4 flex items-center gap-2">
-                  <Key className="h-6 w-6" />
-                  {language === 'ar' ? 'بيانات الدخول التجريبية' : 'Test Login Credentials'}
-                </h3>
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-                  <p className="text-amber-700 text-sm">
-                    {language === 'ar' 
-                      ? 'هذه بيانات تجريبية للاختبار فقط. كود الاشتراك: BC778134'
-                      : 'These are test credentials for testing only. Subscription Code: BC778134'}
-                  </p>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="p-3 text-right">{language === 'ar' ? 'الدور' : 'Role'}</th>
-                        <th className="p-3 text-right">{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</th>
-                        <th className="p-3 text-right">{language === 'ar' ? 'كلمة المرور' : 'Password'}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      <tr className="bg-purple-50">
-                        <td className="p-3 font-medium">{language === 'ar' ? 'رئيس مجلس الإدارة' : 'Board Chairman'}</td>
-                        <td className="p-3 font-mono text-xs">dalia@datalifeai.com</td>
-                        <td className="p-3 font-mono text-xs">Dalia@2024</td>
-                      </tr>
-                      <tr>
-                        <td className="p-3 font-medium">{language === 'ar' ? 'المدير المالي' : 'Finance Director'}</td>
-                        <td className="p-3 font-mono text-xs">finance@datalifeai.com</td>
-                        <td className="p-3 font-mono text-xs">Finance@2024</td>
-                      </tr>
-                      <tr>
-                        <td className="p-3 font-medium">{language === 'ar' ? 'مدير الموارد البشرية' : 'HR Manager'}</td>
-                        <td className="p-3 font-mono text-xs">hr@datalifeai.com</td>
-                        <td className="p-3 font-mono text-xs">HR@2024</td>
-                      </tr>
-                      <tr>
-                        <td className="p-3 font-medium">{language === 'ar' ? 'محاسب' : 'Accountant'}</td>
-                        <td className="p-3 font-mono text-xs">accountant@datalifeai.com</td>
-                        <td className="p-3 font-mono text-xs">Account@2024</td>
-                      </tr>
-                      <tr>
-                        <td className="p-3 font-medium">{language === 'ar' ? 'موظف' : 'Employee'}</td>
-                        <td className="p-3 font-mono text-xs">employee@datalifeai.com</td>
-                        <td className="p-3 font-mono text-xs">Employee@2024</td>
-                      </tr>
-                      <tr className="bg-red-50">
-                        <td className="p-3 font-medium text-red-700">{language === 'ar' ? 'سوبر أدمن' : 'Super Admin'}</td>
-                        <td className="p-3 font-mono text-xs">superadmin@datalife.com</td>
-                        <td className="p-3 font-mono text-xs">Admin@2024</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
               {/* How to Use */}
               <section>
                 <h3 className="text-2xl font-bold text-[#28376B] mb-4 flex items-center gap-2">
