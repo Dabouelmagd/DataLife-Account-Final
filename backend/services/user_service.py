@@ -113,8 +113,11 @@ async def authenticate_user(db: AsyncIOMotorClient, email: str, password: str) -
     return user
 
 async def get_users_by_company(db: AsyncIOMotorClient, company_id: str) -> List[User]:
-    """Get all users in a company"""
-    users_data = await db.users.find({"company_id": company_id}).to_list(length=1000)
+    """Get all active users in a company"""
+    users_data = await db.users.find({
+        "company_id": company_id,
+        "is_active": {"$ne": False}  # Exclude deactivated users
+    }).to_list(length=1000)
     users = []
     for user_data in users_data:
         # Ensure permissions field exists
