@@ -9,72 +9,66 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ### ✅ COMPLETED AND VERIFIED (Feb 25, 2026)
 
-#### 8. Data Import Feature (Excel/CSV)
-- **Request**: User requested ability to import data from Excel/CSV files instead of manual entry
-- **Scope**: All modules - Employees, Customers, Suppliers, Inventory, Invoices, Purchases, Revenues, Expenses
+#### 9. Import Buttons on All Pages
+- **Request**: User wanted import buttons on each page next to Print, PDF, Export
+- **Implementation**: Added `ImportButton` component to:
+  - Salaries/Employees page (HRSubModules.jsx)
+  - Customers page (FinancialSubModules.jsx)
+  - Suppliers page (FinancialSubModules.jsx)
+  - Inventory page (FinancialSubModules.jsx)
+  - Invoices page (InvoicesModule.jsx)
+  - Purchases page (PurchasesModule.jsx)
+- **Test Status**: ✅ 100% (All buttons visible and functional)
+
+#### 10. Error Export Feature
+- **Request**: Download failed import rows as CSV for easy correction
+- **Implementation**: 
+  - Added `downloadErrors()` function in ImportButton.jsx
+  - Shows "Download Errors" button when import has failures
+  - Exports CSV with row number and error description
+  - Supports Arabic/English headers
+- **Test Status**: ✅ 100% PASSED
+
+#### 11. Dark Mode
+- **Request**: Add dark mode toggle to the application
 - **Implementation**:
-  - Backend API endpoints for each data type at `/api/import/{type}`
-  - Column mapping supports both Arabic and English headers
-  - Import history tracking in `import_history` collection
-  - Template download endpoint at `/api/import/template/{type}`
-- **Frontend Features**:
-  - Dedicated "Import Data" page accessible from sidebar
-  - 8 import type cards with color-coded icons
-  - Modal with template download and drag-and-drop file upload
-  - Import history table showing all previous imports
-  - Full Arabic/English language support
-- **API Endpoints**:
-  - `GET /api/import/template/{type}` - Get column template
-  - `POST /api/import/employees` - Import employees
-  - `POST /api/import/customers` - Import customers
-  - `POST /api/import/suppliers` - Import suppliers
-  - `POST /api/import/inventory` - Import inventory items
-  - `POST /api/import/invoices` - Import invoices
-  - `POST /api/import/purchases` - Import purchases
-  - `POST /api/import/financial` - Import revenues/expenses
-  - `GET /api/import/history` - Get import history
-- **Test Status**: ✅ 100% (23/23 backend tests, all frontend tests passed)
+  - Created `ThemeContext.jsx` for theme state management
+  - Added toggle button in sidebar (ModernSidebar.jsx)
+  - CSS variables and dark mode styles in App.css
+  - Persists preference in localStorage
+  - Shows "Light Mode"/"Dark Mode" with ON/OFF indicator
+- **Test Status**: ✅ 100% PASSED
 
 ---
 
-### ✅ COMPLETED AND VERIFIED (Feb 8, 2026)
+### ✅ COMPLETED (Feb 25, 2026)
 
-#### 5. Advanced Analytics Page Fix
-- **Issue**: User reported "التحليلات المتقدمة لا تعمل" (Advanced Analytics not working)
-- **Investigation Result**: Page was working correctly - user likely couldn't find the button
-- **Verification**: All 4 tabs (Overview, Financial, HR, Inventory) render properly
-- **Test Status**: ✅ 100% Backend & Frontend tests passed
-
-#### 6. CompanySettings.jsx Refactoring ✅
-- **Before**: 1185 lines in single file (hard to maintain)
-- **After**: 412 lines main file + 8 modular components
-- **New Structure**: `/app/frontend/src/components/settings/`
-- **Test Status**: ✅ All tabs working correctly after refactoring
-
-#### 7. Unified Permissions System ✅
-- **Backend API**: `/api/permissions/config` - Single source of truth for all roles and permissions
-- **Frontend Context**: `PermissionsContext.jsx` - React context to consume backend permissions
-- **Test Status**: ✅ API working, integrated with App.js
+#### 8. Data Import Feature (Excel/CSV)
+- **Implementation**:
+  - Backend API endpoints at `/api/import/{type}`
+  - Support for: employees, customers, suppliers, inventory, invoices, purchases, revenues, expenses
+  - Template download at `/api/import/template/{type}`
+  - Import history tracking
+- **Frontend**:
+  - Dedicated "Import Data" page in sidebar
+  - 8 import type cards with file upload modal
+  - Import history table
+- **Test Status**: ✅ 100% (23/23 backend tests passed)
 
 ---
 
-### ✅ COMPLETED AND VERIFIED (Feb 7, 2026)
+### ✅ COMPLETED (Feb 8, 2026)
 
-#### 1. User Permissions Management
-- Three roles can edit employee permissions: Board Chairman, General Manager, CEO
-- **Test Status**: ✅ All tests passed
-
-#### 2. Language Switcher Implementation
-- Available in Sidebar, Landing Page Header, and Settings
-- **Test Status**: ✅ Working in all locations
-
-#### 3. Super Admin Dashboard
-- Route: `/admin` (standalone admin panel)
-- **Test Status**: ✅ Working
-
-#### 4. Contact Form & Messages
-- SMTP email integration
-- **Test Status**: ✅ Working
+#### Previous Features
+- Advanced Analytics Page
+- CompanySettings.jsx Refactoring
+- Unified Permissions System
+- Language Switcher
+- Super Admin Dashboard
+- Contact Form & Messages
+- Company Logo Display (Base64)
+- Demo Page Update
+- Permission Icon Display Fix
 
 ---
 
@@ -89,34 +83,19 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Key Files Reference
 
-### Frontend
-- `/app/frontend/src/components/ImportDataPage.jsx` - Main import page
-- `/app/frontend/src/components/ImportButton.jsx` - Reusable import button component
-- `/app/frontend/src/components/RealDashboard.jsx` - Dashboard with import module
-- `/app/frontend/src/components/ModernSidebar.jsx` - Sidebar with import link
+### New/Modified Files (Feb 25)
+- `/app/frontend/src/components/ImportButton.jsx` - Reusable import button with error export
+- `/app/frontend/src/contexts/ThemeContext.jsx` - Dark mode context
+- `/app/frontend/src/components/ModernSidebar.jsx` - Dark mode toggle added
+- `/app/frontend/src/App.css` - Dark mode CSS styles
+- `/app/frontend/src/components/HRSubModules.jsx` - Import button added
+- `/app/frontend/src/components/FinancialSubModules.jsx` - Import buttons added
+- `/app/frontend/src/components/InvoicesModule.jsx` - Import button added
+- `/app/frontend/src/components/PurchasesModule.jsx` - Import button added
 
 ### Backend
 - `/app/backend/api/import_data.py` - Import API endpoints
 - `/app/backend/server.py` - Router registration
-- `/app/backend/models/` - Data models for all entities
-
----
-
-## Key API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/import/template/{type} | Get column template for import |
-| POST | /api/import/employees | Import employees from CSV/Excel |
-| POST | /api/import/customers | Import customers from CSV/Excel |
-| POST | /api/import/suppliers | Import suppliers from CSV/Excel |
-| POST | /api/import/inventory | Import inventory items |
-| POST | /api/import/invoices | Import invoices |
-| POST | /api/import/purchases | Import purchases |
-| POST | /api/import/financial | Import revenues/expenses |
-| GET | /api/import/history | Get import history |
-| POST | /api/auth/login | User login |
-| GET | /api/permissions/config | Get permissions configuration |
 
 ---
 
@@ -126,6 +105,7 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - **Database**: MongoDB
 - **Authentication**: JWT
 - **File Processing**: pandas, openpyxl (for Excel)
+- **Theme**: Dark mode with CSS variables
 
 ---
 
@@ -135,24 +115,24 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - [x] User authentication & authorization
 - [x] Role-based permissions system
 - [x] Super Admin control panel
-- [x] Language switcher (Sidebar, Header, Settings)
-- [x] User management page
-- [x] Contact form with SMTP
-- [x] Messages management
-- [x] **Data Import from Excel/CSV** - NEW ✅
+- [x] Language switcher
+- [x] Data Import from Excel/CSV
+- [x] Import buttons on all pages
+- [x] Error export for failed imports
+- [x] Dark Mode toggle
 
 ### P1 - Future Enhancements
 - [ ] Deploy to production (datalifeaccount.com)
+- [ ] Email notifications for import completion
 - [ ] WhatsApp Integration
-- [ ] Dark mode toggle
-- [ ] Email notifications
+- [ ] Dark mode for more components (cards, modals)
 
 ---
 
 ## Test Reports
-- Latest: `/app/test_reports/iteration_14.json`
-- Backend: 100% (23/23 import tests passed)
-- Frontend: 100% (All UI elements and interactions working)
+- Latest: `/app/test_reports/iteration_15.json`
+- Import API Tests: 100% (23/23 passed)
+- Frontend UI Tests: 100% (8/8 features verified)
 
 ---
 
