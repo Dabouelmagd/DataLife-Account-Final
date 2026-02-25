@@ -51,8 +51,8 @@ from database import db, client
 # Create the main app without a prefix
 app = FastAPI()
 
-# Mount static files for uploads
-app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
+# Mount static files for uploads - using /api/uploads for ingress compatibility
+app.mount("/api/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
