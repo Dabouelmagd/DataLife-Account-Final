@@ -1,15 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
-import { Users, UserPlus, Edit2 } from 'lucide-react';
+import { Users, UserPlus, Edit2, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 
 const EmployeesTab = ({ 
   language, 
   employees, 
   loadingEmployees, 
   onInviteClick, 
-  onEditClick 
+  onEditClick,
+  onDeleteEmployee,
+  currentUserId
 }) => {
+  const [deletingId, setDeletingId] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+
+  const handleDelete = async (emp) => {
+    setDeletingId(emp.id);
+    try {
+      await onDeleteEmployee(emp.id);
+      setShowDeleteConfirm(null);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -91,15 +106,27 @@ const EmployeesTab = ({
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onEditClick(emp)}
-                          className="text-[#28376B] border-[#28376B] hover:bg-[#28376B] hover:text-white"
-                        >
-                          <Edit2 className="h-4 w-4 mr-1" />
-                          {language === 'ar' ? 'تعديل' : 'Edit'}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEditClick(emp)}
+                            className="text-[#28376B] border-[#28376B] hover:bg-[#28376B] hover:text-white"
+                          >
+                            <Edit2 className="h-4 w-4 mr-1" />
+                            {language === 'ar' ? 'تعديل' : 'Edit'}
+                          </Button>
+                          {emp.id !== currentUserId && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowDeleteConfirm(emp.id)}
+                              className="text-red-600 border-red-300 hover:bg-red-600 hover:text-white hover:border-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -109,6 +136,60 @@ const EmployeesTab = ({
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {language === 'ar' ? 'تأكيد الحذف' : 'Confirm Delete'}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {language === 'ar' ? 'هل أنت متأكد من حذف هذا الموظف؟' : 'Are you sure you want to delete this employee?'}
+                </p>
+              </div>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-6 bg-amber-50 p-3 rounded-lg border border-amber-200">
+              {language === 'ar' 
+                ? 'سيتم إلغاء تفعيل حساب الموظف ولن يستطيع الدخول للنظام.'
+                : 'The employee account will be deactivated and they will not be able to access the system.'}
+            </p>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1"
+              >
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+              <Button
+                onClick={() => handleDelete(employees.find(e => e.id === showDeleteConfirm))}
+                disabled={deletingId === showDeleteConfirm}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deletingId === showDeleteConfirm ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {language === 'ar' ? 'جاري الحذف...' : 'Deleting...'}
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {language === 'ar' ? 'حذف' : 'Delete'}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
