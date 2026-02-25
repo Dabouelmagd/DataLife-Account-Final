@@ -8,21 +8,41 @@
 :root {
   --bg-primary: #ffffff;
   --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
   --bg-card: #ffffff;
+  --bg-hover: #f3f4f6;
   --text-primary: #111827;
   --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
   --border-color: #e5e7eb;
+  --border-light: #f3f4f6;
   --shadow: rgba(0, 0, 0, 0.1);
+  --modal-bg: #ffffff;
+  --input-bg: #ffffff;
+  --table-header: #f9fafb;
+  --table-row-hover: #f3f4f6;
+  --dropdown-bg: #ffffff;
+  --badge-bg: #f3f4f6;
 }
 
 html.dark {
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
   --bg-card: #1e293b;
+  --bg-hover: #334155;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
+  --text-muted: #64748b;
   --border-color: #334155;
-  --shadow: rgba(0, 0, 0, 0.4);
+  --border-light: #475569;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --modal-bg: #1e293b;
+  --input-bg: #0f172a;
+  --table-header: #334155;
+  --table-row-hover: #334155;
+  --dropdown-bg: #1e293b;
+  --badge-bg: #334155;
 }
 
 html.dark body {
@@ -34,7 +54,7 @@ html.dark .App {
   background-color: var(--bg-primary);
 }
 
-/* Dark mode for common components */
+/* Dark mode for backgrounds */
 html.dark .bg-white {
   background-color: var(--bg-card) !important;
 }
@@ -44,42 +64,210 @@ html.dark .bg-gray-100 {
   background-color: var(--bg-secondary) !important;
 }
 
-html.dark .text-gray-900 {
+html.dark .bg-gray-200 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* Dark mode for text */
+html.dark .text-gray-900,
+html.dark .text-gray-800 {
   color: var(--text-primary) !important;
 }
 
+html.dark .text-gray-700,
 html.dark .text-gray-600,
 html.dark .text-gray-500 {
   color: var(--text-secondary) !important;
 }
 
+html.dark .text-gray-400 {
+  color: var(--text-muted) !important;
+}
+
+/* Dark mode for borders */
 html.dark .border,
+html.dark .border-gray-100,
 html.dark .border-gray-200,
 html.dark .border-gray-300 {
   border-color: var(--border-color) !important;
 }
 
-html.dark input,
-html.dark textarea,
-html.dark select {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  border-color: var(--border-color);
-}
-
-html.dark table th {
-  background-color: var(--bg-secondary) !important;
-  color: var(--text-primary) !important;
-}
-
-html.dark table td {
+html.dark .divide-gray-200 > * {
   border-color: var(--border-color) !important;
 }
 
+/* Dark mode for inputs and forms */
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: var(--input-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+html.dark input:focus,
+html.dark textarea:focus,
+html.dark select:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Dark mode for tables */
+html.dark table {
+  background-color: var(--bg-card);
+}
+
+html.dark table th {
+  background-color: var(--table-header) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+html.dark table td {
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+html.dark table tr:hover td {
+  background-color: var(--table-row-hover) !important;
+}
+
+html.dark tbody tr {
+  border-color: var(--border-color) !important;
+}
+
+/* Dark mode for cards */
+html.dark [class*="CardContent"],
+html.dark [class*="CardHeader"] {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+
+/* Dark mode for modals/dialogs */
+html.dark [role="dialog"],
+html.dark .fixed.inset-0 > div > div {
+  background-color: var(--modal-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+html.dark .rounded-2xl.p-6,
+html.dark .rounded-xl.p-6 {
+  background-color: var(--modal-bg) !important;
+}
+
+/* Dark mode for dropdowns */
+html.dark [role="listbox"],
+html.dark [role="menu"],
+html.dark [data-radix-popper-content-wrapper] > div {
+  background-color: var(--dropdown-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+html.dark [role="option"]:hover,
+html.dark [role="menuitem"]:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+/* Dark mode for badges */
+html.dark .rounded-full[class*="bg-"] {
+  opacity: 0.9;
+}
+
+/* Dark mode for buttons */
+html.dark button.bg-white {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+html.dark button[class*="variant-outline"] {
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+html.dark button:hover {
+  opacity: 0.9;
+}
+
+/* Dark mode for shadows */
 html.dark .shadow-lg,
 html.dark .shadow-md,
-html.dark .shadow-sm {
+html.dark .shadow-sm,
+html.dark .shadow {
   box-shadow: 0 4px 6px -1px var(--shadow), 0 2px 4px -1px var(--shadow) !important;
+}
+
+html.dark .shadow-2xl {
+  box-shadow: 0 25px 50px -12px var(--shadow) !important;
+}
+
+/* Dark mode for specific gradient backgrounds */
+html.dark .bg-gradient-to-br.from-blue-50,
+html.dark .bg-gradient-to-br.from-green-50,
+html.dark .bg-gradient-to-br.from-amber-50,
+html.dark .bg-gradient-to-br.from-red-50,
+html.dark .bg-gradient-to-br.from-purple-50,
+html.dark .bg-gradient-to-br.from-cyan-50 {
+  opacity: 0.15 !important;
+}
+
+/* Dark mode for hover states */
+html.dark .hover\:bg-gray-50:hover,
+html.dark .hover\:bg-gray-100:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+/* Dark mode for ring/focus states */
+html.dark .ring-1,
+html.dark .ring-2 {
+  --tw-ring-color: var(--border-color);
+}
+
+/* Dark mode for scrollbar */
+html.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Dark mode for file upload area */
+html.dark .border-dashed {
+  border-color: var(--border-color) !important;
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Dark mode for alerts/notifications */
+html.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+html.dark .bg-green-50 {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+}
+
+html.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+html.dark .bg-yellow-50 {
+  background-color: rgba(234, 179, 8, 0.1) !important;
 }
 
 /* Smooth scrolling for the entire page */
