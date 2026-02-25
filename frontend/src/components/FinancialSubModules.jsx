@@ -3072,6 +3072,7 @@ export const InventoryModule = ({ language, userRole }) => {
           {language === 'ar' ? 'إدارة المخزون' : 'Inventory Management'}
         </h2>
         <div className="flex gap-2">
+          <ImportButton language={language} importType="inventory" onSuccess={() => window.location.reload()} />
           <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
