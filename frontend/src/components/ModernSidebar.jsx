@@ -158,7 +158,11 @@ const ModernSidebar = ({
                   { id: 'users', name: language === 'ar' ? 'إدارة المستخدمين' : 'User Management', icon: <UserCheck /> },
                   { id: 'approvals', name: language === 'ar' ? 'الموافقات' : 'Approvals', icon: <CheckCircle2 /> },
                 ].map((allModule, index) => {
-                  const hasAccess = modules.some(m => m.id === allModule.id);
+                  // Check access from modules list OR user permissions
+                  const hasAccess = modules.some(m => m.id === allModule.id) || 
+                                   (user?.permissions && user.permissions.includes(allModule.id)) ||
+                                   // Top management roles have all permissions
+                                   ['رئيس مجلس الإدارة', 'Board Chairman', 'مدير عام', 'General Manager', 'المدير التنفيذي', 'CEO'].includes(user?.role);
                   return (
                     <span 
                       key={index}
