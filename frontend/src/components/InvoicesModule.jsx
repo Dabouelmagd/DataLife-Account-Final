@@ -22,7 +22,7 @@ import {
   Printer, FileDown, File
 } from 'lucide-react';
 import AttachmentsManager from './AttachmentsManager';
-import useRealTimeSync from '../hooks/useRealTimeSync';
+import ImportButton from './ImportButton';
 
 const InvoicesModule = () => {
   const { token } = useAuth();
