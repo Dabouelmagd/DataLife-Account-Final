@@ -67,10 +67,10 @@ const ModernSidebar = ({
 
       {/* Content */}
       <div className="relative h-full flex flex-col z-10">
-        {/* Logo Section with Subscription Code */}
+        {/* Company Logo Section - At Top */}
         <div className="p-5 border-b border-white/10">
           <div className="flex items-center gap-3 mb-3">
-            {/* Company Logo or Default Logo */}
+            {/* Company Logo */}
             <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center shadow-lg overflow-hidden">
               {company?.logo_url ? (
                 <img 
@@ -79,15 +79,15 @@ const ModernSidebar = ({
                   className="w-12 h-12 object-contain"
                 />
               ) : (
-                <img 
-                  src={language === 'ar' ? '/datalife-logo-arabic.jpg' : '/datalife-logo-english.jpg'} 
-                  alt="DataLife Logo" 
-                  className="w-12 h-12 object-contain"
-                />
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  <Building2 className="w-6 h-6 text-white" />
+                </div>
               )}
             </div>
-            <div>
-              <h1 className="text-white font-bold text-xl tracking-tight">{company?.name || 'DataLife'}</h1>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-white font-bold text-lg tracking-tight truncate">
+                {company?.name || (language === 'ar' ? 'شركتك' : 'Your Company')}
+              </h1>
               <p className="text-slate-400 text-xs">ERP System</p>
             </div>
           </div>
