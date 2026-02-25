@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
-import { User, Shield, Key, Upload, Copy, Check } from 'lucide-react';
+import { User, Shield, Key, Upload, Copy, Check, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const ProfileTab = ({ 
   user, 
@@ -12,6 +12,87 @@ const ProfileTab = ({
   uploadingPhoto,
   handleProfilePhotoUpload
 }) => {
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
+
+  const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+  const handleChangePassword = async () => {
+    setPasswordMessage({ type: '', text: '' });
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordMessage({ 
+        type: 'error', 
+        text: language === 'ar' ? 'جميع الحقول مطلوبة' : 'All fields are required' 
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordMessage({ 
+        type: 'error', 
+        text: language === 'ar' ? 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل' : 'New password must be at least 6 characters' 
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ 
+        type: 'error', 
+        text: language === 'ar' ? 'كلمة المرور الجديدة غير متطابقة' : 'New passwords do not match' 
+      });
+      return;
+    }
+
+    setChangingPassword(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setPasswordMessage({ 
+          type: 'success', 
+          text: language === 'ar' ? 'تم تغيير كلمة المرور بنجاح' : 'Password changed successfully' 
+        });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => setShowChangePassword(false), 2000);
+      } else {
+        setPasswordMessage({ 
+          type: 'error', 
+          text: data.detail || (language === 'ar' ? 'فشل تغيير كلمة المرور' : 'Failed to change password')
+        });
+      }
+    } catch (error) {
+      setPasswordMessage({ 
+        type: 'error', 
+        text: language === 'ar' ? 'حدث خطأ أثناء تغيير كلمة المرور' : 'Error changing password' 
+      });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* User Information */}
