@@ -26,12 +26,17 @@ const CompanyTab = ({
                 alt="Company Logo"
                 className="w-40 h-40 object-contain border-2 border-gray-200 rounded-lg p-2"
                 onError={(e) => {
+                  // Hide failed image and show placeholder
                   e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
+                  const placeholder = e.target.parentElement.querySelector('.logo-placeholder');
+                  if (placeholder) placeholder.style.display = 'flex';
                 }}
               />
             ) : null}
-            <div className={`w-40 h-40 bg-gray-100 items-center justify-center rounded-lg ${company.logo_url ? 'hidden' : 'flex'}`}>
+            <div 
+              className={`logo-placeholder w-40 h-40 bg-gray-100 items-center justify-center rounded-lg ${company.logo_url ? 'hidden' : 'flex'}`}
+              style={{ display: company.logo_url ? 'none' : 'flex' }}
+            >
               <Building2 className="h-20 w-20 text-gray-400" />
             </div>
 
