@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSearchParams } from 'react-router-dom';
 import { Building2, User, Key, Globe, Users } from 'lucide-react';
 import axios from 'axios';
 
@@ -21,11 +22,13 @@ import {
 const CompanySettings = () => {
   const { user } = useAuth();
   const { language, toggleLanguage } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [company, setCompany] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('success');
-  const [activeTab, setActiveTab] = useState('company');
+  // Get initial tab from URL or default to 'company'
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'company');
   const [copied, setCopied] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
