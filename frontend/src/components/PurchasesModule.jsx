@@ -18,8 +18,9 @@ import {
   ShoppingCart, Plus, Eye, Edit, Trash2, Search, Filter, RefreshCw,
   Package, Truck, CheckCircle, Clock, XCircle, AlertCircle, Building2,
   DollarSign, TrendingUp, Users, FileText, Star, Phone, Mail, MapPin,
-  Printer, FileDown, File
+  Printer, FileDown, File, Upload
 } from 'lucide-react';
+import ImportButton from './ImportButton';
 
 const PurchasesModule = () => {
   const { token } = useAuth();
