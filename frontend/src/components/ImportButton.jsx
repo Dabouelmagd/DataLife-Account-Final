@@ -260,27 +260,57 @@ const ImportButton = ({
             {/* Upload Result */}
             {uploadResult && (
               <div className={`rounded-lg p-3 mb-4 ${
-                uploadResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                uploadResult.success && uploadResult.errors === 0 
+                  ? 'bg-green-50 border border-green-200' 
+                  : uploadResult.success && uploadResult.errors > 0
+                  ? 'bg-yellow-50 border border-yellow-200'
+                  : 'bg-red-50 border border-red-200'
               }`}>
                 <div className="flex items-start gap-2">
-                  {uploadResult.success ? (
+                  {uploadResult.success && uploadResult.errors === 0 ? (
                     <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  ) : uploadResult.success && uploadResult.errors > 0 ? (
+                    <FileWarning className="h-4 w-4 text-yellow-600 mt-0.5" />
                   ) : (
                     <AlertCircle className="h-4 w-4 text-red-500 mt-0.5" />
                   )}
                   <div className="flex-1">
-                    <p className={`font-medium text-sm ${uploadResult.success ? 'text-green-700' : 'text-red-700'}`}>
-                      {uploadResult.success 
-                        ? (language === 'ar' ? 'تم الاستيراد!' : 'Import done!')
+                    <p className={`font-medium text-sm ${
+                      uploadResult.success && uploadResult.errors === 0 
+                        ? 'text-green-700' 
+                        : uploadResult.success && uploadResult.errors > 0
+                        ? 'text-yellow-700'
+                        : 'text-red-700'
+                    }`}>
+                      {uploadResult.success && uploadResult.errors === 0
+                        ? (language === 'ar' ? 'تم الاستيراد بنجاح!' : 'Import completed!')
+                        : uploadResult.success && uploadResult.errors > 0
+                        ? (language === 'ar' ? 'تم الاستيراد مع بعض الأخطاء' : 'Import completed with errors')
                         : (language === 'ar' ? 'فشل الاستيراد' : 'Import failed')}
                     </p>
                     {uploadResult.success && (
-                      <p className="text-xs text-gray-600 mt-1">
-                        {language === 'ar' ? 'نجح:' : 'Success:'} {uploadResult.success} / {uploadResult.total}
-                      </p>
+                      <div className="text-xs text-gray-600 mt-1 space-y-1">
+                        <p>{language === 'ar' ? 'الإجمالي:' : 'Total:'} {uploadResult.total}</p>
+                        <p className="text-green-600">{language === 'ar' ? 'نجح:' : 'Success:'} {uploadResult.success}</p>
+                        {uploadResult.errors > 0 && (
+                          <p className="text-red-600">{language === 'ar' ? 'فشل:' : 'Failed:'} {uploadResult.errors}</p>
+                        )}
+                      </div>
                     )}
                     {!uploadResult.success && uploadResult.message && (
                       <p className="text-xs text-red-600 mt-1">{uploadResult.message}</p>
+                    )}
+                    {/* Download Errors Button */}
+                    {uploadResult.error_details?.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadErrors}
+                        className="mt-2 text-red-600 border-red-300 hover:bg-red-50 h-7 text-xs"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        {language === 'ar' ? 'تحميل الأخطاء' : 'Download Errors'}
+                      </Button>
                     )}
                   </div>
                 </div>
