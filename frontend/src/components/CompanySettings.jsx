@@ -269,13 +269,10 @@ const CompanySettings = () => {
       setMessage(language === 'ar' ? 'تم رفع الشعار بنجاح!' : 'Logo uploaded successfully!');
       setMessageType('success');
       
-      // Force refresh company data and reload page to show new logo
-      await fetchCompanyData();
-      
-      // Add cache-busting and reload
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Update company data with new logo
+      if (response.data.logo_url) {
+        setCompany(prev => ({ ...prev, logo_url: response.data.logo_url }));
+      }
     } catch (error) {
       console.error('Error uploading logo:', error);
       setMessage(language === 'ar' ? 'فشل رفع الشعار' : 'Failed to upload logo');
