@@ -5055,6 +5055,7 @@ export const CustomersModule = ({ language, userRole }) => {
           {language === 'ar' ? 'العملاء' : 'Customers'}
         </h2>
         <div className="flex gap-2">
+          <ImportButton language={language} importType="customers" onSuccess={() => fetchCustomers()} />
           <Button variant="outline" size="sm" onClick={exportToCSV}>
             <Download className="h-4 w-4" />
             <span className={isRTL ? 'mr-2' : 'ml-2'}>{language === 'ar' ? 'تصدير' : 'Export'}</span>
