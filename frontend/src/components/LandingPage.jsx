@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
-import { CheckCircle, BarChart3, Users, DollarSign, Shield, Cloud, Bell, Calculator, PieChart, FileText, Database, Zap, Globe, TrendingUp, Lock, HeadphonesIcon, Workflow, Building2, ClipboardList, CreditCard, Timer, Target, Award, MapPin, Phone, Mail, Play, X, HelpCircle, ChevronDown, Search, Loader2 } from 'lucide-react';
+import { CheckCircle, BarChart3, Users, DollarSign, Shield, Cloud, Bell, Calculator, PieChart, FileText, Database, Zap, Globe, TrendingUp, Lock, HeadphonesIcon, Workflow, Building2, ClipboardList, CreditCard, Timer, Target, Award, MapPin, Phone, Mail, Play, X, HelpCircle, ChevronDown, Search, Loader2, BookOpen, Key, UserCheck, Settings, FolderKanban, Package } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../data/translations';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -20,7 +20,7 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 const LandingPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
-  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [faqSearchQuery, setFaqSearchQuery] = useState('');
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [contactLoading, setContactLoading] = useState(false);
