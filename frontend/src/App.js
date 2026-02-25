@@ -59,6 +59,7 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <LanguageProvider>
+    <ThemeProvider>
       <AuthProvider>
         <PermissionsProvider>
           <div className="App">
