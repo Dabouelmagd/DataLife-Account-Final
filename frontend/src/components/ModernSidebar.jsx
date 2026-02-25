@@ -154,6 +154,8 @@ const ModernSidebar = ({
                   { id: 'reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <ClipboardList /> },
                   { id: 'analytics', name: language === 'ar' ? 'التحليلات' : 'Analytics', icon: <BarChart3 /> },
                   { id: 'inventory', name: language === 'ar' ? 'المخزون' : 'Inventory', icon: <Boxes /> },
+                  { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings', icon: <Settings /> },
+                  { id: 'users', name: language === 'ar' ? 'إدارة المستخدمين' : 'User Management', icon: <UserCheck /> },
                   { id: 'approvals', name: language === 'ar' ? 'الموافقات' : 'Approvals', icon: <CheckCircle2 /> },
                 ].map((allModule, index) => {
                   const hasAccess = modules.some(m => m.id === allModule.id);
