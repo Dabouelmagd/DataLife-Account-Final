@@ -4,7 +4,7 @@
 ---
 
 ## 🌐 رابط التطبيق | Application URL
-**https://import-assistant-3.preview.emergentagent.com**
+**https://bulk-upload-demo.preview.emergentagent.com**
 
 ---
 

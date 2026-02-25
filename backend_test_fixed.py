@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 
 # Get backend URL from environment
-BACKEND_URL = "https://import-assistant-3.preview.emergentagent.com/api"
+BACKEND_URL = "https://bulk-upload-demo.preview.emergentagent.com/api"
 
 class ComprehensiveAPITester:
     def __init__(self):
