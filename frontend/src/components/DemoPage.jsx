@@ -2372,8 +2372,8 @@ const DemoPage = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Navigation Modules */}
-          <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          {/* Navigation Modules - Scrollable */}
+          <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
             {modules.map((module) => (
               <div key={module.id}>
                 <button
