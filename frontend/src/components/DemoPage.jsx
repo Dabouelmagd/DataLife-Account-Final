@@ -2328,8 +2328,8 @@ const DemoPage = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Demo User Profile */}
-          <div className="p-4 border-b border-white/10">
+          {/* Demo User Profile - Fixed */}
+          <div className="p-4 border-b border-white/10 flex-shrink-0">
             <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
