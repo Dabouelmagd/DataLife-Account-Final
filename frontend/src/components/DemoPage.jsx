@@ -2465,9 +2465,11 @@ const DemoPage = ({ onClose }) => {
           </nav>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 p-6 bg-gray-50">
-          {renderModule()}
+        {/* Main Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="p-6 min-h-full">
+            {renderModule()}
+          </div>
         </div>
       </div>
 
