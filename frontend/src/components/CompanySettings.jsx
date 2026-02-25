@@ -57,6 +57,12 @@ const CompanySettings = () => {
   const availableRoles = getAvailableRoles(language);
   const availablePermissions = getAvailablePermissions(language);
 
+  // Update URL when tab changes
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setSearchParams({ tab: tabId });
+  };
+
   useEffect(() => {
     fetchCompanyData();
     if (canManageEmployees) {
