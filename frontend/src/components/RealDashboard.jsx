@@ -933,6 +933,7 @@ const RealDashboard = () => {
         setActiveFinancialSubModule={setActiveFinancialSubModule}
         onLogout={handleLogout}
         navigate={navigate}
+        company={company}
       />
 
       {/* Main Content */}
