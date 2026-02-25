@@ -231,20 +231,17 @@ const LandingPage = () => {
               </Button>
             </div>
             
-            {/* Video Button */}
+            {/* Guide Button */}
             <div className="mb-12">
               <button
-                onClick={() => setIsVideoModalOpen(true)}
-                className="group inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-full hover:from-red-600 hover:to-rose-700 transition-all shadow-lg hover:shadow-xl"
+                onClick={() => setIsGuideModalOpen(true)}
+                className="group inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-full hover:from-emerald-600 hover:to-teal-700 transition-all shadow-lg hover:shadow-xl"
               >
                 <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Play className="h-5 w-5 text-white fill-white" />
+                  <BookOpen className="h-5 w-5 text-white" />
                 </div>
                 <span className="font-semibold">
-                  {language === 'ar' ? 'شاهد الفيديو التعريفي' : 'Watch Introduction Video'}
-                </span>
-                <span className="text-white/80 text-sm">
-                  {language === 'ar' ? '(3 دقائق)' : '(3 min)'}
+                  {language === 'ar' ? 'الدليل الشامل للبرنامج' : 'Complete Program Guide'}
                 </span>
               </button>
             </div>
