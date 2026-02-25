@@ -9,6 +9,27 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ### ✅ COMPLETED AND VERIFIED (Feb 25, 2026)
 
+#### 15. Change Password Feature
+- **Request**: Allow users to change their own password in Settings
+- **Implementation**:
+  - Backend API: `POST /api/auth/change-password`
+  - Frontend: Expandable form in Settings > Profile tab
+  - Fields: Current Password, New Password, Confirm Password
+  - Validation: Minimum 6 characters, password match
+  - Show/hide password toggle for each field
+  - Success/error messages displayed inline
+- **Test Status**: ✅ 100% (Backend: 6/6 tests, Frontend: All UI verified)
+
+#### 16. Delete Employee Feature
+- **Request**: Allow admin to delete employees from the system
+- **Implementation**:
+  - Backend API: `DELETE /api/users/{user_id}` (deactivates account)
+  - Frontend: Red delete icon in Settings > Employees tab
+  - Confirmation modal with warning message
+  - Current user protected (cannot delete themselves)
+  - UI updates immediately after deletion
+- **Test Status**: ✅ 100% (Backend: 5/5 tests, Frontend: All UI verified)
+
 #### 14. Page Footer with Branding
 - **Request**: Move DataLife logos from sidebar to page footer
 - **Implementation**:
