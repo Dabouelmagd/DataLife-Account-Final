@@ -10,7 +10,7 @@ from pathlib import Path
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
 # Create uploads directory if it doesn't exist
-UPLOAD_DIR = Path("/app/frontend/public/uploads/logos")
+UPLOAD_DIR = Path("/app/uploads/logos")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Get database instance
