@@ -1,12 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { Button } from './ui/button';
-import { Upload, Loader2, CheckCircle, AlertCircle, X, Download, Info } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, X, Download, Info, FileWarning } from 'lucide-react';
 
 const ImportButton = ({ 
   language, 
   importType,
   dataType,
-  onSuccess 
+  onSuccess,
+  buttonVariant = 'default' // 'default' or 'compact'
 }) => {
   const isRTL = language === 'ar';
   const [showModal, setShowModal] = useState(false);
