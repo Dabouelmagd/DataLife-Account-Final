@@ -2308,11 +2308,11 @@ const DemoPage = ({ onClose }) => {
         </div>
       </div>
 
-      <div className="flex">
+      <div className="flex h-screen overflow-hidden">
         {/* Modern Sidebar */}
-        <div className="w-72 bg-gradient-to-b from-[#28376B] via-[#1e2a5a] to-[#162045] h-screen shadow-xl overflow-y-auto">
-          {/* Logo & Company Section */}
-          <div className="p-4 border-b border-white/10">
+        <div className="w-72 bg-gradient-to-b from-[#28376B] via-[#1e2a5a] to-[#162045] h-screen shadow-xl flex flex-col">
+          {/* Logo & Company Section - Fixed */}
+          <div className="p-4 border-b border-white/10 flex-shrink-0">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
                 <Building2 className="h-7 w-7 text-white" />
