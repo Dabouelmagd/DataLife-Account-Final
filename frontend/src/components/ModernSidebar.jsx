@@ -346,27 +346,27 @@ const ModernSidebar = ({
 
         {/* Footer Bar - DataLife Branding */}
         <div className="mt-auto border-t border-white/10 p-4 bg-gradient-to-b from-slate-900/50 to-slate-950/80">
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center gap-4">
             {/* DataLife Account Logo */}
-            <div className="w-full flex justify-center bg-white rounded-xl p-3 shadow-lg">
+            <div className="w-full bg-white rounded-xl p-3 shadow-lg">
               <img 
                 src={language === 'ar' ? '/datalife-account-ar.jpg' : '/datalife-account-en.jpg'}
                 alt="DataLife Account"
-                className="h-12 object-contain"
+                className="w-full h-auto object-contain max-h-14"
               />
             </div>
             {/* Divider with text */}
-            <div className="w-full flex items-center gap-2">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent to-slate-600"></div>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider">Powered by</span>
-              <div className="flex-1 h-px bg-gradient-to-l from-transparent to-slate-600"></div>
+            <div className="w-full flex items-center gap-3">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent to-slate-500"></div>
+              <span className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Powered by</span>
+              <div className="flex-1 h-px bg-gradient-to-l from-transparent to-slate-500"></div>
             </div>
             {/* DataLife AI Logo */}
-            <div className="w-full flex justify-center bg-white rounded-xl p-2 shadow-lg">
+            <div className="w-full bg-white rounded-xl p-3 shadow-lg">
               <img 
                 src="/datalife-ai.png"
                 alt="DataLife AI"
-                className="h-10 object-contain"
+                className="w-full h-auto object-contain max-h-12"
               />
             </div>
           </div>
