@@ -138,6 +138,26 @@ const CompanySettings = () => {
     }
   };
 
+  const handleDeleteEmployee = async (employeeId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/${employeeId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setMessage(language === 'ar' ? 'تم حذف الموظف بنجاح' : 'Employee deleted successfully');
+      setMessageType('success');
+      fetchEmployees(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      const errorMsg = error.response?.data?.detail || (language === 'ar' ? 'فشل حذف الموظف' : 'Failed to delete employee');
+      setMessage(errorMsg);
+      setMessageType('error');
+      throw error; // Re-throw to handle in the component
+    }
+  };
+
   const sendInvitation = async () => {
     if (!inviteData.full_name || !inviteData.email) {
       setMessage(language === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields');
