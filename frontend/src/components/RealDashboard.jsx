@@ -923,6 +923,11 @@ const RealDashboard = () => {
       return <CompanySettings />;
     }
 
+    // Import Data Module
+    if (activeModule === 'import') {
+      return <ImportDataPage language={language} />;
+    }
+
     return null;
   };
 
