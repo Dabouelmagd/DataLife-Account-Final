@@ -119,6 +119,3 @@ async def upload_logo(
     )
     
     return {"message": "Logo uploaded successfully", "logo_url": logo_data_url}
-    )
-    
-    return {"message": "Logo uploaded successfully", "logo_url": logo_url}
