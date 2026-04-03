@@ -36,6 +36,7 @@ from api.chatbot import router as chatbot_router
 from api.contact import router as contact_router
 from api.permissions import router as permissions_router
 from api.import_data import router as import_data_router
+from api.accounting import router as accounting_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -112,6 +113,7 @@ app.include_router(chatbot_router)
 app.include_router(contact_router)
 app.include_router(permissions_router)
 app.include_router(import_data_router)
+app.include_router(accounting_router)
 
 app.add_middleware(
     CORSMiddleware,

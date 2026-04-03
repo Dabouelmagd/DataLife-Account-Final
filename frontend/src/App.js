@@ -18,6 +18,9 @@ import CustomerPortal from "./components/CustomerPortal";
 import FeaturesPage from "./components/FeaturesPage";
 import SupportChatbot from "./components/SupportChatbot";
 import NotificationPermissionRequest from "./components/NotificationPermissionRequest";
+import JournalEntriesPage from "./pages/JournalEntriesPage";
+import GeneralLedgerPage from "./pages/GeneralLedgerPage";
+import FinancialReportsPage from "./pages/FinancialReportsPage";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
@@ -139,6 +142,31 @@ function App() {
                 } 
               />
               <Route path="/customer-portal" element={<CustomerPortal />} />
+              {/* Accounting Module Routes */}
+              <Route 
+                path="/journal-entries" 
+                element={
+                  <ProtectedRoute>
+                    <JournalEntriesPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/general-ledger" 
+                element={
+                  <ProtectedRoute>
+                    <GeneralLedgerPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/financial-reports" 
+                element={
+                  <ProtectedRoute>
+                    <FinancialReportsPage />
+                  </ProtectedRoute>
+                } 
+              />
             </Routes>
             {/* Support Chatbot - appears on all pages */}
             <SupportChatbot />

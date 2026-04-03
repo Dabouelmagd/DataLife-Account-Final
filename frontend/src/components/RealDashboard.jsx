@@ -14,7 +14,7 @@ import {
   Home, PlayCircle, ArrowUp, ArrowDown, AlertCircle, CheckCircle,
   Eye, Edit, Plus, Download, Printer, Clock, Award, TrendingDown,
   ChevronDown, ChevronRight, CreditCard, ShoppingCart, FolderKanban,
-  Upload
+  Upload, BookOpen
 } from 'lucide-react';
 import axios from 'axios';
 import { getTranslation } from '../data/translations';
@@ -28,6 +28,9 @@ import ApprovalsModule from './ApprovalsModule';
 import AttendanceManagement from './AttendanceManagement';
 import ProjectsModule from './ProjectsModule';
 import DocumentsModule from './DocumentsModule';
+import JournalEntriesPage from '../pages/JournalEntriesPage';
+import GeneralLedgerPage from '../pages/GeneralLedgerPage';
+import FinancialReportsPage from '../pages/FinancialReportsPage';
 
 // Import sub-modules from existing files
 import {
@@ -219,13 +222,14 @@ const RealDashboard = () => {
         subModules: [
           { id: 'financial-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart /> },
           { id: 'journal-entries', name: language === 'ar' ? 'القيود اليومية' : 'Journal Entries', icon: <FileText /> },
+          { id: 'general-ledger', name: language === 'ar' ? 'دفتر الأستاذ' : 'General Ledger', icon: <BookOpen /> },
+          { id: 'financial-reports', name: language === 'ar' ? 'التقارير المالية' : 'Financial Reports', icon: <PieChart /> },
           { id: 'treasury', name: language === 'ar' ? 'الخزنة' : 'Treasury', icon: <DollarSign /> },
           { id: 'custody', name: language === 'ar' ? 'العهدة' : 'Custody', icon: <Award /> },
           { id: 'accounts', name: language === 'ar' ? 'الحسابات' : 'Accounts', icon: <Building2 /> },
           { id: 'suppliers', name: language === 'ar' ? 'الموردين' : 'Suppliers', icon: <Users /> },
           { id: 'customers', name: language === 'ar' ? 'العملاء' : 'Customers', icon: <Users /> },
-          { id: 'bank', name: language === 'ar' ? 'البنك' : 'Bank', icon: <DollarSign /> },
-          { id: 'financial-reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <FileText /> }
+          { id: 'bank', name: language === 'ar' ? 'البنك' : 'Bank', icon: <DollarSign /> }
         ]
       });
     }
@@ -812,7 +816,11 @@ const RealDashboard = () => {
       // Financial Sub-module components
       switch (activeFinancialSubModule) {
         case 'journal-entries':
-          return <JournalEntriesModule language={language} userRole={user?.role} />;
+          return <JournalEntriesPage />;
+        case 'general-ledger':
+          return <GeneralLedgerPage />;
+        case 'financial-reports':
+          return <FinancialReportsPage />;
         case 'treasury':
           return <TreasuryModule language={language} userRole={user?.role} />;
         case 'custody':
@@ -825,8 +833,6 @@ const RealDashboard = () => {
           return <CustomersModule language={language} userRole={user?.role} />;
         case 'suppliers':
           return <SuppliersModule language={language} userRole={user?.role} />;
-        case 'financial-reports':
-          return <FinancialReportsModule language={language} userRole={user?.role} />;
         default:
           return <div>{language === 'ar' ? 'اختر وحدة فرعية' : 'Select a sub-module'}</div>;
       }
