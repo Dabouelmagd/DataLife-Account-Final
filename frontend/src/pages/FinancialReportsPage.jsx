@@ -116,6 +116,53 @@ const FinancialReportsPage = () => {
     fetchReport();
   }, [activeReport]);
 
+  const handleExport = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      let url = '';
+      let params = new URLSearchParams();
+
+      switch (activeReport) {
+        case 'trial-balance':
+          url = `${API_URL}/api/accounting/reports/trial-balance/export`;
+          if (dateFilters.asOfDate) params.append('as_of_date', dateFilters.asOfDate);
+          break;
+        case 'income-statement':
+          url = `${API_URL}/api/accounting/reports/income-statement/export`;
+          params.append('start_date', dateFilters.startDate);
+          params.append('end_date', dateFilters.endDate);
+          break;
+        case 'balance-sheet':
+          url = `${API_URL}/api/accounting/reports/balance-sheet/export`;
+          if (dateFilters.asOfDate) params.append('as_of_date', dateFilters.asOfDate);
+          break;
+      }
+
+      const response = await axios.get(
+        `${url}?${params.toString()}`,
+        { 
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob'
+        }
+      );
+
+      // Download file
+      const blob = new Blob([response.data], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `${activeReport}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Error exporting report:', error);
+    }
+  };
+
   const fetchReport = async () => {
     try {
       setLoading(true);
@@ -495,6 +542,17 @@ const FinancialReportsPage = () => {
               >
                 {t.generate}
               </button>
+              
+              {reportData && (
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  data-testid="export-btn"
+                >
+                  <Download className="w-4 h-4" />
+                  {t.export} Excel
+                </button>
+              )}
             </div>
           </div>
         </div>

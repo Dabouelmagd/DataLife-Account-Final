@@ -6,6 +6,7 @@ import {
   Plus, Search, Filter, Calendar, FileText, Check, X, 
   RotateCcw, ChevronDown, ChevronUp, Loader2, AlertCircle
 } from 'lucide-react';
+import { QuickEntryButtons } from '../components/QuickEntryButtons';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -316,6 +317,14 @@ const JournalEntriesPage = () => {
             <Plus className="w-5 h-5" />
             {t.newEntry}
           </button>
+        </div>
+
+        {/* Quick Entry Buttons */}
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+          <h3 className="text-sm font-medium text-gray-500 mb-3">
+            {language === 'ar' ? 'قيود سريعة' : 'Quick Entries'}
+          </h3>
+          <QuickEntryButtons onEntryCreated={fetchEntries} />
         </div>
 
         {/* Filters */}

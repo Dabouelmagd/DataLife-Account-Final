@@ -22,17 +22,40 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - **Backend Files**:
   - `backend/models/accounting.py` - Data models for all accounting entities
   - `backend/services/accounting_service.py` - Business logic and calculations
-  - `backend/api/accounting.py` - REST API endpoints
+  - `backend/api/accounting.py` - REST API endpoints with Excel export
 - **Frontend Pages**:
   - `frontend/src/pages/JournalEntriesPage.jsx` - Create/view/post journal entries
   - `frontend/src/pages/GeneralLedgerPage.jsx` - View account balances and statements
-  - `frontend/src/pages/FinancialReportsPage.jsx` - Generate financial reports
+  - `frontend/src/pages/FinancialReportsPage.jsx` - Generate and export financial reports
 - **Accounting Rules Implemented**:
   - Assets & Expenses: Increase with Debit, Decrease with Credit
   - Liabilities, Equity & Revenue: Increase with Credit, Decrease with Debit
   - Journal entries must be balanced before saving
   - Posted entries update account balances in real-time
 - **Test Status**: ✅ Visual verification complete, APIs tested
+
+#### 18. Quick Entry Vouchers
+- **Request**: Add quick entry buttons for common transactions
+- **Implementation**:
+  - `frontend/src/components/QuickEntryButtons.jsx` - Reusable quick entry component
+  - **Receipt Voucher (إيصال قبض)**: Debit Cash → Credit Revenue
+  - **Payment Voucher (إيصال صرف)**: Debit Expense → Credit Cash
+  - **Sales Invoice (فاتورة بيع)**: Debit Customer → Credit Revenue
+  - **Purchase Invoice (فاتورة شراء)**: Debit Expense → Credit Supplier
+  - Auto-posting after entry creation
+- **Test Status**: ✅ Visual verification complete
+
+#### 19. Excel Export for Financial Reports
+- **Request**: Export financial reports to Excel
+- **Implementation**:
+  - Backend: `xlsxwriter` library for Excel generation
+  - API endpoints:
+    - `GET /api/accounting/reports/trial-balance/export`
+    - `GET /api/accounting/reports/income-statement/export`
+    - `GET /api/accounting/reports/balance-sheet/export`
+  - RTL support for Arabic
+  - Formatted cells with colors and totals
+- **Test Status**: ✅ Visual verification complete
 
 ---
 

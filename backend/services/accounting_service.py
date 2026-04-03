@@ -87,6 +87,7 @@ class AccountingService:
         
         account_dict = account.dict()
         await self.db.chart_of_accounts.insert_one(account_dict)
+        account_dict.pop("_id", None)  # Remove MongoDB _id
         return account_dict
     
     async def update_account(self, account_id: str, updates: Dict) -> Optional[Dict]:
@@ -174,6 +175,7 @@ class AccountingService:
         
         entry_dict = entry.dict()
         await self.db.journal_entries.insert_one(entry_dict)
+        entry_dict.pop("_id", None)  # Remove MongoDB _id
         return entry_dict
     
     async def get_journal_entry(self, entry_id: str) -> Optional[Dict]:
@@ -556,6 +558,7 @@ class AccountingService:
         
         year_dict = fiscal_year.dict()
         await self.db.fiscal_years.insert_one(year_dict)
+        year_dict.pop("_id", None)  # Remove MongoDB _id
         return year_dict
     
     async def get_current_fiscal_year(self, company_id: str) -> Optional[Dict]:

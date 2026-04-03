@@ -229,7 +229,7 @@ async def create_journal_entry(
         reference=request.reference,
         description=request.description,
         lines=lines,
-        created_by=current_user["id"]
+        created_by=current_user["user_id"]
     )
     
     try:
@@ -249,7 +249,7 @@ async def post_journal_entry(
     service = AccountingService(db)
     
     try:
-        await service.post_journal_entry(entry_id, current_user["id"])
+        await service.post_journal_entry(entry_id, current_user["user_id"])
         return {"message": "تم ترحيل القيد بنجاح"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -265,7 +265,7 @@ async def reverse_journal_entry(
     service = AccountingService(db)
     
     try:
-        result = await service.reverse_journal_entry(entry_id, current_user["id"])
+        result = await service.reverse_journal_entry(entry_id, current_user["user_id"])
         return {"message": "تم عكس القيد بنجاح", "reversed_entry": result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -443,7 +443,7 @@ async def create_receipt_entry(
         reference=reference,
         description=description,
         lines=lines,
-        created_by=current_user["id"]
+        created_by=current_user["user_id"]
     )
     
     result = await service.create_journal_entry(entry)
@@ -493,8 +493,254 @@ async def create_payment_entry(
         reference=reference,
         description=description,
         lines=lines,
-        created_by=current_user["id"]
+        created_by=current_user["user_id"]
     )
     
     result = await service.create_journal_entry(entry)
     return {"message": "تم إنشاء قيد الصرف بنجاح", "entry": result}
+
+
+
+# ==========================================
+# Export Reports
+# ==========================================
+
+from fastapi.responses import StreamingResponse
+import io
+import xlsxwriter
+
+@router.get("/reports/trial-balance/export")
+async def export_trial_balance(
+    as_of_date: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
+    """تصدير ميزان المراجعة إلى Excel"""
+    service = AccountingService(db)
+    report = await service.get_trial_balance(current_user["company_id"], as_of_date)
+    
+    # Create Excel file
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+    worksheet = workbook.add_worksheet('ميزان المراجعة')
+    
+    # Formats
+    header_format = workbook.add_format({'bold': True, 'bg_color': '#28376B', 'font_color': 'white', 'align': 'center'})
+    number_format = workbook.add_format({'num_format': '#,##0.00', 'align': 'right'})
+    total_format = workbook.add_format({'bold': True, 'bg_color': '#f3f4f6', 'num_format': '#,##0.00'})
+    
+    # Set RTL
+    worksheet.right_to_left()
+    
+    # Title
+    worksheet.merge_range('A1:D1', f'ميزان المراجعة - Trial Balance', workbook.add_format({'bold': True, 'font_size': 16, 'align': 'center'}))
+    worksheet.merge_range('A2:D2', f'التاريخ: {report.get("as_of_date", "")}', workbook.add_format({'align': 'center'}))
+    
+    # Headers
+    headers = ['رقم الحساب', 'اسم الحساب', 'مدين', 'دائن']
+    worksheet.set_column('A:A', 15)
+    worksheet.set_column('B:B', 35)
+    worksheet.set_column('C:D', 18)
+    
+    for col, header in enumerate(headers):
+        worksheet.write(3, col, header, header_format)
+    
+    # Data
+    row = 4
+    for item in report.get('items', []):
+        worksheet.write(row, 0, item['account_code'])
+        worksheet.write(row, 1, item['account_name'])
+        worksheet.write(row, 2, item['debit'] if item['debit'] > 0 else '', number_format)
+        worksheet.write(row, 3, item['credit'] if item['credit'] > 0 else '', number_format)
+        row += 1
+    
+    # Totals
+    worksheet.write(row, 0, '', total_format)
+    worksheet.write(row, 1, 'الإجمالي', total_format)
+    worksheet.write(row, 2, report.get('total_debit', 0), total_format)
+    worksheet.write(row, 3, report.get('total_credit', 0), total_format)
+    
+    workbook.close()
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename=trial_balance_{as_of_date or "latest"}.xlsx'}
+    )
+
+
+@router.get("/reports/income-statement/export")
+async def export_income_statement(
+    start_date: str = Query(...),
+    end_date: str = Query(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """تصدير قائمة الدخل إلى Excel"""
+    service = AccountingService(db)
+    report = await service.get_income_statement(current_user["company_id"], start_date, end_date)
+    
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+    worksheet = workbook.add_worksheet('قائمة الدخل')
+    
+    # Formats
+    header_format = workbook.add_format({'bold': True, 'bg_color': '#28376B', 'font_color': 'white'})
+    revenue_format = workbook.add_format({'num_format': '#,##0.00', 'font_color': 'green'})
+    expense_format = workbook.add_format({'num_format': '#,##0.00', 'font_color': 'red'})
+    total_format = workbook.add_format({'bold': True, 'bg_color': '#f3f4f6', 'num_format': '#,##0.00'})
+    
+    worksheet.right_to_left()
+    worksheet.set_column('A:A', 35)
+    worksheet.set_column('B:B', 18)
+    
+    # Title
+    worksheet.merge_range('A1:B1', 'قائمة الدخل - Income Statement', workbook.add_format({'bold': True, 'font_size': 16, 'align': 'center'}))
+    worksheet.merge_range('A2:B2', f'الفترة: {start_date} إلى {end_date}', workbook.add_format({'align': 'center'}))
+    
+    row = 4
+    
+    # Revenues
+    worksheet.write(row, 0, 'الإيرادات', header_format)
+    worksheet.write(row, 1, '', header_format)
+    row += 1
+    
+    for item in report.get('revenues', []):
+        worksheet.write(row, 0, item['account_name'])
+        worksheet.write(row, 1, item['amount'], revenue_format)
+        row += 1
+    
+    worksheet.write(row, 0, 'إجمالي الإيرادات', total_format)
+    worksheet.write(row, 1, report.get('total_revenue', 0), total_format)
+    row += 2
+    
+    # Expenses
+    worksheet.write(row, 0, 'المصروفات', header_format)
+    worksheet.write(row, 1, '', header_format)
+    row += 1
+    
+    for item in report.get('expenses', []):
+        worksheet.write(row, 0, item['account_name'])
+        worksheet.write(row, 1, item['amount'], expense_format)
+        row += 1
+    
+    worksheet.write(row, 0, 'إجمالي المصروفات', total_format)
+    worksheet.write(row, 1, report.get('total_expenses', 0), total_format)
+    row += 2
+    
+    # Net Income
+    net_format = workbook.add_format({
+        'bold': True, 
+        'font_size': 14,
+        'bg_color': '#dcfce7' if report.get('is_profit') else '#fee2e2',
+        'num_format': '#,##0.00'
+    })
+    worksheet.write(row, 0, 'صافي الدخل' if report.get('is_profit') else 'صافي الخسارة', net_format)
+    worksheet.write(row, 1, report.get('net_income', 0), net_format)
+    
+    workbook.close()
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename=income_statement_{start_date}_to_{end_date}.xlsx'}
+    )
+
+
+@router.get("/reports/balance-sheet/export")
+async def export_balance_sheet(
+    as_of_date: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
+    """تصدير الميزانية العمومية إلى Excel"""
+    service = AccountingService(db)
+    report = await service.get_balance_sheet(current_user["company_id"], as_of_date)
+    
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+    worksheet = workbook.add_worksheet('الميزانية العمومية')
+    
+    # Formats
+    header_format = workbook.add_format({'bold': True, 'bg_color': '#28376B', 'font_color': 'white'})
+    subheader_format = workbook.add_format({'bold': True, 'bg_color': '#e5e7eb'})
+    number_format = workbook.add_format({'num_format': '#,##0.00'})
+    total_format = workbook.add_format({'bold': True, 'bg_color': '#f3f4f6', 'num_format': '#,##0.00'})
+    
+    worksheet.right_to_left()
+    worksheet.set_column('A:A', 35)
+    worksheet.set_column('B:B', 18)
+    
+    # Title
+    worksheet.merge_range('A1:B1', 'الميزانية العمومية - Balance Sheet', workbook.add_format({'bold': True, 'font_size': 16, 'align': 'center'}))
+    worksheet.merge_range('A2:B2', f'التاريخ: {report.get("as_of_date", "")}', workbook.add_format({'align': 'center'}))
+    
+    row = 4
+    
+    # Assets
+    worksheet.write(row, 0, 'الأصول', header_format)
+    worksheet.write(row, 1, '', header_format)
+    row += 1
+    
+    if report.get('assets', {}).get('current'):
+        worksheet.write(row, 0, 'الأصول المتداولة', subheader_format)
+        worksheet.write(row, 1, '', subheader_format)
+        row += 1
+        for item in report['assets']['current']:
+            worksheet.write(row, 0, item['account_name'])
+            worksheet.write(row, 1, item['amount'], number_format)
+            row += 1
+    
+    if report.get('assets', {}).get('fixed'):
+        worksheet.write(row, 0, 'الأصول الثابتة', subheader_format)
+        worksheet.write(row, 1, '', subheader_format)
+        row += 1
+        for item in report['assets']['fixed']:
+            worksheet.write(row, 0, item['account_name'])
+            worksheet.write(row, 1, item['amount'], number_format)
+            row += 1
+    
+    worksheet.write(row, 0, 'إجمالي الأصول', total_format)
+    worksheet.write(row, 1, report.get('assets', {}).get('total', 0), total_format)
+    row += 2
+    
+    # Liabilities
+    worksheet.write(row, 0, 'الخصوم', header_format)
+    worksheet.write(row, 1, '', header_format)
+    row += 1
+    
+    for item in report.get('liabilities', {}).get('current', []):
+        worksheet.write(row, 0, item['account_name'])
+        worksheet.write(row, 1, item['amount'], number_format)
+        row += 1
+    
+    worksheet.write(row, 0, 'إجمالي الخصوم', total_format)
+    worksheet.write(row, 1, report.get('liabilities', {}).get('total', 0), total_format)
+    row += 2
+    
+    # Equity
+    worksheet.write(row, 0, 'حقوق الملكية', header_format)
+    worksheet.write(row, 1, '', header_format)
+    row += 1
+    
+    for item in report.get('equity', {}).get('items', []):
+        worksheet.write(row, 0, item['account_name'])
+        worksheet.write(row, 1, item['amount'], number_format)
+        row += 1
+    
+    worksheet.write(row, 0, 'إجمالي حقوق الملكية', total_format)
+    worksheet.write(row, 1, report.get('equity', {}).get('total', 0), total_format)
+    row += 2
+    
+    # Total Liabilities & Equity
+    final_format = workbook.add_format({'bold': True, 'font_size': 12, 'bg_color': '#28376B', 'font_color': 'white', 'num_format': '#,##0.00'})
+    worksheet.write(row, 0, 'إجمالي الخصوم وحقوق الملكية', final_format)
+    worksheet.write(row, 1, report.get('total_liabilities_and_equity', 0), final_format)
+    
+    workbook.close()
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename=balance_sheet_{as_of_date or "latest"}.xlsx'}
+    )
