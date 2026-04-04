@@ -334,7 +334,56 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Weekend days configuration
   - Require both punches
 
-#### 14. UI/UX
+#### 14. Attendance-Payroll Integration with Company HR Settings (NEW - April 2026) ✅
+- **Company HR Settings (إعدادات الموارد البشرية لكل شركة):**
+  - Separate configuration per company (multi-tenant support)
+  - Flexible rules that each company can customize
+- **Late Deduction Settings:**
+  - Enable/Disable late deduction
+  - Calculation methods: Per Minute, Per Hour, Brackets, None
+  - Grace period (minutes) - late allowed without deduction
+  - Per minute/hour deduction rate
+  - Max late minutes before counting as absence
+- **Absence Deduction Settings:**
+  - Enable/Disable absence deduction
+  - Calculation methods: Full Day, Day + Penalty, None
+  - Days deducted per absence
+  - Penalty percentage (for day_plus_penalty method)
+  - Option to deduct excused absence
+- **Overtime Settings:**
+  - Enable/Disable overtime bonus
+  - Calculation method: Hourly, Daily, None
+  - Regular overtime rate (default 1.5x)
+  - Holiday overtime rate (default 2.0x)
+  - Night overtime rate (default 1.25x)
+  - Max monthly overtime hours
+  - Require pre-approval option
+- **General Settings:**
+  - Standard working hours per day (default 8)
+  - Standard working days per month (default 22)
+  - Weekend days selection (multiple days)
+- **Payroll Integration:**
+  - Automatic attendance data fetch when calculating payroll
+  - Late deduction added to payroll deductions
+  - Absence deduction added to payroll deductions
+  - Overtime bonus added to payroll allowances
+  - Preview endpoint: `GET /api/payroll/attendance-payroll-preview?month=YYYY-MM`
+  - Shows per-employee impact before creating payroll
+- **API Endpoints:**
+  - `GET /api/payroll/hr-settings` - Get company HR settings
+  - `PUT /api/payroll/hr-settings` - Update company HR settings
+  - `GET /api/payroll/attendance-payroll-preview` - Preview attendance impact on payroll
+- **Frontend HR Settings Page:**
+  - Accessible via: Human Resources > HR Settings
+  - 4 cards: Late Deduction, Absence Deduction, Overtime, General Settings
+  - Real-time form updates
+  - Save Settings button
+  - Arabic/English bilingual support
+- **Testing:**
+  - 22/22 backend tests passed (100%)
+  - Frontend page verified
+
+#### 15. UI/UX
 - Dark/Light mode toggle
 - RTL/LTR language support (Arabic/English)
 - Responsive sidebar with sub-menus
