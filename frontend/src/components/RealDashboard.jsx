@@ -42,6 +42,7 @@ import EmployeeProfilePage from '../pages/EmployeeProfilePage';
 import ShiftsPage from '../pages/ShiftsPage';
 import AttendancePage from '../pages/AttendancePage';
 import HRSettingsPage from '../pages/HRSettingsPage';
+import ETASettingsPage from '../pages/ETASettingsPage';
 
 // Import sub-modules from existing files
 import {
@@ -262,7 +263,8 @@ const RealDashboard = () => {
           { id: 'parties', name: language === 'ar' ? 'العملاء والموردين' : 'Customers & Suppliers', icon: <Users /> },
           { id: 'products', name: language === 'ar' ? 'المنتجات والخدمات' : 'Products & Services', icon: <Package /> },
           { id: 'currencies', name: language === 'ar' ? 'العملات' : 'Currencies', icon: <DollarSign /> },
-          { id: 'reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <BarChart /> }
+          { id: 'reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <BarChart /> },
+          { id: 'eta-settings', name: language === 'ar' ? 'إعدادات مصلحة الضرائب' : 'Tax Authority Settings', icon: <Settings /> }
         ]
       });
     }
@@ -964,6 +966,8 @@ const RealDashboard = () => {
           return <InvoiceReportsPage />;
         case 'currencies':
           return <CurrenciesPage />;
+        case 'eta-settings':
+          return <ETASettingsPage />;
         default:
           return <InvoicesPage />;
       }

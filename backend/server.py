@@ -42,6 +42,7 @@ from api.inventory_pro import router as inventory_pro_router
 from api.payroll import router as payroll_router
 from api.employees_extended import router as employees_extended_router
 from api.attendance_api import router as attendance_api_router
+from api.eta_api import router as eta_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -126,6 +127,7 @@ app.include_router(inventory_pro_router)
 app.include_router(payroll_router)
 app.include_router(employees_extended_router)
 app.include_router(attendance_api_router)
+app.include_router(eta_router)
 
 app.add_middleware(
     CORSMiddleware,
