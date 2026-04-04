@@ -64,6 +64,12 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Tax ID validation
   - ETA code support for products
   - QR Code generation
+- **Reports (NEW):**
+  - Sales Report (by date, customer, product)
+  - Purchases Report (by date, supplier, product)
+  - VAT Report (output tax, input tax, net VAT, tax breakdown)
+  - Aging Report (receivables with 0-30, 31-60, 61-90, 90+ buckets)
+  - Excel export for all reports
 
 #### 5. UI/UX
 - Dark/Light mode toggle
@@ -112,7 +118,7 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
 /app/backend/
 ├── api/
 │   ├── accounting.py      # Accounting endpoints
-│   ├── invoice.py         # E-invoicing endpoints (NEW)
+│   ├── invoice.py         # E-invoicing endpoints + Reports (NEW)
 │   └── auth.py            # Authentication
 ├── models/
 │   ├── accounting.py      # Accounting models
@@ -131,9 +137,10 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
 │   ├── ModernSidebar.jsx  # Navigation
 │   └── ui/                # Shadcn components
 ├── pages/
-│   ├── InvoicesPage.jsx   # E-invoicing (NEW)
-│   ├── PartiesPage.jsx    # Customers/Suppliers (NEW)
-│   ├── ProductsPage.jsx   # Products catalog (NEW)
+│   ├── InvoicesPage.jsx       # E-invoicing
+│   ├── PartiesPage.jsx        # Customers/Suppliers
+│   ├── ProductsPage.jsx       # Products catalog
+│   ├── InvoiceReportsPage.jsx # Invoice Reports (NEW)
 │   ├── JournalEntriesPage.jsx
 │   ├── GeneralLedgerPage.jsx
 │   └── FinancialReportsPage.jsx
@@ -178,6 +185,13 @@ PUT    /api/invoice/parties/{id}        # Update party
 POST   /api/invoice/products            # Create product
 GET    /api/invoice/products            # List products
 GET    /api/invoice/units               # List units
+
+# Reports (NEW)
+GET    /api/invoice/reports/sales       # Sales Report
+GET    /api/invoice/reports/purchases   # Purchases Report
+GET    /api/invoice/reports/vat         # VAT Report
+GET    /api/invoice/reports/aging       # Aging Report
+GET    /api/invoice/reports/export/{type}  # Export to Excel
 ```
 
 ### Accounting
@@ -205,6 +219,13 @@ GET    /api/accounting/reports/balance-sheet
 - Static uploads must use /api/uploads/ prefix
 
 ## Changelog
+- **April 4, 2026 (Update 2)**: Added Invoice Reports System
+  - Sales Report (group by date/customer/product)
+  - Purchases Report (group by date/supplier/product)
+  - VAT Report (output tax, input tax, net VAT, breakdown by rate)
+  - Aging Report (receivables with 0-30, 31-60, 61-90, 90+ day buckets)
+  - Excel export for all reports
+  
 - **April 4, 2026**: Implemented complete Electronic Invoicing system
   - Sales/Purchase Invoices
   - Quotations and Purchase Orders

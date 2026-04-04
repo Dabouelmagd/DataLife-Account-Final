@@ -18,6 +18,7 @@ from services.invoice_service import InvoiceService
 from api.users import get_current_user
 from database import db
 import io
+import base64
 
 router = APIRouter(prefix="/api/invoice", tags=["invoice"])
 
@@ -627,3 +628,630 @@ async def export_invoice_pdf(
         media_type='application/pdf',
         headers={'Content-Disposition': f'attachment; filename={invoice["document_number"]}.pdf'}
     )
+
+
+
+# ==========================================
+# تقارير الفواتير - Invoice Reports
+# ==========================================
+
+@router.get("/reports/sales")
+async def get_sales_report(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    group_by: str = Query("date", enum=["date", "customer", "product"]),
+    current_user: dict = Depends(get_current_user)
+):
+    """تقرير المبيعات - Sales Report"""
+    try:
+        company_id = current_user.get("company_id")
+        
+        # Build query
+        query = {
+            "company_id": company_id,
+            "document_type": "sales_invoice",
+            "status": {"$in": ["approved", "paid", "partially_paid"]}
+        }
+        
+        if start_date:
+            query["document_date"] = {"$gte": start_date}
+        if end_date:
+            if "document_date" in query:
+                query["document_date"]["$lte"] = end_date
+            else:
+                query["document_date"] = {"$lte": end_date}
+        
+        invoices = await db.invoices.find(query, {"_id": 0}).to_list(length=None)
+        
+        # Calculate totals
+        total_sales = sum(inv.get("grand_total", 0) for inv in invoices)
+        total_tax = sum(inv.get("total_tax", 0) for inv in invoices)
+        total_discount = sum(inv.get("total_discount", 0) for inv in invoices)
+        total_paid = sum(inv.get("amount_paid", 0) for inv in invoices)
+        total_due = sum(inv.get("amount_due", 0) for inv in invoices)
+        
+        # Group data
+        grouped_data = []
+        
+        if group_by == "date":
+            # Group by date
+            date_groups = {}
+            for inv in invoices:
+                date = inv.get("document_date", "Unknown")
+                if date not in date_groups:
+                    date_groups[date] = {"date": date, "count": 0, "total": 0, "tax": 0}
+                date_groups[date]["count"] += 1
+                date_groups[date]["total"] += inv.get("grand_total", 0)
+                date_groups[date]["tax"] += inv.get("total_tax", 0)
+            grouped_data = sorted(date_groups.values(), key=lambda x: x["date"], reverse=True)
+            
+        elif group_by == "customer":
+            # Group by customer
+            customer_groups = {}
+            for inv in invoices:
+                customer = inv.get("party_name", "Unknown")
+                customer_id = inv.get("party_id", "unknown")
+                if customer_id not in customer_groups:
+                    customer_groups[customer_id] = {
+                        "customer_id": customer_id,
+                        "customer_name": customer,
+                        "count": 0,
+                        "total": 0,
+                        "paid": 0,
+                        "due": 0
+                    }
+                customer_groups[customer_id]["count"] += 1
+                customer_groups[customer_id]["total"] += inv.get("grand_total", 0)
+                customer_groups[customer_id]["paid"] += inv.get("amount_paid", 0)
+                customer_groups[customer_id]["due"] += inv.get("amount_due", 0)
+            grouped_data = sorted(customer_groups.values(), key=lambda x: x["total"], reverse=True)
+            
+        elif group_by == "product":
+            # Group by product/service
+            product_groups = {}
+            for inv in invoices:
+                for line in inv.get("lines", []):
+                    desc = line.get("description", "Unknown")
+                    if desc not in product_groups:
+                        product_groups[desc] = {
+                            "product": desc,
+                            "quantity": 0,
+                            "total": 0
+                        }
+                    product_groups[desc]["quantity"] += line.get("quantity", 0)
+                    product_groups[desc]["total"] += line.get("total", 0)
+            grouped_data = sorted(product_groups.values(), key=lambda x: x["total"], reverse=True)
+        
+        return {
+            "report_type": "sales",
+            "period": {"start": start_date, "end": end_date},
+            "summary": {
+                "invoice_count": len(invoices),
+                "total_sales": round(total_sales, 2),
+                "total_tax": round(total_tax, 2),
+                "total_discount": round(total_discount, 2),
+                "total_paid": round(total_paid, 2),
+                "total_due": round(total_due, 2)
+            },
+            "grouped_by": group_by,
+            "data": grouped_data,
+            "invoices": invoices[:50]  # Last 50 invoices
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/reports/purchases")
+async def get_purchases_report(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    group_by: str = Query("date", enum=["date", "supplier", "product"]),
+    current_user: dict = Depends(get_current_user)
+):
+    """تقرير المشتريات - Purchases Report"""
+    try:
+        company_id = current_user.get("company_id")
+        
+        query = {
+            "company_id": company_id,
+            "document_type": "purchase_invoice",
+            "status": {"$in": ["approved", "paid", "partially_paid"]}
+        }
+        
+        if start_date:
+            query["document_date"] = {"$gte": start_date}
+        if end_date:
+            if "document_date" in query:
+                query["document_date"]["$lte"] = end_date
+            else:
+                query["document_date"] = {"$lte": end_date}
+        
+        invoices = await db.invoices.find(query, {"_id": 0}).to_list(length=None)
+        
+        total_purchases = sum(inv.get("grand_total", 0) for inv in invoices)
+        total_tax = sum(inv.get("total_tax", 0) for inv in invoices)
+        total_paid = sum(inv.get("amount_paid", 0) for inv in invoices)
+        total_due = sum(inv.get("amount_due", 0) for inv in invoices)
+        
+        grouped_data = []
+        
+        if group_by == "date":
+            date_groups = {}
+            for inv in invoices:
+                date = inv.get("document_date", "Unknown")
+                if date not in date_groups:
+                    date_groups[date] = {"date": date, "count": 0, "total": 0, "tax": 0}
+                date_groups[date]["count"] += 1
+                date_groups[date]["total"] += inv.get("grand_total", 0)
+                date_groups[date]["tax"] += inv.get("total_tax", 0)
+            grouped_data = sorted(date_groups.values(), key=lambda x: x["date"], reverse=True)
+            
+        elif group_by == "supplier":
+            supplier_groups = {}
+            for inv in invoices:
+                supplier = inv.get("party_name", "Unknown")
+                supplier_id = inv.get("party_id", "unknown")
+                if supplier_id not in supplier_groups:
+                    supplier_groups[supplier_id] = {
+                        "supplier_id": supplier_id,
+                        "supplier_name": supplier,
+                        "count": 0,
+                        "total": 0,
+                        "paid": 0,
+                        "due": 0
+                    }
+                supplier_groups[supplier_id]["count"] += 1
+                supplier_groups[supplier_id]["total"] += inv.get("grand_total", 0)
+                supplier_groups[supplier_id]["paid"] += inv.get("amount_paid", 0)
+                supplier_groups[supplier_id]["due"] += inv.get("amount_due", 0)
+            grouped_data = sorted(supplier_groups.values(), key=lambda x: x["total"], reverse=True)
+            
+        elif group_by == "product":
+            product_groups = {}
+            for inv in invoices:
+                for line in inv.get("lines", []):
+                    desc = line.get("description", "Unknown")
+                    if desc not in product_groups:
+                        product_groups[desc] = {"product": desc, "quantity": 0, "total": 0}
+                    product_groups[desc]["quantity"] += line.get("quantity", 0)
+                    product_groups[desc]["total"] += line.get("total", 0)
+            grouped_data = sorted(product_groups.values(), key=lambda x: x["total"], reverse=True)
+        
+        return {
+            "report_type": "purchases",
+            "period": {"start": start_date, "end": end_date},
+            "summary": {
+                "invoice_count": len(invoices),
+                "total_purchases": round(total_purchases, 2),
+                "total_tax": round(total_tax, 2),
+                "total_paid": round(total_paid, 2),
+                "total_due": round(total_due, 2)
+            },
+            "grouped_by": group_by,
+            "data": grouped_data,
+            "invoices": invoices[:50]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/reports/vat")
+async def get_vat_report(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """تقرير ضريبة القيمة المضافة - VAT Report"""
+    try:
+        company_id = current_user.get("company_id")
+        
+        base_query = {
+            "company_id": company_id,
+            "status": {"$in": ["approved", "paid", "partially_paid"]}
+        }
+        
+        if start_date:
+            base_query["document_date"] = {"$gte": start_date}
+        if end_date:
+            if "document_date" in base_query:
+                base_query["document_date"]["$lte"] = end_date
+            else:
+                base_query["document_date"] = {"$lte": end_date}
+        
+        # Sales VAT (Output Tax)
+        sales_query = {**base_query, "document_type": "sales_invoice"}
+        sales_invoices = await db.invoices.find(sales_query, {"_id": 0}).to_list(length=None)
+        
+        sales_subtotal = sum(inv.get("subtotal", 0) for inv in sales_invoices)
+        sales_tax = sum(inv.get("total_tax", 0) for inv in sales_invoices)
+        sales_total = sum(inv.get("grand_total", 0) for inv in sales_invoices)
+        
+        # Purchases VAT (Input Tax)
+        purchases_query = {**base_query, "document_type": "purchase_invoice"}
+        purchases_invoices = await db.invoices.find(purchases_query, {"_id": 0}).to_list(length=None)
+        
+        purchases_subtotal = sum(inv.get("subtotal", 0) for inv in purchases_invoices)
+        purchases_tax = sum(inv.get("total_tax", 0) for inv in purchases_invoices)
+        purchases_total = sum(inv.get("grand_total", 0) for inv in purchases_invoices)
+        
+        # Net VAT
+        net_vat = sales_tax - purchases_tax
+        
+        # Breakdown by tax rate
+        tax_breakdown = {}
+        
+        for inv in sales_invoices:
+            for line in inv.get("lines", []):
+                rate = line.get("tax_rate", 0)
+                key = f"{rate}%"
+                if key not in tax_breakdown:
+                    tax_breakdown[key] = {"rate": rate, "sales_base": 0, "sales_tax": 0, "purchases_base": 0, "purchases_tax": 0}
+                tax_breakdown[key]["sales_base"] += line.get("subtotal", 0) - line.get("discount_amount", 0)
+                tax_breakdown[key]["sales_tax"] += line.get("tax_amount", 0)
+        
+        for inv in purchases_invoices:
+            for line in inv.get("lines", []):
+                rate = line.get("tax_rate", 0)
+                key = f"{rate}%"
+                if key not in tax_breakdown:
+                    tax_breakdown[key] = {"rate": rate, "sales_base": 0, "sales_tax": 0, "purchases_base": 0, "purchases_tax": 0}
+                tax_breakdown[key]["purchases_base"] += line.get("subtotal", 0) - line.get("discount_amount", 0)
+                tax_breakdown[key]["purchases_tax"] += line.get("tax_amount", 0)
+        
+        # Calculate net for each rate
+        for key in tax_breakdown:
+            tax_breakdown[key]["net_tax"] = tax_breakdown[key]["sales_tax"] - tax_breakdown[key]["purchases_tax"]
+        
+        return {
+            "report_type": "vat",
+            "period": {"start": start_date, "end": end_date},
+            "output_tax": {
+                "description": "ضريبة المخرجات (المبيعات)",
+                "description_en": "Output Tax (Sales)",
+                "invoice_count": len(sales_invoices),
+                "taxable_amount": round(sales_subtotal, 2),
+                "tax_amount": round(sales_tax, 2),
+                "total_amount": round(sales_total, 2)
+            },
+            "input_tax": {
+                "description": "ضريبة المدخلات (المشتريات)",
+                "description_en": "Input Tax (Purchases)",
+                "invoice_count": len(purchases_invoices),
+                "taxable_amount": round(purchases_subtotal, 2),
+                "tax_amount": round(purchases_tax, 2),
+                "total_amount": round(purchases_total, 2)
+            },
+            "net_vat": {
+                "description": "صافي الضريبة المستحقة",
+                "description_en": "Net VAT Due",
+                "amount": round(net_vat, 2),
+                "status": "payable" if net_vat > 0 else "refundable" if net_vat < 0 else "zero"
+            },
+            "tax_breakdown": list(tax_breakdown.values())
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/reports/aging")
+async def get_aging_report(
+    report_type: str = Query("receivables", enum=["receivables", "payables"]),
+    as_of_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """تقرير أعمار الديون - Aging Report"""
+    try:
+        from datetime import datetime, timedelta
+        
+        company_id = current_user.get("company_id")
+        
+        if as_of_date:
+            reference_date = datetime.strptime(as_of_date, "%Y-%m-%d")
+        else:
+            reference_date = datetime.now()
+        
+        doc_type = "sales_invoice" if report_type == "receivables" else "purchase_invoice"
+        
+        query = {
+            "company_id": company_id,
+            "document_type": doc_type,
+            "status": {"$in": ["approved", "partially_paid"]},
+            "amount_due": {"$gt": 0}
+        }
+        
+        invoices = await db.invoices.find(query, {"_id": 0}).to_list(length=None)
+        
+        # Age buckets
+        buckets = {
+            "current": {"label": "0-30 days", "label_ar": "0-30 يوم", "min": 0, "max": 30, "total": 0, "count": 0, "invoices": []},
+            "30_60": {"label": "31-60 days", "label_ar": "31-60 يوم", "min": 31, "max": 60, "total": 0, "count": 0, "invoices": []},
+            "60_90": {"label": "61-90 days", "label_ar": "61-90 يوم", "min": 61, "max": 90, "total": 0, "count": 0, "invoices": []},
+            "over_90": {"label": "Over 90 days", "label_ar": "أكثر من 90 يوم", "min": 91, "max": 9999, "total": 0, "count": 0, "invoices": []}
+        }
+        
+        # Party summaries
+        party_summary = {}
+        
+        for inv in invoices:
+            due_date_str = inv.get("due_date") or inv.get("document_date")
+            if due_date_str:
+                try:
+                    due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
+                    days_overdue = (reference_date - due_date).days
+                except:
+                    days_overdue = 0
+            else:
+                days_overdue = 0
+            
+            amount_due = inv.get("amount_due", 0)
+            party_id = inv.get("party_id", "unknown")
+            party_name = inv.get("party_name", "Unknown")
+            
+            # Add to appropriate bucket
+            inv_summary = {
+                "invoice_number": inv.get("document_number"),
+                "date": inv.get("document_date"),
+                "due_date": inv.get("due_date"),
+                "days_overdue": max(0, days_overdue),
+                "amount_due": amount_due,
+                "party_name": party_name
+            }
+            
+            if days_overdue <= 30:
+                buckets["current"]["total"] += amount_due
+                buckets["current"]["count"] += 1
+                buckets["current"]["invoices"].append(inv_summary)
+            elif days_overdue <= 60:
+                buckets["30_60"]["total"] += amount_due
+                buckets["30_60"]["count"] += 1
+                buckets["30_60"]["invoices"].append(inv_summary)
+            elif days_overdue <= 90:
+                buckets["60_90"]["total"] += amount_due
+                buckets["60_90"]["count"] += 1
+                buckets["60_90"]["invoices"].append(inv_summary)
+            else:
+                buckets["over_90"]["total"] += amount_due
+                buckets["over_90"]["count"] += 1
+                buckets["over_90"]["invoices"].append(inv_summary)
+            
+            # Party summary
+            if party_id not in party_summary:
+                party_summary[party_id] = {
+                    "party_id": party_id,
+                    "party_name": party_name,
+                    "current": 0,
+                    "30_60": 0,
+                    "60_90": 0,
+                    "over_90": 0,
+                    "total": 0
+                }
+            
+            if days_overdue <= 30:
+                party_summary[party_id]["current"] += amount_due
+            elif days_overdue <= 60:
+                party_summary[party_id]["30_60"] += amount_due
+            elif days_overdue <= 90:
+                party_summary[party_id]["60_90"] += amount_due
+            else:
+                party_summary[party_id]["over_90"] += amount_due
+            
+            party_summary[party_id]["total"] += amount_due
+        
+        # Round values
+        for bucket in buckets.values():
+            bucket["total"] = round(bucket["total"], 2)
+            # Limit invoices shown
+            bucket["invoices"] = bucket["invoices"][:20]
+        
+        for party in party_summary.values():
+            party["current"] = round(party["current"], 2)
+            party["30_60"] = round(party["30_60"], 2)
+            party["60_90"] = round(party["60_90"], 2)
+            party["over_90"] = round(party["over_90"], 2)
+            party["total"] = round(party["total"], 2)
+        
+        total_outstanding = sum(b["total"] for b in buckets.values())
+        
+        return {
+            "report_type": f"aging_{report_type}",
+            "as_of_date": reference_date.strftime("%Y-%m-%d"),
+            "summary": {
+                "total_outstanding": round(total_outstanding, 2),
+                "invoice_count": len(invoices),
+                "party_count": len(party_summary)
+            },
+            "buckets": buckets,
+            "by_party": sorted(party_summary.values(), key=lambda x: x["total"], reverse=True)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/reports/export/{report_type}")
+async def export_report_to_excel(
+    report_type: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """تصدير التقرير إلى Excel - Export Report to Excel"""
+    try:
+        import xlsxwriter
+        
+        company_id = current_user.get("company_id")
+        buffer = io.BytesIO()
+        workbook = xlsxwriter.Workbook(buffer, {'in_memory': True})
+        
+        # Styles
+        header_format = workbook.add_format({
+            'bold': True, 'bg_color': '#28376B', 'font_color': 'white',
+            'border': 1, 'align': 'center'
+        })
+        number_format = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
+        text_format = workbook.add_format({'border': 1})
+        total_format = workbook.add_format({
+            'bold': True, 'bg_color': '#f3f4f6', 'num_format': '#,##0.00', 'border': 1
+        })
+        
+        if report_type == "sales":
+            # Sales Report
+            worksheet = workbook.add_worksheet("Sales Report")
+            
+            query = {
+                "company_id": company_id,
+                "document_type": "sales_invoice",
+                "status": {"$in": ["approved", "paid", "partially_paid"]}
+            }
+            if start_date:
+                query["document_date"] = {"$gte": start_date}
+            if end_date:
+                if "document_date" in query:
+                    query["document_date"]["$lte"] = end_date
+                else:
+                    query["document_date"] = {"$lte": end_date}
+            
+            invoices = await db.invoices.find(query, {"_id": 0}).to_list(length=None)
+            
+            headers = ["Invoice #", "Date", "Customer", "Subtotal", "Discount", "Tax", "Total", "Paid", "Due", "Status"]
+            for col, header in enumerate(headers):
+                worksheet.write(0, col, header, header_format)
+            
+            row = 1
+            for inv in invoices:
+                worksheet.write(row, 0, inv.get("document_number", ""), text_format)
+                worksheet.write(row, 1, inv.get("document_date", ""), text_format)
+                worksheet.write(row, 2, inv.get("party_name", ""), text_format)
+                worksheet.write(row, 3, inv.get("subtotal", 0), number_format)
+                worksheet.write(row, 4, inv.get("total_discount", 0), number_format)
+                worksheet.write(row, 5, inv.get("total_tax", 0), number_format)
+                worksheet.write(row, 6, inv.get("grand_total", 0), number_format)
+                worksheet.write(row, 7, inv.get("amount_paid", 0), number_format)
+                worksheet.write(row, 8, inv.get("amount_due", 0), number_format)
+                worksheet.write(row, 9, inv.get("status", ""), text_format)
+                row += 1
+            
+            # Totals
+            worksheet.write(row, 2, "TOTAL", total_format)
+            worksheet.write(row, 3, sum(inv.get("subtotal", 0) for inv in invoices), total_format)
+            worksheet.write(row, 4, sum(inv.get("total_discount", 0) for inv in invoices), total_format)
+            worksheet.write(row, 5, sum(inv.get("total_tax", 0) for inv in invoices), total_format)
+            worksheet.write(row, 6, sum(inv.get("grand_total", 0) for inv in invoices), total_format)
+            worksheet.write(row, 7, sum(inv.get("amount_paid", 0) for inv in invoices), total_format)
+            worksheet.write(row, 8, sum(inv.get("amount_due", 0) for inv in invoices), total_format)
+            
+            worksheet.set_column('A:A', 15)
+            worksheet.set_column('B:B', 12)
+            worksheet.set_column('C:C', 30)
+            worksheet.set_column('D:J', 12)
+            
+        elif report_type == "purchases":
+            # Purchases Report
+            worksheet = workbook.add_worksheet("Purchases Report")
+            
+            query = {
+                "company_id": company_id,
+                "document_type": "purchase_invoice",
+                "status": {"$in": ["approved", "paid", "partially_paid"]}
+            }
+            if start_date:
+                query["document_date"] = {"$gte": start_date}
+            if end_date:
+                if "document_date" in query:
+                    query["document_date"]["$lte"] = end_date
+                else:
+                    query["document_date"] = {"$lte": end_date}
+            
+            invoices = await db.invoices.find(query, {"_id": 0}).to_list(length=None)
+            
+            headers = ["Invoice #", "Date", "Supplier", "Subtotal", "Discount", "Tax", "Total", "Paid", "Due", "Status"]
+            for col, header in enumerate(headers):
+                worksheet.write(0, col, header, header_format)
+            
+            row = 1
+            for inv in invoices:
+                worksheet.write(row, 0, inv.get("document_number", ""), text_format)
+                worksheet.write(row, 1, inv.get("document_date", ""), text_format)
+                worksheet.write(row, 2, inv.get("party_name", ""), text_format)
+                worksheet.write(row, 3, inv.get("subtotal", 0), number_format)
+                worksheet.write(row, 4, inv.get("total_discount", 0), number_format)
+                worksheet.write(row, 5, inv.get("total_tax", 0), number_format)
+                worksheet.write(row, 6, inv.get("grand_total", 0), number_format)
+                worksheet.write(row, 7, inv.get("amount_paid", 0), number_format)
+                worksheet.write(row, 8, inv.get("amount_due", 0), number_format)
+                worksheet.write(row, 9, inv.get("status", ""), text_format)
+                row += 1
+            
+            worksheet.write(row, 2, "TOTAL", total_format)
+            worksheet.write(row, 6, sum(inv.get("grand_total", 0) for inv in invoices), total_format)
+            
+            worksheet.set_column('A:A', 15)
+            worksheet.set_column('B:B', 12)
+            worksheet.set_column('C:C', 30)
+            worksheet.set_column('D:J', 12)
+            
+        elif report_type == "vat":
+            # VAT Report
+            worksheet = workbook.add_worksheet("VAT Report")
+            
+            base_query = {
+                "company_id": company_id,
+                "status": {"$in": ["approved", "paid", "partially_paid"]}
+            }
+            if start_date:
+                base_query["document_date"] = {"$gte": start_date}
+            if end_date:
+                if "document_date" in base_query:
+                    base_query["document_date"]["$lte"] = end_date
+                else:
+                    base_query["document_date"] = {"$lte": end_date}
+            
+            sales_invoices = await db.invoices.find({**base_query, "document_type": "sales_invoice"}, {"_id": 0}).to_list(length=None)
+            purchases_invoices = await db.invoices.find({**base_query, "document_type": "purchase_invoice"}, {"_id": 0}).to_list(length=None)
+            
+            worksheet.write(0, 0, "VAT Report", header_format)
+            worksheet.write(1, 0, f"Period: {start_date or 'Start'} to {end_date or 'End'}", text_format)
+            
+            worksheet.write(3, 0, "Description", header_format)
+            worksheet.write(3, 1, "Taxable Amount", header_format)
+            worksheet.write(3, 2, "VAT Amount", header_format)
+            
+            sales_subtotal = sum(inv.get("subtotal", 0) for inv in sales_invoices)
+            sales_tax = sum(inv.get("total_tax", 0) for inv in sales_invoices)
+            purchases_subtotal = sum(inv.get("subtotal", 0) for inv in purchases_invoices)
+            purchases_tax = sum(inv.get("total_tax", 0) for inv in purchases_invoices)
+            
+            worksheet.write(4, 0, "Output Tax (Sales)", text_format)
+            worksheet.write(4, 1, sales_subtotal, number_format)
+            worksheet.write(4, 2, sales_tax, number_format)
+            
+            worksheet.write(5, 0, "Input Tax (Purchases)", text_format)
+            worksheet.write(5, 1, purchases_subtotal, number_format)
+            worksheet.write(5, 2, purchases_tax, number_format)
+            
+            worksheet.write(6, 0, "Net VAT Due", total_format)
+            worksheet.write(6, 1, "", total_format)
+            worksheet.write(6, 2, sales_tax - purchases_tax, total_format)
+            
+            worksheet.set_column('A:A', 25)
+            worksheet.set_column('B:C', 15)
+            
+        else:
+            raise HTTPException(status_code=400, detail="Invalid report type")
+        
+        workbook.close()
+        buffer.seek(0)
+        
+        filename = f"{report_type}_report_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        
+        return StreamingResponse(
+            buffer,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={'Content-Disposition': f'attachment; filename={filename}'}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
