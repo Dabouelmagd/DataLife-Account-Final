@@ -35,6 +35,7 @@ import InvoicesPage from '../pages/InvoicesPage';
 import PartiesPage from '../pages/PartiesPage';
 import ProductsPage from '../pages/ProductsPage';
 import InvoiceReportsPage from '../pages/InvoiceReportsPage';
+import CurrenciesPage from '../pages/CurrenciesPage';
 
 // Import sub-modules from existing files
 import {
@@ -250,6 +251,7 @@ const RealDashboard = () => {
           { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices', icon: <FileText /> },
           { id: 'parties', name: language === 'ar' ? 'العملاء والموردين' : 'Customers & Suppliers', icon: <Users /> },
           { id: 'products', name: language === 'ar' ? 'المنتجات والخدمات' : 'Products & Services', icon: <Package /> },
+          { id: 'currencies', name: language === 'ar' ? 'العملات' : 'Currencies', icon: <DollarSign /> },
           { id: 'reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <BarChart /> }
         ]
       });
@@ -914,6 +916,8 @@ const RealDashboard = () => {
           return <ProductsPage />;
         case 'reports':
           return <InvoiceReportsPage />;
+        case 'currencies':
+          return <CurrenciesPage />;
         default:
           return <InvoicesPage />;
       }

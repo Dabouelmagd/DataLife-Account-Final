@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from models.invoice import (
     Invoice, InvoiceLine, Party, Product, Payment,
     DocumentType, DocumentStatus, PaymentTerms, TaxType, Currency, PaymentMethod,
-    UNITS
+    UNITS, CURRENCIES, ExchangeRate, CompanyCurrency, convert_currency, get_currency_info
 )
 from services.invoice_service import InvoiceService
 from api.users import get_current_user
@@ -1253,5 +1253,280 @@ async def export_report_to_excel(
             headers={'Content-Disposition': f'attachment; filename={filename}'}
         )
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+# ==========================================
+# العملات وأسعار الصرف - Currencies & Exchange Rates
+# ==========================================
+
+class ExchangeRateRequest(BaseModel):
+    """طلب إضافة/تحديث سعر صرف"""
+    to_currency: str
+    rate: float
+    effective_date: Optional[str] = None
+
+
+class UpdateCurrencySettingsRequest(BaseModel):
+    """طلب تحديث إعدادات العملات"""
+    base_currency: Optional[str] = None
+    enabled_currencies: Optional[List[str]] = None
+
+
+@router.get("/config/currencies")
+async def get_currencies(current_user: dict = Depends(get_current_user)):
+    """الحصول على قائمة العملات المدعومة"""
+    try:
+        company_id = current_user.get("company_id")
+        
+        # Get company currency settings
+        settings = await db.company_currencies.find_one(
+            {"company_id": company_id},
+            {"_id": 0}
+        )
+        
+        if not settings:
+            # Create default settings
+            settings = CompanyCurrency(
+                company_id=company_id,
+                base_currency="EGP",
+                enabled_currencies=["EGP", "USD", "EUR", "SAR", "AED"]
+            ).dict()
+            await db.company_currencies.insert_one(settings)
+        
+        # Get all currencies with enabled status
+        currencies = []
+        for code, info in CURRENCIES.items():
+            currencies.append({
+                **info,
+                "is_enabled": code in settings.get("enabled_currencies", ["EGP"]),
+                "is_base": code == settings.get("base_currency", "EGP")
+            })
+        
+        return {
+            "currencies": currencies,
+            "base_currency": settings.get("base_currency", "EGP"),
+            "enabled_currencies": settings.get("enabled_currencies", ["EGP"])
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/config/currencies/settings")
+async def update_currency_settings(
+    request: UpdateCurrencySettingsRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """تحديث إعدادات العملات للشركة"""
+    try:
+        company_id = current_user.get("company_id")
+        
+        update_data = {}
+        if request.base_currency:
+            if request.base_currency not in CURRENCIES:
+                raise HTTPException(status_code=400, detail="عملة غير صالحة")
+            update_data["base_currency"] = request.base_currency
+            
+        if request.enabled_currencies:
+            # Validate all currencies
+            for curr in request.enabled_currencies:
+                if curr not in CURRENCIES:
+                    raise HTTPException(status_code=400, detail=f"عملة غير صالحة: {curr}")
+            update_data["enabled_currencies"] = request.enabled_currencies
+        
+        if update_data:
+            await db.company_currencies.update_one(
+                {"company_id": company_id},
+                {"$set": update_data},
+                upsert=True
+            )
+        
+        return {"message": "تم تحديث إعدادات العملات بنجاح"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/config/exchange-rates")
+async def get_exchange_rates(
+    currency: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """الحصول على أسعار الصرف"""
+    try:
+        company_id = current_user.get("company_id")
+        
+        # Get company base currency
+        settings = await db.company_currencies.find_one(
+            {"company_id": company_id},
+            {"_id": 0}
+        )
+        base_currency = settings.get("base_currency", "EGP") if settings else "EGP"
+        
+        # Build query
+        query = {"company_id": company_id, "is_active": True}
+        if currency:
+            query["to_currency"] = currency
+        
+        rates = await db.exchange_rates.find(query, {"_id": 0}).sort("effective_date", -1).to_list(length=100)
+        
+        # Get latest rate for each currency
+        latest_rates = {}
+        for rate in rates:
+            curr = rate["to_currency"]
+            if curr not in latest_rates:
+                latest_rates[curr] = rate
+        
+        return {
+            "base_currency": base_currency,
+            "rates": list(latest_rates.values()),
+            "all_rates": rates
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/config/exchange-rates")
+async def create_exchange_rate(
+    request: ExchangeRateRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """إضافة سعر صرف جديد"""
+    try:
+        company_id = current_user.get("company_id")
+        user_id = current_user.get("user_id")
+        
+        if request.to_currency not in CURRENCIES:
+            raise HTTPException(status_code=400, detail="عملة غير صالحة")
+        
+        if request.rate <= 0:
+            raise HTTPException(status_code=400, detail="سعر الصرف يجب أن يكون أكبر من صفر")
+        
+        # Get company base currency
+        settings = await db.company_currencies.find_one(
+            {"company_id": company_id},
+            {"_id": 0}
+        )
+        base_currency = settings.get("base_currency", "EGP") if settings else "EGP"
+        
+        rate = ExchangeRate(
+            company_id=company_id,
+            from_currency=base_currency,
+            to_currency=request.to_currency,
+            rate=request.rate,
+            effective_date=request.effective_date or datetime.now().strftime("%Y-%m-%d"),
+            created_by=user_id
+        )
+        
+        await db.exchange_rates.insert_one(rate.dict())
+        
+        return {
+            "message": "تم إضافة سعر الصرف بنجاح",
+            "rate": rate.dict()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/config/exchange-rates/{rate_id}")
+async def delete_exchange_rate(
+    rate_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """حذف سعر صرف"""
+    try:
+        company_id = current_user.get("company_id")
+        
+        result = await db.exchange_rates.update_one(
+            {"id": rate_id, "company_id": company_id},
+            {"$set": {"is_active": False}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="سعر الصرف غير موجود")
+        
+        return {"message": "تم حذف سعر الصرف بنجاح"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/config/convert")
+async def convert_amount(
+    amount: float,
+    from_currency: str,
+    to_currency: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """تحويل مبلغ من عملة لأخرى"""
+    try:
+        company_id = current_user.get("company_id")
+        
+        if from_currency not in CURRENCIES or to_currency not in CURRENCIES:
+            raise HTTPException(status_code=400, detail="عملة غير صالحة")
+        
+        if from_currency == to_currency:
+            return {
+                "original_amount": amount,
+                "converted_amount": amount,
+                "from_currency": from_currency,
+                "to_currency": to_currency,
+                "rate": 1.0
+            }
+        
+        # Get company base currency
+        settings = await db.company_currencies.find_one(
+            {"company_id": company_id},
+            {"_id": 0}
+        )
+        base_currency = settings.get("base_currency", "EGP") if settings else "EGP"
+        
+        # Get exchange rates
+        from_rate = 1.0
+        to_rate = 1.0
+        
+        if from_currency != base_currency:
+            rate_doc = await db.exchange_rates.find_one(
+                {"company_id": company_id, "to_currency": from_currency, "is_active": True},
+                {"_id": 0},
+                sort=[("effective_date", -1)]
+            )
+            if rate_doc:
+                from_rate = rate_doc["rate"]
+        
+        if to_currency != base_currency:
+            rate_doc = await db.exchange_rates.find_one(
+                {"company_id": company_id, "to_currency": to_currency, "is_active": True},
+                {"_id": 0},
+                sort=[("effective_date", -1)]
+            )
+            if rate_doc:
+                to_rate = rate_doc["rate"]
+        
+        # Convert: amount -> base currency -> target currency
+        base_amount = amount / from_rate if from_rate != 0 else amount
+        converted_amount = base_amount * to_rate
+        
+        return {
+            "original_amount": amount,
+            "converted_amount": round(converted_amount, 2),
+            "from_currency": from_currency,
+            "to_currency": to_currency,
+            "rate": round(to_rate / from_rate, 6) if from_rate != 0 else 0
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

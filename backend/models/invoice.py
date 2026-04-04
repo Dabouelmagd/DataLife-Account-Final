@@ -378,3 +378,139 @@ def generate_qr_code_data(invoice: Invoice, company_name: str) -> str:
     data += tlv_encode(5, f"{invoice.total_tax:.2f}")      # الضريبة
     
     return base64.b64encode(data).decode('utf-8')
+
+
+
+# ==========================================
+# Currency & Exchange Rate Models
+# ==========================================
+
+# قائمة العملات المدعومة مع تفاصيلها
+CURRENCIES = {
+    "EGP": {
+        "code": "EGP",
+        "name_ar": "جنيه مصري",
+        "name_en": "Egyptian Pound",
+        "symbol": "ج.م",
+        "symbol_en": "EGP",
+        "decimal_places": 2,
+        "is_default": True
+    },
+    "USD": {
+        "code": "USD",
+        "name_ar": "دولار أمريكي",
+        "name_en": "US Dollar",
+        "symbol": "$",
+        "symbol_en": "$",
+        "decimal_places": 2,
+        "is_default": False
+    },
+    "EUR": {
+        "code": "EUR",
+        "name_ar": "يورو",
+        "name_en": "Euro",
+        "symbol": "€",
+        "symbol_en": "€",
+        "decimal_places": 2,
+        "is_default": False
+    },
+    "SAR": {
+        "code": "SAR",
+        "name_ar": "ريال سعودي",
+        "name_en": "Saudi Riyal",
+        "symbol": "ر.س",
+        "symbol_en": "SAR",
+        "decimal_places": 2,
+        "is_default": False
+    },
+    "AED": {
+        "code": "AED",
+        "name_ar": "درهم إماراتي",
+        "name_en": "UAE Dirham",
+        "symbol": "د.إ",
+        "symbol_en": "AED",
+        "decimal_places": 2,
+        "is_default": False
+    },
+    "GBP": {
+        "code": "GBP",
+        "name_ar": "جنيه إسترليني",
+        "name_en": "British Pound",
+        "symbol": "£",
+        "symbol_en": "£",
+        "decimal_places": 2,
+        "is_default": False
+    },
+    "KWD": {
+        "code": "KWD",
+        "name_ar": "دينار كويتي",
+        "name_en": "Kuwaiti Dinar",
+        "symbol": "د.ك",
+        "symbol_en": "KWD",
+        "decimal_places": 3,
+        "is_default": False
+    },
+    "QAR": {
+        "code": "QAR",
+        "name_ar": "ريال قطري",
+        "name_en": "Qatari Riyal",
+        "symbol": "ر.ق",
+        "symbol_en": "QAR",
+        "decimal_places": 2,
+        "is_default": False
+    },
+    "BHD": {
+        "code": "BHD",
+        "name_ar": "دينار بحريني",
+        "name_en": "Bahraini Dinar",
+        "symbol": "د.ب",
+        "symbol_en": "BHD",
+        "decimal_places": 3,
+        "is_default": False
+    },
+    "OMR": {
+        "code": "OMR",
+        "name_ar": "ريال عماني",
+        "name_en": "Omani Rial",
+        "symbol": "ر.ع",
+        "symbol_en": "OMR",
+        "decimal_places": 3,
+        "is_default": False
+    }
+}
+
+
+class ExchangeRate(BaseModel):
+    """سعر الصرف"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str
+    from_currency: str = "EGP"          # العملة الأساسية
+    to_currency: str                     # العملة المستهدفة
+    rate: float                          # سعر الصرف
+    effective_date: str                  # تاريخ السريان
+    is_active: bool = True
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_by: Optional[str] = None
+
+
+class CompanyCurrency(BaseModel):
+    """إعدادات العملات للشركة"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str
+    base_currency: str = "EGP"           # العملة الأساسية
+    enabled_currencies: List[str] = ["EGP"]  # العملات المفعلة
+    auto_update_rates: bool = False      # تحديث تلقائي لأسعار الصرف
+    last_rate_update: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+
+def convert_currency(amount: float, from_currency: str, to_currency: str, rate: float) -> float:
+    """تحويل المبلغ من عملة لأخرى"""
+    if from_currency == to_currency:
+        return amount
+    return round(amount * rate, 2)
+
+
+def get_currency_info(currency_code: str) -> dict:
+    """الحصول على معلومات العملة"""
+    return CURRENCIES.get(currency_code, CURRENCIES["EGP"])

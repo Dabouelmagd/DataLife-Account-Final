@@ -49,6 +49,8 @@ const InvoicesPage = () => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [parties, setParties] = useState([]);
   const [activeTab, setActiveTab] = useState('sales_invoice');
+  const [currencies, setCurrencies] = useState([]);
+  const [baseCurrency, setBaseCurrency] = useState('EGP');
 
   const [formData, setFormData] = useState({
     document_type: 'sales_invoice',
@@ -225,9 +227,24 @@ const InvoicesPage = () => {
     }
   }, [activeTab]);
 
+  const fetchCurrencies = useCallback(async () => {
+    try {
+      const token = getToken();
+      const response = await fetch(`${API}/config/currencies`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setCurrencies(data.currencies?.filter(c => c.is_enabled) || []);
+      setBaseCurrency(data.base_currency || 'EGP');
+    } catch (error) {
+      console.error('Error fetching currencies:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchInvoices();
-  }, [fetchInvoices]);
+    fetchCurrencies();
+  }, [fetchInvoices, fetchCurrencies]);
 
   useEffect(() => {
     fetchParties();
@@ -714,20 +731,37 @@ const InvoicesPage = () => {
             </div>
 
             {/* Party Selection */}
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">
-                {activeTab.includes('purchase') ? text.supplier : text.customer}
-              </label>
-              <Select value={formData.party_id} onValueChange={(val) => setFormData(prev => ({ ...prev, party_id: val }))}>
-                <SelectTrigger><SelectValue placeholder={text.selectParty} /></SelectTrigger>
-                <SelectContent>
-                  {parties.map(party => (
-                    <SelectItem key={party.id} value={party.id}>
-                      {party.name} {party.tax_id ? `(${party.tax_id})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  {activeTab.includes('purchase') ? text.supplier : text.customer}
+                </label>
+                <Select value={formData.party_id} onValueChange={(val) => setFormData(prev => ({ ...prev, party_id: val }))}>
+                  <SelectTrigger><SelectValue placeholder={text.selectParty} /></SelectTrigger>
+                  <SelectContent>
+                    {parties.map(party => (
+                      <SelectItem key={party.id} value={party.id}>
+                        {party.name} {party.tax_id ? `(${party.tax_id})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  {language === 'ar' ? 'العملة' : 'Currency'}
+                </label>
+                <Select value={formData.currency} onValueChange={(val) => setFormData(prev => ({ ...prev, currency: val }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {currencies.map(curr => (
+                      <SelectItem key={curr.code} value={curr.code}>
+                        {curr.code} - {language === 'ar' ? curr.name_ar : curr.name_en} ({curr.symbol})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Invoice Lines */}
