@@ -39,6 +39,7 @@ from api.import_data import router as import_data_router
 from api.accounting import router as accounting_router
 from api.invoice import router as invoice_router
 from api.inventory_pro import router as inventory_pro_router
+from api.payroll import router as payroll_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -118,6 +119,7 @@ app.include_router(import_data_router)
 app.include_router(accounting_router)
 app.include_router(invoice_router)
 app.include_router(inventory_pro_router)
+app.include_router(payroll_router)
 
 app.add_middleware(
     CORSMiddleware,

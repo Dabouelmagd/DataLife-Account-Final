@@ -37,6 +37,7 @@ import ProductsPage from '../pages/ProductsPage';
 import InvoiceReportsPage from '../pages/InvoiceReportsPage';
 import CurrenciesPage from '../pages/CurrenciesPage';
 import InventoryPage from '../pages/InventoryPage';
+import PayrollPage from '../pages/PayrollPage';
 
 // Import sub-modules from existing files
 import {
@@ -208,6 +209,7 @@ const RealDashboard = () => {
         hasSubModules: true,
         subModules: [
           { id: 'hr-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart /> },
+          { id: 'payroll', name: language === 'ar' ? 'الرواتب والأجور' : 'Payroll', icon: <DollarSign /> },
           { id: 'salaries', name: language === 'ar' ? 'المرتبات' : 'Salaries', icon: <DollarSign /> },
           { id: 'allowances', name: language === 'ar' ? 'البدلات والإضافي' : 'Allowances & Overtime', icon: <Award /> },
           { id: 'deductions', name: language === 'ar' ? 'الخصومات' : 'Deductions', icon: <TrendingDown /> },
