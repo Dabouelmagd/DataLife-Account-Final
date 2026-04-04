@@ -41,6 +41,7 @@ import PayrollPage from '../pages/PayrollPage';
 import EmployeeProfilePage from '../pages/EmployeeProfilePage';
 import ShiftsPage from '../pages/ShiftsPage';
 import AttendancePage from '../pages/AttendancePage';
+import HRSettingsPage from '../pages/HRSettingsPage';
 
 // Import sub-modules from existing files
 import {
@@ -221,7 +222,8 @@ const RealDashboard = () => {
           { id: 'casual-leave', name: language === 'ar' ? 'الإجازات العارضة' : 'Casual Leave', icon: <Calendar /> },
           { id: 'annual-leave', name: language === 'ar' ? 'الإجازات السنوية' : 'Annual Leave', icon: <Calendar /> },
           { id: 'attendance', name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance', icon: <Clock /> },
-          { id: 'hr-reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <FileText /> }
+          { id: 'hr-reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <FileText /> },
+          { id: 'hr-settings', name: language === 'ar' ? 'إعدادات الحضور والرواتب' : 'HR Settings', icon: <Settings /> }
         ]
       });
     }
@@ -707,6 +709,8 @@ const RealDashboard = () => {
           return <ShiftsPage language={language} />;
         case 'attendance':
           return <AttendancePage language={language} />;
+        case 'hr-settings':
+          return <HRSettingsPage />;
         case 'employee-profile':
           return selectedEmployeeId ? (
             <EmployeeProfilePage 

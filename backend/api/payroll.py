@@ -16,6 +16,10 @@ from models.payroll import (
     PayrollSettings, EmployeeLoan, EndOfService,
     PayrollStatus, AllowanceType, DeductionType, LoanStatus, EndOfServiceStatus
 )
+from models.hr_settings import (
+    CompanyHRSettings, LateDeductionMethod, AbsenceDeductionMethod, 
+    OvertimeCalculationMethod, AttendancePayrollSummary
+)
 from models.accounting import JournalEntry, JournalEntryLine, JournalEntryStatus
 from services.accounting_service import AccountingService
 from services.email_service import send_bulk_payslip_notifications, send_payroll_approved_notification
@@ -144,6 +148,163 @@ async def get_employee_loans(employee_id: str, month: str) -> List[dict]:
         "installment_amount": loan.get("installment_amount", 0),
         "remaining_amount": loan.get("remaining_amount", 0)
     } for loan in loans]
+
+
+async def get_hr_settings(company_id: str) -> dict:
+    """الحصول على إعدادات الموارد البشرية"""
+    settings = await db.company_hr_settings.find_one({"company_id": company_id}, {"_id": 0})
+    if not settings:
+        # إنشاء إعدادات افتراضية
+        default_settings = CompanyHRSettings(company_id=company_id)
+        await db.company_hr_settings.insert_one(default_settings.dict())
+        settings = default_settings.dict()
+    return settings
+
+
+async def calculate_attendance_for_payroll(
+    employee_id: str, 
+    month: str, 
+    basic_salary: float,
+    hr_settings: dict
+) -> AttendancePayrollSummary:
+    """
+    حساب تأثير الحضور على الراتب
+    يجمع بيانات الحضور للشهر ويحسب الخصومات والمكافآت
+    """
+    year, mon = map(int, month.split("-"))
+    start_date = f"{month}-01"
+    if mon == 12:
+        end_date = f"{year + 1}-01-01"
+    else:
+        end_date = f"{year}-{mon + 1:02d}-01"
+    
+    # جلب سجلات الحضور
+    records = await db.attendance_records.find({
+        "employee_id": employee_id,
+        "date": {"$gte": start_date, "$lt": end_date}
+    }, {"_id": 0}).to_list(length=None)
+    
+    summary = AttendancePayrollSummary(
+        employee_id=employee_id,
+        month=month
+    )
+    
+    # حساب المعدلات
+    daily_rate = basic_salary / hr_settings.get("standard_working_days_per_month", 22)
+    hourly_rate = daily_rate / hr_settings.get("standard_working_hours_per_day", 8)
+    minute_rate = hourly_rate / 60
+    
+    for record in records:
+        summary.working_days += 1
+        status = record.get("status", "present")
+        
+        if status in ["present", "late", "early_leave"]:
+            summary.present_days += 1
+        elif status == "absent":
+            if record.get("is_excused"):
+                summary.excused_absent_days += 1
+            else:
+                summary.absent_days += 1
+        
+        if status == "late":
+            summary.late_days += 1
+        
+        # تجميع دقائق التأخير
+        late_minutes = record.get("late_minutes", 0)
+        grace_period = hr_settings.get("grace_period_minutes", 15)
+        if late_minutes > grace_period:
+            summary.total_late_minutes += (late_minutes - grace_period)
+        
+        # تجميع ساعات الأوفرتايم
+        summary.total_overtime_hours += record.get("overtime_hours", 0) or record.get("regular_overtime", 0)
+        summary.holiday_overtime_hours += record.get("holiday_overtime", 0)
+        summary.night_overtime_hours += record.get("night_overtime", 0)
+    
+    # ==========================================
+    # حساب خصم التأخير
+    # ==========================================
+    if hr_settings.get("late_deduction_enabled", True) and summary.total_late_minutes > 0:
+        method = hr_settings.get("late_deduction_method", "per_minute")
+        
+        if method == "per_minute":
+            # خصم لكل دقيقة
+            rate = hr_settings.get("late_deduction_per_minute_rate", 1.0)
+            summary.late_deduction_amount = round(summary.total_late_minutes * minute_rate * rate, 2)
+        
+        elif method == "per_hour":
+            # خصم بالساعة فقط (تجاهل أقل من ساعة)
+            late_hours = summary.total_late_minutes // 60
+            rate = hr_settings.get("late_deduction_per_hour_rate", 1.0)
+            summary.late_deduction_amount = round(late_hours * hourly_rate * rate, 2)
+        
+        elif method == "brackets":
+            # شرائح التأخير
+            brackets = hr_settings.get("late_brackets", [])
+            total_deduction_minutes = 0
+            for bracket in brackets:
+                if summary.total_late_minutes >= bracket.get("from_minutes", 0):
+                    if summary.total_late_minutes <= bracket.get("to_minutes", 999999):
+                        total_deduction_minutes = bracket.get("deduction_minutes", 0)
+                        break
+            summary.late_deduction_amount = round(total_deduction_minutes * minute_rate, 2)
+    
+    # ==========================================
+    # حساب خصم الغياب
+    # ==========================================
+    if hr_settings.get("absence_deduction_enabled", True):
+        method = hr_settings.get("absence_deduction_method", "full_day")
+        
+        # الغياب بدون عذر
+        unexcused_absence = summary.absent_days
+        
+        # إذا كان الغياب المعذور يخصم أيضاً
+        if hr_settings.get("excused_absence_deduction", False):
+            unexcused_absence += summary.excused_absent_days
+        
+        if unexcused_absence > 0:
+            if method == "full_day":
+                # خصم يوم كامل لكل يوم غياب
+                days_multiplier = hr_settings.get("absence_deduction_days", 1.0)
+                summary.absence_deduction_amount = round(unexcused_absence * daily_rate * days_multiplier, 2)
+            
+            elif method == "day_plus_penalty":
+                # يوم + جزاء
+                days_multiplier = hr_settings.get("absence_deduction_days", 1.0)
+                penalty_pct = hr_settings.get("absence_penalty_percentage", 0) / 100
+                base_deduction = unexcused_absence * daily_rate * days_multiplier
+                penalty = base_deduction * penalty_pct
+                summary.absence_deduction_amount = round(base_deduction + penalty, 2)
+    
+    # ==========================================
+    # حساب مكافأة الأوفرتايم
+    # ==========================================
+    if hr_settings.get("overtime_enabled", True):
+        method = hr_settings.get("overtime_calculation_method", "hourly")
+        
+        if method == "hourly" or method == "daily":
+            # حساب الأوفرتايم العادي
+            ot_rate = hr_settings.get("overtime_rate", 1.5)
+            regular_ot_amount = summary.total_overtime_hours * hourly_rate * ot_rate
+            
+            # حساب أوفرتايم العطلات
+            holiday_ot_rate = hr_settings.get("overtime_holiday_rate", 2.0)
+            holiday_ot_amount = summary.holiday_overtime_hours * hourly_rate * holiday_ot_rate
+            
+            # حساب الأوفرتايم الليلي
+            night_ot_rate = hr_settings.get("overtime_night_rate", 1.25)
+            night_ot_amount = summary.night_overtime_hours * hourly_rate * night_ot_rate
+            
+            summary.overtime_bonus_amount = round(regular_ot_amount + holiday_ot_amount + night_ot_amount, 2)
+    
+    # ==========================================
+    # صافي التعديلات
+    # ==========================================
+    summary.net_attendance_adjustment = round(
+        summary.overtime_bonus_amount - summary.late_deduction_amount - summary.absence_deduction_amount, 
+        2
+    )
+    
+    return summary
 
 
 async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: str) -> str:
@@ -542,7 +703,7 @@ async def calculate_payroll(
     run_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """حساب الرواتب"""
+    """حساب الرواتب مع ربط الحضور"""
     company_id = current_user["company_id"]
     
     payroll = await db.payroll_runs.find_one({
@@ -557,6 +718,7 @@ async def calculate_payroll(
         raise HTTPException(status_code=400, detail="لا يمكن حساب هذا المسير")
     
     settings = await get_payroll_settings(company_id)
+    hr_settings = await get_hr_settings(company_id)
     
     # الحصول على الموظفين النشطين
     employees = await db.employees.find({
@@ -574,11 +736,24 @@ async def calculate_payroll(
         "social_insurance": 0,
         "income_tax": 0,
         "loans": 0,
-        "other_deductions": 0
+        "other_deductions": 0,
+        "late_deductions": 0,
+        "absence_deductions": 0,
+        "overtime_bonus": 0
     }
     
     for emp in employees:
         basic_salary = emp.get("basic_salary", 0)
+        
+        # ==========================================
+        # حساب تأثير الحضور على الراتب
+        # ==========================================
+        attendance_summary = await calculate_attendance_for_payroll(
+            emp["id"], 
+            payroll["month"], 
+            basic_salary,
+            hr_settings
+        )
         
         # البدلات
         allowances = []
@@ -595,6 +770,17 @@ async def calculate_payroll(
                 amount=allow.get("amount", 0)
             ))
             total_allowances += allow.get("amount", 0)
+        
+        # إضافة مكافأة الأوفرتايم كبدل
+        if attendance_summary.overtime_bonus_amount > 0:
+            allowances.append(PayrollAllowance(
+                allowance_type=AllowanceType.OTHER,
+                name="مكافأة عمل إضافي",
+                name_en="Overtime Bonus",
+                amount=attendance_summary.overtime_bonus_amount
+            ))
+            total_allowances += attendance_summary.overtime_bonus_amount
+            totals["overtime_bonus"] += attendance_summary.overtime_bonus_amount
         
         gross_salary = basic_salary + total_allowances
         
@@ -636,7 +822,29 @@ async def calculate_payroll(
             ))
             totals["loans"] += loan["installment_amount"]
         
-        # 4. خصومات أخرى
+        # 4. خصم التأخير (من الحضور)
+        if attendance_summary.late_deduction_amount > 0:
+            deductions.append(PayrollDeduction(
+                deduction_type=DeductionType.OTHER,
+                name="خصم تأخير",
+                name_en="Late Deduction",
+                amount=attendance_summary.late_deduction_amount
+            ))
+            totals["late_deductions"] += attendance_summary.late_deduction_amount
+            totals["other_deductions"] += attendance_summary.late_deduction_amount
+        
+        # 5. خصم الغياب (من الحضور)
+        if attendance_summary.absence_deduction_amount > 0:
+            deductions.append(PayrollDeduction(
+                deduction_type=DeductionType.OTHER,
+                name="خصم غياب",
+                name_en="Absence Deduction",
+                amount=attendance_summary.absence_deduction_amount
+            ))
+            totals["absence_deductions"] += attendance_summary.absence_deduction_amount
+            totals["other_deductions"] += attendance_summary.absence_deduction_amount
+        
+        # 6. خصومات أخرى (يدوية)
         emp_deductions = await db.deductions.find({
             "employee_id": emp["id"],
             "month": payroll["month"]
@@ -653,22 +861,33 @@ async def calculate_payroll(
         total_deductions = sum(d.amount for d in deductions)
         net_salary = gross_salary - total_deductions
         
-        # تجميع بيانات الموظف
-        emp_payroll = EmployeePayroll(
-            employee_id=emp["id"],
-            employee_name=emp.get("name"),
-            department=emp.get("department"),
-            position=emp.get("position"),
-            basic_salary=basic_salary,
-            allowances=[a.dict() for a in allowances],
-            total_allowances=total_allowances,
-            deductions=[d.dict() for d in deductions],
-            total_deductions=total_deductions,
-            gross_salary=gross_salary,
-            net_salary=net_salary
-        )
+        # تجميع بيانات الموظف مع بيانات الحضور
+        emp_payroll_data = {
+            "employee_id": emp["id"],
+            "employee_name": emp.get("name"),
+            "department": emp.get("department"),
+            "position": emp.get("position"),
+            "basic_salary": basic_salary,
+            "allowances": [a.dict() for a in allowances],
+            "total_allowances": total_allowances,
+            "deductions": [d.dict() for d in deductions],
+            "total_deductions": total_deductions,
+            "gross_salary": gross_salary,
+            "net_salary": net_salary,
+            # بيانات الحضور
+            "attendance_summary": {
+                "present_days": attendance_summary.present_days,
+                "absent_days": attendance_summary.absent_days,
+                "late_days": attendance_summary.late_days,
+                "total_late_minutes": attendance_summary.total_late_minutes,
+                "total_overtime_hours": round(attendance_summary.total_overtime_hours, 2),
+                "late_deduction": attendance_summary.late_deduction_amount,
+                "absence_deduction": attendance_summary.absence_deduction_amount,
+                "overtime_bonus": attendance_summary.overtime_bonus_amount
+            }
+        }
         
-        employee_payrolls.append(emp_payroll.dict())
+        employee_payrolls.append(emp_payroll_data)
         
         # تجميع الإجماليات
         totals["basic_salary"] += basic_salary
@@ -690,6 +909,10 @@ async def calculate_payroll(
         "total_income_tax": round(totals["income_tax"], 2),
         "total_loans": round(totals["loans"], 2),
         "total_other_deductions": round(totals["other_deductions"], 2),
+        # إجماليات الحضور الجديدة
+        "total_late_deductions": round(totals["late_deductions"], 2),
+        "total_absence_deductions": round(totals["absence_deductions"], 2),
+        "total_overtime_bonus": round(totals["overtime_bonus"], 2),
         "status": "calculated",
         "calculated_at": datetime.utcnow()
     }
@@ -702,7 +925,12 @@ async def calculate_payroll(
             "employees": len(employee_payrolls),
             "gross_salary": round(totals["gross_salary"], 2),
             "deductions": round(totals["deductions"], 2),
-            "net_salary": round(totals["net_salary"], 2)
+            "net_salary": round(totals["net_salary"], 2),
+            "attendance_adjustments": {
+                "late_deductions": round(totals["late_deductions"], 2),
+                "absence_deductions": round(totals["absence_deductions"], 2),
+                "overtime_bonus": round(totals["overtime_bonus"], 2)
+            }
         }
     }
 
@@ -1269,4 +1497,131 @@ async def get_payslip(
         "month": payroll["month"],
         "payroll_number": payroll["payroll_number"],
         "employee": employee_payroll
+    }
+
+
+
+# ==========================================
+# HR Settings Endpoints (إعدادات الموارد البشرية)
+# ==========================================
+
+class HRSettingsUpdateRequest(BaseModel):
+    """طلب تحديث إعدادات HR"""
+    late_deduction_enabled: Optional[bool] = None
+    late_deduction_method: Optional[str] = None
+    grace_period_minutes: Optional[int] = None
+    late_deduction_per_minute_rate: Optional[float] = None
+    late_deduction_per_hour_rate: Optional[float] = None
+    late_brackets: Optional[List[dict]] = None
+    max_late_minutes_before_absence: Optional[int] = None
+    
+    absence_deduction_enabled: Optional[bool] = None
+    absence_deduction_method: Optional[str] = None
+    absence_deduction_days: Optional[float] = None
+    absence_penalty_percentage: Optional[float] = None
+    excused_absence_deduction: Optional[bool] = None
+    
+    overtime_enabled: Optional[bool] = None
+    overtime_calculation_method: Optional[str] = None
+    overtime_rate: Optional[float] = None
+    overtime_holiday_rate: Optional[float] = None
+    overtime_night_rate: Optional[float] = None
+    max_monthly_overtime_hours: Optional[float] = None
+    overtime_requires_approval: Optional[bool] = None
+    
+    standard_working_hours_per_day: Optional[float] = None
+    standard_working_days_per_month: Optional[int] = None
+    weekend_days: Optional[List[str]] = None
+    round_late_minutes_to: Optional[int] = None
+    round_overtime_minutes_to: Optional[int] = None
+
+
+@router.get("/hr-settings")
+async def get_company_hr_settings(current_user: dict = Depends(get_current_user)):
+    """الحصول على إعدادات الموارد البشرية للشركة"""
+    settings = await get_hr_settings(current_user["company_id"])
+    return settings
+
+
+@router.put("/hr-settings")
+async def update_company_hr_settings(
+    request: HRSettingsUpdateRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """تحديث إعدادات الموارد البشرية للشركة"""
+    company_id = current_user["company_id"]
+    
+    # تحضير البيانات للتحديث
+    update_data = {k: v for k, v in request.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await db.company_hr_settings.update_one(
+        {"company_id": company_id},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    return {"message": "تم تحديث إعدادات الموارد البشرية بنجاح"}
+
+
+@router.get("/attendance-payroll-preview")
+async def get_attendance_payroll_preview(
+    month: str = Query(...),
+    employee_id: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
+    """معاينة تأثير الحضور على الراتب قبل إنشاء المسير"""
+    company_id = current_user["company_id"]
+    hr_settings = await get_hr_settings(company_id)
+    
+    query = {"company_id": company_id, "is_active": True}
+    if employee_id:
+        query["id"] = employee_id
+    
+    employees = await db.employees.find(query).to_list(length=None)
+    
+    previews = []
+    totals = {
+        "late_deduction": 0,
+        "absence_deduction": 0,
+        "overtime_bonus": 0,
+        "net_adjustment": 0
+    }
+    
+    for emp in employees:
+        basic_salary = emp.get("basic_salary", 0)
+        summary = await calculate_attendance_for_payroll(
+            emp["id"], month, basic_salary, hr_settings
+        )
+        
+        previews.append({
+            "employee_id": emp["id"],
+            "employee_name": emp.get("name"),
+            "department": emp.get("department"),
+            "basic_salary": basic_salary,
+            "present_days": summary.present_days,
+            "absent_days": summary.absent_days,
+            "late_days": summary.late_days,
+            "total_late_minutes": summary.total_late_minutes,
+            "total_overtime_hours": round(summary.total_overtime_hours, 2),
+            "late_deduction": summary.late_deduction_amount,
+            "absence_deduction": summary.absence_deduction_amount,
+            "overtime_bonus": summary.overtime_bonus_amount,
+            "net_adjustment": summary.net_attendance_adjustment
+        })
+        
+        totals["late_deduction"] += summary.late_deduction_amount
+        totals["absence_deduction"] += summary.absence_deduction_amount
+        totals["overtime_bonus"] += summary.overtime_bonus_amount
+        totals["net_adjustment"] += summary.net_attendance_adjustment
+    
+    return {
+        "month": month,
+        "employees": previews,
+        "totals": {
+            "late_deduction": round(totals["late_deduction"], 2),
+            "absence_deduction": round(totals["absence_deduction"], 2),
+            "overtime_bonus": round(totals["overtime_bonus"], 2),
+            "net_adjustment": round(totals["net_adjustment"], 2)
+        }
     }

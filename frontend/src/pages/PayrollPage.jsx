@@ -902,6 +902,15 @@ export default function PayrollPage() {
                       <span>{text.allowances}</span>
                       <span className="font-medium">{selectedItem.total_allowances?.toLocaleString()}</span>
                     </div>
+                    
+                    {/* Overtime Bonus from Attendance */}
+                    {selectedItem.total_overtime_bonus > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>{language === 'ar' ? 'مكافأة أوفرتايم' : 'Overtime Bonus'}</span>
+                        <span>+{selectedItem.total_overtime_bonus?.toLocaleString()}</span>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between border-t pt-2">
                       <span className="font-medium">{text.grossSalary}</span>
                       <span className="font-bold">{selectedItem.total_gross_salary?.toLocaleString()}</span>
@@ -918,6 +927,23 @@ export default function PayrollPage() {
                       <span>{text.loansDeduction}</span>
                       <span>-{selectedItem.total_loans?.toLocaleString()}</span>
                     </div>
+                    
+                    {/* Late Deductions from Attendance */}
+                    {selectedItem.total_late_deductions > 0 && (
+                      <div className="flex justify-between text-orange-600">
+                        <span>{language === 'ar' ? 'خصم تأخير' : 'Late Deduction'}</span>
+                        <span>-{selectedItem.total_late_deductions?.toLocaleString()}</span>
+                      </div>
+                    )}
+                    
+                    {/* Absence Deductions from Attendance */}
+                    {selectedItem.total_absence_deductions > 0 && (
+                      <div className="flex justify-between text-red-600">
+                        <span>{language === 'ar' ? 'خصم غياب' : 'Absence Deduction'}</span>
+                        <span>-{selectedItem.total_absence_deductions?.toLocaleString()}</span>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between border-t pt-2">
                       <span className="font-medium">{text.totalDeductions}</span>
                       <span className="font-bold text-red-600">-{selectedItem.total_deductions?.toLocaleString()}</span>
