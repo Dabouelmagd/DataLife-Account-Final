@@ -45,7 +45,7 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
 - Quick Entry buttons (receipts, payments)
 - Excel export for all reports
 
-#### 4. Electronic Invoicing System (NEW - April 2026)
+#### 4. Electronic Invoicing System
 - **Document Types:**
   - Sales Invoices
   - Purchase Invoices
@@ -64,22 +64,38 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Tax ID validation
   - ETA code support for products
   - QR Code generation
-- **Reports (NEW):**
+- **Reports:**
   - Sales Report (by date, customer, product)
   - Purchases Report (by date, supplier, product)
   - VAT Report (output tax, input tax, net VAT, tax breakdown)
   - Aging Report (receivables with 0-30, 31-60, 61-90, 90+ buckets)
   - Excel export for all reports
 
-#### 5. UI/UX
+#### 5. Multi-Currency Support (NEW - April 2026) ✅
+- **Currency Management Page:**
+  - View all 11 supported currencies (EGP, USD, EUR, SAR, AED, GBP, KWD, QAR, BHD, OMR, JOD)
+  - Enable/Disable currencies per company
+  - Set base currency
+  - Stats cards showing enabled currencies count
+- **Exchange Rates:**
+  - Add exchange rates with effective date
+  - View rates table with delete option
+  - Rates stored per company
+- **Currency Converter:**
+  - Convert amounts between currencies
+  - Uses stored exchange rates
+  - Real-time calculation display
+- **Invoice Integration:**
+  - Currency selector in Create Invoice modal
+  - Shows only enabled currencies
+  - All enabled currencies available: EGP, USD, EUR, SAR, AED, GBP
+
+#### 6. UI/UX
 - Dark/Light mode toggle
 - RTL/LTR language support (Arabic/English)
 - Responsive sidebar with sub-menus
 - Application footer with branding
 - Company logo placement
-
-### In Progress 🔄
-- None currently
 
 ### Upcoming Tasks 📋
 
@@ -88,6 +104,7 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
    - Direct submission to ETA portal
    - Status tracking
    - Compliance reporting
+   - **NOTE:** Must use `integration_playbook_expert_v2` for this integration
 
 2. **Email Notifications**
    - Invoice sent notifications
@@ -95,12 +112,7 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
    - Report generation alerts
 
 #### P2 - Medium Priority
-1. **Multi-currency Support**
-   - Currency management
-   - Exchange rate tracking
-   - Multi-currency invoices
-
-2. **Payment Terms Enhancement**
+1. **Payment Terms Enhancement**
    - Custom payment terms
    - Installment plans
    - Early payment discounts
@@ -118,14 +130,14 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
 /app/backend/
 ├── api/
 │   ├── accounting.py      # Accounting endpoints
-│   ├── invoice.py         # E-invoicing endpoints + Reports (NEW)
+│   ├── invoice.py         # E-invoicing + Currency endpoints
 │   └── auth.py            # Authentication
 ├── models/
 │   ├── accounting.py      # Accounting models
-│   └── invoice.py         # Invoice models (NEW)
+│   └── invoice.py         # Invoice + Currency models
 ├── services/
 │   ├── accounting_service.py
-│   └── invoice_service.py # Invoice logic (NEW)
+│   └── invoice_service.py
 └── server.py
 ```
 
@@ -137,10 +149,11 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
 │   ├── ModernSidebar.jsx  # Navigation
 │   └── ui/                # Shadcn components
 ├── pages/
-│   ├── InvoicesPage.jsx       # E-invoicing
+│   ├── InvoicesPage.jsx       # E-invoicing with currency selector
 │   ├── PartiesPage.jsx        # Customers/Suppliers
 │   ├── ProductsPage.jsx       # Products catalog
-│   ├── InvoiceReportsPage.jsx # Invoice Reports (NEW)
+│   ├── CurrenciesPage.jsx     # Currency Management (NEW)
+│   ├── InvoiceReportsPage.jsx # Invoice Reports
 │   ├── JournalEntriesPage.jsx
 │   ├── GeneralLedgerPage.jsx
 │   └── FinancialReportsPage.jsx
@@ -156,20 +169,32 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
 - employees
 - chart_of_accounts
 - journal_entries
-- invoices (NEW)
-- parties (NEW)
-- products (NEW)
+- invoices
+- parties
+- products
 - import_logs
+- company_currencies (NEW)
+- exchange_rates (NEW)
 
 ### Key Dependencies
-- Backend: FastAPI, PyMongo, ReportLab, QRCode, Pandas, XlsxWriter
+- Backend: FastAPI, PyMongo, ReportLab, QRCode, Pandas, XlsxWriter, arabic-reshaper, python-bidi
 - Frontend: React, Shadcn/UI, Lucide Icons, Sonner
 
 ## API Endpoints
 
-### Invoicing (NEW)
+### Currency Management (NEW)
 ```
-POST   /api/invoice/                    # Create invoice
+GET    /api/invoice/config/currencies          # Get all currencies with enabled status
+PUT    /api/invoice/config/currencies/settings # Update base currency and enabled currencies
+GET    /api/invoice/config/exchange-rates      # Get exchange rates
+POST   /api/invoice/config/exchange-rates      # Add new exchange rate
+DELETE /api/invoice/config/exchange-rates/{id} # Delete exchange rate
+GET    /api/invoice/config/convert             # Convert currency amount
+```
+
+### Invoicing
+```
+POST   /api/invoice/                    # Create invoice (supports currency field)
 GET    /api/invoice/                    # List invoices
 GET    /api/invoice/{id}                # Get invoice details
 POST   /api/invoice/{id}/approve        # Approve invoice
@@ -186,7 +211,7 @@ POST   /api/invoice/products            # Create product
 GET    /api/invoice/products            # List products
 GET    /api/invoice/units               # List units
 
-# Reports (NEW)
+# Reports
 GET    /api/invoice/reports/sales       # Sales Report
 GET    /api/invoice/reports/purchases   # Purchases Report
 GET    /api/invoice/reports/vat         # VAT Report
@@ -217,8 +242,19 @@ GET    /api/accounting/reports/balance-sheet
 ## Known Issues
 - MongoDB ObjectId must be excluded from API responses
 - Static uploads must use /api/uploads/ prefix
+- Route collisions: New GET endpoints must be placed before /{invoice_id} route or use explicit prefixes
 
 ## Changelog
+
+- **April 4, 2026 (Update 3)**: Multi-Currency Support Implemented ✅
+  - Currency Management Page (CurrenciesPage.jsx)
+  - 11 supported currencies with enable/disable
+  - Exchange rates management with effective date
+  - Currency converter modal
+  - Currency selector in Create Invoice modal
+  - Backend API: /api/invoice/config/currencies, /api/invoice/config/exchange-rates, /api/invoice/config/convert
+  - Testing: 100% pass rate (18 backend tests, all frontend UI verified)
+
 - **April 4, 2026 (Update 2)**: Added Invoice Reports System
   - Sales Report (group by date/customer/product)
   - Purchases Report (group by date/supplier/product)
