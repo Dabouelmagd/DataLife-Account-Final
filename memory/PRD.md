@@ -90,7 +90,33 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Shows only enabled currencies
   - All enabled currencies available: EGP, USD, EUR, SAR, AED, GBP
 
-#### 6. UI/UX
+#### 6. Invoice Adjustments - Discounts & Additions (NEW - April 2026) ✅
+- **Discount Types:**
+  - Contract Discount (خصم تعاقد)
+  - Early Payment Discount (خصم دفع مبكر)
+  - Volume Discount (خصم كمية)
+  - Promotional Discount (خصم ترويجي)
+  - Custom Discount (خصم مخصص)
+- **Addition Types:**
+  - Shipping Fee (رسوم شحن)
+  - Service Fee (رسوم خدمة)
+  - Table Tax (ضريبة جدول)
+  - Insurance (تأمين)
+  - Handling Fee (رسوم مناولة)
+  - Custom Addition (إضافة مخصصة)
+- **Calculation Options:**
+  - Percentage (نسبة مئوية)
+  - Fixed Amount (مبلغ ثابت)
+- **Application Base:**
+  - Before Tax (قبل الضريبة)
+  - After Tax (بعد الضريبة)
+- **UI Features:**
+  - "Add Discount" button (red)
+  - "Add Fee" button (green)
+  - Real-time total calculation
+  - Separate display for Total Discounts and Total Additions
+
+#### 7. UI/UX
 - Dark/Light mode toggle
 - RTL/LTR language support (Arabic/English)
 - Responsive sidebar with sub-menus
@@ -192,6 +218,11 @@ DELETE /api/invoice/config/exchange-rates/{id} # Delete exchange rate
 GET    /api/invoice/config/convert             # Convert currency amount
 ```
 
+### Adjustments (NEW)
+```
+GET    /api/invoice/adjustment-categories  # Get all discount/addition categories
+```
+
 ### Invoicing
 ```
 POST   /api/invoice/                    # Create invoice (supports currency field)
@@ -245,6 +276,16 @@ GET    /api/accounting/reports/balance-sheet
 - Route collisions: New GET endpoints must be placed before /{invoice_id} route or use explicit prefixes
 
 ## Changelog
+
+- **April 4, 2026 (Update 4)**: Invoice Adjustments (Discounts & Additions) Implemented ✅
+  - Added InvoiceAdjustment model with type (discount/addition), category, calculation_type (percentage/fixed), base (before_tax/after_tax)
+  - Backend: GET /api/invoice/adjustment-categories returns all categories
+  - Backend: POST /api/invoice/ accepts adjustments array
+  - Backend: calculate_invoice_totals includes adjustment calculations
+  - Frontend: "Discounts & Additions" section in Create Invoice modal
+  - Frontend: Add Discount (red) and Add Fee (green) buttons
+  - Frontend: Real-time total calculation with Total Discounts and Total Additions display
+  - Testing: 100% pass rate (13 backend tests, all frontend UI verified)
 
 - **April 4, 2026 (Update 3)**: Multi-Currency Support Implemented ✅
   - Currency Management Page (CurrenciesPage.jsx)
