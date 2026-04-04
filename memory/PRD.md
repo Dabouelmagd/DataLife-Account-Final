@@ -211,7 +211,71 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - All payroll flows verified
   - Journal entry integration confirmed
 
-#### 9. UI/UX
+#### 9. Extended Employee Management System (NEW - April 2026) ✅
+- **Employee Profile Page:**
+  - Personal Information tab (name, ID, contact, emergency)
+  - Employment Data tab (position, department, insurance, bank info)
+  - Salary & Benefits tab (basic salary, allowances, deductions, summary)
+  - Documents tab (upload/view employee documents)
+  - Payroll History tab (monthly payroll records)
+- **Photo & Documents:**
+  - Upload employee photo
+  - Upload multiple documents (contract, ID, certificates, etc.)
+  - Document types: Contract, National ID, Passport, Certificate, Insurance Card, Medical Report
+- **Allowances Management:**
+  - Categories: Housing, Transportation, Phone, Meal, Clothing, Representation, Nature of Work
+  - Fixed amount or percentage of basic salary
+  - Taxable/Non-taxable flag
+- **Deductions Management:**
+  - Categories: Health Insurance, Medical, Absence, Late, Penalty
+  - Automatic calculation of social insurance
+- **Salary Summary:**
+  - Real-time gross salary calculation
+  - Real-time net salary calculation
+  - Visual summary cards
+
+#### 10. Work Shifts Management (NEW - April 2026) ✅
+- **Shift Types:**
+  - Morning (صباحية)
+  - Evening (مسائية)
+  - Night (ليلية)
+  - Split (منقسمة)
+  - Flexible (مرنة)
+- **Shift Configuration:**
+  - Start/End times
+  - Break start/end times
+  - Break duration
+  - Working hours
+  - Working days (Sunday-Saturday)
+- **Overtime Settings:**
+  - Overtime rate (default 1.5x)
+  - Holiday rate (default 2.0x)
+  - Night rate (default 1.25x)
+  - Overtime starts after X hours
+- **Late Tolerance:**
+  - Allow late minutes configuration
+  - Deduct after late flag
+- **UI Features:**
+  - Shift cards with colored badges by type
+  - Add/Edit/Delete shifts
+  - Working days selection
+
+#### 11. Payroll Email Notifications (NEW - April 2026) ✅
+- **Payslip Emails:**
+  - Send payslip via email to employees
+  - HTML formatted email with Arabic support
+  - Shows: Basic salary, Allowances, Gross, Deductions, Net salary
+  - Professional email template with company branding
+- **Bulk Send:**
+  - Send to all employees in a payroll run
+  - Track sent count
+  - Handle missing email addresses
+- **Integration:**
+  - Resend API for email delivery
+  - Non-blocking async email sending
+  - Mail button on approved/paid payroll runs
+
+#### 12. UI/UX
 - Dark/Light mode toggle
 - RTL/LTR language support (Arabic/English)
 - Responsive sidebar with sub-menus
@@ -227,7 +291,10 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
    - Compliance reporting
    - **NOTE:** Must use `integration_playbook_expert_v2` for this integration
 
-2. **Email Notifications**
+2. **Additional Email Notifications**
+   - New employee welcome email
+   - Leave approval notifications
+   - Attendance alerts
    - Invoice sent notifications
    - Payment reminders
    - Report generation alerts
@@ -399,6 +466,17 @@ GET    /api/payroll/reports/payslip/{run_id}/{employee_id}  # Employee payslip
 - Route collisions: New GET endpoints must be placed before /{invoice_id} route or use explicit prefixes
 
 ## Changelog
+
+- **April 4, 2026 (Update 7)**: Extended Employee Management, Work Shifts, and Payroll Email Notifications ✅
+  - Employee Profile Page with 5 tabs (Personal Info, Employment, Salary, Documents, History)
+  - Photo upload and multiple document upload for employees
+  - Allowances and Deductions management per employee
+  - Salary summary with gross/net calculation
+  - Work Shifts management for factories (Morning, Evening, Night, Split, Flexible)
+  - Shift configuration: working hours, overtime rates, break times, working days
+  - Payroll email notifications via Resend API
+  - Send payslip emails to employees (HTML formatted, Arabic support)
+  - Testing: 94% backend (15/16), 100% frontend
 
 - **April 4, 2026 (Update 6)**: HR to Accounting Integration - Payroll System ✅
   - Complete payroll management with monthly runs
