@@ -40,6 +40,7 @@ import InventoryPage from '../pages/InventoryPage';
 import PayrollPage from '../pages/PayrollPage';
 import EmployeeProfilePage from '../pages/EmployeeProfilePage';
 import ShiftsPage from '../pages/ShiftsPage';
+import AttendancePage from '../pages/AttendancePage';
 
 // Import sub-modules from existing files
 import {
@@ -704,6 +705,8 @@ const RealDashboard = () => {
           return <PayrollPage />;
         case 'shifts':
           return <ShiftsPage language={language} />;
+        case 'attendance':
+          return <AttendancePage language={language} />;
         case 'employee-profile':
           return selectedEmployeeId ? (
             <EmployeeProfilePage 
@@ -722,8 +725,6 @@ const RealDashboard = () => {
           return <CasualLeaveModule language={language} userRole={user?.role} />;
         case 'annual-leave':
           return <AnnualLeaveModule language={language} userRole={user?.role} />;
-        case 'attendance':
-          return <AttendanceManagement />;
         case 'hr-reports':
           return <HRReportsModule language={language} userRole={user?.role} />;
         default:
