@@ -116,7 +116,49 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Real-time total calculation
   - Separate display for Total Discounts and Total Additions
 
-#### 7. UI/UX
+#### 7. Professional Inventory Management System (NEW - April 2026) ✅
+- **Multi-Warehouse Support:**
+  - Create unlimited warehouses
+  - Set default warehouse
+  - Allow/Disallow negative stock per warehouse
+- **Product Management:**
+  - Multi-level categories (parent/child)
+  - Barcode and SKU support
+  - Multiple units of measure (with conversion factors)
+  - Cost and sale price tracking
+  - Tax rate configuration
+  - Reorder level, min/max stock limits
+  - Expiry date tracking
+- **Stock Movements:**
+  - Purchase (inward)
+  - Sales (outward)
+  - Transfer In/Out (between warehouses)
+  - Adjustments (increase/decrease)
+  - Returns (customer/supplier)
+  - Damage write-off
+  - Expired items write-off
+  - Opening balance
+- **Stock Transfers:**
+  - Draft → Approve workflow
+  - Line items with products and quantities
+  - Automatic stock update on approval
+- **Stock Adjustments/Counts:**
+  - Physical inventory count
+  - Variance calculation (system vs actual)
+  - Multiple reasons (count, damage, theft, expired)
+- **Reports:**
+  - Stock Balance Report
+  - Movement History Report
+  - Low Stock Report (items below reorder level)
+  - Stock Valuation Report (Average, FIFO, LIFO methods)
+  - Expiry Report (items expiring soon)
+- **Dashboard Stats:**
+  - Total Stock Value
+  - Total Products
+  - Low Stock Count
+  - Expiring Soon Count
+
+#### 8. UI/UX
 - Dark/Light mode toggle
 - RTL/LTR language support (Arabic/English)
 - Responsive sidebar with sub-menus
@@ -276,6 +318,17 @@ GET    /api/accounting/reports/balance-sheet
 - Route collisions: New GET endpoints must be placed before /{invoice_id} route or use explicit prefixes
 
 ## Changelog
+
+- **April 4, 2026 (Update 5)**: Professional Inventory Management System ✅
+  - Complete inventory module with multi-warehouse support
+  - Products with barcode, SKU, multi-unit, categories
+  - Stock movements (11 types: purchase, sales, transfers, adjustments, returns, damage, expired, opening)
+  - Stock transfers with draft/approve workflow
+  - Stock adjustments/counts for physical inventory
+  - 5 Reports: Stock Balance, Movement History, Low Stock, Valuation, Expiry
+  - Frontend: InventoryPage with 8 tabs, stats cards, modals
+  - Backend: /app/backend/api/inventory_pro.py (26 endpoints)
+  - Testing: 100% pass rate (16 backend tests, all UI verified)
 
 - **April 4, 2026 (Update 4)**: Invoice Adjustments (Discounts & Additions) Implemented ✅
   - Added InvoiceAdjustment model with type (discount/addition), category, calculation_type (percentage/fixed), base (before_tax/after_tax)
