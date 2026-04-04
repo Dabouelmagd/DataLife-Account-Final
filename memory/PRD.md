@@ -275,7 +275,66 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Non-blocking async email sending
   - Mail button on approved/paid payroll runs
 
-#### 12. UI/UX
+#### 13. Attendance Management System (NEW - April 2026) ✅
+- **Check-in/Check-out:**
+  - Record check-in time
+  - Record check-out time
+  - Device tracking (fingerprint device ID)
+  - Automatic working hours calculation
+- **Late & Overtime Calculation:**
+  - Compare with shift expected times
+  - Grace period support
+  - Automatic late minutes calculation
+  - Overtime hours calculation
+  - Night/Holiday overtime rates
+- **Daily Summary:**
+  - Total employees count
+  - Present/Absent/Late/On Leave counts
+  - Total working hours
+  - Total overtime hours
+  - Attendance rate percentage
+- **Monthly Summary:**
+  - Per-employee statistics
+  - Working days, present days, absent days
+  - Late days count
+  - Leave days count
+  - Total working hours & overtime
+  - Attendance rate per employee
+- **Fingerprint Report:**
+  - Date range filter
+  - Employee/Department filter
+  - Expected vs Actual times
+  - Late minutes & overtime hours
+  - Export capability
+- **Overtime Report:**
+  - Monthly overtime totals
+  - Per-employee breakdown
+  - Overtime days count
+  - Detailed daily overtime records
+- **Import Fingerprint:**
+  - CSV file upload
+  - Auto-match employees by code
+  - Auto-calculate working hours
+  - Error reporting
+- **Manual Attendance:**
+  - Add manual entries
+  - Excuse/reason support
+  - Status selection (present, absent, late, on_leave)
+- **Holidays Management:**
+  - Add official holidays
+  - Annual recurrence support
+  - Holiday-aware calculations
+- **Attendance Settings:**
+  - Grace period minutes
+  - Late deduction per minute
+  - Max late before absence
+  - Early leave deduction
+  - Absence deduction type/days
+  - Overtime approval requirement
+  - Weekend days configuration
+  - Require both punches
+
+#### 14. UI/UX
 - Dark/Light mode toggle
 - RTL/LTR language support (Arabic/English)
 - Responsive sidebar with sub-menus
@@ -412,6 +471,37 @@ GET    /api/invoice/reports/aging       # Aging Report
 GET    /api/invoice/reports/export/{type}  # Export to Excel
 ```
 
+### Attendance (NEW)
+```
+# Check-in/Check-out
+POST   /api/attendance-pro/check-in           # Record check-in
+POST   /api/attendance-pro/check-out          # Record check-out
+POST   /api/attendance-pro/manual             # Add manual attendance
+
+# Records
+GET    /api/attendance-pro/records            # List attendance records
+GET    /api/attendance-pro/records/{id}       # Get record details
+PUT    /api/attendance-pro/records/{id}       # Update record
+DELETE /api/attendance-pro/records/{id}       # Delete record
+
+# Summaries & Reports
+GET    /api/attendance-pro/daily-summary      # Daily statistics
+GET    /api/attendance-pro/monthly-summary    # Monthly per-employee summary
+GET    /api/attendance-pro/fingerprint-report # Fingerprint report
+GET    /api/attendance-pro/overtime-report    # Overtime report
+GET    /api/attendance-pro/statistics         # Monthly statistics
+
+# Holidays & Settings
+GET    /api/attendance-pro/holidays           # List holidays
+POST   /api/attendance-pro/holidays           # Add holiday
+DELETE /api/attendance-pro/holidays/{id}      # Delete holiday
+GET    /api/attendance-pro/settings           # Get settings
+PUT    /api/attendance-pro/settings           # Update settings
+
+# Import
+POST   /api/attendance-pro/import-fingerprint # Import from CSV
+```
+
 ### Accounting
 ```
 POST   /api/accounting/journal-entries  # Create entry
@@ -466,6 +556,21 @@ GET    /api/payroll/reports/payslip/{run_id}/{employee_id}  # Employee payslip
 - Route collisions: New GET endpoints must be placed before /{invoice_id} route or use explicit prefixes
 
 ## Changelog
+
+- **April 4, 2026 (Update 8)**: Attendance Management System with Fingerprint Report ✅
+  - Daily Attendance tracking with check-in/check-out
+  - Automatic late minutes and overtime calculation
+  - Monthly summary per employee (present days, absent, late, overtime)
+  - Fingerprint Report with date range filter
+  - Overtime Report with monthly totals
+  - Import fingerprint data from CSV
+  - Manual attendance entry
+  - Holidays management
+  - Attendance settings (grace period, deduction rates, weekend days)
+  - Statistics dashboard (attendance rate, total hours, late minutes)
+  - Frontend: AttendancePage with 4 tabs under HR module
+  - Backend: /app/backend/api/attendance_api.py (20+ endpoints)
+  - Testing: 100% backend (22 tests), 100% frontend
 
 - **April 4, 2026 (Update 7)**: Extended Employee Management, Work Shifts, and Payroll Email Notifications ✅
   - Employee Profile Page with 5 tabs (Personal Info, Employment, Salary, Documents, History)
