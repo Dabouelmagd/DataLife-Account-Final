@@ -383,7 +383,51 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - 22/22 backend tests passed (100%)
   - Frontend page verified
 
-#### 15. UI/UX
+#### 15. Egyptian Tax Authority (ETA) Integration (NEW - April 2026) ✅ PARTIAL
+- **Company ETA Settings:**
+  - Separate configuration per company (multi-tenant support)
+  - Tax Registration Number
+  - Branch ID (0 for head office)
+  - Activity Code
+- **API Credentials Management:**
+  - Client ID storage
+  - Client Secret secure storage (masked in UI)
+  - Links to ETA portals (Preproduction and Production)
+- **Environment Selection:**
+  - Preproduction (Testing) environment
+  - Production environment
+  - Easy toggle between environments
+- **Connection Testing:**
+  - Test Connection button
+  - Connection status tracking
+  - Last test timestamp
+- **Integration Status:**
+  - Enable/Disable integration toggle
+  - Auto-submit invoices on approval option
+- **Submissions Log:**
+  - Track all submitted invoices
+  - Status tracking (pending, submitted, valid, invalid, rejected, cancelled)
+  - Document UUID and Long ID storage
+  - Submission timestamp
+- **API Endpoints:**
+  - `GET /api/eta/settings` - Get company ETA settings
+  - `PUT /api/eta/settings` - Update company ETA settings
+  - `POST /api/eta/test-connection` - Test connection with ETA
+  - `GET /api/eta/submissions` - Get submissions log
+  - `POST /api/eta/submit-invoice` - Submit invoice to ETA
+  - `GET /api/eta/submission-status/{uuid}` - Check submission status
+  - `GET /api/eta/document/{uuid}` - Get document details
+- **Frontend ETA Settings Page:**
+  - Accessible via: E-Invoices > Tax Authority Settings
+  - 2 tabs: Settings and Submissions Log
+  - 4 settings cards: Tax Registration Data, API Credentials, Environment, Integration Status
+  - Warning banner about using Preproduction first
+  - Save Settings button
+- **Testing:**
+  - 20/20 backend tests passed (100%)
+  - Frontend page verified
+
+#### 16. UI/UX
 - Dark/Light mode toggle
 - RTL/LTR language support (Arabic/English)
 - Responsive sidebar with sub-menus
@@ -393,11 +437,15 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
 ### Upcoming Tasks 📋
 
 #### P1 - High Priority
-1. **Egyptian Tax Authority (ETA) API Integration**
-   - Direct submission to ETA portal
-   - Status tracking
-   - Compliance reporting
-   - **NOTE:** Must use `integration_playbook_expert_v2` for this integration
+1. **Egyptian Tax Authority (ETA) Invoice Submission** ✅ PARTIALLY DONE
+   - ✅ Company ETA Settings page created
+   - ✅ API credentials management (Client ID, Client Secret)
+   - ✅ Environment selection (Preproduction/Production)
+   - ✅ Connection testing endpoint
+   - ✅ Submissions log with status tracking
+   - 🔄 REMAINING: Actual invoice submission to ETA (requires real credentials)
+   - 🔄 REMAINING: Document validation and error handling
+   - 🔄 REMAINING: UUID and receipt number tracking
 
 2. **Additional Email Notifications**
    - New employee welcome email
