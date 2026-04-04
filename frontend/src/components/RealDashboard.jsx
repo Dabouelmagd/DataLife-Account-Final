@@ -14,7 +14,7 @@ import {
   Home, PlayCircle, ArrowUp, ArrowDown, AlertCircle, CheckCircle,
   Eye, Edit, Plus, Download, Printer, Clock, Award, TrendingDown,
   ChevronDown, ChevronRight, CreditCard, ShoppingCart, FolderKanban,
-  Upload, BookOpen
+  Upload, BookOpen, Package
 } from 'lucide-react';
 import axios from 'axios';
 import { getTranslation } from '../data/translations';
@@ -70,6 +70,7 @@ const RealDashboard = () => {
   const [activeSubModule, setActiveSubModule] = useState(null);
   const [activeHRSubModule, setActiveHRSubModule] = useState(null);
   const [activeFinancialSubModule, setActiveFinancialSubModule] = useState(null);
+  const [activeInvoiceSubModule, setActiveInvoiceSubModule] = useState(null);
   const [expandedModule, setExpandedModule] = useState(null);
   const [company, setCompany] = useState(null);
   const [employees, setEmployees] = useState([]);
@@ -241,8 +242,14 @@ const RealDashboard = () => {
     if (topManagementRoles.includes(role) || financialManagerRoles.includes(role)) {
       modules.push({ 
         id: 'invoices', 
-        name: language === 'ar' ? 'الفواتير' : 'Invoices', 
-        icon: <FileText /> 
+        name: language === 'ar' ? 'الفواتير الإلكترونية' : 'E-Invoices', 
+        icon: <FileText />,
+        hasSubModules: true,
+        subModules: [
+          { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices', icon: <FileText /> },
+          { id: 'parties', name: language === 'ar' ? 'العملاء والموردين' : 'Customers & Suppliers', icon: <Users /> },
+          { id: 'products', name: language === 'ar' ? 'المنتجات والخدمات' : 'Products & Services', icon: <Package /> }
+        ]
       });
     }
 
@@ -895,7 +902,17 @@ const RealDashboard = () => {
 
     // Invoices Module
     if (activeModule === 'invoices') {
-      return <InvoicesModule />;
+      // Invoice sub-modules
+      switch (activeInvoiceSubModule) {
+        case 'invoices':
+          return <InvoicesPage />;
+        case 'parties':
+          return <PartiesPage />;
+        case 'products':
+          return <ProductsPage />;
+        default:
+          return <InvoicesPage />;
+      }
     }
 
     // Customer Portal Management Module
@@ -957,6 +974,8 @@ const RealDashboard = () => {
         setActiveHRSubModule={setActiveHRSubModule}
         activeFinancialSubModule={activeFinancialSubModule}
         setActiveFinancialSubModule={setActiveFinancialSubModule}
+        activeInvoiceSubModule={activeInvoiceSubModule}
+        setActiveInvoiceSubModule={setActiveInvoiceSubModule}
         onLogout={handleLogout}
         navigate={navigate}
         company={company}

@@ -20,6 +20,8 @@ const ModernSidebar = ({
   setActiveHRSubModule,
   activeFinancialSubModule,
   setActiveFinancialSubModule,
+  activeInvoiceSubModule,
+  setActiveInvoiceSubModule,
   onLogout,
   navigate,
   company
@@ -212,9 +214,15 @@ const ModernSidebar = ({
                     if (module.id === 'hr') {
                       setActiveHRSubModule?.(null);
                       setActiveFinancialSubModule?.(null);
+                      setActiveInvoiceSubModule?.(null);
                     } else if (module.id === 'financial') {
                       setActiveFinancialSubModule?.(null);
                       setActiveHRSubModule?.(null);
+                      setActiveInvoiceSubModule?.(null);
+                    } else if (module.id === 'invoices') {
+                      setActiveInvoiceSubModule?.('invoices');
+                      setActiveHRSubModule?.(null);
+                      setActiveFinancialSubModule?.(null);
                     }
                   }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 group
@@ -245,7 +253,11 @@ const ModernSidebar = ({
                 {hasSubModules && isExpanded && module.subModules && (
                   <div className={`mt-1 ${isRTL ? 'mr-4' : 'ml-4'} space-y-1`}>
                     {module.subModules.map((subModule) => {
-                      const isSubActive = (module.id === 'hr' ? activeHRSubModule : activeFinancialSubModule) === subModule.id;
+                      const isSubActive = module.id === 'hr' 
+                        ? activeHRSubModule === subModule.id 
+                        : module.id === 'invoices'
+                        ? activeInvoiceSubModule === subModule.id
+                        : activeFinancialSubModule === subModule.id;
                       
                       return (
                         <button
@@ -253,6 +265,8 @@ const ModernSidebar = ({
                           onClick={() => {
                             if (module.id === 'hr') {
                               setActiveHRSubModule?.(subModule.id);
+                            } else if (module.id === 'invoices') {
+                              setActiveInvoiceSubModule?.(subModule.id);
                             } else {
                               setActiveFinancialSubModule?.(subModule.id);
                             }

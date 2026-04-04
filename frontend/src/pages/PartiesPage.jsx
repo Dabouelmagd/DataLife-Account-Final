@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useTheme } from '../contexts/ThemeContext';
-import ModernSidebar from '../components/ModernSidebar';
-import AppFooter from '../components/AppFooter';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import {
@@ -26,18 +23,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { 
-  Plus, Search, Users, Building, Edit, Trash2, Phone, Mail, MapPin
-} from 'lucide-react';
+import { Card, CardContent } from '../components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Plus, Search, Users, Building, Edit, Phone, Mail, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api/invoice`;
 
 const PartiesPage = () => {
   const { language } = useLanguage();
-  const { isDark } = useTheme();
   const isRTL = language === 'ar';
 
   const [parties, setParties] = useState([]);
@@ -150,11 +144,10 @@ const PartiesPage = () => {
       setParties(data.parties || []);
     } catch (error) {
       console.error('Error fetching parties:', error);
-      toast.error(text.error);
     } finally {
       setLoading(false);
     }
-  }, [activeTab, text.error]);
+  }, [activeTab]);
 
   useEffect(() => {
     fetchParties();
@@ -163,9 +156,7 @@ const PartiesPage = () => {
   const handleSubmit = async () => {
     try {
       const token = getToken();
-      const url = editingParty 
-        ? `${API}/parties/${editingParty.id}`
-        : `${API}/parties`;
+      const url = editingParty ? `${API}/parties/${editingParty.id}` : `${API}/parties`;
       
       const response = await fetch(url, {
         method: editingParty ? 'PUT' : 'POST',
@@ -244,327 +235,185 @@ const PartiesPage = () => {
   });
 
   return (
-    <div className={`flex min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`} dir={isRTL ? 'rtl' : 'ltr'}>
-      <ModernSidebar />
-      
-      <div className="flex-1 flex flex-col">
-        <main className={`flex-1 p-6 ${isRTL ? 'mr-64' : 'ml-64'}`}>
-          {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {text.parties}
-            </h1>
-          </div>
-
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-            <TabsList className="grid grid-cols-2 w-full max-w-md">
-              <TabsTrigger value="customer" data-testid="tab-customers">
-                <Users className="w-4 h-4 mr-2" />
-                {text.customers}
-              </TabsTrigger>
-              <TabsTrigger value="supplier" data-testid="tab-suppliers">
-                <Building className="w-4 h-4 mr-2" />
-                {text.suppliers}
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <Card className={isDark ? 'bg-gray-800 border-gray-700' : ''}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                        {text.totalCustomers}
-                      </p>
-                      <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                        {activeTab === 'customer' ? parties.length : '-'}
-                      </p>
-                    </div>
-                    <Users className="w-10 h-10 text-blue-500" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className={isDark ? 'bg-gray-800 border-gray-700' : ''}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                        {text.totalSuppliers}
-                      </p>
-                      <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                        {activeTab === 'supplier' ? parties.length : '-'}
-                      </p>
-                    </div>
-                    <Building className="w-10 h-10 text-green-500" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Search and Add Button */}
-            <div className="flex flex-wrap gap-4 mt-6 mb-4">
-              <div className="flex-1 min-w-[200px]">
-                <div className="relative">
-                  <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
-                  <Input
-                    placeholder={text.search}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className={`${isRTL ? 'pr-10' : 'pl-10'} ${isDark ? 'bg-gray-800 border-gray-700 text-white' : ''}`}
-                    data-testid="search-input"
-                  />
-                </div>
-              </div>
-
-              <Button 
-                onClick={() => { resetForm(); setEditingParty(null); setShowModal(true); }}
-                className="bg-[#28376B] hover:bg-[#1e2a52] text-white"
-                data-testid="add-party-btn"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                {activeTab === 'customer' ? text.addCustomer : text.addSupplier}
-              </Button>
-            </div>
-
-            {/* Table */}
-            <Card className={isDark ? 'bg-gray-800 border-gray-700' : ''}>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className={isDark ? 'border-gray-700' : ''}>
-                      <TableHead className={isDark ? 'text-gray-300' : ''}>{text.name}</TableHead>
-                      <TableHead className={isDark ? 'text-gray-300' : ''}>{text.taxId}</TableHead>
-                      <TableHead className={isDark ? 'text-gray-300' : ''}>{text.phone}</TableHead>
-                      <TableHead className={isDark ? 'text-gray-300' : ''}>{text.email}</TableHead>
-                      <TableHead className={isDark ? 'text-gray-300' : ''}>{text.city}</TableHead>
-                      <TableHead className={isDark ? 'text-gray-300' : ''}>{text.actions}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#28376B] mx-auto"></div>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredParties.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className={`text-center py-8 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {text.noParties}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredParties.map((party) => (
-                        <TableRow key={party.id} className={isDark ? 'border-gray-700 hover:bg-gray-750' : 'hover:bg-gray-50'}>
-                          <TableCell className={`font-medium ${isDark ? 'text-white' : ''}`}>
-                            {party.name}
-                            {party.name_en && (
-                              <span className={`block text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {party.name_en}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className={isDark ? 'text-gray-300' : ''}>
-                            {party.tax_id || '-'}
-                          </TableCell>
-                          <TableCell className={isDark ? 'text-gray-300' : ''}>
-                            {party.phone && (
-                              <div className="flex items-center gap-1">
-                                <Phone className="w-3 h-3" />
-                                {party.phone}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className={isDark ? 'text-gray-300' : ''}>
-                            {party.email && (
-                              <div className="flex items-center gap-1">
-                                <Mail className="w-3 h-3" />
-                                {party.email}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className={isDark ? 'text-gray-300' : ''}>
-                            {party.city && (
-                              <div className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {party.city}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(party)}
-                              data-testid={`edit-party-${party.id}`}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </Tabs>
-        </main>
-
-        <AppFooter />
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">{text.parties}</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          {language === 'ar' ? 'إدارة بيانات العملاء والموردين' : 'Manage customers and suppliers data'}
+        </p>
       </div>
 
-      {/* Add/Edit Modal */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid grid-cols-2 w-full max-w-md">
+          <TabsTrigger value="customer">
+            <Users className="w-4 h-4 mr-2" />{text.customers}
+          </TabsTrigger>
+          <TabsTrigger value="supplier">
+            <Building className="w-4 h-4 mr-2" />{text.suppliers}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">{text.totalCustomers}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {activeTab === 'customer' ? parties.length : '-'}
+                </p>
+              </div>
+              <Users className="w-10 h-10 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">{text.totalSuppliers}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {activeTab === 'supplier' ? parties.length : '-'}
+                </p>
+              </div>
+              <Building className="w-10 h-10 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex flex-wrap gap-4">
+        <div className="flex-1 min-w-[200px]">
+          <div className="relative">
+            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500`} />
+            <Input
+              placeholder={text.search}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={isRTL ? 'pr-10' : 'pl-10'}
+            />
+          </div>
+        </div>
+        <Button 
+          onClick={() => { resetForm(); setEditingParty(null); setShowModal(true); }}
+          className="bg-[#28376B] hover:bg-[#1e2a52] text-white"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          {activeTab === 'customer' ? text.addCustomer : text.addSupplier}
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{text.name}</TableHead>
+                <TableHead>{text.taxId}</TableHead>
+                <TableHead>{text.phone}</TableHead>
+                <TableHead>{text.email}</TableHead>
+                <TableHead>{text.city}</TableHead>
+                <TableHead>{text.actions}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#28376B] mx-auto"></div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredParties.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">{text.noParties}</TableCell>
+                </TableRow>
+              ) : (
+                filteredParties.map((party) => (
+                  <TableRow key={party.id} className="hover:bg-gray-50">
+                    <TableCell className="font-medium">
+                      {party.name}
+                      {party.name_en && <span className="block text-xs text-gray-500">{party.name_en}</span>}
+                    </TableCell>
+                    <TableCell>{party.tax_id || '-'}</TableCell>
+                    <TableCell>
+                      {party.phone && <div className="flex items-center gap-1"><Phone className="w-3 h-3" />{party.phone}</div>}
+                    </TableCell>
+                    <TableCell>
+                      {party.email && <div className="flex items-center gap-1"><Mail className="w-3 h-3" />{party.email}</div>}
+                    </TableCell>
+                    <TableCell>
+                      {party.city && <div className="flex items-center gap-1"><MapPin className="w-3 h-3" />{party.city}</div>}
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(party)}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className={`max-w-2xl ${isDark ? 'bg-gray-800 text-white' : ''}`}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {editingParty 
                 ? (activeTab === 'customer' ? text.editCustomer : text.editSupplier)
-                : (activeTab === 'customer' ? text.addCustomer : text.addSupplier)
-              }
+                : (activeTab === 'customer' ? text.addCustomer : text.addSupplier)}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.name} *
-                </label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''}
-                  data-testid="party-name"
-                />
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.name} *</label>
+                <Input value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} />
               </div>
-
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.nameEn}
-                </label>
-                <Input
-                  value={formData.name_en}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name_en: e.target.value }))}
-                  className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''}
-                  data-testid="party-name-en"
-                />
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.nameEn}</label>
+                <Input value={formData.name_en} onChange={(e) => setFormData(prev => ({ ...prev, name_en: e.target.value }))} />
               </div>
-
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.taxId}
-                </label>
-                <Input
-                  value={formData.tax_id}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tax_id: e.target.value }))}
-                  className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''}
-                  placeholder="123-456-789"
-                  data-testid="party-tax-id"
-                />
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.taxId}</label>
+                <Input value={formData.tax_id} onChange={(e) => setFormData(prev => ({ ...prev, tax_id: e.target.value }))} placeholder="123-456-789" />
               </div>
-
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.commercialRegister}
-                </label>
-                <Input
-                  value={formData.commercial_register}
-                  onChange={(e) => setFormData(prev => ({ ...prev, commercial_register: e.target.value }))}
-                  className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''}
-                  data-testid="party-cr"
-                />
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.commercialRegister}</label>
+                <Input value={formData.commercial_register} onChange={(e) => setFormData(prev => ({ ...prev, commercial_register: e.target.value }))} />
               </div>
-
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.phone}
-                </label>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''}
-                  data-testid="party-phone"
-                />
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.phone}</label>
+                <Input value={formData.phone} onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))} />
               </div>
-
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.email}
-                </label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''}
-                  data-testid="party-email"
-                />
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.email}</label>
+                <Input type="email" value={formData.email} onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} />
               </div>
-
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.contactPerson}
-                </label>
-                <Input
-                  value={formData.contact_person}
-                  onChange={(e) => setFormData(prev => ({ ...prev, contact_person: e.target.value }))}
-                  className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''}
-                  data-testid="party-contact"
-                />
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.contactPerson}</label>
+                <Input value={formData.contact_person} onChange={(e) => setFormData(prev => ({ ...prev, contact_person: e.target.value }))} />
               </div>
-
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.city}
-                </label>
-                <Input
-                  value={formData.city}
-                  onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                  className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''}
-                  data-testid="party-city"
-                />
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.city}</label>
+                <Input value={formData.city} onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))} />
               </div>
-
               <div className="md:col-span-2">
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.address}
-                </label>
-                <Input
-                  value={formData.address}
-                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                  className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''}
-                  data-testid="party-address"
-                />
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.address}</label>
+                <Input value={formData.address} onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))} />
               </div>
-
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.creditLimit}
-                </label>
-                <Input
-                  type="number"
-                  value={formData.credit_limit}
-                  onChange={(e) => setFormData(prev => ({ ...prev, credit_limit: parseFloat(e.target.value) || 0 }))}
-                  className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''}
-                  data-testid="party-credit-limit"
-                />
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.creditLimit}</label>
+                <Input type="number" value={formData.credit_limit} onChange={(e) => setFormData(prev => ({ ...prev, credit_limit: parseFloat(e.target.value) || 0 }))} />
               </div>
-
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {text.paymentTerms}
-                </label>
-                <Select 
-                  value={formData.payment_terms} 
-                  onValueChange={(val) => setFormData(prev => ({ ...prev, payment_terms: val }))}
-                >
-                  <SelectTrigger className={isDark ? 'bg-gray-700 border-gray-600 text-white' : ''} data-testid="party-payment-terms">
-                    <SelectValue />
-                  </SelectTrigger>
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.paymentTerms}</label>
+                <Select value={formData.payment_terms} onValueChange={(val) => setFormData(prev => ({ ...prev, payment_terms: val }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">{text.cash}</SelectItem>
                     <SelectItem value="net_7">{text.net7}</SelectItem>
@@ -577,14 +426,11 @@ const PartiesPage = () => {
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setShowModal(false)} data-testid="cancel-btn">
-                {text.cancel}
-              </Button>
+              <Button variant="outline" onClick={() => setShowModal(false)}>{text.cancel}</Button>
               <Button 
                 onClick={handleSubmit} 
                 className="bg-[#28376B] hover:bg-[#1e2a52] text-white"
                 disabled={!formData.name}
-                data-testid="save-party-btn"
               >
                 {text.save}
               </Button>

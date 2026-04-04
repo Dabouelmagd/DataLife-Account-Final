@@ -1,189 +1,215 @@
-# DataLife Account - Product Requirements Document
+# DataLife Account - ERP System PRD
 
 ## Original Problem Statement
-Multi-tenant SaaS ERP application for financial and HR management supporting Arabic/English bilingual interface with RTL support.
+Multi-tenant ERP system with comprehensive business management capabilities including:
+- User Management & Authentication
+- HR & Payroll
+- Financial Management & Accounting
+- Inventory Management
+- Electronic Invoicing (E-Invoicing)
+- Data Import/Export
+- Reporting & Analytics
 
----
+## User Personas
+1. **Company Administrator** - Full access to all modules
+2. **Financial Manager** - Access to financial, invoicing, and accounting modules
+3. **HR Manager** - Access to HR and payroll modules
+4. **Department Manager** - Limited access based on role
 
-## Session Updates (April 2026)
+## Core Requirements
 
-### ✅ COMPLETED AND VERIFIED (Apr 03, 2026)
+### Completed Features ✅
 
-#### 17. Professional Accounting System
-- **Request**: Implement complete professional accounting system following accounting standards
-- **Implementation**:
-  - **Chart of Accounts (دليل الحسابات)**: 44 default accounts covering Assets, Liabilities, Equity, Revenue, Expenses
-  - **Journal Entries (القيود اليومية)**: Full CRUD with validation, auto-balancing, posting to ledger
-  - **General Ledger (دفتر الأستاذ)**: Account statements, running balances, transaction history
-  - **Financial Reports (التقارير المالية)**:
-    - Trial Balance (ميزان المراجعة)
-    - Income Statement (قائمة الدخل)
-    - Balance Sheet (الميزانية العمومية)
-- **Backend Files**:
-  - `backend/models/accounting.py` - Data models for all accounting entities
-  - `backend/services/accounting_service.py` - Business logic and calculations
-  - `backend/api/accounting.py` - REST API endpoints with Excel export
-- **Frontend Pages**:
-  - `frontend/src/pages/JournalEntriesPage.jsx` - Create/view/post journal entries
-  - `frontend/src/pages/GeneralLedgerPage.jsx` - View account balances and statements
-  - `frontend/src/pages/FinancialReportsPage.jsx` - Generate and export financial reports
-- **Accounting Rules Implemented**:
-  - Assets & Expenses: Increase with Debit, Decrease with Credit
-  - Liabilities, Equity & Revenue: Increase with Credit, Decrease with Debit
-  - Journal entries must be balanced before saving
-  - Posted entries update account balances in real-time
-- **Test Status**: ✅ Visual verification complete, APIs tested
+#### 1. Authentication & User Management
+- JWT-based authentication
+- Multi-tenant company registration
+- User roles and permissions
+- Profile photo upload
+- Password change functionality
+- Employee deletion (admin only)
 
-#### 18. Quick Entry Vouchers
-- **Request**: Add quick entry buttons for common transactions
-- **Implementation**:
-  - `frontend/src/components/QuickEntryButtons.jsx` - Reusable quick entry component
-  - **Receipt Voucher (إيصال قبض)**: Debit Cash → Credit Revenue
-  - **Payment Voucher (إيصال صرف)**: Debit Expense → Credit Cash
-  - **Sales Invoice (فاتورة بيع)**: Debit Customer → Credit Revenue
-  - **Purchase Invoice (فاتورة شراء)**: Debit Expense → Credit Supplier
-  - Auto-posting after entry creation
-- **Test Status**: ✅ Visual verification complete
+#### 2. Data Import System
+- Excel/CSV file import for all modules
+- Import history tracking
+- Error export for failed rows
+- File format guide in modal
 
-#### 19. Excel Export for Financial Reports
-- **Request**: Export financial reports to Excel
-- **Implementation**:
-  - Backend: `xlsxwriter` library for Excel generation
-  - API endpoints:
-    - `GET /api/accounting/reports/trial-balance/export`
-    - `GET /api/accounting/reports/income-statement/export`
-    - `GET /api/accounting/reports/balance-sheet/export`
-  - RTL support for Arabic
-  - Formatted cells with colors and totals
-- **Test Status**: ✅ Visual verification complete
+#### 3. Professional Accounting System
+- Chart of Accounts management
+- Journal Entries (create, post, reverse)
+- General Ledger with account drill-down
+- Financial Reports:
+  - Trial Balance
+  - Income Statement
+  - Balance Sheet
+- Quick Entry buttons (receipts, payments)
+- Excel export for all reports
 
----
+#### 4. Electronic Invoicing System (NEW - April 2026)
+- **Document Types:**
+  - Sales Invoices
+  - Purchase Invoices
+  - Sales Quotations
+  - Purchase Orders
+- **Features:**
+  - Party Management (Customers/Suppliers)
+  - Product/Service Catalog
+  - VAT calculation (14% default)
+  - Discount support (line-level)
+  - PDF generation with QR Code
+  - Automatic journal entry creation on approval
+  - Quotation to Invoice conversion
+  - Payment tracking
+- **ETA Compliance:**
+  - Tax ID validation
+  - ETA code support for products
+  - QR Code generation
 
-## Session Updates (February 2026)
+#### 5. UI/UX
+- Dark/Light mode toggle
+- RTL/LTR language support (Arabic/English)
+- Responsive sidebar with sub-menus
+- Application footer with branding
+- Company logo placement
 
-### ✅ COMPLETED AND VERIFIED (Feb 25, 2026)
+### In Progress 🔄
+- None currently
 
-#### 15. Change Password Feature
-- **Request**: Allow users to change their own password in Settings
-- **Implementation**:
-  - Backend API: `POST /api/auth/change-password`
-  - Frontend: Expandable form in Settings > Profile tab
-  - Fields: Current Password, New Password, Confirm Password
-  - Validation: Minimum 6 characters, password match
-  - Show/hide password toggle for each field
-  - Success/error messages displayed inline
-- **Test Status**: ✅ 100% (Backend: 6/6 tests, Frontend: All UI verified)
+### Upcoming Tasks 📋
 
-#### 16. Delete Employee Feature
-- **Request**: Allow admin to delete employees from the system
-- **Implementation**:
-  - Backend API: `DELETE /api/users/{user_id}` (deactivates account)
-  - Frontend: Red delete icon in Settings > Employees tab
-  - Confirmation modal with warning message
-  - Current user protected (cannot delete themselves)
-  - UI updates immediately after deletion
-- **Test Status**: ✅ 100% (Backend: 5/5 tests, Frontend: All UI verified)
+#### P1 - High Priority
+1. **Egyptian Tax Authority (ETA) API Integration**
+   - Direct submission to ETA portal
+   - Status tracking
+   - Compliance reporting
 
-#### 14. Page Footer with Branding
-- **Request**: Move DataLife logos from sidebar to page footer
-- **Implementation**:
-  - Created `AppFooter.jsx` component
-  - Footer at bottom of all pages (not sidebar)
-  - Left side: DataLife Account logo + description + copyright
-  - Center: "POWERED BY" divider
-  - Right side: DataLife AI logo + description
-  - Full Arabic/English support with RTL
-- **Footer Content**:
-  - **English**: "Enterprise Resource Planning" / "DataLife AI" / "Smart Business Solutions"
-  - **Arabic**: "نظام إدارة الموارد" / "داتا لايف للذكاء الاصطناعي" / "حلول ذكية للأعمال"
-- **Test Status**: ✅ Visual verification complete
+2. **Email Notifications**
+   - Invoice sent notifications
+   - Payment reminders
+   - Report generation alerts
 
----
+#### P2 - Medium Priority
+1. **Multi-currency Support**
+   - Currency management
+   - Exchange rate tracking
+   - Multi-currency invoices
 
-### ✅ Previously Completed (Feb 25, 2026)
+2. **Payment Terms Enhancement**
+   - Custom payment terms
+   - Installment plans
+   - Early payment discounts
 
-#### 8-13. Data Import & UI Features
-- Data Import from Excel/CSV
-- Import buttons on all pages  
-- Error export feature
-- Dark mode toggle + enhanced styling
-- File format preview in import modal
+#### P3 - Future Enhancements
+1. **Bank Reconciliation**
+2. **Budget Management**
+3. **Project Costing**
+4. **Mobile App**
 
----
+## Technical Architecture
 
-## Test Credentials
-
-| Role | Email | Password |
-|------|-------|----------|
-| Super Admin | superadmin@datalife.com | Admin@2024 |
-| Board Chairman | dalia@datalifeai.com | Dalia@2024 |
-
----
-
-## Key Files Modified (Latest Session)
-
-### Footer Component
-- `/app/frontend/src/components/AppFooter.jsx` - New footer component
-- `/app/frontend/src/components/RealDashboard.jsx` - Added footer
-- `/app/frontend/src/components/ModernSidebar.jsx` - Removed footer from sidebar
-
-### Logo Files
-- `/app/frontend/public/datalife-account-en.jpg`
-- `/app/frontend/public/datalife-account-ar.jpg`
-- `/app/frontend/public/datalife-ai.png`
-
----
-
-## Page Layout Structure
-
+### Backend (FastAPI)
 ```
-┌─────────────────────────────────────────────────────────┐
-│ ┌──────────┐  ┌────────────────────────────────────┐    │
-│ │          │  │                                    │    │
-│ │ Sidebar  │  │         Main Content               │    │
-│ │          │  │                                    │    │
-│ │ - Menu   │  │         (Dashboard/Pages)          │    │
-│ │ - User   │  │                                    │    │
-│ │ - Dark   │  │                                    │    │
-│ │ - Lang   │  │                                    │    │
-│ │          │  │                                    │    │
-│ └──────────┘  └────────────────────────────────────┘    │
-│              ┌────────────────────────────────────────┐ │
-│              │ [DataLife Account] POWERED BY [DL AI] │ │
-│              └────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
+/app/backend/
+├── api/
+│   ├── accounting.py      # Accounting endpoints
+│   ├── invoice.py         # E-invoicing endpoints (NEW)
+│   └── auth.py            # Authentication
+├── models/
+│   ├── accounting.py      # Accounting models
+│   └── invoice.py         # Invoice models (NEW)
+├── services/
+│   ├── accounting_service.py
+│   └── invoice_service.py # Invoice logic (NEW)
+└── server.py
 ```
 
----
+### Frontend (React)
+```
+/app/frontend/src/
+├── components/
+│   ├── RealDashboard.jsx  # Main dashboard
+│   ├── ModernSidebar.jsx  # Navigation
+│   └── ui/                # Shadcn components
+├── pages/
+│   ├── InvoicesPage.jsx   # E-invoicing (NEW)
+│   ├── PartiesPage.jsx    # Customers/Suppliers (NEW)
+│   ├── ProductsPage.jsx   # Products catalog (NEW)
+│   ├── JournalEntriesPage.jsx
+│   ├── GeneralLedgerPage.jsx
+│   └── FinancialReportsPage.jsx
+└── contexts/
+    ├── ThemeContext.jsx
+    └── LanguageContext.jsx
+```
 
-## Technical Stack
-- **Frontend**: React 18, TailwindCSS, Shadcn/UI
-- **Backend**: Python, FastAPI
-- **Database**: MongoDB
-- **Theme**: Dark mode with CSS variables
+### Database (MongoDB)
+**Collections:**
+- users
+- companies
+- employees
+- chart_of_accounts
+- journal_entries
+- invoices (NEW)
+- parties (NEW)
+- products (NEW)
+- import_logs
 
----
+### Key Dependencies
+- Backend: FastAPI, PyMongo, ReportLab, QRCode, Pandas, XlsxWriter
+- Frontend: React, Shadcn/UI, Lucide Icons, Sonner
 
-## Prioritized Backlog
+## API Endpoints
 
-### P0 - Completed ✅
-- [x] Data Import from Excel/CSV
-- [x] Import buttons on all pages
-- [x] Error export for failed imports
-- [x] Dark Mode toggle + enhanced styling
-- [x] File Format Preview in import modal
-- [x] Page Footer with DataLife branding
+### Invoicing (NEW)
+```
+POST   /api/invoice/                    # Create invoice
+GET    /api/invoice/                    # List invoices
+GET    /api/invoice/{id}                # Get invoice details
+POST   /api/invoice/{id}/approve        # Approve invoice
+GET    /api/invoice/{id}/pdf            # Download PDF
+POST   /api/invoice/{id}/convert-to-invoice  # Convert quote to invoice
 
-### P1 - Future Enhancements
-- [ ] Deploy to production (datalifeaccount.com)
-- [ ] Email notifications
-- [ ] WhatsApp Integration
+# Parties
+POST   /api/invoice/parties             # Create party
+GET    /api/invoice/parties             # List parties
+PUT    /api/invoice/parties/{id}        # Update party
 
----
+# Products
+POST   /api/invoice/products            # Create product
+GET    /api/invoice/products            # List products
+GET    /api/invoice/units               # List units
+```
 
-## Test Reports
-- Latest: `/app/test_reports/iteration_17.json`
+### Accounting
+```
+POST   /api/accounting/journal-entries  # Create entry
+GET    /api/accounting/journal-entries  # List entries
+POST   /api/accounting/journal-entries/{id}/post
+GET    /api/accounting/general-ledger
+GET    /api/accounting/reports/trial-balance
+GET    /api/accounting/reports/income-statement
+GET    /api/accounting/reports/balance-sheet
+```
 
----
+## Testing Credentials
+- Email: dalia@datalifeai.com
+- Password: Dalia@2024
 
-*Last Updated: February 25, 2026*
+## Deployment Notes
+- Preview URL: https://bulk-upload-demo.preview.emergentagent.com
+- Production: datalifeaccount.com (requires "Save to Github" and deploy)
+- Static files served via /api/uploads/ to bypass Ingress routing
+
+## Known Issues
+- MongoDB ObjectId must be excluded from API responses
+- Static uploads must use /api/uploads/ prefix
+
+## Changelog
+- **April 4, 2026**: Implemented complete Electronic Invoicing system
+  - Sales/Purchase Invoices
+  - Quotations and Purchase Orders
+  - Customer/Supplier Management
+  - Product/Service Catalog
+  - VAT calculations
+  - PDF with QR Code
+  - Automatic accounting journal entries
