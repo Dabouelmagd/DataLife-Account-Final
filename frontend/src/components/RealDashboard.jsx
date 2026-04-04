@@ -36,6 +36,7 @@ import PartiesPage from '../pages/PartiesPage';
 import ProductsPage from '../pages/ProductsPage';
 import InvoiceReportsPage from '../pages/InvoiceReportsPage';
 import CurrenciesPage from '../pages/CurrenciesPage';
+import InventoryPage from '../pages/InventoryPage';
 
 // Import sub-modules from existing files
 import {
@@ -316,7 +317,16 @@ const RealDashboard = () => {
       modules.push({ 
         id: 'inventory', 
         name: language === 'ar' ? 'المخزون' : 'Inventory', 
-        icon: <PieChart /> 
+        icon: <PieChart />,
+        subModules: [
+          { id: 'inventory-main', name: language === 'ar' ? 'إدارة المخزون' : 'Inventory Management' },
+          { id: 'inventory-products', name: language === 'ar' ? 'المنتجات' : 'Products' },
+          { id: 'inventory-warehouses', name: language === 'ar' ? 'المخازن' : 'Warehouses' },
+          { id: 'inventory-movements', name: language === 'ar' ? 'الحركات' : 'Movements' },
+          { id: 'inventory-transfers', name: language === 'ar' ? 'التحويلات' : 'Transfers' },
+          { id: 'inventory-adjustments', name: language === 'ar' ? 'التسويات' : 'Adjustments' },
+          { id: 'inventory-reports', name: language === 'ar' ? 'التقارير' : 'Reports' }
+        ]
       });
     }
 
@@ -854,7 +864,10 @@ const RealDashboard = () => {
     
     // Inventory Module
     if (activeModule === 'inventory') {
-      return <InventoryModule language={language} userRole={user?.role} />;
+      if (activeSubModule?.startsWith('inventory-') || !activeSubModule) {
+        return <InventoryPage />;
+      }
+      return <InventoryPage />;
     }
 
     // Reports Module
