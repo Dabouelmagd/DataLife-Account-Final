@@ -158,7 +158,60 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Low Stock Count
   - Expiring Soon Count
 
-#### 8. UI/UX
+#### 8. HR to Accounting Integration - Payroll System (NEW - April 2026) ✅
+- **Payroll Runs Management:**
+  - Create monthly payroll runs (YYYY-MM format)
+  - Calculate payroll for all active employees
+  - Approve payroll (creates journal entry automatically)
+  - Pay/disburse payroll (creates payment journal entry)
+  - Duplicate month prevention
+- **Payroll Calculations (Egyptian Compliance):**
+  - Basic salary tracking
+  - Social insurance (employee 11%, company 18.75%)
+  - Income tax brackets (Egyptian tax law)
+  - Personal exemption (15,000 EGP)
+  - Insurance min/max wage limits
+- **Employee Loans (السُلف):**
+  - Create loans with installment plans
+  - Approve loans (creates journal entry)
+  - Automatic deduction from salary
+  - Track remaining balance
+- **End of Service Settlements:**
+  - Calculate years of service
+  - End of service compensation
+  - Settle pending loans
+  - Deactivate employee on approval
+- **Automatic Journal Entries:**
+  - On Payroll Approval:
+    - Dr. Salaries Expense
+    - Dr. Social Insurance Expense (company share)
+    - Cr. Social Insurance Payable
+    - Cr. Income Tax Payable
+    - Cr. Salaries Payable (net)
+  - On Payroll Payment:
+    - Dr. Salaries Payable
+    - Cr. Bank/Cash
+- **Payroll Reports:**
+  - Monthly Cost Report
+  - Department Cost Report
+  - Employee Payslip
+- **Payroll Settings:**
+  - Social insurance rates
+  - Income tax brackets
+  - Personal exemption
+  - Account mappings
+- **Frontend Features:**
+  - Payroll page under HR module
+  - 5 tabs: Payroll Runs, Loans, End of Service, Reports, Settings
+  - Summary cards (Employees, Gross, Deductions, Loans)
+  - Status badges (Draft, Calculated, Approved, Paid)
+  - Action buttons (Calculate, Approve, Pay, View)
+- **Testing:**
+  - 24/24 backend tests passed (100%)
+  - All payroll flows verified
+  - Journal entry integration confirmed
+
+#### 9. UI/UX
 - Dark/Light mode toggle
 - RTL/LTR language support (Arabic/English)
 - Responsive sidebar with sub-menus
@@ -303,6 +356,34 @@ GET    /api/accounting/reports/income-statement
 GET    /api/accounting/reports/balance-sheet
 ```
 
+### Payroll (NEW)
+```
+# Payroll Runs
+GET    /api/payroll/runs                    # List payroll runs
+POST   /api/payroll/runs                    # Create payroll run
+GET    /api/payroll/runs/{id}               # Get run details
+POST   /api/payroll/runs/{id}/calculate     # Calculate salaries
+POST   /api/payroll/runs/{id}/approve       # Approve (creates journal entry)
+POST   /api/payroll/runs/{id}/pay           # Pay (creates payment entry)
+
+# Loans
+GET    /api/payroll/loans                   # List loans
+POST   /api/payroll/loans                   # Create loan
+POST   /api/payroll/loans/{id}/approve      # Approve loan (creates journal entry)
+
+# End of Service
+GET    /api/payroll/end-of-service          # List settlements
+POST   /api/payroll/end-of-service          # Create settlement
+POST   /api/payroll/end-of-service/{id}/approve  # Approve (creates journal entry)
+
+# Settings & Reports
+GET    /api/payroll/settings                # Get payroll settings
+PUT    /api/payroll/settings                # Update settings
+GET    /api/payroll/reports/monthly-cost    # Monthly cost report
+GET    /api/payroll/reports/department-cost # Department cost report
+GET    /api/payroll/reports/payslip/{run_id}/{employee_id}  # Employee payslip
+```
+
 ## Testing Credentials
 - Email: dalia@datalifeai.com
 - Password: Dalia@2024
@@ -318,6 +399,18 @@ GET    /api/accounting/reports/balance-sheet
 - Route collisions: New GET endpoints must be placed before /{invoice_id} route or use explicit prefixes
 
 ## Changelog
+
+- **April 4, 2026 (Update 6)**: HR to Accounting Integration - Payroll System ✅
+  - Complete payroll management with monthly runs
+  - Payroll calculation with Egyptian tax/insurance rates
+  - Employee loans with installment tracking
+  - End of service settlements
+  - Automatic journal entry creation on approval
+  - Automatic payment journal entry on disbursement
+  - Reports: Monthly Cost, Department Cost, Payslip
+  - Frontend: PayrollPage with 5 tabs under HR module
+  - Backend: /app/backend/api/payroll.py (20+ endpoints)
+  - Testing: 24/24 tests passed (100%)
 
 - **April 4, 2026 (Update 5)**: Professional Inventory Management System ✅
   - Complete inventory module with multi-warehouse support

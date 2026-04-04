@@ -277,7 +277,7 @@ class PayrollSettings(BaseModel):
         {"from": 45000, "to": 60000, "rate": 15},
         {"from": 60000, "to": 200000, "rate": 20},
         {"from": 200000, "to": 400000, "rate": 22.5},
-        {"from": 400000, "to": float('inf'), "rate": 25}
+        {"from": 400000, "to": 999999999, "rate": 25}
     ]
     
     # الإعفاء الضريبي الشخصي

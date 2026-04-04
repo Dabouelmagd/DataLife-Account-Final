@@ -686,6 +686,8 @@ const RealDashboard = () => {
       
       // HR Sub-module components
       switch (activeHRSubModule) {
+        case 'payroll':
+          return <PayrollPage />;
         case 'salaries':
           return <SalariesModule language={language} userRole={user?.role} />;
         case 'allowances':

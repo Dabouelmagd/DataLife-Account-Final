@@ -150,34 +150,51 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
     service = AccountingService(db)
     company_id = payroll["company_id"]
     
-    # الحصول على الحسابات
+    # الحصول على الحسابات - بناء قاموس شامل
     accounts = await service.get_all_accounts(company_id, True)
-    accounts_dict = {acc["account_code"]: acc["id"] for acc in accounts}
+    accounts_by_code = {acc["account_code"]: acc for acc in accounts}
+    accounts_by_id = {acc["id"]: acc for acc in accounts}
     
-    # حسابات افتراضية
-    salaries_expense = settings.get("salaries_expense_account") or accounts_dict.get("4101")
-    allowances_expense = settings.get("allowances_expense_account") or accounts_dict.get("4102")
-    si_expense = settings.get("social_insurance_expense_account") or accounts_dict.get("4103")
-    si_payable = settings.get("social_insurance_payable_account") or accounts_dict.get("2201")
-    tax_payable = settings.get("income_tax_payable_account") or accounts_dict.get("2202")
-    salaries_payable = settings.get("salaries_payable_account") or accounts_dict.get("2203")
-    loans_receivable = settings.get("loans_receivable_account") or accounts_dict.get("1202")
+    # دالة مساعدة للحصول على بيانات الحساب
+    def get_account_info(setting_value, default_code):
+        """الحصول على معلومات الحساب من الإعدادات أو الكود الافتراضي"""
+        if setting_value and setting_value in accounts_by_id:
+            acc = accounts_by_id[setting_value]
+            return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
+        elif default_code in accounts_by_code:
+            acc = accounts_by_code[default_code]
+            return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
+        return None, default_code, f"حساب {default_code}"
+    
+    # الحصول على الحسابات المطلوبة مع معلوماتها الكاملة
+    # تم تحديث الأكواد الافتراضية لتتوافق مع دليل الحسابات المصري
+    sal_id, sal_code, sal_name = get_account_info(settings.get("salaries_expense_account"), "5200")
+    allow_id, allow_code, allow_name = get_account_info(settings.get("allowances_expense_account"), "5200")  # نفس حساب الرواتب
+    si_exp_id, si_exp_code, si_exp_name = get_account_info(settings.get("social_insurance_expense_account"), "5900")  # التأمين
+    si_pay_id, si_pay_code, si_pay_name = get_account_info(settings.get("social_insurance_payable_account"), "2400")  # الضرائب المستحقة
+    tax_id, tax_code, tax_name = get_account_info(settings.get("income_tax_payable_account"), "2400")  # الضرائب المستحقة
+    sal_pay_id, sal_pay_code, sal_pay_name = get_account_info(settings.get("salaries_payable_account"), "2300")  # الرواتب المستحقة
+    loan_id, loan_code, loan_name = get_account_info(settings.get("loans_receivable_account"), "1200")  # العملاء/المدينون
     
     lines = []
     
     # مدين: مصروف الرواتب الأساسية
-    if payroll["total_basic_salary"] > 0:
+    if payroll["total_basic_salary"] > 0 and sal_id:
         lines.append(JournalEntryLine(
-            account_id=salaries_expense,
+            account_id=sal_id,
+            account_code=sal_code,
+            account_name=sal_name,
             debit=payroll["total_basic_salary"],
             credit=0,
             description="الرواتب الأساسية"
         ))
     
     # مدين: مصروف البدلات
-    if payroll["total_allowances"] > 0:
+    if payroll["total_allowances"] > 0 and allow_id:
         lines.append(JournalEntryLine(
-            account_id=allowances_expense,
+            account_id=allow_id,
+            account_code=allow_code,
+            account_name=allow_name,
             debit=payroll["total_allowances"],
             credit=0,
             description="البدلات"
@@ -185,9 +202,11 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
     
     # مدين: تأمينات حصة الشركة
     company_si = payroll["total_basic_salary"] * (settings.get("company_social_insurance_rate", 18.75) / 100)
-    if company_si > 0:
+    if company_si > 0 and si_exp_id:
         lines.append(JournalEntryLine(
-            account_id=si_expense,
+            account_id=si_exp_id,
+            account_code=si_exp_code,
+            account_name=si_exp_name,
             debit=round(company_si, 2),
             credit=0,
             description="تأمينات اجتماعية - حصة الشركة"
@@ -195,44 +214,57 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
     
     # دائن: تأمينات مستحقة (حصة الموظف + حصة الشركة)
     total_si = payroll["total_social_insurance"] + company_si
-    if total_si > 0:
+    if total_si > 0 and si_pay_id:
         lines.append(JournalEntryLine(
-            account_id=si_payable,
+            account_id=si_pay_id,
+            account_code=si_pay_code,
+            account_name=si_pay_name,
             debit=0,
             credit=round(total_si, 2),
             description="تأمينات اجتماعية مستحقة"
         ))
     
     # دائن: ضريبة كسب العمل مستحقة
-    if payroll["total_income_tax"] > 0:
+    if payroll["total_income_tax"] > 0 and tax_id:
         lines.append(JournalEntryLine(
-            account_id=tax_payable,
+            account_id=tax_id,
+            account_code=tax_code,
+            account_name=tax_name,
             debit=0,
             credit=payroll["total_income_tax"],
             description="ضريبة كسب العمل مستحقة"
         ))
     
     # دائن: سُلف (تخفيض رصيد السُلف)
-    if payroll["total_loans"] > 0:
+    if payroll["total_loans"] > 0 and loan_id:
         lines.append(JournalEntryLine(
-            account_id=loans_receivable,
+            account_id=loan_id,
+            account_code=loan_code,
+            account_name=loan_name,
             debit=0,
             credit=payroll["total_loans"],
             description="خصم أقساط سُلف"
         ))
     
     # دائن: صافي الرواتب المستحقة
-    lines.append(JournalEntryLine(
-        account_id=salaries_payable,
-        debit=0,
-        credit=payroll["total_net_salary"],
-        description="صافي الرواتب المستحقة"
-    ))
+    if sal_pay_id:
+        lines.append(JournalEntryLine(
+            account_id=sal_pay_id,
+            account_code=sal_pay_code,
+            account_name=sal_pay_name,
+            debit=0,
+            credit=payroll["total_net_salary"],
+            description="صافي الرواتب المستحقة"
+        ))
     
-    # إنشاء القيد
+    # التحقق من وجود سطور في القيد
+    if not lines:
+        raise HTTPException(status_code=400, detail="لا يمكن إنشاء قيد محاسبي - الحسابات غير متوفرة")
+    
+    # إنشاء القيد - entry_number سيتم توليده تلقائياً بواسطة AccountingService
     entry = JournalEntry(
         company_id=company_id,
-        entry_number="",
+        entry_number=0,  # سيتم استبداله برقم تسلسلي من AccountingService
         entry_date=datetime.now().strftime("%Y-%m-%d"),
         reference=payroll["payroll_number"],
         description=f"قيد رواتب شهر {payroll['month']}",
@@ -255,6 +287,13 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
     """الحصول على إعدادات الرواتب"""
     settings = await get_payroll_settings(current_user["company_id"])
     settings.pop("_id", None)
+    
+    # Convert float('inf') to a large number for JSON serialization
+    if "income_tax_brackets" in settings:
+        for bracket in settings["income_tax_brackets"]:
+            if bracket.get("to") == float('inf') or (isinstance(bracket.get("to"), float) and bracket.get("to") > 1e308):
+                bracket["to"] = 999999999
+    
     return settings
 
 
@@ -357,27 +396,45 @@ async def approve_loan(
     settings = await get_payroll_settings(current_user["company_id"])
     service = AccountingService(db)
     
+    # الحصول على الحسابات مع معلوماتها الكاملة
     accounts = await service.get_all_accounts(current_user["company_id"], True)
-    accounts_dict = {acc["account_code"]: acc["id"] for acc in accounts}
+    accounts_by_code = {acc["account_code"]: acc for acc in accounts}
     
-    loans_receivable = settings.get("loans_receivable_account") or accounts_dict.get("1202")
-    bank_account = settings.get("bank_account") or accounts_dict.get("1101")
+    def get_acc(setting_val, default_code):
+        if setting_val:
+            for acc in accounts:
+                if acc["id"] == setting_val:
+                    return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
+        if default_code in accounts_by_code:
+            acc = accounts_by_code[default_code]
+            return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
+        return None, default_code, f"حساب {default_code}"
+    
+    loan_id_acc, loan_code, loan_name = get_acc(settings.get("loans_receivable_account"), "1200")
+    bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "1101")
+    
+    if not loan_id_acc or not bank_id:
+        raise HTTPException(status_code=400, detail="الحسابات المحاسبية غير متوفرة")
     
     entry = JournalEntry(
         company_id=current_user["company_id"],
-        entry_number="",
+        entry_number=0,  # سيتم استبداله برقم تسلسلي من AccountingService
         entry_date=datetime.now().strftime("%Y-%m-%d"),
         reference=loan["loan_number"],
         description=f"سُلفة للموظف {loan['employee_name']}",
         lines=[
             JournalEntryLine(
-                account_id=loans_receivable,
+                account_id=loan_id_acc,
+                account_code=loan_code,
+                account_name=loan_name,
                 debit=loan["amount"],
                 credit=0,
                 description="سُلف مستحقة على الموظفين"
             ).dict(),
             JournalEntryLine(
-                account_id=bank_account,
+                account_id=bank_id,
+                account_code=bank_code,
+                account_name=bank_name,
                 debit=0,
                 credit=loan["amount"],
                 description="صرف من البنك"
@@ -735,28 +792,46 @@ async def pay_payroll(
     settings = await get_payroll_settings(company_id)
     service = AccountingService(db)
     
+    # الحصول على الحسابات مع معلوماتها الكاملة
     accounts = await service.get_all_accounts(company_id, True)
-    accounts_dict = {acc["account_code"]: acc["id"] for acc in accounts}
+    accounts_by_code = {acc["account_code"]: acc for acc in accounts}
     
-    salaries_payable = settings.get("salaries_payable_account") or accounts_dict.get("2203")
-    bank_account = settings.get("bank_account") or accounts_dict.get("1101")
+    def get_acc(setting_val, default_code):
+        if setting_val:
+            for acc in accounts:
+                if acc["id"] == setting_val:
+                    return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
+        if default_code in accounts_by_code:
+            acc = accounts_by_code[default_code]
+            return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
+        return None, default_code, f"حساب {default_code}"
+    
+    sal_pay_id, sal_pay_code, sal_pay_name = get_acc(settings.get("salaries_payable_account"), "2300")
+    bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "1101")
+    
+    if not sal_pay_id or not bank_id:
+        raise HTTPException(status_code=400, detail="الحسابات المحاسبية غير متوفرة")
     
     # إنشاء قيد الصرف
     entry = JournalEntry(
         company_id=company_id,
-        entry_number="",
+        entry_number=0,  # سيتم استبداله برقم تسلسلي من AccountingService
         entry_date=datetime.now().strftime("%Y-%m-%d"),
         reference=payroll["payroll_number"],
         description=f"صرف رواتب شهر {payroll['month']}",
         lines=[
             JournalEntryLine(
-                account_id=salaries_payable,
+                account_id=sal_pay_id,
+                account_code=sal_pay_code,
+                account_name=sal_pay_name,
                 debit=payroll["total_net_salary"],
                 credit=0,
                 description="إقفال الرواتب المستحقة"
             ).dict(),
             JournalEntryLine(
-                account_id=bank_account,
+                account_id=bank_id,
+                account_code=bank_code,
+                account_name=bank_name,
                 debit=0,
                 credit=payroll["total_net_salary"],
                 description="صرف من البنك"
@@ -906,44 +981,65 @@ async def approve_end_of_service(
     settings = await get_payroll_settings(company_id)
     service = AccountingService(db)
     
+    # الحصول على الحسابات مع معلوماتها الكاملة
     accounts = await service.get_all_accounts(company_id, True)
-    accounts_dict = {acc["account_code"]: acc["id"] for acc in accounts}
+    accounts_by_code = {acc["account_code"]: acc for acc in accounts}
     
-    eos_provision = settings.get("eos_provision_account") or accounts_dict.get("2301")
-    loans_receivable = settings.get("loans_receivable_account") or accounts_dict.get("1202")
-    bank_account = settings.get("bank_account") or accounts_dict.get("1101")
+    def get_acc(setting_val, default_code):
+        if setting_val:
+            for acc in accounts:
+                if acc["id"] == setting_val:
+                    return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
+        if default_code in accounts_by_code:
+            acc = accounts_by_code[default_code]
+            return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
+        return None, default_code, f"حساب {default_code}"
+    
+    eos_id, eos_code, eos_name = get_acc(settings.get("eos_provision_account"), "2600")  # القروض طويلة الأجل
+    loan_id, loan_code, loan_name = get_acc(settings.get("loans_receivable_account"), "1200")
+    bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "1101")
     
     lines = []
     
     # مدين: مخصص نهاية الخدمة
-    if settlement["end_of_service_amount"] > 0:
+    if settlement["end_of_service_amount"] > 0 and eos_id:
         lines.append(JournalEntryLine(
-            account_id=eos_provision,
+            account_id=eos_id,
+            account_code=eos_code,
+            account_name=eos_name,
             debit=settlement["end_of_service_amount"],
             credit=0,
             description="مكافأة نهاية الخدمة"
         ).dict())
     
     # دائن: سُلف (تسوية)
-    if settlement["pending_loans"] > 0:
+    if settlement["pending_loans"] > 0 and loan_id:
         lines.append(JournalEntryLine(
-            account_id=loans_receivable,
+            account_id=loan_id,
+            account_code=loan_code,
+            account_name=loan_name,
             debit=0,
             credit=settlement["pending_loans"],
             description="تسوية سُلف"
         ).dict())
     
     # دائن: البنك (صافي المستحق)
-    lines.append(JournalEntryLine(
-        account_id=bank_account,
-        debit=0,
-        credit=settlement["net_settlement"],
-        description="صرف تسوية نهاية الخدمة"
-    ).dict())
+    if bank_id:
+        lines.append(JournalEntryLine(
+            account_id=bank_id,
+            account_code=bank_code,
+            account_name=bank_name,
+            debit=0,
+            credit=settlement["net_settlement"],
+            description="صرف تسوية نهاية الخدمة"
+        ).dict())
+    
+    if not lines:
+        raise HTTPException(status_code=400, detail="الحسابات المحاسبية غير متوفرة")
     
     entry = JournalEntry(
         company_id=company_id,
-        entry_number="",
+        entry_number=0,  # سيتم استبداله برقم تسلسلي من AccountingService
         entry_date=datetime.now().strftime("%Y-%m-%d"),
         reference=settlement["settlement_number"],
         description=f"تسوية نهاية خدمة - {settlement['employee_name']}",
