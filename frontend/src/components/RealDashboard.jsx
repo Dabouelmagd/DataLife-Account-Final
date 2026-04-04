@@ -38,6 +38,8 @@ import InvoiceReportsPage from '../pages/InvoiceReportsPage';
 import CurrenciesPage from '../pages/CurrenciesPage';
 import InventoryPage from '../pages/InventoryPage';
 import PayrollPage from '../pages/PayrollPage';
+import EmployeeProfilePage from '../pages/EmployeeProfilePage';
+import ShiftsPage from '../pages/ShiftsPage';
 
 // Import sub-modules from existing files
 import {
@@ -78,6 +80,7 @@ const RealDashboard = () => {
   const [expandedModule, setExpandedModule] = useState(null);
   const [company, setCompany] = useState(null);
   const [employees, setEmployees] = useState([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
   const [financialReportTab, setFinancialReportTab] = useState('overview');
   const [financialPeriod, setFinancialPeriod] = useState('monthly');
   const [stats, setStats] = useState({
@@ -210,6 +213,7 @@ const RealDashboard = () => {
         subModules: [
           { id: 'hr-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart /> },
           { id: 'payroll', name: language === 'ar' ? 'الرواتب والأجور' : 'Payroll', icon: <DollarSign /> },
+          { id: 'shifts', name: language === 'ar' ? 'الورديات' : 'Work Shifts', icon: <Clock /> },
           { id: 'salaries', name: language === 'ar' ? 'المرتبات' : 'Salaries', icon: <DollarSign /> },
           { id: 'allowances', name: language === 'ar' ? 'البدلات والإضافي' : 'Allowances & Overtime', icon: <Award /> },
           { id: 'deductions', name: language === 'ar' ? 'الخصومات' : 'Deductions', icon: <TrendingDown /> },
@@ -658,12 +662,22 @@ const RealDashboard = () => {
                               <Button 
                                 size="sm" 
                                 variant="ghost"
+                                onClick={() => {
+                                  setSelectedEmployeeId(employee.id || employee.employee_id);
+                                  setActiveHRSubModule('employee-profile');
+                                }}
+                                title={language === 'ar' ? 'عرض الملف' : 'View Profile'}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
                               <Button 
                                 size="sm" 
                                 variant="ghost"
+                                onClick={() => {
+                                  setSelectedEmployeeId(employee.id || employee.employee_id);
+                                  setActiveHRSubModule('employee-profile');
+                                }}
+                                title={language === 'ar' ? 'تعديل' : 'Edit'}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -688,6 +702,16 @@ const RealDashboard = () => {
       switch (activeHRSubModule) {
         case 'payroll':
           return <PayrollPage />;
+        case 'shifts':
+          return <ShiftsPage language={language} />;
+        case 'employee-profile':
+          return selectedEmployeeId ? (
+            <EmployeeProfilePage 
+              employeeId={selectedEmployeeId} 
+              onBack={() => { setSelectedEmployeeId(null); setActiveHRSubModule('hr-overview'); }}
+              language={language}
+            />
+          ) : null;
         case 'salaries':
           return <SalariesModule language={language} userRole={user?.role} />;
         case 'allowances':

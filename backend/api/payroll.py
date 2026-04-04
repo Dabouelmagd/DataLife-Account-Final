@@ -18,6 +18,7 @@ from models.payroll import (
 )
 from models.accounting import JournalEntry, JournalEntryLine, JournalEntryStatus
 from services.accounting_service import AccountingService
+from services.email_service import send_bulk_payslip_notifications, send_payroll_approved_notification
 
 router = APIRouter(prefix="/api/payroll", tags=["Payroll"])
 
@@ -859,6 +860,75 @@ async def pay_payroll(
         "message": "تم تسجيل صرف الرواتب بنجاح",
         "payment_journal_entry": result.get("entry_number")
     }
+
+
+# ==========================================
+# Email Notifications Endpoints
+# ==========================================
+
+@router.post("/runs/{run_id}/send-payslips")
+async def send_payslip_emails(
+    run_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """إرسال قسائم الرواتب بالبريد الإلكتروني للموظفين"""
+    company_id = current_user["company_id"]
+    
+    payroll = await db.payroll_runs.find_one({
+        "id": run_id,
+        "company_id": company_id
+    })
+    
+    if not payroll:
+        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+    
+    if payroll["status"] not in ["approved", "paid"]:
+        raise HTTPException(status_code=400, detail="يجب اعتماد المسير أولاً قبل إرسال الإشعارات")
+    
+    # الحصول على معلومات الشركة
+    company = await db.companies.find_one({"company_id": company_id}, {"_id": 0, "company_name": 1})
+    company_name = company.get("company_name", "DataLife Account") if company else "DataLife Account"
+    
+    # الحصول على قائمة الموظفين مع بريدهم الإلكتروني
+    employees_data = []
+    for emp in payroll.get("employees", []):
+        # الحصول على بريد الموظف
+        employee = await db.employees.find_one({"id": emp["employee_id"]}, {"_id": 0, "email": 1})
+        emp_email = employee.get("email") if employee else None
+        
+        employees_data.append({
+            "employee_name": emp.get("employee_name"),
+            "email": emp_email,
+            "basic_salary": emp.get("basic_salary", 0),
+            "total_allowances": emp.get("total_allowances", 0),
+            "gross_salary": emp.get("gross_salary", 0),
+            "total_deductions": emp.get("total_deductions", 0),
+            "net_salary": emp.get("net_salary", 0)
+        })
+    
+    # إرسال الإشعارات
+    results = await send_bulk_payslip_notifications(
+        employees_data=employees_data,
+        month=payroll["month"],
+        company_name=company_name
+    )
+    
+    # تسجيل الإرسال
+    await db.payroll_runs.update_one(
+        {"id": run_id},
+        {"$set": {
+            "payslips_sent": True,
+            "payslips_sent_at": datetime.utcnow(),
+            "payslips_sent_count": results["sent"]
+        }}
+    )
+    
+    return {
+        "message": f"تم إرسال {results['sent']} قسيمة راتب من أصل {results['total']}",
+        "results": results
+    }
+
+
 
 
 # ==========================================

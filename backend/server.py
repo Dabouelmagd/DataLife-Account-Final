@@ -40,6 +40,7 @@ from api.accounting import router as accounting_router
 from api.invoice import router as invoice_router
 from api.inventory_pro import router as inventory_pro_router
 from api.payroll import router as payroll_router
+from api.employees_extended import router as employees_extended_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -48,6 +49,7 @@ load_dotenv(ROOT_DIR / '.env')
 # Create uploads directories
 os.makedirs("/app/uploads/photos", exist_ok=True)
 os.makedirs("/app/uploads/logos", exist_ok=True)
+os.makedirs("/app/backend/uploads/employees", exist_ok=True)
 
 # Import database
 from database import db, client
@@ -57,6 +59,7 @@ app = FastAPI()
 
 # Mount static files for uploads - using /api/uploads for ingress compatibility
 app.mount("/api/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
+app.mount("/api/uploads/employees", StaticFiles(directory="/app/backend/uploads/employees"), name="employee_uploads")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -120,6 +123,7 @@ app.include_router(accounting_router)
 app.include_router(invoice_router)
 app.include_router(inventory_pro_router)
 app.include_router(payroll_router)
+app.include_router(employees_extended_router)
 
 app.add_middleware(
     CORSMiddleware,

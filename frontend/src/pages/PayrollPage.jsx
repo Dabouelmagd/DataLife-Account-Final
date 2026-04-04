@@ -3,7 +3,7 @@ import {
   DollarSign, Users, Calendar, Calculator, CheckCircle, 
   Clock, FileText, Plus, Eye, Download, Settings,
   CreditCard, Banknote, TrendingUp, TrendingDown, RefreshCw,
-  UserX, Wallet
+  UserX, Wallet, Mail
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -320,6 +320,37 @@ export default function PayrollPage() {
     }
   };
 
+  const handleSendPayslips = async (runId) => {
+    if (!window.confirm(language === 'ar' 
+      ? 'هل تريد إرسال قسائم الرواتب بالبريد الإلكتروني للموظفين؟' 
+      : 'Send payslip emails to all employees?')) {
+      return;
+    }
+    
+    try {
+      const token = getToken();
+      toast.loading(language === 'ar' ? 'جاري إرسال قسائم الرواتب...' : 'Sending payslips...', { id: 'sending-payslips' });
+      
+      const response = await fetch(`${API}/runs/${runId}/send-payslips`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(data.message || (language === 'ar' ? 'تم إرسال قسائم الرواتب' : 'Payslips sent'), { id: 'sending-payslips' });
+        fetchPayrollRuns();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Error sending payslips', { id: 'sending-payslips' });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error(language === 'ar' ? 'خطأ في إرسال قسائم الرواتب' : 'Error sending payslips', { id: 'sending-payslips' });
+    }
+  };
+
+
   const handleLoanApprove = async (loanId) => {
     try {
       const token = getToken();
@@ -532,9 +563,19 @@ export default function PayrollPage() {
                             </Button>
                           )}
                           {run.status === 'approved' && (
-                            <Button size="sm" variant="outline" onClick={() => handlePayrollAction(run.id, 'pay')}>
-                              <Banknote className="w-4 h-4 mr-1" />
-                              {text.pay}
+                            <>
+                              <Button size="sm" variant="outline" onClick={() => handlePayrollAction(run.id, 'pay')}>
+                                <Banknote className="w-4 h-4 mr-1" />
+                                {text.pay}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => handleSendPayslips(run.id)} title={language === 'ar' ? 'إرسال قسائم الرواتب' : 'Send Payslips'}>
+                                <Mail className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                          {run.status === 'paid' && (
+                            <Button size="sm" variant="ghost" onClick={() => handleSendPayslips(run.id)} title={language === 'ar' ? 'إرسال قسائم الرواتب' : 'Send Payslips'}>
+                              <Mail className="w-4 h-4" />
                             </Button>
                           )}
                           <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(run); setModalType('viewPayroll'); setShowModal(true); }}>
