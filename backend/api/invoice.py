@@ -12,7 +12,8 @@ from pydantic import BaseModel
 from models.invoice import (
     Invoice, InvoiceLine, Party, Product, Payment,
     DocumentType, DocumentStatus, PaymentTerms, TaxType, Currency, PaymentMethod,
-    UNITS, CURRENCIES, ExchangeRate, CompanyCurrency, convert_currency, get_currency_info
+    UNITS, CURRENCIES, ExchangeRate, CompanyCurrency, convert_currency, get_currency_info,
+    InvoiceAdjustment, AdjustmentType, AdjustmentCategory, AdjustmentCalculation, AdjustmentBase
 )
 from services.invoice_service import InvoiceService
 from api.users import get_current_user
@@ -69,6 +70,18 @@ class InvoiceLineRequest(BaseModel):
     tax_rate: float = 14.0
 
 
+class InvoiceAdjustmentRequest(BaseModel):
+    """طلب إضافة خصم أو إضافة على الفاتورة"""
+    adjustment_type: str  # "discount" or "addition"
+    category: str = "custom"  # shipping, service_fee, table_tax, contract_discount, etc.
+    name: str
+    name_en: Optional[str] = None
+    calculation_type: str = "percentage"  # "percentage" or "fixed"
+    value: float = 0.0  # النسبة (1 = 1%) أو المبلغ الثابت
+    base: str = "before_tax"  # "before_tax" or "after_tax"
+    notes: Optional[str] = None
+
+
 class CreateInvoiceRequest(BaseModel):
     document_type: str
     document_date: str
@@ -77,6 +90,7 @@ class CreateInvoiceRequest(BaseModel):
     currency: str = "EGP"
     payment_terms: str = "cash"
     lines: List[InvoiceLineRequest]
+    adjustments: Optional[List[InvoiceAdjustmentRequest]] = []  # خصومات وإضافات الفاتورة
     notes: Optional[str] = None
     reference: Optional[str] = None
 
@@ -213,6 +227,47 @@ async def get_units():
 # Invoice Endpoints
 # ==========================================
 
+# ==========================================
+# Adjustment Categories Endpoint
+# ==========================================
+
+@router.get("/adjustment-categories")
+async def get_adjustment_categories(
+    current_user: dict = Depends(get_current_user)
+):
+    """الحصول على فئات الخصومات والإضافات"""
+    categories = {
+        "discounts": [
+            {"id": "contract_discount", "name_ar": "خصم تعاقد", "name_en": "Contract Discount"},
+            {"id": "early_payment", "name_ar": "خصم الدفع المبكر", "name_en": "Early Payment Discount"},
+            {"id": "volume_discount", "name_ar": "خصم كمية", "name_en": "Volume Discount"},
+            {"id": "promotional", "name_ar": "خصم ترويجي", "name_en": "Promotional Discount"},
+            {"id": "custom", "name_ar": "خصم مخصص", "name_en": "Custom Discount"}
+        ],
+        "additions": [
+            {"id": "shipping", "name_ar": "رسوم شحن", "name_en": "Shipping Fee"},
+            {"id": "service_fee", "name_ar": "رسوم خدمة", "name_en": "Service Fee"},
+            {"id": "table_tax", "name_ar": "ضريبة جدول", "name_en": "Table Tax"},
+            {"id": "insurance", "name_ar": "تأمين", "name_en": "Insurance"},
+            {"id": "handling", "name_ar": "رسوم مناولة", "name_en": "Handling Fee"},
+            {"id": "custom", "name_ar": "إضافة مخصصة", "name_en": "Custom Addition"}
+        ],
+        "calculation_types": [
+            {"id": "percentage", "name_ar": "نسبة مئوية %", "name_en": "Percentage %"},
+            {"id": "fixed", "name_ar": "مبلغ ثابت", "name_en": "Fixed Amount"}
+        ],
+        "base_options": [
+            {"id": "before_tax", "name_ar": "قبل الضريبة", "name_en": "Before Tax"},
+            {"id": "after_tax", "name_ar": "بعد الضريبة", "name_en": "After Tax"}
+        ]
+    }
+    return categories
+
+
+# ==========================================
+# Invoice Endpoints
+# ==========================================
+
 @router.get("/")
 async def get_invoices(
     document_type: Optional[str] = Query(None),
@@ -281,6 +336,22 @@ async def create_invoice(
         )
         lines.append(line)
     
+    # تحويل التعديلات (خصومات وإضافات)
+    adjustments = []
+    if request.adjustments:
+        for adj_req in request.adjustments:
+            adjustment = InvoiceAdjustment(
+                adjustment_type=AdjustmentType(adj_req.adjustment_type),
+                category=AdjustmentCategory(adj_req.category) if adj_req.category else AdjustmentCategory.CUSTOM,
+                name=adj_req.name,
+                name_en=adj_req.name_en,
+                calculation_type=AdjustmentCalculation(adj_req.calculation_type),
+                value=adj_req.value,
+                base=AdjustmentBase(adj_req.base) if adj_req.base else AdjustmentBase.BEFORE_TAX,
+                notes=adj_req.notes
+            )
+            adjustments.append(adjustment)
+    
     invoice = Invoice(
         company_id=current_user["company_id"],
         document_type=DocumentType(request.document_type),
@@ -294,6 +365,7 @@ async def create_invoice(
         currency=Currency(request.currency),
         payment_terms=PaymentTerms(request.payment_terms),
         lines=lines,
+        adjustments=adjustments,
         notes=request.notes,
         reference=request.reference,
         created_by=current_user["user_id"]
@@ -333,11 +405,28 @@ async def update_invoice(
         )
         lines.append(line)
     
+    # تحويل التعديلات (خصومات وإضافات)
+    adjustments = []
+    if request.adjustments:
+        for adj_req in request.adjustments:
+            adjustment = InvoiceAdjustment(
+                adjustment_type=AdjustmentType(adj_req.adjustment_type),
+                category=AdjustmentCategory(adj_req.category) if adj_req.category else AdjustmentCategory.CUSTOM,
+                name=adj_req.name,
+                name_en=adj_req.name_en,
+                calculation_type=AdjustmentCalculation(adj_req.calculation_type),
+                value=adj_req.value,
+                base=AdjustmentBase(adj_req.base) if adj_req.base else AdjustmentBase.BEFORE_TAX,
+                notes=adj_req.notes
+            )
+            adjustments.append(adjustment)
+    
     updates = {
         "document_date": request.document_date,
         "due_date": request.due_date,
         "payment_terms": request.payment_terms,
         "lines": [line.dict() for line in lines],
+        "adjustments": [adj.dict() for adj in adjustments],
         "notes": request.notes,
         "reference": request.reference
     }

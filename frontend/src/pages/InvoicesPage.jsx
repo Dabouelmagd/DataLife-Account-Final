@@ -29,7 +29,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { 
   Plus, Search, Filter, FileText, Download, Eye,
-  CheckCircle, Clock, XCircle, DollarSign, FileCheck, Send, Trash2
+  CheckCircle, Clock, XCircle, DollarSign, FileCheck, Send, Trash2, Minus
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,6 +51,7 @@ const InvoicesPage = () => {
   const [activeTab, setActiveTab] = useState('sales_invoice');
   const [currencies, setCurrencies] = useState([]);
   const [baseCurrency, setBaseCurrency] = useState('EGP');
+  const [adjustmentCategories, setAdjustmentCategories] = useState(null);
 
   const [formData, setFormData] = useState({
     document_type: 'sales_invoice',
@@ -60,6 +61,7 @@ const InvoicesPage = () => {
     currency: 'EGP',
     payment_terms: 'cash',
     lines: [{ description: '', quantity: 1, unit_price: 0, tax_rate: 14, discount_percent: 0 }],
+    adjustments: [], // خصومات وإضافات الفاتورة
     notes: '',
     reference: ''
   });
@@ -122,7 +124,37 @@ const InvoicesPage = () => {
       outstandingPayables: 'المطلوبات',
       invoiceCreated: 'تم إنشاء الفاتورة بنجاح',
       invoiceApproved: 'تم اعتماد الفاتورة بنجاح',
-      error: 'حدث خطأ'
+      error: 'حدث خطأ',
+      // Adjustments translations
+      adjustments: 'الخصومات والإضافات',
+      addDiscount: 'إضافة خصم',
+      addAddition: 'إضافة رسوم',
+      adjustmentType: 'النوع',
+      adjustmentName: 'الاسم',
+      adjustmentValue: 'القيمة',
+      calculationType: 'طريقة الحساب',
+      percentage: 'نسبة %',
+      fixedAmount: 'مبلغ ثابت',
+      applyOn: 'التطبيق على',
+      beforeTax: 'قبل الضريبة',
+      afterTax: 'بعد الضريبة',
+      discountCategories: {
+        contract_discount: 'خصم تعاقد',
+        early_payment: 'خصم دفع مبكر',
+        volume_discount: 'خصم كمية',
+        promotional: 'خصم ترويجي',
+        custom: 'خصم مخصص'
+      },
+      additionCategories: {
+        shipping: 'رسوم شحن',
+        service_fee: 'رسوم خدمة',
+        table_tax: 'ضريبة جدول',
+        insurance: 'تأمين',
+        handling: 'رسوم مناولة',
+        custom: 'إضافة مخصصة'
+      },
+      totalDiscounts: 'إجمالي الخصومات',
+      totalAdditions: 'إجمالي الإضافات'
     },
     en: {
       invoices: 'Electronic Invoices',
@@ -181,7 +213,37 @@ const InvoicesPage = () => {
       outstandingPayables: 'Payables',
       invoiceCreated: 'Invoice created successfully',
       invoiceApproved: 'Invoice approved successfully',
-      error: 'An error occurred'
+      error: 'An error occurred',
+      // Adjustments translations
+      adjustments: 'Discounts & Additions',
+      addDiscount: 'Add Discount',
+      addAddition: 'Add Fee',
+      adjustmentType: 'Type',
+      adjustmentName: 'Name',
+      adjustmentValue: 'Value',
+      calculationType: 'Calculation',
+      percentage: 'Percentage %',
+      fixedAmount: 'Fixed Amount',
+      applyOn: 'Apply On',
+      beforeTax: 'Before Tax',
+      afterTax: 'After Tax',
+      discountCategories: {
+        contract_discount: 'Contract Discount',
+        early_payment: 'Early Payment',
+        volume_discount: 'Volume Discount',
+        promotional: 'Promotional',
+        custom: 'Custom Discount'
+      },
+      additionCategories: {
+        shipping: 'Shipping Fee',
+        service_fee: 'Service Fee',
+        table_tax: 'Table Tax',
+        insurance: 'Insurance',
+        handling: 'Handling Fee',
+        custom: 'Custom Addition'
+      },
+      totalDiscounts: 'Total Discounts',
+      totalAdditions: 'Total Additions'
     }
   };
 
@@ -241,10 +303,24 @@ const InvoicesPage = () => {
     }
   }, []);
 
+  const fetchAdjustmentCategories = useCallback(async () => {
+    try {
+      const token = getToken();
+      const response = await fetch(`${API}/adjustment-categories`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setAdjustmentCategories(data);
+    } catch (error) {
+      console.error('Error fetching adjustment categories:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchInvoices();
     fetchCurrencies();
-  }, [fetchInvoices, fetchCurrencies]);
+    fetchAdjustmentCategories();
+  }, [fetchInvoices, fetchCurrencies, fetchAdjustmentCategories]);
 
   useEffect(() => {
     fetchParties();
@@ -264,7 +340,8 @@ const InvoicesPage = () => {
           lines: formData.lines.map(line => ({
             ...line,
             tax_type: 'vat'
-          }))
+          })),
+          adjustments: formData.adjustments || []
         })
       });
 
@@ -360,6 +437,7 @@ const InvoicesPage = () => {
       currency: 'EGP',
       payment_terms: 'cash',
       lines: [{ description: '', quantity: 1, unit_price: 0, tax_rate: 14, discount_percent: 0 }],
+      adjustments: [],
       notes: '',
       reference: ''
     });
@@ -390,6 +468,40 @@ const InvoicesPage = () => {
     }));
   };
 
+  // دوال التعديلات (الخصومات والإضافات)
+  const addAdjustment = (type) => {
+    const newAdjustment = {
+      adjustment_type: type, // 'discount' or 'addition'
+      category: 'custom',
+      name: '',
+      name_en: '',
+      calculation_type: 'percentage',
+      value: 0,
+      base: 'before_tax',
+      notes: ''
+    };
+    setFormData(prev => ({
+      ...prev,
+      adjustments: [...prev.adjustments, newAdjustment]
+    }));
+  };
+
+  const removeAdjustment = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      adjustments: prev.adjustments.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateAdjustment = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      adjustments: prev.adjustments.map((adj, i) => 
+        i === index ? { ...adj, [field]: value } : adj
+      )
+    }));
+  };
+
   const calculateLineTotals = (line) => {
     const subtotal = line.quantity * line.unit_price;
     const discountAmount = subtotal * (line.discount_percent / 100);
@@ -397,6 +509,14 @@ const InvoicesPage = () => {
     const taxAmount = afterDiscount * (line.tax_rate / 100);
     const total = afterDiscount + taxAmount;
     return { subtotal, discountAmount, taxAmount, total };
+  };
+
+  const calculateAdjustmentAmount = (adj, baseBeforeTax, baseAfterTax) => {
+    const baseAmount = adj.base === 'before_tax' ? baseBeforeTax : baseAfterTax;
+    if (adj.calculation_type === 'percentage') {
+      return baseAmount * (adj.value / 100);
+    }
+    return adj.value;
   };
 
   const calculateInvoiceTotals = () => {
@@ -411,8 +531,31 @@ const InvoicesPage = () => {
       totalTax += lineTotals.taxAmount;
     });
 
-    const grandTotal = subtotal - totalDiscount + totalTax;
-    return { subtotal, totalDiscount, totalTax, grandTotal };
+    const afterLineDiscount = subtotal - totalDiscount;
+    const afterTax = afterLineDiscount + totalTax;
+
+    // حساب خصومات وإضافات الفاتورة
+    let totalInvoiceDiscount = 0;
+    let totalInvoiceAddition = 0;
+
+    (formData.adjustments || []).forEach(adj => {
+      const amount = calculateAdjustmentAmount(adj, afterLineDiscount, afterTax);
+      if (adj.adjustment_type === 'discount') {
+        totalInvoiceDiscount += amount;
+      } else {
+        totalInvoiceAddition += amount;
+      }
+    });
+
+    const grandTotal = afterTax - totalInvoiceDiscount + totalInvoiceAddition;
+    return { 
+      subtotal, 
+      totalDiscount, 
+      totalTax, 
+      totalInvoiceDiscount, 
+      totalInvoiceAddition,
+      grandTotal 
+    };
   };
 
   const getStatusBadge = (status) => {
@@ -836,20 +979,172 @@ const InvoicesPage = () => {
               </div>
             </div>
 
+            {/* Adjustments Section - الخصومات والإضافات */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-sm font-semibold text-gray-700">{text.adjustments}</h3>
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => addAdjustment('discount')}
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                  >
+                    <Minus className="w-4 h-4 mr-1" />
+                    {text.addDiscount}
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => addAdjustment('addition')}
+                    className="text-green-600 border-green-300 hover:bg-green-50"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    {text.addAddition}
+                  </Button>
+                </div>
+              </div>
+
+              {formData.adjustments && formData.adjustments.length > 0 && (
+                <div className="space-y-3">
+                  {formData.adjustments.map((adj, index) => (
+                    <div 
+                      key={index} 
+                      className={`p-3 rounded-lg border ${adj.adjustment_type === 'discount' ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}
+                    >
+                      <div className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-3">
+                          <label className="text-xs text-gray-500">
+                            {adj.adjustment_type === 'discount' ? text.addDiscount : text.addAddition}
+                          </label>
+                          <select
+                            value={adj.category}
+                            onChange={(e) => {
+                              const category = e.target.value;
+                              const categories = adj.adjustment_type === 'discount' 
+                                ? text.discountCategories 
+                                : text.additionCategories;
+                              updateAdjustment(index, 'category', category);
+                              updateAdjustment(index, 'name', categories[category] || category);
+                            }}
+                            className="w-full p-2 border rounded-md text-sm"
+                          >
+                            {adj.adjustment_type === 'discount' ? (
+                              <>
+                                <option value="contract_discount">{text.discountCategories.contract_discount}</option>
+                                <option value="early_payment">{text.discountCategories.early_payment}</option>
+                                <option value="volume_discount">{text.discountCategories.volume_discount}</option>
+                                <option value="promotional">{text.discountCategories.promotional}</option>
+                                <option value="custom">{text.discountCategories.custom}</option>
+                              </>
+                            ) : (
+                              <>
+                                <option value="shipping">{text.additionCategories.shipping}</option>
+                                <option value="service_fee">{text.additionCategories.service_fee}</option>
+                                <option value="table_tax">{text.additionCategories.table_tax}</option>
+                                <option value="insurance">{text.additionCategories.insurance}</option>
+                                <option value="handling">{text.additionCategories.handling}</option>
+                                <option value="custom">{text.additionCategories.custom}</option>
+                              </>
+                            )}
+                          </select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-xs text-gray-500">{text.calculationType}</label>
+                          <select
+                            value={adj.calculation_type}
+                            onChange={(e) => updateAdjustment(index, 'calculation_type', e.target.value)}
+                            className="w-full p-2 border rounded-md text-sm"
+                          >
+                            <option value="percentage">{text.percentage}</option>
+                            <option value="fixed">{text.fixedAmount}</option>
+                          </select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-xs text-gray-500">{text.adjustmentValue}</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={adj.value}
+                            onChange={(e) => updateAdjustment(index, 'value', parseFloat(e.target.value) || 0)}
+                            placeholder={adj.calculation_type === 'percentage' ? '1%' : '0.00'}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-xs text-gray-500">{text.applyOn}</label>
+                          <select
+                            value={adj.base}
+                            onChange={(e) => updateAdjustment(index, 'base', e.target.value)}
+                            className="w-full p-2 border rounded-md text-sm"
+                          >
+                            <option value="before_tax">{text.beforeTax}</option>
+                            <option value="after_tax">{text.afterTax}</option>
+                          </select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-xs text-gray-500">{text.total}</label>
+                          <div className={`p-2 rounded text-sm font-medium ${adj.adjustment_type === 'discount' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                            {adj.adjustment_type === 'discount' ? '-' : '+'}
+                            {calculateAdjustmentAmount(
+                              adj, 
+                              totals.subtotal - totals.totalDiscount, 
+                              totals.subtotal - totals.totalDiscount + totals.totalTax
+                            ).toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="col-span-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => removeAdjustment(index)} 
+                            className="text-red-500"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(!formData.adjustments || formData.adjustments.length === 0) && (
+                <p className="text-center text-gray-400 text-sm py-4">
+                  {language === 'ar' ? 'لا توجد خصومات أو إضافات' : 'No discounts or additions'}
+                </p>
+              )}
+            </div>
+
             {/* Totals */}
             <div className="p-4 rounded-lg bg-gray-100">
-              <div className="grid grid-cols-2 gap-4 max-w-sm ml-auto">
+              <div className="grid grid-cols-2 gap-4 max-w-md ml-auto">
                 <div className="text-gray-600">{text.subtotal}:</div>
-                <div className="text-right font-medium">{totals.subtotal.toLocaleString()} EGP</div>
+                <div className="text-right font-medium">{totals.subtotal.toLocaleString()} {formData.currency}</div>
                 
-                <div className="text-gray-600">{text.discount}:</div>
-                <div className="text-right font-medium text-red-500">-{totals.totalDiscount.toLocaleString()} EGP</div>
+                <div className="text-gray-600">{text.discount} ({language === 'ar' ? 'الأسطر' : 'Lines'}):</div>
+                <div className="text-right font-medium text-red-500">-{totals.totalDiscount.toLocaleString()} {formData.currency}</div>
                 
                 <div className="text-gray-600">{text.tax} (VAT):</div>
-                <div className="text-right font-medium">{totals.totalTax.toLocaleString()} EGP</div>
+                <div className="text-right font-medium">{totals.totalTax.toLocaleString()} {formData.currency}</div>
                 
-                <div className="text-lg font-bold text-gray-900">{text.grandTotal}:</div>
-                <div className="text-right text-lg font-bold text-[#28376B]">{totals.grandTotal.toLocaleString()} EGP</div>
+                {totals.totalInvoiceDiscount > 0 && (
+                  <>
+                    <div className="text-gray-600">{text.totalDiscounts}:</div>
+                    <div className="text-right font-medium text-red-500">-{totals.totalInvoiceDiscount.toLocaleString()} {formData.currency}</div>
+                  </>
+                )}
+                
+                {totals.totalInvoiceAddition > 0 && (
+                  <>
+                    <div className="text-gray-600">{text.totalAdditions}:</div>
+                    <div className="text-right font-medium text-green-600">+{totals.totalInvoiceAddition.toLocaleString()} {formData.currency}</div>
+                  </>
+                )}
+                
+                <div className="text-lg font-bold text-gray-900 border-t pt-2">{text.grandTotal}:</div>
+                <div className="text-right text-lg font-bold text-[#28376B] border-t pt-2">{totals.grandTotal.toLocaleString()} {formData.currency}</div>
               </div>
             </div>
 

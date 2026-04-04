@@ -1,0 +1,191 @@
+{
+  "summary": "Complete testing of Invoice Adjustments (Discounts & Additions) feature. Backend: 13/13 tests passed. Frontend: All UI elements verified including Discounts & Additions section, Add Discount/Add Fee buttons, category dropdowns, calculation types, and totals display.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "backend_api_tests": {
+      "GET /api/invoice/adjustment-categories": {
+        "status": "PASSED",
+        "details": "Returns all categories: discounts (contract_discount, early_payment, volume_discount, promotional, custom), additions (shipping, service_fee, table_tax, insurance, handling, custom), calculation_types (percentage, fixed), base_options (before_tax, after_tax)"
+      },
+      "GET /api/invoice/adjustment-categories (without auth)": {
+        "status": "PASSED",
+        "details": "Returns 401 Unauthorized"
+      },
+      "POST /api/invoice/ (percentage discount before tax)": {
+        "status": "PASSED",
+        "details": "5% discount on 1000 EGP = 50 EGP, Grand Total = 1090 EGP"
+      },
+      "POST /api/invoice/ (fixed discount)": {
+        "status": "PASSED",
+        "details": "100 EGP fixed discount, Grand Total = 1040 EGP"
+      },
+      "POST /api/invoice/ (fixed addition - shipping)": {
+        "status": "PASSED",
+        "details": "75 EGP shipping fee, Grand Total = 1215 EGP"
+      },
+      "POST /api/invoice/ (percentage addition - service fee)": {
+        "status": "PASSED",
+        "details": "10% service fee = 100 EGP, Grand Total = 1240 EGP"
+      },
+      "POST /api/invoice/ (multiple adjustments)": {
+        "status": "PASSED",
+        "details": "5% discount (50 EGP) + 50 EGP shipping = Grand Total 1140 EGP"
+      },
+      "POST /api/invoice/ (multiple discounts)": {
+        "status": "PASSED",
+        "details": "5% + 30 EGP fixed = 80 EGP total discount, Grand Total = 1060 EGP"
+      },
+      "POST /api/invoice/ (discount after tax)": {
+        "status": "PASSED",
+        "details": "5% after tax on 1140 = 57 EGP, Grand Total = 1083 EGP"
+      },
+      "All discount categories": {
+        "status": "PASSED",
+        "details": "contract_discount, early_payment, volume_discount, promotional, custom all work"
+      },
+      "All addition categories": {
+        "status": "PASSED",
+        "details": "shipping, service_fee, table_tax, insurance, handling, custom all work"
+      },
+      "GET /api/invoice/{id} (with adjustments)": {
+        "status": "PASSED",
+        "details": "Invoice retrieval includes adjustment details and calculated amounts"
+      },
+      "POST /api/invoice/ (without adjustments)": {
+        "status": "PASSED",
+        "details": "Invoice creation without adjustments still works correctly"
+      }
+    },
+    "frontend_ui_tests": {
+      "invoices_page_load": {
+        "status": "PASSED",
+        "details": "Electronic Invoices page loads with tabs, stats cards, and invoice table"
+      },
+      "create_invoice_modal": {
+        "status": "PASSED",
+        "details": "Modal opens with Date, Due Date, Payment Terms, Customer, Currency fields"
+      },
+      "discounts_additions_section": {
+        "status": "PASSED",
+        "details": "Section displays with 'Discounts & Additions' header and Add Discount/Add Fee buttons"
+      },
+      "add_discount_button": {
+        "status": "PASSED",
+        "details": "Red 'Add Discount' button adds discount row with category dropdown, calculation type, value input, apply on dropdown"
+      },
+      "add_fee_button": {
+        "status": "PASSED",
+        "details": "Green 'Add Fee' button adds addition row with same configuration options"
+      },
+      "discount_categories_dropdown": {
+        "status": "PASSED",
+        "details": "Shows Contract Discount, Early Payment, Volume Discount, Promotional, Custom Discount options"
+      },
+      "addition_categories_dropdown": {
+        "status": "PASSED",
+        "details": "Shows Shipping Fee, Service Fee, Table Tax, Insurance, Handling Fee, Custom Addition options"
+      },
+      "calculation_type_dropdown": {
+        "status": "PASSED",
+        "details": "Shows Percentage % and Fixed Amount options"
+      },
+      "apply_on_dropdown": {
+        "status": "PASSED",
+        "details": "Shows Before Tax and After Tax options"
+      },
+      "adjustment_total_display": {
+        "status": "PASSED",
+        "details": "Discount shows negative value in red (-50), Addition shows positive value in green (+0)"
+      },
+      "totals_section_with_adjustments": {
+        "status": "PASSED",
+        "details": "Shows Subtotal, Discount % (Lines), Tax (VAT), Total Discounts (when present), Total Additions (when present), Grand Total"
+      },
+      "real_time_calculation": {
+        "status": "PASSED",
+        "details": "Totals update in real-time as adjustments are configured"
+      }
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_invoice_adjustments.py",
+    "/app/test_reports/pytest/pytest_invoice_adjustments.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_invoice_adjustments.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "100% (All UI features verified)"
+  },
+  "test_credentials": {
+    "email": "dalia@datalifeai.com",
+    "password": "Dalia@2024",
+    "role": "رئيس مجلس الإدارة (Board Chairman)"
+  },
+  "seed_data_creation": "Created multiple test invoices with various adjustment configurations (INV-2026-00004 through INV-2026-00017+)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Invoice Adjustments feature fully tested. Backend endpoint GET /api/invoice/adjustment-categories returns all categories. POST /api/invoice/ accepts adjustments array with adjustment_type (discount/addition), category, name, calculation_type (percentage/fixed), value, base (before_tax/after_tax). Frontend InvoicesPage.jsx has Discounts & Additions section in Create Invoice modal with Add Discount (red) and Add Fee (green) buttons. Totals section shows Total Discounts and Total Additions when present.",
+  "features_verified": {
+    "adjustment_categories_api": "PASSED",
+    "percentage_discount_before_tax": "PASSED",
+    "fixed_discount": "PASSED",
+    "fixed_addition_shipping": "PASSED",
+    "percentage_addition_service_fee": "PASSED",
+    "multiple_adjustments": "PASSED",
+    "discount_after_tax": "PASSED",
+    "all_discount_categories": "PASSED",
+    "all_addition_categories": "PASSED",
+    "frontend_discounts_additions_section": "PASSED",
+    "frontend_add_discount_button": "PASSED",
+    "frontend_add_fee_button": "PASSED",
+    "frontend_totals_display": "PASSED"
+  },
+  "calculation_verification": {
+    "test_case_1": {
+      "description": "5% discount before tax",
+      "subtotal": 1000,
+      "tax": 140,
+      "discount": 50,
+      "grand_total": 1090,
+      "formula": "1000 + 140 - 50 = 1090"
+    },
+    "test_case_2": {
+      "description": "75 EGP shipping fee",
+      "subtotal": 1000,
+      "tax": 140,
+      "addition": 75,
+      "grand_total": 1215,
+      "formula": "1000 + 140 + 75 = 1215"
+    },
+    "test_case_3": {
+      "description": "5% discount + 50 EGP shipping",
+      "subtotal": 1000,
+      "tax": 140,
+      "discount": 50,
+      "addition": 50,
+      "grand_total": 1140,
+      "formula": "1000 + 140 - 50 + 50 = 1140"
+    }
+  },
+  "screenshots": {
+    "create_invoice_modal": ".screenshots/01_create_invoice_modal.png",
+    "adjustments_section": ".screenshots/02_adjustments_section.png",
+    "discount_row_added": ".screenshots/03_discount_row_added.png",
+    "fee_row_added": ".screenshots/04_fee_row_added.png",
+    "totals_section": ".screenshots/05_totals_section.png",
+    "configured_adjustments": ".screenshots/06_configured_adjustments.png",
+    "totals_with_adjustments": ".screenshots/07_totals_with_adjustments.png"
+  }
+}

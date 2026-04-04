@@ -139,6 +139,52 @@ class InvoiceLine(BaseModel):
 
 
 # ==========================================
+# Invoice Adjustments (Discounts & Additions)
+# ==========================================
+
+class AdjustmentType(str, Enum):
+    """نوع التعديل"""
+    DISCOUNT = "discount"           # خصم
+    ADDITION = "addition"           # إضافة
+
+class AdjustmentCategory(str, Enum):
+    """تصنيف التعديل"""
+    SHIPPING = "shipping"                   # رسوم شحن
+    SERVICE_FEE = "service_fee"             # رسوم خدمة
+    TABLE_TAX = "table_tax"                 # ضريبة جدول
+    CONTRACT_DISCOUNT = "contract_discount" # خصم تعاقد
+    EARLY_PAYMENT = "early_payment"         # خصم الدفع المبكر
+    VOLUME_DISCOUNT = "volume_discount"     # خصم كمية
+    PROMOTIONAL = "promotional"             # خصم ترويجي
+    INSURANCE = "insurance"                 # تأمين
+    HANDLING = "handling"                   # رسوم مناولة
+    CUSTOM = "custom"                       # مخصص
+
+class AdjustmentCalculation(str, Enum):
+    """طريقة الحساب"""
+    PERCENTAGE = "percentage"       # نسبة مئوية
+    FIXED = "fixed"                 # مبلغ ثابت
+
+class AdjustmentBase(str, Enum):
+    """أساس الحساب"""
+    BEFORE_TAX = "before_tax"       # قبل الضريبة
+    AFTER_TAX = "after_tax"         # بعد الضريبة
+
+class InvoiceAdjustment(BaseModel):
+    """خصم أو إضافة على الفاتورة"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    adjustment_type: AdjustmentType         # خصم أو إضافة
+    category: AdjustmentCategory = AdjustmentCategory.CUSTOM  # تصنيف
+    name: str                               # اسم التعديل
+    name_en: Optional[str] = None
+    calculation_type: AdjustmentCalculation = AdjustmentCalculation.PERCENTAGE
+    value: float = 0.0                      # القيمة (نسبة أو مبلغ)
+    base: AdjustmentBase = AdjustmentBase.BEFORE_TAX
+    calculated_amount: float = 0.0          # المبلغ المحسوب
+    notes: Optional[str] = None
+
+
+# ==========================================
 # Invoice Model
 # ==========================================
 
@@ -167,11 +213,19 @@ class Invoice(BaseModel):
     # Lines
     lines: List[InvoiceLine] = []
     
+    # Adjustments (Discounts & Additions)
+    adjustments: List[InvoiceAdjustment] = []
+    
     # Totals
     subtotal: float = 0.0                  # المجموع قبل الخصم والضريبة
-    total_discount: float = 0.0            # إجمالي الخصم
-    total_after_discount: float = 0.0      # المجموع بعد الخصم
+    total_discount: float = 0.0            # إجمالي خصم الأسطر
+    total_after_discount: float = 0.0      # المجموع بعد خصم الأسطر
     total_tax: float = 0.0                 # إجمالي الضريبة
+    
+    # Invoice Level Adjustments
+    total_invoice_discount: float = 0.0    # إجمالي خصومات الفاتورة
+    total_invoice_addition: float = 0.0    # إجمالي إضافات الفاتورة
+    
     grand_total: float = 0.0               # الإجمالي الكلي
     amount_paid: float = 0.0               # المبلغ المدفوع
     amount_due: float = 0.0                # المبلغ المتبقي
@@ -350,13 +404,46 @@ def calculate_line_totals(line: InvoiceLine) -> InvoiceLine:
 
 
 def calculate_invoice_totals(invoice: Invoice) -> Invoice:
-    """حساب مجاميع الفاتورة"""
+    """حساب مجاميع الفاتورة مع الخصومات والإضافات"""
+    # حساب مجاميع الأسطر
     invoice.subtotal = sum(line.subtotal for line in invoice.lines)
     invoice.total_discount = sum(line.discount_amount for line in invoice.lines)
     invoice.total_after_discount = invoice.subtotal - invoice.total_discount
     invoice.total_tax = sum(line.tax_amount for line in invoice.lines)
-    invoice.grand_total = invoice.total_after_discount + invoice.total_tax
-    invoice.amount_due = invoice.grand_total - invoice.amount_paid
+    
+    # حساب الخصومات والإضافات على مستوى الفاتورة
+    total_invoice_discount = 0.0
+    total_invoice_addition = 0.0
+    
+    for adj in invoice.adjustments:
+        # تحديد قاعدة الحساب
+        if adj.base == AdjustmentBase.BEFORE_TAX:
+            base_amount = invoice.total_after_discount
+        else:  # AFTER_TAX
+            base_amount = invoice.total_after_discount + invoice.total_tax
+        
+        # حساب قيمة التعديل
+        if adj.calculation_type == AdjustmentCalculation.PERCENTAGE:
+            adj.calculated_amount = base_amount * (adj.value / 100)
+        else:  # FIXED
+            adj.calculated_amount = adj.value
+        
+        # تصنيف التعديل
+        if adj.adjustment_type == AdjustmentType.DISCOUNT:
+            total_invoice_discount += adj.calculated_amount
+        else:  # ADDITION
+            total_invoice_addition += adj.calculated_amount
+    
+    invoice.total_invoice_discount = round(total_invoice_discount, 2)
+    invoice.total_invoice_addition = round(total_invoice_addition, 2)
+    
+    # الإجمالي الكلي = (المجموع بعد خصم الأسطر + الضريبة) - خصومات الفاتورة + إضافات الفاتورة
+    invoice.grand_total = round(
+        invoice.total_after_discount + invoice.total_tax - 
+        invoice.total_invoice_discount + invoice.total_invoice_addition, 
+        2
+    )
+    invoice.amount_due = round(invoice.grand_total - invoice.amount_paid, 2)
     
     return invoice
 
