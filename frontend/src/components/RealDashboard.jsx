@@ -31,6 +31,9 @@ import DocumentsModule from './DocumentsModule';
 import JournalEntriesPage from '../pages/JournalEntriesPage';
 import GeneralLedgerPage from '../pages/GeneralLedgerPage';
 import FinancialReportsPage from '../pages/FinancialReportsPage';
+import InvoicesPage from '../pages/InvoicesPage';
+import PartiesPage from '../pages/PartiesPage';
+import ProductsPage from '../pages/ProductsPage';
 
 // Import sub-modules from existing files
 import {

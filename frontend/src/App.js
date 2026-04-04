@@ -21,6 +21,9 @@ import NotificationPermissionRequest from "./components/NotificationPermissionRe
 import JournalEntriesPage from "./pages/JournalEntriesPage";
 import GeneralLedgerPage from "./pages/GeneralLedgerPage";
 import FinancialReportsPage from "./pages/FinancialReportsPage";
+import InvoicesPage from "./pages/InvoicesPage";
+import PartiesPage from "./pages/PartiesPage";
+import ProductsPage from "./pages/ProductsPage";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
@@ -164,6 +167,31 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <FinancialReportsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              {/* Invoicing Module Routes */}
+              <Route 
+                path="/invoices" 
+                element={
+                  <ProtectedRoute>
+                    <InvoicesPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/parties" 
+                element={
+                  <ProtectedRoute>
+                    <PartiesPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/products" 
+                element={
+                  <ProtectedRoute>
+                    <ProductsPage />
                   </ProtectedRoute>
                 } 
               />

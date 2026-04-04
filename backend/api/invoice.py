@@ -19,7 +19,7 @@ from api.users import get_current_user
 from database import db
 import io
 
-router = APIRouter(prefix="/api/invoices", tags=["invoices"])
+router = APIRouter(prefix="/api/invoice", tags=["invoice"])
 
 
 # ==========================================
