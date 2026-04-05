@@ -14,7 +14,7 @@ import {
   Home, PlayCircle, ArrowUp, ArrowDown, AlertCircle, CheckCircle,
   Eye, Edit, Plus, Download, Printer, Clock, Award, TrendingDown,
   ChevronDown, ChevronRight, CreditCard, ShoppingCart, FolderKanban,
-  Upload, BookOpen, Package
+  Upload, BookOpen, Package, UserMinus
 } from 'lucide-react';
 import axios from 'axios';
 import { getTranslation } from '../data/translations';
@@ -44,6 +44,10 @@ import AttendancePage from '../pages/AttendancePage';
 import HRSettingsPage from '../pages/HRSettingsPage';
 import ETASettingsPage from '../pages/ETASettingsPage';
 import ProjectsPage from '../pages/ProjectsPage';
+import CasualLeavePage from '../pages/CasualLeavePage';
+import AnnualLeavePage from '../pages/AnnualLeavePage';
+import HRReportsPage from '../pages/HRReportsPage';
+import TerminationPage from '../pages/TerminationPage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -230,6 +234,7 @@ const RealDashboard = () => {
           { id: 'casual-leave', name: language === 'ar' ? 'الإجازات العارضة' : 'Casual Leave', icon: <Calendar /> },
           { id: 'annual-leave', name: language === 'ar' ? 'الإجازات السنوية' : 'Annual Leave', icon: <Calendar /> },
           { id: 'attendance', name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance', icon: <Clock /> },
+          { id: 'termination', name: language === 'ar' ? 'إنهاء الخدمة' : 'Termination', icon: <UserMinus /> },
           { id: 'hr-reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <FileText /> },
           { id: 'hr-settings', name: language === 'ar' ? 'إعدادات الحضور والرواتب' : 'HR Settings', icon: <Settings /> }
         ]
@@ -425,11 +430,13 @@ const RealDashboard = () => {
         case 'deductions':
           return <DeductionsModule language={language} userRole={user?.role} />;
         case 'casual-leave':
-          return <CasualLeaveModule language={language} userRole={user?.role} />;
+          return <CasualLeavePage language={language} />;
         case 'annual-leave':
-          return <AnnualLeaveModule language={language} userRole={user?.role} />;
+          return <AnnualLeavePage language={language} />;
         case 'hr-reports':
-          return <HRReportsModule language={language} userRole={user?.role} />;
+          return <HRReportsPage language={language} />;
+        case 'termination':
+          return <TerminationPage language={language} employees={employees} />;
         default:
           return <div>{language === 'ar' ? 'اختر وحدة فرعية' : 'Select a sub-module'}</div>;
       }

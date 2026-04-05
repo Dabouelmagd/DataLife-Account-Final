@@ -654,6 +654,44 @@ GET    /api/payroll/reports/payslip/{run_id}/{employee_id}  # Employee payslip
 
 ## Changelog
 
+- **April 5, 2026 (Update 12)**: HR Pages Redesign & Termination Feature ✅
+  - **Casual Leave Page (Cyan theme):**
+    - Modern header with export & add buttons
+    - Stats cards (Total, Approved, Pending, Rejected)
+    - Filterable table with actions (View, Approve, Reject, Delete)
+    - Add/View/Delete modals
+    - New file: `/app/frontend/src/pages/CasualLeavePage.jsx`
+  
+  - **Annual Leave Page (Violet theme):**
+    - Modern header with export & request buttons
+    - Stats cards (Total Requests, Total Days, Approved, Pending)
+    - Leave balance progress bar
+    - Date range selection (From/To)
+    - New file: `/app/frontend/src/pages/AnnualLeavePage.jsx`
+  
+  - **HR Reports Page:**
+    - Report type selector (Attendance, Salary, Department, Leave)
+    - Interactive charts using Recharts:
+      - Attendance: Bar Chart (Present/Absent/Late)
+      - Salary: Line Chart (Salaries/Allowances/Deductions)
+      - Department: Pie Chart with legend
+      - Leave: Pie Chart with breakdown
+    - Date range filter
+    - Export functionality
+    - New file: `/app/frontend/src/pages/HRReportsPage.jsx`
+  
+  - **Termination Page (Rose theme):**
+    - Stats cards (Total Cases, Completed, Pending, Total Settlement)
+    - Termination reasons: Resignation, End of Contract, Termination, Retirement, Mutual Agreement, Death, Disability
+    - Final settlement tracking
+    - Notice period management
+    - Detailed view modal
+    - New file: `/app/frontend/src/pages/TerminationPage.jsx`
+  
+  - Added "Termination" menu item to HR module in sidebar
+  - Updated routing in `RealDashboard.jsx`
+  - Testing: Frontend verified (screenshots in Arabic)
+
 - **April 5, 2026 (Update 11)**: Overview Pages Redesign ✅
   - **HR Overview (Cyan theme):**
     - Header with gradient background and description
