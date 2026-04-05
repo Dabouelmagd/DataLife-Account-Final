@@ -59,6 +59,8 @@ import IncomeStatementPage from '../pages/IncomeStatementPage';
 import BalanceSheetPage from '../pages/BalanceSheetPage';
 import BankManagementPage from '../pages/BankManagementPage';
 import BankSettingsPage from '../pages/BankSettingsPage';
+import AdminDashboardPage from '../pages/AdminDashboardPage';
+import NotificationSettingsPage from '../pages/NotificationSettingsPage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -342,6 +344,11 @@ const RealDashboard = () => {
         name: language === 'ar' ? 'التحليلات' : 'Analytics', 
         icon: <BarChart /> 
       });
+      modules.push({ 
+        id: 'admin-dashboard', 
+        name: language === 'ar' ? 'لوحة التحكم الإدارية' : 'Admin Dashboard', 
+        icon: <BarChart /> 
+      });
     }
 
     // Approvals module - للإدارة العليا فقط
@@ -350,6 +357,11 @@ const RealDashboard = () => {
         id: 'approvals', 
         name: language === 'ar' ? 'الموافقات' : 'Approvals', 
         icon: <CheckCircle /> 
+      });
+      modules.push({ 
+        id: 'notification-settings', 
+        name: language === 'ar' ? 'إعدادات الإشعارات' : 'Notification Settings', 
+        icon: <Settings /> 
       });
     }
 
@@ -517,6 +529,10 @@ const RealDashboard = () => {
         case 'projects':
         case 'tasks':
           return <ProjectsPage language={language} />;
+        case 'admin-dashboard':
+          return <AdminDashboardPage language={language} />;
+        case 'notification-settings':
+          return <NotificationSettingsPage language={language} />;
         default:
           return <div>{language === 'ar' ? 'اختر وحدة فرعية' : 'Select a sub-module'}</div>;
       }
@@ -683,6 +699,16 @@ const RealDashboard = () => {
     // Import Data Module
     if (activeModule === 'import') {
       return <ImportDataPage language={language} />;
+    }
+
+    // Admin Dashboard Module
+    if (activeModule === 'admin-dashboard') {
+      return <AdminDashboardPage language={language} />;
+    }
+
+    // Notification Settings Module
+    if (activeModule === 'notification-settings') {
+      return <NotificationSettingsPage language={language} />;
     }
 
     return null;

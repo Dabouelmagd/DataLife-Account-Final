@@ -643,6 +643,77 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Enabled auto-post → Created deposit → Journal Entry #11 with status "posted" ✅
   - Settings page displaying correctly with all options
 
+#### 22. Email Notification System (NEW - April 2026) ✅
+- **Backend API (`/app/backend/api/email_notifications.py`):**
+  - `POST /api/notifications/send-email` - Send single email
+  - `POST /api/notifications/send-bulk-email` - Send bulk emails (background task)
+  - `GET /api/notifications/settings` - Get company notification settings
+  - `PUT /api/notifications/settings` - Update notification settings
+  - `GET /api/notifications/logs` - Get notification history
+  - `POST /api/notifications/trigger/large-transaction` - Trigger large transaction alert
+  - `POST /api/notifications/trigger/payslips` - Send payslips to employees
+  - `POST /api/notifications/check-alerts` - Check and send automatic alerts
+
+- **Email Templates (Arabic RTL Support):**
+  - Large transaction alert (معاملة بنكية كبيرة)
+  - Payslip notification (كشف الراتب)
+  - Contract expiry warning (انتهاء العقد)
+  - Invoice due reminder (فاتورة مستحقة)
+  - Approval request (طلب موافقة)
+
+- **Notification Settings:**
+  - **email_notifications_enabled**: Master toggle for all notifications
+  - **notify_large_transactions**: Alert when bank transaction exceeds threshold
+  - **large_transaction_threshold**: Amount threshold (default: 100,000)
+  - **notify_payroll_ready**: Notify when payroll is ready
+  - **notify_employees_payslip**: Send payslips to employees
+  - **notify_contract_expiry**: Alert before contract expires
+  - **contract_expiry_days**: Days before expiry to alert (default: 30)
+  - **notify_invoice_due**: Alert for due invoices
+  - **invoice_due_days**: Days before due date (default: 7)
+  - **notify_pending_approvals**: Alert for new approval requests
+  - **admin_emails**: List of admin email addresses
+
+- **Email Service Integration:**
+  - Using Resend API for reliable email delivery
+  - Async sending with background tasks for bulk emails
+  - HTML templates with Arabic RTL support
+  - Notification logging for audit trail
+
+- **Frontend Page (`/app/frontend/src/pages/NotificationSettingsPage.jsx`):**
+  - Orange gradient header
+  - Admin Emails management (add/remove)
+  - Send Test Email button
+  - Toggle switches for each notification type
+  - Recent Notification Log display
+
+#### 23. Admin Dashboard - Advanced Analytics (NEW - April 2026) ✅
+- **Frontend Page (`/app/frontend/src/pages/AdminDashboardPage.jsx`):**
+  - Colorful gradient header with Refresh button
+  - **Quick Stats Row 1 (Financial):**
+    - Total Revenue with growth percentage
+    - Bank Balance with today's deposits
+    - Pending Invoices with overdue count
+    - Net Profit with growth percentage
+  - **Quick Stats Row 2 (Operations):**
+    - Employees (total/active)
+    - Customers count
+    - Products (total/low stock)
+    - Active Projects (active/completed)
+  - **Charts Section:**
+    - Revenue & Expenses bar chart (6 months)
+    - Profit line overlay
+    - Expenses Breakdown pie chart
+  - **Bottom Section:**
+    - Recent Transactions list with color-coded types
+    - Alerts & Notifications panel
+
+- **Data Sources:**
+  - Real-time data from employees, customers, suppliers APIs
+  - Bank accounts and transactions
+  - Invoices and products
+  - Projects status
+
 - **Check-in/Check-out:**
   - Record check-in time
   - Record check-out time
