@@ -14,7 +14,7 @@ import {
   Home, PlayCircle, ArrowUp, ArrowDown, AlertCircle, CheckCircle,
   Eye, Edit, Plus, Download, Printer, Clock, Award, TrendingDown,
   ChevronDown, ChevronRight, CreditCard, ShoppingCart, FolderKanban,
-  Upload, BookOpen, Package, UserMinus
+  Upload, BookOpen, Package, UserMinus, Scale
 } from 'lucide-react';
 import axios from 'axios';
 import { getTranslation } from '../data/translations';
@@ -54,6 +54,9 @@ import ShiftsManagementPage from '../pages/ShiftsManagementPage';
 import SalariesPage from '../pages/SalariesPage';
 import HRComprehensiveReportsPage from '../pages/HRComprehensiveReportsPage';
 import SystemReportsPage from '../pages/SystemReportsPage';
+import TrialBalancePage from '../pages/TrialBalancePage';
+import IncomeStatementPage from '../pages/IncomeStatementPage';
+import BalanceSheetPage from '../pages/BalanceSheetPage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -264,6 +267,9 @@ const RealDashboard = () => {
           { id: 'journal-entries', name: language === 'ar' ? 'القيود اليومية' : 'Journal Entries', icon: <FileText />, group: 'accounting' },
           { id: 'general-ledger', name: language === 'ar' ? 'دفتر الأستاذ' : 'General Ledger', icon: <BookOpen />, group: 'accounting' },
           { id: 'accounts', name: language === 'ar' ? 'شجرة الحسابات' : 'Chart of Accounts', icon: <Building2 />, group: 'accounting' },
+          { id: 'trial-balance', name: language === 'ar' ? 'ميزان المراجعة' : 'Trial Balance', icon: <Scale />, group: 'accounting' },
+          { id: 'income-statement', name: language === 'ar' ? 'قائمة الدخل' : 'Income Statement', icon: <TrendingUp />, group: 'accounting' },
+          { id: 'balance-sheet', name: language === 'ar' ? 'الميزانية العمومية' : 'Balance Sheet', icon: <Building2 />, group: 'accounting' },
           { id: 'financial-reports', name: language === 'ar' ? 'التقارير المالية' : 'Financial Reports', icon: <PieChart />, group: 'accounting' },
           
           // الخزينة والنقدية
@@ -474,6 +480,12 @@ const RealDashboard = () => {
           return <JournalEntriesPage />;
         case 'general-ledger':
           return <GeneralLedgerPage />;
+        case 'trial-balance':
+          return <TrialBalancePage language={language} />;
+        case 'income-statement':
+          return <IncomeStatementPage language={language} />;
+        case 'balance-sheet':
+          return <BalanceSheetPage language={language} />;
         case 'financial-reports':
           return <FinancialReportsPage />;
         case 'treasury':

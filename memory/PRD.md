@@ -446,6 +446,56 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Search and filter functionality
   - Export to CSV
 
+#### 17. Financial Reports Suite (NEW - April 2026) ✅
+- **Trial Balance Page (TrialBalancePage.jsx):**
+  - Modern indigo gradient header with balance icon
+  - Date selector for "as of date"
+  - Balance status card (balanced/unbalanced indicator)
+  - Grouped accounts by type (Assets, Liabilities, Equity, Revenue, Expenses)
+  - Expandable/collapsible groups with folder icons
+  - Total debit and credit columns
+  - Show/hide zero balances toggle
+  - Export to CSV functionality
+  - Print button
+  - Arabic/English bilingual support
+  - Dark mode support
+  
+- **Income Statement Page (IncomeStatementPage.jsx):**
+  - Modern emerald gradient header with receipt icon
+  - Period date range selector (from/to)
+  - Summary cards (Total Revenue, Total Expenses, Net Profit/Loss)
+  - Revenue vs Expenses comparison bar chart (Recharts)
+  - Expense breakdown pie chart
+  - Detailed revenue table
+  - Detailed expenses table
+  - Net income summary equation card
+  - Export to CSV functionality
+  - Arabic/English bilingual support
+  - Dark mode support
+  
+- **Balance Sheet Page (BalanceSheetPage.jsx):**
+  - Modern blue gradient header with building icon
+  - Date selector for "as of date"
+  - Balance equation card (Assets = Liabilities + Equity)
+  - Summary cards (Total Assets, Total Liabilities, Total Equity)
+  - Assets breakdown pie chart
+  - Financing sources pie chart
+  - Expandable sections:
+    - Current Assets
+    - Fixed Assets
+    - Current Liabilities
+    - Long-term Liabilities
+    - Equity
+  - Export to CSV functionality
+  - Arabic/English bilingual support
+  - Dark mode support
+
+- **Navigation Updates:**
+  - Added Trial Balance to Financial module sidebar
+  - Added Income Statement to Financial module sidebar
+  - Added Balance Sheet to Financial module sidebar
+  - All three reports accessible from القيود اليومية section
+
 - **Check-in/Check-out:**
   - Record check-in time
   - Record check-out time
