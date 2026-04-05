@@ -246,6 +246,8 @@ const RealDashboard = () => {
           { id: 'accounts', name: language === 'ar' ? 'الحسابات' : 'Accounts', icon: <Building2 /> },
           { id: 'suppliers', name: language === 'ar' ? 'الموردين' : 'Suppliers', icon: <Users /> },
           { id: 'customers', name: language === 'ar' ? 'العملاء' : 'Customers', icon: <Users /> },
+          { id: 'products', name: language === 'ar' ? 'المنتجات والخدمات' : 'Products & Services', icon: <Package /> },
+          { id: 'currencies', name: language === 'ar' ? 'العملات' : 'Currencies', icon: <DollarSign /> },
           { id: 'bank', name: language === 'ar' ? 'البنك' : 'Bank', icon: <DollarSign /> }
         ]
       });
@@ -260,10 +262,7 @@ const RealDashboard = () => {
         hasSubModules: true,
         subModules: [
           { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices', icon: <FileText /> },
-          { id: 'parties', name: language === 'ar' ? 'العملاء والموردين' : 'Customers & Suppliers', icon: <Users /> },
-          { id: 'products', name: language === 'ar' ? 'المنتجات والخدمات' : 'Products & Services', icon: <Package /> },
-          { id: 'currencies', name: language === 'ar' ? 'العملات' : 'Currencies', icon: <DollarSign /> },
-          { id: 'reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <BarChart /> },
+          { id: 'reports', name: language === 'ar' ? 'تقارير الفواتير' : 'Invoice Reports', icon: <BarChart /> },
           { id: 'eta-settings', name: language === 'ar' ? 'إعدادات مصلحة الضرائب' : 'Tax Authority Settings', icon: <Settings /> }
         ]
       });
@@ -892,6 +891,10 @@ const RealDashboard = () => {
           return <CustomersModule language={language} userRole={user?.role} />;
         case 'suppliers':
           return <SuppliersModule language={language} userRole={user?.role} />;
+        case 'products':
+          return <ProductsPage />;
+        case 'currencies':
+          return <CurrenciesPage />;
         default:
           return <div>{language === 'ar' ? 'اختر وحدة فرعية' : 'Select a sub-module'}</div>;
       }
@@ -958,14 +961,8 @@ const RealDashboard = () => {
       switch (activeInvoiceSubModule) {
         case 'invoices':
           return <InvoicesPage />;
-        case 'parties':
-          return <PartiesPage />;
-        case 'products':
-          return <ProductsPage />;
         case 'reports':
           return <InvoiceReportsPage />;
-        case 'currencies':
-          return <CurrenciesPage />;
         case 'eta-settings':
           return <ETASettingsPage />;
         default:
