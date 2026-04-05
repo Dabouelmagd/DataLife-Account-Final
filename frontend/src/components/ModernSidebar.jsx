@@ -177,26 +177,9 @@ const ModernSidebar = ({
            ['رئيس مجلس الإدارة', 'Board Chairman', 'مدير عام', 'General Manager', 'المدير التنفيذي', 'CEO'].includes(user?.role);
   };
 
-  // Group similar modules
-  const groupedModules = modules.reduce((acc, module) => {
-    // Main modules with sub-menus
-    if (['hr', 'financial', 'invoices'].includes(module.id)) {
-      acc.main.push(module);
-    }
-    // Reports & Analytics
-    else if (['reports', 'analytics'].includes(module.id)) {
-      acc.reports.push(module);
-    }
-    // Operations (Purchases, Inventory, Projects)
-    else if (['purchases', 'inventory', 'projects'].includes(module.id)) {
-      acc.operations.push(module);
-    }
-    // Others
-    else {
-      acc.others.push(module);
-    }
-    return acc;
-  }, { main: [], reports: [], operations: [], others: [] });
+  // Group modules - Main modules with sub-menus vs others
+  const mainModules = modules.filter(m => ['hr', 'financial', 'invoices'].includes(m.id));
+  const otherModules = modules.filter(m => !['hr', 'financial', 'invoices'].includes(m.id));
 
   return (
     <aside 
@@ -289,8 +272,8 @@ const ModernSidebar = ({
 
         {/* Navigation Menu */}
         <nav className="flex-1 overflow-y-auto px-2 py-2">
-          {/* Dashboard */}
-          {groupedModules.others.filter(m => m.id === 'dashboard').map((module) => {
+          {/* Dashboard and other simple modules */}
+          {otherModules.filter(m => m.id === 'dashboard').map((module) => {
             const isActive = activeModule === module.id;
             const colors = getModuleColor(module.id);
             return (
@@ -312,7 +295,7 @@ const ModernSidebar = ({
 
           {/* Main Modules (HR, Financial, Invoices) */}
           <div className="mt-1">
-            {groupedModules.main.map((module) => {
+            {mainModules.map((module) => {
               const isActive = activeModule === module.id;
               const hasSubModules = module.hasSubModules && module.subModules?.length > 0;
               const isExpanded = expandedMenus[module.id];
@@ -346,10 +329,22 @@ const ModernSidebar = ({
                     )}
                   </button>
 
-                  {/* Sub-modules - Not Bold */}
+                  {/* Sub-modules - Not Bold - With Dividers */}
                   {hasSubModules && isExpanded && module.subModules && (
                     <div className="ms-4 mt-0.5 space-y-0 border-s border-gray-200 dark:border-gray-700">
                       {module.subModules.map((subModule) => {
+                        // Handle dividers
+                        if (subModule.isDivider) {
+                          return (
+                            <div 
+                              key={subModule.id}
+                              className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider"
+                            >
+                              {subModule.name}
+                            </div>
+                          );
+                        }
+                        
                         const isSubActive = module.id === 'hr' ? activeHRSubModule === subModule.id 
                           : module.id === 'invoices' ? activeInvoiceSubModule === subModule.id
                           : activeFinancialSubModule === subModule.id;
@@ -379,41 +374,10 @@ const ModernSidebar = ({
             })}
           </div>
 
-          {/* Operations Group */}
-          {groupedModules.operations.length > 0 && (
+          {/* Other Modules (Reports, Analytics, Approvals, Import, etc.) */}
+          {otherModules.filter(m => m.id !== 'dashboard' && m.id !== 'settings').length > 0 && (
             <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-800">
-              <p className="px-2 mb-1 text-[9px] uppercase tracking-wider font-semibold text-gray-400">
-                {language === 'ar' ? 'العمليات' : 'Operations'}
-              </p>
-              {groupedModules.operations.map((module) => {
-                const isActive = activeModule === module.id;
-                const colors = getModuleColor(module.id);
-                return (
-                  <button
-                    key={module.id}
-                    onClick={() => setActiveModule(module.id)}
-                    data-testid={`nav-${module.id}-module`}
-                    className={`w-full flex items-center gap-2 py-1.5 px-2.5 rounded-lg mb-0.5 transition-all
-                      ${isActive ? `${colors.bg} border-s-2 ${colors.border} ${colors.text}` : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
-                    `}
-                  >
-                    <span className={`w-6 h-6 flex items-center justify-center rounded-md ${isActive ? `${colors.icon} text-white` : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
-                      {React.cloneElement(getModuleIcon(module.id, isActive), { className: 'w-3.5 h-3.5' })}
-                    </span>
-                    <span className="text-sm">{module.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Reports Group */}
-          {groupedModules.reports.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-800">
-              <p className="px-2 mb-1 text-[9px] uppercase tracking-wider font-semibold text-gray-400">
-                {language === 'ar' ? 'التقارير والتحليلات' : 'Reports & Analytics'}
-              </p>
-              {groupedModules.reports.map((module) => {
+              {otherModules.filter(m => m.id !== 'dashboard' && m.id !== 'settings').map((module) => {
                 const isActive = activeModule === module.id;
                 const colors = getModuleColor(module.id);
                 return (

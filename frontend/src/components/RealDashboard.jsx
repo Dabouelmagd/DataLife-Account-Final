@@ -233,22 +233,46 @@ const RealDashboard = () => {
     if (topManagementRoles.includes(role) || financialManagerRoles.includes(role) || executiveRoles.includes(role)) {
       modules.push({ 
         id: 'financial', 
-        name: language === 'ar' ? 'المالية' : 'Financial', 
+        name: language === 'ar' ? 'المالية والعمليات' : 'Finance & Operations', 
         icon: <Calculator />,
         hasSubModules: true,
         subModules: [
-          { id: 'financial-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart /> },
-          { id: 'journal-entries', name: language === 'ar' ? 'القيود اليومية' : 'Journal Entries', icon: <FileText /> },
-          { id: 'general-ledger', name: language === 'ar' ? 'دفتر الأستاذ' : 'General Ledger', icon: <BookOpen /> },
-          { id: 'financial-reports', name: language === 'ar' ? 'التقارير المالية' : 'Financial Reports', icon: <PieChart /> },
-          { id: 'treasury', name: language === 'ar' ? 'الخزنة' : 'Treasury', icon: <DollarSign /> },
-          { id: 'custody', name: language === 'ar' ? 'العهدة' : 'Custody', icon: <Award /> },
-          { id: 'accounts', name: language === 'ar' ? 'الحسابات' : 'Accounts', icon: <Building2 /> },
-          { id: 'suppliers', name: language === 'ar' ? 'الموردين' : 'Suppliers', icon: <Users /> },
-          { id: 'customers', name: language === 'ar' ? 'العملاء' : 'Customers', icon: <Users /> },
-          { id: 'products', name: language === 'ar' ? 'المنتجات والخدمات' : 'Products & Services', icon: <Package /> },
-          { id: 'currencies', name: language === 'ar' ? 'العملات' : 'Currencies', icon: <DollarSign /> },
-          { id: 'bank', name: language === 'ar' ? 'البنك' : 'Bank', icon: <DollarSign /> }
+          // نظرة عامة
+          { id: 'financial-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart />, group: 'overview' },
+          
+          // المحاسبة
+          { id: 'divider-accounting', name: language === 'ar' ? '── المحاسبة ──' : '── Accounting ──', isDivider: true },
+          { id: 'journal-entries', name: language === 'ar' ? 'القيود اليومية' : 'Journal Entries', icon: <FileText />, group: 'accounting' },
+          { id: 'general-ledger', name: language === 'ar' ? 'دفتر الأستاذ' : 'General Ledger', icon: <BookOpen />, group: 'accounting' },
+          { id: 'accounts', name: language === 'ar' ? 'شجرة الحسابات' : 'Chart of Accounts', icon: <Building2 />, group: 'accounting' },
+          { id: 'financial-reports', name: language === 'ar' ? 'التقارير المالية' : 'Financial Reports', icon: <PieChart />, group: 'accounting' },
+          
+          // الخزينة والنقدية
+          { id: 'divider-treasury', name: language === 'ar' ? '── الخزينة ──' : '── Treasury ──', isDivider: true },
+          { id: 'treasury', name: language === 'ar' ? 'الخزنة' : 'Cash Box', icon: <DollarSign />, group: 'treasury' },
+          { id: 'bank', name: language === 'ar' ? 'البنك' : 'Bank', icon: <DollarSign />, group: 'treasury' },
+          { id: 'custody', name: language === 'ar' ? 'العهدة' : 'Custody', icon: <Award />, group: 'treasury' },
+          
+          // العملاء والموردين
+          { id: 'divider-parties', name: language === 'ar' ? '── الأطراف ──' : '── Parties ──', isDivider: true },
+          { id: 'customers', name: language === 'ar' ? 'العملاء' : 'Customers', icon: <Users />, group: 'parties' },
+          { id: 'suppliers', name: language === 'ar' ? 'الموردين' : 'Suppliers', icon: <Users />, group: 'parties' },
+          
+          // المشتريات
+          { id: 'divider-purchases', name: language === 'ar' ? '── المشتريات ──' : '── Purchases ──', isDivider: true },
+          { id: 'purchases', name: language === 'ar' ? 'أوامر الشراء' : 'Purchase Orders', icon: <ShoppingCart />, group: 'purchases' },
+          { id: 'purchase-invoices', name: language === 'ar' ? 'فواتير المشتريات' : 'Purchase Invoices', icon: <FileText />, group: 'purchases' },
+          
+          // المخزون
+          { id: 'divider-inventory', name: language === 'ar' ? '── المخزون ──' : '── Inventory ──', isDivider: true },
+          { id: 'inventory', name: language === 'ar' ? 'إدارة المخزون' : 'Inventory Management', icon: <Package />, group: 'inventory' },
+          { id: 'products', name: language === 'ar' ? 'المنتجات والخدمات' : 'Products & Services', icon: <Package />, group: 'inventory' },
+          { id: 'currencies', name: language === 'ar' ? 'العملات' : 'Currencies', icon: <DollarSign />, group: 'inventory' },
+          
+          // المشاريع
+          { id: 'divider-projects', name: language === 'ar' ? '── المشاريع ──' : '── Projects ──', isDivider: true },
+          { id: 'projects', name: language === 'ar' ? 'المشاريع' : 'Projects', icon: <FolderKanban />, group: 'projects' },
+          { id: 'tasks', name: language === 'ar' ? 'المهام' : 'Tasks', icon: <CheckCircle />, group: 'projects' }
         ]
       });
     }
@@ -265,24 +289,6 @@ const RealDashboard = () => {
           { id: 'reports', name: language === 'ar' ? 'تقارير الفواتير' : 'Invoice Reports', icon: <BarChart /> },
           { id: 'eta-settings', name: language === 'ar' ? 'إعدادات مصلحة الضرائب' : 'Tax Authority Settings', icon: <Settings /> }
         ]
-      });
-    }
-
-    // Purchases module - للإدارة العليا والأدوار المالية العليا فقط (ليس للتنفيذية)
-    if (topManagementRoles.includes(role) || financialManagerRoles.includes(role)) {
-      modules.push({ 
-        id: 'purchases', 
-        name: language === 'ar' ? 'المشتريات' : 'Purchases', 
-        icon: <ShoppingCart /> 
-      });
-    }
-
-    // Projects & Tasks module - للإدارة العليا ومدير المشاريع فقط
-    if (topManagementRoles.includes(role) || projectOnlyRoles.includes(role)) {
-      modules.push({ 
-        id: 'projects', 
-        name: language === 'ar' ? 'المشاريع والمهام' : 'Projects & Tasks', 
-        icon: <FolderKanban /> 
       });
     }
 
@@ -319,24 +325,6 @@ const RealDashboard = () => {
         id: 'settings', 
         name: language === 'ar' ? 'الإعدادات' : 'Settings', 
         icon: <Settings /> 
-      });
-    }
-
-    // Inventory module - للإدارة العليا فقط
-    if (topManagementRoles.includes(role)) {
-      modules.push({ 
-        id: 'inventory', 
-        name: language === 'ar' ? 'المخزون' : 'Inventory', 
-        icon: <PieChart />,
-        subModules: [
-          { id: 'inventory-main', name: language === 'ar' ? 'إدارة المخزون' : 'Inventory Management' },
-          { id: 'inventory-products', name: language === 'ar' ? 'المنتجات' : 'Products' },
-          { id: 'inventory-warehouses', name: language === 'ar' ? 'المخازن' : 'Warehouses' },
-          { id: 'inventory-movements', name: language === 'ar' ? 'الحركات' : 'Movements' },
-          { id: 'inventory-transfers', name: language === 'ar' ? 'التحويلات' : 'Transfers' },
-          { id: 'inventory-adjustments', name: language === 'ar' ? 'التسويات' : 'Adjustments' },
-          { id: 'inventory-reports', name: language === 'ar' ? 'التقارير' : 'Reports' }
-        ]
       });
     }
 
@@ -895,17 +883,17 @@ const RealDashboard = () => {
           return <ProductsPage />;
         case 'currencies':
           return <CurrenciesPage />;
+        case 'purchases':
+        case 'purchase-invoices':
+          return <PurchasesModule language={language} userRole={user?.role} />;
+        case 'inventory':
+          return <InventoryPage />;
+        case 'projects':
+        case 'tasks':
+          return <ProjectsPage language={language} />;
         default:
           return <div>{language === 'ar' ? 'اختر وحدة فرعية' : 'Select a sub-module'}</div>;
       }
-    }
-    
-    // Inventory Module
-    if (activeModule === 'inventory') {
-      if (activeSubModule?.startsWith('inventory-') || !activeSubModule) {
-        return <InventoryPage />;
-      }
-      return <InventoryPage />;
     }
 
     // Reports Module
