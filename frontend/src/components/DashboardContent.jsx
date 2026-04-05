@@ -14,6 +14,7 @@ import {
   TrendUp, Receipt, Cube, ClipboardText, Lightning
 } from '@phosphor-icons/react';
 import DashboardCharts from './DashboardCharts';
+import HRAlerts from './HRAlerts';
 
 const DashboardContent = ({ language, stats, employees, onNavigate }) => {
   const isRTL = language === 'ar';
@@ -387,39 +388,45 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
           </CardContent>
         </Card>
 
-        {/* Upcoming Tasks */}
-        <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
-                <Target className="w-4 h-4 text-white" />
+        {/* HR Alerts & Upcoming Tasks Column */}
+        <div className="space-y-6">
+          {/* HR Alerts */}
+          <HRAlerts language={language} onNavigate={onNavigate} />
+          
+          {/* Upcoming Tasks */}
+          <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+                  <Target className="w-4 h-4 text-white" />
+                </div>
+                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">
+                  {language === 'ar' ? 'المهام القادمة' : 'Upcoming Tasks'}
+                </CardTitle>
               </div>
-              <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">
-                {language === 'ar' ? 'المهام القادمة' : 'Upcoming Tasks'}
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {upcomingTasks.map((task, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${getPriorityColor(task.priority)}`}></div>
-                      <span className="text-sm font-medium text-slate-900 dark:text-white">
-                        {task.title}
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {upcomingTasks.map((task, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${getPriorityColor(task.priority)}`}></div>
+                        <span className="text-sm font-medium text-slate-900 dark:text-white">
+                          {task.title}
+                        </span>
+                      </div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {task.dueDate}
                       </span>
                     </div>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {task.dueDate}
-                    </span>
+                    <Progress value={task.progress} className="h-1.5" />
                   </div>
-                  <Progress value={task.progress} className="h-1.5" />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Module Navigation Cards */}

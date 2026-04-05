@@ -291,6 +291,10 @@ async def update_employee(
     if not employee:
         raise HTTPException(status_code=404, detail="الموظف غير موجود")
     
+    # منع تعديل كود الموظف - immutable field
+    if "employee_code" in request:
+        del request["employee_code"]
+    
     # تحديث البيانات
     request["updated_at"] = datetime.utcnow()
     

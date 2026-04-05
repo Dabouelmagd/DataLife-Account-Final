@@ -97,6 +97,18 @@ NOTIFICATION_TYPES = {
         "icon": "check",
         "color": "green"
     },
+    "leave_expiring": {
+        "title_en": "Annual Leave Balance Expiring",
+        "title_ar": "رصيد الإجازة السنوية ينتهي قريباً",
+        "icon": "calendar-x",
+        "color": "amber"
+    },
+    "termination_approaching": {
+        "title_en": "Contract Termination Approaching",
+        "title_ar": "اقتراب موعد إنهاء العقد",
+        "icon": "user-x",
+        "color": "red"
+    },
     "leave_rejected": {
         "title_en": "Leave Request Rejected",
         "title_ar": "تم رفض طلب الإجازة",
@@ -438,3 +450,174 @@ async def check_low_inventory():
                 broadcast=True,
                 data={"count": count, "items": [i.get("name") for i in items_list]}
             )
+
+
+
+# ==========================================
+# HR Alerts - Leave Expiring & Termination
+# ==========================================
+
+@router.get("/hr-alerts")
+async def get_hr_alerts(
+    authorization: Optional[str] = Header(None)
+):
+    """Get HR alerts for expiring leaves and approaching terminations"""
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    
+    now = datetime.now()
+    alerts = []
+    
+    # 1. Check for employees with expiring annual leave balance
+    # Annual leaves typically expire at year end or after certain period
+    employees = await db.employees.find({
+        "company_id": company_id,
+        "is_active": True
+    }).to_list(length=None)
+    
+    year_end = datetime(now.year, 12, 31)
+    days_to_year_end = (year_end - now).days
+    
+    for emp in employees:
+        # Check annual leave balance
+        leave_balance = emp.get("annual_leave_balance", 0)
+        if leave_balance > 0 and days_to_year_end <= 30:
+            alerts.append({
+                "id": f"leave_{emp.get('id')}",
+                "type": "leave_expiring",
+                "priority": "high" if days_to_year_end <= 7 else "medium",
+                "employee_id": emp.get("id"),
+                "employee_code": emp.get("employee_code"),
+                "employee_name": emp.get("name"),
+                "title_ar": "رصيد إجازة ينتهي قريباً",
+                "title_en": "Leave Balance Expiring Soon",
+                "message_ar": f"الموظف {emp.get('name')} لديه {leave_balance} يوم إجازة ستنتهي خلال {days_to_year_end} يوم",
+                "message_en": f"Employee {emp.get('name_en', emp.get('name'))} has {leave_balance} days expiring in {days_to_year_end} days",
+                "days_remaining": days_to_year_end,
+                "leave_balance": leave_balance,
+                "icon": "calendar-x",
+                "color": "amber"
+            })
+        
+        # Check contract end date (termination approaching)
+        contract_end = emp.get("contract_end_date")
+        if contract_end:
+            try:
+                end_date = datetime.strptime(contract_end, "%Y-%m-%d")
+                days_to_end = (end_date - now).days
+                
+                if 0 < days_to_end <= 30:
+                    alerts.append({
+                        "id": f"term_{emp.get('id')}",
+                        "type": "termination_approaching",
+                        "priority": "high" if days_to_end <= 7 else "medium",
+                        "employee_id": emp.get("id"),
+                        "employee_code": emp.get("employee_code"),
+                        "employee_name": emp.get("name"),
+                        "title_ar": "اقتراب نهاية العقد",
+                        "title_en": "Contract Ending Soon",
+                        "message_ar": f"عقد الموظف {emp.get('name')} ينتهي بتاريخ {contract_end} (خلال {days_to_end} يوم)",
+                        "message_en": f"Contract of {emp.get('name_en', emp.get('name'))} ends on {contract_end} (in {days_to_end} days)",
+                        "days_remaining": days_to_end,
+                        "end_date": contract_end,
+                        "icon": "user-x",
+                        "color": "red"
+                    })
+            except:
+                pass
+    
+    # 2. Check for employees with termination in progress
+    terminations = await db.terminations.find({
+        "company_id": company_id,
+        "status": "pending"
+    }).to_list(length=None)
+    
+    for term in terminations:
+        end_date = term.get("last_working_date") or term.get("termination_date")
+        if end_date:
+            try:
+                term_date = datetime.strptime(end_date, "%Y-%m-%d")
+                days_to_term = (term_date - now).days
+                
+                if days_to_term <= 30:
+                    emp = await db.employees.find_one({"id": term.get("employee_id")})
+                    if emp:
+                        alerts.append({
+                            "id": f"pending_term_{term.get('id')}",
+                            "type": "termination_approaching",
+                            "priority": "high",
+                            "employee_id": emp.get("id"),
+                            "employee_code": emp.get("employee_code"),
+                            "employee_name": emp.get("name"),
+                            "title_ar": "إنهاء خدمة معلق",
+                            "title_en": "Pending Termination",
+                            "message_ar": f"إنهاء خدمة {emp.get('name')} بتاريخ {end_date}",
+                            "message_en": f"Termination of {emp.get('name_en', emp.get('name'))} on {end_date}",
+                            "days_remaining": days_to_term,
+                            "end_date": end_date,
+                            "reason": term.get("reason"),
+                            "icon": "user-minus",
+                            "color": "red"
+                        })
+            except:
+                pass
+    
+    # Sort by priority (high first) and days remaining
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    alerts.sort(key=lambda x: (priority_order.get(x.get("priority", "low"), 2), x.get("days_remaining", 999)))
+    
+    return {
+        "alerts": alerts,
+        "total": len(alerts),
+        "high_priority": len([a for a in alerts if a.get("priority") == "high"]),
+        "medium_priority": len([a for a in alerts if a.get("priority") == "medium"])
+    }
+
+
+# Background task to check HR alerts and create notifications
+async def check_hr_alerts_and_notify():
+    """Check HR alerts and create notifications for critical items"""
+    now = datetime.now()
+    
+    companies = await db.companies.find({"is_active": True}).to_list(length=None)
+    
+    for company in companies:
+        company_id = company.get("id")
+        
+        # Check employees with contracts ending in 7 days
+        employees = await db.employees.find({
+            "company_id": company_id,
+            "is_active": True,
+            "contract_end_date": {"$exists": True, "$ne": None}
+        }).to_list(length=None)
+        
+        for emp in employees:
+            try:
+                end_date = datetime.strptime(emp.get("contract_end_date"), "%Y-%m-%d")
+                days_to_end = (end_date - now).days
+                
+                if days_to_end == 7 or days_to_end == 3 or days_to_end == 1:
+                    # Check if notification already sent today
+                    existing = await db.notifications.find_one({
+                        "company_id": company_id,
+                        "type": "termination_approaching",
+                        "data.employee_id": emp.get("id"),
+                        "created_at": {"$gte": now.replace(hour=0, minute=0, second=0).isoformat()}
+                    })
+                    
+                    if not existing:
+                        await create_system_notification(
+                            notification_type="termination_approaching",
+                            company_id=company_id,
+                            message_en=f"Contract of {emp.get('name_en', emp.get('name'))} ends in {days_to_end} days",
+                            message_ar=f"عقد الموظف {emp.get('name')} ينتهي خلال {days_to_end} أيام",
+                            broadcast=True,
+                            data={
+                                "employee_id": emp.get("id"),
+                                "employee_name": emp.get("name"),
+                                "days_remaining": days_to_end,
+                                "end_date": emp.get("contract_end_date")
+                            }
+                        )
+            except:
+                pass

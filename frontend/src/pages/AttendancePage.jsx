@@ -5,7 +5,13 @@ import {
   CheckCircle, XCircle, AlertCircle, RefreshCw,
   FileText, BarChart3, Settings, Plus
 } from 'lucide-react';
+import { 
+  Clock as ClockIcon, Users as UsersIcon, CheckCircle as CheckIcon,
+  XCircle as XCircleIcon, Warning
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import { Card, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -353,39 +359,53 @@ const AttendancePage = ({ language = 'ar' }) => {
   ];
 
   return (
-    <div className={`p-6 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Clock className="h-6 w-6" />
-          {t.title}
-        </h1>
-        <div className="flex gap-2">
-          <label className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 cursor-pointer">
-            <Upload className="h-4 w-4" />
-            {t.import_fingerprint}
-            <input type="file" accept=".csv" className="hidden" onChange={handleImportFingerprint} />
-          </label>
-          <button
-            onClick={() => setShowManualModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-            <Plus className="h-4 w-4" />
-            {t.add_manual}
-          </button>
+    <div className={`space-y-6 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'} data-testid="attendance-page">
+      {/* Modern Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-700 p-6 text-white">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        
+        <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <ClockIcon weight="fill" className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold mb-1">{t.title}</h1>
+              <p className="text-teal-100 text-sm">
+                {language === 'ar' 
+                  ? 'تتبع حضور وانصراف الموظفين وإدارة البصمة'
+                  : 'Track employee attendance and manage fingerprint records'
+                }
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <label className="flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 cursor-pointer transition-colors">
+              <Upload className="h-4 w-4" />
+              {t.import_fingerprint}
+              <input type="file" accept=".csv" className="hidden" onChange={handleImportFingerprint} />
+            </label>
+            <Button
+              onClick={() => setShowManualModal(true)}
+              className="bg-white text-teal-700 hover:bg-teal-50"
+            >
+              <Plus className="h-4 w-4 me-2" />
+              {t.add_manual}
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+      <div className="flex gap-2 overflow-x-auto pb-2">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
               activeTab === tab.id
-                ? 'bg-blue-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                ? 'bg-teal-500 text-white'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border'
             }`}
           >
             <tab.icon className="h-4 w-4" />
@@ -395,35 +415,37 @@ const AttendancePage = ({ language = 'ar' }) => {
       </div>
 
       {/* Date/Month Selector */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6">
-        {activeTab === 'daily' ? (
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium">{t.date}:</label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-            />
-            <button
-              onClick={fetchDailyData}
-              className="p-2 text-gray-500 hover:text-blue-500"
-            >
-              <RefreshCw className="h-5 w-5" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium">{language === 'ar' ? 'الشهر' : 'Month'}:</label>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-            />
-          </div>
-        )}
-      </div>
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-4">
+          {activeTab === 'daily' ? (
+            <div className="flex items-center gap-4 flex-wrap">
+              <label className="text-sm font-medium">{t.date}:</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+              />
+              <button
+                onClick={fetchDailyData}
+                className="p-2 text-gray-500 hover:text-teal-500 transition-colors"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 flex-wrap">
+              <label className="text-sm font-medium">{language === 'ar' ? 'الشهر' : 'Month'}:</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Daily Attendance Tab */}
       {activeTab === 'daily' && (

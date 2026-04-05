@@ -48,6 +48,10 @@ import CasualLeavePage from '../pages/CasualLeavePage';
 import AnnualLeavePage from '../pages/AnnualLeavePage';
 import HRReportsPage from '../pages/HRReportsPage';
 import TerminationPage from '../pages/TerminationPage';
+import DeductionsPage from '../pages/DeductionsPage';
+import AllowancesPage from '../pages/AllowancesPage';
+import ShiftsManagementPage from '../pages/ShiftsManagementPage';
+import SalariesPage from '../pages/SalariesPage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -410,7 +414,7 @@ const RealDashboard = () => {
         case 'payroll':
           return <PayrollPage />;
         case 'shifts':
-          return <ShiftsPage language={language} />;
+          return <ShiftsManagementPage language={language} />;
         case 'attendance':
           return <AttendancePage language={language} />;
         case 'hr-settings':
@@ -424,11 +428,11 @@ const RealDashboard = () => {
             />
           ) : null;
         case 'salaries':
-          return <SalariesModule language={language} userRole={user?.role} />;
+          return <SalariesPage language={language} />;
         case 'allowances':
-          return <AllowancesModule language={language} userRole={user?.role} />;
+          return <AllowancesPage language={language} />;
         case 'deductions':
-          return <DeductionsModule language={language} userRole={user?.role} />;
+          return <DeductionsPage language={language} />;
         case 'casual-leave':
           return <CasualLeavePage language={language} />;
         case 'annual-leave':
