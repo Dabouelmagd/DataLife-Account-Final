@@ -275,6 +275,45 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Non-blocking async email sending
   - Mail button on approved/paid payroll runs
 
+#### 12. HR Pages Redesign & Automatic Alerts System (NEW - April 2026) ✅
+- **Redesigned HR Pages:**
+  - Deductions Page (DeductionsPage.jsx):
+    - Modern red gradient header
+    - 4 stats cards (Total Deductions, Total Amount, Absence Deductions, Late Deductions)
+    - Category filter and search
+    - Add/View/Delete deduction modals
+    - Export to Excel functionality
+    - Categories: Absence, Late, Penalty, Loan, Insurance, Tax, Other
+  - Allowances & Overtime Page (AllowancesPage.jsx):
+    - Modern blue gradient header
+    - 4 stats cards (Total Allowances, Total Amount, Overtime Records, Overtime Amount)
+    - Dynamic overtime calculation (hours × rate)
+    - Categories: Overtime, Housing, Transport, Phone, Meal, Bonus, Commission, Other
+  - Shifts Management Page (ShiftsManagementPage.jsx):
+    - Modern cyan gradient header
+    - 4 stats cards (Total Shifts, Active Shifts, Total Employees, Avg Hours)
+    - Shift cards with colored badges by type
+    - Comprehensive shift form (times, breaks, working days, overtime rates, late settings)
+    - Shift types: Morning, Evening, Night, Split, Flexible
+  - Attendance Page (AttendancePage.jsx):
+    - Updated with modern teal gradient header
+    - Consistent design with other HR pages
+- **Automatic HR Alerts System:**
+  - API Endpoint: GET /api/notifications/hr-alerts
+  - Alert Types:
+    - leave_expiring: Annual leave balance expiring soon (within 30 days of year end)
+    - termination_approaching: Contract end date approaching (within 30 days)
+  - Alert Properties: priority (high/medium), days_remaining, employee info
+  - Dashboard Integration: HRAlerts component displays alerts with navigation to relevant pages
+- **Employee Code Protection:**
+  - employee_code field is automatically generated on employee creation (format: EMP-0001)
+  - employee_code is immutable - cannot be modified via PUT /api/employees/{id}
+  - Backend removes employee_code from update requests
+- **Testing:**
+  - 12/12 backend tests passed (100%)
+  - All frontend pages verified with data-testid attributes
+
+
 #### 13. Attendance Management System (NEW - April 2026) ✅
 - **Check-in/Check-out:**
   - Record check-in time
