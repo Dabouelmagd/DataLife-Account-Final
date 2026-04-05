@@ -8,7 +8,8 @@ import { Badge } from './ui/badge';
 import { 
   ArrowLeft, Shield, Check, X, Save, User, 
   Home, Users, Building2, FileText, Package, 
-  FolderKanban, BarChart3, Settings, CheckCircle, AlertCircle
+  FolderKanban, BarChart3, Settings, CheckCircle, AlertCircle,
+  FileBarChart, UserCog
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -20,9 +21,11 @@ const permissionIcons = {
   invoices: FileText,
   purchases: Package,
   projects: FolderKanban,
+  reports: FileBarChart,
   analytics: BarChart3,
+  inventory: Package,
   settings: Settings,
-  users: Users,
+  users: UserCog,
   approvals: CheckCircle,
 };
 

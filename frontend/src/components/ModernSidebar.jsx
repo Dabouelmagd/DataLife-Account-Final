@@ -155,20 +155,20 @@ const ModernSidebar = ({
     return iconMap[moduleId] || <House weight={weight} />;
   };
 
-  // Permission modules with colors
+  // Permission modules with colors and modern icons (12 permissions)
   const permissionModules = [
-    { id: 'dashboard', name: language === 'ar' ? 'لوحة التحكم' : 'Dashboard', color: 'bg-slate-400' },
-    { id: 'hr', name: language === 'ar' ? 'الموارد البشرية' : 'HR', color: 'bg-cyan-500' },
-    { id: 'financial', name: language === 'ar' ? 'المالية' : 'Financial', color: 'bg-emerald-500' },
-    { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices', color: 'bg-amber-500' },
-    { id: 'purchases', name: language === 'ar' ? 'المشتريات' : 'Purchases', color: 'bg-rose-500' },
-    { id: 'projects', name: language === 'ar' ? 'المشاريع' : 'Projects', color: 'bg-indigo-500' },
-    { id: 'reports', name: language === 'ar' ? 'التقارير' : 'Reports', color: 'bg-violet-500' },
-    { id: 'analytics', name: language === 'ar' ? 'التحليلات' : 'Analytics', color: 'bg-violet-500' },
-    { id: 'inventory', name: language === 'ar' ? 'المخزون' : 'Inventory', color: 'bg-teal-500' },
-    { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings', color: 'bg-gray-500' },
-    { id: 'users', name: language === 'ar' ? 'المستخدمين' : 'Users', color: 'bg-blue-500' },
-    { id: 'approvals', name: language === 'ar' ? 'الموافقات' : 'Approvals', color: 'bg-green-500' },
+    { id: 'dashboard', name: language === 'ar' ? 'لوحة التحكم' : 'Dashboard', color: 'bg-gradient-to-r from-slate-500 to-slate-600', icon: '🏠' },
+    { id: 'hr', name: language === 'ar' ? 'الموارد البشرية' : 'Human Resources', color: 'bg-gradient-to-r from-cyan-500 to-blue-500', icon: '👥' },
+    { id: 'financial', name: language === 'ar' ? 'الإدارة المالية' : 'Financial Management', color: 'bg-gradient-to-r from-emerald-500 to-green-600', icon: '💰' },
+    { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices', color: 'bg-gradient-to-r from-amber-500 to-orange-500', icon: '📄' },
+    { id: 'purchases', name: language === 'ar' ? 'المشتريات' : 'Purchases', color: 'bg-gradient-to-r from-rose-500 to-pink-500', icon: '🛒' },
+    { id: 'projects', name: language === 'ar' ? 'المشاريع والمهام' : 'Projects & Tasks', color: 'bg-gradient-to-r from-indigo-500 to-purple-500', icon: '📊' },
+    { id: 'reports', name: language === 'ar' ? 'التقارير' : 'Reports', color: 'bg-gradient-to-r from-violet-500 to-purple-600', icon: '📑' },
+    { id: 'analytics', name: language === 'ar' ? 'التحليلات' : 'Analytics', color: 'bg-gradient-to-r from-blue-500 to-indigo-600', icon: '📈' },
+    { id: 'inventory', name: language === 'ar' ? 'المخزون' : 'Inventory', color: 'bg-gradient-to-r from-teal-500 to-cyan-600', icon: '📦' },
+    { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings', color: 'bg-gradient-to-r from-gray-500 to-gray-600', icon: '⚙️' },
+    { id: 'users', name: language === 'ar' ? 'إدارة المستخدمين' : 'User Management', color: 'bg-gradient-to-r from-blue-500 to-cyan-500', icon: '👤' },
+    { id: 'approvals', name: language === 'ar' ? 'الموافقات' : 'Approvals', color: 'bg-gradient-to-r from-green-500 to-emerald-600', icon: '✅' },
   ];
 
   const hasAccess = (moduleId) => {
@@ -248,23 +248,43 @@ const ModernSidebar = ({
             </button>
             
             {showPermissions && (
-              <div className="mt-1 flex flex-wrap gap-1 px-1 py-1.5 bg-gray-50 dark:bg-gray-900 rounded">
-                {permissionModules.map((mod) => {
-                  const allowed = hasAccess(mod.id);
-                  return (
-                    <span 
-                      key={mod.id}
-                      className={`w-5 h-5 rounded flex items-center justify-center ${allowed ? mod.color : 'bg-gray-300 dark:bg-gray-700'}`}
-                      title={`${mod.name} - ${allowed ? '✓' : '✗'}`}
-                    >
-                      {allowed ? (
-                        <CheckCircle weight="fill" className="w-3 h-3 text-white" />
-                      ) : (
-                        <Lock weight="fill" className="w-3 h-3 text-gray-500 dark:text-gray-400" />
-                      )}
-                    </span>
-                  );
-                })}
+              <div className="mt-2 bg-gray-50 dark:bg-gray-900 rounded-lg p-2 max-h-72 overflow-y-auto">
+                <div className="space-y-1">
+                  {permissionModules.map((mod) => {
+                    const allowed = hasAccess(mod.id);
+                    return (
+                      <div 
+                        key={mod.id}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all ${
+                          allowed 
+                            ? 'bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700' 
+                            : 'bg-gray-100 dark:bg-gray-800/50 opacity-60'
+                        }`}
+                        title={`${mod.name} - ${allowed ? (language === 'ar' ? 'مفعّل' : 'Enabled') : (language === 'ar' ? 'غير مفعّل' : 'Disabled')}`}
+                      >
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${allowed ? mod.color + ' text-white shadow-sm' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                          {mod.icon}
+                        </span>
+                        <span className={`flex-1 text-xs font-medium ${allowed ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}`}>
+                          {mod.name}
+                        </span>
+                        {allowed ? (
+                          <CheckCircle weight="fill" className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        ) : (
+                          <Lock weight="fill" className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-center">
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                    {language === 'ar' 
+                      ? `${permissionModules.filter(m => hasAccess(m.id)).length} من ${permissionModules.length} صلاحية مفعّلة`
+                      : `${permissionModules.filter(m => hasAccess(m.id)).length} of ${permissionModules.length} permissions enabled`
+                    }
+                  </span>
+                </div>
               </div>
             )}
           </div>

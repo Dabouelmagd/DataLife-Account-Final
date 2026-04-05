@@ -335,6 +335,32 @@
 | 11 | إدارة المستخدمين | User Management | ❌ |
 | 12 | الموافقات | Approvals | ❌ |
 
+### 19. تصميم قائمة الصلاحيات المنسدلة ⭐ (جديد 5 أبريل 2026)
+
+#### 19.1 التصميم الجديد
+- **قائمة عمودية** بدلاً من شبكة مربعات صغيرة
+- **أيقونات Emoji ملونة** لكل صلاحية (🏠 👥 💰 📄 🛒 📊 📑 📈 📦 ⚙️ 👤 ✅)
+- **خلفيات متدرجة** جميلة لكل صلاحية
+- **علامات ✓ خضراء** للصلاحيات المفعّلة
+- **أسماء كاملة** واضحة ومقروءة
+- **عداد الصلاحيات** في الأسفل ("12 of 12 permissions enabled")
+
+#### 19.2 الأيقونات والألوان
+| الصلاحية | الأيقونة | اللون |
+|----------|---------|-------|
+| Dashboard | 🏠 | Slate |
+| Human Resources | 👥 | Cyan/Blue |
+| Financial Management | 💰 | Emerald/Green |
+| Invoices | 📄 | Amber/Orange |
+| Purchases | 🛒 | Rose/Pink |
+| Projects & Tasks | 📊 | Indigo/Purple |
+| Reports | 📑 | Violet/Purple |
+| Analytics | 📈 | Blue/Indigo |
+| Inventory | 📦 | Teal/Cyan |
+| Settings | ⚙️ | Gray |
+| User Management | 👤 | Blue/Cyan |
+| Approvals | ✅ | Green/Emerald |
+
 ---
 
 ## 📁 هيكل المشروع
