@@ -558,7 +558,49 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
 
 - **Data Models:**
   - `bank_accounts` collection: bank_name, bank_name_en, account_number, iban, swift_code, branch_name, currency, opening_balance, account_type, linked_account_code, is_active
-  - `bank_transactions` collection: bank_account_id, transaction_type, amount, description, reference, check_number, check_date, check_bank, beneficiary, transaction_date, status
+  - `bank_transactions` collection: bank_account_id, transaction_type, amount, description, reference, check_number, check_date, check_bank, beneficiary, transaction_date, status, journal_entry_id, journal_entry_number
+
+#### 20. Bank Transactions to Accounting Integration (NEW - April 2026) ✅
+- **Automatic Journal Entry Creation:**
+  - Every bank transaction (deposit, withdrawal, check) automatically creates a corresponding journal entry
+  - Journal entries follow double-entry bookkeeping principles
+  - **Transaction Types & Journal Logic:**
+    | نوع العملية | الطرف المدين | الطرف الدائن |
+    |------------|-------------|--------------|
+    | إيداع (deposit) | 162 - البنوك | الحساب المقابل (نقدية/عملاء/إيراد) |
+    | سحب (withdrawal) | المصروفات/الموردون | 162 - البنوك |
+    | شيك وارد (check_deposit) | 162 - البنوك | 131 - العملاء |
+    | شيك صادر (check_issued) | 251 - الموردون | 162 - البنوك |
+    | تحويل (transfer) | البنك المستلم | البنك المرسل |
+
+- **Backend API Enhancements (`/app/backend/api/bank_management.py`):**
+  - `POST /api/bank-transactions` - Now accepts `counter_account_code` and `auto_create_journal` parameters
+  - `GET /api/bank-counter-accounts` - Get recommended counter accounts per transaction type
+  - `GET /api/bank-transactions/{id}/journal-entry` - View linked journal entry
+  - `POST /api/bank-transactions/{id}/create-journal` - Create journal for existing transaction
+
+- **Frontend Updates (`/app/frontend/src/pages/BankManagementPage.jsx`):**
+  - **Transactions Table:** New "Journal Entry" column shows linked entry number (#9, #10, etc.)
+  - **Journal Entry Modal:** Click on journal number to view full entry details (accounts, amounts, status)
+  - **Add Transaction Modal:** 
+    - New "Journal Entry" section with purple border
+    - "Auto-create journal entry" checkbox (enabled by default)
+    - "Counter Account" dropdown with recommended accounts per transaction type
+    - Accounts grouped by: Recommended Accounts (based on transaction type)
+    - Helper text: "Leave empty for automatic default selection"
+
+- **Default Counter Accounts:**
+  - Deposit: 161 (النقدية بالصندوق)
+  - Withdrawal: 331 (رواتب وأجور)
+  - Check Deposit: 131 (العملاء)
+  - Check Issued: 251 (الموردون)
+  - Transfer: 162 (بنك آخر)
+
+- **Testing Verified:**
+  - Created deposit transaction → Journal Entry #9 created automatically
+  - Created withdrawal transaction → Journal Entry #10 created automatically
+  - Journal entry shows balanced debit/credit with "Entry is balanced" indicator
+  - All entries linked correctly to their source bank transactions
 
 - **Check-in/Check-out:**
   - Record check-in time

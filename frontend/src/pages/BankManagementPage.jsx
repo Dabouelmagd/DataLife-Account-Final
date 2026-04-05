@@ -5,7 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { 
   Building2, Plus, Edit, Trash2, Eye, Download, RefreshCw, Search,
   ArrowUpCircle, ArrowDownCircle, FileText, CreditCard, Loader2, X,
-  TrendingUp, TrendingDown, Wallet, CheckCircle, AlertCircle, Calendar
+  TrendingUp, TrendingDown, Wallet, CheckCircle, AlertCircle, Calendar,
+  BookOpen, Link2
 } from 'lucide-react';
 
 const BankManagementPage = ({ language }) => {
@@ -19,13 +20,17 @@ const BankManagementPage = ({ language }) => {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [activeTab, setActiveTab] = useState('accounts');
   const [transactionTypeFilter, setTransactionTypeFilter] = useState('all');
+  const [counterAccounts, setCounterAccounts] = useState([]);
+  const [recommendedAccounts, setRecommendedAccounts] = useState([]);
   
   // Modals
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [showViewAccountModal, setShowViewAccountModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showJournalModal, setShowJournalModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [selectedJournalEntry, setSelectedJournalEntry] = useState(null);
   
   // Form states
   const [newAccount, setNewAccount] = useState({
@@ -48,7 +53,9 @@ const BankManagementPage = ({ language }) => {
     reference: '',
     check_number: '',
     check_date: '',
-    beneficiary: ''
+    beneficiary: '',
+    counter_account_code: '',
+    auto_create_journal: true
   });
 
   // Fetch bank accounts
@@ -93,7 +100,49 @@ const BankManagementPage = ({ language }) => {
   useEffect(() => {
     fetchAccounts();
     fetchTransactions();
+    fetchCounterAccounts();
   }, []);
+
+  // Fetch counter accounts for journal entries
+  const fetchCounterAccounts = async (transactionType = null) => {
+    try {
+      const token = localStorage.getItem('token');
+      let url = `${API_URL}/api/bank-counter-accounts`;
+      if (transactionType) url += `?transaction_type=${transactionType}`;
+      
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCounterAccounts(data.accounts || []);
+        if (data.recommended_for_type) {
+          setRecommendedAccounts(data.recommended_for_type.accounts || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching counter accounts:', error);
+    }
+  };
+
+  // Fetch journal entry for transaction
+  const fetchJournalEntry = async (transactionId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/bank-transactions/${transactionId}/journal-entry`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.has_journal_entry) {
+          setSelectedJournalEntry(data.journal_entry);
+          setShowJournalModal(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching journal entry:', error);
+    }
+  };
 
   // Create account
   const handleCreateAccount = async () => {
@@ -135,13 +184,22 @@ const BankManagementPage = ({ language }) => {
       });
       
       if (response.ok) {
+        const result = await response.json();
         setShowAddTransactionModal(false);
         setNewTransaction({
           bank_account_id: '', transaction_type: 'deposit', amount: 0,
-          description: '', reference: '', check_number: '', check_date: '', beneficiary: ''
+          description: '', reference: '', check_number: '', check_date: '', beneficiary: '',
+          counter_account_code: '', auto_create_journal: true
         });
         fetchAccounts();
         fetchTransactions(selectedAccount?.id);
+        
+        // Show success message with journal entry info
+        if (result.journal_entry_number) {
+          alert(language === 'ar' 
+            ? `تم إنشاء الحركة بنجاح مع القيد المحاسبي رقم ${result.journal_entry_number}` 
+            : `Transaction created successfully with Journal Entry #${result.journal_entry_number}`);
+        }
       }
     } catch (error) {
       console.error('Error creating transaction:', error);
@@ -399,12 +457,13 @@ const BankManagementPage = ({ language }) => {
                   <TableHead className="font-bold">{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
                   <TableHead className="font-bold">{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
                   <TableHead className="font-bold text-center">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                  <TableHead className="font-bold text-center">{language === 'ar' ? 'القيد المحاسبي' : 'Journal Entry'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTransactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                       {language === 'ar' ? 'لا توجد حركات' : 'No transactions found'}
                     </TableCell>
                   </TableRow>
@@ -425,6 +484,19 @@ const BankManagementPage = ({ language }) => {
                           {['deposit', 'transfer_in', 'check_deposit'].includes(txn.transaction_type) ? '+' : '-'}
                           {txn.amount.toLocaleString()}
                         </span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {txn.journal_entry_number ? (
+                          <button
+                            onClick={() => fetchJournalEntry(txn.id)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs hover:bg-purple-200 transition-colors"
+                          >
+                            <BookOpen className="w-3 h-3" />
+                            #{txn.journal_entry_number}
+                          </button>
+                        ) : (
+                          <span className="text-gray-400 text-xs">{language === 'ar' ? 'لا يوجد' : 'None'}</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -601,6 +673,80 @@ const BankManagementPage = ({ language }) => {
                   </div>
                 </div>
               )}
+              
+              {/* Counter Account Selection for Journal Entry */}
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                <div className="flex items-center gap-2 mb-3">
+                  <BookOpen className="w-5 h-5 text-purple-600" />
+                  <h4 className="font-medium text-purple-800 dark:text-purple-300">{language === 'ar' ? 'القيد المحاسبي' : 'Journal Entry'}</h4>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="auto_journal"
+                      checked={newTransaction.auto_create_journal}
+                      onChange={(e) => setNewTransaction({ ...newTransaction, auto_create_journal: e.target.checked })}
+                      className="w-4 h-4 text-purple-600 rounded"
+                    />
+                    <label htmlFor="auto_journal" className="text-sm text-gray-700 dark:text-gray-300">
+                      {language === 'ar' ? 'إنشاء قيد محاسبي تلقائياً' : 'Auto-create journal entry'}
+                    </label>
+                  </div>
+                  
+                  {newTransaction.auto_create_journal && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {language === 'ar' ? 'الحساب المقابل' : 'Counter Account'}
+                      </label>
+                      <select
+                        value={newTransaction.counter_account_code}
+                        onChange={(e) => setNewTransaction({ ...newTransaction, counter_account_code: e.target.value })}
+                        className="w-full p-2 border dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg text-sm"
+                      >
+                        <option value="">{language === 'ar' ? '-- اختيار تلقائي --' : '-- Auto Select --'}</option>
+                        <optgroup label={language === 'ar' ? 'الحسابات الموصى بها' : 'Recommended Accounts'}>
+                          {newTransaction.transaction_type === 'deposit' && (
+                            <>
+                              <option value="161">161 - {language === 'ar' ? 'النقدية بالصندوق' : 'Cash on Hand'}</option>
+                              <option value="131">131 - {language === 'ar' ? 'العملاء' : 'Accounts Receivable'}</option>
+                              <option value="411">411 - {language === 'ar' ? 'إيراد مبيعات' : 'Sales Revenue'}</option>
+                            </>
+                          )}
+                          {newTransaction.transaction_type === 'withdrawal' && (
+                            <>
+                              <option value="161">161 - {language === 'ar' ? 'النقدية بالصندوق' : 'Cash on Hand'}</option>
+                              <option value="331">331 - {language === 'ar' ? 'رواتب وأجور' : 'Salaries & Wages'}</option>
+                              <option value="332">332 - {language === 'ar' ? 'مصروفات خدمية' : 'Utilities'}</option>
+                            </>
+                          )}
+                          {newTransaction.transaction_type === 'check_deposit' && (
+                            <>
+                              <option value="131">131 - {language === 'ar' ? 'العملاء' : 'Accounts Receivable'}</option>
+                              <option value="132">132 - {language === 'ar' ? 'أوراق القبض' : 'Notes Receivable'}</option>
+                            </>
+                          )}
+                          {newTransaction.transaction_type === 'check_issued' && (
+                            <>
+                              <option value="251">251 - {language === 'ar' ? 'الموردون' : 'Accounts Payable'}</option>
+                              <option value="252">252 - {language === 'ar' ? 'أوراق الدفع' : 'Notes Payable'}</option>
+                              <option value="331">331 - {language === 'ar' ? 'رواتب وأجور' : 'Salaries & Wages'}</option>
+                            </>
+                          )}
+                          {(newTransaction.transaction_type === 'transfer_in' || newTransaction.transaction_type === 'transfer_out') && (
+                            <option value="162">162 - {language === 'ar' ? 'بنك آخر' : 'Other Bank'}</option>
+                          )}
+                        </optgroup>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {language === 'ar' 
+                          ? 'اترك فارغاً لاختيار الحساب الافتراضي تلقائياً' 
+                          : 'Leave empty for automatic default selection'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="p-6 border-t dark:border-slate-700 flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowAddTransactionModal(false)}>{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
@@ -687,6 +833,122 @@ const BankManagementPage = ({ language }) => {
             </div>
             <div className="p-6 border-t dark:border-slate-700 flex justify-end">
               <Button onClick={() => setShowViewAccountModal(false)}>{language === 'ar' ? 'إغلاق' : 'Close'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Journal Entry Modal */}
+      {showJournalModal && selectedJournalEntry && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowJournalModal(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl" onClick={e => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="p-6 border-b dark:border-slate-700 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold dark:text-white">{language === 'ar' ? 'القيد المحاسبي' : 'Journal Entry'}</h2>
+                  <p className="text-sm text-gray-500">#{selectedJournalEntry.entry_number}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowJournalModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Entry Info */}
+              <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 dark:bg-slate-700/30 rounded-xl">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">{language === 'ar' ? 'التاريخ' : 'Date'}</p>
+                  <p className="font-medium dark:text-white">{selectedJournalEntry.entry_date}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">{language === 'ar' ? 'المرجع' : 'Reference'}</p>
+                  <p className="font-medium dark:text-white">{selectedJournalEntry.reference || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">{language === 'ar' ? 'الحالة' : 'Status'}</p>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    selectedJournalEntry.status === 'posted' 
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                  }`}>
+                    {selectedJournalEntry.status === 'posted' 
+                      ? (language === 'ar' ? 'مرحّل' : 'Posted')
+                      : (language === 'ar' ? 'مسودة' : 'Draft')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-sm text-blue-800 dark:text-blue-300">{selectedJournalEntry.description}</p>
+              </div>
+
+              {/* Journal Lines */}
+              <div className="overflow-hidden rounded-lg border dark:border-slate-700">
+                <table className="w-full">
+                  <thead className="bg-slate-100 dark:bg-slate-700">
+                    <tr>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 text-right">{language === 'ar' ? 'الحساب' : 'Account'}</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 text-center">{language === 'ar' ? 'مدين' : 'Debit'}</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 text-center">{language === 'ar' ? 'دائن' : 'Credit'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y dark:divide-slate-700">
+                    {selectedJournalEntry.lines?.map((line, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono bg-gray-100 dark:bg-slate-600 px-2 py-0.5 rounded">{line.account_code}</span>
+                            <span className="text-sm dark:text-white">{line.account_name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {line.debit > 0 && (
+                            <span className="text-green-600 font-medium">{line.debit.toLocaleString()}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {line.credit > 0 && (
+                            <span className="text-red-600 font-medium">{line.credit.toLocaleString()}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-slate-100 dark:bg-slate-700">
+                    <tr>
+                      <td className="px-4 py-3 font-bold text-gray-700 dark:text-gray-300">{language === 'ar' ? 'الإجمالي' : 'Total'}</td>
+                      <td className="px-4 py-3 text-center font-bold text-green-600">{(selectedJournalEntry.total_debit || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-center font-bold text-red-600">{(selectedJournalEntry.total_credit || 0).toLocaleString()}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Balance Check */}
+              <div className={`p-3 rounded-lg flex items-center gap-2 ${
+                selectedJournalEntry.total_debit === selectedJournalEntry.total_credit
+                  ? 'bg-green-50 dark:bg-green-900/20'
+                  : 'bg-red-50 dark:bg-red-900/20'
+              }`}>
+                {selectedJournalEntry.total_debit === selectedJournalEntry.total_credit ? (
+                  <>
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-green-700 dark:text-green-400">{language === 'ar' ? 'القيد متوازن' : 'Entry is balanced'}</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                    <span className="text-sm text-red-700 dark:text-red-400">{language === 'ar' ? 'القيد غير متوازن!' : 'Entry is NOT balanced!'}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="p-6 border-t dark:border-slate-700 flex justify-end">
+              <Button onClick={() => setShowJournalModal(false)}>{language === 'ar' ? 'إغلاق' : 'Close'}</Button>
             </div>
           </div>
         </div>
