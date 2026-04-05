@@ -602,6 +602,47 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Journal entry shows balanced debit/credit with "Entry is balanced" indicator
   - All entries linked correctly to their source bank transactions
 
+#### 21. Bank Settings & Auto-Post Configuration (NEW - April 2026) ✅
+- **Backend API (`/app/backend/api/bank_management.py`):**
+  - `GET /api/bank-settings` - Get company bank settings
+  - `PUT /api/bank-settings` - Update company bank settings
+  - Settings stored per-company (multi-tenant support)
+
+- **Settings Available:**
+  - **auto_post_journal**: Enable/disable automatic journal entry posting
+  - **default_deposit_account**: Default credit account for deposits (default: 161)
+  - **default_withdrawal_account**: Default debit account for withdrawals (default: 331)
+  - **default_check_deposit_account**: Default credit account for incoming checks (default: 131)
+  - **default_check_issued_account**: Default debit account for issued checks (default: 251)
+  - **require_approval_above**: Amount threshold requiring approval (optional)
+  - **notify_on_large_transaction**: Enable large transaction alerts
+  - **large_transaction_threshold**: Amount threshold for alerts (default: 100,000)
+
+- **Frontend Page (`/app/frontend/src/pages/BankSettingsPage.jsx`):**
+  - Modern gradient header with settings icon
+  - **Journal Entry Posting card:**
+    - Toggle for auto-post feature
+    - Green indicator when enabled ("Auto-posting is enabled")
+    - Yellow warning when disabled ("Manual posting required")
+  - **Transaction Alerts card:**
+    - Toggle for large transaction notifications
+    - Threshold amount input
+    - Optional approval threshold input
+  - **Default Counter Accounts card:**
+    - Color-coded account selectors for each transaction type
+    - Deposit (green), Withdrawal (red), Check Deposit (blue), Check Issued (purple)
+    - Dropdown with all available posting accounts
+
+- **Auto-Post Behavior:**
+  - When enabled: Journal entries are created with status "posted" and immediately affect account balances
+  - When disabled: Journal entries are created as "draft" and need manual posting from Journal Entries page
+  - Each company can configure independently
+
+- **Testing Verified:**
+  - Settings API working correctly
+  - Enabled auto-post → Created deposit → Journal Entry #11 with status "posted" ✅
+  - Settings page displaying correctly with all options
+
 - **Check-in/Check-out:**
   - Record check-in time
   - Record check-out time

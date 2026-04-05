@@ -65,6 +65,18 @@ class BankTransactionCreate(BaseModel):
     counter_account_code: Optional[str] = Field(None, description="كود الحساب المقابل (للقيد المحاسبي)")
     auto_create_journal: bool = Field(default=True, description="إنشاء قيد محاسبي تلقائياً")
 
+
+class BankSettings(BaseModel):
+    """إعدادات البنك للشركة"""
+    auto_post_journal: bool = Field(default=False, description="ترحيل القيود تلقائياً")
+    default_deposit_account: str = Field(default="161", description="حساب الإيداع الافتراضي")
+    default_withdrawal_account: str = Field(default="331", description="حساب السحب الافتراضي")
+    default_check_deposit_account: str = Field(default="131", description="حساب الشيكات الواردة الافتراضي")
+    default_check_issued_account: str = Field(default="251", description="حساب الشيكات الصادرة الافتراضي")
+    require_approval_above: Optional[float] = Field(None, description="مبلغ يتطلب موافقة فوقه")
+    notify_on_large_transaction: bool = Field(default=False, description="إشعار عند معاملة كبيرة")
+    large_transaction_threshold: float = Field(default=100000, description="حد المعاملة الكبيرة")
+
 # ==========================================
 # Bank Accounts APIs
 # ==========================================
@@ -351,6 +363,10 @@ async def create_auto_journal_entry(
     """
     service = AccountingService(db)
     
+    # جلب إعدادات البنك للشركة
+    bank_settings = await get_company_bank_settings(company_id)
+    auto_post = bank_settings.get("auto_post_journal", False)
+    
     # الحصول على حساب البنك من دليل الحسابات
     bank_account = await service.get_account_by_code(company_id, bank_account_code)
     if not bank_account:
@@ -361,9 +377,10 @@ async def create_auto_journal_entry(
         logger.error(f"حساب البنك غير موجود: {bank_account_code}")
         return None
     
-    # تحديد الحساب المقابل بناءً على نوع العملية
+    # تحديد الحساب المقابل بناءً على نوع العملية أو من الإعدادات
     if not counter_account_code:
-        counter_account_code = get_default_counter_account(transaction_type)
+        # استخدم الحساب الافتراضي من الإعدادات
+        counter_account_code = get_default_counter_account_from_settings(transaction_type, bank_settings)
     
     counter_account = await service.get_account_by_code(company_id, counter_account_code)
     if not counter_account:
@@ -418,6 +435,9 @@ async def create_auto_journal_entry(
         return None
     
     # إنشاء القيد اليومي
+    # تحديد حالة القيد بناءً على إعدادات الترحيل التلقائي
+    entry_status = JournalEntryStatus.POSTED if auto_post else JournalEntryStatus.DRAFT
+    
     entry = JournalEntry(
         company_id=company_id,
         entry_number=0,  # سيتم تحديده تلقائياً
@@ -426,12 +446,24 @@ async def create_auto_journal_entry(
         description=f"قيد تلقائي - {get_transaction_type_label(transaction_type)}: {description}",
         lines=lines,
         created_by=user_id,
-        status=JournalEntryStatus.DRAFT
+        status=entry_status
     )
     
     try:
         result = await service.create_journal_entry(entry)
-        logger.info(f"تم إنشاء قيد محاسبي تلقائي رقم {result.get('entry_number')} للحركة البنكية {reference}")
+        status_label = "مرحّل" if auto_post else "مسودة"
+        logger.info(f"تم إنشاء قيد محاسبي تلقائي رقم {result.get('entry_number')} ({status_label}) للحركة البنكية {reference}")
+        
+        # إذا كان الترحيل تلقائي، قم بترحيل القيد
+        if auto_post:
+            try:
+                await service.post_journal_entry(result.get('id'), user_id)
+                result['status'] = 'posted'
+                result['auto_posted'] = True
+            except Exception as post_error:
+                logger.warning(f"فشل ترحيل القيد تلقائياً: {post_error}")
+                result['auto_posted'] = False
+        
         return result
     except Exception as e:
         logger.error(f"فشل إنشاء القيد المحاسبي: {e}")
@@ -451,6 +483,22 @@ def get_default_counter_account(transaction_type: str) -> str:
         "transfer_out": "162",    # حساب بنك آخر
     }
     return defaults.get(transaction_type, "161")
+
+
+def get_default_counter_account_from_settings(transaction_type: str, settings: dict) -> str:
+    """
+    الحصول على الحساب المقابل الافتراضي من إعدادات الشركة
+    """
+    if transaction_type == "deposit":
+        return settings.get("default_deposit_account", "161")
+    elif transaction_type == "withdrawal":
+        return settings.get("default_withdrawal_account", "331")
+    elif transaction_type == "check_deposit":
+        return settings.get("default_check_deposit_account", "131")
+    elif transaction_type == "check_issued":
+        return settings.get("default_check_issued_account", "251")
+    else:
+        return "161"
 
 
 def get_transaction_type_label(transaction_type: str) -> str:
@@ -742,3 +790,84 @@ async def create_journal_for_existing_transaction(
         "journal_entry_id": journal_result.get("id"),
         "journal_entry_number": journal_result.get("entry_number")
     }
+
+
+
+# ==========================================
+# Bank Settings APIs - إعدادات البنك
+# ==========================================
+
+@router.get("/bank-settings")
+async def get_bank_settings(current_user: dict = Depends(get_current_user)):
+    """جلب إعدادات البنك للشركة"""
+    company_id = current_user["company_id"]
+    
+    settings = await db.bank_settings.find_one({"company_id": company_id})
+    
+    if not settings:
+        # إرجاع الإعدادات الافتراضية
+        return {
+            "auto_post_journal": False,
+            "default_deposit_account": "161",
+            "default_withdrawal_account": "331",
+            "default_check_deposit_account": "131",
+            "default_check_issued_account": "251",
+            "require_approval_above": None,
+            "notify_on_large_transaction": False,
+            "large_transaction_threshold": 100000
+        }
+    
+    return {
+        "auto_post_journal": settings.get("auto_post_journal", False),
+        "default_deposit_account": settings.get("default_deposit_account", "161"),
+        "default_withdrawal_account": settings.get("default_withdrawal_account", "331"),
+        "default_check_deposit_account": settings.get("default_check_deposit_account", "131"),
+        "default_check_issued_account": settings.get("default_check_issued_account", "251"),
+        "require_approval_above": settings.get("require_approval_above"),
+        "notify_on_large_transaction": settings.get("notify_on_large_transaction", False),
+        "large_transaction_threshold": settings.get("large_transaction_threshold", 100000)
+    }
+
+
+@router.put("/bank-settings")
+async def update_bank_settings(
+    settings: BankSettings,
+    current_user: dict = Depends(get_current_user)
+):
+    """تحديث إعدادات البنك للشركة"""
+    company_id = current_user["company_id"]
+    
+    settings_dict = settings.dict()
+    settings_dict["company_id"] = company_id
+    settings_dict["updated_at"] = datetime.now(timezone.utc)
+    settings_dict["updated_by"] = current_user["user_id"]
+    
+    await db.bank_settings.update_one(
+        {"company_id": company_id},
+        {"$set": settings_dict},
+        upsert=True
+    )
+    
+    return {
+        "message": "تم تحديث الإعدادات بنجاح",
+        **settings_dict
+    }
+
+
+async def get_company_bank_settings(company_id: str) -> dict:
+    """
+    جلب إعدادات البنك للشركة (دالة داخلية)
+    تُستخدم عند إنشاء الحركات البنكية
+    """
+    settings = await db.bank_settings.find_one({"company_id": company_id})
+    
+    if not settings:
+        return {
+            "auto_post_journal": False,
+            "default_deposit_account": "161",
+            "default_withdrawal_account": "331",
+            "default_check_deposit_account": "131",
+            "default_check_issued_account": "251"
+        }
+    
+    return settings

@@ -58,6 +58,7 @@ import TrialBalancePage from '../pages/TrialBalancePage';
 import IncomeStatementPage from '../pages/IncomeStatementPage';
 import BalanceSheetPage from '../pages/BalanceSheetPage';
 import BankManagementPage from '../pages/BankManagementPage';
+import BankSettingsPage from '../pages/BankSettingsPage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -277,6 +278,7 @@ const RealDashboard = () => {
           { id: 'divider-treasury', name: language === 'ar' ? '── الخزينة ──' : '── Treasury ──', isDivider: true },
           { id: 'treasury', name: language === 'ar' ? 'الخزنة' : 'Cash Box', icon: <DollarSign />, group: 'treasury' },
           { id: 'bank', name: language === 'ar' ? 'البنك' : 'Bank', icon: <DollarSign />, group: 'treasury' },
+          { id: 'bank-settings', name: language === 'ar' ? 'إعدادات البنك' : 'Bank Settings', icon: <Settings />, group: 'treasury' },
           { id: 'custody', name: language === 'ar' ? 'العهدة' : 'Custody', icon: <Award />, group: 'treasury' },
           
           // العملاء والموردين
@@ -497,6 +499,8 @@ const RealDashboard = () => {
           return <AccountsModule language={language} userRole={user?.role} />;
         case 'bank':
           return <BankManagementPage language={language} />;
+        case 'bank-settings':
+          return <BankSettingsPage language={language} />;
         case 'customers':
           return <CustomersModule language={language} userRole={user?.role} />;
         case 'suppliers':
