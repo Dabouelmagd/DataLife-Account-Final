@@ -7,4 +7,16 @@ export { default as InviteModal } from './InviteModal';
 export { default as SubscriptionTab } from './SubscriptionTab';
 export { default as LanguageTab } from './LanguageTab';
 export { default as ActivityLogTab } from './ActivityLogTab';
-export { getAvailableRoles, getAvailablePermissions, MANAGEMENT_ROLES } from './constants';
+export { 
+  getAvailableRoles, 
+  getAvailablePermissions, 
+  MANAGEMENT_ROLES,
+  FINANCIAL_MANAGEMENT_ROLES,
+  HR_ONLY_ROLES,
+  HR_ADMIN_SUBMODULES,
+  HR_FINANCIAL_SUBMODULES,
+  isTopManagement,
+  hasFullHRAccess,
+  hasHRAdminAccess,
+  hasHRFinancialAccess
+} from './constants';

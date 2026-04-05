@@ -14,10 +14,11 @@ import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
-// Permission definitions with icons and colors
+// Permission definitions with icons and colors (13 permissions - HR split)
 const PERMISSIONS_CONFIG = [
   { id: 'dashboard', name_en: 'Dashboard', name_ar: 'لوحة التحكم', icon: Home, color: 'bg-slate-500', emoji: '🏠' },
-  { id: 'hr', name_en: 'Human Resources', name_ar: 'الموارد البشرية', icon: Users, color: 'bg-cyan-500', emoji: '👥' },
+  { id: 'hr_admin', name_en: 'HR - Administrative', name_ar: 'الموارد البشرية - إداري', icon: Users, color: 'bg-cyan-500', emoji: '👥', desc_en: 'Attendance, Leaves, Shifts', desc_ar: 'حضور، إجازات، ورديات' },
+  { id: 'hr_financial', name_en: 'HR - Financial', name_ar: 'الموارد البشرية - مالي', icon: Building2, color: 'bg-teal-500', emoji: '💵', desc_en: 'Payroll, Allowances, Deductions', desc_ar: 'رواتب، بدلات، خصومات' },
   { id: 'financial', name_en: 'Financial Management', name_ar: 'الإدارة المالية', icon: Building2, color: 'bg-emerald-500', emoji: '💰' },
   { id: 'invoices', name_en: 'Invoices', name_ar: 'الفواتير', icon: FileText, color: 'bg-amber-500', emoji: '📄' },
   { id: 'purchases', name_en: 'Purchases', name_ar: 'المشتريات', icon: Package, color: 'bg-rose-500', emoji: '🛒' },
@@ -30,25 +31,37 @@ const PERMISSIONS_CONFIG = [
   { id: 'approvals', name_en: 'Approvals', name_ar: 'الموافقات', icon: CheckCircle, color: 'bg-green-500', emoji: '✅' },
 ];
 
-// Pre-defined role templates
+// Pre-defined role templates (updated for HR split)
 const ROLE_TEMPLATES = {
   admin: {
     name_en: 'Administrator',
     name_ar: 'مدير النظام',
-    permissions: ['dashboard', 'hr', 'financial', 'invoices', 'purchases', 'projects', 'reports', 'analytics', 'inventory', 'settings', 'users', 'approvals'],
+    permissions: ['dashboard', 'hr_admin', 'hr_financial', 'financial', 'invoices', 'purchases', 'projects', 'reports', 'analytics', 'inventory', 'settings', 'users', 'approvals'],
     color: 'bg-red-500'
+  },
+  financial_manager: {
+    name_en: 'Financial Manager',
+    name_ar: 'المدير المالي',
+    permissions: ['dashboard', 'hr_admin', 'hr_financial', 'financial', 'invoices', 'reports', 'analytics', 'approvals'],
+    color: 'bg-emerald-500'
   },
   accountant: {
     name_en: 'Accountant',
     name_ar: 'محاسب',
-    permissions: ['dashboard', 'financial', 'invoices', 'reports', 'analytics'],
+    permissions: ['dashboard', 'hr_financial', 'financial', 'invoices', 'reports', 'analytics'],
     color: 'bg-green-500'
   },
   hr_manager: {
     name_en: 'HR Manager',
     name_ar: 'مدير الموارد البشرية',
-    permissions: ['dashboard', 'hr', 'reports', 'approvals'],
+    permissions: ['dashboard', 'hr_admin', 'reports', 'approvals'],
     color: 'bg-cyan-500'
+  },
+  hr_employee: {
+    name_en: 'HR Employee',
+    name_ar: 'موظف موارد بشرية',
+    permissions: ['dashboard', 'hr_admin', 'reports'],
+    color: 'bg-sky-500'
   },
   sales: {
     name_en: 'Sales',

@@ -215,7 +215,7 @@ const RealDashboard = () => {
     const hrOnlyRoles = ['HR Manager', 'مدير الموارد البشرية'];
 
     // ========================================
-    // أدوار المالية (المدير المالي ورئيس الحسابات) - لديهم فواتير ومشتريات
+    // أدوار المالية (المدير المالي ورئيس الحسابات) - لديهم فواتير ومشتريات + HR مالي
     // ========================================
     const financialManagerRoles = [
       'Financial Manager', 'Chief Accountant',
@@ -232,28 +232,66 @@ const RealDashboard = () => {
     // ========================================
     const projectOnlyRoles = ['Project Manager', 'مدير المشاريع'];
 
-    // HR Module - للإدارة العليا ومدير HR فقط
-    if (topManagementRoles.includes(role) || hrOnlyRoles.includes(role)) {
+    // ========================================
+    // HR Module - تقسيم إلى إداري ومالي
+    // ========================================
+    
+    // الأقسام الإدارية (بيانات، حضور، إجازات، إلخ)
+    const hrAdminSubModules = [
+      { id: 'hr-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart /> },
+      { id: 'shifts', name: language === 'ar' ? 'الورديات' : 'Work Shifts', icon: <Clock /> },
+      { id: 'attendance', name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance', icon: <Clock /> },
+      { id: 'casual-leave', name: language === 'ar' ? 'الإجازات العارضة' : 'Casual Leave', icon: <Calendar /> },
+      { id: 'annual-leave', name: language === 'ar' ? 'الإجازات السنوية' : 'Annual Leave', icon: <Calendar /> },
+      { id: 'termination', name: language === 'ar' ? 'إنهاء الخدمة' : 'Termination', icon: <UserMinus /> },
+      { id: 'hr-settings', name: language === 'ar' ? 'إعدادات الحضور والرواتب' : 'HR Settings', icon: <Settings /> }
+    ];
+    
+    // الأقسام المالية (رواتب، بدلات، خصومات، تقارير)
+    const hrFinancialSubModules = [
+      { id: 'payroll', name: language === 'ar' ? 'الرواتب والأجور' : 'Payroll', icon: <DollarSign /> },
+      { id: 'salaries', name: language === 'ar' ? 'المرتبات' : 'Salaries', icon: <DollarSign /> },
+      { id: 'allowances', name: language === 'ar' ? 'البدلات والإضافي' : 'Allowances & Overtime', icon: <Award /> },
+      { id: 'deductions', name: language === 'ar' ? 'الخصومات' : 'Deductions', icon: <TrendingDown /> },
+      { id: 'hr-reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <FileText /> },
+      { id: 'hr-comprehensive-reports', name: language === 'ar' ? 'التقارير الشاملة' : 'Comprehensive Reports', icon: <BarChart /> }
+    ];
+
+    // تحديد صلاحيات HR للمستخدم
+    const hasHRAdminAccess = topManagementRoles.includes(role) || 
+                            financialManagerRoles.includes(role) || 
+                            hrOnlyRoles.includes(role);
+    const hasHRFinancialAccess = topManagementRoles.includes(role) || 
+                                 financialManagerRoles.includes(role);
+
+    // بناء قائمة الأقسام الفرعية لـ HR حسب الصلاحيات
+    let hrSubModules = [];
+    
+    if (hasHRAdminAccess && hasHRFinancialAccess) {
+      // الإدارة العليا والمدير المالي يرون كل شيء
+      hrSubModules = [
+        { id: 'hr-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart /> },
+        { id: 'divider-admin', name: language === 'ar' ? '── إداري ──' : '── Administrative ──', isDivider: true },
+        ...hrAdminSubModules.filter(m => m.id !== 'hr-overview'),
+        { id: 'divider-financial', name: language === 'ar' ? '── مالي ──' : '── Financial ──', isDivider: true },
+        ...hrFinancialSubModules,
+      ];
+    } else if (hasHRAdminAccess) {
+      // مدير HR يرى الإداري فقط
+      hrSubModules = hrAdminSubModules;
+    } else if (hasHRFinancialAccess) {
+      // المالية ترى المالي فقط
+      hrSubModules = hrFinancialSubModules;
+    }
+
+    // إضافة وحدة HR إذا كان للمستخدم صلاحية
+    if (hasHRAdminAccess || hasHRFinancialAccess) {
       modules.push({ 
         id: 'hr', 
         name: language === 'ar' ? 'الموارد البشرية' : 'Human Resources', 
         icon: <Users />,
         hasSubModules: true,
-        subModules: [
-          { id: 'hr-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart /> },
-          { id: 'payroll', name: language === 'ar' ? 'الرواتب والأجور' : 'Payroll', icon: <DollarSign /> },
-          { id: 'shifts', name: language === 'ar' ? 'الورديات' : 'Work Shifts', icon: <Clock /> },
-          { id: 'salaries', name: language === 'ar' ? 'المرتبات' : 'Salaries', icon: <DollarSign /> },
-          { id: 'allowances', name: language === 'ar' ? 'البدلات والإضافي' : 'Allowances & Overtime', icon: <Award /> },
-          { id: 'deductions', name: language === 'ar' ? 'الخصومات' : 'Deductions', icon: <TrendingDown /> },
-          { id: 'casual-leave', name: language === 'ar' ? 'الإجازات العارضة' : 'Casual Leave', icon: <Calendar /> },
-          { id: 'annual-leave', name: language === 'ar' ? 'الإجازات السنوية' : 'Annual Leave', icon: <Calendar /> },
-          { id: 'attendance', name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance', icon: <Clock /> },
-          { id: 'termination', name: language === 'ar' ? 'إنهاء الخدمة' : 'Termination', icon: <UserMinus /> },
-          { id: 'hr-reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <FileText /> },
-          { id: 'hr-comprehensive-reports', name: language === 'ar' ? 'التقارير الشاملة' : 'Comprehensive Reports', icon: <BarChart /> },
-          { id: 'hr-settings', name: language === 'ar' ? 'إعدادات الحضور والرواتب' : 'HR Settings', icon: <Settings /> }
-        ]
+        subModules: hrSubModules
       });
     }
 

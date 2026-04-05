@@ -327,7 +327,7 @@ const ProfileTab = ({
             <Shield className="h-5 w-5 text-[#28376B]" />
             {language === 'ar' ? 'الصلاحيات' : 'My Permissions'}
             <span className="text-sm font-normal text-gray-500">
-              ({(user?.permissions || []).length} / 12)
+              ({(user?.permissions || []).length} / 13)
             </span>
           </CardTitle>
         </CardHeader>
@@ -335,7 +335,8 @@ const ProfileTab = ({
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
               { id: 'dashboard', name_en: 'Dashboard', name_ar: 'لوحة التحكم', emoji: '🏠', color: 'from-slate-500 to-slate-600' },
-              { id: 'hr', name_en: 'Human Resources', name_ar: 'الموارد البشرية', emoji: '👥', color: 'from-cyan-500 to-blue-500' },
+              { id: 'hr_admin', name_en: 'HR - Administrative', name_ar: 'الموارد البشرية - إداري', emoji: '👥', color: 'from-cyan-500 to-blue-500', description_ar: 'حضور، إجازات، ورديات', description_en: 'Attendance, Leaves, Shifts' },
+              { id: 'hr_financial', name_en: 'HR - Financial', name_ar: 'الموارد البشرية - مالي', emoji: '💵', color: 'from-teal-500 to-emerald-500', description_ar: 'رواتب، بدلات، خصومات', description_en: 'Payroll, Allowances, Deductions' },
               { id: 'financial', name_en: 'Financial Management', name_ar: 'الإدارة المالية', emoji: '💰', color: 'from-emerald-500 to-green-600' },
               { id: 'invoices', name_en: 'Invoices', name_ar: 'الفواتير', emoji: '📄', color: 'from-amber-500 to-orange-500' },
               { id: 'purchases', name_en: 'Purchases', name_ar: 'المشتريات', emoji: '🛒', color: 'from-rose-500 to-pink-500' },
@@ -348,7 +349,12 @@ const ProfileTab = ({
               { id: 'approvals', name_en: 'Approvals', name_ar: 'الموافقات', emoji: '✅', color: 'from-green-500 to-emerald-600' },
             ].map((module) => {
               const userPermissions = user?.permissions || [];
-              const hasAccess = userPermissions.includes(module.id) || user?.role === 'company_manager' || user?.role === 'رئيس مجلس الإدارة';
+              // Check for legacy 'hr' permission and map to new hr_admin/hr_financial
+              const hasLegacyHR = userPermissions.includes('hr');
+              const hasAccess = userPermissions.includes(module.id) || 
+                               (hasLegacyHR && (module.id === 'hr_admin' || module.id === 'hr_financial')) ||
+                               user?.role === 'company_manager' || 
+                               user?.role === 'رئيس مجلس الإدارة';
               return (
                 <div
                   key={module.id}
@@ -367,6 +373,11 @@ const ProfileTab = ({
                     <span className={`font-medium text-sm block truncate ${hasAccess ? 'text-gray-800' : 'text-gray-500'}`}>
                       {language === 'ar' ? module.name_ar : module.name_en}
                     </span>
+                    {module.description_ar && (
+                      <span className={`text-[10px] block truncate ${hasAccess ? 'text-gray-500' : 'text-gray-400'}`}>
+                        {language === 'ar' ? module.description_ar : module.description_en}
+                      </span>
+                    )}
                     <span className={`text-xs ${hasAccess ? 'text-green-600' : 'text-gray-400'}`}>
                       {hasAccess 
                         ? (language === 'ar' ? 'مفعّل' : 'Enabled') 
@@ -391,17 +402,17 @@ const ProfileTab = ({
           <div className="mt-4 pt-4 border-t flex items-center justify-between">
             <span className="text-sm text-gray-500">
               {language === 'ar' 
-                ? `لديك صلاحية الوصول إلى ${(user?.permissions || []).length || 12} وحدة` 
-                : `You have access to ${(user?.permissions || []).length || 12} modules`}
+                ? `لديك صلاحية الوصول إلى ${(user?.permissions || []).length || 13} وحدة` 
+                : `You have access to ${(user?.permissions || []).length || 13} modules`}
             </span>
             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              (user?.permissions || []).length >= 10 
+              (user?.permissions || []).length >= 11 
                 ? 'bg-green-100 text-green-700' 
                 : (user?.permissions || []).length >= 5 
                   ? 'bg-amber-100 text-amber-700'
                   : 'bg-red-100 text-red-700'
             }`}>
-              {(user?.permissions || []).length >= 10 
+              {(user?.permissions || []).length >= 11 
                 ? (language === 'ar' ? 'صلاحيات كاملة' : 'Full Access')
                 : (user?.permissions || []).length >= 5 
                   ? (language === 'ar' ? 'صلاحيات متوسطة' : 'Moderate Access')

@@ -155,10 +155,11 @@ const ModernSidebar = ({
     return iconMap[moduleId] || <House weight={weight} />;
   };
 
-  // Permission modules with colors and modern icons (12 permissions)
+  // Permission modules with colors and modern icons (13 permissions - HR split)
   const permissionModules = [
     { id: 'dashboard', name: language === 'ar' ? 'لوحة التحكم' : 'Dashboard', color: 'bg-gradient-to-r from-slate-500 to-slate-600', icon: '🏠' },
-    { id: 'hr', name: language === 'ar' ? 'الموارد البشرية' : 'Human Resources', color: 'bg-gradient-to-r from-cyan-500 to-blue-500', icon: '👥' },
+    { id: 'hr_admin', name: language === 'ar' ? 'الموارد البشرية - إداري' : 'HR - Administrative', color: 'bg-gradient-to-r from-cyan-500 to-blue-500', icon: '👥', desc: language === 'ar' ? 'حضور، إجازات' : 'Attendance, Leaves' },
+    { id: 'hr_financial', name: language === 'ar' ? 'الموارد البشرية - مالي' : 'HR - Financial', color: 'bg-gradient-to-r from-teal-500 to-emerald-500', icon: '💵', desc: language === 'ar' ? 'رواتب، بدلات' : 'Payroll, Allowances' },
     { id: 'financial', name: language === 'ar' ? 'الإدارة المالية' : 'Financial Management', color: 'bg-gradient-to-r from-emerald-500 to-green-600', icon: '💰' },
     { id: 'invoices', name: language === 'ar' ? 'الفواتير' : 'Invoices', color: 'bg-gradient-to-r from-amber-500 to-orange-500', icon: '📄' },
     { id: 'purchases', name: language === 'ar' ? 'المشتريات' : 'Purchases', color: 'bg-gradient-to-r from-rose-500 to-pink-500', icon: '🛒' },
@@ -172,8 +173,16 @@ const ModernSidebar = ({
   ];
 
   const hasAccess = (moduleId) => {
+    // Check for legacy 'hr' permission and map to new hr_admin/hr_financial
+    const userPermissions = user?.permissions || [];
+    const hasLegacyHR = userPermissions.includes('hr');
+    
+    if ((moduleId === 'hr_admin' || moduleId === 'hr_financial') && hasLegacyHR) {
+      return true;
+    }
+    
     return modules.some(m => m.id === moduleId) || 
-           (user?.permissions && user.permissions.includes(moduleId)) ||
+           userPermissions.includes(moduleId) ||
            ['رئيس مجلس الإدارة', 'Board Chairman', 'مدير عام', 'General Manager', 'المدير التنفيذي', 'CEO'].includes(user?.role);
   };
 
