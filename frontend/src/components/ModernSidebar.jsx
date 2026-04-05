@@ -309,7 +309,7 @@ const ModernSidebar = ({
                       if (hasSubModules) toggleMenu(module.id);
                       if (module.id === 'hr') { setActiveHRSubModule?.(null); setActiveFinancialSubModule?.(null); setActiveInvoiceSubModule?.(null); }
                       else if (module.id === 'financial') { setActiveFinancialSubModule?.(null); setActiveHRSubModule?.(null); setActiveInvoiceSubModule?.(null); }
-                      else if (module.id === 'invoices') { setActiveInvoiceSubModule?.('invoices'); setActiveHRSubModule?.(null); setActiveFinancialSubModule?.(null); }
+                      else if (module.id === 'invoices') { setActiveInvoiceSubModule?.('overview'); setActiveHRSubModule?.(null); setActiveFinancialSubModule?.(null); }
                     }}
                     data-testid={`nav-${module.id}-module`}
                     className={`w-full flex items-center justify-between py-2 px-2.5 rounded-lg transition-all

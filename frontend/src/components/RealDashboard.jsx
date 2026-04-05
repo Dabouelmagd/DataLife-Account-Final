@@ -45,6 +45,11 @@ import HRSettingsPage from '../pages/HRSettingsPage';
 import ETASettingsPage from '../pages/ETASettingsPage';
 import ProjectsPage from '../pages/ProjectsPage';
 
+// Import new overview components
+import HROverviewContent from './HROverviewContent';
+import FinancialOverviewContent from './FinancialOverviewContent';
+import InvoicesOverviewContent from './InvoicesOverviewContent';
+
 // Import sub-modules from existing files
 import {
   SalariesModule,
@@ -375,133 +380,23 @@ const RealDashboard = () => {
       // HR Overview
       if (activeHRSubModule === 'hr-overview' || !activeHRSubModule) {
         return (
-          <div className="space-y-6">
-            {/* HR Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">{t('demo.hr.totalEmployees')}</p>
-                      <p className="text-3xl font-bold">{stats.totalEmployees}</p>
-                    </div>
-                    <Users className="h-8 w-8 text-blue-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">{language === 'ar' ? 'إجمالي البدلات' : 'Total Allowances'}</p>
-                      <p className="text-3xl font-bold">{stats.totalAllowances.toLocaleString()}</p>
-                    </div>
-                    <CheckCircle className="h-8 w-8 text-green-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">{language === 'ar' ? 'إجمالي الخصومات' : 'Total Deductions'}</p>
-                      <p className="text-3xl font-bold">{stats.totalDeductions.toLocaleString()}</p>
-                    </div>
-                    <Calendar className="h-8 w-8 text-orange-500" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Employee Table */}
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>{t('demo.hr.employeeList')}</CardTitle>
-                  <Button 
-                    size="sm" 
-                    className="bg-[#28376B]"
-                    onClick={() => {
-                      setActiveModule('hr');
-                      setActiveHRSubModule('salaries');
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    {t('demo.hr.addEmployee')}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {employees.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('demo.hr.employee')}</TableHead>
-                        <TableHead>{t('demo.hr.position')}</TableHead>
-                        <TableHead>{t('demo.hr.department')}</TableHead>
-                        <TableHead>{t('demo.hr.status')}</TableHead>
-                        <TableHead>{t('demo.hr.actions')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {employees.map((employee, index) => (
-                        <TableRow key={index}>
-                          <TableCell>
-                            <div className="flex items-center space-x-3">
-                              <Avatar>
-                                <AvatarFallback>{employee.employee_name?.split(' ').map(n => n[0]).join('') || 'NA'}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{employee.employee_name || 'N/A'}</p>
-                                <p className="text-sm text-gray-500">{employee.employee_id || ''}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{employee.job_title || 'N/A'}</TableCell>
-                          <TableCell>{employee.department || 'N/A'}</TableCell>
-                          <TableCell>
-                            <Badge variant="success">
-                              {language === 'ar' ? 'نشط' : 'Active'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex space-x-2">
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedEmployeeId(employee.id || employee.employee_id);
-                                  setActiveHRSubModule('employee-profile');
-                                }}
-                                title={language === 'ar' ? 'عرض الملف' : 'View Profile'}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedEmployeeId(employee.id || employee.employee_id);
-                                  setActiveHRSubModule('employee-profile');
-                                }}
-                                title={language === 'ar' ? 'تعديل' : 'Edit'}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    {language === 'ar' ? 'لا يوجد موظفين بعد' : 'No employees yet'}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          <HROverviewContent
+            language={language}
+            stats={stats}
+            employees={employees}
+            onAddEmployee={() => {
+              setActiveModule('hr');
+              setActiveHRSubModule('salaries');
+            }}
+            onViewProfile={(employeeId) => {
+              setSelectedEmployeeId(employeeId);
+              setActiveHRSubModule('employee-profile');
+            }}
+            onEditEmployee={(employeeId) => {
+              setSelectedEmployeeId(employeeId);
+              setActiveHRSubModule('employee-profile');
+            }}
+          />
         );
       }
       
@@ -545,132 +440,12 @@ const RealDashboard = () => {
       // Financial Overview  
       if (activeFinancialSubModule === 'financial-overview' || !activeFinancialSubModule) {
         return (
-          <div className="space-y-6">
-            {/* Financial Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <Card className="bg-gradient-to-r from-green-50 to-green-100">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-green-700">{language === 'ar' ? 'الإيرادات الشهرية' : 'Monthly Revenue'}</p>
-                      <p className="text-2xl font-bold text-green-800">{stats.monthlyRevenue.toLocaleString()} {t('demo.currency')}</p>
-                      <p className="text-sm text-green-600">+15.2%</p>
-                    </div>
-                    <TrendingUp className="h-8 w-8 text-green-600" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-r from-red-50 to-red-100">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-red-700">{language === 'ar' ? 'المصروفات الشهرية' : 'Monthly Expenses'}</p>
-                      <p className="text-2xl font-bold text-red-800">{stats.monthlyExpenses.toLocaleString()} {t('demo.currency')}</p>
-                      <p className="text-sm text-red-600">+8.5%</p>
-                    </div>
-                    <TrendingDown className="h-8 w-8 text-red-600" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-blue-700">{language === 'ar' ? 'صافي الربح' : 'Net Profit'}</p>
-                      <p className="text-2xl font-bold text-blue-800">{(stats.monthlyRevenue - stats.monthlyExpenses).toLocaleString()} {t('demo.currency')}</p>
-                      <p className="text-sm text-blue-600">{stats.monthlyRevenue > 0 ? ((stats.monthlyRevenue - stats.monthlyExpenses) / stats.monthlyRevenue * 100).toFixed(1) : 0}% {language === 'ar' ? 'هامش' : 'margin'}</p>
-                    </div>
-                    <DollarSign className="h-8 w-8 text-blue-600" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-r from-purple-50 to-purple-100">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-purple-700">{language === 'ar' ? 'العملاء النشطين' : 'Active Customers'}</p>
-                      <p className="text-2xl font-bold text-purple-800">{stats.totalCustomers}</p>
-                      <p className="text-sm text-purple-600">{language === 'ar' ? 'عميل' : 'customers'}</p>
-                    </div>
-                    <Users className="h-8 w-8 text-purple-600" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Quick Financial Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>{language === 'ar' ? 'الإجراءات المالية السريعة' : 'Quick Financial Actions'}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Button
-                    variant="outline"
-                    className="h-20 flex flex-col items-center justify-center space-y-2"
-                    onClick={() => setActiveFinancialSubModule('journal-entries')}
-                  >
-                    <FileText className="h-6 w-6" />
-                    <span className="text-sm">{language === 'ar' ? 'قيد يومي' : 'Journal Entry'}</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-20 flex flex-col items-center justify-center space-y-2"
-                    onClick={() => setActiveFinancialSubModule('customers')}
-                  >
-                    <Users className="h-6 w-6" />
-                    <span className="text-sm">{language === 'ar' ? 'عميل جديد' : 'New Customer'}</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-20 flex flex-col items-center justify-center space-y-2"
-                    onClick={() => setActiveFinancialSubModule('suppliers')}
-                  >
-                    <Building2 className="h-6 w-6" />
-                    <span className="text-sm">{language === 'ar' ? 'مورد جديد' : 'New Supplier'}</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-20 flex flex-col items-center justify-center space-y-2"
-                    onClick={() => setActiveFinancialSubModule('financial-reports')}
-                  >
-                    <BarChart className="h-6 w-6" />
-                    <span className="text-sm">{language === 'ar' ? 'التقارير' : 'Reports'}</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Financial Summary Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>{language === 'ar' ? 'ملخص مالي' : 'Financial Summary'}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center border-b pb-3">
-                    <span className="font-medium">{language === 'ar' ? 'إجمالي العملاء' : 'Total Customers'}</span>
-                    <span className="text-lg font-bold">{stats.totalCustomers}</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b pb-3">
-                    <span className="font-medium">{language === 'ar' ? 'إجمالي الموردين' : 'Total Suppliers'}</span>
-                    <span className="text-lg font-bold">{stats.totalSuppliers}</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b pb-3">
-                    <span className="font-medium">{language === 'ar' ? 'الإيرادات' : 'Revenue'}</span>
-                    <span className="text-lg font-bold text-green-600">{stats.monthlyRevenue.toLocaleString()} {t('demo.currency')}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">{language === 'ar' ? 'المصروفات' : 'Expenses'}</span>
-                    <span className="text-lg font-bold text-red-600">{stats.monthlyExpenses.toLocaleString()} {t('demo.currency')}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <FinancialOverviewContent
+            language={language}
+            stats={stats}
+            t={t}
+            onNavigate={(subModule) => setActiveFinancialSubModule(subModule)}
+          />
         );
       }
       
@@ -760,6 +535,19 @@ const RealDashboard = () => {
 
     // Invoices Module
     if (activeModule === 'invoices') {
+      // Invoice Overview
+      if (activeInvoiceSubModule === 'overview' || !activeInvoiceSubModule) {
+        return (
+          <InvoicesOverviewContent
+            language={language}
+            stats={stats}
+            onNavigate={(subModule) => setActiveInvoiceSubModule(subModule)}
+            onCreateInvoice={() => setActiveInvoiceSubModule('invoices')}
+            onGoToETASettings={() => setActiveInvoiceSubModule('eta-settings')}
+          />
+        );
+      }
+      
       // Invoice sub-modules
       switch (activeInvoiceSubModule) {
         case 'invoices':

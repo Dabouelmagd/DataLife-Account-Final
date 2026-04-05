@@ -654,6 +654,32 @@ GET    /api/payroll/reports/payslip/{run_id}/{employee_id}  # Employee payslip
 
 ## Changelog
 
+- **April 5, 2026 (Update 11)**: Overview Pages Redesign ✅
+  - **HR Overview (Cyan theme):**
+    - Header with gradient background and description
+    - 4 stat cards (Employees, Allowances, Deductions, Attendance Rate)
+    - Quick actions buttons (Add Employee, Payroll, Attendance, Reports)
+    - Employee list table with avatars and badges
+    - New file: `/app/frontend/src/components/HROverviewContent.jsx`
+  
+  - **Financial Overview (Emerald theme):**
+    - Header with gradient background and description
+    - 4 stat cards (Revenue, Expenses, Net Profit, Active Customers)
+    - Quick financial actions (Journal Entry, New Customer, New Supplier, Reports)
+    - Financial summary section with icons
+    - New file: `/app/frontend/src/components/FinancialOverviewContent.jsx`
+  
+  - **Invoices Overview (Amber theme):**
+    - Header with gradient background, ETA Settings & New Invoice buttons
+    - 4 stat cards (Total, Pending, Sent, Approved)
+    - Quick actions with descriptions (Sales Invoice, Purchase Invoice, Reports, ETA Settings)
+    - Invoice status breakdown (Draft, Pending, Submitted, Approved, Rejected)
+    - ETA integration banner
+    - New file: `/app/frontend/src/components/InvoicesOverviewContent.jsx`
+  
+  - Updated routing in `ModernSidebar.jsx` and `RealDashboard.jsx`
+  - Testing: Frontend verified (screenshots in Arabic)
+
 - **April 5, 2026 (Update 10)**: User Management & Dashboard Charts ✅
   - **Change Password Feature:**
     - Frontend form in ProfileTab with current/new/confirm password fields
