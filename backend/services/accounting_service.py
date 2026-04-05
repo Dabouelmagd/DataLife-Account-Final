@@ -27,7 +27,7 @@ class AccountingService:
     # ==========================================
     
     async def initialize_chart_of_accounts(self, company_id: str) -> bool:
-        """إنشاء دليل الحسابات الافتراضي للشركة"""
+        """إنشاء دليل الحسابات الافتراضي للشركة - Egyptian Standard Chart of Accounts"""
         try:
             # التحقق من وجود حسابات للشركة
             existing = await self.db.chart_of_accounts.count_documents({"company_id": company_id})
@@ -44,12 +44,17 @@ class AccountingService:
                     account_name_en=acc.get("name_en"),
                     account_type=acc["type"],
                     account_category=acc["category"],
-                    is_system=acc.get("is_system", False)
+                    is_system=acc.get("is_system", False),
+                    description=f"{'حساب رئيسي تجميعي' if acc.get('is_header') else 'حساب فرعي يقبل حركات'}"
                 )
-                accounts.append(account.dict())
+                account_dict = account.dict()
+                # Add extra fields for hierarchy
+                account_dict["is_header"] = acc.get("is_header", False)
+                account_dict["parent_code"] = acc.get("parent_code")
+                accounts.append(account_dict)
             
             await self.db.chart_of_accounts.insert_many(accounts)
-            logger.info(f"Created default chart of accounts for company {company_id}")
+            logger.info(f"Created Egyptian standard chart of accounts for company {company_id} with {len(accounts)} accounts")
             return True
         except Exception as e:
             logger.error(f"Error initializing chart of accounts: {e}")

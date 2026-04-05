@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Users, Phone, Mail, MapPin, DollarSign, Printer, CheckCircle, TrendingUp, TrendingDown, Loader2, RefreshCw, File, Upload } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Download, Search, Filter, Users, Phone, Mail, MapPin, DollarSign, Printer, CheckCircle, TrendingUp, TrendingDown, Loader2, RefreshCw, RefreshCcw, File, Upload, Building, FolderOpen, FileText, ChevronRight, ChevronDown } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { printContent, exportToPDF, generateTableHTML, generateStatsHTML } from '../utils/printExport';
 import ImportButton from './ImportButton';
@@ -1845,8 +1845,9 @@ export const CustodyModule = ({ language, userRole }) => {
   );
 };
 
-// Accounts Module
+// Accounts Module - Chart of Accounts with Egyptian Standard Support
 export const AccountsModule = ({ language, userRole }) => {
+  const API_URL = process.env.REACT_APP_BACKEND_URL;
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1855,38 +1856,116 @@ export const AccountsModule = ({ language, userRole }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const isRTL = language === 'ar';
   const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
-  const initialAccounts = [
-    { code: '1010', name: language === 'ar' ? 'البنك' : 'Bank', type: language === 'ar' ? 'أصول' : 'Assets', balance: 250000 },
-    { code: '1020', name: language === 'ar' ? 'الخزنة' : 'Cash', type: language === 'ar' ? 'أصول' : 'Assets', balance: 350000 },
-    { code: '2010', name: language === 'ar' ? 'الموردين' : 'Suppliers', type: language === 'ar' ? 'خصوم' : 'Liabilities', balance: 120000 },
-    { code: '3010', name: language === 'ar' ? 'رأس المال' : 'Capital', type: language === 'ar' ? 'حقوق ملكية' : 'Equity', balance: 500000 },
-    { code: '4010', name: language === 'ar' ? 'المبيعات' : 'Sales', type: language === 'ar' ? 'إيرادات' : 'Revenue', balance: 450000 },
-    { code: '5010', name: language === 'ar' ? 'الرواتب' : 'Salaries', type: language === 'ar' ? 'مصروفات' : 'Expenses', balance: 180000 }
-  ];
+  const [accounts, setAccounts] = React.useState([]);
 
-  const [accounts, setAccounts] = React.useState(initialAccounts);
+  // Fetch accounts from API
+  const fetchAccounts = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/accounting/accounts?active_only=false`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        // Transform API data to match component format
+        const transformedAccounts = (data.accounts || []).map(acc => ({
+          id: acc.id,
+          code: acc.account_code,
+          name: language === 'ar' ? acc.account_name : (acc.account_name_en || acc.account_name),
+          type: getAccountTypeLabel(acc.account_type),
+          balance: acc.current_balance || 0,
+          is_header: acc.is_header || false,
+          parent_code: acc.parent_code,
+          account_category: acc.account_category,
+          is_system: acc.is_system
+        }));
+        setAccounts(transformedAccounts);
+      }
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Update accounts when language changes
+  // Get localized account type label
+  const getAccountTypeLabel = (type) => {
+    const typeLabels = {
+      'asset': language === 'ar' ? 'أصول' : 'Assets',
+      'liability': language === 'ar' ? 'خصوم' : 'Liabilities',
+      'equity': language === 'ar' ? 'حقوق ملكية' : 'Equity',
+      'revenue': language === 'ar' ? 'إيرادات' : 'Revenue',
+      'expense': language === 'ar' ? 'مصروفات' : 'Expenses',
+      'contra_asset': language === 'ar' ? 'أصول مقابلة' : 'Contra Asset',
+      'contra_liability': language === 'ar' ? 'خصوم مقابلة' : 'Contra Liability',
+      'contra_equity': language === 'ar' ? 'حقوق ملكية مقابلة' : 'Contra Equity'
+    };
+    return typeLabels[type] || type;
+  };
+
+  // Load accounts on mount and language change
   React.useEffect(() => {
-    setAccounts([
-      { code: '1010', name: language === 'ar' ? 'البنك' : 'Bank', type: language === 'ar' ? 'أصول' : 'Assets', balance: 250000 },
-      { code: '1020', name: language === 'ar' ? 'الخزنة' : 'Cash', type: language === 'ar' ? 'أصول' : 'Assets', balance: 350000 },
-      { code: '2010', name: language === 'ar' ? 'الموردين' : 'Suppliers', type: language === 'ar' ? 'خصوم' : 'Liabilities', balance: 120000 },
-      { code: '3010', name: language === 'ar' ? 'رأس المال' : 'Capital', type: language === 'ar' ? 'حقوق ملكية' : 'Equity', balance: 500000 },
-      { code: '4010', name: language === 'ar' ? 'المبيعات' : 'Sales', type: language === 'ar' ? 'إيرادات' : 'Revenue', balance: 450000 },
-      { code: '5010', name: language === 'ar' ? 'الرواتب' : 'Salaries', type: language === 'ar' ? 'مصروفات' : 'Expenses', balance: 180000 }
-    ]);
+    fetchAccounts();
   }, [language]);
 
-  const handleDeleteConfirm = () => {
-    setAccounts(accounts.filter(a => a.code !== selectedEntry.code));
+  const handleDeleteConfirm = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/accounting/accounts/${selectedEntry.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        setAccounts(accounts.filter(a => a.code !== selectedEntry.code));
+        setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
+      } else {
+        setSuccessMessage(language === 'ar' ? 'فشل في الحذف' : 'Delete failed');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      setSuccessMessage(language === 'ar' ? 'خطأ في الحذف' : 'Delete error');
+    }
     setShowDeleteModal(false);
-    setSuccessMessage(language === 'ar' ? 'تم الحذف بنجاح!' : 'Deleted successfully!');
     setShowSuccessModal(true);
     setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
+  // Reinitialize Chart of Accounts with Egyptian Standard
+  const handleReinitialize = async () => {
+    if (!window.confirm(language === 'ar' 
+      ? 'هل أنت متأكد من إعادة تهيئة دليل الحسابات؟ سيتم حذف جميع الحسابات الحالية واستبدالها بالدليل المصري القياسي.'
+      : 'Are you sure you want to reinitialize the chart of accounts? This will delete all current accounts and replace them with the Egyptian standard chart.')) {
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/accounting/accounts/reinitialize`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSuccessMessage(language === 'ar' 
+          ? `تم تهيئة دليل الحسابات بنجاح (${data.accounts_count} حساب)`
+          : `Chart of accounts initialized successfully (${data.accounts_count} accounts)`);
+        setShowSuccessModal(true);
+        setTimeout(() => setShowSuccessModal(false), 3000);
+        await fetchAccounts();
+      }
+    } catch (error) {
+      console.error('Reinitialize error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Calculate statistics by type
@@ -1895,9 +1974,34 @@ export const AccountsModule = ({ language, userRole }) => {
   const equityAccounts = accounts.filter(a => a.type === (language === 'ar' ? 'حقوق ملكية' : 'Equity'));
   const revenueAccounts = accounts.filter(a => a.type === (language === 'ar' ? 'إيرادات' : 'Revenue'));
   const expenseAccounts = accounts.filter(a => a.type === (language === 'ar' ? 'مصروفات' : 'Expenses'));
+  const contraAssetAccounts = accounts.filter(a => a.type === (language === 'ar' ? 'أصول مقابلة' : 'Contra Asset'));
 
   const totalAssets = assetAccounts.reduce((sum, a) => sum + a.balance, 0);
   const totalLiabilities = liabilityAccounts.reduce((sum, a) => sum + a.balance, 0);
+
+  // Filter accounts based on search and type
+  const filteredAccounts = accounts.filter(a => {
+    const matchesSearch = !searchTerm || 
+      a.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesType = typeFilter === 'all' || a.type === typeFilter || 
+      (typeFilter === 'Assets' && (a.type === 'أصول' || a.type === 'Assets')) ||
+      (typeFilter === 'Liabilities' && (a.type === 'خصوم' || a.type === 'Liabilities')) ||
+      (typeFilter === 'Equity' && (a.type === 'حقوق ملكية' || a.type === 'Equity')) ||
+      (typeFilter === 'Revenue' && (a.type === 'إيرادات' || a.type === 'Revenue')) ||
+      (typeFilter === 'Expenses' && (a.type === 'مصروفات' || a.type === 'Expenses'));
+    
+    return matchesSearch && matchesType;
+  });
+
+  // Get indent level based on account code length
+  const getIndentLevel = (code) => {
+    if (code.length === 1) return 0;
+    if (code.length === 2) return 1;
+    if (code.length === 3) return 2;
+    return 3;
+  };
 
   // Export to CSV function
   const exportToCSV = () => {
@@ -1931,15 +2035,17 @@ export const AccountsModule = ({ language, userRole }) => {
       'Liabilities': 'خصوم',
       'Equity': 'حقوق ملكية',
       'Revenue': 'إيرادات',
-      'Expenses': 'مصروفات'
+      'Expenses': 'مصروفات',
+      'Contra Asset': 'أصول مقابلة'
     };
     
     const typeColors = {
-      'Assets': 'bg-blue-100 text-blue-700',
-      'Liabilities': 'bg-red-100 text-red-700',
-      'Equity': 'bg-purple-100 text-purple-700',
-      'Revenue': 'bg-green-100 text-green-700',
-      'Expenses': 'bg-orange-100 text-orange-700'
+      'Assets': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+      'Liabilities': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+      'Equity': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+      'Revenue': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+      'Expenses': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+      'Contra Asset': 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300'
     };
     
     for (const [key, ar] of Object.entries(typeMap)) {
@@ -1952,25 +2058,42 @@ export const AccountsModule = ({ language, userRole }) => {
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">
-          {language === 'ar' ? 'دليل الحسابات' : 'Chart of Accounts'}
-        </h2>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportToCSV} className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center gap-2">
-            <Printer className="h-4 w-4" />
-            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
-          </Button>
-          {canEdit && (
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2" onClick={() => setShowAddModal(true)}>
-              <Plus className="h-4 w-4" />
-              <span>{language === 'ar' ? 'حساب جديد' : 'New Account'}</span>
+      {/* Modern Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-700 via-slate-800 to-zinc-900 p-6 text-white">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
+              <Building className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold mb-1">{language === 'ar' ? 'دليل الحسابات' : 'Chart of Accounts'}</h1>
+              <p className="text-slate-300 text-sm">{language === 'ar' ? 'المعيار المحاسبي المصري - شجرة الحسابات الهرمية' : 'Egyptian Accounting Standard - Hierarchical Account Tree'}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={exportToCSV} className="bg-white/10 border-white/20 hover:bg-white/20 text-white flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              <span>{language === 'ar' ? 'تصدير' : 'Export'}</span>
             </Button>
-          )}
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="bg-white/10 border-white/20 hover:bg-white/20 text-white flex items-center gap-2">
+              <Printer className="h-4 w-4" />
+              <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
+            </Button>
+            {canEdit && (
+              <>
+                <Button size="sm" variant="outline" className="bg-amber-500/20 border-amber-400/30 hover:bg-amber-500/30 text-amber-200 flex items-center gap-2" onClick={handleReinitialize}>
+                  <RefreshCcw className="h-4 w-4" />
+                  <span>{language === 'ar' ? 'إعادة تهيئة' : 'Reinitialize'}</span>
+                </Button>
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2" onClick={() => setShowAddModal(true)}>
+                  <Plus className="h-4 w-4" />
+                  <span>{language === 'ar' ? 'حساب جديد' : 'New Account'}</span>
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2028,19 +2151,21 @@ export const AccountsModule = ({ language, userRole }) => {
       </div>
 
       {/* Search and Filter Section */}
-      <Card>
+      <Card className="dark:bg-slate-800/50">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400`} />
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={language === 'ar' ? 'البحث بالكود أو اسم الحساب...' : 'Search by code or account name...'}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
               />
             </div>
             <select 
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
             >
@@ -2051,43 +2176,39 @@ export const AccountsModule = ({ language, userRole }) => {
               <option value="Revenue">{language === 'ar' ? 'الإيرادات' : 'Revenue'}</option>
               <option value="Expenses">{language === 'ar' ? 'المصروفات' : 'Expenses'}</option>
             </select>
+            <div className="text-sm text-gray-500 dark:text-slate-400 flex items-center">
+              {language === 'ar' ? `${filteredAccounts.length} حساب` : `${filteredAccounts.length} accounts`}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
+      {/* Accounts Table with Tree View */}
+      <Card className="dark:bg-slate-800/50">
         <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              <span className="ml-2 text-gray-500">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</span>
+            </div>
+          ) : (
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>{language === 'ar' ? 'الكود' : 'Code'}</TableHead>
-                <TableHead>{language === 'ar' ? 'اسم الحساب' : 'Account Name'}</TableHead>
-                <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
-                <TableHead>{language === 'ar' ? 'الرصيد' : 'Balance'}</TableHead>
-                <TableHead>{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
+              <TableRow className="bg-slate-50 dark:bg-slate-700/50">
+                <TableHead className="font-bold">{language === 'ar' ? 'الكود' : 'Code'}</TableHead>
+                <TableHead className="font-bold">{language === 'ar' ? 'اسم الحساب' : 'Account Name'}</TableHead>
+                <TableHead className="font-bold">{language === 'ar' ? 'المستوى' : 'Level'}</TableHead>
+                <TableHead className="font-bold">{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
+                <TableHead className="font-bold">{language === 'ar' ? 'الرصيد' : 'Balance'}</TableHead>
+                <TableHead className="font-bold">{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(() => {
-                const getTypeKey = (type) => {
-                  const typeMap = {
-                    'أصول': 'Assets',
-                    'خصوم': 'Liabilities',
-                    'حقوق ملكية': 'Equity',
-                    'إيرادات': 'Revenue',
-                    'مصروفات': 'Expenses'
-                  };
-                  return typeMap[type] || type;
-                };
-
-                const filteredAccounts = typeFilter === 'all' 
-                  ? accounts 
-                  : accounts.filter(a => getTypeKey(a.type) === typeFilter);
-                
                 if (filteredAccounts.length === 0) {
                   return (
                     <TableRow>
-                      <TableCell colSpan="5" className="text-center py-8 text-gray-500">
+                      <TableCell colSpan="6" className="text-center py-8 text-gray-500 dark:text-slate-400">
                         {language === 'ar' ? 'لا توجد حسابات' : 'No accounts found'}
                       </TableCell>
                     </TableRow>
@@ -2096,24 +2217,56 @@ export const AccountsModule = ({ language, userRole }) => {
                 
                 return filteredAccounts.map((account) => {
                   const badge = getAccountTypeBadge(account.type);
+                  const indentLevel = getIndentLevel(account.code);
+                  const indentClass = `${isRTL ? 'pr' : 'pl'}-${indentLevel * 4 + 2}`;
+                  const isHeader = account.is_header;
+                  
                   return (
-                    <TableRow key={account.code}>
-                      <TableCell className="font-bold text-blue-600">{account.code}</TableCell>
-                      <TableCell className="font-medium">{account.name}</TableCell>
+                    <TableRow 
+                      key={account.code} 
+                      className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${isHeader ? 'bg-slate-50/50 dark:bg-slate-700/30 font-semibold' : ''}`}
+                    >
+                      <TableCell className={`font-mono ${isHeader ? 'text-blue-700 dark:text-blue-400 font-bold' : 'text-blue-600 dark:text-blue-500'}`}>
+                        {account.code}
+                      </TableCell>
+                      <TableCell className={indentClass}>
+                        <div className="flex items-center gap-2">
+                          {isHeader ? (
+                            <FolderOpen className="w-4 h-4 text-amber-500" />
+                          ) : (
+                            <FileText className="w-4 h-4 text-slate-400" />
+                          )}
+                          <span className={isHeader ? 'font-bold text-slate-800 dark:text-white' : 'dark:text-slate-200'}>
+                            {account.name}
+                          </span>
+                          {account.is_system && (
+                            <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded">
+                              {language === 'ar' ? 'نظام' : 'System'}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`text-xs ${isHeader ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                          {isHeader 
+                            ? (language === 'ar' ? 'رئيسي (تجميعي)' : 'Header (Group)') 
+                            : (language === 'ar' ? 'فرعي (يقبل حركات)' : 'Detail (Posting)')}
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${badge.color}`}>
                           {badge.label}
                         </span>
                       </TableCell>
-                      <TableCell className="font-bold text-gray-900">
-                        {account.balance.toLocaleString()} {language === 'ar' ? 'ج.م' : 'EGP'}
+                      <TableCell className={`font-bold ${isHeader ? 'text-slate-500 dark:text-slate-400' : 'text-gray-900 dark:text-white'}`}>
+                        {isHeader ? '-' : `${account.balance.toLocaleString()} ${language === 'ar' ? 'ج.م' : 'EGP'}`}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setShowViewModal(true); }}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {canEdit && (
+                          {canEdit && !account.is_system && (
                             <>
                               <Button variant="ghost" size="sm" onClick={() => { setSelectedEntry(account); setShowEditModal(true); }}>
                                 <Edit className="h-4 w-4" />
@@ -2131,6 +2284,7 @@ export const AccountsModule = ({ language, userRole }) => {
               })()}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 

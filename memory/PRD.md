@@ -408,6 +408,44 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Real data fetching from: /api/employees, /api/customers, /api/suppliers, /api/invoices, /api/purchases, /api/products, /api/projects, /api/expenses, /api/revenues
   - Mock data fallback for demo purposes
 
+#### 16. Egyptian Standard Chart of Accounts (NEW - April 2026) ✅
+- **Chart of Accounts Upgraded to Egyptian Accounting Standard:**
+  - Replaced old numbering system (1000, 2000, etc.) with Egyptian standard (1, 11, 111, 11101, etc.)
+  - Total 71 accounts following the Egyptian accounting hierarchy
+  - Account structure with header (تجميعي) and detail (فرعي يقبل حركات) levels
+  - **Accounts Categories Added:**
+    - 1: الأصول (Assets)
+      - 11: الأصول غير المتداولة (Non-Current Assets)
+        - 111: الأراضي - 11101, 11102
+        - 112-116: مباني، سيارات، آلات، أثاث، كمبيوتر
+      - 12: المخزون (Inventory) - 121-124
+      - 13: المدينون (Receivables) - 131-136
+      - 14: مشروعات تحت التنفيذ
+      - 16: النقدية (Cash) - 161, 162
+    - 2: الالتزامات وحقوق الملكية
+      - 21: حقوق الملكية - 211-213
+      - 22: المخصصات والاحتياطيات - 221, 222, 223
+      - 24: القروض والتسهيلات - 241, 242
+      - 25: الدائنون - 251-255
+    - 3: المصروفات
+      - 31: تكلفة المبيعات (COGS) - 311-313
+      - 33: المصروفات الإدارية - 331-334
+      - 34: المصروفات البيعية - 341-343
+    - 4: الإيرادات
+      - 41: إيرادات النشاط - 411-413
+      - 42: إيرادات أخرى - 421-423
+- **API Endpoints:**
+  - POST /api/accounting/accounts/reinitialize - Reset and reinitialize with Egyptian standard
+- **UI Improvements:**
+  - Modern gradient header with building icon
+  - Tree-view table with folder/file icons
+  - Account level column (رئيسي تجميعي / فرعي)
+  - System account badges
+  - RTL support with proper indentation
+  - Dark mode support
+  - Search and filter functionality
+  - Export to CSV
+
 - **Check-in/Check-out:**
   - Record check-in time
   - Record check-out time

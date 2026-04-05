@@ -27,23 +27,39 @@ class AccountType(str, Enum):
 
 
 class AccountCategory(str, Enum):
-    """تصنيفات الحسابات"""
-    # الأصول
+    """تصنيفات الحسابات - Egyptian Standard Chart of Accounts"""
+    # الأصول - Assets
+    HEADER = "header"                         # حساب رئيسي تجميعي (View/Header)
     CURRENT_ASSET = "current_asset"           # أصول متداولة
     FIXED_ASSET = "fixed_asset"               # أصول ثابتة
-    # الخصوم
+    NON_CURRENT_ASSET = "non_current_asset"   # أصول غير متداولة
+    CASH = "cash"                             # نقدية
+    BANK = "bank"                             # بنوك
+    RECEIVABLE = "receivable"                 # ذمم مدينة
+    PREPAYMENT = "prepayment"                 # مدفوعات مقدمة
+    INVENTORY = "inventory"                   # مخزون
+    # الخصوم - Liabilities
     CURRENT_LIABILITY = "current_liability"   # خصوم متداولة
+    NON_CURRENT_LIABILITY = "non_current_liability"  # خصوم غير متداولة
     LONG_TERM_LIABILITY = "long_term_liability"  # خصوم طويلة الأجل
-    # حقوق الملكية
+    PAYABLE = "payable"                       # ذمم دائنة
+    # حقوق الملكية - Equity
     CAPITAL = "capital"                       # رأس المال
+    EQUITY = "equity"                         # حقوق ملكية
     RETAINED_EARNINGS = "retained_earnings"   # أرباح محتجزة
-    # الإيرادات
+    RESERVES = "reserves"                     # احتياطيات ومخصصات
+    # الإيرادات - Revenue
     OPERATING_REVENUE = "operating_revenue"   # إيرادات تشغيلية
+    INCOME = "income"                         # إيرادات
     OTHER_REVENUE = "other_revenue"           # إيرادات أخرى
-    # المصروفات
+    CONTRA_INCOME = "contra_income"           # إيرادات مقابلة (مردودات)
+    # المصروفات - Expenses
     OPERATING_EXPENSE = "operating_expense"   # مصروفات تشغيلية
     ADMIN_EXPENSE = "admin_expense"           # مصروفات إدارية
+    SELLING_EXPENSE = "selling_expense"       # مصروفات بيعية وتسويقية
+    COGS = "cogs"                             # تكلفة البضاعة المباعة
     OTHER_EXPENSE = "other_expense"           # مصروفات أخرى
+    EXPENSE = "expense"                       # مصروفات عامة
 
 
 class ChartOfAccount(BaseModel):
@@ -218,65 +234,130 @@ def determine_journal_side(account_type: AccountType, action: str) -> str:
 
 
 # ==========================================
-# Default Chart of Accounts
+# Default Chart of Accounts - Egyptian Standard
+# دليل الحسابات المصري القياسي
 # ==========================================
 
 DEFAULT_ACCOUNTS = [
-    # الأصول المتداولة (1000-1999)
-    {"code": "1000", "name": "الأصول", "name_en": "Assets", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "is_system": True},
-    {"code": "1100", "name": "النقدية والبنوك", "name_en": "Cash & Banks", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET},
-    {"code": "1101", "name": "الصندوق (الخزينة)", "name_en": "Cash on Hand", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET},
-    {"code": "1102", "name": "البنك", "name_en": "Bank Account", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET},
-    {"code": "1200", "name": "العملاء (المدينون)", "name_en": "Accounts Receivable", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET},
-    {"code": "1300", "name": "المخزون", "name_en": "Inventory", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET},
-    {"code": "1400", "name": "مصروفات مدفوعة مقدماً", "name_en": "Prepaid Expenses", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET},
+    # ==========================================
+    # 1 - الأصول (Assets)
+    # ==========================================
+    {"code": "1", "name": "الأصول", "name_en": "Assets", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "is_system": True, "is_header": True},
     
-    # الأصول الثابتة (1500-1999)
-    {"code": "1500", "name": "الأصول الثابتة", "name_en": "Fixed Assets", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET},
-    {"code": "1501", "name": "الأراضي", "name_en": "Land", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET},
-    {"code": "1502", "name": "المباني", "name_en": "Buildings", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET},
-    {"code": "1503", "name": "السيارات", "name_en": "Vehicles", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET},
-    {"code": "1504", "name": "الأثاث والمعدات", "name_en": "Furniture & Equipment", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET},
-    {"code": "1505", "name": "أجهزة الكمبيوتر", "name_en": "Computer Equipment", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET},
-    {"code": "1600", "name": "مجمع الإهلاك", "name_en": "Accumulated Depreciation", "type": AccountType.CONTRA_ASSET, "category": AccountCategory.FIXED_ASSET},
+    # 11 - الأصول غير المتداولة (Non-Current Assets)
+    {"code": "11", "name": "الأصول غير المتداولة", "name_en": "Non-Current Assets", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "1"},
     
-    # الخصوم المتداولة (2000-2499)
-    {"code": "2000", "name": "الخصوم", "name_en": "Liabilities", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "is_system": True},
-    {"code": "2100", "name": "الموردون (الدائنون)", "name_en": "Accounts Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY},
-    {"code": "2200", "name": "أوراق الدفع", "name_en": "Notes Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY},
-    {"code": "2300", "name": "الرواتب المستحقة", "name_en": "Salaries Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY},
-    {"code": "2400", "name": "الضرائب المستحقة", "name_en": "Taxes Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY},
-    {"code": "2500", "name": "إيرادات مقدمة", "name_en": "Unearned Revenue", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY},
+    # 111 - الأراضي
+    {"code": "111", "name": "الأراضي", "name_en": "Land", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "11"},
+    {"code": "11101", "name": "أراضي منشآت ومباني", "name_en": "Building Land", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET, "parent_code": "111"},
+    {"code": "11102", "name": "أراضي زراعية ومحاجر", "name_en": "Agricultural Land & Quarries", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET, "parent_code": "111"},
     
-    # الخصوم طويلة الأجل (2500-2999)
-    {"code": "2600", "name": "القروض طويلة الأجل", "name_en": "Long-term Loans", "type": AccountType.LIABILITY, "category": AccountCategory.LONG_TERM_LIABILITY},
+    # 112-116 - الأصول الثابتة الأخرى
+    {"code": "112", "name": "مباني وإنشاءات", "name_en": "Buildings & Constructions", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET, "parent_code": "11"},
+    {"code": "113", "name": "سيارات ووسائل نقل", "name_en": "Vehicles & Transportation", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET, "parent_code": "11"},
+    {"code": "114", "name": "آلات ومعدات إنتاج", "name_en": "Machinery & Production Equipment", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET, "parent_code": "11"},
+    {"code": "115", "name": "أثاث وتجهيزات مكتبية", "name_en": "Furniture & Office Equipment", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET, "parent_code": "11"},
+    {"code": "116", "name": "أجهزة كمبيوتر وبرمجيات", "name_en": "Computer & Software", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET, "parent_code": "11"},
     
-    # حقوق الملكية (3000-3999)
-    {"code": "3000", "name": "حقوق الملكية", "name_en": "Equity", "type": AccountType.EQUITY, "category": AccountCategory.CAPITAL, "is_system": True},
-    {"code": "3100", "name": "رأس المال", "name_en": "Capital", "type": AccountType.EQUITY, "category": AccountCategory.CAPITAL},
-    {"code": "3200", "name": "الأرباح المحتجزة", "name_en": "Retained Earnings", "type": AccountType.EQUITY, "category": AccountCategory.RETAINED_EARNINGS},
-    {"code": "3300", "name": "المسحوبات الشخصية", "name_en": "Drawings", "type": AccountType.CONTRA_EQUITY, "category": AccountCategory.CAPITAL},
+    # 12 - المخزون (Inventory)
+    {"code": "12", "name": "المخزون", "name_en": "Inventory", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "1"},
+    {"code": "121", "name": "مخزون الخامات والمواد الأولية", "name_en": "Raw Materials Inventory", "type": AccountType.ASSET, "category": AccountCategory.INVENTORY, "parent_code": "12"},
+    {"code": "122", "name": "مخزون الإنتاج التام", "name_en": "Finished Goods Inventory", "type": AccountType.ASSET, "category": AccountCategory.INVENTORY, "parent_code": "12"},
+    {"code": "123", "name": "مخزون بضاعة بالطريق / اعتمادات", "name_en": "Goods in Transit / LC", "type": AccountType.ASSET, "category": AccountCategory.INVENTORY, "parent_code": "12"},
+    {"code": "124", "name": "مخزون قطع غيار ومهمات", "name_en": "Spare Parts & Supplies Inventory", "type": AccountType.ASSET, "category": AccountCategory.INVENTORY, "parent_code": "12"},
     
-    # الإيرادات (4000-4999)
-    {"code": "4000", "name": "الإيرادات", "name_en": "Revenue", "type": AccountType.REVENUE, "category": AccountCategory.OPERATING_REVENUE, "is_system": True},
-    {"code": "4100", "name": "إيرادات المبيعات", "name_en": "Sales Revenue", "type": AccountType.REVENUE, "category": AccountCategory.OPERATING_REVENUE},
-    {"code": "4200", "name": "إيرادات الخدمات", "name_en": "Service Revenue", "type": AccountType.REVENUE, "category": AccountCategory.OPERATING_REVENUE},
-    {"code": "4300", "name": "خصم مسموح به", "name_en": "Sales Discount", "type": AccountType.CONTRA_EQUITY, "category": AccountCategory.OPERATING_REVENUE},
-    {"code": "4400", "name": "مردودات المبيعات", "name_en": "Sales Returns", "type": AccountType.CONTRA_EQUITY, "category": AccountCategory.OPERATING_REVENUE},
-    {"code": "4900", "name": "إيرادات أخرى", "name_en": "Other Revenue", "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE},
+    # 13 - المدينون والأرصدة المدينة (Receivables)
+    {"code": "13", "name": "المدينون والأرصدة المدينة الأخرى", "name_en": "Receivables & Other Debit Balances", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "1"},
+    {"code": "131", "name": "العملاء", "name_en": "Accounts Receivable (Customers)", "type": AccountType.ASSET, "category": AccountCategory.RECEIVABLE, "parent_code": "13", "is_system": True},
+    {"code": "132", "name": "أوراق القبض", "name_en": "Notes Receivable", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "13"},
+    {"code": "133", "name": "عهد الموظفين النقدية", "name_en": "Employee Cash Custody", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "13"},
+    {"code": "134", "name": "سلف الموظفين", "name_en": "Employee Advances", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "13"},
+    {"code": "135", "name": "مصروفات مدفوعة مقدماً", "name_en": "Prepaid Expenses", "type": AccountType.ASSET, "category": AccountCategory.PREPAYMENT, "parent_code": "13"},
+    {"code": "136", "name": "إيرادات مستحقة", "name_en": "Accrued Revenue", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "13"},
     
-    # المصروفات (5000-5999)
-    {"code": "5000", "name": "المصروفات", "name_en": "Expenses", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "is_system": True},
-    {"code": "5100", "name": "تكلفة البضاعة المباعة", "name_en": "Cost of Goods Sold", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE},
-    {"code": "5200", "name": "مصروفات الرواتب", "name_en": "Salaries Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE},
-    {"code": "5300", "name": "مصروفات الإيجار", "name_en": "Rent Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE},
-    {"code": "5400", "name": "مصروفات الكهرباء", "name_en": "Electricity Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE},
-    {"code": "5500", "name": "مصروفات المياه", "name_en": "Water Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE},
-    {"code": "5600", "name": "مصروفات الاتصالات", "name_en": "Telecommunications Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE},
-    {"code": "5700", "name": "مصروفات الصيانة", "name_en": "Maintenance Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE},
-    {"code": "5800", "name": "مصروفات الإهلاك", "name_en": "Depreciation Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE},
-    {"code": "5900", "name": "مصروفات التأمين", "name_en": "Insurance Expense", "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE},
-    {"code": "5910", "name": "مصروفات إدارية", "name_en": "Administrative Expense", "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE},
-    {"code": "5920", "name": "مصروفات بنكية", "name_en": "Bank Charges", "type": AccountType.EXPENSE, "category": AccountCategory.OTHER_EXPENSE},
-    {"code": "5990", "name": "مصروفات متنوعة", "name_en": "Miscellaneous Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OTHER_EXPENSE},
+    # 14 - مشروعات تحت التنفيذ
+    {"code": "14", "name": "مشروعات تحت التنفيذ", "name_en": "Projects Under Construction", "type": AccountType.ASSET, "category": AccountCategory.NON_CURRENT_ASSET, "parent_code": "1"},
+    
+    # 16 - النقدية وما في حكمها (Cash & Cash Equivalents)
+    {"code": "16", "name": "النقدية وما في حكمها", "name_en": "Cash & Cash Equivalents", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "1"},
+    {"code": "161", "name": "النقدية بالصندوق (الخزينة الرئيسية)", "name_en": "Cash on Hand (Main Treasury)", "type": AccountType.ASSET, "category": AccountCategory.CASH, "parent_code": "16", "is_system": True},
+    {"code": "162", "name": "النقدية بالبنوك الجارية", "name_en": "Bank Current Accounts", "type": AccountType.ASSET, "category": AccountCategory.BANK, "parent_code": "16", "is_system": True},
+    
+    # ==========================================
+    # 2 - الالتزامات وحقوق الملكية (Liabilities & Equity)
+    # ==========================================
+    {"code": "2", "name": "الالتزامات وحقوق الملكية", "name_en": "Liabilities & Equity", "type": AccountType.LIABILITY, "category": AccountCategory.HEADER, "is_system": True, "is_header": True},
+    
+    # 21 - حقوق الملكية (Equity)
+    {"code": "21", "name": "حقوق الملكية", "name_en": "Equity", "type": AccountType.EQUITY, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "2"},
+    {"code": "211", "name": "رأس المال المدفوع", "name_en": "Paid-up Capital", "type": AccountType.EQUITY, "category": AccountCategory.CAPITAL, "parent_code": "21", "is_system": True},
+    {"code": "212", "name": "جاري الشركاء", "name_en": "Partners' Current Account", "type": AccountType.EQUITY, "category": AccountCategory.EQUITY, "parent_code": "21"},
+    {"code": "213", "name": "الأرباح (الخسائر) المرحلة", "name_en": "Retained Earnings (Losses)", "type": AccountType.EQUITY, "category": AccountCategory.RETAINED_EARNINGS, "parent_code": "21", "is_system": True},
+    
+    # 22 - المخصصات والاحتياطيات (Provisions & Reserves)
+    {"code": "22", "name": "المخصصات والاحتياطيات", "name_en": "Provisions & Reserves", "type": AccountType.LIABILITY, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "2"},
+    {"code": "221", "name": "احتياطي قانوني وعام", "name_en": "Legal & General Reserve", "type": AccountType.EQUITY, "category": AccountCategory.RESERVES, "parent_code": "22"},
+    
+    # 222 - مجمعات الإهلاك (Accumulated Depreciation)
+    {"code": "222", "name": "مجمعات الإهلاك", "name_en": "Accumulated Depreciation", "type": AccountType.CONTRA_ASSET, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "22"},
+    {"code": "22201", "name": "مجمع إهلاك مباني وإنشاءات", "name_en": "Accumulated Depreciation - Buildings", "type": AccountType.CONTRA_ASSET, "category": AccountCategory.NON_CURRENT_LIABILITY, "parent_code": "222"},
+    {"code": "22202", "name": "مجمع إهلاك آلات ومعدات", "name_en": "Accumulated Depreciation - Machinery", "type": AccountType.CONTRA_ASSET, "category": AccountCategory.NON_CURRENT_LIABILITY, "parent_code": "222"},
+    {"code": "22203", "name": "مجمع إهلاك سيارات ووسائل نقل", "name_en": "Accumulated Depreciation - Vehicles", "type": AccountType.CONTRA_ASSET, "category": AccountCategory.NON_CURRENT_LIABILITY, "parent_code": "222"},
+    {"code": "22204", "name": "مجمع إهلاك أثاث وأجهزة", "name_en": "Accumulated Depreciation - Furniture & Equipment", "type": AccountType.CONTRA_ASSET, "category": AccountCategory.NON_CURRENT_LIABILITY, "parent_code": "222"},
+    
+    {"code": "223", "name": "مخصص مكافأة نهاية الخدمة", "name_en": "End of Service Provision", "type": AccountType.LIABILITY, "category": AccountCategory.NON_CURRENT_LIABILITY, "parent_code": "22"},
+    
+    # 24 - القروض والتسهيلات (Loans & Facilities)
+    {"code": "24", "name": "القروض والتسهيلات", "name_en": "Loans & Facilities", "type": AccountType.LIABILITY, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "2"},
+    {"code": "241", "name": "قروض بنكية طويلة الأجل", "name_en": "Long-term Bank Loans", "type": AccountType.LIABILITY, "category": AccountCategory.NON_CURRENT_LIABILITY, "parent_code": "24"},
+    {"code": "242", "name": "تسهيلات ائتمانية وسحب على المكشوف", "name_en": "Credit Facilities & Overdraft", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "24"},
+    
+    # 25 - الدائنون والأرصدة الدائنة (Payables)
+    {"code": "25", "name": "الدائنون والأرصدة الدائنة الأخرى", "name_en": "Payables & Other Credit Balances", "type": AccountType.LIABILITY, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "2"},
+    {"code": "251", "name": "الموردون", "name_en": "Accounts Payable (Suppliers)", "type": AccountType.LIABILITY, "category": AccountCategory.PAYABLE, "parent_code": "25", "is_system": True},
+    {"code": "252", "name": "أوراق الدفع", "name_en": "Notes Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
+    {"code": "253", "name": "مصروفات مستحقة (أجور، إيجارات)", "name_en": "Accrued Expenses (Wages, Rent)", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
+    {"code": "254", "name": "الضرائب المستحقة (قيمة مضافة، خصم)", "name_en": "Taxes Payable (VAT, Withholding)", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25", "is_system": True},
+    {"code": "255", "name": "التأمينات الاجتماعية المستحقة", "name_en": "Social Insurance Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25", "is_system": True},
+    
+    # ==========================================
+    # 3 - المصروفات (Expenses)
+    # ==========================================
+    {"code": "3", "name": "المصروفات", "name_en": "Expenses", "type": AccountType.EXPENSE, "category": AccountCategory.HEADER, "is_system": True, "is_header": True},
+    
+    # 31 - تكلفة النشاط / تكلفة المبيعات (COGS)
+    {"code": "31", "name": "تكلفة النشاط / تكلفة المبيعات", "name_en": "Cost of Sales / COGS", "type": AccountType.EXPENSE, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "3"},
+    {"code": "311", "name": "تكلفة الخامات والمواد المستهلكة", "name_en": "Cost of Raw Materials Consumed", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
+    {"code": "312", "name": "أجور تشغيلية مباشرة", "name_en": "Direct Labor Cost", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
+    {"code": "313", "name": "مصروفات وإهلاكات تشغيلية", "name_en": "Operating Expenses & Depreciation", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
+    
+    # 33 - المصروفات الإدارية والعمومية (G&A Expenses)
+    {"code": "33", "name": "المصروفات الإدارية والعمومية", "name_en": "General & Administrative Expenses", "type": AccountType.EXPENSE, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "3"},
+    {"code": "331", "name": "رواتب وأجور إدارية", "name_en": "Administrative Salaries & Wages", "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33", "is_system": True},
+    {"code": "332", "name": "مصروفات خدمية (كهرباء، مياه، بريد)", "name_en": "Utilities Expense (Electricity, Water, Mail)", "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
+    {"code": "333", "name": "إهلاكات الأصول الإدارية", "name_en": "Administrative Assets Depreciation", "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
+    {"code": "334", "name": "مصروفات وعمولات بنكية", "name_en": "Bank Charges & Commissions", "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
+    
+    # 34 - المصروفات البيعية والتسويقية (Selling & Marketing Expenses)
+    {"code": "34", "name": "المصروفات البيعية والتسويقية", "name_en": "Selling & Marketing Expenses", "type": AccountType.EXPENSE, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "3"},
+    {"code": "341", "name": "دعاية وإعلان", "name_en": "Advertising & Promotion", "type": AccountType.EXPENSE, "category": AccountCategory.SELLING_EXPENSE, "parent_code": "34"},
+    {"code": "342", "name": "عمولات بيعية", "name_en": "Sales Commissions", "type": AccountType.EXPENSE, "category": AccountCategory.SELLING_EXPENSE, "parent_code": "34"},
+    {"code": "343", "name": "مصاريف نقل المبيعات", "name_en": "Sales Freight Expenses", "type": AccountType.EXPENSE, "category": AccountCategory.SELLING_EXPENSE, "parent_code": "34"},
+    
+    # ==========================================
+    # 4 - الإيرادات (Revenue)
+    # ==========================================
+    {"code": "4", "name": "الإيرادات", "name_en": "Revenue", "type": AccountType.REVENUE, "category": AccountCategory.HEADER, "is_system": True, "is_header": True},
+    
+    # 41 - إيرادات النشاط الأساسي (Operating Revenue)
+    {"code": "41", "name": "إيرادات النشاط الأساسي", "name_en": "Operating Revenue", "type": AccountType.REVENUE, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "4"},
+    {"code": "411", "name": "إيراد مبيعات بضائع", "name_en": "Sales Revenue - Goods", "type": AccountType.REVENUE, "category": AccountCategory.INCOME, "parent_code": "41", "is_system": True},
+    {"code": "412", "name": "إيراد تقديم خدمات / تشغيل للغير", "name_en": "Service Revenue / Contract Work", "type": AccountType.REVENUE, "category": AccountCategory.INCOME, "parent_code": "41"},
+    {"code": "413", "name": "مردودات ومسموحات المبيعات", "name_en": "Sales Returns & Allowances", "type": AccountType.EXPENSE, "category": AccountCategory.CONTRA_INCOME, "parent_code": "41"},
+    
+    # 42 - الإيرادات الأخرى والتحويلية (Other Revenue)
+    {"code": "42", "name": "الإيرادات الأخرى والتحويلية", "name_en": "Other & Miscellaneous Revenue", "type": AccountType.REVENUE, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "4"},
+    {"code": "421", "name": "أرباح رأسمالية", "name_en": "Capital Gains", "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "42"},
+    {"code": "422", "name": "إيرادات فوائد دائنة", "name_en": "Interest Income", "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "42"},
+    {"code": "423", "name": "إيرادات متنوعة أخرى", "name_en": "Other Miscellaneous Revenue", "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "42"},
 ]

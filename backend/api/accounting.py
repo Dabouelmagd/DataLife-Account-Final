@@ -155,6 +155,34 @@ async def delete_account(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/accounts/reinitialize")
+async def reinitialize_chart_of_accounts(
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    إعادة تهيئة دليل الحسابات بالمعيار المصري
+    تحذير: هذا سيحذف جميع الحسابات الموجودة ويستبدلها بالدليل المصري القياسي
+    """
+    service = AccountingService(db)
+    
+    # حذف الحسابات الحالية
+    await db.chart_of_accounts.delete_many({"company_id": current_user["company_id"]})
+    
+    # إعادة التهيئة بالدليل المصري
+    success = await service.initialize_chart_of_accounts(current_user["company_id"])
+    
+    if success:
+        accounts = await service.get_all_accounts(current_user["company_id"], active_only=False)
+        return {
+            "message": "تم إعادة تهيئة دليل الحسابات بالمعيار المصري القياسي بنجاح",
+            "accounts_count": len(accounts)
+        }
+    else:
+        raise HTTPException(status_code=500, detail="حدث خطأ أثناء إعادة تهيئة دليل الحسابات")
+
+
+
+
 # ==========================================
 # القيود اليومية - Journal Entries
 # ==========================================
@@ -532,7 +560,7 @@ async def export_trial_balance(
     worksheet.right_to_left()
     
     # Title
-    worksheet.merge_range('A1:D1', f'ميزان المراجعة - Trial Balance', workbook.add_format({'bold': True, 'font_size': 16, 'align': 'center'}))
+    worksheet.merge_range('A1:D1', 'ميزان المراجعة - Trial Balance', workbook.add_format({'bold': True, 'font_size': 16, 'align': 'center'}))
     worksheet.merge_range('A2:D2', f'التاريخ: {report.get("as_of_date", "")}', workbook.add_format({'align': 'center'}))
     
     # Headers
