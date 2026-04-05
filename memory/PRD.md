@@ -298,6 +298,13 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Attendance Page (AttendancePage.jsx):
     - Updated with modern teal gradient header
     - Consistent design with other HR pages
+- **Backend APIs (NEW - April 2026) ✅:**
+  - `/api/hr/deductions` - Full CRUD for deductions management
+  - `/api/hr/allowances` - Full CRUD for allowances & overtime
+  - `/api/hr/shifts` - Full CRUD for work shifts with employee count
+  - `/api/hr/stats/deductions` - Deductions statistics by category
+  - `/api/hr/stats/allowances` - Allowances statistics with overtime hours
+  - `/api/hr/stats/shifts` - Shifts statistics
 - **Automatic HR Alerts System:**
   - API Endpoint: GET /api/notifications/hr-alerts
   - Alert Types:
@@ -310,8 +317,8 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - employee_code is immutable - cannot be modified via PUT /api/employees/{id}
   - Backend removes employee_code from update requests
 - **Testing:**
-  - 12/12 backend tests passed (100%)
-  - All frontend pages verified with data-testid attributes
+  - Backend APIs: All endpoints working with real database
+  - Frontend pages: Verified with data-testid attributes
 
 
 #### 13. Attendance Management System (NEW - April 2026) ✅
