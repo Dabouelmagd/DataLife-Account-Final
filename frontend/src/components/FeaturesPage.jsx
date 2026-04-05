@@ -87,6 +87,11 @@ const FeaturesPage = () => {
           features: ['دليل الحسابات', 'القيود المحاسبية', 'الميزانية العمومية', 'قائمة الدخل', 'التقارير المالية']
         },
         { 
+          title: 'إدارة البنوك والخزينة', 
+          features: ['حسابات بنكية متعددة', 'قيود محاسبية تلقائية', 'ترحيل تلقائي للقيود', 'إدارة الشيكات', 'كشف حساب البنك'],
+          isNew: true
+        },
+        { 
           title: 'الفواتير والمبيعات', 
           features: ['إنشاء الفواتير', 'إدارة العملاء', 'تتبع المدفوعات', 'تقارير المبيعات', 'الفواتير المتكررة']
         },
@@ -99,8 +104,13 @@ const FeaturesPage = () => {
           features: ['إنشاء المشاريع', 'إدارة المهام', 'تتبع التقدم', 'الجدول الزمني', 'فريق العمل']
         },
         { 
+          title: 'الإشعارات والتنبيهات', 
+          features: ['إشعارات البريد الإلكتروني', 'تنبيهات المعاملات الكبيرة', 'إشعارات انتهاء العقود', 'تذكيرات الفواتير المستحقة', 'طلبات الموافقة'],
+          isNew: true
+        },
+        { 
           title: 'التحليلات والتقارير', 
-          features: ['لوحات بيانية', 'تقارير تفاعلية', 'تصدير PDF/CSV', 'رسوم بيانية', 'مؤشرات الأداء']
+          features: ['لوحة تحكم إدارية متقدمة', 'تقارير تفاعلية', 'تصدير PDF/CSV', 'رسوم بيانية', 'مؤشرات الأداء']
         },
       ],
       
@@ -154,6 +164,28 @@ const FeaturesPage = () => {
         { title: 'إدارة العملاء', items: ['سجل العملاء', 'كشف حساب العميل', 'أعمار الديون', 'المتابعة والتحصيل'] },
         { title: 'إدارة الموردين', items: ['سجل الموردين', 'كشف حساب المورد', 'المستحقات للموردين', 'تقارير الموردين'] },
         { title: 'الفواتير', items: ['فواتير المبيعات', 'فواتير المشتريات', 'إشعارات دائنة/مدينة', 'تقارير الفواتير'] },
+      ],
+
+      // Section 4.5: Banking (NEW)
+      bankingTitle: 'وحدة إدارة البنوك والخزينة',
+      bankingDesc: 'إدارة شاملة للحسابات البنكية مع القيود التلقائية',
+      bankingBadge: 'جديد',
+      bankingModules: [
+        { title: 'الحسابات البنكية', items: ['إضافة بنوك متعددة', 'أرصدة البنوك', 'كشف حساب البنك', 'تسوية البنوك'] },
+        { title: 'المعاملات البنكية', items: ['الإيداعات', 'السحوبات', 'التحويلات بين البنوك', 'إدارة الشيكات'] },
+        { title: 'القيود التلقائية', items: ['قيد محاسبي لكل معاملة', 'ربط تلقائي مع دليل الحسابات', 'مراجعة القيود قبل الترحيل', 'تقارير القيود البنكية'], isNew: true },
+        { title: 'الترحيل التلقائي', items: ['ترحيل فوري للقيود', 'إعدادات الترحيل المخصصة', 'سجل الترحيلات', 'التراجع عن الترحيل'], isNew: true },
+      ],
+
+      // Section 4.6: Notifications (NEW)
+      notificationsTitle: 'نظام الإشعارات والتنبيهات',
+      notificationsDesc: 'إشعارات بريد إلكتروني ذكية للأحداث المهمة',
+      notificationsBadge: 'جديد',
+      notificationsModules: [
+        { title: 'إشعارات المعاملات', items: ['تنبيه المعاملات الكبيرة', 'إشعارات الإيداعات', 'إشعارات السحوبات', 'تنبيهات التحويلات'] },
+        { title: 'إشعارات الموارد البشرية', items: ['كشوف الرواتب', 'انتهاء العقود', 'تجديد الإقامات', 'أعياد الميلاد'] },
+        { title: 'إشعارات المالية', items: ['الفواتير المستحقة', 'تذكيرات الدفع', 'تقارير نهاية الشهر', 'التقارير الضريبية'] },
+        { title: 'إعدادات الإشعارات', items: ['تخصيص أنواع الإشعارات', 'جدولة الإرسال', 'قوالب البريد', 'سجل الإشعارات'] },
       ],
       
       // Section 5: Projects
@@ -340,6 +372,11 @@ const FeaturesPage = () => {
           features: ['Chart of accounts', 'Journal entries', 'Balance sheet', 'Income statement', 'Financial reports']
         },
         { 
+          title: 'Bank & Treasury Management', 
+          features: ['Multiple bank accounts', 'Auto journal entries', 'Auto-posting of entries', 'Check management', 'Bank statement'],
+          isNew: true
+        },
+        { 
           title: 'Invoices & Sales', 
           features: ['Invoice creation', 'Customer management', 'Payment tracking', 'Sales reports', 'Recurring invoices']
         },
@@ -352,8 +389,13 @@ const FeaturesPage = () => {
           features: ['Create projects', 'Task management', 'Progress tracking', 'Timeline', 'Team management']
         },
         { 
+          title: 'Notifications & Alerts', 
+          features: ['Email notifications', 'Large transaction alerts', 'Contract expiry alerts', 'Due invoice reminders', 'Approval requests'],
+          isNew: true
+        },
+        { 
           title: 'Analytics & Reports', 
-          features: ['Dashboards', 'Interactive reports', 'PDF/CSV export', 'Charts', 'KPIs']
+          features: ['Advanced admin dashboard', 'Interactive reports', 'PDF/CSV export', 'Charts', 'KPIs']
         },
       ],
       
@@ -407,6 +449,28 @@ const FeaturesPage = () => {
         { title: 'Customer Management', items: ['Customer records', 'Customer statements', 'Aging receivables', 'Collection follow-up'] },
         { title: 'Supplier Management', items: ['Supplier records', 'Supplier statements', 'Payables', 'Supplier reports'] },
         { title: 'Invoices', items: ['Sales invoices', 'Purchase invoices', 'Credit/debit notes', 'Invoice reports'] },
+      ],
+
+      // Section 4.5: Banking (NEW)
+      bankingTitle: 'Bank & Treasury Management Module',
+      bankingDesc: 'Comprehensive bank account management with automatic journal entries',
+      bankingBadge: 'New',
+      bankingModules: [
+        { title: 'Bank Accounts', items: ['Add multiple banks', 'Bank balances', 'Bank statements', 'Bank reconciliation'] },
+        { title: 'Bank Transactions', items: ['Deposits', 'Withdrawals', 'Inter-bank transfers', 'Check management'] },
+        { title: 'Auto Journal Entries', items: ['Journal entry for each transaction', 'Auto-link to chart of accounts', 'Review entries before posting', 'Bank entry reports'], isNew: true },
+        { title: 'Auto-Posting', items: ['Instant entry posting', 'Custom posting settings', 'Posting history', 'Undo posting'], isNew: true },
+      ],
+
+      // Section 4.6: Notifications (NEW)
+      notificationsTitle: 'Notifications & Alerts System',
+      notificationsDesc: 'Smart email notifications for important events',
+      notificationsBadge: 'New',
+      notificationsModules: [
+        { title: 'Transaction Alerts', items: ['Large transaction alerts', 'Deposit notifications', 'Withdrawal notifications', 'Transfer alerts'] },
+        { title: 'HR Notifications', items: ['Payslips', 'Contract expiry', 'Residence renewal', 'Birthday reminders'] },
+        { title: 'Financial Notifications', items: ['Due invoices', 'Payment reminders', 'Month-end reports', 'Tax reports'] },
+        { title: 'Notification Settings', items: ['Customize notification types', 'Schedule delivery', 'Email templates', 'Notification log'] },
       ],
       
       // Section 5: Projects
@@ -546,14 +610,17 @@ const FeaturesPage = () => {
 
   const content = t[pageLang];
 
-  const moduleIcons = [Users, DollarSign, FileText, Package, FolderKanban, BarChart3];
+  // Updated to include 8 modules (added Bank and Notifications)
+  const moduleIcons = [Users, DollarSign, CreditCard, FileText, Package, FolderKanban, Bell, BarChart3];
   const moduleColors = [
-    'from-blue-500 to-blue-600',
-    'from-green-500 to-emerald-600',
-    'from-purple-500 to-violet-600',
-    'from-orange-500 to-amber-600',
-    'from-pink-500 to-rose-600',
-    'from-cyan-500 to-teal-600'
+    'from-blue-500 to-blue-600',      // HR
+    'from-green-500 to-emerald-600',  // Finance
+    'from-teal-500 to-cyan-600',      // Banking (NEW)
+    'from-purple-500 to-violet-600',  // Invoices
+    'from-orange-500 to-amber-600',   // Purchases
+    'from-pink-500 to-rose-600',      // Projects
+    'from-yellow-500 to-orange-500',  // Notifications (NEW)
+    'from-indigo-500 to-blue-600'     // Analytics
   ];
   const adminIcons = [Building2, Users, CreditCard, Bell, BarChart3, Lock];
   const techIcons = [Monitor, Database, Layers, Cloud];
@@ -686,14 +753,19 @@ const FeaturesPage = () => {
             <h2 className="text-3xl font-bold text-gray-900 mb-4">{content.modulesTitle}</h2>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {content.modulesData.map((module, idx) => {
-              const Icon = moduleIcons[idx];
+              const Icon = moduleIcons[idx] || BarChart3;
               return (
-                <Card key={idx} className="hover:shadow-xl transition-all duration-300 overflow-hidden group">
-                  <CardHeader className={`bg-gradient-to-r ${moduleColors[idx]} text-white`}>
-                    <CardTitle className="flex items-center gap-3">
-                      <Icon className="h-6 w-6" />
+                <Card key={idx} className="hover:shadow-xl transition-all duration-300 overflow-hidden group relative">
+                  {module.isNew && (
+                    <Badge className="absolute top-2 right-2 bg-green-500 text-white z-10">
+                      {isRTL ? 'جديد' : 'New'}
+                    </Badge>
+                  )}
+                  <CardHeader className={`bg-gradient-to-r ${moduleColors[idx] || 'from-gray-500 to-gray-600'} text-white`}>
+                    <CardTitle className="flex items-center gap-3 text-base">
+                      <Icon className="h-5 w-5" />
                       {module.title}
                     </CardTitle>
                   </CardHeader>
