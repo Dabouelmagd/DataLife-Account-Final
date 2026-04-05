@@ -496,6 +496,24 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Added Balance Sheet to Financial module sidebar
   - All three reports accessible from القيود اليومية section
 
+#### 18. Journal Entries Integration with Egyptian Standard (NEW - April 2026) ✅
+- **Journal Entries Page Updated:**
+  - Now fetches accounts from `/api/accounting/accounts?active_only=false`
+  - Filters to show only posting accounts (is_header = false)
+  - Account dropdown shows Egyptian standard codes (11101, 11102, 112, etc.)
+  - 52 posting accounts available for journal entry creation
+  - Proper Arabic/English bilingual support with language prop passed
+  
+- **Route Files Created for Future Refactoring:**
+  - `/app/frontend/src/routes/HRRoutes.jsx` - HR module routing logic (77 lines)
+  - `/app/frontend/src/routes/FinancialRoutes.jsx` - Financial module routing logic (68 lines)
+  - `/app/frontend/src/routes/ReportsRoutes.jsx` - Reports module routing logic (109 lines)
+  - `/app/frontend/src/routes/index.js` - Central export for all routes
+  
+- **RealDashboard.jsx Improvements:**
+  - Added `language` prop to all page components for consistent bilingual support
+  - Maintained current functionality while preparing for future modularization
+
 - **Check-in/Check-out:**
   - Record check-in time
   - Record check-out time

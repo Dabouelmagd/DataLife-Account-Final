@@ -167,10 +167,12 @@ const JournalEntriesPage = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `${API_URL}/api/accounting/accounts`,
+        `${API_URL}/api/accounting/accounts?active_only=false`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setAccounts(response.data.accounts || []);
+      // Filter to show only posting accounts (not headers) - accounts that accept transactions
+      const postingAccounts = (response.data.accounts || []).filter(acc => !acc.is_header);
+      setAccounts(postingAccounts);
     } catch (error) {
       console.error('Error fetching accounts:', error);
     }

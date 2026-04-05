@@ -424,13 +424,13 @@ const RealDashboard = () => {
       // HR Sub-module components
       switch (activeHRSubModule) {
         case 'payroll':
-          return <PayrollPage />;
+          return <PayrollPage language={language} />;
         case 'shifts':
           return <ShiftsManagementPage language={language} />;
         case 'attendance':
           return <AttendancePage language={language} />;
         case 'hr-settings':
-          return <HRSettingsPage />;
+          return <HRSettingsPage language={language} />;
         case 'employee-profile':
           return selectedEmployeeId ? (
             <EmployeeProfilePage 
@@ -477,9 +477,9 @@ const RealDashboard = () => {
       // Financial Sub-module components
       switch (activeFinancialSubModule) {
         case 'journal-entries':
-          return <JournalEntriesPage />;
+          return <JournalEntriesPage language={language} />;
         case 'general-ledger':
-          return <GeneralLedgerPage />;
+          return <GeneralLedgerPage language={language} />;
         case 'trial-balance':
           return <TrialBalancePage language={language} />;
         case 'income-statement':
@@ -487,7 +487,7 @@ const RealDashboard = () => {
         case 'balance-sheet':
           return <BalanceSheetPage language={language} />;
         case 'financial-reports':
-          return <FinancialReportsPage />;
+          return <FinancialReportsPage language={language} />;
         case 'treasury':
           return <TreasuryModule language={language} userRole={user?.role} />;
         case 'custody':
@@ -501,9 +501,9 @@ const RealDashboard = () => {
         case 'suppliers':
           return <SuppliersModule language={language} userRole={user?.role} />;
         case 'products':
-          return <ProductsPage />;
+          return <ProductsPage language={language} />;
         case 'currencies':
-          return <CurrenciesPage />;
+          return <CurrenciesPage language={language} />;
         case 'purchases':
         case 'purchase-invoices':
           return <PurchasesModule language={language} userRole={user?.role} />;
