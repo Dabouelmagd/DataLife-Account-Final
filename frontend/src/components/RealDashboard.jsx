@@ -267,7 +267,6 @@ const RealDashboard = () => {
           { id: 'divider-inventory', name: language === 'ar' ? '── المخزون ──' : '── Inventory ──', isDivider: true },
           { id: 'inventory', name: language === 'ar' ? 'إدارة المخزون' : 'Inventory Management', icon: <Package />, group: 'inventory' },
           { id: 'products', name: language === 'ar' ? 'المنتجات والخدمات' : 'Products & Services', icon: <Package />, group: 'inventory' },
-          { id: 'currencies', name: language === 'ar' ? 'العملات' : 'Currencies', icon: <DollarSign />, group: 'inventory' },
           
           // المشاريع
           { id: 'divider-projects', name: language === 'ar' ? '── المشاريع ──' : '── Projects ──', isDivider: true },
