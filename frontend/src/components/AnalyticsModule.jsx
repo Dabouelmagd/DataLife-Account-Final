@@ -365,52 +365,62 @@ export const AnalyticsModule = ({ language, userRole }) => {
   const { overview, financial, hr, inventory } = analyticsData;
 
   return (
-    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-gray-900">
-            {language === 'ar' ? 'التحليلات المتقدمة' : 'Advanced Analytics'}
-          </h2>
-          <p className="text-gray-600 mt-1">
-            {language === 'ar' ? 'رؤى شاملة لأداء مؤسستك' : 'Comprehensive insights'}
-          </p>
-        </div>
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'} data-testid="analytics-module">
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 p-6 text-white">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
         
-        <div className="flex gap-2 flex-wrap">
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-            <button onClick={() => setPeriod('daily')} className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                period === 'daily' ? 'bg-white text-blue-600 shadow' : 'text-gray-600 hover:text-gray-900'
-              }`}>
-              {language === 'ar' ? 'يومي' : 'Daily'}
-            </button>
-            <button onClick={() => setPeriod('monthly')} className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                period === 'monthly' ? 'bg-white text-blue-600 shadow' : 'text-gray-600 hover:text-gray-900'
-              }`}>
-              {language === 'ar' ? 'شهري' : 'Monthly'}
-            </button>
-            <button onClick={() => setPeriod('yearly')} className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                period === 'yearly' ? 'bg-white text-blue-600 shadow' : 'text-gray-600 hover:text-gray-900'
-              }`}>
-              {language === 'ar' ? 'سنوي' : 'Yearly'}
-            </button>
+        <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <BarChart3 className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold mb-1">
+                {language === 'ar' ? 'التحليلات المتقدمة' : 'Advanced Analytics'}
+              </h1>
+              <p className="text-indigo-100 text-sm">
+                {language === 'ar' ? 'رؤى شاملة لأداء مؤسستك' : 'Comprehensive insights for your organization'}
+              </p>
+            </div>
           </div>
-
-          <Button variant="outline" size="sm" onClick={handlePrint} className="flex items-center gap-2">
-            <Printer className="h-4 w-4" />
-            <span>{language === 'ar' ? 'طباعة' : 'Print'}</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={exportToPDF} className="flex items-center gap-2 text-red-600 hover:text-red-700">
-            <File className="h-4 w-4" />
-            <span>PDF</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={exportToExcel} className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            <span>Excel</span>
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            {/* Period Selector */}
+            <div className="flex gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1">
+              <button onClick={() => setPeriod('daily')} className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  period === 'daily' ? 'bg-white text-indigo-700 shadow' : 'text-white/80 hover:text-white'
+                }`}>
+                {language === 'ar' ? 'يومي' : 'Daily'}
+              </button>
+              <button onClick={() => setPeriod('monthly')} className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  period === 'monthly' ? 'bg-white text-indigo-700 shadow' : 'text-white/80 hover:text-white'
+                }`}>
+                {language === 'ar' ? 'شهري' : 'Monthly'}
+              </button>
+              <button onClick={() => setPeriod('yearly')} className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  period === 'yearly' ? 'bg-white text-indigo-700 shadow' : 'text-white/80 hover:text-white'
+                }`}>
+                {language === 'ar' ? 'سنوي' : 'Yearly'}
+              </button>
+            </div>
+            {/* Export Buttons */}
+            <Button variant="outline" onClick={handlePrint} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+              <Printer className="h-4 w-4 me-2" />
+              {language === 'ar' ? 'طباعة' : 'Print'}
+            </Button>
+            <Button variant="outline" onClick={exportToExcel} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+              <File className="h-4 w-4 me-2" />
+              Excel
+            </Button>
+            <Button onClick={exportToPDF} className="bg-white text-indigo-700 hover:bg-indigo-50">
+              <Download className="h-4 w-4 me-2" />
+              PDF
+            </Button>
+          </div>
         </div>
       </div>
-
-      <div className="border-b border-gray-200">
+      {/* Tabs */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <div className="flex gap-4 overflow-x-auto">
           {[
             { id: 'overview', label: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: BarChart3 },
@@ -422,7 +432,7 @@ export const AnalyticsModule = ({ language, userRole }) => {
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition whitespace-nowrap ${
-                  activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  activeTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                 }`}>
                 <Icon className="h-5 w-5" />
                 {tab.label}

@@ -8,14 +8,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import { Progress } from '../components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { 
   Download, Printer, FileText, Search, RefreshCw,
-  Calendar, User, Clock, DollarSign, TrendingUp, TrendingDown
+  Calendar, User, Clock, DollarSign, TrendingUp, TrendingDown,
+  BarChart3, PieChart as PieChartIcon
 } from 'lucide-react';
 import { 
   ChartBar, FilePdf, Calendar as CalendarIcon, User as UserIcon,
   CurrencyDollar, ArrowUp, ArrowDown, Clock as ClockIcon
 } from '@phosphor-icons/react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend, LineChart, Line, Area, AreaChart
+} from 'recharts';
 import html2pdf from 'html2pdf.js';
 
 const HRComprehensiveReportsPage = ({ language }) => {
@@ -52,8 +58,14 @@ const HRComprehensiveReportsPage = ({ language }) => {
     netBalance: isRTL ? 'الصافي' : 'Net Balance',
     baseSalary: isRTL ? 'الراتب الأساسي' : 'Base Salary',
     finalSalary: isRTL ? 'الراتب النهائي' : 'Final Salary',
-    noData: isRTL ? 'لا توجد بيانات' : 'No data available'
+    noData: isRTL ? 'لا توجد بيانات' : 'No data available',
+    charts: isRTL ? 'الرسوم البيانية' : 'Charts',
+    details: isRTL ? 'التفاصيل' : 'Details'
   };
+
+  // Chart colors
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+  const attendanceColors = { present: '#10B981', absent: '#EF4444', late: '#F59E0B' };
 
   useEffect(() => {
     fetchEmployees();
@@ -298,6 +310,65 @@ const HRComprehensiveReportsPage = ({ language }) => {
     }
   ] : [];
 
+  // Prepare chart data
+  const getChartData = () => {
+    if (!reportData || Object.keys(reportData).length === 0) return null;
+
+    // Attendance pie chart data
+    const totalPresent = Object.values(reportData).reduce((sum, r) => sum + r.attendance.presentDays, 0);
+    const totalAbsent = Object.values(reportData).reduce((sum, r) => sum + r.attendance.absentDays, 0);
+    const totalLate = Object.values(reportData).reduce((sum, r) => sum + r.attendance.lateDays, 0);
+
+    const attendancePieData = [
+      { name: isRTL ? 'حاضر' : 'Present', value: totalPresent, fill: attendanceColors.present },
+      { name: isRTL ? 'غائب' : 'Absent', value: totalAbsent, fill: attendanceColors.absent },
+      { name: isRTL ? 'متأخر' : 'Late', value: totalLate, fill: attendanceColors.late }
+    ];
+
+    // Employee comparison bar chart
+    const employeeBarData = Object.values(reportData).map(r => ({
+      name: r.employee.name?.split(' ')[0] || 'N/A',
+      deductions: r.summary.totalDeductions,
+      allowances: r.summary.totalAllowances,
+      salary: r.summary.finalSalary
+    }));
+
+    // Deductions by category
+    const deductionsCategory = {};
+    Object.values(reportData).forEach(r => {
+      Object.entries(r.deductions.byCategory).forEach(([cat, amount]) => {
+        deductionsCategory[cat] = (deductionsCategory[cat] || 0) + amount;
+      });
+    });
+    const deductionsPieData = Object.entries(deductionsCategory).map(([name, value], i) => ({
+      name: getCategoryLabel(name, 'deductions'),
+      value,
+      fill: COLORS[i % COLORS.length]
+    }));
+
+    // Allowances by category
+    const allowancesCategory = {};
+    Object.values(reportData).forEach(r => {
+      Object.entries(r.allowances.byCategory).forEach(([cat, amount]) => {
+        allowancesCategory[cat] = (allowancesCategory[cat] || 0) + amount;
+      });
+    });
+    const allowancesPieData = Object.entries(allowancesCategory).map(([name, value], i) => ({
+      name: getCategoryLabel(name, 'allowances'),
+      value,
+      fill: COLORS[i % COLORS.length]
+    }));
+
+    return {
+      attendancePieData,
+      employeeBarData,
+      deductionsPieData,
+      allowancesPieData
+    };
+  };
+
+  const chartData = getChartData();
+
   return (
     <div className="space-y-6" data-testid="hr-comprehensive-reports">
       {/* Header */}
@@ -401,6 +472,138 @@ const HRComprehensiveReportsPage = ({ language }) => {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Charts Section */}
+      {reportData && chartData && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Attendance Pie Chart */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <PieChartIcon className="w-5 h-5 text-blue-500" />
+                {isRTL ? 'توزيع الحضور' : 'Attendance Distribution'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData.attendancePieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={90}
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {chartData.attendancePieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Employee Comparison Bar Chart */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-violet-500" />
+                {isRTL ? 'مقارنة الموظفين' : 'Employee Comparison'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData.employeeBarData}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis dataKey="name" fontSize={12} />
+                    <YAxis fontSize={12} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="allowances" name={isRTL ? 'البدلات' : 'Allowances'} fill="#10B981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="deductions" name={isRTL ? 'الخصومات' : 'Deductions'} fill="#EF4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Deductions by Category */}
+          {chartData.deductionsPieData.length > 0 && (
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingDown className="w-5 h-5 text-red-500" />
+                  {isRTL ? 'الخصومات حسب الفئة' : 'Deductions by Category'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartData.deductionsPieData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {chartData.deductionsPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => value.toLocaleString()} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Allowances by Category */}
+          {chartData.allowancesPieData.length > 0 && (
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                  {isRTL ? 'البدلات حسب الفئة' : 'Allowances by Category'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartData.allowancesPieData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {chartData.allowancesPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => value.toLocaleString()} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
