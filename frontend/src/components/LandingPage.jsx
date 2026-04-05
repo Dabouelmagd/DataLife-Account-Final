@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
+import { Input } from './ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { CheckCircle, BarChart3, Users, DollarSign, Shield, Cloud, Bell, Calculator, PieChart, FileText, Database, Zap, Globe, TrendingUp, Lock, HeadphonesIcon, Workflow, Building2, ClipboardList, CreditCard, Timer, Target, Award, MapPin, Phone, Mail, Play, X, HelpCircle, ChevronDown, Search, Loader2, BookOpen, Key, UserCheck, Settings, FolderKanban, Package } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -26,6 +27,8 @@ const LandingPage = () => {
   const [contactLoading, setContactLoading] = useState(false);
   const [contactSuccess, setContactSuccess] = useState(false);
   const [contactError, setContactError] = useState('');
+  const [heroSearchQuery, setHeroSearchQuery] = useState('');
+  const [showHeroSearchResults, setShowHeroSearchResults] = useState(false);
   const { language, isRTL } = useLanguage();
   const navigate = useNavigate();
 
@@ -151,6 +154,102 @@ const LandingPage = () => {
 
   const testimonials = t('testimonials.items');
 
+  // Search data for hero section
+  const heroSearchData = useMemo(() => {
+    const items = [];
+    
+    // Add features
+    features.forEach((feature) => {
+      items.push({
+        type: 'feature',
+        title: feature.title,
+        description: feature.description,
+        icon: feature.icon,
+        section: 'features',
+        color: 'from-blue-500 to-indigo-600'
+      });
+    });
+    
+    // Add modules
+    modules.forEach((module) => {
+      items.push({
+        type: 'module',
+        title: module.title,
+        description: Array.isArray(module.features) ? module.features.join(' • ') : module.features,
+        icon: <Workflow className="h-8 w-8" />,
+        section: 'modules',
+        color: 'from-purple-500 to-violet-600'
+      });
+    });
+    
+    // Add benefits
+    benefits.forEach((benefit) => {
+      items.push({
+        type: 'benefit',
+        title: benefit.title,
+        description: benefit.description,
+        icon: benefit.icon,
+        section: 'benefits',
+        color: 'from-green-500 to-emerald-600'
+      });
+    });
+    
+    // Add new features (Banking, Notifications, Admin Dashboard)
+    items.push({
+      type: 'new',
+      title: language === 'ar' ? 'إدارة البنوك والخزينة' : 'Bank & Treasury Management',
+      description: language === 'ar' ? 'حسابات بنكية متعددة • قيود تلقائية • ترحيل فوري' : 'Multiple bank accounts • Auto journal entries • Auto-posting',
+      icon: <CreditCard className="h-8 w-8" />,
+      section: 'features',
+      color: 'from-teal-500 to-cyan-600',
+      isNew: true
+    });
+    
+    items.push({
+      type: 'new',
+      title: language === 'ar' ? 'نظام الإشعارات الذكية' : 'Smart Notification System',
+      description: language === 'ar' ? 'إشعارات البريد • تنبيهات المعاملات • انتهاء العقود' : 'Email notifications • Transaction alerts • Contract expiry',
+      icon: <Bell className="h-8 w-8" />,
+      section: 'features',
+      color: 'from-yellow-500 to-orange-500',
+      isNew: true
+    });
+    
+    items.push({
+      type: 'new',
+      title: language === 'ar' ? 'لوحة التحكم الإدارية المتقدمة' : 'Advanced Admin Dashboard',
+      description: language === 'ar' ? 'إحصائيات • رسوم بيانية • تحليلات متقدمة' : 'Statistics • Charts • Advanced analytics',
+      icon: <BarChart3 className="h-8 w-8" />,
+      section: 'features',
+      color: 'from-indigo-500 to-blue-600',
+      isNew: true
+    });
+    
+    return items;
+  }, [features, modules, benefits, language]);
+
+  // Filter hero search results
+  const heroSearchResults = useMemo(() => {
+    if (!heroSearchQuery.trim()) return [];
+    
+    const query = heroSearchQuery.toLowerCase();
+    return heroSearchData.filter(item => {
+      const titleMatch = item.title?.toLowerCase().includes(query);
+      const descMatch = item.description?.toLowerCase().includes(query);
+      return titleMatch || descMatch;
+    }).slice(0, 8);
+  }, [heroSearchQuery, heroSearchData]);
+
+  // Handle hero search result click
+  const handleHeroResultClick = (section) => {
+    setHeroSearchQuery('');
+    setShowHeroSearchResults(false);
+    const element = document.getElementById(section);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className={`min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 ${isRTL ? 'rtl' : ''}`}>
       {/* Navigation */}
@@ -213,6 +312,87 @@ const LandingPage = () => {
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
               {t('hero.description')}
             </p>
+
+            {/* Smart Search Bar */}
+            <div className="max-w-2xl mx-auto mb-8 relative">
+              <div className="relative">
+                <Search className={`absolute top-1/2 -translate-y-1/2 ${isRTL ? 'right-4' : 'left-4'} h-5 w-5 text-gray-400`} />
+                <Input
+                  type="text"
+                  placeholder={language === 'ar' ? 'ابحث عن أي ميزة... (البنوك، الإشعارات، التحليلات...)' : 'Search for any feature... (Banking, Notifications, Analytics...)'}
+                  value={heroSearchQuery}
+                  onChange={(e) => {
+                    setHeroSearchQuery(e.target.value);
+                    setShowHeroSearchResults(e.target.value.length > 0);
+                  }}
+                  onFocus={() => heroSearchQuery && setShowHeroSearchResults(true)}
+                  className={`w-full ${isRTL ? 'pr-12 pl-12' : 'pl-12 pr-12'} py-6 text-lg rounded-2xl bg-white border-2 border-gray-200 shadow-lg focus:ring-2 focus:ring-[#28376B] focus:border-[#28376B] transition-all`}
+                />
+                {heroSearchQuery && (
+                  <button
+                    onClick={() => {
+                      setHeroSearchQuery('');
+                      setShowHeroSearchResults(false);
+                    }}
+                    className={`absolute top-1/2 -translate-y-1/2 ${isRTL ? 'left-4' : 'right-4'} p-1 hover:bg-gray-100 rounded-full transition-colors`}
+                  >
+                    <X className="h-5 w-5 text-gray-400" />
+                  </button>
+                )}
+              </div>
+              
+              {/* Search Results Dropdown */}
+              {showHeroSearchResults && heroSearchResults.length > 0 && (
+                <div className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 max-h-96 overflow-y-auto">
+                  <div className={`p-3 bg-gray-50 border-b text-${isRTL ? 'right' : 'left'}`}>
+                    <span className="text-sm text-gray-500">
+                      {language === 'ar' ? `${heroSearchResults.length} نتيجة` : `${heroSearchResults.length} results`}
+                    </span>
+                  </div>
+                  {heroSearchResults.map((result, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleHeroResultClick(result.section)}
+                      className={`w-full p-4 hover:bg-blue-50 transition-colors border-b border-gray-50 text-${isRTL ? 'right' : 'left'} flex items-start gap-3`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${result.color} flex items-center justify-center flex-shrink-0 text-white`}>
+                        {React.cloneElement(result.icon, { className: 'h-5 w-5' })}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-gray-900 truncate">{result.title}</h4>
+                          {result.isNew && (
+                            <Badge className="bg-green-500 text-white text-xs">
+                              {language === 'ar' ? 'جديد' : 'New'}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500 truncate">
+                          {result.description}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {/* No Results */}
+              {showHeroSearchResults && heroSearchQuery && heroSearchResults.length === 0 && (
+                <div className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 text-center z-50">
+                  <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">
+                    {language === 'ar' ? 'لا توجد نتائج لـ' : 'No results for'} "{heroSearchQuery}"
+                  </p>
+                  <button
+                    onClick={() => navigate('/features')}
+                    className="mt-4 text-[#28376B] font-semibold hover:underline"
+                  >
+                    {language === 'ar' ? 'استكشف الدليل الشامل' : 'Explore Full Guide'}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-8 ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
               <Button 
                 size="lg" 
