@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
+import { Input } from './ui/input';
 import {
   ArrowRight, ArrowLeft, CheckCircle, Users, Building2, FileText,
   DollarSign, Package, FolderKanban, BarChart3, Shield, Settings,
@@ -12,7 +13,7 @@ import {
   UserCheck, FileSearch, PieChart, TrendingUp, Layers,
   Database, RefreshCw, Mail, MessageSquare, BookOpen,
   Monitor, Palette, Languages, ChevronDown, ChevronUp,
-  Play, Star, Award, Target, Briefcase, Receipt
+  Play, Star, Award, Target, Briefcase, Receipt, Search, X
 } from 'lucide-react';
 
 const FeaturesPage = () => {
@@ -21,6 +22,8 @@ const FeaturesPage = () => {
   const [pageLang, setPageLang] = useState(globalLang || 'ar');
   const isRTL = pageLang === 'ar';
   const [expandedSection, setExpandedSection] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Logo source based on language
   const logoSrc = pageLang === 'ar' ? '/datalife-logo-arabic.svg' : '/datalife-logo-english.svg';
@@ -625,6 +628,128 @@ const FeaturesPage = () => {
   const adminIcons = [Building2, Users, CreditCard, Bell, BarChart3, Lock];
   const techIcons = [Monitor, Database, Layers, Cloud];
 
+  // Search data - all searchable items
+  const searchData = useMemo(() => {
+    const items = [];
+    
+    // Add modules
+    content.modulesData.forEach((module, idx) => {
+      items.push({
+        type: 'module',
+        title: module.title,
+        features: module.features,
+        section: 'modules',
+        icon: moduleIcons[idx],
+        color: moduleColors[idx],
+        isNew: module.isNew
+      });
+    });
+    
+    // Add HR features
+    const hrFeatures = [
+      ...content.employeeFeatures,
+      ...content.salaryFeatures,
+      ...content.attendanceFeatures,
+      ...content.leaveFeatures
+    ];
+    items.push({
+      type: 'section',
+      title: content.hrTitle,
+      features: hrFeatures,
+      section: 'hr',
+      icon: Users,
+      color: 'from-blue-500 to-indigo-600'
+    });
+    
+    // Add Finance features
+    content.financeModules.forEach(mod => {
+      items.push({
+        type: 'feature',
+        title: mod.title,
+        features: mod.items,
+        section: 'finance',
+        icon: DollarSign,
+        color: 'from-green-500 to-emerald-600'
+      });
+    });
+
+    // Add Banking features (NEW)
+    if (content.bankingModules) {
+      content.bankingModules.forEach(mod => {
+        items.push({
+          type: 'feature',
+          title: mod.title,
+          features: mod.items,
+          section: 'banking',
+          icon: CreditCard,
+          color: 'from-teal-500 to-cyan-600',
+          isNew: mod.isNew
+        });
+      });
+    }
+
+    // Add Notifications features (NEW)
+    if (content.notificationsModules) {
+      content.notificationsModules.forEach(mod => {
+        items.push({
+          type: 'feature',
+          title: mod.title,
+          features: mod.items,
+          section: 'notifications',
+          icon: Bell,
+          color: 'from-yellow-500 to-orange-500',
+          isNew: true
+        });
+      });
+    }
+    
+    // Add Projects features
+    items.push({
+      type: 'section',
+      title: content.projectsTitle,
+      features: [...content.projectFeatures, ...content.taskFeatures],
+      section: 'projects',
+      icon: FolderKanban,
+      color: 'from-pink-500 to-rose-600'
+    });
+    
+    // Add Admin features
+    content.adminCards.forEach(card => {
+      items.push({
+        type: 'admin',
+        title: card.title,
+        features: [card.desc],
+        section: 'admin',
+        icon: Shield,
+        color: 'from-red-500 to-rose-600'
+      });
+    });
+    
+    return items;
+  }, [content, moduleIcons, moduleColors]);
+
+  // Filter search results
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    
+    const query = searchQuery.toLowerCase();
+    return searchData.filter(item => {
+      const titleMatch = item.title.toLowerCase().includes(query);
+      const featuresMatch = item.features.some(f => f.toLowerCase().includes(query));
+      return titleMatch || featuresMatch;
+    }).slice(0, 10); // Limit to 10 results
+  }, [searchQuery, searchData]);
+
+  // Handle search result click
+  const handleResultClick = (section) => {
+    setSearchQuery('');
+    setShowSearchResults(false);
+    const element = document.getElementById(section);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header */}
@@ -673,6 +798,84 @@ const FeaturesPage = () => {
           <p className="text-xl text-blue-100 max-w-3xl mx-auto mb-8">
             {content.heroDesc}
           </p>
+          
+          {/* Smart Search Bar */}
+          <div className="max-w-2xl mx-auto mb-8 relative">
+            <div className="relative">
+              <Search className={`absolute top-1/2 -translate-y-1/2 ${isRTL ? 'right-4' : 'left-4'} h-5 w-5 text-gray-400`} />
+              <Input
+                type="text"
+                placeholder={isRTL ? 'ابحث عن أي ميزة أو وحدة...' : 'Search for any feature or module...'}
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchResults(e.target.value.length > 0);
+                }}
+                onFocus={() => searchQuery && setShowSearchResults(true)}
+                className={`w-full ${isRTL ? 'pr-12 pl-12' : 'pl-12 pr-12'} py-6 text-lg rounded-2xl bg-white/95 text-gray-900 border-0 shadow-xl focus:ring-2 focus:ring-amber-400`}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setShowSearchResults(false);
+                  }}
+                  className={`absolute top-1/2 -translate-y-1/2 ${isRTL ? 'left-4' : 'right-4'} p-1 hover:bg-gray-100 rounded-full transition-colors`}
+                >
+                  <X className="h-5 w-5 text-gray-400" />
+                </button>
+              )}
+            </div>
+            
+            {/* Search Results Dropdown */}
+            {showSearchResults && searchResults.length > 0 && (
+              <div className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 max-h-96 overflow-y-auto">
+                <div className={`p-3 bg-gray-50 border-b text-${isRTL ? 'right' : 'left'}`}>
+                  <span className="text-sm text-gray-500">
+                    {isRTL ? `${searchResults.length} نتيجة` : `${searchResults.length} results`}
+                  </span>
+                </div>
+                {searchResults.map((result, idx) => {
+                  const Icon = result.icon;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => handleResultClick(result.section)}
+                      className={`w-full p-4 hover:bg-blue-50 transition-colors border-b border-gray-50 text-${isRTL ? 'right' : 'left'} flex items-start gap-3`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${result.color} flex items-center justify-center flex-shrink-0`}>
+                        <Icon className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-gray-900 truncate">{result.title}</h4>
+                          {result.isNew && (
+                            <Badge className="bg-green-500 text-white text-xs">
+                              {isRTL ? 'جديد' : 'New'}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500 truncate">
+                          {result.features.slice(0, 3).join(' • ')}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            
+            {/* No Results */}
+            {showSearchResults && searchQuery && searchResults.length === 0 && (
+              <div className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 text-center z-50">
+                <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">
+                  {isRTL ? 'لا توجد نتائج لـ' : 'No results for'} "{searchQuery}"
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-center gap-4 flex-wrap">
             <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full">
               <Globe className="h-5 w-5" />
