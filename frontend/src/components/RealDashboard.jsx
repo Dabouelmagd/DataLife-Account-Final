@@ -14,7 +14,7 @@ import {
   Home, PlayCircle, ArrowUp, ArrowDown, AlertCircle, CheckCircle,
   Eye, Edit, Plus, Download, Printer, Clock, Award, TrendingDown,
   ChevronDown, ChevronRight, CreditCard, ShoppingCart, FolderKanban,
-  Upload, BookOpen, Package, UserMinus, Scale
+  Upload, BookOpen, Package, UserMinus, Scale, Book
 } from 'lucide-react';
 import axios from 'axios';
 import { getTranslation } from '../data/translations';
@@ -61,6 +61,7 @@ import BankManagementPage from '../pages/BankManagementPage';
 import BankSettingsPage from '../pages/BankSettingsPage';
 import AdminDashboardPage from '../pages/AdminDashboardPage';
 import NotificationSettingsPage from '../pages/NotificationSettingsPage';
+import UserGuidePage from '../pages/UserGuidePage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -382,6 +383,13 @@ const RealDashboard = () => {
         icon: <Upload /> 
       });
     }
+
+    // User Guide - متاح للجميع
+    modules.push({ 
+      id: 'user-guide', 
+      name: language === 'ar' ? 'الدليل الشامل' : 'User Guide', 
+      icon: <Book /> 
+    });
 
     return modules;
   };
@@ -709,6 +717,11 @@ const RealDashboard = () => {
     // Notification Settings Module
     if (activeModule === 'notification-settings') {
       return <NotificationSettingsPage language={language} />;
+    }
+
+    // User Guide Module
+    if (activeModule === 'user-guide') {
+      return <UserGuidePage language={language} />;
     }
 
     return null;
