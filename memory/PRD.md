@@ -321,6 +321,34 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Frontend pages: Verified with data-testid attributes
 
 
+#### 13. Page Consolidation & Comprehensive HR Reports (NEW - April 2026) ✅
+- **Purchases & Orders Page Consolidation:**
+  - Merged "Purchase Orders" and "Purchase Invoices" into single "Purchases & Orders" page
+  - Modern indigo gradient header design
+  - Tabs: Purchase Orders, Suppliers
+  - Unified statistics cards
+  - Sidebar shows single "Purchases & Orders" entry
+- **Projects & Tasks Page Consolidation:**
+  - Merged "Projects" and "Tasks" into single "Projects & Tasks" page
+  - Modern violet gradient header design
+  - Projects display with task counts and progress
+  - Real-time connection status indicator
+  - Quick actions: New Project, New Task, Export
+  - Sidebar shows single "Projects & Tasks" entry
+- **Comprehensive HR Reports (HRComprehensiveReportsPage.jsx):**
+  - Employee selector (all or individual)
+  - Month filter
+  - Per-employee comprehensive report cards:
+    - Attendance section: Working days, Present, Absent, Late, Attendance rate
+    - Deductions section: By category with totals
+    - Allowances section: By category with totals  
+    - Financial Summary: Base salary, Allowances, Deductions, Net balance, Final salary
+  - Overview statistics: Total employees, Total deductions, Total allowances, Net difference
+  - Export to PDF functionality
+  - Print support with custom print styles
+  - Real data from /api/employees with mock fallback
+
+
 #### 13. Attendance Management System (NEW - April 2026) ✅
 - **Check-in/Check-out:**
   - Record check-in time

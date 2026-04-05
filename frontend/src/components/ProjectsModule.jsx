@@ -632,34 +632,45 @@ const ProjectsModule = () => {
   };
 
   return (
-    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'} data-testid="projects-module">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t.projects}</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <p className="text-gray-500">
-              {isRTL ? 'إدارة المشاريع والمهام' : 'Manage projects and tasks'}
-            </p>
-            <Badge variant="outline" className={isConnected ? 'text-green-600 border-green-300' : 'text-gray-400 border-gray-200'}>
-              {isConnected ? <Wifi className="h-3 w-3 mr-1" /> : <WifiOff className="h-3 w-3 mr-1" />}
-              {isConnected ? 'Live' : 'Offline'}
-            </Badge>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-violet-700 to-purple-700 p-6 text-white">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        
+        <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <FolderKanban className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold mb-1">
+                {isRTL ? 'المشاريع والمهام' : 'Projects & Tasks'}
+              </h1>
+              <div className="flex items-center gap-2">
+                <p className="text-violet-100 text-sm">
+                  {isRTL ? 'إدارة المشاريع والمهام وتتبع التقدم' : 'Manage projects, tasks and track progress'}
+                </p>
+                <Badge variant="outline" className={`border-white/30 ${isConnected ? 'bg-green-500/20 text-green-100' : 'bg-gray-500/20 text-gray-200'}`}>
+                  {isConnected ? <Wifi className="h-3 w-3 me-1" /> : <WifiOff className="h-3 w-3 me-1" />}
+                  {isConnected ? 'Live' : 'Offline'}
+                </Badge>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExportProjectsCSV} className="gap-2">
-            <FileDown className="h-4 w-4" />
-            {isRTL ? 'تصدير' : 'Export'}
-          </Button>
-          <Button variant="outline" onClick={() => setShowTaskDialog(true)} className="gap-2">
-            <ListTodo className="h-4 w-4" />
-            {t.createTask}
-          </Button>
-          <Button onClick={() => setShowProjectDialog(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            {t.createProject}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExportProjectsCSV} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+              <FileDown className="h-4 w-4 me-2" />
+              {isRTL ? 'تصدير' : 'Export'}
+            </Button>
+            <Button variant="outline" onClick={() => setShowTaskDialog(true)} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+              <ListTodo className="h-4 w-4 me-2" />
+              {t.createTask}
+            </Button>
+            <Button onClick={() => setShowProjectDialog(true)} className="bg-white text-violet-700 hover:bg-violet-50">
+              <Plus className="h-4 w-4 me-2" />
+              {t.createProject}
+            </Button>
+          </div>
         </div>
       </div>
 

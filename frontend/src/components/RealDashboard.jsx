@@ -52,6 +52,7 @@ import DeductionsPage from '../pages/DeductionsPage';
 import AllowancesPage from '../pages/AllowancesPage';
 import ShiftsManagementPage from '../pages/ShiftsManagementPage';
 import SalariesPage from '../pages/SalariesPage';
+import HRComprehensiveReportsPage from '../pages/HRComprehensiveReportsPage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -240,6 +241,7 @@ const RealDashboard = () => {
           { id: 'attendance', name: language === 'ar' ? 'الحضور والانصراف' : 'Attendance', icon: <Clock /> },
           { id: 'termination', name: language === 'ar' ? 'إنهاء الخدمة' : 'Termination', icon: <UserMinus /> },
           { id: 'hr-reports', name: language === 'ar' ? 'التقارير' : 'Reports', icon: <FileText /> },
+          { id: 'hr-comprehensive-reports', name: language === 'ar' ? 'التقارير الشاملة' : 'Comprehensive Reports', icon: <BarChart /> },
           { id: 'hr-settings', name: language === 'ar' ? 'إعدادات الحضور والرواتب' : 'HR Settings', icon: <Settings /> }
         ]
       });
@@ -276,8 +278,7 @@ const RealDashboard = () => {
           
           // المشتريات
           { id: 'divider-purchases', name: language === 'ar' ? '── المشتريات ──' : '── Purchases ──', isDivider: true },
-          { id: 'purchases', name: language === 'ar' ? 'أوامر الشراء' : 'Purchase Orders', icon: <ShoppingCart />, group: 'purchases' },
-          { id: 'purchase-invoices', name: language === 'ar' ? 'فواتير المشتريات' : 'Purchase Invoices', icon: <FileText />, group: 'purchases' },
+          { id: 'purchases', name: language === 'ar' ? 'المشتريات وأوامر الشراء' : 'Purchases & Orders', icon: <ShoppingCart />, group: 'purchases' },
           
           // المخزون
           { id: 'divider-inventory', name: language === 'ar' ? '── المخزون ──' : '── Inventory ──', isDivider: true },
@@ -286,8 +287,7 @@ const RealDashboard = () => {
           
           // المشاريع
           { id: 'divider-projects', name: language === 'ar' ? '── المشاريع ──' : '── Projects ──', isDivider: true },
-          { id: 'projects', name: language === 'ar' ? 'المشاريع' : 'Projects', icon: <FolderKanban />, group: 'projects' },
-          { id: 'tasks', name: language === 'ar' ? 'المهام' : 'Tasks', icon: <CheckCircle />, group: 'projects' },
+          { id: 'projects', name: language === 'ar' ? 'المشاريع والمهام' : 'Projects & Tasks', icon: <FolderKanban />, group: 'projects' },
           
           // العملات
           { id: 'divider-currencies', name: language === 'ar' ? '── العملات ──' : '── Currencies ──', isDivider: true },
@@ -439,6 +439,8 @@ const RealDashboard = () => {
           return <AnnualLeavePage language={language} />;
         case 'hr-reports':
           return <HRReportsPage language={language} />;
+        case 'hr-comprehensive-reports':
+          return <HRComprehensiveReportsPage language={language} />;
         case 'termination':
           return <TerminationPage language={language} employees={employees} />;
         default:

@@ -511,14 +511,25 @@ const PurchasesModule = () => {
   const totals = calculateOrderTotals();
 
   return (
-    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'} data-testid="purchases-module">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t.purchases}</h1>
-          <p className="text-gray-500 mt-1">
-            {isRTL ? 'إدارة المشتريات والموردين' : 'Manage purchases and suppliers'}
-          </p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 p-6 text-white">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        
+        <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <ShoppingCart className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold mb-1">
+                {isRTL ? 'المشتريات وأوامر الشراء' : 'Purchases & Orders'}
+              </h1>
+              <p className="text-indigo-100 text-sm">
+                {isRTL ? 'إدارة المشتريات والموردين وأوامر الشراء' : 'Manage purchases, suppliers and purchase orders'}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
