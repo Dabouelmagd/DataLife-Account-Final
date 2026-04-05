@@ -57,6 +57,7 @@ import SystemReportsPage from '../pages/SystemReportsPage';
 import TrialBalancePage from '../pages/TrialBalancePage';
 import IncomeStatementPage from '../pages/IncomeStatementPage';
 import BalanceSheetPage from '../pages/BalanceSheetPage';
+import BankManagementPage from '../pages/BankManagementPage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -495,7 +496,7 @@ const RealDashboard = () => {
         case 'accounts':
           return <AccountsModule language={language} userRole={user?.role} />;
         case 'bank':
-          return <BankModule language={language} userRole={user?.role} />;
+          return <BankManagementPage language={language} />;
         case 'customers':
           return <CustomersModule language={language} userRole={user?.role} />;
         case 'suppliers':

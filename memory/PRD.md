@@ -514,6 +514,52 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Added `language` prop to all page components for consistent bilingual support
   - Maintained current functionality while preparing for future modularization
 
+#### 19. Multi-Bank Management System (NEW - April 2026) ✅
+- **Backend API (`/app/backend/api/bank_management.py`):**
+  - `GET /api/bank-accounts` - List all bank accounts with calculated balances
+  - `POST /api/bank-accounts` - Create new bank account
+  - `PUT /api/bank-accounts/{id}` - Update bank account
+  - `DELETE /api/bank-accounts/{id}` - Delete bank account (only if no transactions)
+  - `GET /api/bank-transactions` - List transactions with filters (bank, type, date)
+  - `POST /api/bank-transactions` - Create new transaction
+  - `DELETE /api/bank-transactions/{id}` - Delete transaction
+  - `GET /api/bank-checks` - List checks (incoming/outgoing)
+  - `PUT /api/bank-checks/{id}/status` - Update check status
+
+- **Frontend Page (`/app/frontend/src/pages/BankManagementPage.jsx`):**
+  - Modern gradient header with bank icon
+  - Summary cards: Total Accounts, Total Balance, Total Deposits, Total Withdrawals
+  - **Two tabs:**
+    1. **Bank Accounts Tab:**
+       - Card view for each bank account
+       - Shows bank name (Arabic/English), account number, current balance
+       - Deposit/Withdrawal indicators per account
+       - Quick "Add Transaction" button per account
+       - Delete account button
+       - View account details modal
+    2. **Transactions Tab:**
+       - Table view of all transactions
+       - Filter by type: All, Deposits, Withdrawals, Checks
+       - Transaction number (BTX-YYYY-XXXXX format)
+       - Color-coded types (green for deposits, red for withdrawals/checks)
+  - **Add Account Modal:**
+    - Bank name (Arabic/English)
+    - Account number
+    - Branch name
+    - Opening balance
+    - Account type (Current/Savings)
+  - **Add Transaction Modal:**
+    - Bank account selector
+    - Transaction type: Deposit, Withdrawal, Check Deposit, Check Issued, Transfer In/Out
+    - Amount, Description, Reference
+    - Check-specific fields (check number, date, beneficiary)
+  - Full Arabic/English bilingual support
+  - Dark mode support
+
+- **Data Models:**
+  - `bank_accounts` collection: bank_name, bank_name_en, account_number, iban, swift_code, branch_name, currency, opening_balance, account_type, linked_account_code, is_active
+  - `bank_transactions` collection: bank_account_id, transaction_type, amount, description, reference, check_number, check_date, check_bank, beneficiary, transaction_date, status
+
 - **Check-in/Check-out:**
   - Record check-in time
   - Record check-out time
