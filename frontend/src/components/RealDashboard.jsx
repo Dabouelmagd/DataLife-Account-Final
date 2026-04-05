@@ -14,7 +14,7 @@ import {
   Home, PlayCircle, ArrowUp, ArrowDown, AlertCircle, CheckCircle,
   Eye, Edit, Plus, Download, Printer, Clock, Award, TrendingDown,
   ChevronDown, ChevronRight, CreditCard, ShoppingCart, FolderKanban,
-  Upload, BookOpen, Package, UserMinus, Scale, Book
+  Upload, BookOpen, Package, UserMinus, Scale, Book, Shield
 } from 'lucide-react';
 import axios from 'axios';
 import { getTranslation } from '../data/translations';
@@ -62,6 +62,7 @@ import BankSettingsPage from '../pages/BankSettingsPage';
 import AdminDashboardPage from '../pages/AdminDashboardPage';
 import NotificationSettingsPage from '../pages/NotificationSettingsPage';
 import UserGuidePage from '../pages/UserGuidePage';
+import PermissionsSettingsPage from '../pages/PermissionsSettingsPage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -364,6 +365,11 @@ const RealDashboard = () => {
         name: language === 'ar' ? 'إعدادات الإشعارات' : 'Notification Settings', 
         icon: <Settings /> 
       });
+      modules.push({ 
+        id: 'permissions-settings', 
+        name: language === 'ar' ? 'إعدادات الصلاحيات' : 'Permissions Settings', 
+        icon: <Shield /> 
+      });
     }
 
     // Settings module - للإدارة العليا فقط
@@ -541,6 +547,8 @@ const RealDashboard = () => {
           return <AdminDashboardPage language={language} />;
         case 'notification-settings':
           return <NotificationSettingsPage language={language} />;
+        case 'permissions-settings':
+          return <PermissionsSettingsPage language={language} />;
         default:
           return <div>{language === 'ar' ? 'اختر وحدة فرعية' : 'Select a sub-module'}</div>;
       }
@@ -717,6 +725,11 @@ const RealDashboard = () => {
     // Notification Settings Module
     if (activeModule === 'notification-settings') {
       return <NotificationSettingsPage language={language} />;
+    }
+
+    // Permissions Settings Module
+    if (activeModule === 'permissions-settings') {
+      return <PermissionsSettingsPage language={language} />;
     }
 
     // User Guide Module

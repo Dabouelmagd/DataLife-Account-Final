@@ -361,6 +361,29 @@
 | User Management | 👤 | Blue/Cyan |
 | Approvals | ✅ | Green/Emerald |
 
+### 20. صفحة إعدادات الصلاحيات للمدير ⭐ (جديد 5 أبريل 2026)
+
+#### 20.1 مميزات الصفحة
+| الميزة | الوصف |
+|--------|-------|
+| قائمة الموظفين | عرض جميع موظفي الشركة مع صلاحياتهم الحالية |
+| قوالب جاهزة | 7 قوالب (مدير، محاسب، HR، مبيعات، مشاهد، مخزون، مشاريع) |
+| تعديل فردي | النقر على الموظف لتوسيع وتعديل صلاحياته |
+| تطبيق بالجملة | تحديد عدة موظفين وتطبيق قالب عليهم مرة واحدة |
+| سجل التغييرات | تتبع من عدّل الصلاحيات ومتى |
+| شريط عائم | زر حفظ/إلغاء يظهر عند وجود تغييرات غير محفوظة |
+
+#### 20.2 القوالب المتاحة
+| القالب | عدد الصلاحيات | الصلاحيات |
+|--------|--------------|-----------|
+| Administrator | 12 | جميع الصلاحيات |
+| Accountant | 5 | dashboard, financial, invoices, reports, analytics |
+| HR Manager | 4 | dashboard, hr, reports, approvals |
+| Sales | 4 | dashboard, invoices, reports, inventory |
+| Viewer Only | 2 | dashboard, reports |
+| Inventory Manager | 4 | dashboard, inventory, purchases, reports |
+| Project Manager | 4 | dashboard, projects, reports, approvals |
+
 ---
 
 ## 📁 هيكل المشروع
