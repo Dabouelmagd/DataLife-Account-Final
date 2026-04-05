@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { CheckCircle, X, Star, Zap, Building2, Crown, Users, Calculator, PieChart, FileText, Shield, Cloud, Bell, HeadphonesIcon } from 'lucide-react';
+import { CheckCircle, X, Star, Zap, Building2, Crown, Users, Calculator, PieChart, FileText, Shield, Cloud, Bell, HeadphonesIcon, Minus } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../data/translations';
 import PaymentModal from './PaymentModal';
@@ -13,6 +13,7 @@ const PricingSection = () => {
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [showComparison, setShowComparison] = useState(false);
   
   const t = (key) => getTranslation(language, key);
 
@@ -532,6 +533,173 @@ const PricingSection = () => {
           </TabsContent>
         </Tabs>
 
+        {/* Compare Plans Button */}
+        <div className="text-center mt-12">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => setShowComparison(!showComparison)}
+            className="border-2 border-[#28376B] text-[#28376B] hover:bg-[#28376B] hover:text-white px-8"
+          >
+            {showComparison 
+              ? (language === 'ar' ? 'إخفاء المقارنة' : 'Hide Comparison')
+              : t('pricing.comparison.title')
+            }
+          </Button>
+        </div>
+
+        {/* Comparison Table */}
+        {showComparison && (
+          <div className="mt-12 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+            {/* Table Header */}
+            <div className="bg-gradient-to-r from-[#28376B] to-[#3d4f8a] text-white p-6 text-center">
+              <h3 className="text-2xl font-bold mb-2">{t('pricing.comparison.title')}</h3>
+              <p className="text-blue-100">{t('pricing.comparison.subtitle')}</p>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                {/* Table Head */}
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className={`p-4 text-${isRTL ? 'right' : 'left'} font-semibold text-gray-700 min-w-[200px]`}>
+                      {t('pricing.comparison.feature')}
+                    </th>
+                    <th className="p-4 text-center min-w-[140px]">
+                      <div className="flex flex-col items-center">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-2">
+                          <Zap className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="font-bold text-gray-900">{t('pricing.comparison.starter')}</span>
+                        <span className="text-sm text-gray-500">299 {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                    </th>
+                    <th className="p-4 text-center min-w-[140px] bg-purple-50">
+                      <div className="flex flex-col items-center">
+                        <Badge className="mb-2 bg-purple-100 text-purple-700 border-0">
+                          <Star className="w-3 h-3 mr-1" />
+                          {t('pricing.popular')}
+                        </Badge>
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-2">
+                          <Building2 className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="font-bold text-gray-900">{t('pricing.comparison.professional')}</span>
+                        <span className="text-sm text-gray-500">799 {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                    </th>
+                    <th className="p-4 text-center min-w-[140px]">
+                      <div className="flex flex-col items-center">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-2">
+                          <Crown className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="font-bold text-gray-900">{t('pricing.comparison.enterprise')}</span>
+                        <span className="text-sm text-gray-500">1499 {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {/* General Category */}
+                  <tr className="bg-gray-100">
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                      {t('pricing.comparison.categories.general')}
+                    </td>
+                  </tr>
+                  <ComparisonRow feature={t('pricing.comparison.features.employees')} starter={t('pricing.comparison.values.upTo10')} professional={t('pricing.comparison.values.upTo100')} enterprise={t('pricing.comparison.values.unlimited')} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.multiTenant')} starter={true} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.arabicSupport')} starter={true} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.darkMode')} starter={true} professional={true} enterprise={true} isRTL={isRTL} />
+
+                  {/* HR Category */}
+                  <tr className="bg-gray-100">
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                      {t('pricing.comparison.categories.hr')}
+                    </td>
+                  </tr>
+                  <ComparisonRow feature={t('pricing.comparison.features.employeeManagement')} starter={t('pricing.comparison.values.basic')} professional={t('pricing.comparison.values.full')} enterprise={t('pricing.comparison.values.full')} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.attendance')} starter={true} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.payroll')} starter={false} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.leaveManagement')} starter={true} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.performance')} starter={false} professional={true} enterprise={true} isRTL={isRTL} />
+
+                  {/* Finance Category */}
+                  <tr className="bg-gray-100">
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                      {t('pricing.comparison.categories.finance')}
+                    </td>
+                  </tr>
+                  <ComparisonRow feature={t('pricing.comparison.features.accounting')} starter={t('pricing.comparison.values.basic')} professional={t('pricing.comparison.values.advanced')} enterprise={t('pricing.comparison.values.full')} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.chartOfAccounts')} starter={true} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.journalEntries')} starter={true} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.financialReports')} starter={t('pricing.comparison.values.basic')} professional={t('pricing.comparison.values.advanced')} enterprise={t('pricing.comparison.values.full')} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.invoicing')} starter={true} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.multiCurrency')} starter={false} professional={true} enterprise={true} isRTL={isRTL} />
+
+                  {/* Banking Category */}
+                  <tr className="bg-gray-100">
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                      {t('pricing.comparison.categories.banking')}
+                    </td>
+                  </tr>
+                  <ComparisonRow feature={t('pricing.comparison.features.bankManagement')} starter={t('pricing.comparison.values.basic')} professional={t('pricing.comparison.values.advanced')} enterprise={t('pricing.comparison.values.full')} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.multiBankAccounts')} starter={false} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.autoJournalEntries')} starter={false} professional={true} enterprise={true} isRTL={isRTL} highlight />
+                  <ComparisonRow feature={t('pricing.comparison.features.autoPosting')} starter={false} professional={false} enterprise={true} isRTL={isRTL} highlight />
+
+                  {/* Notifications Category */}
+                  <tr className="bg-gray-100">
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                      {t('pricing.comparison.categories.notifications')}
+                    </td>
+                  </tr>
+                  <ComparisonRow feature={t('pricing.comparison.features.emailNotifications')} starter={false} professional={true} enterprise={true} isRTL={isRTL} highlight />
+                  <ComparisonRow feature={t('pricing.comparison.features.largeTransactionAlerts')} starter={false} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.adminDashboard')} starter={false} professional={false} enterprise={true} isRTL={isRTL} highlight />
+
+                  {/* Support Category */}
+                  <tr className="bg-gray-100">
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                      {t('pricing.comparison.categories.support')}
+                    </td>
+                  </tr>
+                  <ComparisonRow feature={t('pricing.comparison.features.emailSupport')} starter={true} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.prioritySupport')} starter={false} professional={true} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.phoneSupport')} starter={false} professional={false} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.dedicatedManager')} starter={false} professional={false} enterprise={true} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.cloudStorage')} starter={t('pricing.comparison.values.storage5gb')} professional={t('pricing.comparison.values.storage50gb')} enterprise={t('pricing.comparison.values.storageUnlimited')} isRTL={isRTL} />
+                  <ComparisonRow feature={t('pricing.comparison.features.apiAccess')} starter={false} professional={t('pricing.comparison.values.basic')} enterprise={t('pricing.comparison.values.full')} isRTL={isRTL} />
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Footer with CTAs */}
+            <div className="bg-gray-50 p-6 border-t border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button 
+                  onClick={() => handlePlanSelect(subscriptionPlans[0])}
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:opacity-90"
+                >
+                  {t('pricing.plans.starter.button')}
+                </Button>
+                <Button 
+                  onClick={() => handlePlanSelect(subscriptionPlans[1])}
+                  className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:opacity-90"
+                >
+                  {t('pricing.plans.professional.button')}
+                </Button>
+                <Button 
+                  onClick={() => handlePlanSelect(subscriptionPlans[2])}
+                  className="bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-90"
+                >
+                  {t('pricing.plans.enterprise.button')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Contact Section */}
         <div className="text-center mt-16 p-8 bg-white rounded-2xl shadow-lg">
           <h3 className="text-2xl font-bold text-gray-900 mb-4">
@@ -568,6 +736,39 @@ const PricingSection = () => {
         />
       </div>
     </section>
+  );
+};
+
+// Comparison Row Component
+const ComparisonRow = ({ feature, starter, professional, enterprise, isRTL, highlight }) => {
+  const renderValue = (value) => {
+    if (value === true) {
+      return (
+        <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center mx-auto">
+          <CheckCircle className="w-4 h-4 text-green-600" />
+        </div>
+      );
+    }
+    if (value === false) {
+      return (
+        <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
+          <Minus className="w-4 h-4 text-gray-400" />
+        </div>
+      );
+    }
+    return <span className="text-sm font-medium text-gray-700">{value}</span>;
+  };
+
+  return (
+    <tr className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${highlight ? 'bg-yellow-50/50' : ''}`}>
+      <td className={`p-4 text-${isRTL ? 'right' : 'left'} text-gray-700`}>
+        {highlight && <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-2"></span>}
+        {feature}
+      </td>
+      <td className="p-4 text-center">{renderValue(starter)}</td>
+      <td className="p-4 text-center bg-purple-50/30">{renderValue(professional)}</td>
+      <td className="p-4 text-center">{renderValue(enterprise)}</td>
+    </tr>
   );
 };
 

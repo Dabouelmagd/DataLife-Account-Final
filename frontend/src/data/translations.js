@@ -355,6 +355,64 @@ export const translations = {
         description: "Contact our sales team for enterprise pricing, custom integrations, or special requirements.",
         demo: "Schedule Demo",
         sales: "Contact Sales"
+      },
+
+      comparison: {
+        title: "Compare All Plans",
+        subtitle: "See which plan is right for your business",
+        feature: "Feature",
+        starter: "Starter",
+        professional: "Professional",
+        enterprise: "Enterprise",
+        categories: {
+          general: "General",
+          hr: "Human Resources",
+          finance: "Financial Management",
+          banking: "Banking & Treasury",
+          notifications: "Notifications",
+          support: "Support & Storage"
+        },
+        features: {
+          employees: "Number of Employees",
+          multiTenant: "Multi-tenant Architecture",
+          arabicSupport: "Arabic Language (RTL)",
+          darkMode: "Dark Mode",
+          employeeManagement: "Employee Management",
+          attendance: "Attendance Tracking",
+          payroll: "Payroll Processing",
+          leaveManagement: "Leave Management",
+          performance: "Performance Evaluation",
+          accounting: "Full Accounting System",
+          chartOfAccounts: "Egyptian Chart of Accounts (71)",
+          journalEntries: "Journal Entries",
+          financialReports: "Financial Reports",
+          invoicing: "E-Invoicing & VAT",
+          multiCurrency: "Multi-Currency (11)",
+          bankManagement: "Bank Management",
+          multiBankAccounts: "Multiple Bank Accounts",
+          autoJournalEntries: "Auto Journal Entries",
+          autoPosting: "Auto-Posting of Entries",
+          emailNotifications: "Email Notifications",
+          largeTransactionAlerts: "Large Transaction Alerts",
+          adminDashboard: "Advanced Admin Dashboard",
+          emailSupport: "Email Support",
+          prioritySupport: "Priority Support",
+          phoneSupport: "24/7 Phone Support",
+          dedicatedManager: "Dedicated Account Manager",
+          cloudStorage: "Cloud Storage",
+          apiAccess: "API Access"
+        },
+        values: {
+          upTo10: "Up to 10",
+          upTo100: "Up to 100",
+          unlimited: "Unlimited",
+          basic: "Basic",
+          advanced: "Advanced",
+          full: "Full",
+          storage5gb: "5 GB",
+          storage50gb: "50 GB",
+          storageUnlimited: "Unlimited"
+        }
       }
     },
 
@@ -1085,6 +1143,64 @@ export const translations = {
         description: "اتصل بفريق المبيعات لدينا للحصول على تسعير المؤسسات أو التكاملات المخصصة أو المتطلبات الخاصة.",
         demo: "جدولة عرض توضيحي",
         sales: "اتصل بالمبيعات"
+      },
+
+      comparison: {
+        title: "قارن بين جميع الخطط",
+        subtitle: "اكتشف الخطة المناسبة لعملك",
+        feature: "الميزة",
+        starter: "المبتدئ",
+        professional: "المحترف",
+        enterprise: "المؤسسي",
+        categories: {
+          general: "عام",
+          hr: "الموارد البشرية",
+          finance: "الإدارة المالية",
+          banking: "البنوك والخزينة",
+          notifications: "الإشعارات",
+          support: "الدعم والتخزين"
+        },
+        features: {
+          employees: "عدد الموظفين",
+          multiTenant: "بنية متعددة المستأجرين",
+          arabicSupport: "دعم اللغة العربية (RTL)",
+          darkMode: "الوضع الداكن",
+          employeeManagement: "إدارة الموظفين",
+          attendance: "تتبع الحضور والانصراف",
+          payroll: "معالجة الرواتب",
+          leaveManagement: "إدارة الإجازات",
+          performance: "تقييم الأداء",
+          accounting: "نظام محاسبة كامل",
+          chartOfAccounts: "دليل الحسابات المصري (71)",
+          journalEntries: "القيود اليومية",
+          financialReports: "التقارير المالية",
+          invoicing: "الفوترة الإلكترونية وضريبة القيمة المضافة",
+          multiCurrency: "عملات متعددة (11)",
+          bankManagement: "إدارة البنوك",
+          multiBankAccounts: "حسابات بنكية متعددة",
+          autoJournalEntries: "قيود محاسبية تلقائية",
+          autoPosting: "ترحيل تلقائي للقيود",
+          emailNotifications: "إشعارات البريد الإلكتروني",
+          largeTransactionAlerts: "تنبيهات المعاملات الكبيرة",
+          adminDashboard: "لوحة تحكم إدارية متقدمة",
+          emailSupport: "دعم عبر البريد الإلكتروني",
+          prioritySupport: "دعم أولوية",
+          phoneSupport: "دعم هاتفي على مدار الساعة",
+          dedicatedManager: "مدير حساب مخصص",
+          cloudStorage: "تخزين سحابي",
+          apiAccess: "وصول API"
+        },
+        values: {
+          upTo10: "حتى 10",
+          upTo100: "حتى 100",
+          unlimited: "غير محدود",
+          basic: "أساسي",
+          advanced: "متقدم",
+          full: "كامل",
+          storage5gb: "5 جيجا",
+          storage50gb: "50 جيجا",
+          storageUnlimited: "غير محدود"
+        }
       }
     },
 
