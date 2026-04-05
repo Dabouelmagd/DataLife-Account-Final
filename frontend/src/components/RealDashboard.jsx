@@ -43,6 +43,7 @@ import ShiftsPage from '../pages/ShiftsPage';
 import AttendancePage from '../pages/AttendancePage';
 import HRSettingsPage from '../pages/HRSettingsPage';
 import ETASettingsPage from '../pages/ETASettingsPage';
+import ProjectsPage from '../pages/ProjectsPage';
 
 // Import sub-modules from existing files
 import {
@@ -271,7 +272,11 @@ const RealDashboard = () => {
           // المشاريع
           { id: 'divider-projects', name: language === 'ar' ? '── المشاريع ──' : '── Projects ──', isDivider: true },
           { id: 'projects', name: language === 'ar' ? 'المشاريع' : 'Projects', icon: <FolderKanban />, group: 'projects' },
-          { id: 'tasks', name: language === 'ar' ? 'المهام' : 'Tasks', icon: <CheckCircle />, group: 'projects' }
+          { id: 'tasks', name: language === 'ar' ? 'المهام' : 'Tasks', icon: <CheckCircle />, group: 'projects' },
+          
+          // العملات
+          { id: 'divider-currencies', name: language === 'ar' ? '── العملات ──' : '── Currencies ──', isDivider: true },
+          { id: 'currencies', name: language === 'ar' ? 'إدارة العملات' : 'Currency Management', icon: <DollarSign />, group: 'currencies' }
         ]
       });
     }
