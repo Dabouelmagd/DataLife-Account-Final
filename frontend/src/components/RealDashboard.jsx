@@ -53,6 +53,7 @@ import AllowancesPage from '../pages/AllowancesPage';
 import ShiftsManagementPage from '../pages/ShiftsManagementPage';
 import SalariesPage from '../pages/SalariesPage';
 import HRComprehensiveReportsPage from '../pages/HRComprehensiveReportsPage';
+import SystemReportsPage from '../pages/SystemReportsPage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -318,6 +319,11 @@ const RealDashboard = () => {
         name: language === 'ar' ? 'التقارير' : 'Reports', 
         icon: <FileText /> 
       });
+      modules.push({ 
+        id: 'system-reports', 
+        name: language === 'ar' ? 'التقارير الشاملة' : 'System Reports', 
+        icon: <BarChart /> 
+      });
     }
 
     // Analytics module - للإدارة العليا والأدوار المالية العليا فقط
@@ -503,40 +509,83 @@ const RealDashboard = () => {
     if (activeModule === 'reports') {
       return (
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{language === 'ar' ? 'التقارير' : 'Reports'}</CardTitle>
-              <CardDescription>
-                {language === 'ar' ? 'التقارير والتحليلات' : 'Reports and Analytics'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button
-                  variant="outline"
-                  className="h-24 flex flex-col items-center justify-center"
-                  onClick={() => {
-                    setActiveModule('hr');
-                    setActiveHRSubModule('hr-reports');
-                  }}
-                >
-                  <Users className="h-6 w-6 mb-2" />
-                  <span>{language === 'ar' ? 'تقارير الموارد البشرية' : 'HR Reports'}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-24 flex flex-col items-center justify-center"
-                  onClick={() => {
-                    setActiveModule('financial');
-                    setActiveFinancialSubModule('financial-reports');
-                  }}
-                >
-                  <Calculator className="h-6 w-6 mb-2" />
-                  <span>{language === 'ar' ? 'التقارير المالية' : 'Financial Reports'}</span>
-                </Button>
+          {/* Modern Header */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-700 via-slate-800 to-zinc-900 p-6 text-white">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-violet-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+            <div className="relative z-10 flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                <BarChart className="w-7 h-7 text-white" />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <h1 className="text-2xl font-bold mb-1">{language === 'ar' ? 'التقارير' : 'Reports'}</h1>
+                <p className="text-slate-300 text-sm">{language === 'ar' ? 'التقارير والتحليلات الشاملة لجميع أقسام النظام' : 'Comprehensive reports and analytics for all system modules'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Report Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* HR Reports */}
+            <Card 
+              className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-950/30 dark:to-teal-950/30"
+              onClick={() => {
+                setActiveModule('hr');
+                setActiveHRSubModule('hr-reports');
+              }}
+            >
+              <CardContent className="p-6">
+                <div className="w-14 h-14 rounded-xl bg-cyan-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <Users className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
+                  {language === 'ar' ? 'تقارير الموارد البشرية' : 'HR Reports'}
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {language === 'ar' ? 'تقارير الموظفين، الحضور، الرواتب والأداء' : 'Employee, attendance, payroll and performance reports'}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Financial Reports */}
+            <Card 
+              className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30"
+              onClick={() => {
+                setActiveModule('financial');
+                setActiveFinancialSubModule('financial-reports');
+              }}
+            >
+              <CardContent className="p-6">
+                <div className="w-14 h-14 rounded-xl bg-emerald-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <Calculator className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
+                  {language === 'ar' ? 'التقارير المالية' : 'Financial Reports'}
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {language === 'ar' ? 'الميزانية، قائمة الدخل، التدفقات النقدية' : 'Balance sheet, income statement, cash flows'}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* System Reports */}
+            <Card 
+              className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30"
+              onClick={() => setActiveModule('system-reports')}
+            >
+              <CardContent className="p-6">
+                <div className="w-14 h-14 rounded-xl bg-violet-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <BarChart className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
+                  {language === 'ar' ? 'تقارير النظام' : 'System Reports'}
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {language === 'ar' ? 'المشاريع، المشتريات، المخزون، والموافقات' : 'Projects, purchases, inventory, and approvals'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       );
     }
@@ -544,6 +593,11 @@ const RealDashboard = () => {
     // Analytics Module
     if (activeModule === 'analytics') {
       return <AnalyticsModule language={language} userRole={user?.role} />;
+    }
+
+    // System Reports Module
+    if (activeModule === 'system-reports') {
+      return <SystemReportsPage language={language} />;
     }
 
     // Invoices Module

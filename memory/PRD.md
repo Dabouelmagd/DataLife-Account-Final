@@ -373,6 +373,41 @@ Multi-tenant ERP system with comprehensive business management capabilities incl
   - Import type cards (Employees, Customers, Suppliers, etc.)
   - Import history table with status tracking
 
+#### 15. System-Wide Reports Page (NEW - April 2026) ✅
+- **System Reports Landing Page Updated:**
+  - Modern dark gradient header with icon
+  - 3 report cards (HR Reports, Financial Reports, System Reports)
+  - Color-coded cards with hover effects (cyan, emerald, violet)
+  - Arabic/English bilingual support
+- **System-Wide Reports Page (SystemReportsPage.jsx):**
+  - Comprehensive overview of all system modules
+  - 6 tabs: Overview, Financial, HR, Sales, Inventory, Projects
+  - Period filter (Daily/Monthly/Yearly) with month selector
+  - Export: Excel and PDF buttons
+  - Refresh data functionality
+  - **Overview Tab:**
+    - 4 main stats: Total Revenue, Total Expenses, Net Profit, Total Employees
+    - 6 secondary stats: Customers, Suppliers, Products, Projects, Pending Invoices, Low Stock
+    - Monthly Revenue & Expenses Chart (ComposedChart with bars + line)
+    - Sales by Category Pie Chart
+  - **Financial Tab:**
+    - Expenses Breakdown Pie Chart
+    - Profit Trend Area Chart
+  - **HR Tab:**
+    - Employee by Department Pie Chart
+    - HR Statistics cards
+  - **Sales Tab:**
+    - Customer, Invoice, Pending counts
+  - **Inventory Tab:**
+    - Inventory Status Pie Chart (In Stock, Low Stock, Out of Stock)
+    - Inventory Summary cards
+  - **Projects Tab:**
+    - Project Status Pie Chart (Active, Completed, On Hold, Cancelled)
+    - Projects Summary with completion rate progress bar
+  - Arabic/English full bilingual support
+  - Real data fetching from: /api/employees, /api/customers, /api/suppliers, /api/invoices, /api/purchases, /api/products, /api/projects, /api/expenses, /api/revenues
+  - Mock data fallback for demo purposes
+
 - **Check-in/Check-out:**
   - Record check-in time
   - Record check-out time
