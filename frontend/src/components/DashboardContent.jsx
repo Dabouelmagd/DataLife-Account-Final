@@ -13,6 +13,7 @@ import {
   UsersThree, ChartLineUp, Money, CalendarCheck, 
   TrendUp, Receipt, Cube, ClipboardText, Lightning
 } from '@phosphor-icons/react';
+import DashboardCharts from './DashboardCharts';
 
 const DashboardContent = ({ language, stats, employees, onNavigate }) => {
   const isRTL = language === 'ar';
@@ -498,6 +499,9 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Charts Section */}
+      <DashboardCharts language={language} stats={stats} />
     </div>
   );
 };

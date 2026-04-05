@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
-import { Building2, User, Key, Globe, Users } from 'lucide-react';
+import { Building2, User, Key, Globe, Users, ClipboardList } from 'lucide-react';
 import axios from 'axios';
 
 // Import refactored components
@@ -14,6 +14,7 @@ import {
   InviteModal,
   SubscriptionTab,
   LanguageTab,
+  ActivityLogTab,
   getAvailableRoles,
   getAvailablePermissions,
   MANAGEMENT_ROLES
@@ -334,6 +335,7 @@ const CompanySettings = () => {
     { id: 'company', label: language === 'ar' ? 'الشركة' : 'Company', icon: Building2 },
     { id: 'profile', label: language === 'ar' ? 'الملف الشخصي' : 'Profile', icon: User },
     ...(canManageEmployees ? [{ id: 'employees', label: language === 'ar' ? 'الموظفين' : 'Employees', icon: Users }] : []),
+    ...(canManageEmployees ? [{ id: 'activity', label: language === 'ar' ? 'سجل النشاطات' : 'Activity Log', icon: ClipboardList }] : []),
     { id: 'subscription', label: language === 'ar' ? 'الاشتراك' : 'Subscription', icon: Key },
     { id: 'language', label: language === 'ar' ? 'اللغة' : 'Language', icon: Globe },
   ];
@@ -414,6 +416,10 @@ const CompanySettings = () => {
             language={language}
             toggleLanguage={toggleLanguage}
           />
+        )}
+
+        {activeTab === 'activity' && canManageEmployees && (
+          <ActivityLogTab language={language} />
         )}
 
         {/* Modals */}

@@ -654,6 +654,39 @@ GET    /api/payroll/reports/payslip/{run_id}/{employee_id}  # Employee payslip
 
 ## Changelog
 
+- **April 5, 2026 (Update 10)**: User Management & Dashboard Charts ✅
+  - **Change Password Feature:**
+    - Frontend form in ProfileTab with current/new/confirm password fields
+    - Backend API: POST /api/auth/change-password
+    - Password validation (min 6 characters)
+    - Success/error toast notifications
+  
+  - **Delete Employee Feature:**
+    - Delete button in EmployeesTab for each non-current user
+    - Confirmation modal before deletion
+    - Backend API: DELETE /api/users/{user_id}
+    - Cannot delete your own account (UI protection)
+  
+  - **Activity Log System:**
+    - New backend API: /api/activity/* (logs, stats, recent)
+    - Activity log tab in Settings
+    - Stats cards (Total Activities, Today's Actions, Active Users, Action Types)
+    - Filter by entity type (Users, Employees, Invoices, Payroll)
+    - Pagination support
+    - New files: /app/backend/api/activity_log.py, /app/frontend/src/components/settings/ActivityLogTab.jsx
+  
+  - **Interactive Dashboard Charts:**
+    - Revenue vs Expenses Area Chart
+    - Monthly Invoices Bar Chart
+    - Employee Distribution Pie Chart
+    - Expense Breakdown Pie Chart
+    - Employee Growth Line Chart
+    - Period selector (Week/Month/Quarter/Year)
+    - Recharts library integration
+    - New file: /app/frontend/src/components/DashboardCharts.jsx
+  
+  - Testing: Frontend verified (screenshots)
+
 - **April 5, 2026 (Update 9)**: Dashboard UI/UX Redesign ✅
   - Complete redesign of Dashboard to match new sidebar color scheme
   - New welcome header with date display
