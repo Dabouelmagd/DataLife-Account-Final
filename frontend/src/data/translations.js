@@ -44,7 +44,7 @@ export const translations = {
         },
         banking: {
           title: "Accounts & Banking",
-          description: "Comprehensive management of company accounts, check processing, and debt tracking for suppliers and customers."
+          description: "Multi-bank management with automatic journal entries, auto-posting of transactions, check processing, and comprehensive debt tracking."
         },
         analytics: {
           title: "Analytics & Reports",
@@ -79,8 +79,8 @@ export const translations = {
           description: "Access your data from anywhere, anytime with cloud flexibility"
         },
         notifications: {
-          title: "Automated Notifications",
-          description: "Get alerts for important financial matters and pending payments"
+          title: "Smart Email Notifications",
+          description: "Automatic email alerts for large transactions, payslips, contract expiry, due invoices, and approval requests"
         }
       }
     },
@@ -111,21 +111,21 @@ export const translations = {
         financial: {
           title: "Financial Operations",
           features: [
-            "Production & inventory monitoring",
+            "Multi-bank management with auto journal entries",
+            "Automatic posting of accounting entries",
             "Cost management and analysis",
-            "Banking and payment processing",
             "Online obligation settlements",
-            "Automatic payment reminders"
+            "Email notifications for key events"
           ]
         },
         analytics: {
           title: "Analytics & Control",
           features: [
+            "Advanced admin dashboard with charts",
             "Permission-based access control",
             "Visual reports with graphs",
             "Automated financial statements",
-            "Custom report generation", 
-            "VAT breakdown automation"
+            "Custom report generation"
           ]
         }
       }
@@ -832,7 +832,7 @@ export const translations = {
         },
         banking: {
           title: "الحسابات والمصرفية",
-          description: "إدارة شاملة لحسابات الشركة، معالجة الشيكات، وتتبع الديون للموردين والعملاء."
+          description: "إدارة بنوك متعددة مع قيود محاسبية تلقائية، ترحيل فوري للحركات، معالجة الشيكات، وتتبع شامل للديون."
         },
         analytics: {
           title: "التحليلات والتقارير",
@@ -867,8 +867,8 @@ export const translations = {
           description: "الوصول إلى بياناتك من أي مكان وفي أي وقت مع مرونة السحابة"
         },
         notifications: {
-          title: "الإشعارات الآلية",
-          description: "احصل على تنبيهات للأمور المالية المهمة والمدفوعات المعلقة"
+          title: "إشعارات البريد الذكية",
+          description: "تنبيهات تلقائية للمعاملات الكبيرة، كشوف الرواتب، انتهاء العقود، الفواتير المستحقة، وطلبات الموافقة"
         }
       }
     },
@@ -899,21 +899,21 @@ export const translations = {
         financial: {
           title: "العمليات المالية",
           features: [
-            "مراقبة الإنتاج والمخزون",
+            "إدارة بنوك متعددة مع قيود تلقائية",
+            "ترحيل تلقائي للقيود المحاسبية",
             "إدارة وتحليل التكاليف",
-            "معالجة المصرفية والمدفوعات",
             "تسوية الالتزامات عبر الإنترنت",
-            "تذكيرات الدفع الآلية"
+            "إشعارات البريد للأحداث المهمة"
           ]
         },
         analytics: {
           title: "التحليلات والتحكم",
           features: [
+            "لوحة تحكم إدارية متقدمة مع رسوم بيانية",
             "نظام التحكم في الصلاحيات",
             "تقارير مرئية بالرسوم البيانية",
             "بيانات مالية آلية",
-            "إنشاء تقارير مخصصة",
-            "أتمتة تحليل ضريبة القيمة المضافة"
+            "إنشاء تقارير مخصصة"
           ]
         }
       }
