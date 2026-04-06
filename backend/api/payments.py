@@ -12,6 +12,11 @@ from emergentintegrations.payments.stripe.checkout import (
 )
 import paypalrestsdk
 import secrets
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables
+load_dotenv(Path(__file__).parent.parent / '.env')
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -23,7 +28,7 @@ db = client[DB_NAME]
 
 # Configure PayPal
 paypalrestsdk.configure({
-    "mode": "live",  # sandbox or live
+    "mode": "sandbox",  # sandbox or live
     "client_id": os.environ.get('PAYPAL_CLIENT_ID'),
     "client_secret": os.environ.get('PAYPAL_SECRET')
 })
@@ -592,8 +597,8 @@ async def create_paypal_checkout(request: CreateCheckoutRequest, http_request: R
                     "price_egp": package["price_egp"]
                 },
                 "coupon_applied": coupon_applied,
-                "live_mode": True,
-                "message": "Redirecting to PayPal for payment"
+                "sandbox_mode": True,
+                "message": "Redirecting to PayPal Sandbox for payment"
             }
         else:
             raise HTTPException(status_code=500, detail=f"PayPal error: {payment.error}")
@@ -694,7 +699,7 @@ async def get_payment_methods():
                 "description_en": "Pay with your PayPal account",
                 "description_ar": "ادفع باستخدام حساب PayPal الخاص بك",
                 "enabled": True,
-                "live_mode": True
+                "sandbox_mode": True
             }
         ]
     }
