@@ -19,6 +19,35 @@ db = client[DB_NAME]
 ADMIN_ROLES = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي']
 
 
+# Import audit log function
+async def log_admin_audit(action, entity_type, user_data, **kwargs):
+    """Helper to log admin actions"""
+    try:
+        from api.audit_log import log_audit
+        
+        # Get user details from database if not in user_data
+        performed_by_name = user_data.get('full_name')
+        performed_by_email = user_data.get('email')
+        
+        if not performed_by_name and user_data.get('user_id'):
+            admin_user = await db.users.find_one({"id": user_data.get('user_id')})
+            if admin_user:
+                performed_by_name = admin_user.get('full_name', 'Unknown')
+                performed_by_email = admin_user.get('email', performed_by_email)
+        
+        await log_audit(
+            action=action,
+            entity_type=entity_type,
+            performed_by_id=user_data.get('user_id'),
+            performed_by_name=performed_by_name or 'Unknown',
+            performed_by_email=performed_by_email or 'Unknown',
+            company_id=user_data.get('company_id'),
+            **kwargs
+        )
+    except Exception as e:
+        print(f"Audit log error: {e}")
+
+
 async def verify_admin(authorization: str):
     """Verify if user is admin"""
     if not authorization or not authorization.startswith("Bearer "):
@@ -455,17 +484,35 @@ async def toggle_user_status(
     authorization: Optional[str] = Header(None)
 ):
     """Enable/disable a specific user"""
-    await verify_admin(authorization)
+    user_data = await verify_admin(authorization)
     
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    new_status = not user.get("is_active", True)
+    old_status = user.get("is_active", True)
+    new_status = not old_status
     
     await db.users.update_one(
         {"id": user_id},
         {"$set": {"is_active": new_status}}
+    )
+    
+    # Get company name for audit
+    company = await db.companies.find_one({"id": user.get("company_id")})
+    company_name = company.get("company_name") if company else None
+    
+    # Log audit
+    await log_admin_audit(
+        action="activate" if new_status else "deactivate",
+        entity_type="user",
+        user_data=user_data,
+        entity_id=user_id,
+        entity_name=user.get("full_name"),
+        company_name=company_name,
+        old_values={"is_active": old_status},
+        new_values={"is_active": new_status},
+        details=f"{'Activated' if new_status else 'Deactivated'} user: {user.get('full_name')}"
     )
     
     return {
@@ -638,7 +685,7 @@ async def update_user_role(
     authorization: Optional[str] = Header(None)
 ):
     """Update a user's role - Super Admin only"""
-    await verify_admin(authorization)
+    user_data = await verify_admin(authorization)
     
     new_role = request_data.get("role")
     if not new_role:
@@ -653,6 +700,8 @@ async def update_user_role(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    old_role = user.get("role")
+    
     # Update user role
     await db.users.update_one(
         {"id": user_id},
@@ -662,10 +711,27 @@ async def update_user_role(
         }}
     )
     
+    # Get company name for audit
+    company = await db.companies.find_one({"id": user.get("company_id")})
+    company_name = company.get("company_name") if company else None
+    
+    # Log audit
+    await log_admin_audit(
+        action="change_role",
+        entity_type="user",
+        user_data=user_data,
+        entity_id=user_id,
+        entity_name=user.get("full_name"),
+        company_name=company_name,
+        old_values={"role": old_role},
+        new_values={"role": new_role},
+        details=f"Changed role from '{old_role}' to '{new_role}' for user: {user.get('full_name')}"
+    )
+    
     return {
         "user_id": user_id,
         "full_name": user.get("full_name"),
-        "old_role": user.get("role"),
+        "old_role": old_role,
         "new_role": new_role,
         "message": "Role updated successfully"
     }
@@ -698,7 +764,7 @@ async def update_user_permissions(
     authorization: Optional[str] = Header(None)
 ):
     """Update permissions for a specific user - Super Admin only"""
-    await verify_admin(authorization)
+    user_data = await verify_admin(authorization)
     
     permissions = request_data.get("permissions", [])
     
@@ -714,6 +780,8 @@ async def update_user_permissions(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    old_permissions = user.get("permissions", [])
+    
     # Update user permissions
     await db.users.update_one(
         {"id": user_id},
@@ -721,6 +789,23 @@ async def update_user_permissions(
             "permissions": permissions,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
+    )
+    
+    # Get company name for audit
+    company = await db.companies.find_one({"id": user.get("company_id")})
+    company_name = company.get("company_name") if company else None
+    
+    # Log audit
+    await log_admin_audit(
+        action="change_permissions",
+        entity_type="user",
+        user_data=user_data,
+        entity_id=user_id,
+        entity_name=user.get("full_name"),
+        company_name=company_name,
+        old_values={"permissions": old_permissions},
+        new_values={"permissions": permissions},
+        details=f"Changed permissions for user: {user.get('full_name')} ({len(old_permissions)} -> {len(permissions)} permissions)"
     )
     
     return {
@@ -864,11 +949,31 @@ async def delete_user(
     if user.get('role') in ['Super Admin', 'مدير النظام']:
         raise HTTPException(status_code=403, detail="Cannot delete Super Admin user")
     
+    # Get company name for audit
+    company = await db.companies.find_one({"id": user.get("company_id")})
+    company_name = company.get("company_name") if company else None
+    
     # Delete user
     result = await db.users.delete_one({"id": user_id})
     
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Log audit
+    await log_admin_audit(
+        action="delete",
+        entity_type="user",
+        user_data=user_data,
+        entity_id=user_id,
+        entity_name=user.get("full_name"),
+        company_name=company_name,
+        old_values={
+            "email": user.get("email"),
+            "role": user.get("role"),
+            "permissions": user.get("permissions", [])
+        },
+        details=f"Deleted user: {user.get('full_name')} ({user.get('email')})"
+    )
     
     return {
         "success": True,

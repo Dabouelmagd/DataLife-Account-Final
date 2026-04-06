@@ -13,10 +13,11 @@ import {
   RefreshCw, Plus, Trash2, Copy, AlertCircle, Loader2,
   Calendar, BarChart3, Settings, ChevronDown, Power, Mail, 
   Send, Eye, UserX, UserCheck, Bell, Shield, Save, MessageSquare, Briefcase,
-  LogOut, Globe, LayoutDashboard
+  LogOut, Globe, LayoutDashboard, History
 } from 'lucide-react';
 import axios from 'axios';
 import CompanyLogo from './CompanyLogo';
+import AuditLogPage from '../pages/AuditLogPage';
 
 const AdminDashboard = () => {
   const { token, user, logout } = useAuth();
@@ -583,6 +584,7 @@ const AdminDashboard = () => {
     { id: 'codes', label: t.codes, icon: Gift },
     { id: 'companies', label: t.companies, icon: Building2 },
     { id: 'users', label: isRTL ? 'جميع المستخدمين' : 'All Users', icon: Users },
+    { id: 'audit', label: isRTL ? 'سجل التدقيق' : 'Audit Log', icon: History },
     { id: 'messages', label: isRTL ? 'الرسائل' : 'Messages', icon: Mail, badge: newMessagesCount }
   ];
 
@@ -1718,6 +1720,11 @@ const AdminDashboard = () => {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Audit Log Tab */}
+        {activeTab === 'audit' && (
+          <AuditLogPage />
         )}
 
         {/* Messages Tab */}
