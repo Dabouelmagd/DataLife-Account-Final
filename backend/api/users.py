@@ -14,14 +14,51 @@ from typing import Optional, List
 import os
 import asyncio
 import resend
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize Resend
+# Initialize Resend (fallback)
 resend.api_key = os.environ.get("RESEND_API_KEY")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "noreply@datalifeaccount.com")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://datalifeaccount.com")
+
+# SMTP Configuration (Primary)
+SMTP_CONFIG = {
+    "host": os.environ.get('SMTP_HOST', ''),
+    "port": int(os.environ.get('SMTP_PORT', 465)),
+    "email": os.environ.get('SMTP_EMAIL', ''),
+    "password": os.environ.get('SMTP_PASSWORD', ''),
+    "use_ssl": os.environ.get('SMTP_USE_SSL', 'true').lower() == 'true'
+}
+
+def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
+    """Send email using SMTP"""
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = SMTP_CONFIG['email']
+        msg['To'] = to_email
+        
+        html_part = MIMEText(html_content, 'html', 'utf-8')
+        msg.attach(html_part)
+        
+        if SMTP_CONFIG['use_ssl']:
+            server = smtplib.SMTP_SSL(SMTP_CONFIG['host'], SMTP_CONFIG['port'])
+        else:
+            server = smtplib.SMTP(SMTP_CONFIG['host'], SMTP_CONFIG['port'])
+            server.starttls()
+        
+        server.login(SMTP_CONFIG['email'], SMTP_CONFIG['password'])
+        server.sendmail(SMTP_CONFIG['email'], to_email, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"SMTP Error: {e}")
+        return False
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -85,7 +122,7 @@ async def add_user(
     user = await create_user(db, user_data, user_data.password)
     
     # Send invitation email
-    if send_invite and resend.api_key:
+    if send_invite and (SMTP_CONFIG['host'] or resend.api_key):
         try:
             # Get company name
             company = await db.companies.find_one({"id": current_user.get("company_id")})
@@ -143,14 +180,28 @@ async def add_user(
             </div>
             """
             
-            params = {
-                "from": SENDER_EMAIL,
-                "to": [user_data.email],
-                "subject": f"🎉 دعوة للانضمام إلى {company_name} - DataLife Account",
-                "html": html_content
-            }
+            # Try SMTP first, fallback to Resend
+            subject = f"🎉 دعوة للانضمام إلى {company_name} - DataLife Account"
             
-            await asyncio.to_thread(resend.Emails.send, params)
+            if SMTP_CONFIG['host'] and SMTP_CONFIG['email']:
+                email_sent = await asyncio.to_thread(send_email_smtp, user_data.email, subject, html_content)
+                if not email_sent and resend.api_key:
+                    # Fallback to Resend
+                    params = {
+                        "from": SENDER_EMAIL,
+                        "to": [user_data.email],
+                        "subject": subject,
+                        "html": html_content
+                    }
+                    await asyncio.to_thread(resend.Emails.send, params)
+            elif resend.api_key:
+                params = {
+                    "from": SENDER_EMAIL,
+                    "to": [user_data.email],
+                    "subject": subject,
+                    "html": html_content
+                }
+                await asyncio.to_thread(resend.Emails.send, params)
         except Exception as e:
             # Log error but don't fail the user creation
             print(f"Failed to send invitation email: {e}")
@@ -170,7 +221,8 @@ async def resend_invitation(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    if not resend.api_key:
+    # Check if email service is configured
+    if not SMTP_CONFIG['host'] and not resend.api_key:
         raise HTTPException(status_code=500, detail="Email service not configured")
     
     try:
@@ -235,16 +287,29 @@ async def resend_invitation(
         </div>
         """
         
-        params = {
-            "from": SENDER_EMAIL,
-            "to": [user.get('email')],
-            "subject": f"📧 إعادة إرسال دعوة - {company_name}",
-            "html": html_content
-        }
+        subject = f"📧 إعادة إرسال دعوة - {company_name}"
         
-        await asyncio.to_thread(resend.Emails.send, params)
+        # Try SMTP first, fallback to Resend
+        email_sent = False
+        if SMTP_CONFIG['host'] and SMTP_CONFIG['email']:
+            email_sent = await asyncio.to_thread(send_email_smtp, user.get('email'), subject, html_content)
+        
+        if not email_sent and resend.api_key:
+            params = {
+                "from": SENDER_EMAIL,
+                "to": [user.get('email')],
+                "subject": subject,
+                "html": html_content
+            }
+            await asyncio.to_thread(resend.Emails.send, params)
+            email_sent = True
+        
+        if not email_sent:
+            raise HTTPException(status_code=500, detail="Failed to send email - no email service available")
         
         return {"message": "Invitation resent successfully", "email": user.get('email')}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
@@ -647,7 +712,7 @@ async def update_user_permissions_endpoint(
         raise HTTPException(status_code=403, detail="Cannot modify users from other companies")
     
     # Validate permissions
-    valid_permission_ids = ['dashboard', 'hr', 'financial', 'invoices', 'purchases', 
+    valid_permission_ids = ['dashboard', 'hr', 'hr_admin', 'hr_financial', 'financial', 'invoices', 'purchases', 
                            'projects', 'reports', 'analytics', 'inventory', 'settings', 'users', 'approvals']
     
     for perm in permissions_data.permissions:
