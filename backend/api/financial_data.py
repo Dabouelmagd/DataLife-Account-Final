@@ -30,7 +30,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
 async def get_journal_entries(current_user: dict = Depends(get_current_user)):
     """Get all journal entries for the user's company"""
     company_id = current_user.get("company_id")
-    entries = await db.journal_entries.find({"company_id": company_id}).to_list(length=None)
+    entries = await db.journal_entries.find({"company_id": company_id}).to_list(length=1000)
     return [JournalEntry(**e) for e in entries]
 
 @router.post("/journal-entries")
@@ -50,7 +50,7 @@ async def create_journal_entry(entry: JournalEntry, current_user: dict = Depends
 async def get_treasury_transactions(current_user: dict = Depends(get_current_user)):
     """Get all treasury transactions for the user's company"""
     company_id = current_user.get("company_id")
-    transactions = await db.treasury_transactions.find({"company_id": company_id}).to_list(length=None)
+    transactions = await db.treasury_transactions.find({"company_id": company_id}).to_list(length=1000)
     return [TreasuryTransaction(**t) for t in transactions]
 
 @router.post("/treasury")
@@ -70,7 +70,7 @@ async def create_treasury_transaction(transaction: TreasuryTransaction, current_
 async def get_bank_transactions(current_user: dict = Depends(get_current_user)):
     """Get all bank transactions for the user's company"""
     company_id = current_user.get("company_id")
-    transactions = await db.bank_transactions.find({"company_id": company_id}).to_list(length=None)
+    transactions = await db.bank_transactions.find({"company_id": company_id}).to_list(length=1000)
     return [BankTransaction(**t) for t in transactions]
 
 @router.post("/bank")
@@ -90,7 +90,7 @@ async def create_bank_transaction(transaction: BankTransaction, current_user: di
 async def get_customers(current_user: dict = Depends(get_current_user)):
     """Get all customers for the user's company"""
     company_id = current_user.get("company_id")
-    customers = await db.customers.find({"company_id": company_id}).to_list(length=None)
+    customers = await db.customers.find({"company_id": company_id}).to_list(length=1000)
     return [Customer(**c) for c in customers]
 
 @router.post("/customers")

@@ -207,8 +207,9 @@ async def set_user_password(request_data: dict):
     new_password = request_data.get("password")
     admin_key = request_data.get("admin_key")
     
-    # Simple admin key check
-    if admin_key != "datalife_admin_2024":
+    # Admin key from environment variable
+    expected_admin_key = os.environ.get("ADMIN_KEY", "")
+    if not expected_admin_key or admin_key != expected_admin_key:
         raise HTTPException(status_code=403, detail="Invalid admin key")
     
     if not email or not new_password:

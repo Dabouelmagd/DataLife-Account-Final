@@ -30,7 +30,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
 async def get_employees(current_user: dict = Depends(get_current_user)):
     """Get all employees for the user's company"""
     company_id = current_user.get("company_id")
-    employees = await db.employees.find({"company_id": company_id}).to_list(length=None)
+    employees = await db.employees.find({"company_id": company_id}).to_list(length=1000)
     return [Employee(**emp) for emp in employees]
 
 @router.post("/employees")
@@ -51,7 +51,7 @@ async def create_employee(employee: Employee, current_user: dict = Depends(get_c
 async def get_allowances(current_user: dict = Depends(get_current_user)):
     """Get all allowances for the user's company"""
     company_id = current_user.get("company_id")
-    allowances = await db.allowances.find({"company_id": company_id}).to_list(length=None)
+    allowances = await db.allowances.find({"company_id": company_id}).to_list(length=1000)
     return [Allowance(**a) for a in allowances]
 
 @router.post("/allowances")
@@ -71,7 +71,7 @@ async def create_allowance(allowance: Allowance, current_user: dict = Depends(ge
 async def get_deductions(current_user: dict = Depends(get_current_user)):
     """Get all deductions for the user's company"""
     company_id = current_user.get("company_id")
-    deductions = await db.deductions.find({"company_id": company_id}).to_list(length=None)
+    deductions = await db.deductions.find({"company_id": company_id}).to_list(length=1000)
     return [Deduction(**d) for d in deductions]
 
 @router.post("/deductions")
@@ -91,7 +91,7 @@ async def create_deduction(deduction: Deduction, current_user: dict = Depends(ge
 async def get_leaves(current_user: dict = Depends(get_current_user)):
     """Get all leaves for the user's company"""
     company_id = current_user.get("company_id")
-    leaves = await db.leaves.find({"company_id": company_id}).to_list(length=None)
+    leaves = await db.leaves.find({"company_id": company_id}).to_list(length=1000)
     return [Leave(**l) for l in leaves]
 
 @router.post("/leaves")
@@ -106,7 +106,7 @@ async def create_leave(leave: Leave, current_user: dict = Depends(get_current_us
 async def get_attendance(current_user: dict = Depends(get_current_user)):
     """Get all attendance records for the user's company"""
     company_id = current_user.get("company_id")
-    attendance = await db.attendance.find({"company_id": company_id}).to_list(length=None)
+    attendance = await db.attendance.find({"company_id": company_id}).to_list(length=1000)
     return [Attendance(**a) for a in attendance]
 
 @router.post("/attendance")
