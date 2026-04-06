@@ -651,14 +651,14 @@ const LandingPage = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Achievements Card */}
+            {/* Goals Card */}
             <Card className="border-0 shadow-lg hover:shadow-xl transition-all bg-white">
               <CardContent className="pt-8 pb-6 text-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <TrendingUp className="h-8 w-8 text-green-600" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  {language === 'ar' ? 'إنجازاتنا' : 'Our Achievements'}
+                  {language === 'ar' ? 'أهدافنا' : 'Our Goals'}
                 </h3>
                 <ul className={`text-gray-600 space-y-2 text-sm ${isRTL ? 'text-right' : 'text-left'}`}>
                   <li className="flex items-center gap-2">
