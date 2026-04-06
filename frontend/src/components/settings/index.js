@@ -7,6 +7,7 @@ export { default as InviteModal } from './InviteModal';
 export { default as SubscriptionTab } from './SubscriptionTab';
 export { default as LanguageTab } from './LanguageTab';
 export { default as ActivityLogTab } from './ActivityLogTab';
+export { default as PermissionsTab } from './PermissionsTab';
 export { 
   getAvailableRoles, 
   getAvailablePermissions, 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
-import { Building2, User, Key, Globe, Users, ClipboardList } from 'lucide-react';
+import { Building2, User, Key, Globe, Users, ClipboardList, Shield } from 'lucide-react';
 import axios from 'axios';
 
 // Import refactored components
@@ -15,6 +15,7 @@ import {
   SubscriptionTab,
   LanguageTab,
   ActivityLogTab,
+  PermissionsTab,
   getAvailableRoles,
   getAvailablePermissions,
   MANAGEMENT_ROLES
@@ -335,6 +336,7 @@ const CompanySettings = () => {
     { id: 'company', label: language === 'ar' ? 'الشركة' : 'Company', icon: Building2 },
     { id: 'profile', label: language === 'ar' ? 'الملف الشخصي' : 'Profile', icon: User },
     ...(canManageEmployees ? [{ id: 'employees', label: language === 'ar' ? 'الموظفين' : 'Employees', icon: Users }] : []),
+    ...(canManageEmployees ? [{ id: 'permissions', label: language === 'ar' ? 'الصلاحيات' : 'Permissions', icon: Shield }] : []),
     ...(canManageEmployees ? [{ id: 'activity', label: language === 'ar' ? 'سجل النشاطات' : 'Activity Log', icon: ClipboardList }] : []),
     { id: 'subscription', label: language === 'ar' ? 'الاشتراك' : 'Subscription', icon: Key },
     { id: 'language', label: language === 'ar' ? 'اللغة' : 'Language', icon: Globe },
@@ -397,6 +399,13 @@ const CompanySettings = () => {
             onInviteClick={() => setShowInviteModal(true)}
             onEditClick={openPermissionModal}
             onDeleteEmployee={handleDeleteEmployee}
+            currentUserId={user?.id}
+          />
+        )}
+
+        {activeTab === 'permissions' && canManageEmployees && (
+          <PermissionsTab
+            language={language}
             currentUserId={user?.id}
           />
         )}
