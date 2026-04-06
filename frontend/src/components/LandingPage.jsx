@@ -633,7 +633,7 @@ const LandingPage = () => {
         </div>
       )}
 
-      {/* Vision, Mission & Goals Section */}
+      {/* Vision, Mission & Achievements Section */}
       <section className="py-16 bg-gradient-to-br from-gray-50 to-white border-b">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
@@ -651,27 +651,27 @@ const LandingPage = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Goals Card */}
+            {/* Achievements Card */}
             <Card className="border-0 shadow-lg hover:shadow-xl transition-all bg-white">
               <CardContent className="pt-8 pb-6 text-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <TrendingUp className="h-8 w-8 text-green-600" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  {language === 'ar' ? 'أهدافنا' : 'Our Goals'}
+                  {language === 'ar' ? 'إنجازاتنا' : 'Our Achievements'}
                 </h3>
                 <ul className={`text-gray-600 space-y-2 text-sm ${isRTL ? 'text-right' : 'text-left'}`}>
                   <li className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <span>{language === 'ar' ? 'خدمة 500+ شركة' : 'Serve 500+ companies'}</span>
+                    <span>{language === 'ar' ? '+500 شركة تستخدم حلولنا' : '500+ companies use our solutions'}</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <span>{language === 'ar' ? 'الوصول لـ 10,000+ مستخدم' : 'Reach 10,000+ users'}</span>
+                    <span>{language === 'ar' ? '+10,000 مستخدم نشط' : '10,000+ active users'}</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <span>{language === 'ar' ? 'التوسع في المنطقة العربية' : 'Expand across Arab region'}</span>
+                    <span>{language === 'ar' ? '+5 سنوات خبرة في السوق' : '5+ years of market experience'}</span>
                   </li>
                 </ul>
               </CardContent>
