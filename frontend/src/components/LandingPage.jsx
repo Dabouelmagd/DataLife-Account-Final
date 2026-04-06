@@ -633,24 +633,83 @@ const LandingPage = () => {
         </div>
       )}
 
-      {/* Stats Section */}
-      <section className="py-12 bg-white border-b">
+      {/* Vision, Mission & Goals Section */}
+      <section className="py-16 bg-gradient-to-br from-gray-50 to-white border-b">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { value: '5+', label: language === 'ar' ? 'شركة مسجلة' : 'Registered Companies', icon: Building2 },
-              { value: '15+', label: language === 'ar' ? 'مستخدم نشط' : 'Active Users', icon: Users },
-              { value: '13', label: language === 'ar' ? 'وحدة متكاملة' : 'Integrated Modules', icon: Database },
-              { value: '24/7', label: language === 'ar' ? 'دعم فني' : 'Technical Support', icon: HeadphonesIcon },
-            ].map((stat, idx) => (
-              <div key={idx} className="text-center">
-                <div className="w-12 h-12 bg-[#28376B]/10 rounded-xl flex items-center justify-center mx-auto mb-3">
-                  <stat.icon className="h-6 w-6 text-[#28376B]" />
+          <div className="text-center mb-12">
+            <Badge className="mb-4 bg-[#28376B]/10 text-[#28376B] border-[#28376B]/20">
+              {language === 'ar' ? 'التوثيق والدعم' : 'Documentation & Support'}
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              {language === 'ar' ? 'شريكك في التحول الرقمي' : 'Your Digital Transformation Partner'}
+            </h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              {language === 'ar' 
+                ? 'نحن شركة رائدة في تطوير حلول إدارة الأعمال المتكاملة، نساعد الشركات على التحول الرقمي وتحقيق أقصى كفاءة تشغيلية.'
+                : 'We are a leading company in developing integrated business management solutions, helping companies achieve digital transformation and maximum operational efficiency.'}
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Goals Card */}
+            <Card className="border-0 shadow-lg hover:shadow-xl transition-all bg-white">
+              <CardContent className="pt-8 pb-6 text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="h-8 w-8 text-green-600" />
                 </div>
-                <div className="text-3xl md:text-4xl font-bold text-[#28376B] mb-1">{stat.value}</div>
-                <div className="text-gray-600 text-sm">{stat.label}</div>
-              </div>
-            ))}
+                <h3 className="text-xl font-bold text-gray-900 mb-4">
+                  {language === 'ar' ? 'أهدافنا' : 'Our Goals'}
+                </h3>
+                <ul className={`text-gray-600 space-y-2 text-sm ${isRTL ? 'text-right' : 'text-left'}`}>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span>{language === 'ar' ? 'خدمة 500+ شركة' : 'Serve 500+ companies'}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span>{language === 'ar' ? 'الوصول لـ 10,000+ مستخدم' : 'Reach 10,000+ users'}</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span>{language === 'ar' ? 'التوسع في المنطقة العربية' : 'Expand across Arab region'}</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+            
+            {/* Mission Card */}
+            <Card className="border-0 shadow-lg hover:shadow-xl transition-all bg-white">
+              <CardContent className="pt-8 pb-6 text-center">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Target className="h-8 w-8 text-purple-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">
+                  {language === 'ar' ? 'مهمتنا' : 'Our Mission'}
+                </h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  {language === 'ar' 
+                    ? 'تمكين الشركات من إدارة عملياتها بكفاءة عالية من خلال تقنيات حديثة وسهلة الاستخدام.'
+                    : 'Empowering companies to manage their operations efficiently through modern and easy-to-use technologies.'}
+                </p>
+              </CardContent>
+            </Card>
+            
+            {/* Vision Card */}
+            <Card className="border-0 shadow-lg hover:shadow-xl transition-all bg-white">
+              <CardContent className="pt-8 pb-6 text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Globe className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">
+                  {language === 'ar' ? 'رؤيتنا' : 'Our Vision'}
+                </h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  {language === 'ar' 
+                    ? 'أن نكون الخيار الأول للشركات في المنطقة العربية لحلول إدارة الأعمال الذكية.'
+                    : 'To be the first choice for companies in the Arab region for smart business management solutions.'}
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
