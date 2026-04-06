@@ -24,6 +24,8 @@ import FinancialReportsPage from "./pages/FinancialReportsPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import PartiesPage from "./pages/PartiesPage";
 import ProductsPage from "./pages/ProductsPage";
+import PaymentPage from "./pages/PaymentPage";
+import PayPalSimulatePage from "./pages/PayPalSimulatePage";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
@@ -195,6 +197,9 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              {/* Payment Routes */}
+              <Route path="/payment" element={<PaymentPage />} />
+              <Route path="/payment/paypal-simulate" element={<PayPalSimulatePage />} />
             </Routes>
             {/* Support Chatbot - appears on all pages */}
             <SupportChatbot />

@@ -514,12 +514,12 @@ async def capture_paypal_payment(order_id: str):
             company_id=transaction["company_id"],
             plan=transaction["plan"],
             duration=transaction["duration"],
-            session_id=order_id
+            amount_paid=transaction["amount_egp"]
         )
         
         # Send confirmation email if email exists
         if transaction.get("user_email"):
-            await send_subscription_email(
+            await send_payment_confirmation_email(
                 email=transaction["user_email"],
                 plan=transaction["plan"],
                 duration=transaction["duration"],
