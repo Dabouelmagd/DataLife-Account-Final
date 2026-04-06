@@ -404,11 +404,7 @@ const RealDashboard = () => {
         name: language === 'ar' ? 'إعدادات الإشعارات' : 'Notification Settings', 
         icon: <Settings /> 
       });
-      modules.push({ 
-        id: 'permissions-settings', 
-        name: language === 'ar' ? 'إعدادات الصلاحيات' : 'Permissions Settings', 
-        icon: <Shield /> 
-      });
+      // Permissions Settings moved to Settings page - removed from sidebar
     }
 
     // Settings module - للإدارة العليا فقط
@@ -595,8 +591,7 @@ const RealDashboard = () => {
           return <AdminDashboardPage language={language} />;
         case 'notification-settings':
           return <NotificationSettingsPage language={language} />;
-        case 'permissions-settings':
-          return <PermissionsSettingsPage language={language} />;
+        // permissions-settings removed - now in Settings page
         default:
           return <div>{language === 'ar' ? 'اختر وحدة فرعية' : 'Select a sub-module'}</div>;
       }
@@ -780,10 +775,7 @@ const RealDashboard = () => {
       return <NotificationSettingsPage language={language} />;
     }
 
-    // Permissions Settings Module
-    if (activeModule === 'permissions-settings') {
-      return <PermissionsSettingsPage language={language} />;
-    }
+    // Permissions Settings Module - removed, now in Settings page
 
     // User Guide Module
     if (activeModule === 'user-guide') {
