@@ -552,6 +552,43 @@ async def remove_user(
     
     return {"message": "User deactivated successfully"}
 
+
+@router.post("/{user_id}/reactivate")
+async def reactivate_user(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Reactivate a deactivated user (requires edit permission)"""
+    check_user_permission(current_user.get("role"), "edit")
+    
+    # Find the user
+    user = await db.users.find_one({
+        "id": user_id,
+        "company_id": current_user.get("company_id")
+    })
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.get("is_active", True):
+        raise HTTPException(status_code=400, detail="User is already active")
+    
+    # Reactivate user
+    result = await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"is_active": True}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to reactivate user")
+    
+    return {
+        "message": "User reactivated successfully",
+        "user_id": user_id,
+        "email": user.get("email")
+    }
+
+
 @router.get("/roles", response_model=List[str])
 async def list_roles():
     """List all available roles"""

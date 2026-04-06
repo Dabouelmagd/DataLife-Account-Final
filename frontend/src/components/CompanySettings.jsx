@@ -400,6 +400,7 @@ const CompanySettings = () => {
             onEditClick={openPermissionModal}
             onDeleteEmployee={handleDeleteEmployee}
             currentUserId={user?.id}
+            onRefresh={fetchEmployees}
           />
         )}
 

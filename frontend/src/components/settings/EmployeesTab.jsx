@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
-import { Users, UserPlus, Edit2, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Users, UserPlus, Edit2, Trash2, AlertTriangle, Loader2, UserCheck, UserX } from 'lucide-react';
+import { toast } from 'sonner';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const EmployeesTab = ({ 
   language, 
@@ -10,9 +13,11 @@ const EmployeesTab = ({
   onInviteClick, 
   onEditClick,
   onDeleteEmployee,
-  currentUserId
+  currentUserId,
+  onRefresh
 }) => {
   const [deletingId, setDeletingId] = useState(null);
+  const [reactivatingId, setReactivatingId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
   const handleDelete = async (emp) => {
@@ -22,6 +27,29 @@ const EmployeesTab = ({
       setShowDeleteConfirm(null);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleReactivate = async (emp) => {
+    setReactivatingId(emp.id);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/users/${emp.id}/reactivate`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        toast.success(language === 'ar' ? 'تم تفعيل الحساب بنجاح' : 'Account reactivated successfully');
+        if (onRefresh) onRefresh();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || (language === 'ar' ? 'فشل تفعيل الحساب' : 'Failed to reactivate'));
+      }
+    } catch (error) {
+      toast.error(language === 'ar' ? 'حدث خطأ' : 'An error occurred');
+    } finally {
+      setReactivatingId(null);
     }
   };
 
@@ -72,7 +100,7 @@ const EmployeesTab = ({
                       {language === 'ar' ? 'الدور الوظيفي' : 'Role'}
                     </th>
                     <th className="text-start py-3 px-4 font-semibold text-gray-600">
-                      {language === 'ar' ? 'الصلاحيات' : 'Permissions'}
+                      {language === 'ar' ? 'الحالة' : 'Status'}
                     </th>
                     <th className="text-start py-3 px-4 font-semibold text-gray-600">
                       {language === 'ar' ? 'الإجراءات' : 'Actions'}
@@ -81,50 +109,89 @@ const EmployeesTab = ({
                 </thead>
                 <tbody>
                   {employees.map((emp) => (
-                    <tr key={emp.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={emp.id} className={`border-b border-gray-100 hover:bg-gray-50 ${emp.is_active === false ? 'bg-red-50' : ''}`}>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#28376B] to-blue-600 flex items-center justify-center text-white font-semibold">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${
+                            emp.is_active === false 
+                              ? 'bg-gray-400' 
+                              : 'bg-gradient-to-br from-[#28376B] to-blue-600'
+                          }`}>
                             {emp.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
                           </div>
-                          <span className="font-medium">{emp.full_name}</span>
+                          <span className={`font-medium ${emp.is_active === false ? 'text-gray-400' : ''}`}>
+                            {emp.full_name}
+                          </span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-gray-600">{emp.email}</td>
+                      <td className={`py-3 px-4 ${emp.is_active === false ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {emp.email}
+                      </td>
                       <td className="py-3 px-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          emp.role?.includes('مدير') || emp.role?.includes('رئيس') || emp.role?.includes('Manager') || emp.role?.includes('Director')
-                            ? 'bg-purple-100 text-purple-700'
-                            : 'bg-blue-100 text-blue-700'
+                          emp.is_active === false
+                            ? 'bg-gray-100 text-gray-500'
+                            : emp.role?.includes('مدير') || emp.role?.includes('رئيس') || emp.role?.includes('Manager') || emp.role?.includes('Director')
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-blue-100 text-blue-700'
                         }`}>
                           {emp.role}
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm text-gray-500">
-                          {emp.permissions?.length || 0} {language === 'ar' ? 'صلاحية' : 'permissions'}
-                        </span>
+                        {emp.is_active === false ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                            <UserX className="w-3 h-3" />
+                            {language === 'ar' ? 'معطل' : 'Deactivated'}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                            <UserCheck className="w-3 h-3" />
+                            {language === 'ar' ? 'نشط' : 'Active'}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEditClick(emp)}
-                            className="text-[#28376B] border-[#28376B] hover:bg-[#28376B] hover:text-white"
-                          >
-                            <Edit2 className="h-4 w-4 mr-1" />
-                            {language === 'ar' ? 'تعديل' : 'Edit'}
-                          </Button>
-                          {emp.id !== currentUserId && (
+                          {emp.is_active === false ? (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setShowDeleteConfirm(emp.id)}
-                              className="text-red-600 border-red-300 hover:bg-red-600 hover:text-white hover:border-red-600"
+                              onClick={() => handleReactivate(emp)}
+                              disabled={reactivatingId === emp.id}
+                              className="text-green-600 border-green-300 hover:bg-green-600 hover:text-white"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              {reactivatingId === emp.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <UserCheck className="h-4 w-4 mr-1" />
+                                  {language === 'ar' ? 'تفعيل' : 'Activate'}
+                                </>
+                              )}
                             </Button>
+                          ) : (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onEditClick(emp)}
+                                className="text-[#28376B] border-[#28376B] hover:bg-[#28376B] hover:text-white"
+                              >
+                                <Edit2 className="h-4 w-4 mr-1" />
+                                {language === 'ar' ? 'تعديل' : 'Edit'}
+                              </Button>
+                              {emp.id !== currentUserId && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setShowDeleteConfirm(emp.id)}
+                                  className="text-red-600 border-red-300 hover:bg-red-600 hover:text-white hover:border-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
