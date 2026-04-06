@@ -1,6 +1,6 @@
 # DataLife Account - نظام ERP المتكامل
 ## دليل المنتج الشامل (PRD)
-**آخر تحديث:** 5 أبريل 2026
+**آخر تحديث:** 6 أبريل 2026
 
 ---
 
@@ -439,6 +439,52 @@
 - التفصيل الشهري
 
 
+### 23. بوابات الدفع (Stripe & PayPal) ⭐ (جديد 6 أبريل 2026)
+
+#### 23.1 طرق الدفع المتاحة
+| الطريقة | الوصف | الحالة |
+|---------|-------|--------|
+| Stripe | بطاقة ائتمان/خصم (Visa, MasterCard, Amex) | مفعّل |
+| PayPal | الدفع عبر حساب PayPal | وضع الاختبار |
+
+#### 23.2 باقات الاشتراك (15 باقة)
+| الخطة | المدة | السعر USD | السعر EGP |
+|-------|-------|----------|----------|
+| Starter | 3 أشهر | $11.94 | 597 |
+| Starter | 6 أشهر | $23.88 | 1,194 |
+| Starter | 9 أشهر | $35.82 | 1,791 |
+| Starter | سنة | $47.80 | 2,390 |
+| Starter | مدى الحياة | $200 | 10,000 |
+| Professional | 3 أشهر | $31.96 | 1,598 |
+| Professional | 6 أشهر | $63.92 | 3,196 |
+| Professional | 9 أشهر | $95.88 | 4,794 |
+| Professional | سنة | $127.84 | 6,392 |
+| Professional | مدى الحياة | $500 | 25,000 |
+| Enterprise | 3 أشهر | $59.96 | 2,998 |
+| Enterprise | 6 أشهر | $119.92 | 5,996 |
+| Enterprise | 9 أشهر | $179.88 | 8,994 |
+| Enterprise | سنة | $239.84 | 11,992 |
+| Enterprise | مدى الحياة | $1,000 | 50,000 |
+
+#### 23.3 صفحات الدفع
+| الصفحة | المسار | الوظيفة |
+|--------|--------|---------|
+| PaymentPage | /payment | اختيار الباقة وطريقة الدفع |
+| PayPalSimulatePage | /payment/paypal-simulate | محاكاة دفع PayPal للاختبار |
+| SubscriptionSuccess | /subscription/success | صفحة نجاح الدفع |
+
+#### 23.4 APIs الدفع
+| Method | Endpoint | الوصف |
+|--------|----------|-------|
+| GET | /api/payments/packages | جلب جميع الباقات (15 باقة) |
+| GET | /api/payments/payment-methods | جلب طرق الدفع المتاحة |
+| POST | /api/payments/create-checkout | إنشاء جلسة Stripe |
+| GET | /api/payments/status/{session_id} | حالة الدفع Stripe |
+| POST | /api/payments/paypal/create-checkout | إنشاء طلب PayPal |
+| POST | /api/payments/paypal/capture/{order_id} | تأكيد دفع PayPal |
+| GET | /api/payments/transactions | سجل المعاملات |
+
+
 ### 21. عرض الصلاحيات في الملف الشخصي ⭐ (جديد 5 أبريل 2026)
 
 #### 21.1 مميزات العرض
@@ -615,7 +661,7 @@
 ## 📋 المهام المعلقة
 
 ### أولوية عالية (P1)
-- ⬜ لا يوجد حالياً
+- ⬜ تفعيل PayPal الحقيقي (بدلاً من وضع المحاكاة)
 
 ### أولوية متوسطة (P2)
 - ⬜ إعادة هيكلة RealDashboard.jsx (700+ سطر switch case)
