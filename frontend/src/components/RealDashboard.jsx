@@ -63,6 +63,7 @@ import AdminDashboardPage from '../pages/AdminDashboardPage';
 import NotificationSettingsPage from '../pages/NotificationSettingsPage';
 import UserGuidePage from '../pages/UserGuidePage';
 import PermissionsSettingsPage from '../pages/PermissionsSettingsPage';
+import ReportManagementPage from '../pages/ReportManagementPage';
 
 // Import new overview components
 import HROverviewContent from './HROverviewContent';
@@ -428,6 +429,15 @@ const RealDashboard = () => {
       });
     }
 
+    // Report Management module - للإدارة العليا والأدوار المالية
+    if (topManagementRoles.includes(role) || financialManagerRoles.includes(role)) {
+      modules.push({ 
+        id: 'report-management', 
+        name: language === 'ar' ? 'إدارة التقارير' : 'Report Management', 
+        icon: <FileText /> 
+      });
+    }
+
     // User Guide - متاح للجميع
     modules.push({ 
       id: 'user-guide', 
@@ -685,6 +695,11 @@ const RealDashboard = () => {
     // System Reports Module
     if (activeModule === 'system-reports') {
       return <SystemReportsPage language={language} />;
+    }
+
+    // Report Management Module (Admin PDF Reports)
+    if (activeModule === 'report-management') {
+      return <ReportManagementPage />;
     }
 
     // Invoices Module

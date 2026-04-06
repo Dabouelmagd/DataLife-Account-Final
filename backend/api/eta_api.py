@@ -7,7 +7,8 @@ import os
 import base64
 import logging
 import httpx
-from datetime import datetime, timedelta
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List
 from fastapi import APIRouter, HTTPException, Depends, Query, Body, Header
 from pydantic import BaseModel, Field
@@ -484,6 +485,120 @@ async def submit_invoice_to_eta(
                     "errors": submission.validation_errors
                 }
     
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error submitting invoice to ETA: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"خطأ في إرسال الفاتورة: {str(e)}")
+
+
+@router.post("/submit/{invoice_id}")
+async def submit_invoice_by_id(
+    invoice_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """إرسال فاتورة إلى مصلحة الضرائب باستخدام معرف الفاتورة"""
+    company_id = current_user["company_id"]
+    
+    # الحصول على إعدادات ETA
+    settings = await db.company_eta_settings.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if not settings or not settings.get("is_active"):
+        raise HTTPException(status_code=400, detail="تكامل ETA غير مفعل. يرجى تفعيله من الإعدادات")
+    
+    if not settings.get("client_id") or not settings.get("client_secret"):
+        raise HTTPException(status_code=400, detail="بيانات اعتماد ETA غير مكتملة")
+    
+    # الحصول على الفاتورة
+    invoice = await db.invoices.find_one(
+        {"id": invoice_id, "company_id": company_id},
+        {"_id": 0}
+    )
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+    
+    if invoice.get("status") != "approved":
+        raise HTTPException(status_code=400, detail="يجب اعتماد الفاتورة قبل إرسالها لمصلحة الضرائب")
+    
+    # التحقق من عدم الإرسال مسبقاً
+    existing_submission = await db.eta_submissions.find_one({
+        "invoice_id": invoice_id,
+        "status": {"$in": ["submitted", "valid"]}
+    })
+    
+    if existing_submission:
+        raise HTTPException(status_code=400, detail="تم إرسال هذه الفاتورة مسبقاً")
+    
+    try:
+        # الحصول على التوكن
+        token = await get_eta_token(company_id, settings)
+        
+        # تحويل الفاتورة لصيغة ETA
+        eta_document = format_invoice_for_eta(invoice, settings)
+        
+        # إرسال الفاتورة
+        base_url = (
+            "https://api.preprod.invoicing.eta.gov.eg" 
+            if settings.get("environment") == "preprod" 
+            else "https://api.invoicing.eta.gov.eg"
+        )
+        
+        submit_endpoint = f"{base_url}/api/v1.0/documentsubmissions"
+        
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                submit_endpoint,
+                json={"documents": [eta_document]},
+                headers=headers
+            )
+            
+            if response.status_code in [200, 201, 202]:
+                result = response.json()
+                
+                # حفظ سجل الإرسال
+                submission_record = {
+                    "submission_uuid": result.get("submissionUUID", str(uuid.uuid4())),
+                    "invoice_id": invoice_id,
+                    "company_id": company_id,
+                    "document_uuid": result.get("acceptedDocuments", [{}])[0].get("uuid") if result.get("acceptedDocuments") else None,
+                    "status": "submitted",
+                    "response": result,
+                    "submitted_at": datetime.now(timezone.utc).isoformat(),
+                    "submitted_by": current_user.get("email")
+                }
+                await db.eta_submissions.insert_one(submission_record)
+                
+                # تحديث حالة الفاتورة
+                await db.invoices.update_one(
+                    {"id": invoice_id},
+                    {"$set": {
+                        "eta_status": "submitted",
+                        "eta_submission_uuid": submission_record["submission_uuid"],
+                        "eta_submitted_at": submission_record["submitted_at"]
+                    }}
+                )
+                
+                return {
+                    "success": True,
+                    "message": "تم إرسال الفاتورة بنجاح",
+                    "submission_uuid": submission_record["submission_uuid"],
+                    "document_uuid": submission_record["document_uuid"]
+                }
+            else:
+                error_detail = response.text
+                logger.error(f"ETA API error: {error_detail}")
+                raise HTTPException(status_code=400, detail=f"خطأ من مصلحة الضرائب: {error_detail}")
+                
     except HTTPException:
         raise
     except Exception as e:

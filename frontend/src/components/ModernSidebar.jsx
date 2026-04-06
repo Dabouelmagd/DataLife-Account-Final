@@ -80,6 +80,12 @@ const ModernSidebar = ({
         text: 'text-violet-600 dark:text-violet-400',
         icon: 'bg-violet-500 dark:bg-violet-600'
       },
+      'report-management': { 
+        bg: 'bg-violet-500/10 dark:bg-violet-500/15', 
+        border: 'border-violet-500',
+        text: 'text-violet-600 dark:text-violet-400',
+        icon: 'bg-violet-500 dark:bg-violet-600'
+      },
       'analytics': { 
         bg: 'bg-violet-500/10 dark:bg-violet-500/15', 
         border: 'border-violet-500',
@@ -146,6 +152,7 @@ const ModernSidebar = ({
       'purchases': <Package weight={weight} />,
       'projects': <Folders weight={weight} />,
       'reports': <ClipboardText weight={weight} />,
+      'report-management': <ClipboardText weight={weight} />,
       'analytics': <ChartBar weight={weight} />,
       'inventory': <Cube weight={weight} />,
       'settings': <Gear weight={weight} />,

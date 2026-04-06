@@ -29,11 +29,13 @@ import { Card, CardContent } from '../components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { 
   Plus, Search, Filter, FileText, Download, Eye,
-  CheckCircle, Clock, XCircle, DollarSign, FileCheck, Send, Trash2, Minus
+  CheckCircle, Clock, XCircle, DollarSign, FileCheck, Send, Trash2, Minus,
+  Building, Upload, Percent
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api/invoice`;
+const ETA_API = `${process.env.REACT_APP_BACKEND_URL}/api/eta`;
 
 const InvoicesPage = () => {
   const { language } = useLanguage();
@@ -154,7 +156,16 @@ const InvoicesPage = () => {
         custom: 'إضافة مخصصة'
       },
       totalDiscounts: 'إجمالي الخصومات',
-      totalAdditions: 'إجمالي الإضافات'
+      totalAdditions: 'إجمالي الإضافات',
+      vat: 'ضريبة القيمة المضافة',
+      vat14: 'ضريبة القيمة المضافة (14%)',
+      sendToETA: 'إرسال لمصلحة الضرائب',
+      etaSubmitted: 'مرسلة للضرائب',
+      etaPending: 'في انتظار الإرسال',
+      etaSuccess: 'تم إرسال الفاتورة لمصلحة الضرائب بنجاح',
+      etaError: 'فشل إرسال الفاتورة لمصلحة الضرائب',
+      taxDetails: 'تفاصيل الضريبة',
+      vatAmount: 'قيمة الضريبة'
     },
     en: {
       invoices: 'Electronic Invoices',
@@ -243,7 +254,16 @@ const InvoicesPage = () => {
         custom: 'Custom Addition'
       },
       totalDiscounts: 'Total Discounts',
-      totalAdditions: 'Total Additions'
+      totalAdditions: 'Total Additions',
+      vat: 'VAT',
+      vat14: 'VAT (14%)',
+      sendToETA: 'Send to Tax Authority',
+      etaSubmitted: 'Submitted to ETA',
+      etaPending: 'Pending Submission',
+      etaSuccess: 'Invoice submitted to Tax Authority successfully',
+      etaError: 'Failed to submit invoice to Tax Authority',
+      taxDetails: 'Tax Details',
+      vatAmount: 'VAT Amount'
     }
   };
 
@@ -425,6 +445,29 @@ const InvoicesPage = () => {
     } catch (error) {
       console.error('Error converting quotation:', error);
       toast.error(text.error);
+    }
+  };
+
+  // Submit invoice to Egyptian Tax Authority (ETA)
+  const handleSubmitToETA = async (invoiceId) => {
+    try {
+      const token = getToken();
+      const response = await fetch(`${ETA_API}/submit/${invoiceId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(text.etaSuccess);
+        fetchInvoices();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || text.etaError);
+      }
+    } catch (error) {
+      console.error('Error submitting to ETA:', error);
+      toast.error(text.etaError);
     }
   };
 
@@ -759,6 +802,7 @@ const InvoicesPage = () => {
                 <TableHead>{text.invoiceNumber}</TableHead>
                 <TableHead>{text.date}</TableHead>
                 <TableHead>{activeTab.includes('purchase') ? text.supplier : text.customer}</TableHead>
+                <TableHead>{text.vat14}</TableHead>
                 <TableHead>{text.total}</TableHead>
                 <TableHead>{text.amountDue}</TableHead>
                 <TableHead>{text.status}</TableHead>
@@ -768,25 +812,41 @@ const InvoicesPage = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#28376B] mx-auto"></div>
                   </TableCell>
                 </TableRow>
               ) : filteredInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                     {text.noInvoices}
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredInvoices.map((invoice) => (
-                  <TableRow key={invoice.id} className="hover:bg-gray-50">
+                  <TableRow key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                     <TableCell className="font-medium">{invoice.document_number}</TableCell>
                     <TableCell>{invoice.document_date}</TableCell>
                     <TableCell>{invoice.party_name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                        <Percent className="w-3 h-3" />
+                        <span>{invoice.tax_amount?.toLocaleString() || '0'}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{invoice.grand_total?.toLocaleString()} {invoice.currency}</TableCell>
                     <TableCell>{invoice.amount_due?.toLocaleString()} {invoice.currency}</TableCell>
-                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        {getStatusBadge(invoice.status)}
+                        {invoice.eta_status === 'submitted' && (
+                          <Badge className="bg-green-100 text-green-800 text-xs flex items-center gap-1 w-fit">
+                            <Building className="w-3 h-3" />
+                            {text.etaSubmitted}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Button variant="ghost" size="icon" onClick={() => setSelectedInvoice(invoice)} title={text.view}>
@@ -802,6 +862,21 @@ const InvoicesPage = () => {
                             className="text-green-600 hover:text-green-700"
                           >
                             <CheckCircle className="w-4 h-4" />
+                          </Button>
+                        )}
+
+                        {/* Submit to ETA button - Only for approved sales invoices */}
+                        {invoice.status === 'approved' && 
+                         invoice.document_type === 'sales_invoice' && 
+                         invoice.eta_status !== 'submitted' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleSubmitToETA(invoice.id)}
+                            title={text.sendToETA}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Building className="w-4 h-4" />
                           </Button>
                         )}
 
@@ -1118,33 +1193,40 @@ const InvoicesPage = () => {
             </div>
 
             {/* Totals */}
-            <div className="p-4 rounded-lg bg-gray-100">
+            <div className="p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
               <div className="grid grid-cols-2 gap-4 max-w-md ml-auto">
-                <div className="text-gray-600">{text.subtotal}:</div>
+                <div className="text-gray-600 dark:text-gray-400">{text.subtotal}:</div>
                 <div className="text-right font-medium">{totals.subtotal.toLocaleString()} {formData.currency}</div>
                 
-                <div className="text-gray-600">{text.discount} ({language === 'ar' ? 'الأسطر' : 'Lines'}):</div>
+                <div className="text-gray-600 dark:text-gray-400">{text.discount} ({language === 'ar' ? 'الأسطر' : 'Lines'}):</div>
                 <div className="text-right font-medium text-red-500">-{totals.totalDiscount.toLocaleString()} {formData.currency}</div>
                 
-                <div className="text-gray-600">{text.tax} (VAT):</div>
-                <div className="text-right font-medium">{totals.totalTax.toLocaleString()} {formData.currency}</div>
+                {/* VAT 14% Highlighted */}
+                <div className="text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                  <Percent className="w-4 h-4 text-orange-500" />
+                  {text.vat14}:
+                </div>
+                <div className="text-right font-medium text-orange-600 dark:text-orange-400 flex items-center justify-end gap-1">
+                  <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded">14%</span>
+                  {totals.totalTax.toLocaleString()} {formData.currency}
+                </div>
                 
                 {totals.totalInvoiceDiscount > 0 && (
                   <>
-                    <div className="text-gray-600">{text.totalDiscounts}:</div>
+                    <div className="text-gray-600 dark:text-gray-400">{text.totalDiscounts}:</div>
                     <div className="text-right font-medium text-red-500">-{totals.totalInvoiceDiscount.toLocaleString()} {formData.currency}</div>
                   </>
                 )}
                 
                 {totals.totalInvoiceAddition > 0 && (
                   <>
-                    <div className="text-gray-600">{text.totalAdditions}:</div>
+                    <div className="text-gray-600 dark:text-gray-400">{text.totalAdditions}:</div>
                     <div className="text-right font-medium text-green-600">+{totals.totalInvoiceAddition.toLocaleString()} {formData.currency}</div>
                   </>
                 )}
                 
-                <div className="text-lg font-bold text-gray-900 border-t pt-2">{text.grandTotal}:</div>
-                <div className="text-right text-lg font-bold text-[#28376B] border-t pt-2">{totals.grandTotal.toLocaleString()} {formData.currency}</div>
+                <div className="text-lg font-bold text-gray-900 dark:text-white border-t border-gray-300 dark:border-gray-600 pt-2">{text.grandTotal}:</div>
+                <div className="text-right text-lg font-bold text-[#28376B] dark:text-blue-400 border-t border-gray-300 dark:border-gray-600 pt-2">{totals.grandTotal.toLocaleString()} {formData.currency}</div>
               </div>
             </div>
 
