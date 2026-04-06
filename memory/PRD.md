@@ -404,6 +404,41 @@
 | Inventory Manager | 4 | dashboard, inventory, purchases, reports |
 | Project Manager | 4 | dashboard, projects, reports, approvals |
 
+### 22. الحسابات المالية للمشاريع ⭐ (جديد 6 أبريل 2026)
+
+#### 22.1 المصروفات (Expenses)
+| الفئة | الوصف (عربي) | الوصف (English) |
+|-------|-------------|----------------|
+| materials | مواد خام | Raw Materials |
+| labor | أجور عمالة | Labor Costs |
+| equipment | معدات وأدوات | Equipment & Tools |
+| administrative | مصاريف إدارية | Administrative |
+| transport | نقل ومواصلات | Transportation |
+| subcontractor | مقاول من الباطن | Subcontractor |
+| utilities | مرافق (كهرباء/ماء) | Utilities |
+| other | مصاريف أخرى | Other Expenses |
+
+#### 22.2 الإيرادات (Revenues)
+| الفئة | الوصف (عربي) | الوصف (English) |
+|-------|-------------|----------------|
+| payment | دفعة من العميل | Client Payment |
+| advance | دفعة مقدمة | Advance Payment |
+| milestone | دفعة مستخلص | Milestone Payment |
+| final | دفعة ختامية | Final Payment |
+| retention | إفراج عن ضمان | Retention Release |
+| other | إيرادات أخرى | Other Revenue |
+
+#### 22.3 الملخص المالي
+- إجمالي المصروفات
+- إجمالي الإيرادات
+- الربح/الخسارة
+- هامش الربح %
+- المتبقي من الميزانية
+- نسبة استخدام الميزانية %
+- التفصيل حسب الفئة
+- التفصيل الشهري
+
+
 ### 21. عرض الصلاحيات في الملف الشخصي ⭐ (جديد 5 أبريل 2026)
 
 #### 21.1 مميزات العرض

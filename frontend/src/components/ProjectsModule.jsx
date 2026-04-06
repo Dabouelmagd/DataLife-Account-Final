@@ -19,9 +19,10 @@ import {
   FolderKanban, Plus, ListTodo, Calendar, Users, Clock, AlertCircle,
   CheckCircle, Circle, PlayCircle, PauseCircle, Trash2, Edit, Eye,
   RefreshCw, Target, TrendingUp, ChevronRight, MessageSquare, Wifi, WifiOff,
-  Flag, User, CalendarDays, Timer, FileDown, Printer, File
+  Flag, User, CalendarDays, Timer, FileDown, Printer, File, Calculator, DollarSign
 } from 'lucide-react';
 import useRealTimeSync from '../hooks/useRealTimeSync';
+import ProjectFinancialsModule from './ProjectFinancialsModule';
 
 const ProjectsModule = () => {
   const { token, user } = useAuth();
@@ -41,11 +42,13 @@ const ProjectsModule = () => {
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showProjectDetailDialog, setShowProjectDetailDialog] = useState(false);
   const [showTaskDetailDialog, setShowTaskDetailDialog] = useState(false);
+  const [showFinancialsDialog, setShowFinancialsDialog] = useState(false);
   
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [editingProject, setEditingProject] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
+  const [financialsProject, setFinancialsProject] = useState(null);
 
   const [projectForm, setProjectForm] = useState({
     name: '', description: '', priority: 'medium', start_date: '', end_date: '', budget: '', manager_id: '', team_members: []
@@ -102,7 +105,9 @@ const ProjectsModule = () => {
     noProjects: isRTL ? 'لا توجد مشاريع' : 'No projects',
     noTasks: isRTL ? 'لا توجد مهام' : 'No tasks',
     tasksCount: isRTL ? 'المهام' : 'Tasks',
-    project: isRTL ? 'المشروع' : 'Project'
+    project: isRTL ? 'المشروع' : 'Project',
+    financials: isRTL ? 'الحسابات المالية' : 'Financials',
+    viewFinancials: isRTL ? 'عرض الحسابات' : 'View Financials'
   };
 
   const statusColors = {
@@ -810,6 +815,15 @@ const ProjectsModule = () => {
                       </div>
 
                       <div className="mt-4 pt-3 border-t flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => { setFinancialsProject(project); setShowFinancialsDialog(true); }} 
+                          title={t.viewFinancials}
+                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                        >
+                          <Calculator className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => handlePrintProject(project)} title={isRTL ? 'طباعة' : 'Print'}>
                           <Printer className="h-4 w-4" />
                         </Button>
@@ -843,6 +857,19 @@ const ProjectsModule = () => {
             onView={viewTaskDetails} onUpdate={handleUpdateTask} onDelete={handleDeleteTask} isRTL={isRTL} projects={projects} isMyTasks />
         </TabsContent>
       </Tabs>
+
+      {/* Project Financials Dialog */}
+      <Dialog open={showFinancialsDialog} onOpenChange={setShowFinancialsDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+          {financialsProject && (
+            <ProjectFinancialsModule 
+              projectId={financialsProject.id} 
+              projectName={financialsProject.name}
+              onClose={() => setShowFinancialsDialog(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Project Dialog */}
       <Dialog open={showProjectDialog} onOpenChange={(open) => { setShowProjectDialog(open); if (!open) { setEditingProject(null); resetProjectForm(); }}}>

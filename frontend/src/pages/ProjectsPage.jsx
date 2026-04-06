@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FolderKanban, Plus, Search, Filter, Calendar, Users, 
-  CheckCircle, Clock, AlertCircle, MoreVertical, Trash2, Edit
+  CheckCircle, Clock, AlertCircle, MoreVertical, Trash2, Edit,
+  Calculator, DollarSign
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Dialog, DialogContent } from '../components/ui/dialog';
 import { toast } from 'sonner';
+import ProjectFinancialsModule from '../components/ProjectFinancialsModule';
 
 const API = process.env.REACT_APP_BACKEND_URL + '/api';
 const getToken = () => localStorage.getItem('token');
@@ -16,6 +19,8 @@ export default function ProjectsPage({ language = 'en' }) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showFinancialsDialog, setShowFinancialsDialog] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
   const [newProject, setNewProject] = useState({ name: '', description: '', status: 'active' });
 
   const text = {
@@ -39,7 +44,9 @@ export default function ProjectsPage({ language = 'en' }) {
       save: 'حفظ',
       cancel: 'إلغاء',
       noProjects: 'لا توجد مشاريع',
-      noProjectsDesc: 'ابدأ بإضافة مشروع جديد'
+      noProjectsDesc: 'ابدأ بإضافة مشروع جديد',
+      financials: 'الحسابات المالية',
+      viewFinancials: 'عرض الحسابات'
     },
     en: {
       title: 'Projects & Tasks',
@@ -61,7 +68,9 @@ export default function ProjectsPage({ language = 'en' }) {
       save: 'Save',
       cancel: 'Cancel',
       noProjects: 'No Projects',
-      noProjectsDesc: 'Start by adding a new project'
+      noProjectsDesc: 'Start by adding a new project',
+      financials: 'Financial Accounts',
+      viewFinancials: 'View Financials'
     }
   }[language];
 
@@ -226,6 +235,20 @@ export default function ProjectsPage({ language = 'en' }) {
                     {project.team || 0} {text.team}
                   </div>
                 </div>
+                
+                {/* Actions */}
+                <div className="mt-4 pt-3 border-t flex justify-end gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => { setSelectedProject(project); setShowFinancialsDialog(true); }}
+                    title={text.viewFinancials}
+                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  >
+                    <Calculator className="h-4 w-4" />
+                    <span className="mx-1 text-xs">{text.financials}</span>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -277,6 +300,19 @@ export default function ProjectsPage({ language = 'en' }) {
           </div>
         </div>
       )}
+
+      {/* Project Financials Dialog */}
+      <Dialog open={showFinancialsDialog} onOpenChange={setShowFinancialsDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+          {selectedProject && (
+            <ProjectFinancialsModule 
+              projectId={selectedProject.id} 
+              projectName={selectedProject.name}
+              onClose={() => setShowFinancialsDialog(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
