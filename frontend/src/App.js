@@ -27,6 +27,7 @@ import ProductsPage from "./pages/ProductsPage";
 import PaymentPage from "./pages/PaymentPage";
 import PayPalSimulatePage from "./pages/PayPalSimulatePage";
 import PayPalReturnPage from "./pages/PayPalReturnPage";
+import CouponManagementPage from "./pages/CouponManagementPage";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
@@ -202,6 +203,15 @@ function App() {
               <Route path="/payment" element={<PaymentPage />} />
               <Route path="/payment/paypal-simulate" element={<PayPalSimulatePage />} />
               <Route path="/payment/paypal-return" element={<PayPalReturnPage />} />
+              {/* Admin Routes */}
+              <Route 
+                path="/admin/coupons" 
+                element={
+                  <ProtectedRoute>
+                    <CouponManagementPage />
+                  </ProtectedRoute>
+                } 
+              />
             </Routes>
             {/* Support Chatbot - appears on all pages */}
             <SupportChatbot />

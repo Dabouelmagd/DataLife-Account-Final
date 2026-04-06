@@ -3,7 +3,7 @@ import {
   House, Users, Wallet, FileText, Gear, SignOut, CaretDown, CaretRight,
   ChartBar, ShieldCheck, Bell, Clock, Folders, Package, CreditCard, 
   UserCheck, FileCheck, Buildings, PieChart, TrendingUp, Globe, ClipboardText,
-  Cube, CheckCircle, Moon, Sun, Lock, Copy, CaretUp
+  Cube, CheckCircle, Moon, Sun, Lock, Copy, CaretUp, Tag
 } from '@phosphor-icons/react';
 import { Badge } from './ui/badge';
 import NotificationCenter from './NotificationCenter';
@@ -149,6 +149,7 @@ const ModernSidebar = ({
       'analytics': <ChartBar weight={weight} />,
       'inventory': <Cube weight={weight} />,
       'settings': <Gear weight={weight} />,
+      'coupons': <Tag weight={weight} />,
       'users': <UserCheck weight={weight} />,
       'approvals': <CheckCircle weight={weight} />,
     };
@@ -168,6 +169,7 @@ const ModernSidebar = ({
     { id: 'analytics', name: language === 'ar' ? 'التحليلات' : 'Analytics', color: 'bg-gradient-to-r from-blue-500 to-indigo-600', icon: '📈' },
     { id: 'inventory', name: language === 'ar' ? 'المخزون' : 'Inventory', color: 'bg-gradient-to-r from-teal-500 to-cyan-600', icon: '📦' },
     { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings', color: 'bg-gradient-to-r from-gray-500 to-gray-600', icon: '⚙️' },
+    { id: 'coupons', name: language === 'ar' ? 'إدارة الكوبونات' : 'Coupon Management', color: 'bg-gradient-to-r from-amber-500 to-orange-500', icon: '🏷️' },
     { id: 'users', name: language === 'ar' ? 'إدارة المستخدمين' : 'User Management', color: 'bg-gradient-to-r from-blue-500 to-cyan-500', icon: '👤' },
     { id: 'approvals', name: language === 'ar' ? 'الموافقات' : 'Approvals', color: 'bg-gradient-to-r from-green-500 to-emerald-600', icon: '✅' },
   ];

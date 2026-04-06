@@ -341,3 +341,145 @@ async def seed_default_coupons():
             created += 1
     
     return {"message": f"Created {created} default coupons", "total_defaults": len(default_coupons)}
+
+
+
+class SendCouponEmail(BaseModel):
+    coupon_code: str
+    recipient_email: str
+    recipient_name: Optional[str] = None
+
+
+@router.post("/send-email")
+async def send_coupon_email(data: SendCouponEmail):
+    """Send coupon code to a customer via email"""
+    
+    coupon = await db.coupons.find_one({"code": data.coupon_code.upper()}, {"_id": 0})
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    
+    # Check if coupon is active
+    if not coupon.get("is_active", True):
+        raise HTTPException(status_code=400, detail="Cannot send inactive coupon")
+    
+    # Format discount text
+    if coupon["discount_type"] == "percentage":
+        discount_text = f"{coupon['discount_value']}%"
+    else:
+        discount_text = f"${coupon['discount_value']}"
+    
+    # Build email content
+    recipient_name = data.recipient_name or "Valued Customer"
+    
+    email_html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #28376B 0%, #1e2a52 100%); padding: 30px; border-radius: 10px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px;">🎁 Special Discount for You!</h1>
+            <p style="margin: 10px 0 0; opacity: 0.9;">هدية خاصة لك!</p>
+        </div>
+        
+        <div style="padding: 30px; background: #f8f9fa; border-radius: 0 0 10px 10px;">
+            <p style="font-size: 16px; color: #333;">
+                Dear {recipient_name},<br><br>
+                We're excited to offer you an exclusive discount on your next subscription!
+            </p>
+            
+            <div style="background: white; border: 2px dashed #28376B; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0;">
+                <p style="color: #666; margin: 0 0 10px; font-size: 14px;">Your Coupon Code:</p>
+                <p style="font-size: 32px; font-weight: bold; color: #28376B; margin: 0; letter-spacing: 3px;">
+                    {coupon['code']}
+                </p>
+                <p style="color: #28a745; font-size: 18px; margin: 15px 0 0; font-weight: bold;">
+                    {discount_text} OFF
+                </p>
+            </div>
+            
+            <div style="background: #e8f4ea; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; color: #155724; font-size: 14px;">
+                    <strong>Coupon Details:</strong><br>
+                    • Discount: {discount_text}<br>
+                    {"• Min. Order: $" + str(coupon.get('min_amount', 0)) if coupon.get('min_amount') else "• No minimum order"}<br>
+                    {"• Valid until: " + coupon.get('expiry_date', '')[:10] if coupon.get('expiry_date') else "• No expiry date"}
+                </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="https://datalifeaccount.com/payment" 
+                   style="display: inline-block; background: #28376B; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                    Subscribe Now →
+                </a>
+            </div>
+            
+            <p style="margin-top: 30px; font-size: 14px; color: #666; text-align: center;">
+                Thank you for choosing DataLife Account!<br>
+                شكراً لاختيارك داتا لايف أكونت!
+            </p>
+        </div>
+    </div>
+    """
+    
+    # Try to send email using the email notification system
+    try:
+        # Check if email service is configured
+        email_settings = await db.email_settings.find_one({})
+        
+        if email_settings and email_settings.get("smtp_configured"):
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f"🎁 Your Exclusive {discount_text} Discount Code - DataLife Account"
+            msg['From'] = email_settings.get('from_email', 'noreply@datalifeaccount.com')
+            msg['To'] = data.recipient_email
+            
+            html_part = MIMEText(email_html, 'html')
+            msg.attach(html_part)
+            
+            with smtplib.SMTP(email_settings['smtp_host'], email_settings['smtp_port']) as server:
+                if email_settings.get('smtp_tls'):
+                    server.starttls()
+                if email_settings.get('smtp_user') and email_settings.get('smtp_password'):
+                    server.login(email_settings['smtp_user'], email_settings['smtp_password'])
+                server.send_message(msg)
+            
+            # Log the email send
+            await db.coupon_emails.insert_one({
+                "coupon_code": coupon['code'],
+                "recipient_email": data.recipient_email,
+                "recipient_name": data.recipient_name,
+                "sent_at": datetime.now(timezone.utc).isoformat(),
+                "status": "sent"
+            })
+            
+            return {"message": "Coupon email sent successfully", "recipient": data.recipient_email}
+        else:
+            # Log as pending (no SMTP configured)
+            await db.coupon_emails.insert_one({
+                "coupon_code": coupon['code'],
+                "recipient_email": data.recipient_email,
+                "recipient_name": data.recipient_name,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "status": "pending",
+                "note": "SMTP not configured - email queued"
+            })
+            
+            return {
+                "message": "Coupon email queued (SMTP not configured)",
+                "recipient": data.recipient_email,
+                "coupon_code": coupon['code'],
+                "email_preview": True
+            }
+            
+    except Exception as e:
+        # Log failed attempt
+        await db.coupon_emails.insert_one({
+            "coupon_code": coupon['code'],
+            "recipient_email": data.recipient_email,
+            "recipient_name": data.recipient_name,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "status": "failed",
+            "error": str(e)
+        })
+        
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")

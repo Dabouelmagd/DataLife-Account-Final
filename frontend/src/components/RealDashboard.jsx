@@ -775,6 +775,12 @@ const RealDashboard = () => {
       return <UserGuidePage language={language} />;
     }
 
+    // Coupon Management - redirect to dedicated page
+    if (activeModule === 'coupons') {
+      navigate('/admin/coupons');
+      return null;
+    }
+
     return null;
   };
 
