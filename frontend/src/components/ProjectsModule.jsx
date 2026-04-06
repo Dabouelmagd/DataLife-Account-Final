@@ -214,9 +214,12 @@ const ProjectsModule = () => {
         `${API_URL}/api/hr/employees`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setEmployees(response.data || []);
+      // Handle paginated response
+      const employeesData = response.data?.data || response.data || [];
+      setEmployees(Array.isArray(employeesData) ? employeesData : []);
     } catch (error) {
       console.error('Error fetching employees:', error);
+      setEmployees([]);
     }
   };
 
