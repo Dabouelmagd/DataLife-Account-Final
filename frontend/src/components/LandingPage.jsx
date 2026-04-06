@@ -745,10 +745,10 @@ const LandingPage = () => {
               <CardContent>
                 <ul className="space-y-2">
                   {[
-                    language === 'ar' ? '10 صلاحيات قابلة للتخصيص' : '10 customizable permissions',
-                    language === 'ar' ? 'تحكم كامل لكل مستخدم' : 'Full control for each user',
-                    language === 'ar' ? 'ألوان مميزة (أخضر/أحمر)' : 'Color indicators (green/red)',
-                    language === 'ar' ? 'صلاحية Dashboard إلزامية' : 'Dashboard permission required'
+                    language === 'ar' ? '13 صلاحية قابلة للتخصيص' : '13 customizable permissions',
+                    language === 'ar' ? 'HR مقسم إلى إداري ومالي' : 'HR split into Admin & Financial',
+                    language === 'ar' ? 'صلاحيات حسب الدور الوظيفي' : 'Role-based access control',
+                    language === 'ar' ? 'صفحة إعدادات صلاحيات مخصصة' : 'Dedicated permissions settings page'
                   ].map((item, i) => (
                     <li key={i} className="flex items-center gap-2 text-gray-600">
                       <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -833,6 +833,37 @@ const LandingPage = () => {
                     language === 'ar' ? 'تصدير PDF عالي الجودة' : 'High-quality PDF export',
                     language === 'ar' ? 'تصدير CSV للتحليل' : 'CSV export for analysis',
                     language === 'ar' ? 'متاح في جميع الوحدات' : 'Available in all modules'
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-2 text-gray-600">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-sm">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* HR Split - NEW */}
+            <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-cyan-500 to-teal-600" />
+              <CardHeader>
+                <Badge className="w-fit mb-2 bg-cyan-100 text-cyan-700 border-0">
+                  {language === 'ar' ? 'جديد' : 'NEW'}
+                </Badge>
+                <div className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-2xl flex items-center justify-center mb-4">
+                  <Users className="h-7 w-7 text-white" />
+                </div>
+                <CardTitle className="text-xl">
+                  {language === 'ar' ? 'تقسيم الموارد البشرية' : 'HR Module Split'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {[
+                    language === 'ar' ? 'قسم إداري: حضور، إجازات، ورديات' : 'Admin: Attendance, Leaves, Shifts',
+                    language === 'ar' ? 'قسم مالي: رواتب، بدلات، خصومات' : 'Financial: Payroll, Allowances, Deductions',
+                    language === 'ar' ? 'مدير HR يرى الإداري فقط' : 'HR Manager sees Admin only',
+                    language === 'ar' ? 'المدير المالي يرى الكل' : 'Finance Manager sees all'
                   ].map((item, i) => (
                     <li key={i} className="flex items-center gap-2 text-gray-600">
                       <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />

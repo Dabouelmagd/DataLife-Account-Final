@@ -28,7 +28,7 @@ export const translations = {
       items: {
         hr: {
           title: "HR Management",
-          description: "Complete employee data management, attendance tracking, automated salary calculations, and health insurance records with fingerprint integration."
+          description: "Split into Administrative (attendance, leaves, shifts) and Financial (payroll, salaries, deductions) with role-based access control."
         },
         financial: {
           title: "Financial Management", 
@@ -100,12 +100,13 @@ export const translations = {
         },
         hr: {
           title: "HR Management",
+          subtitle: "Split into Administrative & Financial",
           features: [
-            "Complete employee database",
-            "Attendance and leave tracking",
-            "Automated salary calculations",
+            "Administrative: Attendance, leaves, shifts, termination",
+            "Financial: Payroll, salaries, allowances, deductions",
+            "Role-based access (HR sees admin, Finance sees financial)",
             "Fingerprint device integration",
-            "Health insurance management"
+            "Comprehensive HR reports"
           ]
         },
         financial: {
@@ -122,7 +123,7 @@ export const translations = {
           title: "Analytics & Control",
           features: [
             "Advanced admin dashboard with charts",
-            "Permission-based access control",
+            "13 granular permissions (HR split into 2)",
             "Visual reports with graphs",
             "Automated financial statements",
             "Custom report generation"
@@ -816,7 +817,7 @@ export const translations = {
       items: {
         hr: {
           title: "إدارة الموارد البشرية",
-          description: "إدارة بيانات الموظفين الكاملة، تتبع الحضور، حسابات الراتب الآلية، وسجلات التأمين الصحي مع التكامل مع بصمة الإصبع."
+          description: "مقسمة إلى قسم إداري (الحضور، الإجازات، الورديات) وقسم مالي (الرواتب، البدلات، الخصومات) مع تحكم في الصلاحيات حسب الدور."
         },
         financial: {
           title: "الإدارة المالية",
@@ -888,12 +889,13 @@ export const translations = {
         },
         hr: {
           title: "إدارة الموارد البشرية",
+          subtitle: "مقسمة إلى إداري ومالي",
           features: [
-            "قاعدة بيانات موظفين كاملة",
-            "تتبع الحضور والإجازات",
-            "حسابات الراتب الآلية",
+            "إداري: الحضور، الإجازات، الورديات، إنهاء الخدمة",
+            "مالي: الرواتب، المرتبات، البدلات، الخصومات",
+            "صلاحيات حسب الدور (HR يرى الإداري، المالية ترى المالي)",
             "تكامل أجهزة بصمة الإصبع",
-            "إدارة التأمين الصحي"
+            "تقارير موارد بشرية شاملة"
           ]
         },
         financial: {
@@ -910,7 +912,7 @@ export const translations = {
           title: "التحليلات والتحكم",
           features: [
             "لوحة تحكم إدارية متقدمة مع رسوم بيانية",
-            "نظام التحكم في الصلاحيات",
+            "13 صلاحية دقيقة (HR مقسم إلى 2)",
             "تقارير مرئية بالرسوم البيانية",
             "بيانات مالية آلية",
             "إنشاء تقارير مخصصة"
