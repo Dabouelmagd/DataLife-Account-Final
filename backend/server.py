@@ -49,6 +49,8 @@ from api.bank_management import router as bank_management_router
 from api.email_notifications import router as email_notifications_router
 from api.project_financials import router as project_financials_router
 from api.coupons import router as coupons_router
+from api.reports import router as reports_router
+from scheduler import start_scheduler, get_scheduler_status
 
 
 ROOT_DIR = Path(__file__).parent
@@ -140,6 +142,7 @@ app.include_router(bank_management_router)
 app.include_router(email_notifications_router)
 app.include_router(project_financials_router)
 app.include_router(coupons_router)
+app.include_router(reports_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -155,6 +158,23 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Start scheduler on application startup"""
+    try:
+        start_scheduler()
+        logger.info("Scheduler started successfully")
+    except Exception as e:
+        logger.error(f"Failed to start scheduler: {e}")
+
+
+@app.get("/api/scheduler/status")
+async def scheduler_status():
+    """Get scheduler status and upcoming jobs"""
+    return get_scheduler_status()
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
