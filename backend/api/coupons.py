@@ -2,10 +2,18 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Optional, List
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 import secrets
 import string
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables
+load_dotenv(Path(__file__).parent.parent / '.env')
 
 router = APIRouter(prefix="/api/coupons", tags=["coupons"])
 
@@ -14,6 +22,15 @@ MONGO_URL = os.environ.get('MONGO_URL')
 DB_NAME = os.environ.get('DB_NAME', 'multi_tenant_erp')
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
+
+# SMTP Configuration
+SMTP_CONFIG = {
+    "host": os.environ.get('SMTP_HOST', ''),
+    "port": int(os.environ.get('SMTP_PORT', 465)),
+    "email": os.environ.get('SMTP_EMAIL', ''),
+    "password": os.environ.get('SMTP_PASSWORD', ''),
+    "use_ssl": os.environ.get('SMTP_USE_SSL', 'true').lower() == 'true'
+}
 
 
 class CouponCreate(BaseModel):
@@ -418,30 +435,30 @@ async def send_coupon_email(data: SendCouponEmail):
     </div>
     """
     
-    # Try to send email using the email notification system
+    # Try to send email using SMTP from environment
     try:
-        # Check if email service is configured
-        email_settings = await db.email_settings.find_one({})
-        
-        if email_settings and email_settings.get("smtp_configured"):
-            import smtplib
-            from email.mime.text import MIMEText
-            from email.mime.multipart import MIMEMultipart
-            
+        if SMTP_CONFIG["host"] and SMTP_CONFIG["email"] and SMTP_CONFIG["password"]:
             msg = MIMEMultipart('alternative')
             msg['Subject'] = f"🎁 Your Exclusive {discount_text} Discount Code - DataLife Account"
-            msg['From'] = email_settings.get('from_email', 'noreply@datalifeaccount.com')
+            msg['From'] = SMTP_CONFIG["email"]
             msg['To'] = data.recipient_email
             
-            html_part = MIMEText(email_html, 'html')
+            html_part = MIMEText(email_html, 'html', 'utf-8')
             msg.attach(html_part)
             
-            with smtplib.SMTP(email_settings['smtp_host'], email_settings['smtp_port']) as server:
-                if email_settings.get('smtp_tls'):
+            # Use SSL for port 465
+            if SMTP_CONFIG["use_ssl"] or SMTP_CONFIG["port"] == 465:
+                import ssl
+                context = ssl.create_default_context()
+                with smtplib.SMTP_SSL(SMTP_CONFIG["host"], SMTP_CONFIG["port"], context=context) as server:
+                    server.login(SMTP_CONFIG["email"], SMTP_CONFIG["password"])
+                    server.send_message(msg)
+            else:
+                # Use TLS for port 587
+                with smtplib.SMTP(SMTP_CONFIG["host"], SMTP_CONFIG["port"]) as server:
                     server.starttls()
-                if email_settings.get('smtp_user') and email_settings.get('smtp_password'):
-                    server.login(email_settings['smtp_user'], email_settings['smtp_password'])
-                server.send_message(msg)
+                    server.login(SMTP_CONFIG["email"], SMTP_CONFIG["password"])
+                    server.send_message(msg)
             
             # Log the email send
             await db.coupon_emails.insert_one({
@@ -452,7 +469,7 @@ async def send_coupon_email(data: SendCouponEmail):
                 "status": "sent"
             })
             
-            return {"message": "Coupon email sent successfully", "recipient": data.recipient_email}
+            return {"message": "Coupon email sent successfully", "recipient": data.recipient_email, "status": "sent"}
         else:
             # Log as pending (no SMTP configured)
             await db.coupon_emails.insert_one({
@@ -483,3 +500,162 @@ async def send_coupon_email(data: SendCouponEmail):
         })
         
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+
+
+# ============ ADVANCED STATISTICS ============
+
+@router.get("/statistics/advanced")
+async def get_advanced_statistics():
+    """Get advanced coupon usage statistics"""
+    
+    # Get all coupons
+    coupons = await db.coupons.find({}, {"_id": 0}).to_list(1000)
+    
+    # Get all coupon usage from payment transactions
+    transactions = await db.payment_transactions.find(
+        {"coupon_code": {"$ne": None}},
+        {"_id": 0, "coupon_code": 1, "discount_amount_usd": 1, "amount_usd": 1, "created_at": 1, "payment_status": 1}
+    ).to_list(10000)
+    
+    # Calculate total discounted revenue
+    total_discounted = sum(t.get("discount_amount_usd", 0) for t in transactions if t.get("payment_status") == "paid")
+    
+    # Top 5 most used coupons
+    coupon_usage = {}
+    for t in transactions:
+        code = t.get("coupon_code")
+        if code:
+            if code not in coupon_usage:
+                coupon_usage[code] = {"count": 0, "total_discount": 0}
+            coupon_usage[code]["count"] += 1
+            coupon_usage[code]["total_discount"] += t.get("discount_amount_usd", 0)
+    
+    top_coupons = sorted(coupon_usage.items(), key=lambda x: x[1]["count"], reverse=True)[:5]
+    top_coupons_list = [
+        {"code": code, "usage_count": data["count"], "total_discount": round(data["total_discount"], 2)}
+        for code, data in top_coupons
+    ]
+    
+    # Monthly discount report (last 6 months)
+    monthly_stats = {}
+    for t in transactions:
+        if t.get("payment_status") == "paid" and t.get("created_at"):
+            try:
+                date = datetime.fromisoformat(t["created_at"].replace("Z", "+00:00"))
+                month_key = date.strftime("%Y-%m")
+                if month_key not in monthly_stats:
+                    monthly_stats[month_key] = {"count": 0, "total_discount": 0, "total_revenue": 0}
+                monthly_stats[month_key]["count"] += 1
+                monthly_stats[month_key]["total_discount"] += t.get("discount_amount_usd", 0)
+                monthly_stats[month_key]["total_revenue"] += t.get("amount_usd", 0)
+            except:
+                pass
+    
+    # Sort by month and get last 6
+    sorted_months = sorted(monthly_stats.items(), key=lambda x: x[0], reverse=True)[:6]
+    monthly_report = [
+        {
+            "month": month,
+            "transactions": data["count"],
+            "total_discount": round(data["total_discount"], 2),
+            "total_revenue": round(data["total_revenue"], 2)
+        }
+        for month, data in reversed(sorted_months)
+    ]
+    
+    # Coupon type distribution
+    percentage_count = sum(1 for c in coupons if c.get("discount_type") == "percentage")
+    fixed_count = sum(1 for c in coupons if c.get("discount_type") == "fixed")
+    
+    # Active vs expired
+    now = datetime.now(timezone.utc)
+    active_count = 0
+    expired_count = 0
+    for c in coupons:
+        if not c.get("is_active"):
+            continue
+        if c.get("expiry_date"):
+            try:
+                expiry = datetime.fromisoformat(c["expiry_date"].replace("Z", "+00:00"))
+                if expiry < now:
+                    expired_count += 1
+                else:
+                    active_count += 1
+            except:
+                active_count += 1
+        else:
+            active_count += 1
+    
+    # Email statistics
+    email_stats = await db.coupon_emails.aggregate([
+        {"$group": {"_id": "$status", "count": {"$sum": 1}}}
+    ]).to_list(10)
+    email_by_status = {s["_id"]: s["count"] for s in email_stats}
+    
+    return {
+        "summary": {
+            "total_coupons": len(coupons),
+            "active_coupons": active_count,
+            "expired_coupons": expired_count,
+            "total_usage": len(transactions),
+            "total_discounted_amount": round(total_discounted, 2)
+        },
+        "top_coupons": top_coupons_list,
+        "monthly_report": monthly_report,
+        "type_distribution": {
+            "percentage": percentage_count,
+            "fixed": fixed_count
+        },
+        "email_statistics": {
+            "sent": email_by_status.get("sent", 0),
+            "pending": email_by_status.get("pending", 0),
+            "failed": email_by_status.get("failed", 0)
+        }
+    }
+
+
+@router.get("/statistics/usage-chart")
+async def get_usage_chart_data():
+    """Get coupon usage data for chart visualization (last 30 days)"""
+    
+    # Get transactions from last 30 days
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    
+    transactions = await db.payment_transactions.find(
+        {
+            "coupon_code": {"$ne": None},
+            "payment_status": "paid"
+        },
+        {"_id": 0, "created_at": 1, "discount_amount_usd": 1}
+    ).to_list(10000)
+    
+    # Group by day
+    daily_data = {}
+    for t in transactions:
+        if t.get("created_at"):
+            try:
+                date = datetime.fromisoformat(t["created_at"].replace("Z", "+00:00"))
+                if date >= thirty_days_ago:
+                    day_key = date.strftime("%Y-%m-%d")
+                    if day_key not in daily_data:
+                        daily_data[day_key] = {"count": 0, "discount": 0}
+                    daily_data[day_key]["count"] += 1
+                    daily_data[day_key]["discount"] += t.get("discount_amount_usd", 0)
+            except:
+                pass
+    
+    # Fill in missing days
+    chart_data = []
+    current = thirty_days_ago
+    while current <= datetime.now(timezone.utc):
+        day_key = current.strftime("%Y-%m-%d")
+        data = daily_data.get(day_key, {"count": 0, "discount": 0})
+        chart_data.append({
+            "date": day_key,
+            "usage_count": data["count"],
+            "discount_amount": round(data["discount"], 2)
+        })
+        current += timedelta(days=1)
+    
+    return {"chart_data": chart_data}
+

@@ -10,12 +10,14 @@ import { Switch } from '../components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { 
   Plus, Edit2, Trash2, Tag, Percent, DollarSign, Calendar, 
   Users, Download, Mail, Search, RefreshCw, CheckCircle, XCircle,
-  Copy, BarChart3, Clock, Target, Loader2
+  Copy, BarChart3, Clock, Target, Loader2, TrendingUp, PieChart,
+  ArrowUpRight, ArrowDownRight, Send, Activity
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -29,6 +31,11 @@ const CouponManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  const [activeTab, setActiveTab] = useState('coupons');
+  
+  // Advanced stats
+  const [advancedStats, setAdvancedStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
   
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -116,7 +123,23 @@ const CouponManagementPage = () => {
     allPlans: isRTL ? 'جميع الخطط' : 'All Plans',
     starterOnly: isRTL ? 'المبتدئ فقط' : 'Starter Only',
     professionalOnly: isRTL ? 'المحترف فقط' : 'Professional Only',
-    enterpriseOnly: isRTL ? 'المؤسسي فقط' : 'Enterprise Only'
+    enterpriseOnly: isRTL ? 'المؤسسي فقط' : 'Enterprise Only',
+    // Advanced Stats
+    statistics: isRTL ? 'الإحصائيات' : 'Statistics',
+    couponsTab: isRTL ? 'الكوبونات' : 'Coupons',
+    topCoupons: isRTL ? 'الكوبونات الأكثر استخداماً' : 'Top Used Coupons',
+    totalDiscounted: isRTL ? 'إجمالي الخصومات' : 'Total Discounted',
+    monthlyReport: isRTL ? 'التقرير الشهري' : 'Monthly Report',
+    typeDistribution: isRTL ? 'توزيع الأنواع' : 'Type Distribution',
+    emailStats: isRTL ? 'إحصائيات الإيميل' : 'Email Statistics',
+    sent: isRTL ? 'مرسل' : 'Sent',
+    pending: isRTL ? 'قيد الانتظار' : 'Pending',
+    failed: isRTL ? 'فشل' : 'Failed',
+    noData: isRTL ? 'لا توجد بيانات' : 'No data yet',
+    month: isRTL ? 'الشهر' : 'Month',
+    transactions: isRTL ? 'العمليات' : 'Transactions',
+    revenue: isRTL ? 'الإيرادات' : 'Revenue',
+    expiredCoupons: isRTL ? 'كوبونات منتهية' : 'Expired Coupons'
   };
 
   const durationOptions = [
@@ -137,7 +160,23 @@ const CouponManagementPage = () => {
 
   useEffect(() => {
     fetchCoupons();
+    fetchAdvancedStats();
   }, [showInactive]);
+
+  const fetchAdvancedStats = async () => {
+    setLoadingStats(true);
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/coupons/statistics/advanced`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      setAdvancedStats(response.data);
+    } catch (error) {
+      console.error('Error fetching advanced stats:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
 
   const fetchCoupons = async () => {
     setLoading(true);
@@ -445,8 +484,220 @@ const CouponManagementPage = () => {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="coupons" className="flex items-center gap-2">
+              <Tag className="h-4 w-4" />
+              {t.couponsTab}
+            </TabsTrigger>
+            <TabsTrigger value="statistics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              {t.statistics}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Statistics Tab */}
+          <TabsContent value="statistics" className="mt-6">
+            {loadingStats ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-[#28376B]" />
+              </div>
+            ) : advancedStats ? (
+              <div className="space-y-6">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-blue-100">{t.totalCoupons}</p>
+                          <p className="text-3xl font-bold">{advancedStats.summary.total_coupons}</p>
+                        </div>
+                        <Tag className="h-12 w-12 opacity-50" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-green-100">{t.activeCoupons}</p>
+                          <p className="text-3xl font-bold">{advancedStats.summary.active_coupons}</p>
+                        </div>
+                        <CheckCircle className="h-12 w-12 opacity-50" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-purple-100">{t.totalUsage}</p>
+                          <p className="text-3xl font-bold">{advancedStats.summary.total_usage}</p>
+                        </div>
+                        <Activity className="h-12 w-12 opacity-50" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-amber-100">{t.totalDiscounted}</p>
+                          <p className="text-3xl font-bold">${advancedStats.summary.total_discounted_amount}</p>
+                        </div>
+                        <TrendingUp className="h-12 w-12 opacity-50" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Top Coupons & Monthly Report */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Top Used Coupons */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-[#28376B]" />
+                        {t.topCoupons}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {advancedStats.top_coupons.length > 0 ? (
+                        <div className="space-y-3">
+                          {advancedStats.top_coupons.map((coupon, idx) => (
+                            <div key={coupon.code} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
+                                  idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-600' : 'bg-gray-300'
+                                }`}>
+                                  {idx + 1}
+                                </span>
+                                <div>
+                                  <code className="font-mono font-medium">{coupon.code}</code>
+                                  <p className="text-xs text-gray-500">{coupon.usage_count} {isRTL ? 'استخدام' : 'uses'}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-medium text-green-600">-${coupon.total_discount}</p>
+                                <p className="text-xs text-gray-500">{t.totalDiscounted}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-center text-gray-500 py-8">{t.noData}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Monthly Report */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5 text-[#28376B]" />
+                        {t.monthlyReport}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {advancedStats.monthly_report.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>{t.month}</TableHead>
+                              <TableHead className="text-center">{t.transactions}</TableHead>
+                              <TableHead className="text-right">{t.discount}</TableHead>
+                              <TableHead className="text-right">{t.revenue}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {advancedStats.monthly_report.map(row => (
+                              <TableRow key={row.month}>
+                                <TableCell className="font-medium">{row.month}</TableCell>
+                                <TableCell className="text-center">{row.transactions}</TableCell>
+                                <TableCell className="text-right text-red-600">-${row.total_discount}</TableCell>
+                                <TableCell className="text-right text-green-600">${row.total_revenue}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <p className="text-center text-gray-500 py-8">{t.noData}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Type Distribution & Email Stats */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Type Distribution */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <PieChart className="h-5 w-5 text-[#28376B]" />
+                        {t.typeDistribution}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-around py-4">
+                        <div className="text-center">
+                          <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
+                            <Percent className="h-8 w-8 text-blue-600" />
+                          </div>
+                          <p className="text-2xl font-bold text-blue-600">{advancedStats.type_distribution.percentage}</p>
+                          <p className="text-sm text-gray-500">{t.percentage}</p>
+                        </div>
+                        <div className="text-center">
+                          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
+                            <DollarSign className="h-8 w-8 text-green-600" />
+                          </div>
+                          <p className="text-2xl font-bold text-green-600">{advancedStats.type_distribution.fixed}</p>
+                          <p className="text-sm text-gray-500">{t.fixed}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Email Statistics */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Mail className="h-5 w-5 text-[#28376B]" />
+                        {t.emailStats}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-3 gap-4 py-4">
+                        <div className="text-center p-4 bg-green-50 rounded-lg">
+                          <Send className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                          <p className="text-2xl font-bold text-green-600">{advancedStats.email_statistics.sent}</p>
+                          <p className="text-sm text-gray-500">{t.sent}</p>
+                        </div>
+                        <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                          <Clock className="h-6 w-6 text-yellow-600 mx-auto mb-2" />
+                          <p className="text-2xl font-bold text-yellow-600">{advancedStats.email_statistics.pending}</p>
+                          <p className="text-sm text-gray-500">{t.pending}</p>
+                        </div>
+                        <div className="text-center p-4 bg-red-50 rounded-lg">
+                          <XCircle className="h-6 w-6 text-red-600 mx-auto mb-2" />
+                          <p className="text-2xl font-bold text-red-600">{advancedStats.email_statistics.failed}</p>
+                          <p className="text-sm text-gray-500">{t.failed}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-gray-500 py-12">{t.noData}</p>
+            )}
+          </TabsContent>
+
+          {/* Coupons Tab */}
+          <TabsContent value="coupons" className="mt-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -658,6 +909,8 @@ const CouponManagementPage = () => {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* Create/Edit Dialog */}
         <Dialog open={showCreateDialog || showEditDialog} onOpenChange={(open) => {
