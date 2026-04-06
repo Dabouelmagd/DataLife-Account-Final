@@ -133,6 +133,64 @@ async def list_coupons(include_inactive: bool = False):
     return {"coupons": coupons, "total": len(coupons)}
 
 
+@router.get("/expiring")
+async def get_expiring_coupons(days: int = 7):
+    """Get coupons expiring within specified days"""
+    
+    now = datetime.now(timezone.utc)
+    future = now + timedelta(days=days)
+    
+    # Find coupons expiring soon
+    coupons = await db.coupons.find({"is_active": True}, {"_id": 0}).to_list(1000)
+    
+    expiring = []
+    expired = []
+    
+    for coupon in coupons:
+        if coupon.get("expiry_date"):
+            try:
+                expiry = datetime.fromisoformat(coupon["expiry_date"].replace("Z", "+00:00"))
+                days_left = (expiry - now).days
+                
+                if days_left < 0:
+                    expired.append({**coupon, "days_left": days_left, "status": "expired"})
+                elif days_left <= days:
+                    expiring.append({**coupon, "days_left": days_left, "status": "expiring_soon"})
+            except:
+                pass
+    
+    # Sort by days left (most urgent first)
+    expiring.sort(key=lambda x: x["days_left"])
+    expired.sort(key=lambda x: x["days_left"], reverse=True)
+    
+    return {
+        "expiring_soon": expiring,
+        "expired": expired[:10],
+        "total_expiring": len(expiring),
+        "total_expired": len(expired)
+    }
+
+
+@router.get("/notifications")
+async def get_coupon_notifications(unread_only: bool = True, limit: int = 20):
+    """Get coupon-related notifications for admin"""
+    
+    query = {"type": {"$in": ["coupon_expiring", "coupon_expired", "coupon_renewed"]}}
+    if unread_only:
+        query["read"] = False
+    
+    notifications = await db.notifications.find(
+        query, 
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "notifications": notifications,
+        "total": len(notifications),
+        "unread": sum(1 for n in notifications if not n.get("read", False))
+    }
+
+
 @router.get("/{code}")
 async def get_coupon(code: str):
     """Get coupon details by code"""
@@ -658,4 +716,221 @@ async def get_usage_chart_data():
         current += timedelta(days=1)
     
     return {"chart_data": chart_data}
+
+
+@router.post("/check-and-notify")
+async def check_expiring_and_notify(admin_email: str = "info@datalifeai.com"):
+    """Check for expiring coupons and send notifications"""
+    
+    now = datetime.now(timezone.utc)
+    
+    # Get expiring coupons (within 7 days)
+    coupons = await db.coupons.find({"is_active": True}, {"_id": 0}).to_list(1000)
+    
+    expiring_coupons = []
+    for coupon in coupons:
+        if coupon.get("expiry_date"):
+            try:
+                expiry = datetime.fromisoformat(coupon["expiry_date"].replace("Z", "+00:00"))
+                days_left = (expiry - now).days
+                if 0 <= days_left <= 7:
+                    expiring_coupons.append({**coupon, "days_left": days_left})
+            except:
+                pass
+    
+    if not expiring_coupons:
+        return {"message": "No expiring coupons found", "notifications_sent": 0}
+    
+    # Check which ones we haven't notified yet
+    notifications_to_send = []
+    for coupon in expiring_coupons:
+        existing = await db.coupon_notifications.find_one({
+            "coupon_code": coupon["code"],
+            "notification_type": "expiring_soon",
+            "sent_at": {"$gte": (now - timedelta(days=1)).isoformat()}
+        })
+        
+        if not existing:
+            notifications_to_send.append(coupon)
+    
+    if not notifications_to_send:
+        return {"message": "All notifications already sent", "notifications_sent": 0}
+    
+    # Build email content
+    coupon_rows = ""
+    for coupon in notifications_to_send:
+        days_text = f"{coupon['days_left']} days" if coupon['days_left'] > 0 else "Today!"
+        discount_text = f"{coupon['discount_value']}%" if coupon['discount_type'] == 'percentage' else f"${coupon['discount_value']}"
+        coupon_rows += f"""
+        <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #eee;"><code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px;">{coupon['code']}</code></td>
+            <td style="padding: 12px; border-bottom: 1px solid #eee;">{coupon['name_en']}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #eee;">{discount_text}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #eee; color: {'#dc3545' if coupon['days_left'] <= 1 else '#ffc107'}; font-weight: bold;">{days_text}</td>
+        </tr>
+        """
+    
+    email_html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #ff9800 0%, #f44336 100%); padding: 25px; border-radius: 10px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 24px;">Coupon Expiration Alert</h1>
+            <p style="margin: 10px 0 0; opacity: 0.9;">تنبيه انتهاء صلاحية الكوبونات</p>
+        </div>
+        
+        <div style="padding: 25px; background: #fff; border: 1px solid #eee; border-radius: 0 0 10px 10px;">
+            <p style="font-size: 16px; color: #333;">The following coupons are expiring soon:</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Code</th>
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Name</th>
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Discount</th>
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Expires In</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {coupon_rows}
+                </tbody>
+            </table>
+            
+            <div style="text-align: center; margin-top: 25px;">
+                <a href="https://datalifeaccount.com/admin/coupons" 
+                   style="display: inline-block; background: #28376B; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                    Manage Coupons
+                </a>
+            </div>
+        </div>
+    </div>
+    """
+    
+    # Send email
+    try:
+        if SMTP_CONFIG["host"] and SMTP_CONFIG["email"] and SMTP_CONFIG["password"]:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f"{len(notifications_to_send)} Coupons Expiring Soon - Action Required"
+            msg['From'] = SMTP_CONFIG["email"]
+            msg['To'] = admin_email
+            
+            html_part = MIMEText(email_html, 'html', 'utf-8')
+            msg.attach(html_part)
+            
+            if SMTP_CONFIG["use_ssl"] or SMTP_CONFIG["port"] == 465:
+                import ssl
+                context = ssl.create_default_context()
+                with smtplib.SMTP_SSL(SMTP_CONFIG["host"], SMTP_CONFIG["port"], context=context) as server:
+                    server.login(SMTP_CONFIG["email"], SMTP_CONFIG["password"])
+                    server.send_message(msg)
+            else:
+                with smtplib.SMTP(SMTP_CONFIG["host"], SMTP_CONFIG["port"]) as server:
+                    server.starttls()
+                    server.login(SMTP_CONFIG["email"], SMTP_CONFIG["password"])
+                    server.send_message(msg)
+            
+            # Log notifications
+            for coupon in notifications_to_send:
+                await db.coupon_notifications.insert_one({
+                    "coupon_code": coupon["code"],
+                    "notification_type": "expiring_soon",
+                    "days_left": coupon["days_left"],
+                    "admin_email": admin_email,
+                    "sent_at": now.isoformat(),
+                    "status": "sent"
+                })
+                
+                # Create in-app notification
+                await db.notifications.insert_one({
+                    "type": "coupon_expiring",
+                    "title_en": f"Coupon {coupon['code']} expiring in {coupon['days_left']} days",
+                    "title_ar": f"الكوبون {coupon['code']} ينتهي خلال {coupon['days_left']} يوم",
+                    "coupon_code": coupon["code"],
+                    "priority": "high" if coupon["days_left"] <= 1 else "medium",
+                    "read": False,
+                    "created_at": now.isoformat()
+                })
+            
+            return {
+                "message": "Expiration notifications sent successfully",
+                "notifications_sent": len(notifications_to_send),
+                "coupons_notified": [c["code"] for c in notifications_to_send]
+            }
+        else:
+            return {"message": "SMTP not configured", "notifications_sent": 0}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send notifications: {str(e)}")
+
+
+@router.post("/renew/{code}")
+async def renew_coupon(code: str, extend_months: int = 3):
+    """Renew/extend a coupon's expiry date"""
+    
+    coupon = await db.coupons.find_one({"code": code.upper()})
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    if coupon.get("expiry_date"):
+        try:
+            current_expiry = datetime.fromisoformat(coupon["expiry_date"].replace("Z", "+00:00"))
+            base_date = max(current_expiry, now)
+        except:
+            base_date = now
+    else:
+        base_date = now
+    
+    # Add months
+    new_expiry = base_date
+    for _ in range(extend_months):
+        if new_expiry.month == 12:
+            new_expiry = new_expiry.replace(year=new_expiry.year + 1, month=1)
+        else:
+            new_expiry = new_expiry.replace(month=new_expiry.month + 1)
+    
+    await db.coupons.update_one(
+        {"code": code.upper()},
+        {"$set": {
+            "expiry_date": new_expiry.isoformat(),
+            "is_active": True,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    await db.coupon_renewals.insert_one({
+        "coupon_code": code.upper(),
+        "previous_expiry": coupon.get("expiry_date"),
+        "new_expiry": new_expiry.isoformat(),
+        "extended_months": extend_months,
+        "renewed_at": now.isoformat()
+    })
+    
+    updated = await db.coupons.find_one({"code": code.upper()}, {"_id": 0})
+    
+    return {
+        "message": f"Coupon renewed for {extend_months} months",
+        "coupon": updated,
+        "new_expiry": new_expiry.isoformat()
+    }
+
+
+@router.post("/notifications/mark-read")
+async def mark_notifications_read(notification_ids: List[str] = None, mark_all: bool = False):
+    """Mark notifications as read"""
+    
+    if mark_all:
+        result = await db.notifications.update_many(
+            {"type": {"$in": ["coupon_expiring", "coupon_expired", "coupon_renewed"]}},
+            {"$set": {"read": True}}
+        )
+        return {"message": "All notifications marked as read", "updated": result.modified_count}
+    elif notification_ids:
+        result = await db.notifications.update_many(
+            {"notification_id": {"$in": notification_ids}},
+            {"$set": {"read": True}}
+        )
+        return {"message": "Notifications marked as read", "updated": result.modified_count}
+    
+    return {"message": "No notifications to update", "updated": 0}
+
 

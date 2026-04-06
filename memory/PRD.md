@@ -513,6 +513,11 @@
 | POST | /api/coupons/validate | التحقق من صلاحية الكوبون |
 | POST | /api/coupons/seed-defaults | إضافة كوبونات افتراضية |
 | POST | /api/coupons/send-email | إرسال كوبون بالإيميل |
+| GET | /api/coupons/expiring | الكوبونات على وشك الانتهاء |
+| POST | /api/coupons/check-and-notify | فحص وإرسال إشعارات الانتهاء |
+| POST | /api/coupons/renew/{code} | تجديد الكوبون |
+| GET | /api/coupons/notifications | إشعارات الكوبونات |
+| POST | /api/coupons/notifications/mark-read | تحديد الإشعارات كمقروءة |
 
 #### 24.5 صفحة إدارة الكوبونات (/admin/coupons)
 | الميزة | الوصف |

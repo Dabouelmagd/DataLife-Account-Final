@@ -44,6 +44,11 @@ const CouponManagementPage = () => {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [processing, setProcessing] = useState(false);
+  
+  // Expiring coupons & notifications
+  const [expiringCoupons, setExpiringCoupons] = useState({ expiring_soon: [], expired: [] });
+  const [showRenewDialog, setShowRenewDialog] = useState(false);
+  const [renewMonths, setRenewMonths] = useState(3);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -139,7 +144,19 @@ const CouponManagementPage = () => {
     month: isRTL ? 'الشهر' : 'Month',
     transactions: isRTL ? 'العمليات' : 'Transactions',
     revenue: isRTL ? 'الإيرادات' : 'Revenue',
-    expiredCoupons: isRTL ? 'كوبونات منتهية' : 'Expired Coupons'
+    expiredCoupons: isRTL ? 'كوبونات منتهية' : 'Expired Coupons',
+    // Expiring notifications
+    expiringSoon: isRTL ? 'على وشك الانتهاء' : 'Expiring Soon',
+    daysLeft: isRTL ? 'يوم متبقي' : 'days left',
+    today: isRTL ? 'اليوم!' : 'Today!',
+    renew: isRTL ? 'تجديد' : 'Renew',
+    renewCoupon: isRTL ? 'تجديد الكوبون' : 'Renew Coupon',
+    extendBy: isRTL ? 'تمديد لمدة' : 'Extend by',
+    monthsText: isRTL ? 'أشهر' : 'months',
+    checkNotifications: isRTL ? 'فحص وإرسال الإشعارات' : 'Check & Send Notifications',
+    notificationsSent: isRTL ? 'تم إرسال الإشعارات' : 'Notifications sent',
+    noExpiring: isRTL ? 'لا توجد كوبونات على وشك الانتهاء' : 'No expiring coupons',
+    urgentExpiry: isRTL ? 'انتهاء عاجل' : 'Urgent Expiry'
   };
 
   const durationOptions = [
@@ -161,7 +178,67 @@ const CouponManagementPage = () => {
   useEffect(() => {
     fetchCoupons();
     fetchAdvancedStats();
+    fetchExpiringCoupons();
   }, [showInactive]);
+
+  const fetchExpiringCoupons = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/coupons/expiring?days=7`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      setExpiringCoupons(response.data);
+    } catch (error) {
+      console.error('Error fetching expiring coupons:', error);
+    }
+  };
+
+  const handleRenewCoupon = async () => {
+    if (!selectedCoupon) return;
+
+    setProcessing(true);
+    try {
+      await axios.post(
+        `${API_URL}/api/coupons/renew/${selectedCoupon.code}?extend_months=${renewMonths}`,
+        {},
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+
+      toast.success(isRTL ? `تم تجديد الكوبون لمدة ${renewMonths} أشهر` : `Coupon renewed for ${renewMonths} months`);
+      setShowRenewDialog(false);
+      setSelectedCoupon(null);
+      setRenewMonths(3);
+      fetchCoupons();
+      fetchExpiringCoupons();
+    } catch (error) {
+      console.error('Error renewing coupon:', error);
+      toast.error(isRTL ? 'خطأ في تجديد الكوبون' : 'Error renewing coupon');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleCheckAndNotify = async () => {
+    setProcessing(true);
+    try {
+      const response = await axios.post(
+        `${API_URL}/api/coupons/check-and-notify`,
+        {},
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+
+      if (response.data.notifications_sent > 0) {
+        toast.success(`${t.notificationsSent}: ${response.data.notifications_sent}`);
+      } else {
+        toast.info(isRTL ? 'لا توجد إشعارات جديدة للإرسال' : 'No new notifications to send');
+      }
+    } catch (error) {
+      console.error('Error sending notifications:', error);
+      toast.error(isRTL ? 'خطأ في إرسال الإشعارات' : 'Error sending notifications');
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const fetchAdvancedStats = async () => {
     setLoadingStats(true);
@@ -552,6 +629,71 @@ const CouponManagementPage = () => {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Expiring Soon Section */}
+                <Card className={expiringCoupons.expiring_soon.length > 0 ? 'border-orange-300 bg-orange-50' : ''}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className={`h-5 w-5 ${expiringCoupons.expiring_soon.length > 0 ? 'text-orange-600' : 'text-gray-400'}`} />
+                        {t.expiringSoon}
+                        {expiringCoupons.expiring_soon.length > 0 && (
+                          <Badge className="bg-orange-500 text-white">{expiringCoupons.total_expiring}</Badge>
+                        )}
+                      </CardTitle>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleCheckAndNotify}
+                        disabled={processing || expiringCoupons.expiring_soon.length === 0}
+                      >
+                        {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                        {t.checkNotifications}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {expiringCoupons.expiring_soon.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {expiringCoupons.expiring_soon.map((coupon) => (
+                          <div 
+                            key={coupon.code} 
+                            className={`p-4 rounded-lg border ${
+                              coupon.days_left <= 1 ? 'bg-red-50 border-red-300' : 'bg-white border-orange-200'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <code className="font-mono font-bold text-lg">{coupon.code}</code>
+                              <Badge className={coupon.days_left <= 1 ? 'bg-red-500' : 'bg-orange-500'}>
+                                {coupon.days_left <= 0 ? t.today : `${coupon.days_left} ${t.daysLeft}`}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-1">{isRTL ? coupon.name_ar : coupon.name_en}</p>
+                            <p className="text-sm font-medium mb-3">
+                              {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `$${coupon.discount_value}`} {t.discount}
+                            </p>
+                            <Button 
+                              size="sm" 
+                              className="w-full bg-[#28376B] hover:bg-[#1e2a52]"
+                              onClick={() => {
+                                setSelectedCoupon(coupon);
+                                setShowRenewDialog(true);
+                              }}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              {t.renew}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <CheckCircle className="h-12 w-12 mx-auto mb-3 text-green-400" />
+                        <p>{t.noExpiring}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Top Coupons & Monthly Report */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1178,6 +1320,69 @@ const CouponManagementPage = () => {
               >
                 {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Mail className="h-4 w-4 mr-2" />}
                 {t.sendEmail}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Renew Coupon Dialog */}
+        <Dialog open={showRenewDialog} onOpenChange={setShowRenewDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5 text-[#28376B]" />
+                {t.renewCoupon}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedCoupon && (
+              <div className="py-4 space-y-4">
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <p className="text-sm text-gray-500 mb-1">{t.code}</p>
+                  <code className="text-2xl font-mono font-bold text-[#28376B]">
+                    {selectedCoupon.code}
+                  </code>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {isRTL ? selectedCoupon.name_ar : selectedCoupon.name_en}
+                  </p>
+                  {selectedCoupon.days_left !== undefined && (
+                    <Badge className={`mt-2 ${selectedCoupon.days_left <= 1 ? 'bg-red-500' : 'bg-orange-500'}`}>
+                      {selectedCoupon.days_left <= 0 ? t.today : `${selectedCoupon.days_left} ${t.daysLeft}`}
+                    </Badge>
+                  )}
+                </div>
+
+                <div>
+                  <Label className="mb-2 block">{t.extendBy}</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1, 3, 6, 12].map((months) => (
+                      <Button
+                        key={months}
+                        variant={renewMonths === months ? "default" : "outline"}
+                        className={renewMonths === months ? "bg-[#28376B]" : ""}
+                        onClick={() => setRenewMonths(months)}
+                      >
+                        {months} {t.monthsText}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setShowRenewDialog(false);
+                setSelectedCoupon(null);
+                setRenewMonths(3);
+              }}>
+                {t.cancel}
+              </Button>
+              <Button 
+                className="bg-green-600 hover:bg-green-700"
+                onClick={handleRenewCoupon}
+                disabled={processing}
+              >
+                {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                {t.renew} {renewMonths} {t.monthsText}
               </Button>
             </DialogFooter>
           </DialogContent>
