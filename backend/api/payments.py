@@ -20,6 +20,9 @@ load_dotenv(Path(__file__).parent.parent / '.env')
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
+# Configuration from environment
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://datalifeaccount.com")
+
 # MongoDB connection
 MONGO_URL = os.environ.get('MONGO_URL')
 DB_NAME = os.environ.get('DB_NAME', 'multi_tenant_erp')
@@ -441,7 +444,7 @@ async def send_payment_confirmation_email(email: str, plan: str, duration: str, 
                         </div>
                     </div>
                     <div style="text-align: center;">
-                        <a href="https://datalifeaccount.com/dashboard" class="btn">
+                        <a href="{FRONTEND_URL}/dashboard" class="btn">
                             الذهاب إلى لوحة التحكم | Go to Dashboard
                         </a>
                     </div>

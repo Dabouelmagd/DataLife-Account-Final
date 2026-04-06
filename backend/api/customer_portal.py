@@ -10,6 +10,9 @@ from services.auth_service import hash_password, verify_password, create_access_
 
 router = APIRouter(prefix="/api/customer-portal", tags=["customer-portal"])
 
+# Configuration from environment
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://datalifeaccount.com")
+
 # MongoDB connection
 MONGO_URL = os.environ.get('MONGO_URL')
 DB_NAME = os.environ.get('DB_NAME', 'multi_tenant_erp')
@@ -272,8 +275,8 @@ async def initiate_payment(
         
         stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
         
-        success_url = f"https://datalifeaccount.com/customer-portal/payment-success?invoice={invoice_number}"
-        cancel_url = f"https://datalifeaccount.com/customer-portal/invoices/{invoice_number}"
+        success_url = f"{FRONTEND_URL}/customer-portal/payment-success?invoice={invoice_number}"
+        cancel_url = f"{FRONTEND_URL}/customer-portal/invoices/{invoice_number}"
         
         checkout_request = CheckoutSessionRequest(
             amount=amount / 50,  # Convert EGP to USD
@@ -459,7 +462,7 @@ async def invite_customer(
                         <li><strong>كلمة المرور المؤقتة:</strong> {temp_password}</li>
                     </ul>
                     <p>يرجى تغيير كلمة المرور بعد تسجيل الدخول.</p>
-                    <a href="https://datalifeaccount.com/customer-portal" style="display: inline-block; background: #28376B; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px;">تسجيل الدخول</a>
+                    <a href="{FRONTEND_URL}/customer-portal" style="display: inline-block; background: #28376B; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px;">تسجيل الدخول</a>
                 </div>
                 """
             })
@@ -534,5 +537,5 @@ async def setup_customer_portal(authorization: Optional[str] = Header(None)):
     return {
         "success": True,
         "portal_code": portal_code,
-        "portal_url": f"https://datalifeaccount.com/customer-portal?company={portal_code}"
+        "portal_url": f"{FRONTEND_URL}/customer-portal?company={portal_code}"
     }

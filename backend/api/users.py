@@ -21,6 +21,7 @@ load_dotenv()
 # Initialize Resend
 resend.api_key = os.environ.get("RESEND_API_KEY")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "noreply@datalifeaccount.com")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://datalifeaccount.com")
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -124,7 +125,7 @@ async def add_user(
                     </div>
                     
                     <div style="text-align: center; margin: 20px 0;">
-                        <a href="https://datalifeaccount.com/login" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                        <a href="{FRONTEND_URL}/login" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
                             تسجيل الدخول الآن
                         </a>
                     </div>
@@ -222,7 +223,7 @@ async def resend_invitation(
                 </div>
                 
                 <div style="text-align: center; margin: 20px 0;">
-                    <a href="https://datalifeaccount.com/login" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                    <a href="{FRONTEND_URL}/login" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold;">
                         تسجيل الدخول الآن
                     </a>
                 </div>
@@ -345,7 +346,7 @@ async def invite_employee(
                 </div>
                 
                 <div style="text-align: center; margin: 20px 0;">
-                    <a href="https://datalifeaccount.com/login" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                    <a href="{FRONTEND_URL}/login" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold;">
                         تسجيل الدخول الآن
                     </a>
                 </div>

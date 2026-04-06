@@ -7,6 +7,9 @@ import httpx
 
 router = APIRouter(prefix="/api/whatsapp", tags=["whatsapp"])
 
+# Configuration from environment
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://datalifeaccount.com")
+
 # MongoDB connection
 MONGO_URL = os.environ.get('MONGO_URL')
 DB_NAME = os.environ.get('DB_NAME', 'multi_tenant_erp')
@@ -142,7 +145,7 @@ def get_notification_message(notification_type: str, data: dict, language: str) 
 الأيام المتبقية: {data.get('days_left', 0)} يوم
 
 جدد اشتراكك الآن لتجنب انقطاع الخدمة.
-https://datalifeaccount.com/subscription""",
+{FRONTEND_URL}/subscription""",
             "en": f"""⚠️ *Alert: Your subscription is expiring soon*
 
 Company: {data.get('company_name', '-')}
@@ -151,7 +154,7 @@ End Date: {data.get('end_date', '-')}
 Days Left: {data.get('days_left', 0)} days
 
 Renew now to avoid service interruption.
-https://datalifeaccount.com/subscription"""
+{FRONTEND_URL}/subscription"""
         },
         "payment_success": {
             "ar": f"""✅ *تم الدفع بنجاح!*
@@ -163,7 +166,7 @@ https://datalifeaccount.com/subscription"""
 المبلغ: {data.get('amount', 0):,.0f} جنيه
 
 تم تفعيل اشتراكك بنجاح.
-https://datalifeaccount.com/dashboard""",
+{FRONTEND_URL}/dashboard""",
             "en": f"""✅ *Payment Successful!*
 
 Thank you for subscribing to DataLife Account
@@ -173,7 +176,7 @@ Duration: {data.get('duration', '-')}
 Amount: {data.get('amount', 0):,.0f} EGP
 
 Your subscription has been activated.
-https://datalifeaccount.com/dashboard"""
+{FRONTEND_URL}/dashboard"""
         },
         "low_inventory": {
             "ar": f"""📦 *تنبيه: مخزون منخفض*
@@ -185,7 +188,7 @@ https://datalifeaccount.com/dashboard"""
 إجمالي المنتجات: {data.get('count', 0)}
 
 راجع المخزون الآن:
-https://datalifeaccount.com/dashboard""",
+{FRONTEND_URL}/dashboard""",
             "en": f"""📦 *Alert: Low Inventory*
 
 The following products need restocking:
@@ -195,7 +198,7 @@ The following products need restocking:
 Total items: {data.get('count', 0)}
 
 Review inventory now:
-https://datalifeaccount.com/dashboard"""
+{FRONTEND_URL}/dashboard"""
         },
         "salary_reminder": {
             "ar": f"""💰 *تذكير: موعد صرف الرواتب*
@@ -205,7 +208,7 @@ https://datalifeaccount.com/dashboard"""
 إجمالي الرواتب: {data.get('total_amount', 0):,.0f} جنيه
 
 يرجى مراجعة كشف الرواتب قبل الصرف.
-https://datalifeaccount.com/dashboard""",
+{FRONTEND_URL}/dashboard""",
             "en": f"""💰 *Reminder: Salary Payment Due*
 
 Month: {data.get('month', '-')}
@@ -213,7 +216,7 @@ Employees: {data.get('employee_count', 0)}
 Total: {data.get('total_amount', 0):,.0f} EGP
 
 Please review payroll before processing.
-https://datalifeaccount.com/dashboard"""
+{FRONTEND_URL}/dashboard"""
         },
         "daily_summary": {
             "ar": f"""📊 *التقرير اليومي - DataLife Account*

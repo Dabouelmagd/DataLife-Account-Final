@@ -17,6 +17,9 @@ load_dotenv(Path(__file__).parent.parent / '.env')
 
 router = APIRouter(prefix="/api/coupons", tags=["coupons"])
 
+# Configuration from environment
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://datalifeaccount.com")
+
 # MongoDB connection
 MONGO_URL = os.environ.get('MONGO_URL')
 DB_NAME = os.environ.get('DB_NAME', 'multi_tenant_erp')
@@ -479,7 +482,7 @@ async def send_coupon_email(data: SendCouponEmail):
             </div>
             
             <div style="text-align: center; margin-top: 30px;">
-                <a href="https://datalifeaccount.com/payment" 
+                <a href="{FRONTEND_URL}/payment" 
                    style="display: inline-block; background: #28376B; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
                     Subscribe Now →
                 </a>
@@ -795,7 +798,7 @@ async def check_expiring_and_notify(admin_email: str = "info@datalifeai.com"):
             </table>
             
             <div style="text-align: center; margin-top: 25px;">
-                <a href="https://datalifeaccount.com/admin/coupons" 
+                <a href="{FRONTEND_URL}/admin/coupons" 
                    style="display: inline-block; background: #28376B; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
                     Manage Coupons
                 </a>

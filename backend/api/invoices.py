@@ -9,6 +9,9 @@ import string
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 
+# Configuration from environment
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://datalifeaccount.com")
+
 # MongoDB connection
 MONGO_URL = os.environ.get('MONGO_URL')
 DB_NAME = os.environ.get('DB_NAME', 'multi_tenant_erp')
@@ -572,7 +575,7 @@ def generate_invoice_email_html(invoice: dict) -> str:
             
             <div class="footer">
                 <p>Thank you for your business!</p>
-                <p>DataLife Account - https://datalifeaccount.com</p>
+                <p>DataLife Account - {FRONTEND_URL}</p>
             </div>
         </div>
     </body>

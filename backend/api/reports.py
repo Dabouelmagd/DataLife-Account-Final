@@ -27,6 +27,9 @@ load_dotenv(Path(__file__).parent.parent / '.env')
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
+# Configuration from environment
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://datalifeaccount.com")
+
 # MongoDB connection
 MONGO_URL = os.environ.get('MONGO_URL')
 DB_NAME = os.environ.get('DB_NAME', 'multi_tenant_erp')
@@ -352,7 +355,7 @@ async def send_report_email(pdf_buffer: BytesIO, report_type: str, recipient: st
             </div>
             
             <div style="text-align: center; margin-top: 25px;">
-                <a href="https://datalifeaccount.com/dashboard" 
+                <a href="{FRONTEND_URL}/dashboard" 
                    style="display: inline-block; background: #28376B; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
                     View Dashboard →
                 </a>
