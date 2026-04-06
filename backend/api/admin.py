@@ -48,6 +48,19 @@ async def log_admin_audit(action, entity_type, user_data, **kwargs):
         print(f"Audit log error: {e}")
 
 
+async def send_audit_notification(notification_type: str, **kwargs):
+    """Helper to send audit notifications"""
+    try:
+        from api.audit_notifications import notify_user_deleted, notify_permissions_changed
+        
+        if notification_type == "user_deleted":
+            await notify_user_deleted(**kwargs)
+        elif notification_type == "permissions_changed":
+            await notify_permissions_changed(**kwargs)
+    except Exception as e:
+        print(f"Audit notification error: {e}")
+
+
 async def verify_admin(authorization: str):
     """Verify if user is admin"""
     if not authorization or not authorization.startswith("Bearer "):
@@ -795,6 +808,9 @@ async def update_user_permissions(
     company = await db.companies.find_one({"id": user.get("company_id")})
     company_name = company.get("company_name") if company else None
     
+    # Get admin user details for notification
+    admin_user = await db.users.find_one({"id": user_data.get('user_id')})
+    
     # Log audit
     await log_admin_audit(
         action="change_permissions",
@@ -806,6 +822,15 @@ async def update_user_permissions(
         old_values={"permissions": old_permissions},
         new_values={"permissions": permissions},
         details=f"Changed permissions for user: {user.get('full_name')} ({len(old_permissions)} -> {len(permissions)} permissions)"
+    )
+    
+    # Send email notification for sensitive permission changes
+    await send_audit_notification(
+        "permissions_changed",
+        user=user,
+        old_permissions=old_permissions,
+        new_permissions=permissions,
+        changed_by=admin_user or {"full_name": "Unknown", "email": user_data.get("email")}
     )
     
     return {
@@ -953,6 +978,9 @@ async def delete_user(
     company = await db.companies.find_one({"id": user.get("company_id")})
     company_name = company.get("company_name") if company else None
     
+    # Get admin user details for notification
+    admin_user = await db.users.find_one({"id": user_data.get('user_id')})
+    
     # Delete user
     result = await db.users.delete_one({"id": user_id})
     
@@ -973,6 +1001,14 @@ async def delete_user(
             "permissions": user.get("permissions", [])
         },
         details=f"Deleted user: {user.get('full_name')} ({user.get('email')})"
+    )
+    
+    # Send email notification
+    await send_audit_notification(
+        "user_deleted",
+        deleted_user=user,
+        deleted_by=admin_user or {"full_name": "Unknown", "email": user_data.get("email")},
+        company_name=company_name
     )
     
     return {

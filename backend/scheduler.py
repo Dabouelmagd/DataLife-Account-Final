@@ -215,6 +215,17 @@ async def send_monthly_report():
         print(f"[{datetime.now()}] Error sending monthly report: {e}")
 
 
+async def send_daily_audit_report():
+    """Send daily audit log report"""
+    print(f"[{datetime.now()}] Running daily audit report...")
+    
+    try:
+        from api.audit_notifications import send_daily_audit_report as send_audit_report
+        await send_audit_report()
+    except Exception as e:
+        print(f"[{datetime.now()}] Error sending daily audit report: {e}")
+
+
 def start_scheduler():
     """Start the scheduler with all jobs"""
     
@@ -242,6 +253,15 @@ def start_scheduler():
         CronTrigger(day=1, hour=8, minute=0),
         id='monthly_report',
         name='Monthly Sales Report',
+        replace_existing=True
+    )
+    
+    # Daily audit report at 7 AM (UTC)
+    scheduler.add_job(
+        send_daily_audit_report,
+        CronTrigger(hour=7, minute=0),
+        id='daily_audit_report',
+        name='Daily Audit Report',
         replace_existing=True
     )
     
