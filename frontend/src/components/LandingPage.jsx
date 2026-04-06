@@ -499,7 +499,7 @@ const LandingPage = () => {
                   {[
                     { icon: Users, title: language === 'ar' ? 'دخول متعدد المستخدمين' : 'Multi-user Login', desc: language === 'ar' ? 'دخول متزامن لموظفي نفس الشركة' : 'Concurrent login for same company employees' },
                     { icon: Key, title: language === 'ar' ? 'كود اشتراك فريد' : 'Unique Subscription Code', desc: language === 'ar' ? 'كل شركة لها كود خاص' : 'Each company has its own code' },
-                    { icon: Shield, title: language === 'ar' ? 'صلاحيات متقدمة' : 'Advanced Permissions', desc: language === 'ar' ? '10 صلاحيات و9 أدوار وظيفية' : '10 permissions and 9 job roles' },
+                    { icon: Shield, title: language === 'ar' ? 'صلاحيات متقدمة' : 'Advanced Permissions', desc: language === 'ar' ? '13 صلاحية و9 أدوار وظيفية' : '13 permissions and 9 job roles' },
                     { icon: Globe, title: language === 'ar' ? 'ثنائي اللغة' : 'Bilingual', desc: language === 'ar' ? 'دعم كامل للعربية والإنجليزية' : 'Full Arabic and English support' },
                   ].map((feature, idx) => (
                     <div key={idx} className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
@@ -519,7 +519,7 @@ const LandingPage = () => {
               <section>
                 <h3 className="text-2xl font-bold text-[#28376B] mb-4 flex items-center gap-2">
                   <FolderKanban className="h-6 w-6" />
-                  {language === 'ar' ? 'الوحدات المتاحة (10 وحدات)' : 'Available Modules (10 Modules)'}
+                  {language === 'ar' ? 'الوحدات المتاحة (13 وحدة)' : 'Available Modules (13 Modules)'}
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   {[
@@ -638,9 +638,9 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
-              { value: '27+', label: language === 'ar' ? 'شركة مسجلة' : 'Registered Companies', icon: Building2 },
-              { value: '68+', label: language === 'ar' ? 'مستخدم نشط' : 'Active Users', icon: Users },
-              { value: '10', label: language === 'ar' ? 'وحدات متكاملة' : 'Integrated Modules', icon: Database },
+              { value: '5+', label: language === 'ar' ? 'شركة مسجلة' : 'Registered Companies', icon: Building2 },
+              { value: '15+', label: language === 'ar' ? 'مستخدم نشط' : 'Active Users', icon: Users },
+              { value: '13', label: language === 'ar' ? 'وحدة متكاملة' : 'Integrated Modules', icon: Database },
               { value: '24/7', label: language === 'ar' ? 'دعم فني' : 'Technical Support', icon: HeadphonesIcon },
             ].map((stat, idx) => (
               <div key={idx} className="text-center">
@@ -1481,88 +1481,43 @@ const LandingPage = () => {
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               {language === 'ar' 
-                ? 'نبحث دائماً عن مواهب متميزة للانضمام إلى فريقنا وبناء مستقبل التقنية معاً.'
-                : 'We are always looking for exceptional talents to join our team and build the future of technology together.'}
+                ? 'نحن شركة ناشئة نبحث عن مواهب متميزة لبناء مستقبل التقنية معاً.'
+                : 'We are a startup looking for exceptional talents to build the future of technology together.'}
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card className="hover:shadow-lg transition-all border-2 hover:border-purple-300">
-              <CardHeader>
-                <Badge className="w-fit mb-2 bg-green-100 text-green-700">
-                  {language === 'ar' ? 'متاح' : 'Open'}
-                </Badge>
-                <CardTitle>{language === 'ar' ? 'مطور Full Stack' : 'Full Stack Developer'}</CardTitle>
-                <CardDescription>
-                  {language === 'ar' ? 'القاهرة - دوام كامل' : 'Cairo - Full Time'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 text-sm mb-4">
+          {/* No Open Positions Card */}
+          <div className="max-w-2xl mx-auto">
+            <Card className="border-2 border-dashed border-purple-300 bg-white/50">
+              <CardContent className="py-12 text-center">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Users className="h-8 w-8 text-purple-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                  {language === 'ar' ? 'لا توجد وظائف شاغرة حالياً' : 'No Open Positions Currently'}
+                </h3>
+                <p className="text-gray-600 mb-6 max-w-md mx-auto">
                   {language === 'ar' 
-                    ? 'نبحث عن مطور متمرس في React و Python لتطوير منتجاتنا.'
-                    : 'Looking for an experienced developer in React and Python to develop our products.'}
+                    ? 'نقدر اهتمامك بالانضمام إلى فريقنا! رغم عدم وجود وظائف شاغرة الآن، يسعدنا استلام سيرتك الذاتية للفرص المستقبلية.'
+                    : "We appreciate your interest in joining our team! Although we don't have open positions right now, we'd be happy to receive your CV for future opportunities."}
                 </p>
-                <Button variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-50">
-                  {language === 'ar' ? 'تقدم الآن' : 'Apply Now'}
-                </Button>
+                
+                <div className="bg-purple-50 rounded-xl p-6 mb-6">
+                  <p className="text-gray-700 font-medium mb-2">
+                    {language === 'ar' ? 'أرسل سيرتك الذاتية إلى:' : 'Send your CV to:'}
+                  </p>
+                  <a href="mailto:careers@datalifeai.com" className="text-[#28376B] text-lg font-bold hover:underline">
+                    careers@datalifeai.com
+                  </a>
+                </div>
+                
+                <p className="text-sm text-gray-500">
+                  {language === 'ar' 
+                    ? 'سنتواصل معك عند توفر فرصة مناسبة لمهاراتك'
+                    : "We'll contact you when a suitable opportunity for your skills becomes available"}
+                </p>
               </CardContent>
             </Card>
-            
-            <Card className="hover:shadow-lg transition-all border-2 hover:border-purple-300">
-              <CardHeader>
-                <Badge className="w-fit mb-2 bg-green-100 text-green-700">
-                  {language === 'ar' ? 'متاح' : 'Open'}
-                </Badge>
-                <CardTitle>{language === 'ar' ? 'مصمم UI/UX' : 'UI/UX Designer'}</CardTitle>
-                <CardDescription>
-                  {language === 'ar' ? 'عن بُعد - دوام كامل' : 'Remote - Full Time'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 text-sm mb-4">
-                  {language === 'ar' 
-                    ? 'نبحث عن مصمم مبدع لتحسين تجربة المستخدم في منتجاتنا.'
-                    : 'Looking for a creative designer to improve user experience in our products.'}
-                </p>
-                <Button variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-50">
-                  {language === 'ar' ? 'تقدم الآن' : 'Apply Now'}
-                </Button>
-              </CardContent>
-            </Card>
-            
-            <Card className="hover:shadow-lg transition-all border-2 hover:border-purple-300">
-              <CardHeader>
-                <Badge className="w-fit mb-2 bg-green-100 text-green-700">
-                  {language === 'ar' ? 'متاح' : 'Open'}
-                </Badge>
-                <CardTitle>{language === 'ar' ? 'مدير مبيعات' : 'Sales Manager'}</CardTitle>
-                <CardDescription>
-                  {language === 'ar' ? 'الرياض - دوام كامل' : 'Riyadh - Full Time'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 text-sm mb-4">
-                  {language === 'ar' 
-                    ? 'نبحث عن مدير مبيعات لتوسيع قاعدة عملائنا في السعودية.'
-                    : 'Looking for a sales manager to expand our customer base in Saudi Arabia.'}
-                </p>
-                <Button variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-50">
-                  {language === 'ar' ? 'تقدم الآن' : 'Apply Now'}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-          
-          <div className="text-center mt-8">
-            <p className="text-gray-600 mb-4">
-              {language === 'ar' 
-                ? 'لم تجد الوظيفة المناسبة؟ أرسل سيرتك الذاتية إلى:'
-                : "Didn't find the right position? Send your CV to:"}
-            </p>
-            <a href="mailto:careers@datalife.com" className="text-[#28376B] font-semibold hover:underline">
-              careers@datalife.com
-            </a>
           </div>
         </div>
       </section>

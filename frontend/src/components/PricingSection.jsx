@@ -13,7 +13,7 @@ const PricingSection = () => {
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [showComparison, setShowComparison] = useState(false);
+  const [showComparison, setShowComparison] = useState(true); // Always show comparison
   
   const t = (key) => getTranslation(language, key);
 
