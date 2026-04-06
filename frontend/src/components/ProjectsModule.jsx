@@ -24,11 +24,26 @@ import {
 import useRealTimeSync from '../hooks/useRealTimeSync';
 import ProjectFinancialsModule from './ProjectFinancialsModule';
 
+// Import configurations
+import { 
+  getProjectTranslations, 
+  STATUS_COLORS, 
+  PRIORITY_COLORS,
+  INITIAL_PROJECT_FORM,
+  INITIAL_TASK_FORM
+} from '../config/projectsConfig';
+
+// Import sub-components
+import { ProjectsHeader, ProjectsStats, ProjectCard, TaskCard } from './projects';
+
 const ProjectsModule = () => {
   const { token, user } = useAuth();
   const { language } = useLanguage();
   const isRTL = language === 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+  // Use translations from config
+  const t = getProjectTranslations(isRTL);
 
   const [activeTab, setActiveTab] = useState('projects');
   const [projects, setProjects] = useState([]);
@@ -50,82 +65,14 @@ const ProjectsModule = () => {
   const [editingTask, setEditingTask] = useState(null);
   const [financialsProject, setFinancialsProject] = useState(null);
 
-  const [projectForm, setProjectForm] = useState({
-    name: '', description: '', priority: 'medium', start_date: '', end_date: '', budget: '', manager_id: '', team_members: []
-  });
+  const [projectForm, setProjectForm] = useState(INITIAL_PROJECT_FORM);
+  const [taskForm, setTaskForm] = useState(INITIAL_TASK_FORM);
 
-  const [taskForm, setTaskForm] = useState({
-    title: '', description: '', project_id: '', priority: 'medium', assigned_to: '', due_date: '', estimated_hours: ''
-  });
+  // Status colors from config
+  const statusColors = STATUS_COLORS;
+  const priorityColors = PRIORITY_COLORS;
 
   const [newComment, setNewComment] = useState('');
-
-  const t = {
-    projects: isRTL ? 'المشاريع' : 'Projects',
-    tasks: isRTL ? 'المهام' : 'Tasks',
-    myTasks: isRTL ? 'مهامي' : 'My Tasks',
-    createProject: isRTL ? 'مشروع جديد' : 'New Project',
-    createTask: isRTL ? 'مهمة جديدة' : 'New Task',
-    name: isRTL ? 'الاسم' : 'Name',
-    title: isRTL ? 'العنوان' : 'Title',
-    description: isRTL ? 'الوصف' : 'Description',
-    priority: isRTL ? 'الأولوية' : 'Priority',
-    low: isRTL ? 'منخفضة' : 'Low',
-    medium: isRTL ? 'متوسطة' : 'Medium',
-    high: isRTL ? 'عالية' : 'High',
-    urgent: isRTL ? 'عاجلة' : 'Urgent',
-    status: isRTL ? 'الحالة' : 'Status',
-    planning: isRTL ? 'تخطيط' : 'Planning',
-    in_progress: isRTL ? 'قيد التنفيذ' : 'In Progress',
-    on_hold: isRTL ? 'معلق' : 'On Hold',
-    completed: isRTL ? 'مكتمل' : 'Completed',
-    cancelled: isRTL ? 'ملغي' : 'Cancelled',
-    todo: isRTL ? 'للتنفيذ' : 'To Do',
-    review: isRTL ? 'مراجعة' : 'Review',
-    startDate: isRTL ? 'تاريخ البداية' : 'Start Date',
-    endDate: isRTL ? 'تاريخ النهاية' : 'End Date',
-    dueDate: isRTL ? 'تاريخ الاستحقاق' : 'Due Date',
-    budget: isRTL ? 'الميزانية' : 'Budget',
-    manager: isRTL ? 'المدير' : 'Manager',
-    assignedTo: isRTL ? 'مسند إلى' : 'Assigned To',
-    teamMembers: isRTL ? 'فريق العمل' : 'Team Members',
-    estimatedHours: isRTL ? 'الساعات المقدرة' : 'Estimated Hours',
-    progress: isRTL ? 'التقدم' : 'Progress',
-    save: isRTL ? 'حفظ' : 'Save',
-    cancel: isRTL ? 'إلغاء' : 'Cancel',
-    delete: isRTL ? 'حذف' : 'Delete',
-    edit: isRTL ? 'تعديل' : 'Edit',
-    view: isRTL ? 'عرض' : 'View',
-    comments: isRTL ? 'التعليقات' : 'Comments',
-    addComment: isRTL ? 'أضف تعليق' : 'Add Comment',
-    totalProjects: isRTL ? 'إجمالي المشاريع' : 'Total Projects',
-    totalTasks: isRTL ? 'إجمالي المهام' : 'Total Tasks',
-    overdue: isRTL ? 'متأخرة' : 'Overdue',
-    dueThisWeek: isRTL ? 'تستحق هذا الأسبوع' : 'Due This Week',
-    noProjects: isRTL ? 'لا توجد مشاريع' : 'No projects',
-    noTasks: isRTL ? 'لا توجد مهام' : 'No tasks',
-    tasksCount: isRTL ? 'المهام' : 'Tasks',
-    project: isRTL ? 'المشروع' : 'Project',
-    financials: isRTL ? 'الحسابات المالية' : 'Financials',
-    viewFinancials: isRTL ? 'عرض الحسابات' : 'View Financials'
-  };
-
-  const statusColors = {
-    planning: 'bg-blue-100 text-blue-700',
-    in_progress: 'bg-amber-100 text-amber-700',
-    on_hold: 'bg-gray-100 text-gray-700',
-    completed: 'bg-green-100 text-green-700',
-    cancelled: 'bg-red-100 text-red-700',
-    todo: 'bg-gray-100 text-gray-700',
-    review: 'bg-purple-100 text-purple-700'
-  };
-
-  const priorityColors = {
-    low: 'bg-gray-100 text-gray-600',
-    medium: 'bg-blue-100 text-blue-600',
-    high: 'bg-amber-100 text-amber-600',
-    urgent: 'bg-red-100 text-red-600'
-  };
 
   const statusIcons = {
     planning: Circle,
