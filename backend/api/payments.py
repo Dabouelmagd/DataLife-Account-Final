@@ -419,3 +419,146 @@ async def get_transactions(company_id: Optional[str] = None):
     
     transactions = await db.payment_transactions.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
     return transactions
+
+
+# ============ PAYPAL CHECKOUT (Test Mode) ============
+
+@router.post("/paypal/create-checkout")
+async def create_paypal_checkout(request: CreateCheckoutRequest, http_request: Request):
+    """Create PayPal checkout for subscription (Test Mode Simulation)"""
+    
+    # Validate package exists
+    if request.package_id not in SUBSCRIPTION_PACKAGES:
+        raise HTTPException(status_code=400, detail="Invalid package ID")
+    
+    package = SUBSCRIPTION_PACKAGES[request.package_id]
+    
+    origin_url = request.origin_url.rstrip('/')
+    
+    # Generate order ID
+    import secrets
+    order_id = f"PP-{secrets.token_hex(8).upper()}"
+    
+    # Create transaction record
+    transaction = {
+        "session_id": order_id,
+        "payment_gateway": "paypal",
+        "package_id": request.package_id,
+        "plan": package["plan"],
+        "duration": package["duration"],
+        "amount_usd": package["price_usd"],
+        "amount_egp": package["price_egp"],
+        "currency": "usd",
+        "user_email": request.user_email,
+        "company_id": request.company_id,
+        "payment_status": "pending",
+        "status": "initiated",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.payment_transactions.insert_one(transaction)
+    
+    # For test mode, return a simulated PayPal approval URL
+    approval_url = f"{origin_url}/payment/paypal-simulate?order_id={order_id}&amount={package['price_usd']}&package={request.package_id}"
+    
+    return {
+        "order_id": order_id,
+        "approval_url": approval_url,
+        "package": {
+            "id": request.package_id,
+            "name_en": package["name_en"],
+            "name_ar": package["name_ar"],
+            "price_usd": package["price_usd"],
+            "price_egp": package["price_egp"]
+        },
+        "test_mode": True,
+        "message": "PayPal Test Mode - Click link to simulate payment"
+    }
+
+
+@router.post("/paypal/capture/{order_id}")
+async def capture_paypal_payment(order_id: str):
+    """Capture PayPal payment (Test Mode Simulation)"""
+    
+    # Find transaction
+    transaction = await db.payment_transactions.find_one({"session_id": order_id})
+    
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if transaction.get("payment_status") == "paid":
+        return {
+            "status": "already_captured", 
+            "message": "Payment already processed",
+            "order_id": order_id
+        }
+    
+    # Get package details
+    package = SUBSCRIPTION_PACKAGES.get(transaction["package_id"])
+    
+    # Update transaction
+    await db.payment_transactions.update_one(
+        {"session_id": order_id},
+        {"$set": {
+            "payment_status": "paid",
+            "status": "completed",
+            "paid_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Activate subscription if company_id exists
+    if transaction.get("company_id"):
+        await activate_subscription(
+            company_id=transaction["company_id"],
+            plan=transaction["plan"],
+            duration=transaction["duration"],
+            session_id=order_id
+        )
+        
+        # Send confirmation email if email exists
+        if transaction.get("user_email"):
+            await send_subscription_email(
+                email=transaction["user_email"],
+                plan=transaction["plan"],
+                duration=transaction["duration"],
+                amount=transaction["amount_egp"]
+            )
+    
+    return {
+        "status": "captured",
+        "order_id": order_id,
+        "amount_usd": transaction["amount_usd"],
+        "amount_egp": transaction["amount_egp"],
+        "package": package["name_en"] if package else transaction["package_id"]
+    }
+
+
+@router.get("/payment-methods")
+async def get_payment_methods():
+    """Get available payment methods"""
+    return {
+        "methods": [
+            {
+                "id": "stripe",
+                "name_en": "Credit/Debit Card",
+                "name_ar": "بطاقة ائتمان/خصم",
+                "icon": "credit-card",
+                "description_en": "Pay securely with Visa, MasterCard, or Amex",
+                "description_ar": "ادفع بأمان باستخدام Visa أو MasterCard أو Amex",
+                "enabled": True
+            },
+            {
+                "id": "paypal",
+                "name_en": "PayPal",
+                "name_ar": "باي بال",
+                "icon": "paypal",
+                "description_en": "Pay with your PayPal account",
+                "description_ar": "ادفع باستخدام حساب PayPal الخاص بك",
+                "enabled": True,
+                "test_mode": True
+            }
+        ]
+    }
+
