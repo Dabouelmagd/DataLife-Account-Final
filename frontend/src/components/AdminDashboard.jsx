@@ -368,6 +368,30 @@ const AdminDashboard = () => {
     }
   };
 
+  const deleteUser = async (userId, userName) => {
+    if (!window.confirm(isRTL ? `هل أنت متأكد من حذف المستخدم "${userName}"؟` : `Are you sure you want to delete "${userName}"?`)) {
+      return;
+    }
+    
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.delete(`${API_URL}/api/admin/users/${userId}`, config);
+      
+      // Refresh lists
+      if (selectedCompany) {
+        fetchCompanyUsers(selectedCompany.id);
+      }
+      // Update allUsers and filteredUsers
+      setAllUsers(prev => prev.filter(u => u.id !== userId));
+      setFilteredUsers(prev => prev.filter(u => u.id !== userId));
+      
+      showToastMessage(isRTL ? 'تم حذف المستخدم بنجاح' : 'User deleted successfully', 'success');
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || (isRTL ? 'حدث خطأ في الحذف' : 'Error deleting user');
+      showToastMessage(errorMsg, 'error');
+    }
+  };
+
   const fetchCompanyUsers = async (companyId) => {
     setLoadingUsers(true);
     try {
@@ -1298,6 +1322,16 @@ const AdminDashboard = () => {
                                 >
                                   {user.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                                 </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteUser(user.id, user.full_name)}
+                                  className="text-red-600 hover:text-red-700"
+                                  title={isRTL ? 'حذف المستخدم' : 'Delete User'}
+                                  data-testid={`delete-company-user-${user.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -1664,6 +1698,16 @@ const AdminDashboard = () => {
                               data-testid={`edit-user-permissions-${usr.id}`}
                             >
                               <Shield className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteUser(usr.id, usr.full_name)}
+                              className="text-red-600 hover:text-red-700"
+                              title={isRTL ? 'حذف المستخدم' : 'Delete User'}
+                              data-testid={`delete-user-${usr.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>

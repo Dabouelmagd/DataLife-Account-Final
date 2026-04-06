@@ -842,6 +842,42 @@ async def toggle_company_status(
     }
 
 
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Delete a user - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Verify Super Admin role
+    super_admin_roles = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي']
+    if user_data.get('role') not in super_admin_roles:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Find user
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent deleting Super Admin
+    if user.get('role') in ['Super Admin', 'مدير النظام']:
+        raise HTTPException(status_code=403, detail="Cannot delete Super Admin user")
+    
+    # Delete user
+    result = await db.users.delete_one({"id": user_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "success": True,
+        "user_id": user_id,
+        "full_name": user.get("full_name"),
+        "message": f"User '{user.get('full_name')}' deleted successfully"
+    }
+
+
 @router.get("/companies/{company_id}")
 async def get_company_details(
     company_id: str,
