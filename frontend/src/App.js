@@ -26,6 +26,7 @@ import PartiesPage from "./pages/PartiesPage";
 import ProductsPage from "./pages/ProductsPage";
 import PaymentPage from "./pages/PaymentPage";
 import PayPalSimulatePage from "./pages/PayPalSimulatePage";
+import PayPalReturnPage from "./pages/PayPalReturnPage";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
@@ -200,6 +201,7 @@ function App() {
               {/* Payment Routes */}
               <Route path="/payment" element={<PaymentPage />} />
               <Route path="/payment/paypal-simulate" element={<PayPalSimulatePage />} />
+              <Route path="/payment/paypal-return" element={<PayPalReturnPage />} />
             </Routes>
             {/* Support Chatbot - appears on all pages */}
             <SupportChatbot />

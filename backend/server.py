@@ -48,6 +48,7 @@ from api.hr_management import router as hr_management_router
 from api.bank_management import router as bank_management_router
 from api.email_notifications import router as email_notifications_router
 from api.project_financials import router as project_financials_router
+from api.coupons import router as coupons_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -138,6 +139,7 @@ app.include_router(hr_management_router)
 app.include_router(bank_management_router)
 app.include_router(email_notifications_router)
 app.include_router(project_financials_router)
+app.include_router(coupons_router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import os
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -10,6 +10,8 @@ from emergentintegrations.payments.stripe.checkout import (
     CheckoutStatusResponse, 
     CheckoutSessionRequest
 )
+import paypalrestsdk
+import secrets
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -18,6 +20,13 @@ MONGO_URL = os.environ.get('MONGO_URL')
 DB_NAME = os.environ.get('DB_NAME', 'multi_tenant_erp')
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
+
+# Configure PayPal
+paypalrestsdk.configure({
+    "mode": "sandbox",  # sandbox or live
+    "client_id": os.environ.get('PAYPAL_CLIENT_ID'),
+    "client_secret": os.environ.get('PAYPAL_SECRET')
+})
 
 # Fixed subscription packages (prices in EGP converted to USD for Stripe)
 # Using approximate conversion rate 1 USD = 50 EGP
@@ -47,6 +56,7 @@ class CreateCheckoutRequest(BaseModel):
     origin_url: str = Field(..., description="Frontend origin URL")
     user_email: Optional[str] = Field(None, description="User email for reference")
     company_id: Optional[str] = Field(None, description="Company ID")
+    coupon_code: Optional[str] = Field(None, description="Coupon code for discount")
 
 
 class CheckoutResponse(BaseModel):
@@ -81,6 +91,35 @@ async def create_checkout_session(request: CreateCheckoutRequest, http_request: 
         raise HTTPException(status_code=400, detail="Invalid package ID")
     
     package = SUBSCRIPTION_PACKAGES[request.package_id]
+    original_price_usd = package["price_usd"]
+    final_price_usd = original_price_usd
+    discount_amount = 0
+    coupon_applied = None
+    
+    # Apply coupon if provided
+    if request.coupon_code:
+        coupon = await db.coupons.find_one({"code": request.coupon_code.upper()})
+        if coupon and coupon.get("is_active", True):
+            # Check expiry
+            if coupon.get("expiry_date"):
+                expiry = datetime.fromisoformat(coupon["expiry_date"].replace("Z", "+00:00"))
+                if datetime.now(timezone.utc) > expiry:
+                    raise HTTPException(status_code=400, detail="Coupon has expired")
+            
+            # Check min amount
+            if original_price_usd < coupon.get("min_amount", 0):
+                raise HTTPException(status_code=400, detail=f"Minimum amount for this coupon is ${coupon['min_amount']}")
+            
+            # Calculate discount
+            if coupon["discount_type"] == "percentage":
+                discount_amount = original_price_usd * (coupon["discount_value"] / 100)
+                if coupon.get("max_discount") and discount_amount > coupon["max_discount"]:
+                    discount_amount = coupon["max_discount"]
+            else:
+                discount_amount = min(coupon["discount_value"], original_price_usd)
+            
+            final_price_usd = max(0, original_price_usd - discount_amount)
+            coupon_applied = coupon["code"]
     
     # Get Stripe API key
     api_key = os.environ.get('STRIPE_API_KEY')
@@ -106,13 +145,15 @@ async def create_checkout_session(request: CreateCheckoutRequest, http_request: 
         "duration": package["duration"],
         "price_egp": str(package["price_egp"]),
         "user_email": request.user_email or "",
-        "company_id": request.company_id or ""
+        "company_id": request.company_id or "",
+        "coupon_code": coupon_applied or "",
+        "discount_amount": str(round(discount_amount, 2))
     }
     
     try:
-        # Create checkout session with amount from backend (not from frontend)
+        # Create checkout session with final amount
         checkout_request = CheckoutSessionRequest(
-            amount=float(package["price_usd"]),
+            amount=float(round(final_price_usd, 2)),
             currency="usd",
             success_url=success_url,
             cancel_url=cancel_url,
@@ -124,14 +165,18 @@ async def create_checkout_session(request: CreateCheckoutRequest, http_request: 
         # Create payment transaction record BEFORE redirect
         transaction = {
             "session_id": session.session_id,
+            "payment_gateway": "stripe",
             "package_id": request.package_id,
             "plan": package["plan"],
             "duration": package["duration"],
-            "amount_usd": package["price_usd"],
+            "original_amount_usd": original_price_usd,
+            "discount_amount_usd": round(discount_amount, 2),
+            "amount_usd": round(final_price_usd, 2),
             "amount_egp": package["price_egp"],
             "currency": "usd",
             "user_email": request.user_email,
             "company_id": request.company_id,
+            "coupon_code": coupon_applied,
             "payment_status": "pending",
             "status": "initiated",
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -140,6 +185,10 @@ async def create_checkout_session(request: CreateCheckoutRequest, http_request: 
         
         await db.payment_transactions.insert_one(transaction)
         
+        # Increment coupon usage if applied
+        if coupon_applied:
+            await db.coupons.update_one({"code": coupon_applied}, {"$inc": {"usage_count": 1}})
+        
         return {
             "url": session.url,
             "session_id": session.session_id,
@@ -147,9 +196,12 @@ async def create_checkout_session(request: CreateCheckoutRequest, http_request: 
                 "id": request.package_id,
                 "name_en": package["name_en"],
                 "name_ar": package["name_ar"],
-                "price_usd": package["price_usd"],
+                "original_price_usd": original_price_usd,
+                "discount_amount": round(discount_amount, 2),
+                "price_usd": round(final_price_usd, 2),
                 "price_egp": package["price_egp"]
-            }
+            },
+            "coupon_applied": coupon_applied
         }
         
     except Exception as e:
@@ -421,65 +473,138 @@ async def get_transactions(company_id: Optional[str] = None):
     return transactions
 
 
-# ============ PAYPAL CHECKOUT (Test Mode) ============
+# ============ PAYPAL CHECKOUT (Sandbox Mode) ============
 
 @router.post("/paypal/create-checkout")
 async def create_paypal_checkout(request: CreateCheckoutRequest, http_request: Request):
-    """Create PayPal checkout for subscription (Test Mode Simulation)"""
+    """Create PayPal checkout for subscription using real PayPal Sandbox API"""
     
     # Validate package exists
     if request.package_id not in SUBSCRIPTION_PACKAGES:
         raise HTTPException(status_code=400, detail="Invalid package ID")
     
     package = SUBSCRIPTION_PACKAGES[request.package_id]
+    original_price_usd = package["price_usd"]
+    final_price_usd = original_price_usd
+    discount_amount = 0
+    coupon_applied = None
+    
+    # Apply coupon if provided
+    if request.coupon_code:
+        coupon = await db.coupons.find_one({"code": request.coupon_code.upper()})
+        if coupon and coupon.get("is_active", True):
+            # Check expiry
+            if coupon.get("expiry_date"):
+                expiry = datetime.fromisoformat(coupon["expiry_date"].replace("Z", "+00:00"))
+                if datetime.now(timezone.utc) > expiry:
+                    raise HTTPException(status_code=400, detail="Coupon has expired")
+            
+            # Check min amount
+            if original_price_usd < coupon.get("min_amount", 0):
+                raise HTTPException(status_code=400, detail=f"Minimum amount for this coupon is ${coupon['min_amount']}")
+            
+            # Calculate discount
+            if coupon["discount_type"] == "percentage":
+                discount_amount = original_price_usd * (coupon["discount_value"] / 100)
+                if coupon.get("max_discount") and discount_amount > coupon["max_discount"]:
+                    discount_amount = coupon["max_discount"]
+            else:
+                discount_amount = min(coupon["discount_value"], original_price_usd)
+            
+            final_price_usd = max(0, original_price_usd - discount_amount)
+            coupon_applied = coupon["code"]
     
     origin_url = request.origin_url.rstrip('/')
     
-    # Generate order ID
-    import secrets
-    order_id = f"PP-{secrets.token_hex(8).upper()}"
-    
-    # Create transaction record
-    transaction = {
-        "session_id": order_id,
-        "payment_gateway": "paypal",
-        "package_id": request.package_id,
-        "plan": package["plan"],
-        "duration": package["duration"],
-        "amount_usd": package["price_usd"],
-        "amount_egp": package["price_egp"],
-        "currency": "usd",
-        "user_email": request.user_email,
-        "company_id": request.company_id,
-        "payment_status": "pending",
-        "status": "initiated",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    await db.payment_transactions.insert_one(transaction)
-    
-    # For test mode, return a simulated PayPal approval URL
-    approval_url = f"{origin_url}/payment/paypal-simulate?order_id={order_id}&amount={package['price_usd']}&package={request.package_id}"
-    
-    return {
-        "order_id": order_id,
-        "approval_url": approval_url,
-        "package": {
-            "id": request.package_id,
-            "name_en": package["name_en"],
-            "name_ar": package["name_ar"],
-            "price_usd": package["price_usd"],
-            "price_egp": package["price_egp"]
-        },
-        "test_mode": True,
-        "message": "PayPal Test Mode - Click link to simulate payment"
-    }
+    try:
+        # Create PayPal payment
+        payment = paypalrestsdk.Payment({
+            "intent": "sale",
+            "payer": {
+                "payment_method": "paypal"
+            },
+            "redirect_urls": {
+                "return_url": f"{origin_url}/payment/paypal-return?package={request.package_id}",
+                "cancel_url": f"{origin_url}/payment"
+            },
+            "transactions": [{
+                "item_list": {
+                    "items": [{
+                        "name": package["name_en"],
+                        "sku": request.package_id,
+                        "price": f"{final_price_usd:.2f}",
+                        "currency": "USD",
+                        "quantity": 1
+                    }]
+                },
+                "amount": {
+                    "total": f"{final_price_usd:.2f}",
+                    "currency": "USD"
+                },
+                "description": f"DataLife Account - {package['name_en']}"
+            }]
+        })
+        
+        if payment.create():
+            # Get approval URL
+            approval_url = None
+            for link in payment.links:
+                if link.rel == "approval_url":
+                    approval_url = link.href
+                    break
+            
+            if not approval_url:
+                raise HTTPException(status_code=500, detail="Failed to get PayPal approval URL")
+            
+            # Create transaction record
+            transaction = {
+                "session_id": payment.id,
+                "payment_gateway": "paypal",
+                "package_id": request.package_id,
+                "plan": package["plan"],
+                "duration": package["duration"],
+                "original_amount_usd": original_price_usd,
+                "discount_amount_usd": round(discount_amount, 2),
+                "amount_usd": round(final_price_usd, 2),
+                "amount_egp": package["price_egp"],
+                "currency": "usd",
+                "user_email": request.user_email,
+                "company_id": request.company_id,
+                "coupon_code": coupon_applied,
+                "payment_status": "pending",
+                "status": "initiated",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            await db.payment_transactions.insert_one(transaction)
+            
+            return {
+                "order_id": payment.id,
+                "approval_url": approval_url,
+                "package": {
+                    "id": request.package_id,
+                    "name_en": package["name_en"],
+                    "name_ar": package["name_ar"],
+                    "original_price_usd": original_price_usd,
+                    "discount_amount": round(discount_amount, 2),
+                    "price_usd": round(final_price_usd, 2),
+                    "price_egp": package["price_egp"]
+                },
+                "coupon_applied": coupon_applied,
+                "sandbox_mode": True,
+                "message": "Redirecting to PayPal Sandbox for payment"
+            }
+        else:
+            raise HTTPException(status_code=500, detail=f"PayPal error: {payment.error}")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create PayPal payment: {str(e)}")
 
 
 @router.post("/paypal/capture/{order_id}")
-async def capture_paypal_payment(order_id: str):
-    """Capture PayPal payment (Test Mode Simulation)"""
+async def capture_paypal_payment(order_id: str, payer_id: Optional[str] = None):
+    """Execute/Capture PayPal payment after user approval"""
     
     # Find transaction
     transaction = await db.payment_transactions.find_one({"session_id": order_id})
@@ -494,45 +619,57 @@ async def capture_paypal_payment(order_id: str):
             "order_id": order_id
         }
     
-    # Get package details
-    package = SUBSCRIPTION_PACKAGES.get(transaction["package_id"])
-    
-    # Update transaction
-    await db.payment_transactions.update_one(
-        {"session_id": order_id},
-        {"$set": {
-            "payment_status": "paid",
-            "status": "completed",
-            "paid_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }}
-    )
-    
-    # Activate subscription if company_id exists
-    if transaction.get("company_id"):
-        await activate_subscription(
-            company_id=transaction["company_id"],
-            plan=transaction["plan"],
-            duration=transaction["duration"],
-            amount_paid=transaction["amount_egp"]
-        )
+    try:
+        # Execute the PayPal payment
+        payment = paypalrestsdk.Payment.find(order_id)
         
-        # Send confirmation email if email exists
-        if transaction.get("user_email"):
-            await send_payment_confirmation_email(
-                email=transaction["user_email"],
-                plan=transaction["plan"],
-                duration=transaction["duration"],
-                amount=transaction["amount_egp"]
+        if payment.execute({"payer_id": payer_id}):
+            # Payment successful
+            # Get package details
+            package = SUBSCRIPTION_PACKAGES.get(transaction["package_id"])
+            
+            # Update transaction
+            await db.payment_transactions.update_one(
+                {"session_id": order_id},
+                {"$set": {
+                    "payment_status": "paid",
+                    "status": "completed",
+                    "payer_id": payer_id,
+                    "paid_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
             )
-    
-    return {
-        "status": "captured",
-        "order_id": order_id,
-        "amount_usd": transaction["amount_usd"],
-        "amount_egp": transaction["amount_egp"],
-        "package": package["name_en"] if package else transaction["package_id"]
-    }
+            
+            # Activate subscription if company_id exists
+            if transaction.get("company_id"):
+                await activate_subscription(
+                    company_id=transaction["company_id"],
+                    plan=transaction["plan"],
+                    duration=transaction["duration"],
+                    amount_paid=transaction["amount_egp"]
+                )
+                
+                # Send confirmation email if email exists
+                if transaction.get("user_email"):
+                    await send_payment_confirmation_email(
+                        email=transaction["user_email"],
+                        plan=transaction["plan"],
+                        duration=transaction["duration"],
+                        amount=transaction["amount_egp"]
+                    )
+            
+            return {
+                "status": "captured",
+                "order_id": order_id,
+                "amount_usd": transaction["amount_usd"],
+                "amount_egp": transaction["amount_egp"],
+                "package": package["name_en"] if package else transaction["package_id"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail=f"Payment execution failed: {payment.error}")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to capture PayPal payment: {str(e)}")
 
 
 @router.get("/payment-methods")
@@ -557,7 +694,7 @@ async def get_payment_methods():
                 "description_en": "Pay with your PayPal account",
                 "description_ar": "ادفع باستخدام حساب PayPal الخاص بك",
                 "enabled": True,
-                "test_mode": True
+                "sandbox_mode": True
             }
         ]
     }

@@ -5,13 +5,14 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { Input } from '../components/ui/input';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { 
   CreditCard, Shield, CheckCircle, Loader2, ArrowRight, 
-  Building2, Clock, Users, Star, Zap, Crown, DollarSign
+  Building2, Clock, Users, Star, Zap, Crown, DollarSign, Tag, X
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -36,6 +37,12 @@ const PaymentPage = () => {
   const [selectedMethod, setSelectedMethod] = useState('stripe');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  
+  // Coupon states
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState(0);
 
   const t = {
     title: isRTL ? 'اختر خطة الاشتراك' : 'Choose Your Plan',
@@ -46,6 +53,7 @@ const PaymentPage = () => {
     processing: isRTL ? 'جاري المعالجة...' : 'Processing...',
     securePayment: isRTL ? 'دفع آمن ومشفر' : 'Secure & Encrypted Payment',
     testMode: isRTL ? 'وضع الاختبار' : 'Test Mode',
+    sandboxMode: isRTL ? 'وضع التجربة' : 'Sandbox',
     perMonth: isRTL ? '/شهر' : '/month',
     months: isRTL ? 'أشهر' : 'months',
     year: isRTL ? 'سنة' : 'year',
@@ -55,7 +63,14 @@ const PaymentPage = () => {
     enterprise: isRTL ? 'المؤسسي' : 'Enterprise',
     employees: isRTL ? 'موظف' : 'employees',
     popular: isRTL ? 'الأكثر شيوعاً' : 'Most Popular',
-    bestValue: isRTL ? 'أفضل قيمة' : 'Best Value'
+    bestValue: isRTL ? 'أفضل قيمة' : 'Best Value',
+    couponCode: isRTL ? 'كود الخصم' : 'Coupon Code',
+    applyCoupon: isRTL ? 'تطبيق' : 'Apply',
+    removeCoupon: isRTL ? 'إزالة' : 'Remove',
+    couponApplied: isRTL ? 'تم تطبيق الكوبون' : 'Coupon Applied',
+    discount: isRTL ? 'الخصم' : 'Discount',
+    total: isRTL ? 'الإجمالي' : 'Total',
+    enterCoupon: isRTL ? 'أدخل كود الخصم' : 'Enter coupon code'
   };
 
   const planIcons = {
@@ -113,7 +128,8 @@ const PaymentPage = () => {
         package_id: selectedPackage,
         origin_url: originUrl,
         user_email: user?.email,
-        company_id: user?.company_id
+        company_id: user?.company_id,
+        coupon_code: appliedCoupon?.code || null
       };
 
       let response;
@@ -147,6 +163,61 @@ const PaymentPage = () => {
     } finally {
       setProcessing(false);
     }
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast.error(isRTL ? 'يرجى إدخال كود الخصم' : 'Please enter a coupon code');
+      return;
+    }
+
+    if (!selectedPackage) {
+      toast.error(isRTL ? 'يرجى اختيار باقة أولاً' : 'Please select a package first');
+      return;
+    }
+
+    const pkg = packages.find(p => p.id === selectedPackage);
+    if (!pkg) return;
+
+    setCouponLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/api/coupons/validate`, {
+        code: couponCode.trim(),
+        package_id: selectedPackage,
+        amount_usd: pkg.price_usd
+      });
+
+      setAppliedCoupon(response.data.coupon);
+      setDiscountAmount(response.data.discount_amount);
+      toast.success(isRTL ? response.data.message_ar : response.data.message_en);
+    } catch (error) {
+      const detail = error.response?.data?.detail;
+      if (detail && typeof detail === 'object') {
+        toast.error(isRTL ? detail.message_ar : detail.message_en);
+      } else {
+        toast.error(isRTL ? 'كود الخصم غير صالح' : 'Invalid coupon code');
+      }
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
+    setCouponCode('');
+    toast.info(isRTL ? 'تم إزالة الكوبون' : 'Coupon removed');
+  };
+
+  const getSelectedPackagePrice = () => {
+    if (!selectedPackage) return 0;
+    const pkg = packages.find(p => p.id === selectedPackage);
+    return pkg ? pkg.price_usd : 0;
+  };
+
+  const getFinalPrice = () => {
+    const originalPrice = getSelectedPackagePrice();
+    return Math.max(0, originalPrice - discountAmount);
   };
 
   const getDurationLabel = (duration) => {
@@ -268,14 +339,83 @@ const PaymentPage = () => {
                       </p>
                     </div>
                   </div>
-                  {method.test_mode && (
+                  {(method.test_mode || method.sandbox_mode) && (
                     <Badge variant="outline" className="text-amber-600 border-amber-300">
-                      {t.testMode}
+                      {t.sandboxMode}
                     </Badge>
                   )}
                 </div>
               ))}
             </RadioGroup>
+          </CardContent>
+        </Card>
+
+        {/* Coupon Code Section */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Tag className="h-5 w-5" />
+              {t.couponCode}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <div>
+                    <p className="font-medium text-green-800">{t.couponApplied}: {appliedCoupon.code}</p>
+                    <p className="text-sm text-green-600">
+                      {appliedCoupon.discount_type === 'percentage' 
+                        ? `${appliedCoupon.discount_value}% ${t.discount}`
+                        : `$${appliedCoupon.discount_value} ${t.discount}`
+                      }
+                    </p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={handleRemoveCoupon} className="text-red-500 hover:text-red-700">
+                  <X className="h-4 w-4 mr-1" />
+                  {t.removeCoupon}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  placeholder={t.enterCoupon}
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  className="flex-1"
+                  onKeyPress={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                />
+                <Button 
+                  onClick={handleApplyCoupon} 
+                  disabled={couponLoading || !couponCode.trim()}
+                  className="bg-[#28376B] hover:bg-[#1e2a52]"
+                >
+                  {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t.applyCoupon}
+                </Button>
+              </div>
+            )}
+            
+            {/* Price Summary */}
+            {selectedPackage && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-600">{isRTL ? 'السعر الأصلي' : 'Original Price'}</span>
+                  <span className="font-medium">${getSelectedPackagePrice().toFixed(2)}</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-sm mb-2 text-green-600">
+                    <span>{t.discount}</span>
+                    <span>-${discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-lg font-bold">
+                  <span>{t.total}</span>
+                  <span className="text-[#28376B]">${getFinalPrice().toFixed(2)}</span>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
