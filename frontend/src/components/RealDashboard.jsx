@@ -60,6 +60,7 @@ import BalanceSheetPage from '../pages/BalanceSheetPage';
 import BankManagementPage from '../pages/BankManagementPage';
 import BankSettingsPage from '../pages/BankSettingsPage';
 import AdminDashboardPage from '../pages/AdminDashboardPage';
+import SuperAdminDashboard from '../pages/SuperAdminDashboard';
 import NotificationSettingsPage from '../pages/NotificationSettingsPage';
 import UserGuidePage from '../pages/UserGuidePage';
 import PermissionsSettingsPage from '../pages/PermissionsSettingsPage';
@@ -194,6 +195,16 @@ const RealDashboard = () => {
   const getAvailableModules = () => {
     const role = user?.role;
     const modules = [];
+
+    // Super Admin Dashboard - for Super Admin only
+    const superAdminRoles = ['Super Admin', 'مدير النظام'];
+    if (superAdminRoles.includes(role)) {
+      modules.push({ 
+        id: 'super-admin', 
+        name: language === 'ar' ? 'إدارة المنصة' : 'Platform Admin', 
+        icon: <Shield /> 
+      });
+    }
 
     // Dashboard available to all
     modules.push({ 
@@ -768,6 +779,11 @@ const RealDashboard = () => {
     // Admin Dashboard Module
     if (activeModule === 'admin-dashboard') {
       return <AdminDashboardPage language={language} />;
+    }
+
+    // Super Admin Dashboard
+    if (activeModule === 'super-admin') {
+      return <SuperAdminDashboard language={language} />;
     }
 
     // Notification Settings Module

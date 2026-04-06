@@ -729,3 +729,159 @@ async def update_user_permissions(
         "permissions": permissions,
         "message": "Permissions updated successfully"
     }
+
+
+
+# ==========================================
+# Super Admin APIs - Company & User Management
+# ==========================================
+
+@router.get("/companies")
+async def get_all_companies(authorization: Optional[str] = Header(None)):
+    """Get all companies with their statistics - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Verify Super Admin role
+    super_admin_roles = ['Super Admin', 'مدير النظام']
+    if user_data.get('role') not in super_admin_roles:
+        raise HTTPException(status_code=403, detail="Super Admin access required")
+    
+    # Get all companies
+    companies = await db.companies.find({}, {"_id": 0}).to_list(length=1000)
+    
+    # Enrich with user count and subscription info
+    result = []
+    for company in companies:
+        company_id = company.get('id')
+        
+        # Get user count
+        all_users = await db.users.count_documents({"company_id": company_id})
+        active_users = await db.users.count_documents({"company_id": company_id, "is_active": {"$ne": False}})
+        
+        # Get subscription
+        subscription = await db.subscriptions.find_one(
+            {"company_id": company_id},
+            {"_id": 0}
+        )
+        
+        result.append({
+            **company,
+            "user_count": all_users,
+            "active_users": active_users,
+            "subscription": subscription
+        })
+    
+    return result
+
+
+@router.get("/users")
+async def get_all_users(authorization: Optional[str] = Header(None)):
+    """Get all users across all companies - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Verify Super Admin role
+    super_admin_roles = ['Super Admin', 'مدير النظام']
+    if user_data.get('role') not in super_admin_roles:
+        raise HTTPException(status_code=403, detail="Super Admin access required")
+    
+    # Get all users
+    users = await db.users.find(
+        {},
+        {"_id": 0, "password": 0, "password_hash": 0}  # Exclude sensitive fields
+    ).to_list(length=5000)
+    
+    return users
+
+
+@router.put("/companies/{company_id}/toggle")
+async def toggle_company_status(
+    company_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Activate or suspend a company - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Verify Super Admin role
+    super_admin_roles = ['Super Admin', 'مدير النظام']
+    if user_data.get('role') not in super_admin_roles:
+        raise HTTPException(status_code=403, detail="Super Admin access required")
+    
+    # Get company
+    company = await db.companies.find_one({"id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Toggle status
+    current_status = company.get("is_active", True)
+    new_status = not current_status
+    
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {
+            "is_active": new_status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Also update all users in this company
+    if not new_status:
+        await db.users.update_many(
+            {"company_id": company_id},
+            {"$set": {"company_suspended": True}}
+        )
+    else:
+        await db.users.update_many(
+            {"company_id": company_id},
+            {"$unset": {"company_suspended": ""}}
+        )
+    
+    return {
+        "company_id": company_id,
+        "is_active": new_status,
+        "message": f"Company {'activated' if new_status else 'suspended'} successfully"
+    }
+
+
+@router.get("/companies/{company_id}")
+async def get_company_details(
+    company_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Get detailed company information - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Verify Super Admin role
+    super_admin_roles = ['Super Admin', 'مدير النظام']
+    if user_data.get('role') not in super_admin_roles:
+        raise HTTPException(status_code=403, detail="Super Admin access required")
+    
+    # Get company
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Get users
+    users = await db.users.find(
+        {"company_id": company_id},
+        {"_id": 0, "password": 0, "password_hash": 0}
+    ).to_list(length=100)
+    
+    # Get subscription
+    subscription = await db.subscriptions.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    
+    # Get invoices count
+    invoices_count = await db.invoices.count_documents({"company_id": company_id})
+    
+    return {
+        **company,
+        "users": users,
+        "subscription": subscription,
+        "stats": {
+            "users_count": len(users),
+            "active_users": len([u for u in users if u.get("is_active", True)]),
+            "invoices_count": invoices_count
+        }
+    }
