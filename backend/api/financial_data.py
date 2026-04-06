@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Query
 from models.financial_data import JournalEntry, TreasuryTransaction, BankTransaction, Customer, Supplier
 from services.auth_service import verify_token
 from typing import Optional, List
@@ -6,6 +6,10 @@ from database import get_database
 
 router = APIRouter(prefix="/api/financial", tags=["financial"])
 db = get_database()
+
+# Default pagination settings
+DEFAULT_PAGE_SIZE = 100
+MAX_PAGE_SIZE = 1000
 
 async def get_current_user(authorization: Optional[str] = Header(None)):
     """Dependency to get current user from JWT token"""
@@ -26,12 +30,26 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     return payload
 
 # Journal Entries
-@router.get("/journal-entries", response_model=List[JournalEntry])
-async def get_journal_entries(current_user: dict = Depends(get_current_user)):
-    """Get all journal entries for the user's company"""
+@router.get("/journal-entries")
+async def get_journal_entries(
+    current_user: dict = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE)
+):
+    """Get journal entries for the user's company with pagination"""
     company_id = current_user.get("company_id")
-    entries = await db.journal_entries.find({"company_id": company_id}).to_list(length=1000)
-    return [JournalEntry(**e) for e in entries]
+    skip = (page - 1) * limit
+    
+    total = await db.journal_entries.count_documents({"company_id": company_id})
+    entries = await db.journal_entries.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).skip(skip).limit(limit).to_list(length=limit)
+    
+    return {
+        "data": entries,
+        "pagination": {"page": page, "limit": limit, "total": total, "pages": (total + limit - 1) // limit}
+    }
 
 @router.post("/journal-entries")
 async def create_journal_entry(entry: JournalEntry, current_user: dict = Depends(get_current_user)):
@@ -46,12 +64,26 @@ async def create_journal_entry(entry: JournalEntry, current_user: dict = Depends
     return {"message": "Journal entry created successfully", "id": entry.id}
 
 # Treasury
-@router.get("/treasury", response_model=List[TreasuryTransaction])
-async def get_treasury_transactions(current_user: dict = Depends(get_current_user)):
-    """Get all treasury transactions for the user's company"""
+@router.get("/treasury")
+async def get_treasury_transactions(
+    current_user: dict = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE)
+):
+    """Get treasury transactions for the user's company with pagination"""
     company_id = current_user.get("company_id")
-    transactions = await db.treasury_transactions.find({"company_id": company_id}).to_list(length=1000)
-    return [TreasuryTransaction(**t) for t in transactions]
+    skip = (page - 1) * limit
+    
+    total = await db.treasury_transactions.count_documents({"company_id": company_id})
+    transactions = await db.treasury_transactions.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).skip(skip).limit(limit).to_list(length=limit)
+    
+    return {
+        "data": transactions,
+        "pagination": {"page": page, "limit": limit, "total": total, "pages": (total + limit - 1) // limit}
+    }
 
 @router.post("/treasury")
 async def create_treasury_transaction(transaction: TreasuryTransaction, current_user: dict = Depends(get_current_user)):
@@ -66,12 +98,26 @@ async def create_treasury_transaction(transaction: TreasuryTransaction, current_
     return {"message": "Treasury transaction created successfully", "id": transaction.id}
 
 # Bank
-@router.get("/bank", response_model=List[BankTransaction])
-async def get_bank_transactions(current_user: dict = Depends(get_current_user)):
-    """Get all bank transactions for the user's company"""
+@router.get("/bank")
+async def get_bank_transactions(
+    current_user: dict = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE)
+):
+    """Get bank transactions for the user's company with pagination"""
     company_id = current_user.get("company_id")
-    transactions = await db.bank_transactions.find({"company_id": company_id}).to_list(length=1000)
-    return [BankTransaction(**t) for t in transactions]
+    skip = (page - 1) * limit
+    
+    total = await db.bank_transactions.count_documents({"company_id": company_id})
+    transactions = await db.bank_transactions.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).skip(skip).limit(limit).to_list(length=limit)
+    
+    return {
+        "data": transactions,
+        "pagination": {"page": page, "limit": limit, "total": total, "pages": (total + limit - 1) // limit}
+    }
 
 @router.post("/bank")
 async def create_bank_transaction(transaction: BankTransaction, current_user: dict = Depends(get_current_user)):
@@ -86,12 +132,26 @@ async def create_bank_transaction(transaction: BankTransaction, current_user: di
     return {"message": "Bank transaction created successfully", "id": transaction.id}
 
 # Customers
-@router.get("/customers", response_model=List[Customer])
-async def get_customers(current_user: dict = Depends(get_current_user)):
-    """Get all customers for the user's company"""
+@router.get("/customers")
+async def get_customers(
+    current_user: dict = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE)
+):
+    """Get customers for the user's company with pagination"""
     company_id = current_user.get("company_id")
-    customers = await db.customers.find({"company_id": company_id}).to_list(length=1000)
-    return [Customer(**c) for c in customers]
+    skip = (page - 1) * limit
+    
+    total = await db.customers.count_documents({"company_id": company_id})
+    customers = await db.customers.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).skip(skip).limit(limit).to_list(length=limit)
+    
+    return {
+        "data": customers,
+        "pagination": {"page": page, "limit": limit, "total": total, "pages": (total + limit - 1) // limit}
+    }
 
 @router.post("/customers")
 async def create_customer(customer: Customer, current_user: dict = Depends(get_current_user)):
@@ -106,12 +166,26 @@ async def create_customer(customer: Customer, current_user: dict = Depends(get_c
     return {"message": "Customer created successfully", "id": customer.id}
 
 # Suppliers
-@router.get("/suppliers", response_model=List[Supplier])
-async def get_suppliers(current_user: dict = Depends(get_current_user)):
-    """Get all suppliers for the user's company"""
+@router.get("/suppliers")
+async def get_suppliers(
+    current_user: dict = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE)
+):
+    """Get suppliers for the user's company with pagination"""
     company_id = current_user.get("company_id")
-    suppliers = await db.suppliers.find({"company_id": company_id}).to_list(length=None)
-    return [Supplier(**s) for s in suppliers]
+    skip = (page - 1) * limit
+    
+    total = await db.suppliers.count_documents({"company_id": company_id})
+    suppliers = await db.suppliers.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).skip(skip).limit(limit).to_list(length=limit)
+    
+    return {
+        "data": suppliers,
+        "pagination": {"page": page, "limit": limit, "total": total, "pages": (total + limit - 1) // limit}
+    }
 
 @router.post("/suppliers")
 async def create_supplier(supplier: Supplier, current_user: dict = Depends(get_current_user)):
