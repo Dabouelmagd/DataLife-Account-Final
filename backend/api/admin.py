@@ -338,6 +338,118 @@ async def delete_activation_code(
     return {"deleted": True, "code": code}
 
 
+@router.post("/subscriptions/assign")
+async def assign_subscription_to_company(
+    request_data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Assign a subscription to a company (Admin only)"""
+    user = await verify_admin(authorization)
+    
+    company_id = request_data.get("company_id")
+    plan = request_data.get("plan")
+    duration = request_data.get("duration", "monthly")
+    
+    if not company_id or not plan:
+        raise HTTPException(status_code=400, detail="company_id and plan are required")
+    
+    # Verify company exists
+    company = await db.companies.find_one({"id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Plan prices
+    PLAN_PRICES = {
+        "starter": {"monthly": 299, "quarterly": 799, "yearly": 2990, "lifetime": 9990},
+        "professional": {"monthly": 799, "quarterly": 2199, "yearly": 7990, "lifetime": 24990},
+        "enterprise": {"monthly": 1499, "quarterly": 3999, "yearly": 14990, "lifetime": 50000}
+    }
+    
+    # Duration mapping
+    DURATION_DAYS = {
+        "monthly": 30,
+        "quarterly": 90,
+        "yearly": 365,
+        "lifetime": 36500  # ~100 years
+    }
+    
+    start_date = datetime.now(timezone.utc)
+    days = DURATION_DAYS.get(duration, 30)
+    end_date = start_date + timedelta(days=days)
+    
+    import uuid
+    subscription = {
+        "id": str(uuid.uuid4()),
+        "user_id": user.get("user_id", "admin"),
+        "company_id": company_id,
+        "plan": plan,
+        "duration": duration,
+        "status": "active",
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "amount_paid": PLAN_PRICES.get(plan, {}).get(duration, 0),
+        "currency": "EGP",
+        "payment_method": "admin_grant",
+        "created_at": start_date.isoformat()
+    }
+    
+    # Deactivate any existing subscription
+    await db.subscriptions.update_many(
+        {"company_id": company_id, "status": "active"},
+        {"$set": {"status": "cancelled", "cancelled_at": start_date.isoformat()}}
+    )
+    
+    # Insert new subscription
+    await db.subscriptions.insert_one(subscription)
+    
+    # Update company
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {
+            "subscription_plan": plan,
+            "subscription_status": "active",
+            "subscription_end_date": end_date.isoformat()
+        }}
+    )
+    
+    # Send notification
+    try:
+        from api.audit_notifications import send_subscription_notification
+        await send_subscription_notification(
+            company_name=company.get("name", "Unknown"),
+            company_email=company.get("email") or company.get("contact_email"),
+            plan=plan,
+            duration=duration,
+            end_date=end_date.isoformat()
+        )
+    except Exception as e:
+        print(f"Failed to send subscription notification: {e}")
+    
+    # Log audit
+    await log_admin_audit(
+        action="subscription_assigned",
+        entity_type="subscription",
+        user_data=user,
+        entity_id=subscription["id"],
+        details={
+            "company_id": company_id,
+            "company_name": company.get("name"),
+            "plan": plan,
+            "duration": duration,
+            "end_date": end_date.isoformat()
+        }
+    )
+    
+    return {
+        "success": True,
+        "message": "Subscription assigned successfully",
+        "subscription_id": subscription["id"],
+        "plan": plan,
+        "duration": duration,
+        "end_date": end_date.isoformat()
+    }
+
+
 @router.get("/companies")
 async def get_all_companies(authorization: Optional[str] = Header(None)):
     """Get all companies with subscription info"""

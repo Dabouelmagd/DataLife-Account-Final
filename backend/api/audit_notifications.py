@@ -462,3 +462,224 @@ async def get_admin_emails() -> List[str]:
     except Exception as e:
         logger.error(f"Error getting admin emails: {e}")
         return []
+
+
+
+# ==========================================
+# إشعارات الاشتراكات والشركات
+# ==========================================
+
+async def send_subscription_notification(
+    company_name: str,
+    company_email: str,
+    plan: str,
+    duration: str,
+    end_date: str
+) -> bool:
+    """إرسال إشعار تفعيل الاشتراك"""
+    try:
+        plan_names = {
+            "starter": "المبتدئ",
+            "professional": "المحترف", 
+            "enterprise": "المؤسسي"
+        }
+        
+        duration_names = {
+            "monthly": "شهري",
+            "quarterly": "ربع سنوي",
+            "yearly": "سنوي",
+            "lifetime": "مدى الحياة"
+        }
+        
+        plan_ar = plan_names.get(plan, plan)
+        duration_ar = duration_names.get(duration, duration)
+        
+        content = f"""
+        <p style="font-size: 16px; color: #333;">مرحباً <strong>{company_name}</strong>،</p>
+        
+        <p style="font-size: 16px; color: #333;">
+            تم تفعيل اشتراكك في نظام <strong>DataLife Account</strong> بنجاح!
+        </p>
+        
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #28376B; margin-top: 0;">تفاصيل الاشتراك:</h3>
+            <table style="width: 100%;">
+                <tr><td style="padding: 8px 0;"><strong>الباقة:</strong></td><td>{plan_ar}</td></tr>
+                <tr><td style="padding: 8px 0;"><strong>المدة:</strong></td><td>{duration_ar}</td></tr>
+                <tr><td style="padding: 8px 0;"><strong>تاريخ الانتهاء:</strong></td><td>{end_date[:10]}</td></tr>
+            </table>
+        </div>
+        
+        <p style="font-size: 16px; color: #333;">
+            يمكنك الآن الاستمتاع بجميع ميزات الباقة المشترك بها.
+        </p>
+        
+        <p style="color: #666;">شكراً لثقتك في DataLife AI Services</p>
+        """
+        
+        html = get_audit_email_template(
+            "تم تفعيل اشتراكك ✅",
+            content,
+            "success"
+        )
+        
+        if company_email:
+            send_email_smtp(company_email, "تم تفعيل اشتراكك في DataLife Account", html)
+        
+        # إرسال نسخة للـ Admin
+        admin_emails = await get_admin_emails()
+        for email in admin_emails:
+            admin_content = f"""
+            <p style="font-size: 16px; color: #333;">تم تفعيل اشتراك جديد:</p>
+            <ul>
+                <li><strong>الشركة:</strong> {company_name}</li>
+                <li><strong>البريد:</strong> {company_email}</li>
+                <li><strong>الباقة:</strong> {plan_ar}</li>
+                <li><strong>المدة:</strong> {duration_ar}</li>
+            </ul>
+            """
+            admin_html = get_audit_email_template("اشتراك جديد 🎉", admin_content, "info")
+            send_email_smtp(email, f"اشتراك جديد: {company_name}", admin_html)
+        
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send subscription notification: {e}")
+        return False
+
+
+async def send_company_registration_notification(
+    company_name: str,
+    company_email: str,
+    admin_name: str
+) -> bool:
+    """إرسال إشعار تسجيل شركة جديدة"""
+    try:
+        # إشعار للشركة
+        company_content = f"""
+        <p style="font-size: 16px; color: #333;">مرحباً <strong>{admin_name}</strong>،</p>
+        
+        <p style="font-size: 16px; color: #333;">
+            تم تسجيل شركة <strong>{company_name}</strong> بنجاح في نظام DataLife Account!
+        </p>
+        
+        <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #2e7d32;">
+                ✅ يمكنك الآن تسجيل الدخول والبدء في استخدام النظام.
+            </p>
+        </div>
+        
+        <p style="font-size: 14px; color: #666;">
+            لأي استفسارات، تواصل معنا على info@datalifeai.com
+        </p>
+        """
+        
+        html = get_audit_email_template(
+            "مرحباً بك في DataLife Account 🎉",
+            company_content,
+            "success"
+        )
+        
+        if company_email:
+            send_email_smtp(company_email, "مرحباً بك في DataLife Account", html)
+        
+        # إشعار للـ Admin
+        admin_emails = await get_admin_emails()
+        admin_content = f"""
+        <p style="font-size: 16px; color: #333;">تم تسجيل شركة جديدة:</p>
+        <ul>
+            <li><strong>الشركة:</strong> {company_name}</li>
+            <li><strong>البريد:</strong> {company_email}</li>
+            <li><strong>المدير:</strong> {admin_name}</li>
+            <li><strong>الوقت:</strong> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}</li>
+        </ul>
+        """
+        admin_html = get_audit_email_template("شركة جديدة مسجلة 🏢", admin_content, "info")
+        
+        for email in admin_emails:
+            send_email_smtp(email, f"شركة جديدة: {company_name}", admin_html)
+        
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send registration notification: {e}")
+        return False
+
+
+async def send_subscription_expiry_warning(
+    company_name: str,
+    company_email: str,
+    days_remaining: int,
+    end_date: str
+) -> bool:
+    """إرسال تحذير انتهاء الاشتراك"""
+    try:
+        if days_remaining <= 3:
+            alert_type = "danger"
+            title = "⚠️ اشتراكك على وشك الانتهاء!"
+        elif days_remaining <= 7:
+            alert_type = "warning"
+            title = "تذكير: اشتراكك قارب على الانتهاء"
+        else:
+            alert_type = "info"
+            title = "تذكير بتجديد الاشتراك"
+        
+        content = f"""
+        <p style="font-size: 16px; color: #333;">عزيزي <strong>{company_name}</strong>،</p>
+        
+        <p style="font-size: 16px; color: #333;">
+            نود تذكيركم بأن اشتراككم في DataLife Account سينتهي خلال 
+            <strong style="color: #dc3545;">{days_remaining} أيام</strong>.
+        </p>
+        
+        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #ffc107;">
+            <p style="margin: 0;"><strong>تاريخ الانتهاء:</strong> {end_date[:10]}</p>
+        </div>
+        
+        <p style="font-size: 16px; color: #333;">
+            للاستمرار في الاستفادة من خدماتنا، يرجى تجديد اشتراككم قبل انتهاء المدة.
+        </p>
+        
+        <p style="color: #666;">شكراً لثقتك في DataLife AI Services</p>
+        """
+        
+        html = get_audit_email_template(title, content, alert_type)
+        
+        if company_email:
+            send_email_smtp(company_email, title, html)
+        
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send expiry warning: {e}")
+        return False
+
+
+async def check_expiring_subscriptions():
+    """فحص الاشتراكات المنتهية وإرسال التحذيرات"""
+    try:
+        now = datetime.now(timezone.utc)
+        warning_days = [1, 3, 7, 14]  # أيام التحذير
+        
+        for days in warning_days:
+            target_date = now + timedelta(days=days)
+            
+            # البحث عن الاشتراكات التي ستنتهي في هذا اليوم
+            expiring = await db.subscriptions.find({
+                "status": "active",
+                "end_date": {
+                    "$gte": target_date.replace(hour=0, minute=0, second=0),
+                    "$lt": target_date.replace(hour=23, minute=59, second=59)
+                }
+            }).to_list(length=100)
+            
+            for sub in expiring:
+                company = await db.companies.find_one({"id": sub.get("company_id")})
+                if company:
+                    await send_subscription_expiry_warning(
+                        company_name=company.get("name", "Unknown"),
+                        company_email=company.get("email"),
+                        days_remaining=days,
+                        end_date=sub.get("end_date", "").isoformat() if hasattr(sub.get("end_date"), 'isoformat') else str(sub.get("end_date", ""))
+                    )
+        
+        logger.info("Expiring subscriptions check completed")
+    except Exception as e:
+        logger.error(f"Error checking expiring subscriptions: {e}")

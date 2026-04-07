@@ -37,6 +37,20 @@ def calculate_end_date(start_date: datetime, duration: str) -> datetime:
     }
     return start_date + timedelta(days=duration_days.get(duration, 30))
 
+# Admin roles for access control
+ADMIN_ROLES = [
+    "Admin", "admin", "Super Admin", "مدير النظام",
+    "General Manager", "مدير عام", 
+    "CEO", "المدير التنفيذي",
+    "رئيس مجلس الإدارة"
+]
+
+def is_admin(user: dict) -> bool:
+    """Check if user has admin privileges"""
+    role = user.get("role", "")
+    is_platform = user.get("is_platform_admin", False)
+    return role in ADMIN_ROLES or is_platform
+
 @router.get("/plans")
 async def get_subscription_plans():
     """Get all available subscription plans with prices"""
@@ -177,8 +191,7 @@ async def create_activation_code(
     current_user: dict = Depends(get_current_user)
 ):
     """Create a new activation code (Admin only)"""
-    user_role = current_user.get("role", "")
-    if user_role not in ["Admin", "admin", "General Manager", "مدير عام", "CEO", "المدير التنفيذي"]:
+    if not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     code = ActivationCode(
@@ -205,8 +218,7 @@ async def create_activation_code(
 @router.get("/admin/activation-codes")
 async def list_activation_codes(current_user: dict = Depends(get_current_user)):
     """List all activation codes (Admin only)"""
-    user_role = current_user.get("role", "")
-    if user_role not in ["Admin", "admin", "General Manager", "مدير عام", "CEO", "المدير التنفيذي"]:
+    if not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     codes = await db.activation_codes.find({}, {"_id": 0}).to_list(100)
@@ -218,8 +230,7 @@ async def delete_activation_code(
     current_user: dict = Depends(get_current_user)
 ):
     """Deactivate an activation code (Admin only)"""
-    user_role = current_user.get("role", "")
-    if user_role not in ["Admin", "admin", "General Manager", "مدير عام", "CEO", "المدير التنفيذي"]:
+    if not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     result = await db.activation_codes.update_one(
@@ -235,8 +246,7 @@ async def delete_activation_code(
 @router.get("/admin/all")
 async def list_all_subscriptions(current_user: dict = Depends(get_current_user)):
     """List all subscriptions (Admin only)"""
-    user_role = current_user.get("role", "")
-    if user_role not in ["Admin", "admin", "General Manager", "مدير عام", "CEO", "المدير التنفيذي"]:
+    if not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     subscriptions = await db.subscriptions.find({}, {"_id": 0}).to_list(500)
@@ -250,20 +260,24 @@ async def grant_subscription(
     current_user: dict = Depends(get_current_user)
 ):
     """Grant subscription to a company (Admin only)"""
-    user_role = current_user.get("role", "")
-    if user_role not in ["Admin", "admin", "General Manager", "مدير عام", "CEO", "المدير التنفيذي"]:
+    if not is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Verify company exists
+    company = await db.companies.find_one({"id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
     
     start_date = datetime.utcnow()
     subscription = Subscription(
-        user_id="admin",
+        user_id=current_user.get("user_id", "admin"),
         company_id=company_id,
         plan=SubscriptionPlan(plan),
         duration=SubscriptionDuration(duration),
         status=SubscriptionStatus.ACTIVE,
         start_date=start_date,
         end_date=calculate_end_date(start_date, duration),
-        amount_paid=0,
+        amount_paid=PLAN_PRICES.get(plan, {}).get(duration, 0),
         payment_method="admin_grant"
     )
     
@@ -275,9 +289,34 @@ async def grant_subscription(
     
     await db.subscriptions.insert_one(subscription.dict())
     
+    # Update company subscription status
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {
+            "subscription_plan": plan,
+            "subscription_status": "active",
+            "subscription_end_date": subscription.end_date.isoformat()
+        }}
+    )
+    
+    # Send notification email
+    try:
+        from api.audit_notifications import send_subscription_notification
+        await send_subscription_notification(
+            company_name=company.get("name", "Unknown"),
+            company_email=company.get("email"),
+            plan=plan,
+            duration=duration,
+            end_date=subscription.end_date.isoformat()
+        )
+    except Exception as e:
+        print(f"Failed to send subscription notification: {e}")
+    
     return {
-        "message": "Subscription granted",
+        "message": "Subscription granted successfully",
         "subscription_id": subscription.id,
+        "plan": plan,
+        "duration": duration,
         "end_date": subscription.end_date.isoformat()
     }
 

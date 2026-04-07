@@ -226,6 +226,17 @@ async def send_daily_audit_report():
         print(f"[{datetime.now()}] Error sending daily audit report: {e}")
 
 
+async def check_subscription_expiry():
+    """Check for expiring subscriptions and send notifications"""
+    print(f"[{datetime.now()}] Running subscription expiry check...")
+    
+    try:
+        from api.audit_notifications import check_expiring_subscriptions
+        await check_expiring_subscriptions()
+    except Exception as e:
+        print(f"[{datetime.now()}] Error checking subscription expiry: {e}")
+
+
 def start_scheduler():
     """Start the scheduler with all jobs"""
     
@@ -262,6 +273,15 @@ def start_scheduler():
         CronTrigger(hour=7, minute=0),
         id='daily_audit_report',
         name='Daily Audit Report',
+        replace_existing=True
+    )
+    
+    # Subscription expiry check daily at 8 AM (UTC)
+    scheduler.add_job(
+        check_subscription_expiry,
+        CronTrigger(hour=8, minute=0),
+        id='subscription_expiry_check',
+        name='Subscription Expiry Check',
         replace_existing=True
     )
     
