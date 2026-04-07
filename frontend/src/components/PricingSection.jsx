@@ -558,52 +558,92 @@ const PricingSection = () => {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" dir={isRTL ? 'rtl' : 'ltr'}>
               <table className="w-full">
                 {/* Table Head */}
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className={`p-4 text-${isRTL ? 'right' : 'left'} font-semibold text-gray-700 min-w-[200px]`}>
+                    <th className={`p-4 ${isRTL ? 'text-right' : 'text-left'} font-semibold text-gray-700 min-w-[200px]`}>
                       {t('pricing.comparison.feature')}
                     </th>
-                    <th className="p-4 text-center min-w-[140px]">
-                      <div className="flex flex-col items-center">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-2">
-                          <Zap className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="font-bold text-gray-900">{t('pricing.comparison.starter')}</span>
-                        <span className="text-sm text-gray-500">299 {language === 'ar' ? 'ج.م' : 'EGP'}</span>
-                      </div>
-                    </th>
-                    <th className="p-4 text-center min-w-[140px] bg-purple-50">
-                      <div className="flex flex-col items-center">
-                        <Badge className="mb-2 bg-purple-100 text-purple-700 border-0">
-                          <Star className="w-3 h-3 mr-1" />
-                          {t('pricing.popular')}
-                        </Badge>
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-2">
-                          <Building2 className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="font-bold text-gray-900">{t('pricing.comparison.professional')}</span>
-                        <span className="text-sm text-gray-500">799 {language === 'ar' ? 'ج.م' : 'EGP'}</span>
-                      </div>
-                    </th>
-                    <th className="p-4 text-center min-w-[140px]">
-                      <div className="flex flex-col items-center">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-2">
-                          <Crown className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="font-bold text-gray-900">{t('pricing.comparison.enterprise')}</span>
-                        <span className="text-sm text-gray-500">1499 {language === 'ar' ? 'ج.م' : 'EGP'}</span>
-                      </div>
-                    </th>
+                    {isRTL ? (
+                      <>
+                        {/* RTL: Enterprise -> Professional -> Starter */}
+                        <th className="p-4 text-center min-w-[140px]">
+                          <div className="flex flex-col items-center">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-2">
+                              <Crown className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-bold text-gray-900">{t('pricing.comparison.enterprise')}</span>
+                            <span className="text-sm text-gray-500">1499 ج.م</span>
+                          </div>
+                        </th>
+                        <th className="p-4 text-center min-w-[140px] bg-purple-50">
+                          <div className="flex flex-col items-center">
+                            <Badge className="mb-2 bg-purple-100 text-purple-700 border-0">
+                              <Star className="w-3 h-3 ml-1" />
+                              {t('pricing.popular')}
+                            </Badge>
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-2">
+                              <Building2 className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-bold text-gray-900">{t('pricing.comparison.professional')}</span>
+                            <span className="text-sm text-gray-500">799 ج.م</span>
+                          </div>
+                        </th>
+                        <th className="p-4 text-center min-w-[140px]">
+                          <div className="flex flex-col items-center">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-2">
+                              <Zap className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-bold text-gray-900">{t('pricing.comparison.starter')}</span>
+                            <span className="text-sm text-gray-500">299 ج.م</span>
+                          </div>
+                        </th>
+                      </>
+                    ) : (
+                      <>
+                        {/* LTR: Starter -> Professional -> Enterprise */}
+                        <th className="p-4 text-center min-w-[140px]">
+                          <div className="flex flex-col items-center">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-2">
+                              <Zap className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-bold text-gray-900">{t('pricing.comparison.starter')}</span>
+                            <span className="text-sm text-gray-500">299 EGP</span>
+                          </div>
+                        </th>
+                        <th className="p-4 text-center min-w-[140px] bg-purple-50">
+                          <div className="flex flex-col items-center">
+                            <Badge className="mb-2 bg-purple-100 text-purple-700 border-0">
+                              <Star className="w-3 h-3 mr-1" />
+                              {t('pricing.popular')}
+                            </Badge>
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-2">
+                              <Building2 className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-bold text-gray-900">{t('pricing.comparison.professional')}</span>
+                            <span className="text-sm text-gray-500">799 EGP</span>
+                          </div>
+                        </th>
+                        <th className="p-4 text-center min-w-[140px]">
+                          <div className="flex flex-col items-center">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-2">
+                              <Crown className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-bold text-gray-900">{t('pricing.comparison.enterprise')}</span>
+                            <span className="text-sm text-gray-500">1499 EGP</span>
+                          </div>
+                        </th>
+                      </>
+                    )}
                   </tr>
                 </thead>
 
                 <tbody>
                   {/* General Category */}
                   <tr className="bg-gray-100">
-                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 ${isRTL ? 'text-right' : 'text-left'}`}>
                       {t('pricing.comparison.categories.general')}
                     </td>
                   </tr>
@@ -614,7 +654,7 @@ const PricingSection = () => {
 
                   {/* HR Category */}
                   <tr className="bg-gray-100">
-                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 ${isRTL ? 'text-right' : 'text-left'}`}>
                       {t('pricing.comparison.categories.hr')}
                     </td>
                   </tr>
@@ -626,7 +666,7 @@ const PricingSection = () => {
 
                   {/* Finance Category */}
                   <tr className="bg-gray-100">
-                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 ${isRTL ? 'text-right' : 'text-left'}`}>
                       {t('pricing.comparison.categories.finance')}
                     </td>
                   </tr>
@@ -639,7 +679,7 @@ const PricingSection = () => {
 
                   {/* Banking Category */}
                   <tr className="bg-gray-100">
-                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 ${isRTL ? 'text-right' : 'text-left'}`}>
                       {t('pricing.comparison.categories.banking')}
                     </td>
                   </tr>
@@ -650,7 +690,7 @@ const PricingSection = () => {
 
                   {/* Notifications Category */}
                   <tr className="bg-gray-100">
-                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 ${isRTL ? 'text-right' : 'text-left'}`}>
                       {t('pricing.comparison.categories.notifications')}
                     </td>
                   </tr>
@@ -660,7 +700,7 @@ const PricingSection = () => {
 
                   {/* Support Category */}
                   <tr className="bg-gray-100">
-                    <td colSpan="4" className={`p-3 font-bold text-gray-800 text-${isRTL ? 'right' : 'left'}`}>
+                    <td colSpan="4" className={`p-3 font-bold text-gray-800 ${isRTL ? 'text-right' : 'text-left'}`}>
                       {t('pricing.comparison.categories.support')}
                     </td>
                   </tr>
@@ -676,25 +716,50 @@ const PricingSection = () => {
 
             {/* Table Footer with CTAs */}
             <div className="bg-gray-50 p-6 border-t border-gray-200">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button 
-                  onClick={() => handlePlanSelect(subscriptionPlans[0])}
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:opacity-90"
-                >
-                  {t('pricing.plans.starter.button')}
-                </Button>
-                <Button 
-                  onClick={() => handlePlanSelect(subscriptionPlans[1])}
-                  className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:opacity-90"
-                >
-                  {t('pricing.plans.professional.button')}
-                </Button>
-                <Button 
-                  onClick={() => handlePlanSelect(subscriptionPlans[2])}
-                  className="bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-90"
-                >
-                  {t('pricing.plans.enterprise.button')}
-                </Button>
+              <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${isRTL ? 'md:flex md:flex-row-reverse' : ''}`}>
+                {isRTL ? (
+                  <>
+                    <Button 
+                      onClick={() => handlePlanSelect(subscriptionPlans[2])}
+                      className="bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-90"
+                    >
+                      {t('pricing.plans.enterprise.button')}
+                    </Button>
+                    <Button 
+                      onClick={() => handlePlanSelect(subscriptionPlans[1])}
+                      className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:opacity-90"
+                    >
+                      {t('pricing.plans.professional.button')}
+                    </Button>
+                    <Button 
+                      onClick={() => handlePlanSelect(subscriptionPlans[0])}
+                      className="bg-gradient-to-r from-blue-500 to-blue-600 hover:opacity-90"
+                    >
+                      {t('pricing.plans.starter.button')}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      onClick={() => handlePlanSelect(subscriptionPlans[0])}
+                      className="bg-gradient-to-r from-blue-500 to-blue-600 hover:opacity-90"
+                    >
+                      {t('pricing.plans.starter.button')}
+                    </Button>
+                    <Button 
+                      onClick={() => handlePlanSelect(subscriptionPlans[1])}
+                      className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:opacity-90"
+                    >
+                      {t('pricing.plans.professional.button')}
+                    </Button>
+                    <Button 
+                      onClick={() => handlePlanSelect(subscriptionPlans[2])}
+                      className="bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-90"
+                    >
+                      {t('pricing.plans.enterprise.button')}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -761,13 +826,25 @@ const ComparisonRow = ({ feature, starter, professional, enterprise, isRTL, high
 
   return (
     <tr className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${highlight ? 'bg-yellow-50/50' : ''}`}>
-      <td className={`p-4 text-${isRTL ? 'right' : 'left'} text-gray-700`}>
-        {highlight && <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-2"></span>}
+      <td className={`p-4 ${isRTL ? 'text-right' : 'text-left'} text-gray-700`}>
+        {highlight && <span className={`inline-block w-2 h-2 rounded-full bg-yellow-400 ${isRTL ? 'ml-2' : 'mr-2'}`}></span>}
         {feature}
       </td>
-      <td className="p-4 text-center">{renderValue(starter)}</td>
-      <td className="p-4 text-center bg-purple-50/30">{renderValue(professional)}</td>
-      <td className="p-4 text-center">{renderValue(enterprise)}</td>
+      {isRTL ? (
+        <>
+          {/* RTL: Enterprise -> Professional -> Starter */}
+          <td className="p-4 text-center">{renderValue(enterprise)}</td>
+          <td className="p-4 text-center bg-purple-50/30">{renderValue(professional)}</td>
+          <td className="p-4 text-center">{renderValue(starter)}</td>
+        </>
+      ) : (
+        <>
+          {/* LTR: Starter -> Professional -> Enterprise */}
+          <td className="p-4 text-center">{renderValue(starter)}</td>
+          <td className="p-4 text-center bg-purple-50/30">{renderValue(professional)}</td>
+          <td className="p-4 text-center">{renderValue(enterprise)}</td>
+        </>
+      )}
     </tr>
   );
 };
