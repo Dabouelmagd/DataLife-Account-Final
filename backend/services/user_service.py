@@ -174,15 +174,21 @@ def user_to_response(user: User, subscription_code: str = None) -> UserResponse:
     # Get permissions, defaulting to role-based if not set
     permissions = user.permissions if user.permissions else get_default_permissions_for_role(user.role)
     
+    # Handle subscription code - Platform Admin doesn't have a company
+    sub_code = subscription_code
+    if not sub_code and user.company_id:
+        sub_code = user.company_id[:8].upper()  # First 8 chars of company_id
+    
     return UserResponse(
         id=user.id,
         email=user.email,
         full_name=user.full_name,
-        company_id=user.company_id,
+        company_id=user.company_id,  # Can be None for Platform Admin
         role=user.role,
         permissions=permissions,
         profile_photo=getattr(user, 'profile_photo', None),
         is_active=user.is_active,
+        is_platform_admin=getattr(user, 'is_platform_admin', False),
         created_at=user.created_at if isinstance(user.created_at, str) else user.created_at.isoformat(),
-        subscription_code=subscription_code or user.company_id[:8].upper()  # First 8 chars of company_id as subscription code
+        subscription_code=sub_code
     )

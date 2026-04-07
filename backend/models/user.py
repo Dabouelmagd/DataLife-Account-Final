@@ -36,11 +36,12 @@ class User(BaseModel):
     email: EmailStr
     password_hash: str
     full_name: str
-    company_id: str
+    company_id: Optional[str] = None  # None for Platform Admin
     role: str  # General Manager, CEO (Chief Executive Officer), Board Chairman, Financial Manager, Chief Accountant, HR Manager, Accountant
     permissions: List[str] = Field(default_factory=list)  # List of permission IDs
     profile_photo: Optional[str] = None  # URL to profile photo
     is_active: bool = True
+    is_platform_admin: bool = False  # True for Super Admin with no company
     created_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
@@ -59,11 +60,12 @@ class UserResponse(BaseModel):
     id: str
     email: EmailStr
     full_name: str
-    company_id: str
+    company_id: Optional[str] = None  # None for Platform Admin
     role: str
     permissions: List[str] = []  # List of permission IDs
     profile_photo: Optional[str] = None  # URL to profile photo
     is_active: bool
+    is_platform_admin: bool = False  # True for Super Admin
     created_at: str
     subscription_code: Optional[str] = None  # Subscription/Company code for display
 
