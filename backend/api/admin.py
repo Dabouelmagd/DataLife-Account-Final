@@ -473,11 +473,27 @@ async def get_all_companies(authorization: Optional[str] = Header(None)):
     for company in companies:
         company_id = company.get("id")
         
-        # Get subscription
+        # Ensure is_active has a value
+        if company.get("is_active") is None:
+            company["is_active"] = True
+            # Also update in database
+            await db.companies.update_one(
+                {"id": company_id},
+                {"$set": {"is_active": True}}
+            )
+        
+        # Get subscription (only active ones)
         subscription = await db.subscriptions.find_one(
-            {"company_id": company_id}, 
+            {"company_id": company_id, "status": "active"}, 
             {"_id": 0}
         )
+        # If no active subscription, get the latest one
+        if not subscription:
+            subscription = await db.subscriptions.find_one(
+                {"company_id": company_id}, 
+                {"_id": 0},
+                sort=[("created_at", -1)]
+            )
         company["subscription"] = subscription
         
         # Get user count
@@ -539,6 +555,128 @@ async def toggle_company_status(
         "company_name": company.get("name"),
         "is_active": new_status,
         "message": f"Company {'activated' if new_status else 'suspended'} successfully"
+    }
+
+
+@router.post("/companies/{company_id}/sync-status")
+async def sync_company_status(
+    company_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Sync company status with its users and subscription"""
+    user_data = await verify_admin(authorization)
+    
+    # Get company
+    company = await db.companies.find_one({"id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    company_active = company.get("is_active", True)
+    
+    # Get subscription
+    subscription = await db.subscriptions.find_one({"company_id": company_id})
+    
+    # Determine correct status based on subscription
+    if subscription and subscription.get("status") == "active":
+        correct_status = True
+    else:
+        correct_status = company_active
+    
+    # Update company
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {
+            "is_active": correct_status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Update all users to match
+    await db.users.update_many(
+        {"company_id": company_id},
+        {"$set": {"is_active": correct_status}}
+    )
+    
+    return {
+        "success": True,
+        "company_id": company_id,
+        "company_name": company.get("name"),
+        "synced_status": correct_status,
+        "users_updated": True
+    }
+
+
+@router.post("/sync-all-companies")
+async def sync_all_companies(
+    authorization: Optional[str] = Header(None)
+):
+    """Sync all companies status with their users - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Verify Super Admin
+    if user_data.get('role') not in ['Super Admin', 'مدير النظام', 'رئيس مجلس الإدارة']:
+        raise HTTPException(status_code=403, detail="Super Admin access required")
+    
+    companies = await db.companies.find({}).to_list(length=500)
+    synced = []
+    
+    for company in companies:
+        company_id = company.get("id")
+        company_name = company.get("name", "Unknown")
+        
+        # Fix is_active if None
+        if company.get("is_active") is None:
+            await db.companies.update_one(
+                {"id": company_id},
+                {"$set": {"is_active": True}}
+            )
+        
+        # Check subscription status
+        subscription = await db.subscriptions.find_one(
+            {"company_id": company_id, "status": "active"}
+        )
+        
+        if subscription:
+            # Company should be active
+            await db.companies.update_one(
+                {"id": company_id},
+                {"$set": {"is_active": True}}
+            )
+            await db.users.update_many(
+                {"company_id": company_id},
+                {"$set": {"is_active": True}}
+            )
+            synced.append({"company": company_name, "status": "active", "reason": "has_active_subscription"})
+        else:
+            # No active subscription but still keep company active
+            if company.get("is_active") is None:
+                await db.companies.update_one(
+                    {"id": company_id},
+                    {"$set": {"is_active": True}}
+                )
+                synced.append({"company": company_name, "status": "active", "reason": "fixed_null_status"})
+    
+    # Delete cancelled/expired duplicate subscriptions
+    deleted_count = 0
+    for company in companies:
+        company_id = company.get("id")
+        # Keep only the latest active subscription
+        active_sub = await db.subscriptions.find_one(
+            {"company_id": company_id, "status": "active"}
+        )
+        if active_sub:
+            # Delete all other subscriptions for this company
+            result = await db.subscriptions.delete_many({
+                "company_id": company_id,
+                "id": {"$ne": active_sub.get("id")}
+            })
+            deleted_count += result.deleted_count
+    
+    return {
+        "success": True,
+        "synced_companies": len(synced),
+        "deleted_duplicate_subscriptions": deleted_count,
+        "details": synced
     }
 
 
