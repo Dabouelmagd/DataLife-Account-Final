@@ -5,13 +5,15 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Shield, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { Shield, Eye, EyeOff, AlertCircle, Loader2, KeyRound, ArrowLeft, CheckCircle } from 'lucide-react';
+import axios from 'axios';
 
 const AdminLogin = () => {
   const { login } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
   const isRTL = language === 'ar';
+  const API_URL = process.env.REACT_APP_BACKEND_URL;
 
   const [formData, setFormData] = useState({
     email: '',
@@ -20,6 +22,18 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Reset password states
+  const [showResetForm, setShowResetForm] = useState(false);
+  const [resetData, setResetData] = useState({
+    email: '',
+    secretKey: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   // Admin roles that can access admin dashboard
   const adminRoles = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'];
@@ -33,7 +47,17 @@ const AdminLogin = () => {
     backToMain: isRTL ? 'العودة للموقع الرئيسي' : 'Back to Main Site',
     invalidCredentials: isRTL ? 'بيانات غير صحيحة' : 'Invalid credentials',
     notAdmin: isRTL ? 'هذا الحساب ليس لديه صلاحيات إدارية' : 'This account does not have admin privileges',
-    secureArea: isRTL ? 'منطقة محمية - للمسؤولين فقط' : 'Secure Area - Administrators Only'
+    secureArea: isRTL ? 'منطقة محمية - للمسؤولين فقط' : 'Secure Area - Administrators Only',
+    forgotPassword: isRTL ? 'نسيت كلمة المرور؟' : 'Forgot Password?',
+    resetPassword: isRTL ? 'إعادة تعيين كلمة المرور' : 'Reset Password',
+    secretKey: isRTL ? 'المفتاح السري' : 'Secret Key',
+    newPassword: isRTL ? 'كلمة المرور الجديدة' : 'New Password',
+    confirmPassword: isRTL ? 'تأكيد كلمة المرور' : 'Confirm Password',
+    resetBtn: isRTL ? 'إعادة التعيين' : 'Reset',
+    backToLogin: isRTL ? 'العودة لتسجيل الدخول' : 'Back to Login',
+    passwordMismatch: isRTL ? 'كلمات المرور غير متطابقة' : 'Passwords do not match',
+    resetSuccessMsg: isRTL ? 'تم تغيير كلمة المرور بنجاح!' : 'Password changed successfully!',
+    loginNow: isRTL ? 'سجل الدخول الآن' : 'Login Now'
   };
 
   const handleSubmit = async (e) => {
@@ -63,6 +87,50 @@ const AdminLogin = () => {
     }
   };
 
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setResetError('');
+    
+    // Validate passwords match
+    if (resetData.newPassword !== resetData.confirmPassword) {
+      setResetError(t.passwordMismatch);
+      return;
+    }
+    
+    setResetLoading(true);
+    
+    try {
+      const response = await axios.post(
+        `${API_URL}/api/auth/admin-reset-password`,
+        null,
+        {
+          params: {
+            email: resetData.email,
+            secret_key: resetData.secretKey,
+            new_password: resetData.newPassword
+          }
+        }
+      );
+      
+      if (response.data.success) {
+        setResetSuccess(true);
+      } else {
+        setResetError(response.data.message || 'Error resetting password');
+      }
+    } catch (err) {
+      setResetError(err.response?.data?.detail || (isRTL ? 'حدث خطأ في إعادة التعيين' : 'Error resetting password'));
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleBackToLogin = () => {
+    setShowResetForm(false);
+    setResetSuccess(false);
+    setResetError('');
+    setResetData({ email: '', secretKey: '', newPassword: '', confirmPassword: '' });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Background Pattern */}
@@ -72,84 +140,209 @@ const AdminLogin = () => {
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-600 rounded-2xl shadow-2xl mb-4">
-            <Shield className="h-10 w-10 text-white" />
+            {showResetForm ? <KeyRound className="h-10 w-10 text-white" /> : <Shield className="h-10 w-10 text-white" />}
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">{t.title}</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            {showResetForm ? t.resetPassword : t.title}
+          </h1>
           <p className="text-slate-400">{t.secureArea}</p>
         </div>
 
         <Card className="backdrop-blur-xl bg-white/10 border-white/20 shadow-2xl">
           <CardHeader>
-            <CardTitle className="text-center text-white">{t.subtitle}</CardTitle>
+            <CardTitle className="text-center text-white">
+              {showResetForm ? t.resetPassword : t.subtitle}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {error && (
-              <div className="mb-4 p-4 bg-red-500/20 border border-red-500/30 rounded-xl flex items-center gap-3 text-red-200">
-                <AlertCircle className="h-5 w-5" />
-                {error}
+            {/* Reset Password Success */}
+            {resetSuccess ? (
+              <div className="text-center py-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
+                  <CheckCircle className="h-8 w-8 text-green-400" />
+                </div>
+                <p className="text-green-400 text-lg font-semibold mb-4">{t.resetSuccessMsg}</p>
+                <Button
+                  onClick={handleBackToLogin}
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white py-4 rounded-xl"
+                >
+                  {t.loginNow}
+                </Button>
               </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t.email}
-                </label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                  className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
-                  placeholder="admin@datalife.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t.password}
-                </label>
-                <div className="relative">
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    required
-                    className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 pr-10"
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+            ) : showResetForm ? (
+              /* Reset Password Form */
+              <>
+                {resetError && (
+                  <div className="mb-4 p-4 bg-red-500/20 border border-red-500/30 rounded-xl flex items-center gap-3 text-red-200">
+                    <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                    {resetError}
+                  </div>
+                )}
+                
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      {t.email}
+                    </label>
+                    <Input
+                      type="email"
+                      value={resetData.email}
+                      onChange={(e) => setResetData({ ...resetData, email: e.target.value })}
+                      required
+                      className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
+                      placeholder="admin@company.com"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      {t.secretKey}
+                    </label>
+                    <Input
+                      type="password"
+                      value={resetData.secretKey}
+                      onChange={(e) => setResetData({ ...resetData, secretKey: e.target.value })}
+                      required
+                      className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      {t.newPassword}
+                    </label>
+                    <Input
+                      type="password"
+                      value={resetData.newPassword}
+                      onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
+                      required
+                      minLength={6}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      {t.confirmPassword}
+                    </label>
+                    <Input
+                      type="password"
+                      value={resetData.confirmPassword}
+                      onChange={(e) => setResetData({ ...resetData, confirmPassword: e.target.value })}
+                      required
+                      minLength={6}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  
+                  <Button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white py-6 rounded-xl font-semibold text-lg"
                   >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    {resetLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    ) : (
+                      <KeyRound className="h-5 w-5 mr-2" />
+                    )}
+                    {t.resetBtn}
+                  </Button>
+                </form>
+                
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={handleBackToLogin}
+                    className="text-slate-400 hover:text-white text-sm transition-colors flex items-center justify-center gap-2 mx-auto"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    {t.backToLogin}
                   </button>
                 </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white py-6 rounded-xl font-semibold text-lg"
-              >
-                {loading ? (
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                ) : (
-                  <Shield className="h-5 w-5 mr-2" />
+              </>
+            ) : (
+              /* Login Form */
+              <>
+                {error && (
+                  <div className="mb-4 p-4 bg-red-500/20 border border-red-500/30 rounded-xl flex items-center gap-3 text-red-200">
+                    <AlertCircle className="h-5 w-5" />
+                    {error}
+                  </div>
                 )}
-                {t.login}
-              </Button>
-            </form>
 
-            <div className="mt-6 text-center">
-              <button
-                onClick={() => navigate('/')}
-                className="text-slate-400 hover:text-white text-sm transition-colors"
-              >
-                {t.backToMain}
-              </button>
-            </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      {t.email}
+                    </label>
+                    <Input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                      className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
+                      placeholder="admin@datalife.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      {t.password}
+                    </label>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        required
+                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 pr-10"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white py-6 rounded-xl font-semibold text-lg"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    ) : (
+                      <Shield className="h-5 w-5 mr-2" />
+                    )}
+                    {t.login}
+                  </Button>
+                </form>
+
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => setShowResetForm(true)}
+                    className="text-amber-400 hover:text-amber-300 text-sm transition-colors"
+                  >
+                    {t.forgotPassword}
+                  </button>
+                </div>
+
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => navigate('/')}
+                    className="text-slate-400 hover:text-white text-sm transition-colors"
+                  >
+                    {t.backToMain}
+                  </button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

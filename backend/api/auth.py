@@ -636,3 +636,51 @@ async def reset_super_admin_password(
         "email": super_admin.get("email"),
         "note": "You can now login with the new password"
     }
+
+
+@router.post("/admin-reset-password")
+async def admin_reset_password(
+    email: str,
+    secret_key: str,
+    new_password: str
+):
+    """
+    Reset any admin user's password.
+    Protected by secret key.
+    """
+    from passlib.context import CryptContext
+    from datetime import datetime, timezone
+    
+    # Verify secret key
+    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
+    
+    if secret_key != INIT_SECRET:
+        raise HTTPException(status_code=403, detail="المفتاح السري غير صحيح / Invalid secret key")
+    
+    # Find user by email
+    user = await db.users.find_one({"email": email.lower().strip()})
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود / User not found")
+    
+    # Validate password length
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="كلمة المرور يجب أن تكون 6 أحرف على الأقل / Password must be at least 6 characters")
+    
+    # Hash new password
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    password_hash = pwd_context.hash(new_password)
+    
+    # Update password
+    await db.users.update_one(
+        {"email": email.lower().strip()},
+        {"$set": {
+            "password_hash": password_hash,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "success": True,
+        "message": "تم تغيير كلمة المرور بنجاح / Password changed successfully",
+        "email": email
+    }
