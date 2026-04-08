@@ -529,6 +529,16 @@ async def get_all_companies(authorization: Optional[str] = Header(None)):
                 {"$set": {"is_active": True}}
             )
         
+        # Ensure company_code exists
+        if not company.get("company_code"):
+            new_code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+            company["company_code"] = new_code
+            # Also update in database
+            await db.companies.update_one(
+                {"id": company_id},
+                {"$set": {"company_code": new_code}}
+            )
+        
         # Get subscription (only active ones)
         subscription = await db.subscriptions.find_one(
             {"company_id": company_id, "status": "active"}, 
@@ -955,6 +965,15 @@ async def get_all_permissions(authorization: Optional[str] = Header(None)):
         {'id': 'settings', 'name_en': 'Settings', 'name_ar': 'الإعدادات'},
         {'id': 'users', 'name_en': 'User Management', 'name_ar': 'إدارة المستخدمين'},
         {'id': 'approvals', 'name_en': 'Approvals', 'name_ar': 'الموافقات'},
+        {'id': 'reports', 'name_en': 'Reports', 'name_ar': 'التقارير'},
+        {'id': 'inventory', 'name_en': 'Inventory', 'name_ar': 'المخزون'},
+        {'id': 'admin', 'name_en': 'Administration', 'name_ar': 'الإدارة'},
+        {'id': 'subscriptions', 'name_en': 'Subscriptions', 'name_ar': 'الاشتراكات'},
+        {'id': 'companies', 'name_en': 'Companies', 'name_ar': 'الشركات'},
+        {'id': 'audit_logs', 'name_en': 'Audit Logs', 'name_ar': 'سجل التدقيق'},
+        {'id': 'system_settings', 'name_en': 'System Settings', 'name_ar': 'إعدادات النظام'},
+        {'id': 'billing', 'name_en': 'Billing', 'name_ar': 'الفوترة'},
+        {'id': 'support', 'name_en': 'Support', 'name_ar': 'الدعم الفني'},
     ]
     
     return ALL_PERMISSIONS
