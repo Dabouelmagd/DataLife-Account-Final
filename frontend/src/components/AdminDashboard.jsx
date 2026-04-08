@@ -13,7 +13,7 @@ import {
   RefreshCw, Plus, Trash2, Copy, AlertCircle, Loader2,
   Calendar, BarChart3, Settings, ChevronDown, Power, Mail, 
   Send, Eye, UserX, UserCheck, Bell, Shield, Save, MessageSquare, Briefcase,
-  LogOut, Globe, LayoutDashboard, History
+  LogOut, Globe, LayoutDashboard, History, Crown, Sparkles, Zap, Star
 } from 'lucide-react';
 import axios from 'axios';
 import CompanyLogo from './CompanyLogo';
@@ -88,6 +88,12 @@ const AdminDashboard = () => {
   const [editingSubscription, setEditingSubscription] = useState(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState('');
   const [savingSubscription, setSavingSubscription] = useState(false);
+  
+  // Subscription Assignment Modal
+  const [assigningSubscription, setAssigningSubscription] = useState(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState('professional');
+  const [subscriptionDuration, setSubscriptionDuration] = useState('monthly');
+  const [assigningLoading, setAssigningLoading] = useState(false);
   
   // Toast notification
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
@@ -168,7 +174,18 @@ const AdminDashboard = () => {
     enterprise: isRTL ? 'المؤسسي' : 'Enterprise'
   };
 
+  // Subscription prices
+  const PLAN_PRICES = {
+    starter: { monthly: 299, quarterly: 799, yearly: 2990, lifetime: 9990 },
+    professional: { monthly: 799, quarterly: 2199, yearly: 7990, lifetime: 24990 },
+    enterprise: { monthly: 1499, quarterly: 3999, yearly: 14990, lifetime: 50000 }
+  };
+
   const durationNames = {
+    monthly: isRTL ? 'شهري' : 'Monthly',
+    quarterly: isRTL ? 'ربع سنوي' : 'Quarterly',
+    yearly: isRTL ? 'سنوي' : 'Yearly',
+    lifetime: isRTL ? 'مدى الحياة' : 'Lifetime',
     '3_months': isRTL ? '3 أشهر' : '3 Months',
     '6_months': isRTL ? '6 أشهر' : '6 Months',
     '9_months': isRTL ? '9 أشهر' : '9 Months',
@@ -353,6 +370,46 @@ const AdminDashboard = () => {
   const openSubscriptionEdit = (company) => {
     setEditingSubscription(company);
     setSubscriptionStatus(company.subscription_status || company.subscription?.status || 'trial');
+  };
+
+  // Open subscription assignment modal
+  const openAssignSubscription = (company) => {
+    setAssigningSubscription(company);
+    setSubscriptionPlan('professional');
+    setSubscriptionDuration('monthly');
+  };
+
+  // Handle subscription assignment
+  const handleAssignSubscription = async () => {
+    if (!assigningSubscription) return;
+    
+    setAssigningLoading(true);
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.post(`${API_URL}/api/admin/subscriptions/assign`, {
+        company_id: assigningSubscription.id,
+        plan: subscriptionPlan,
+        duration: subscriptionDuration
+      }, config);
+      
+      showToastMessage(
+        isRTL ? `تم تعيين اشتراك ${planNames[subscriptionPlan]} بنجاح` : `${planNames[subscriptionPlan]} subscription assigned successfully`, 
+        'success'
+      );
+      
+      setAssigningSubscription(null);
+      
+      // Refresh data
+      const dashResponse = await axios.get(`${API_URL}/api/admin/dashboard`, config);
+      setStats(dashResponse.data.statistics || {});
+      setCompanies(dashResponse.data.companies || []);
+      
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || (isRTL ? 'حدث خطأ في تعيين الاشتراك' : 'Error assigning subscription');
+      showToastMessage(errorMsg, 'error');
+    } finally {
+      setAssigningLoading(false);
+    }
   };
 
   const toggleUserStatus = async (userId) => {
@@ -1509,6 +1566,15 @@ const AdminDashboard = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => openAssignSubscription(company)}
+                              title={isRTL ? 'تعيين اشتراك' : 'Assign Subscription'}
+                              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                            >
+                              <Crown className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => openSubscriptionEdit(company)}
                               title={isRTL ? 'تعديل الاشتراك' : 'Edit Subscription'}
                             >
@@ -2011,6 +2077,216 @@ const AdminDashboard = () => {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Subscription Assignment Modal - Modern Design */}
+        {assigningSubscription && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
+              {/* Header with gradient */}
+              <div className="relative bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-700 p-6 text-white">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+                
+                <div className="relative">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
+                      <Crown className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold">
+                        {isRTL ? 'تعيين اشتراك' : 'Assign Subscription'}
+                      </h3>
+                      <p className="text-white/80 text-sm">
+                        {assigningSubscription.name}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-6">
+                {/* Plan Selection */}
+                <div>
+                  <label className={`block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 ${isRTL ? 'text-right' : ''}`}>
+                    {isRTL ? 'اختر الباقة' : 'Select Plan'}
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {/* Starter */}
+                    <button
+                      onClick={() => setSubscriptionPlan('starter')}
+                      className={`relative p-4 rounded-2xl border-2 transition-all duration-300 ${
+                        subscriptionPlan === 'starter'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50/50'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          subscriptionPlan === 'starter' 
+                            ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
+                            : 'bg-gray-100 dark:bg-gray-800'
+                        }`}>
+                          <Zap className={`h-5 w-5 ${subscriptionPlan === 'starter' ? 'text-white' : 'text-gray-500'}`} />
+                        </div>
+                        <span className={`font-semibold text-sm ${subscriptionPlan === 'starter' ? 'text-blue-700' : 'text-gray-700 dark:text-gray-300'}`}>
+                          {isRTL ? 'المبتدئ' : 'Starter'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {PLAN_PRICES.starter[subscriptionDuration]} {isRTL ? 'ج.م' : 'EGP'}
+                        </span>
+                      </div>
+                      {subscriptionPlan === 'starter' && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                          <CheckCircle className="h-3 w-3 text-white" />
+                        </div>
+                      )}
+                    </button>
+
+                    {/* Professional */}
+                    <button
+                      onClick={() => setSubscriptionPlan('professional')}
+                      className={`relative p-4 rounded-2xl border-2 transition-all duration-300 ${
+                        subscriptionPlan === 'professional'
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 shadow-lg shadow-purple-500/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 hover:bg-purple-50/50'
+                      }`}
+                    >
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2">
+                        <span className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-[10px] px-2 py-0.5 rounded-full font-medium">
+                          {isRTL ? 'الأكثر شعبية' : 'Popular'}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-center gap-2 mt-1">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          subscriptionPlan === 'professional' 
+                            ? 'bg-gradient-to-br from-purple-500 to-indigo-600' 
+                            : 'bg-gray-100 dark:bg-gray-800'
+                        }`}>
+                          <Star className={`h-5 w-5 ${subscriptionPlan === 'professional' ? 'text-white' : 'text-gray-500'}`} />
+                        </div>
+                        <span className={`font-semibold text-sm ${subscriptionPlan === 'professional' ? 'text-purple-700' : 'text-gray-700 dark:text-gray-300'}`}>
+                          {isRTL ? 'المحترف' : 'Pro'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {PLAN_PRICES.professional[subscriptionDuration]} {isRTL ? 'ج.م' : 'EGP'}
+                        </span>
+                      </div>
+                      {subscriptionPlan === 'professional' && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                          <CheckCircle className="h-3 w-3 text-white" />
+                        </div>
+                      )}
+                    </button>
+
+                    {/* Enterprise */}
+                    <button
+                      onClick={() => setSubscriptionPlan('enterprise')}
+                      className={`relative p-4 rounded-2xl border-2 transition-all duration-300 ${
+                        subscriptionPlan === 'enterprise'
+                          ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/30 shadow-lg shadow-amber-500/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:bg-amber-50/50'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          subscriptionPlan === 'enterprise' 
+                            ? 'bg-gradient-to-br from-amber-500 to-orange-600' 
+                            : 'bg-gray-100 dark:bg-gray-800'
+                        }`}>
+                          <Crown className={`h-5 w-5 ${subscriptionPlan === 'enterprise' ? 'text-white' : 'text-gray-500'}`} />
+                        </div>
+                        <span className={`font-semibold text-sm ${subscriptionPlan === 'enterprise' ? 'text-amber-700' : 'text-gray-700 dark:text-gray-300'}`}>
+                          {isRTL ? 'المؤسسي' : 'Enterprise'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {PLAN_PRICES.enterprise[subscriptionDuration]} {isRTL ? 'ج.م' : 'EGP'}
+                        </span>
+                      </div>
+                      {subscriptionPlan === 'enterprise' && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center">
+                          <CheckCircle className="h-3 w-3 text-white" />
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Duration Selection */}
+                <div>
+                  <label className={`block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 ${isRTL ? 'text-right' : ''}`}>
+                    {isRTL ? 'مدة الاشتراك' : 'Subscription Duration'}
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {['monthly', 'quarterly', 'yearly', 'lifetime'].map((dur) => (
+                      <button
+                        key={dur}
+                        onClick={() => setSubscriptionDuration(dur)}
+                        className={`p-3 rounded-xl border-2 transition-all duration-200 ${
+                          subscriptionDuration === dur
+                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-indigo-300'
+                        }`}
+                      >
+                        <span className="text-xs font-medium block">
+                          {durationNames[dur]}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Price Summary */}
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850 rounded-2xl p-5">
+                  <div className="flex items-center justify-between">
+                    <div className={`${isRTL ? 'text-right' : ''}`}>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {isRTL ? 'المبلغ الإجمالي' : 'Total Amount'}
+                      </p>
+                      <div className="flex items-baseline gap-1 mt-1">
+                        <span className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                          {PLAN_PRICES[subscriptionPlan]?.[subscriptionDuration] || 0}
+                        </span>
+                        <span className="text-gray-500 text-sm">{isRTL ? 'ج.م' : 'EGP'}</span>
+                      </div>
+                    </div>
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                      <Sparkles className="h-8 w-8 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 pt-0 flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setAssigningSubscription(null)}
+                  className="flex-1 h-12 rounded-xl border-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  {isRTL ? 'إلغاء' : 'Cancel'}
+                </Button>
+                <Button
+                  onClick={handleAssignSubscription}
+                  disabled={assigningLoading}
+                  className="flex-1 h-12 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/30 transition-all duration-300"
+                >
+                  {assigningLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      {isRTL ? 'جاري التعيين...' : 'Assigning...'}
+                    </>
+                  ) : (
+                    <>
+                      <Crown className="h-4 w-4 mr-2" />
+                      {isRTL ? 'تعيين الاشتراك' : 'Assign Subscription'}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
         </div>
