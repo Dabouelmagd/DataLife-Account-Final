@@ -396,19 +396,29 @@ const AdminDashboard = () => {
         duration: subscriptionDuration
       }, config);
       
-      showToastMessage(
-        isRTL ? `تم تعيين اشتراك ${planNames[subscriptionPlan]} بنجاح` : `${planNames[subscriptionPlan]} subscription assigned successfully`, 
-        'success'
-      );
-      
-      setAssigningSubscription(null);
-      
-      // Refresh data
-      const dashResponse = await axios.get(`${API_URL}/api/admin/dashboard`, config);
-      setStats(dashResponse.data.statistics || {});
-      setCompanies(dashResponse.data.companies || []);
+      // Check if response indicates success
+      if (response.data && response.data.success) {
+        showToastMessage(
+          isRTL ? `تم تعيين اشتراك ${planNames[subscriptionPlan]} بنجاح` : `${planNames[subscriptionPlan]} subscription assigned successfully`, 
+          'success'
+        );
+        
+        setAssigningSubscription(null);
+        
+        // Refresh data
+        try {
+          const dashResponse = await axios.get(`${API_URL}/api/admin/dashboard`, config);
+          setStats(dashResponse.data.statistics || {});
+          setCompanies(dashResponse.data.companies || []);
+        } catch (refreshError) {
+          console.log('Dashboard refresh error (non-critical):', refreshError);
+        }
+      } else {
+        showToastMessage(isRTL ? 'حدث خطأ في تعيين الاشتراك' : 'Error assigning subscription', 'error');
+      }
       
     } catch (error) {
+      console.error('Subscription assignment error:', error);
       let errorMsg = isRTL ? 'حدث خطأ في تعيين الاشتراك' : 'Error assigning subscription';
       if (error.response?.data?.detail) {
         errorMsg = typeof error.response.data.detail === 'string' 
