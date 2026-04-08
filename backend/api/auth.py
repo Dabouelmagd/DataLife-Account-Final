@@ -511,3 +511,84 @@ async def update_permissions(
         "user_id": user_id,
         "permissions": permissions_data.permissions
     }
+
+
+# ==========================================
+# Super Admin Initialization
+# ==========================================
+
+@router.post("/init-super-admin")
+async def initialize_super_admin(
+    secret_key: str,
+    email: str = "superadmin@datalife.com",
+    password: str = "SuperAdmin@2024",
+    full_name: str = "Super Admin"
+):
+    """
+    Initialize Super Admin account for production.
+    Protected by secret key.
+    """
+    import uuid
+    from passlib.context import CryptContext
+    from datetime import datetime, timezone
+    
+    # Verify secret key (use environment variable or hardcoded for now)
+    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
+    
+    if secret_key != INIT_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+    
+    # Check if super admin already exists
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        return {
+            "success": False,
+            "message": "Super Admin already exists",
+            "email": email
+        }
+    
+    # Hash password
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    password_hash = pwd_context.hash(password)
+    
+    # Create super admin
+    super_admin = {
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "password_hash": password_hash,
+        "full_name": full_name,
+        "company_id": None,  # Platform admin - not tied to any company
+        "role": "Super Admin",
+        "permissions": ALL_PERMISSIONS,
+        "is_active": True,
+        "is_platform_admin": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(super_admin)
+    
+    return {
+        "success": True,
+        "message": "Super Admin created successfully",
+        "email": email,
+        "note": "Please change the password after first login"
+    }
+
+
+@router.get("/check-super-admin")
+async def check_super_admin_exists():
+    """Check if Super Admin exists in the database"""
+    super_admin = await db.users.find_one({"role": "Super Admin"})
+    
+    if super_admin:
+        return {
+            "exists": True,
+            "email": super_admin.get("email"),
+            "is_active": super_admin.get("is_active", True)
+        }
+    
+    return {
+        "exists": False,
+        "message": "No Super Admin found. Use /api/auth/init-super-admin to create one."
+    }
