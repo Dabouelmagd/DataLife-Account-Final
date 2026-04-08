@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Header
 from typing import Optional
 import os
+import asyncio
 from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 from collections import defaultdict
@@ -403,12 +404,10 @@ async def assign_subscription_to_company(
         "created_at": start_date.isoformat()
     }
     
+    # Database operations with proper error handling
     try:
-        # Deactivate any existing subscription
-        await db.subscriptions.update_many(
-            {"company_id": company_id, "status": "active"},
-            {"$set": {"status": "cancelled", "cancelled_at": start_date.isoformat()}}
-        )
+        # Delete ALL existing subscriptions for this company (not just deactivate)
+        await db.subscriptions.delete_many({"company_id": company_id})
         
         # Insert new subscription
         await db.subscriptions.insert_one(subscription)
@@ -434,20 +433,64 @@ async def assign_subscription_to_company(
         print(f"Database error: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
-    # Try to send notifications (non-blocking)
+    # Everything succeeded - return success first, then try notifications
+    response = {
+        "success": True,
+        "message": "Subscription assigned successfully",
+        "subscription_id": subscription_id,
+        "plan": plan,
+        "duration": duration,
+        "end_date": end_date.isoformat()
+    }
+    
+    # Try to send notifications in background (don't wait, don't fail)
+    try:
+        from api.audit_notifications import send_subscription_notification
+        # Fire and forget - don't await
+        asyncio.create_task(_send_notification_safe(
+            company.get("name", "Unknown"),
+            company.get("email") or company.get("contact_email"),
+            plan,
+            duration,
+            end_date.isoformat()
+        ))
+    except:
+        pass
+    
+    # Try to log audit in background
+    try:
+        asyncio.create_task(_log_audit_safe(
+            user,
+            subscription_id,
+            company_id,
+            company.get("name"),
+            plan,
+            duration,
+            end_date.isoformat()
+        ))
+    except:
+        pass
+    
+    return response
+
+
+async def _send_notification_safe(company_name, company_email, plan, duration, end_date):
+    """Send notification without raising errors"""
     try:
         from api.audit_notifications import send_subscription_notification
         await send_subscription_notification(
-            company_name=company.get("name", "Unknown"),
-            company_email=company.get("email") or company.get("contact_email"),
+            company_name=company_name,
+            company_email=company_email,
             plan=plan,
             duration=duration,
-            end_date=end_date.isoformat()
+            end_date=end_date
         )
     except Exception as e:
-        print(f"Notification error (non-critical): {e}")
-    
-    # Try to log audit (non-blocking)
+        print(f"Notification failed (safe): {e}")
+
+
+async def _log_audit_safe(user, subscription_id, company_id, company_name, plan, duration, end_date):
+    """Log audit without raising errors"""
     try:
         await log_admin_audit(
             action="subscription_assigned",
@@ -456,23 +499,14 @@ async def assign_subscription_to_company(
             entity_id=subscription_id,
             details={
                 "company_id": company_id,
-                "company_name": company.get("name"),
+                "company_name": company_name,
                 "plan": plan,
                 "duration": duration,
-                "end_date": end_date.isoformat()
+                "end_date": end_date
             }
         )
     except Exception as e:
-        print(f"Audit log error (non-critical): {e}")
-    
-    return {
-        "success": True,
-        "message": "Subscription assigned successfully",
-        "subscription_id": subscription_id,
-        "plan": plan,
-        "duration": duration,
-        "end_date": end_date.isoformat()
-    }
+        print(f"Audit log failed (safe): {e}")
 
 
 @router.get("/companies")
