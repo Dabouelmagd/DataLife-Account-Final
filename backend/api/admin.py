@@ -421,7 +421,7 @@ async def assign_subscription_to_company(
         }}
     )
     
-    # Send notification
+    # Send notification (non-blocking - errors won't affect subscription)
     try:
         from api.audit_notifications import send_subscription_notification
         await send_subscription_notification(
@@ -432,22 +432,25 @@ async def assign_subscription_to_company(
             end_date=end_date.isoformat()
         )
     except Exception as e:
-        print(f"Failed to send subscription notification: {e}")
+        print(f"Failed to send subscription notification (non-critical): {e}")
     
-    # Log audit
-    await log_admin_audit(
-        action="subscription_assigned",
-        entity_type="subscription",
-        user_data=user,
-        entity_id=subscription["id"],
-        details={
-            "company_id": company_id,
-            "company_name": company.get("name"),
-            "plan": plan,
-            "duration": duration,
-            "end_date": end_date.isoformat()
-        }
-    )
+    # Log audit (non-blocking)
+    try:
+        await log_admin_audit(
+            action="subscription_assigned",
+            entity_type="subscription",
+            user_data=user,
+            entity_id=subscription["id"],
+            details={
+                "company_id": company_id,
+                "company_name": company.get("name"),
+                "plan": plan,
+                "duration": duration,
+                "end_date": end_date.isoformat()
+            }
+        )
+    except Exception as e:
+        print(f"Failed to log audit (non-critical): {e}")
     
     return {
         "success": True,
