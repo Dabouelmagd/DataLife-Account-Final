@@ -78,6 +78,10 @@ const AdminDashboard = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
   
+  // Subscription search
+  const [subscriptionSearchQuery, setSubscriptionSearchQuery] = useState('');
+  const [filteredSubscriptions, setFilteredSubscriptions] = useState([]);
+  
   // Role editing
   const [editingUserRole, setEditingUserRole] = useState(null);
   const [availableRoles, setAvailableRoles] = useState([]);
@@ -639,6 +643,28 @@ const AdminDashboard = () => {
     }
   };
 
+  // Filter subscriptions based on search query (searches in company name, company email, and user emails)
+  const handleSubscriptionSearch = (query) => {
+    setSubscriptionSearchQuery(query);
+    if (!query.trim()) {
+      setFilteredSubscriptions(subscriptions);
+    } else {
+      const filtered = subscriptions.filter(sub => 
+        sub.company_name?.toLowerCase().includes(query.toLowerCase()) ||
+        sub.company_email?.toLowerCase().includes(query.toLowerCase()) ||
+        sub.user_emails?.some(email => email?.toLowerCase().includes(query.toLowerCase())) ||
+        sub.users?.some(u => u.name?.toLowerCase().includes(query.toLowerCase()))
+      );
+      setFilteredSubscriptions(filtered);
+    }
+  };
+
+  // Update filtered subscriptions when subscriptions change
+  useEffect(() => {
+    setFilteredSubscriptions(subscriptions);
+    setSubscriptionSearchQuery('');
+  }, [subscriptions]);
+
   const tabs = [
     { id: 'overview', label: t.overview, icon: BarChart3 },
     { id: 'subscriptions', label: t.subscriptions, icon: CreditCard },
@@ -960,13 +986,34 @@ const AdminDashboard = () => {
         {activeTab === 'subscriptions' && (
           <Card>
             <CardHeader>
-              <CardTitle>{t.subscriptions}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>{t.subscriptions}</CardTitle>
+                <div className="relative w-80">
+                  <Input
+                    placeholder={isRTL ? 'بحث بالشركة أو البريد الإلكتروني...' : 'Search by company or email...'}
+                    value={subscriptionSearchQuery}
+                    onChange={(e) => handleSubscriptionSearch(e.target.value)}
+                    className="pl-10"
+                    data-testid="subscription-search-input"
+                  />
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+              {subscriptionSearchQuery && (
+                <p className="text-sm text-gray-500 mt-2">
+                  {isRTL 
+                    ? `عرض ${filteredSubscriptions.length} من ${subscriptions.length} اشتراك`
+                    : `Showing ${filteredSubscriptions.length} of ${subscriptions.length} subscriptions`
+                  }
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t.company}</TableHead>
+                    <TableHead>{isRTL ? 'المستخدمون' : 'Users'}</TableHead>
                     <TableHead>{t.plan}</TableHead>
                     <TableHead>{t.duration}</TableHead>
                     <TableHead>{t.status}</TableHead>
@@ -974,12 +1021,33 @@ const AdminDashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {subscriptions.map((sub, idx) => (
-                    <TableRow key={idx}>
+                  {filteredSubscriptions.map((sub, idx) => (
+                    <TableRow key={idx} data-testid={`subscription-row-${idx}`}>
                       <TableCell>
                         <div>
                           <p className="font-medium">{sub.company_name || sub.company_id}</p>
                           <p className="text-sm text-gray-500">{sub.company_email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-xs">
+                          {sub.users && sub.users.length > 0 ? (
+                            <div className="space-y-1">
+                              {sub.users.slice(0, 3).map((user, uidx) => (
+                                <div key={uidx} className="text-sm">
+                                  <span className="font-medium text-gray-700">{user.name || '-'}</span>
+                                  <span className="text-gray-500 text-xs block">{user.email}</span>
+                                </div>
+                              ))}
+                              {sub.users.length > 3 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{sub.users.length - 3} {isRTL ? 'آخرين' : 'more'}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-sm">{isRTL ? 'لا يوجد مستخدمين' : 'No users'}</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{planNames[sub.plan] || sub.plan}</TableCell>
@@ -992,6 +1060,16 @@ const AdminDashboard = () => {
                       <TableCell>{formatDate(sub.end_date)}</TableCell>
                     </TableRow>
                   ))}
+                  {filteredSubscriptions.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                        {subscriptionSearchQuery 
+                          ? (isRTL ? 'لا توجد نتائج للبحث' : 'No results found')
+                          : (isRTL ? 'لا توجد اشتراكات' : 'No subscriptions')
+                        }
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

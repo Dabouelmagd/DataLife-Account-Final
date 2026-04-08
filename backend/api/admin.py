@@ -170,12 +170,21 @@ async def get_all_subscriptions(
     
     subscriptions = await db.subscriptions.find(query, {"_id": 0}).sort("created_at", -1).to_list(length=None)
     
-    # Enrich with company info
+    # Enrich with company info and user emails
     for sub in subscriptions:
-        company = await db.companies.find_one({"id": sub.get("company_id")}, {"_id": 0, "name": 1, "contact_email": 1})
+        company_id = sub.get("company_id")
+        company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1, "contact_email": 1})
         if company:
             sub["company_name"] = company.get("name", "Unknown")
             sub["company_email"] = company.get("contact_email", "")
+        
+        # Get all user emails for this company
+        users = await db.users.find(
+            {"company_id": company_id}, 
+            {"_id": 0, "email": 1, "full_name": 1}
+        ).to_list(length=None)
+        sub["user_emails"] = [u.get("email") for u in users if u.get("email")]
+        sub["users"] = [{"email": u.get("email"), "name": u.get("full_name")} for u in users]
     
     return subscriptions
 
