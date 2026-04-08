@@ -387,8 +387,9 @@ async def assign_subscription_to_company(
     end_date = start_date + timedelta(days=days)
     
     import uuid
+    subscription_id = str(uuid.uuid4())
     subscription = {
-        "id": str(uuid.uuid4()),
+        "id": subscription_id,
         "user_id": user.get("user_id", "admin"),
         "company_id": company_id,
         "plan": plan,
@@ -402,26 +403,38 @@ async def assign_subscription_to_company(
         "created_at": start_date.isoformat()
     }
     
-    # Deactivate any existing subscription
-    await db.subscriptions.update_many(
-        {"company_id": company_id, "status": "active"},
-        {"$set": {"status": "cancelled", "cancelled_at": start_date.isoformat()}}
-    )
+    try:
+        # Deactivate any existing subscription
+        await db.subscriptions.update_many(
+            {"company_id": company_id, "status": "active"},
+            {"$set": {"status": "cancelled", "cancelled_at": start_date.isoformat()}}
+        )
+        
+        # Insert new subscription
+        await db.subscriptions.insert_one(subscription)
+        
+        # Update company
+        await db.companies.update_one(
+            {"id": company_id},
+            {"$set": {
+                "subscription_plan": plan,
+                "subscription_status": "active",
+                "subscription_end_date": end_date.isoformat(),
+                "is_active": True
+            }}
+        )
+        
+        # Update users to active
+        await db.users.update_many(
+            {"company_id": company_id},
+            {"$set": {"is_active": True}}
+        )
+        
+    except Exception as e:
+        print(f"Database error: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
-    # Insert new subscription
-    await db.subscriptions.insert_one(subscription)
-    
-    # Update company
-    await db.companies.update_one(
-        {"id": company_id},
-        {"$set": {
-            "subscription_plan": plan,
-            "subscription_status": "active",
-            "subscription_end_date": end_date.isoformat()
-        }}
-    )
-    
-    # Send notification (non-blocking - errors won't affect subscription)
+    # Try to send notifications (non-blocking)
     try:
         from api.audit_notifications import send_subscription_notification
         await send_subscription_notification(
@@ -432,15 +445,15 @@ async def assign_subscription_to_company(
             end_date=end_date.isoformat()
         )
     except Exception as e:
-        print(f"Failed to send subscription notification (non-critical): {e}")
+        print(f"Notification error (non-critical): {e}")
     
-    # Log audit (non-blocking)
+    # Try to log audit (non-blocking)
     try:
         await log_admin_audit(
             action="subscription_assigned",
             entity_type="subscription",
             user_data=user,
-            entity_id=subscription["id"],
+            entity_id=subscription_id,
             details={
                 "company_id": company_id,
                 "company_name": company.get("name"),
@@ -450,12 +463,12 @@ async def assign_subscription_to_company(
             }
         )
     except Exception as e:
-        print(f"Failed to log audit (non-critical): {e}")
+        print(f"Audit log error (non-critical): {e}")
     
     return {
         "success": True,
         "message": "Subscription assigned successfully",
-        "subscription_id": subscription["id"],
+        "subscription_id": subscription_id,
         "plan": plan,
         "duration": duration,
         "end_date": end_date.isoformat()
