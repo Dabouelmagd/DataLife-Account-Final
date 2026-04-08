@@ -1192,3 +1192,321 @@ async def get_company_details(
             "invoices_count": invoices_count
         }
     }
+
+
+
+# ==========================================
+# Super Admin Complete Control APIs
+# ==========================================
+
+@router.get("/audit-logs")
+async def get_all_audit_logs(
+    authorization: Optional[str] = Header(None),
+    company_id: Optional[str] = None,
+    action_type: Optional[str] = None,
+    limit: int = 100,
+    skip: int = 0
+):
+    """Get all audit logs across all companies - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Build query
+    query = {}
+    if company_id:
+        query["company_id"] = company_id
+    if action_type:
+        query["action"] = action_type
+    
+    # Get audit logs
+    logs = await db.audit_log.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(limit).to_list(length=limit)
+    
+    # Get total count
+    total = await db.audit_log.count_documents(query)
+    
+    # Enrich with company names
+    for log in logs:
+        if log.get("company_id"):
+            company = await db.companies.find_one({"id": log["company_id"]}, {"_id": 0, "name": 1})
+            log["company_name"] = company.get("name", "Unknown") if company else "Unknown"
+    
+    return {
+        "logs": logs,
+        "total": total,
+        "limit": limit,
+        "skip": skip
+    }
+
+
+@router.get("/company-activity/{company_id}")
+async def get_company_activity(
+    company_id: str,
+    authorization: Optional[str] = Header(None),
+    limit: int = 50
+):
+    """Get all activity for a specific company - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Get company info
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Get all audit logs for this company
+    audit_logs = await db.audit_log.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(limit).to_list(length=limit)
+    
+    # Get all users
+    users = await db.users.find(
+        {"company_id": company_id},
+        {"_id": 0, "password_hash": 0}
+    ).to_list(length=100)
+    
+    # Get subscription history
+    subscription = await db.subscriptions.find_one(
+        {"company_id": company_id},
+        {"_id": 0}
+    )
+    
+    # Get invoices summary
+    invoices = await db.invoices.find(
+        {"company_id": company_id},
+        {"_id": 0, "total_amount": 1, "status": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(20).to_list(length=20)
+    
+    # Get projects summary
+    projects = await db.projects.find(
+        {"company_id": company_id},
+        {"_id": 0, "name": 1, "status": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(20).to_list(length=20)
+    
+    return {
+        "company": company,
+        "users": users,
+        "subscription": subscription,
+        "recent_activity": audit_logs,
+        "recent_invoices": invoices,
+        "recent_projects": projects,
+        "stats": {
+            "total_users": len(users),
+            "active_users": len([u for u in users if u.get("is_active", True)]),
+            "total_invoices": await db.invoices.count_documents({"company_id": company_id}),
+            "total_projects": await db.projects.count_documents({"company_id": company_id})
+        }
+    }
+
+
+@router.get("/system-overview")
+async def get_system_overview(authorization: Optional[str] = Header(None)):
+    """Get complete system overview - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Companies stats
+    total_companies = await db.companies.count_documents({})
+    active_companies = await db.companies.count_documents({"is_active": True})
+    
+    # Users stats
+    total_users = await db.users.count_documents({})
+    active_users = await db.users.count_documents({"is_active": True})
+    
+    # Subscriptions stats
+    total_subscriptions = await db.subscriptions.count_documents({})
+    active_subscriptions = await db.subscriptions.count_documents({"status": "active"})
+    
+    # Codes stats
+    total_codes = await db.activation_codes.count_documents({})
+    active_codes = await db.activation_codes.count_documents({"is_active": True, "used": False})
+    used_codes = await db.activation_codes.count_documents({"used": True})
+    
+    # Revenue stats
+    pipeline = [
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    revenue_result = await db.transactions.aggregate(pipeline).to_list(length=1)
+    total_revenue = revenue_result[0]["total"] if revenue_result else 0
+    
+    # Recent activity (last 24 hours)
+    yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+    recent_activity = await db.audit_log.count_documents({
+        "timestamp": {"$gte": yesterday.isoformat()}
+    })
+    
+    # Subscription breakdown by plan
+    plan_pipeline = [
+        {"$match": {"status": "active"}},
+        {"$group": {"_id": "$plan", "count": {"$sum": 1}}}
+    ]
+    plans = await db.subscriptions.aggregate(plan_pipeline).to_list(length=10)
+    
+    return {
+        "companies": {
+            "total": total_companies,
+            "active": active_companies,
+            "inactive": total_companies - active_companies
+        },
+        "users": {
+            "total": total_users,
+            "active": active_users,
+            "inactive": total_users - active_users
+        },
+        "subscriptions": {
+            "total": total_subscriptions,
+            "active": active_subscriptions,
+            "by_plan": {p["_id"]: p["count"] for p in plans if p["_id"]}
+        },
+        "codes": {
+            "total": total_codes,
+            "active": active_codes,
+            "used": used_codes
+        },
+        "revenue": {
+            "total": total_revenue
+        },
+        "activity": {
+            "last_24h": recent_activity
+        }
+    }
+
+
+@router.put("/companies/{company_id}/settings")
+async def update_company_settings(
+    company_id: str,
+    authorization: Optional[str] = Header(None),
+    name: Optional[str] = None,
+    contact_email: Optional[str] = None,
+    contact_phone: Optional[str] = None,
+    address: Optional[str] = None,
+    tax_number: Optional[str] = None
+):
+    """Update company settings - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Verify Super Admin role
+    super_admin_roles = ['Super Admin', 'مدير النظام', 'رئيس مجلس الإدارة']
+    if user_data.get('role') not in super_admin_roles:
+        raise HTTPException(status_code=403, detail="Super Admin access required")
+    
+    # Build update data
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if name: update_data["name"] = name
+    if contact_email: update_data["contact_email"] = contact_email
+    if contact_phone: update_data["contact_phone"] = contact_phone
+    if address: update_data["address"] = address
+    if tax_number: update_data["tax_number"] = tax_number
+    
+    # Update company
+    result = await db.companies.update_one(
+        {"id": company_id},
+        {"$set": update_data}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Log audit
+    await log_admin_audit(
+        action="company_settings_updated",
+        entity_type="company",
+        user_data=user_data,
+        entity_id=company_id,
+        details=update_data
+    )
+    
+    return {"success": True, "message": "تم تحديث إعدادات الشركة بنجاح"}
+
+
+@router.delete("/companies/{company_id}")
+async def delete_company(
+    company_id: str,
+    authorization: Optional[str] = Header(None),
+    confirm: bool = False
+):
+    """Delete a company and all its data - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Verify Super Admin role
+    super_admin_roles = ['Super Admin', 'مدير النظام']
+    if user_data.get('role') not in super_admin_roles:
+        raise HTTPException(status_code=403, detail="Super Admin access required")
+    
+    if not confirm:
+        raise HTTPException(status_code=400, detail="Please confirm deletion by setting confirm=true")
+    
+    # Get company info first
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Delete all company data
+    await db.users.delete_many({"company_id": company_id})
+    await db.subscriptions.delete_many({"company_id": company_id})
+    await db.invoices.delete_many({"company_id": company_id})
+    await db.projects.delete_many({"company_id": company_id})
+    await db.employees.delete_many({"company_id": company_id})
+    await db.companies.delete_one({"id": company_id})
+    
+    # Log audit
+    await log_admin_audit(
+        action="company_deleted",
+        entity_type="company",
+        user_data=user_data,
+        entity_id=company_id,
+        details={"company_name": company.get("name"), "company_email": company.get("contact_email")}
+    )
+    
+    return {"success": True, "message": f"تم حذف الشركة {company.get('name')} وجميع بياناتها"}
+
+
+@router.get("/all-company-codes")
+async def get_all_company_codes(authorization: Optional[str] = Header(None)):
+    """Get all company registration codes - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Get all companies with their codes
+    companies = await db.companies.find(
+        {},
+        {"_id": 0, "id": 1, "name": 1, "contact_email": 1, "company_code": 1, "is_active": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(length=500)
+    
+    return {"companies": companies, "total": len(companies)}
+
+
+@router.put("/companies/{company_id}/regenerate-code")
+async def regenerate_company_code(
+    company_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Regenerate company code - Super Admin only"""
+    user_data = await verify_admin(authorization)
+    
+    # Verify Super Admin role
+    super_admin_roles = ['Super Admin', 'مدير النظام']
+    if user_data.get('role') not in super_admin_roles:
+        raise HTTPException(status_code=403, detail="Super Admin access required")
+    
+    # Generate new code
+    new_code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+    
+    # Update company
+    result = await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {
+            "company_code": new_code,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Log audit
+    await log_admin_audit(
+        action="company_code_regenerated",
+        entity_type="company",
+        user_data=user_data,
+        entity_id=company_id,
+        details={"new_code": new_code}
+    )
+    
+    return {"success": True, "new_code": new_code, "message": "تم تجديد كود الشركة بنجاح"}

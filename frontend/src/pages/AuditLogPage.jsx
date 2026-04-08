@@ -336,6 +336,7 @@ const AuditLogPage = () => {
                   <TableRow>
                     <TableHead>{t.action}</TableHead>
                     <TableHead>{t.entityType}</TableHead>
+                    <TableHead>{t.company}</TableHead>
                     <TableHead>{t.details}</TableHead>
                     <TableHead>{t.performedBy}</TableHead>
                     <TableHead>{t.timestamp}</TableHead>
@@ -347,7 +348,17 @@ const AuditLogPage = () => {
                     <TableRow key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                       <TableCell>{getActionBadge(log.action)}</TableCell>
                       <TableCell>{getEntityBadge(log.entity_type)}</TableCell>
-                      <TableCell className="max-w-[300px] truncate">
+                      <TableCell>
+                        {log.company_name ? (
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-blue-500" />
+                            <span className="text-sm font-medium">{log.company_name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">{isRTL ? 'النظام' : 'System'}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-[250px] truncate">
                         <span className="font-medium">{log.entity_name || '-'}</span>
                         {log.details && (
                           <p className="text-xs text-gray-500 truncate">

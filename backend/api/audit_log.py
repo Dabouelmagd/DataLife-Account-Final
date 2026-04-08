@@ -186,6 +186,14 @@ async def get_audit_logs(
         {"_id": 0}
     ).sort("timestamp", -1).skip(skip).limit(limit).to_list(length=limit)
     
+    # Enrich logs with company names if Super Admin
+    super_admin_roles = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'رئيس مجلس الإدارة']
+    if user.get('role') in super_admin_roles:
+        for log in logs:
+            if log.get("company_id") and not log.get("company_name"):
+                company = await db.companies.find_one({"id": log["company_id"]}, {"_id": 0, "name": 1})
+                log["company_name"] = company.get("name", "Unknown") if company else "Unknown"
+    
     return {
         "logs": logs,
         "total": total_count,
