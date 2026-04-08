@@ -34,6 +34,9 @@ const AdminLogin = () => {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetError, setResetError] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showSecretKey, setShowSecretKey] = useState(false);
 
   // Admin roles that can access admin dashboard
   const adminRoles = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'];
@@ -198,44 +201,71 @@ const AdminLogin = () => {
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       {t.secretKey}
                     </label>
-                    <Input
-                      type="password"
-                      value={resetData.secretKey}
-                      onChange={(e) => setResetData({ ...resetData, secretKey: e.target.value })}
-                      required
-                      className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
-                      placeholder="••••••••"
-                    />
+                    <div className="relative">
+                      <Input
+                        type={showSecretKey ? 'text' : 'password'}
+                        value={resetData.secretKey}
+                        onChange={(e) => setResetData({ ...resetData, secretKey: e.target.value })}
+                        required
+                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 pr-10"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSecretKey(!showSecretKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      >
+                        {showSecretKey ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       {t.newPassword}
                     </label>
-                    <Input
-                      type="password"
-                      value={resetData.newPassword}
-                      onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
-                      required
-                      minLength={6}
-                      className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
-                      placeholder="••••••••"
-                    />
+                    <div className="relative">
+                      <Input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={resetData.newPassword}
+                        onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
+                        required
+                        minLength={6}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 pr-10"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      >
+                        {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       {t.confirmPassword}
                     </label>
-                    <Input
-                      type="password"
-                      value={resetData.confirmPassword}
-                      onChange={(e) => setResetData({ ...resetData, confirmPassword: e.target.value })}
-                      required
-                      minLength={6}
-                      className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
-                      placeholder="••••••••"
-                    />
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={resetData.confirmPassword}
+                        onChange={(e) => setResetData({ ...resetData, confirmPassword: e.target.value })}
+                        required
+                        minLength={6}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 pr-10"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
                   </div>
                   
                   <Button
