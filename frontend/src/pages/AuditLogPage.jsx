@@ -350,7 +350,9 @@ const AuditLogPage = () => {
                       <TableCell className="max-w-[300px] truncate">
                         <span className="font-medium">{log.entity_name || '-'}</span>
                         {log.details && (
-                          <p className="text-xs text-gray-500 truncate">{log.details}</p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}
+                          </p>
                         )}
                       </TableCell>
                       <TableCell>
@@ -469,7 +471,13 @@ const AuditLogPage = () => {
               {selectedLog.details && (
                 <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <p className="text-sm text-gray-500 mb-1">{t.details}</p>
-                  <p>{selectedLog.details}</p>
+                  {typeof selectedLog.details === 'string' ? (
+                    <p>{selectedLog.details}</p>
+                  ) : (
+                    <pre className="text-sm bg-white dark:bg-gray-900 p-2 rounded overflow-x-auto">
+                      {JSON.stringify(selectedLog.details, null, 2)}
+                    </pre>
+                  )}
                 </div>
               )}
               

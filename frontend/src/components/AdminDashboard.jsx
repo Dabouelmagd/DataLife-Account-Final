@@ -405,7 +405,12 @@ const AdminDashboard = () => {
       setCompanies(dashResponse.data.companies || []);
       
     } catch (error) {
-      const errorMsg = error.response?.data?.detail || (isRTL ? 'حدث خطأ في تعيين الاشتراك' : 'Error assigning subscription');
+      let errorMsg = isRTL ? 'حدث خطأ في تعيين الاشتراك' : 'Error assigning subscription';
+      if (error.response?.data?.detail) {
+        errorMsg = typeof error.response.data.detail === 'string' 
+          ? error.response.data.detail 
+          : JSON.stringify(error.response.data.detail);
+      }
       showToastMessage(errorMsg, 'error');
     } finally {
       setAssigningLoading(false);
