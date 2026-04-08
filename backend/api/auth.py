@@ -585,12 +585,64 @@ async def check_super_admin_exists():
         return {
             "exists": True,
             "email": super_admin.get("email"),
-            "is_active": super_admin.get("is_active", True)
+            "is_active": super_admin.get("is_active", True),
+            "permissions_count": len(super_admin.get("permissions", []))
         }
     
     return {
         "exists": False,
         "message": "No Super Admin found. Use /api/auth/init-super-admin to create one."
+    }
+
+
+@router.post("/update-admin-permissions")
+async def update_admin_permissions(secret_key: str):
+    """
+    Update all admin users with full permissions.
+    Protected by secret key.
+    """
+    from datetime import datetime, timezone
+    
+    # Verify secret key
+    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
+    
+    if secret_key != INIT_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+    
+    ALL_PERMISSIONS_LIST = [
+        'dashboard', 'hr', 'financial', 'invoices', 'purchases', 
+        'projects', 'analytics', 'settings', 'users', 'approvals',
+        'reports', 'inventory', 'admin', 'subscriptions', 'companies',
+        'audit_logs', 'system_settings', 'billing', 'support'
+    ]
+    
+    # Update Super Admin users
+    result1 = await db.users.update_many(
+        {"role": {"$in": ["Super Admin", "مدير النظام"]}},
+        {"$set": {
+            "permissions": ALL_PERMISSIONS_LIST,
+            "is_platform_admin": True,
+            "is_active": True,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Update Board Chairman users
+    result2 = await db.users.update_many(
+        {"role": "رئيس مجلس الإدارة"},
+        {"$set": {
+            "permissions": ALL_PERMISSIONS_LIST,
+            "is_active": True,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "success": True,
+        "message": "تم تحديث صلاحيات المديرين بنجاح",
+        "super_admins_updated": result1.modified_count,
+        "board_chairmen_updated": result2.modified_count,
+        "total_permissions": len(ALL_PERMISSIONS_LIST)
     }
 
 
