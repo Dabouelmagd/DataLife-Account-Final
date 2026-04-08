@@ -1078,12 +1078,18 @@ async def delete_user(
     user_id: str,
     authorization: Optional[str] = Header(None)
 ):
-    """Delete a user - Super Admin only"""
+    """Delete a user - Admin only"""
     user_data = await verify_admin(authorization)
     
-    # Verify Super Admin role
-    super_admin_roles = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي']
-    if user_data.get('role') not in super_admin_roles:
+    # Verify Admin role - expanded list
+    admin_roles = [
+        'Super Admin', 'مدير النظام', 
+        'General Manager', 'مدير عام', 
+        'CEO', 'المدير التنفيذي',
+        'رئيس مجلس الإدارة', 'Board Chairman',
+        'Chairman', 'Owner', 'مالك'
+    ]
+    if user_data.get('role') not in admin_roles:
         raise HTTPException(status_code=403, detail="Admin access required")
     
     # Find user
