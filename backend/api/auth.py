@@ -592,3 +592,47 @@ async def check_super_admin_exists():
         "exists": False,
         "message": "No Super Admin found. Use /api/auth/init-super-admin to create one."
     }
+
+
+@router.post("/reset-super-admin-password")
+async def reset_super_admin_password(
+    secret_key: str,
+    new_password: str = "SuperAdmin@2024"
+):
+    """
+    Reset Super Admin password.
+    Protected by secret key.
+    """
+    from passlib.context import CryptContext
+    from datetime import datetime, timezone
+    
+    # Verify secret key
+    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
+    
+    if secret_key != INIT_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+    
+    # Find super admin
+    super_admin = await db.users.find_one({"role": "Super Admin"})
+    if not super_admin:
+        raise HTTPException(status_code=404, detail="Super Admin not found")
+    
+    # Hash new password
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    password_hash = pwd_context.hash(new_password)
+    
+    # Update password
+    await db.users.update_one(
+        {"role": "Super Admin"},
+        {"$set": {
+            "password_hash": password_hash,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "success": True,
+        "message": "Super Admin password has been reset successfully",
+        "email": super_admin.get("email"),
+        "note": "You can now login with the new password"
+    }
