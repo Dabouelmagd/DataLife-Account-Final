@@ -684,3 +684,233 @@ async def admin_reset_password(
         "message": "تم تغيير كلمة المرور بنجاح / Password changed successfully",
         "email": email
     }
+
+
+# ==========================================
+# OTP-based Password Reset (Email Verification)
+# ==========================================
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import random
+import string
+from datetime import datetime, timezone, timedelta
+
+# In-memory OTP storage (in production, use Redis or database)
+otp_storage = {}
+
+def generate_otp(length=6):
+    """Generate a random OTP"""
+    return ''.join(random.choices(string.digits, k=length))
+
+async def send_otp_email(email: str, otp: str, user_name: str = ""):
+    """Send OTP via SMTP"""
+    smtp_host = os.environ.get("SMTP_HOST", "gtxm1001.siteground.biz")
+    smtp_port = int(os.environ.get("SMTP_PORT", 465))
+    smtp_email = os.environ.get("SMTP_EMAIL", "info@datalifeai.com")
+    smtp_password = os.environ.get("SMTP_PASSWORD", "")
+    
+    if not smtp_password:
+        raise Exception("SMTP password not configured")
+    
+    # Create message
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = 'رمز إعادة تعيين كلمة المرور - DataLife Account'
+    msg['From'] = f"DataLife Account <{smtp_email}>"
+    msg['To'] = email
+    
+    # HTML email content
+    html_content = f"""
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #f59e0b, #ea580c); padding: 30px; text-align: center; }}
+            .header h1 {{ color: white; margin: 0; font-size: 24px; }}
+            .content {{ padding: 40px 30px; text-align: center; }}
+            .otp-box {{ background: linear-gradient(135deg, #1e293b, #334155); color: white; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0; }}
+            .message {{ color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 20px; }}
+            .warning {{ color: #dc2626; font-size: 14px; margin-top: 20px; }}
+            .footer {{ background-color: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🔐 DataLife Account</h1>
+            </div>
+            <div class="content">
+                <p class="message">مرحباً{' ' + user_name if user_name else ''},</p>
+                <p class="message">لقد طلبت إعادة تعيين كلمة المرور الخاصة بك. استخدم الرمز التالي:</p>
+                <div class="otp-box">{otp}</div>
+                <p class="message">هذا الرمز صالح لمدة <strong>10 دقائق</strong> فقط.</p>
+                <p class="warning">⚠️ إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذا البريد.</p>
+            </div>
+            <div class="footer">
+                <p>© 2026 DataLife AI Services - جميع الحقوق محفوظة</p>
+                <p>هذا البريد تم إرساله تلقائياً، يرجى عدم الرد عليه</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    # Plain text version
+    text_content = f"""
+    مرحباً {user_name},
+    
+    رمز إعادة تعيين كلمة المرور الخاص بك هو: {otp}
+    
+    هذا الرمز صالح لمدة 10 دقائق فقط.
+    
+    إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذا البريد.
+    
+    DataLife Account
+    """
+    
+    msg.attach(MIMEText(text_content, 'plain', 'utf-8'))
+    msg.attach(MIMEText(html_content, 'html', 'utf-8'))
+    
+    # Send email
+    try:
+        with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
+            server.login(smtp_email, smtp_password)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"SMTP Error: {e}")
+        raise e
+
+
+@router.post("/request-password-reset")
+async def request_password_reset(email: str):
+    """
+    Request password reset - sends OTP to email
+    """
+    email = email.lower().strip()
+    
+    # Check if user exists
+    user = await db.users.find_one({"email": email})
+    if not user:
+        # Return success anyway to prevent email enumeration
+        return {
+            "success": True,
+            "message": "إذا كان البريد الإلكتروني مسجلاً، سيتم إرسال رمز التحقق"
+        }
+    
+    # Generate OTP
+    otp = generate_otp()
+    
+    # Store OTP with expiration (10 minutes)
+    otp_storage[email] = {
+        "otp": otp,
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
+        "attempts": 0
+    }
+    
+    # Send OTP via email
+    try:
+        await send_otp_email(email, otp, user.get("full_name", ""))
+        return {
+            "success": True,
+            "message": "تم إرسال رمز التحقق إلى بريدك الإلكتروني"
+        }
+    except Exception as e:
+        print(f"Failed to send OTP email: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail="فشل في إرسال البريد الإلكتروني. يرجى المحاولة لاحقاً"
+        )
+
+
+@router.post("/verify-otp-reset-password")
+async def verify_otp_and_reset_password(
+    email: str,
+    otp: str,
+    new_password: str
+):
+    """
+    Verify OTP and reset password
+    """
+    from passlib.context import CryptContext
+    
+    email = email.lower().strip()
+    
+    # Check if OTP exists
+    if email not in otp_storage:
+        raise HTTPException(status_code=400, detail="لم يتم طلب إعادة تعيين كلمة المرور لهذا البريد")
+    
+    stored_data = otp_storage[email]
+    
+    # Check if OTP is expired
+    if datetime.now(timezone.utc) > stored_data["expires_at"]:
+        del otp_storage[email]
+        raise HTTPException(status_code=400, detail="انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد")
+    
+    # Check attempts (max 5)
+    if stored_data["attempts"] >= 5:
+        del otp_storage[email]
+        raise HTTPException(status_code=400, detail="تم تجاوز عدد المحاولات المسموح بها. يرجى طلب رمز جديد")
+    
+    # Verify OTP
+    if stored_data["otp"] != otp:
+        otp_storage[email]["attempts"] += 1
+        remaining = 5 - otp_storage[email]["attempts"]
+        raise HTTPException(
+            status_code=400, 
+            detail=f"رمز التحقق غير صحيح. المحاولات المتبقية: {remaining}"
+        )
+    
+    # OTP is valid - reset password
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    password_hash = pwd_context.hash(new_password)
+    
+    # Update password in database
+    result = await db.users.update_one(
+        {"email": email},
+        {"$set": {
+            "password_hash": password_hash,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    # Clear OTP
+    del otp_storage[email]
+    
+    return {
+        "success": True,
+        "message": "تم تغيير كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول"
+    }
+
+
+@router.get("/check-otp-status")
+async def check_otp_status(email: str):
+    """
+    Check if there's a pending OTP for this email
+    """
+    email = email.lower().strip()
+    
+    if email not in otp_storage:
+        return {"has_pending_otp": False}
+    
+    stored_data = otp_storage[email]
+    
+    # Check if expired
+    if datetime.now(timezone.utc) > stored_data["expires_at"]:
+        del otp_storage[email]
+        return {"has_pending_otp": False}
+    
+    remaining_seconds = (stored_data["expires_at"] - datetime.now(timezone.utc)).total_seconds()
+    
+    return {
+        "has_pending_otp": True,
+        "remaining_seconds": int(remaining_seconds),
+        "attempts_remaining": 5 - stored_data["attempts"]
+    }

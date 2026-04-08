@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Shield, Eye, EyeOff, AlertCircle, Loader2, KeyRound, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Shield, Eye, EyeOff, AlertCircle, Loader2, KeyRound, ArrowLeft, CheckCircle, Mail, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 
 const AdminLogin = () => {
@@ -25,9 +25,10 @@ const AdminLogin = () => {
   
   // Reset password states
   const [showResetForm, setShowResetForm] = useState(false);
+  const [resetStep, setResetStep] = useState(1); // 1: Enter email, 2: Enter OTP, 3: Success
   const [resetData, setResetData] = useState({
     email: '',
-    secretKey: '',
+    otp: '',
     newPassword: '',
     confirmPassword: ''
   });
@@ -36,7 +37,8 @@ const AdminLogin = () => {
   const [resetError, setResetError] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showSecretKey, setShowSecretKey] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [canResend, setCanResend] = useState(false);
 
   // Admin roles that can access admin dashboard
   const adminRoles = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'];
@@ -53,14 +55,21 @@ const AdminLogin = () => {
     secureArea: isRTL ? 'منطقة محمية - للمسؤولين فقط' : 'Secure Area - Administrators Only',
     forgotPassword: isRTL ? 'نسيت كلمة المرور؟' : 'Forgot Password?',
     resetPassword: isRTL ? 'إعادة تعيين كلمة المرور' : 'Reset Password',
-    secretKey: isRTL ? 'المفتاح السري' : 'Secret Key',
     newPassword: isRTL ? 'كلمة المرور الجديدة' : 'New Password',
     confirmPassword: isRTL ? 'تأكيد كلمة المرور' : 'Confirm Password',
     resetBtn: isRTL ? 'إعادة التعيين' : 'Reset',
     backToLogin: isRTL ? 'العودة لتسجيل الدخول' : 'Back to Login',
     passwordMismatch: isRTL ? 'كلمات المرور غير متطابقة' : 'Passwords do not match',
     resetSuccessMsg: isRTL ? 'تم تغيير كلمة المرور بنجاح!' : 'Password changed successfully!',
-    loginNow: isRTL ? 'سجل الدخول الآن' : 'Login Now'
+    loginNow: isRTL ? 'سجل الدخول الآن' : 'Login Now',
+    sendOtp: isRTL ? 'إرسال رمز التحقق' : 'Send Verification Code',
+    enterOtp: isRTL ? 'أدخل رمز التحقق' : 'Enter Verification Code',
+    otpSent: isRTL ? 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' : 'Verification code sent to your email',
+    verifyAndReset: isRTL ? 'تحقق وغيّر كلمة المرور' : 'Verify & Reset Password',
+    resendOtp: isRTL ? 'إعادة إرسال الرمز' : 'Resend Code',
+    resendIn: isRTL ? 'إعادة الإرسال بعد' : 'Resend in',
+    seconds: isRTL ? 'ثانية' : 'seconds',
+    otpPlaceholder: isRTL ? 'أدخل الرمز المكون من 6 أرقام' : 'Enter 6-digit code'
   };
 
   const handleSubmit = async (e) => {
@@ -104,12 +113,12 @@ const AdminLogin = () => {
     
     try {
       const response = await axios.post(
-        `${API_URL}/api/auth/admin-reset-password`,
+        `${API_URL}/api/auth/verify-otp-reset-password`,
         null,
         {
           params: {
             email: resetData.email,
-            secret_key: resetData.secretKey,
+            otp: resetData.otp,
             new_password: resetData.newPassword
           }
         }
@@ -117,6 +126,7 @@ const AdminLogin = () => {
       
       if (response.data.success) {
         setResetSuccess(true);
+        setResetStep(3);
       } else {
         setResetError(response.data.message || 'Error resetting password');
       }
@@ -127,11 +137,72 @@ const AdminLogin = () => {
     }
   };
 
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    setResetError('');
+    setResetLoading(true);
+    
+    try {
+      const response = await axios.post(
+        `${API_URL}/api/auth/request-password-reset`,
+        null,
+        {
+          params: {
+            email: resetData.email
+          }
+        }
+      );
+      
+      if (response.data.success) {
+        setResetStep(2);
+        // Start countdown for resend (60 seconds)
+        setCountdown(60);
+        setCanResend(false);
+      }
+    } catch (err) {
+      setResetError(err.response?.data?.detail || (isRTL ? 'حدث خطأ في إرسال الرمز' : 'Error sending OTP'));
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  // Countdown effect for resend OTP
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (countdown === 0 && resetStep === 2) {
+      setCanResend(true);
+    }
+  }, [countdown, resetStep]);
+
+  const handleResendOtp = async () => {
+    setResetError('');
+    setResetLoading(true);
+    
+    try {
+      await axios.post(
+        `${API_URL}/api/auth/request-password-reset`,
+        null,
+        { params: { email: resetData.email } }
+      );
+      setCountdown(60);
+      setCanResend(false);
+    } catch (err) {
+      setResetError(err.response?.data?.detail || (isRTL ? 'حدث خطأ' : 'Error'));
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const handleBackToLogin = () => {
     setShowResetForm(false);
     setResetSuccess(false);
     setResetError('');
-    setResetData({ email: '', secretKey: '', newPassword: '', confirmPassword: '' });
+    setResetStep(1);
+    setResetData({ email: '', otp: '', newPassword: '', confirmPassword: '' });
+    setCountdown(0);
+    setCanResend(false);
   };
 
   return (
@@ -173,7 +244,7 @@ const AdminLogin = () => {
                 </Button>
               </div>
             ) : showResetForm ? (
-              /* Reset Password Form */
+              /* Reset Password Form - Multi Step */
               <>
                 {resetError && (
                   <div className="mb-4 p-4 bg-red-500/20 border border-red-500/30 rounded-xl flex items-center gap-3 text-red-200">
@@ -182,105 +253,154 @@ const AdminLogin = () => {
                   </div>
                 )}
                 
-                <form onSubmit={handleResetPassword} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      {t.email}
-                    </label>
-                    <Input
-                      type="email"
-                      value={resetData.email}
-                      onChange={(e) => setResetData({ ...resetData, email: e.target.value })}
-                      required
-                      className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
-                      placeholder="admin@company.com"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      {t.secretKey}
-                    </label>
-                    <div className="relative">
-                      <Input
-                        type={showSecretKey ? 'text' : 'password'}
-                        value={resetData.secretKey}
-                        onChange={(e) => setResetData({ ...resetData, secretKey: e.target.value })}
-                        required
-                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 pr-10"
-                        placeholder="••••••••"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowSecretKey(!showSecretKey)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                      >
-                        {showSecretKey ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </button>
+                {/* Step 1: Enter Email */}
+                {resetStep === 1 && (
+                  <form onSubmit={handleSendOtp} className="space-y-4">
+                    <div className="text-center mb-4">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-amber-500/20 rounded-full mb-3">
+                        <Mail className="h-6 w-6 text-amber-400" />
+                      </div>
+                      <p className="text-slate-300 text-sm">
+                        {isRTL ? 'أدخل بريدك الإلكتروني لإرسال رمز التحقق' : 'Enter your email to receive a verification code'}
+                      </p>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      {t.newPassword}
-                    </label>
-                    <div className="relative">
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        {t.email}
+                      </label>
                       <Input
-                        type={showNewPassword ? 'text' : 'password'}
-                        value={resetData.newPassword}
-                        onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
+                        type="email"
+                        value={resetData.email}
+                        onChange={(e) => setResetData({ ...resetData, email: e.target.value })}
                         required
-                        minLength={6}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 pr-10"
-                        placeholder="••••••••"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
+                        placeholder="admin@company.com"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                      >
-                        {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </button>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      {t.confirmPassword}
-                    </label>
-                    <div className="relative">
+                    
+                    <Button
+                      type="submit"
+                      disabled={resetLoading}
+                      className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white py-6 rounded-xl font-semibold text-lg"
+                    >
+                      {resetLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                      ) : (
+                        <Mail className="h-5 w-5 mr-2" />
+                      )}
+                      {t.sendOtp}
+                    </Button>
+                  </form>
+                )}
+                
+                {/* Step 2: Enter OTP and New Password */}
+                {resetStep === 2 && (
+                  <form onSubmit={handleResetPassword} className="space-y-4">
+                    <div className="text-center mb-4">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-green-500/20 rounded-full mb-3">
+                        <CheckCircle className="h-6 w-6 text-green-400" />
+                      </div>
+                      <p className="text-green-400 text-sm font-medium">{t.otpSent}</p>
+                      <p className="text-slate-400 text-xs mt-1">{resetData.email}</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        {t.enterOtp}
+                      </label>
                       <Input
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        value={resetData.confirmPassword}
-                        onChange={(e) => setResetData({ ...resetData, confirmPassword: e.target.value })}
+                        type="text"
+                        value={resetData.otp}
+                        onChange={(e) => setResetData({ ...resetData, otp: e.target.value.replace(/\D/g, '').slice(0, 6) })}
                         required
-                        minLength={6}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 pr-10"
-                        placeholder="••••••••"
+                        maxLength={6}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 text-center text-2xl tracking-widest font-mono"
+                        placeholder="000000"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                      >
-                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </button>
                     </div>
-                  </div>
-                  
-                  <Button
-                    type="submit"
-                    disabled={resetLoading}
-                    className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white py-6 rounded-xl font-semibold text-lg"
-                  >
-                    {resetLoading ? (
-                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    ) : (
-                      <KeyRound className="h-5 w-5 mr-2" />
-                    )}
-                    {t.resetBtn}
-                  </Button>
-                </form>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        {t.newPassword}
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type={showNewPassword ? 'text' : 'password'}
+                          value={resetData.newPassword}
+                          onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
+                          required
+                          minLength={6}
+                          className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 pr-10"
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                        >
+                          {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        {t.confirmPassword}
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={resetData.confirmPassword}
+                          onChange={(e) => setResetData({ ...resetData, confirmPassword: e.target.value })}
+                          required
+                          minLength={6}
+                          className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 pr-10"
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <Button
+                      type="submit"
+                      disabled={resetLoading || resetData.otp.length !== 6}
+                      className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white py-6 rounded-xl font-semibold text-lg"
+                    >
+                      {resetLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                      ) : (
+                        <KeyRound className="h-5 w-5 mr-2" />
+                      )}
+                      {t.verifyAndReset}
+                    </Button>
+                    
+                    {/* Resend OTP */}
+                    <div className="text-center mt-4">
+                      {canResend ? (
+                        <button
+                          type="button"
+                          onClick={handleResendOtp}
+                          disabled={resetLoading}
+                          className="text-amber-400 hover:text-amber-300 text-sm transition-colors flex items-center justify-center gap-2 mx-auto"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          {t.resendOtp}
+                        </button>
+                      ) : (
+                        <p className="text-slate-500 text-sm">
+                          {t.resendIn} {countdown} {t.seconds}
+                        </p>
+                      )}
+                    </div>
+                  </form>
+                )}
                 
                 <div className="mt-6 text-center">
                   <button
