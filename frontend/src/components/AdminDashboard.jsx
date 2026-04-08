@@ -1603,6 +1603,7 @@ const AdminDashboard = () => {
                     <TableRow>
                       <TableHead>{t.company}</TableHead>
                       <TableHead>{t.email}</TableHead>
+                      <TableHead>{isRTL ? 'الكود' : 'Code'}</TableHead>
                       <TableHead>{t.userCount}</TableHead>
                       <TableHead>{t.plan}</TableHead>
                       <TableHead>{t.status}</TableHead>
@@ -1613,8 +1614,42 @@ const AdminDashboard = () => {
                   <TableBody>
                     {companies.map((company, idx) => (
                       <TableRow key={idx} className={!company.is_active && company.is_active !== undefined ? 'bg-red-50' : ''}>
-                        <TableCell className="font-medium">{company.name}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{company.name}</p>
+                            <p className="text-xs text-gray-400 font-mono" title="Company ID">
+                              {company.id?.substring(0, 8)}...
+                              <button 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(company.id);
+                                  showToastMessage(isRTL ? 'تم نسخ ID' : 'ID copied!', 'success');
+                                }}
+                                className="ml-1 text-blue-500 hover:text-blue-700"
+                              >
+                                📋
+                              </button>
+                            </p>
+                          </div>
+                        </TableCell>
                         <TableCell>{company.contact_email || company.owner_email}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs font-mono">
+                              {company.company_code || '-'}
+                            </code>
+                            {company.company_code && (
+                              <button 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(company.company_code);
+                                  showToastMessage(isRTL ? 'تم نسخ الكود' : 'Code copied!', 'success');
+                                }}
+                                className="text-blue-500 hover:text-blue-700"
+                              >
+                                📋
+                              </button>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <span className="font-medium">{company.active_users || company.user_count}</span>
                           <span className="text-gray-400">/{company.user_count}</span>
