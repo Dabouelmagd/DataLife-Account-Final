@@ -857,12 +857,15 @@ async def request_password_reset(email: str):
     # Generate OTP
     otp = generate_otp()
     
-    # Store OTP with expiration (10 minutes)
-    otp_storage[email] = {
+    # Store OTP in database (instead of memory) with expiration (10 minutes)
+    await db.password_reset_otps.delete_many({"email": email})  # Remove old OTPs
+    await db.password_reset_otps.insert_one({
+        "email": email,
         "otp": otp,
-        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
-        "attempts": 0
-    }
+        "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+        "attempts": 0,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
     
     # Send OTP via email
     try:
@@ -892,26 +895,29 @@ async def verify_otp_and_reset_password(
     
     email = email.lower().strip()
     
-    # Check if OTP exists
-    if email not in otp_storage:
+    # Check if OTP exists in database
+    stored_data = await db.password_reset_otps.find_one({"email": email})
+    if not stored_data:
         raise HTTPException(status_code=400, detail="لم يتم طلب إعادة تعيين كلمة المرور لهذا البريد")
     
-    stored_data = otp_storage[email]
-    
     # Check if OTP is expired
-    if datetime.now(timezone.utc) > stored_data["expires_at"]:
-        del otp_storage[email]
+    expires_at = datetime.fromisoformat(stored_data["expires_at"].replace('Z', '+00:00')) if isinstance(stored_data["expires_at"], str) else stored_data["expires_at"]
+    if datetime.now(timezone.utc) > expires_at:
+        await db.password_reset_otps.delete_one({"email": email})
         raise HTTPException(status_code=400, detail="انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد")
     
     # Check attempts (max 5)
-    if stored_data["attempts"] >= 5:
-        del otp_storage[email]
+    if stored_data.get("attempts", 0) >= 5:
+        await db.password_reset_otps.delete_one({"email": email})
         raise HTTPException(status_code=400, detail="تم تجاوز عدد المحاولات المسموح بها. يرجى طلب رمز جديد")
     
     # Verify OTP
     if stored_data["otp"] != otp:
-        otp_storage[email]["attempts"] += 1
-        remaining = 5 - otp_storage[email]["attempts"]
+        await db.password_reset_otps.update_one(
+            {"email": email},
+            {"$inc": {"attempts": 1}}
+        )
+        remaining = 5 - (stored_data.get("attempts", 0) + 1)
         raise HTTPException(
             status_code=400, 
             detail=f"رمز التحقق غير صحيح. المحاولات المتبقية: {remaining}"
@@ -933,8 +939,8 @@ async def verify_otp_and_reset_password(
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="المستخدم غير موجود")
     
-    # Clear OTP
-    del otp_storage[email]
+    # Clear OTP from database
+    await db.password_reset_otps.delete_one({"email": email})
     
     return {
         "success": True,
