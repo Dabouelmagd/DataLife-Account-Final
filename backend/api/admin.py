@@ -1109,9 +1109,13 @@ async def update_user_permissions(
     
     permissions = request_data.get("permissions", [])
     
-    # Validate permissions
-    valid_permission_ids = ['dashboard', 'hr', 'financial', 'invoices', 'purchases', 
-                           'projects', 'analytics', 'settings', 'users', 'approvals']
+    # Validate permissions - all 19 permissions
+    valid_permission_ids = [
+        'dashboard', 'hr', 'financial', 'invoices', 'purchases', 
+        'projects', 'analytics', 'settings', 'users', 'approvals',
+        'reports', 'inventory', 'admin', 'subscriptions', 'companies',
+        'audit_logs', 'system_settings', 'billing', 'support'
+    ]
     
     for perm in permissions:
         if perm not in valid_permission_ids:
