@@ -19,6 +19,212 @@ db = client[DB_NAME]
 # Admin roles that can access this dashboard
 ADMIN_ROLES = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي']
 
+# All permissions in the system
+ALL_SYSTEM_PERMISSIONS = [
+    'dashboard', 'hr', 'financial', 'invoices', 'purchases', 
+    'projects', 'analytics', 'settings', 'users', 'approvals',
+    'reports', 'inventory', 'admin', 'subscriptions', 'companies',
+    'audit_logs', 'system_settings', 'billing', 'support'
+]
+
+
+@router.post("/fix-all-issues")
+async def fix_all_production_issues(secret_key: str = None):
+    """
+    Master fix endpoint - fixes all common issues in production.
+    Can be called with or without auth (uses secret key for security).
+    """
+    
+    # Verify secret key
+    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
+    if secret_key != INIT_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+    
+    results = {
+        "super_admins_fixed": 0,
+        "companies_fixed": 0,
+        "codes_generated": 0,
+        "users_activated": 0,
+        "permissions_updated": 0,
+        "details": []
+    }
+    
+    try:
+        # 1. Fix Super Admin accounts - give them all permissions
+        super_admin_emails = [
+            "dalia@datalifeai.com",
+            "superadmin@datalife.com",
+            "info@datalifeai.com"
+        ]
+        
+        for email in super_admin_emails:
+            user = await db.users.find_one({"email": email.lower()})
+            if user:
+                await db.users.update_one(
+                    {"email": email.lower()},
+                    {"$set": {
+                        "permissions": ALL_SYSTEM_PERMISSIONS,
+                        "role": "Super Admin" if user.get("role") not in ["Super Admin", "رئيس مجلس الإدارة"] else user.get("role"),
+                        "is_active": True,
+                        "is_platform_admin": True,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+                results["super_admins_fixed"] += 1
+                results["details"].append(f"Fixed Super Admin: {email}")
+        
+        # 2. Fix all companies - ensure they have codes and are active
+        companies = await db.companies.find({}).to_list(length=500)
+        for company in companies:
+            update_data = {}
+            
+            # Generate code if missing
+            if not company.get("company_code"):
+                new_code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+                update_data["company_code"] = new_code
+                results["codes_generated"] += 1
+            
+            # Fix is_active
+            if company.get("is_active") is None:
+                update_data["is_active"] = True
+            
+            if update_data:
+                update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+                await db.companies.update_one(
+                    {"id": company["id"]},
+                    {"$set": update_data}
+                )
+                results["companies_fixed"] += 1
+                results["details"].append(f"Fixed company: {company.get('name')}")
+        
+        # 3. Fix all users - ensure they have proper permissions array
+        users = await db.users.find({}).to_list(length=1000)
+        for user in users:
+            # If user has no permissions, give them default ones
+            if not user.get("permissions") or len(user.get("permissions", [])) == 0:
+                await db.users.update_one(
+                    {"id": user["id"]},
+                    {"$set": {
+                        "permissions": ["dashboard", "settings"],
+                        "is_active": True if user.get("is_active") is None else user.get("is_active")
+                    }}
+                )
+                results["permissions_updated"] += 1
+        
+        # 4. Clean up duplicate subscriptions
+        for company in companies:
+            company_id = company.get("id")
+            # Find active subscription
+            active_sub = await db.subscriptions.find_one(
+                {"company_id": company_id, "status": "active"}
+            )
+            if active_sub:
+                # Delete all other subscriptions
+                await db.subscriptions.delete_many({
+                    "company_id": company_id,
+                    "id": {"$ne": active_sub.get("id")}
+                })
+        
+        # 5. Ensure dalia@datalifeai.com can see ALL companies
+        dalia = await db.users.find_one({"email": "dalia@datalifeai.com"})
+        if dalia:
+            await db.users.update_one(
+                {"email": "dalia@datalifeai.com"},
+                {"$set": {
+                    "is_platform_admin": True,
+                    "can_view_all_companies": True,
+                    "permissions": ALL_SYSTEM_PERMISSIONS
+                }}
+            )
+            results["details"].append("Made dalia@datalifeai.com a full platform admin")
+        
+        results["success"] = True
+        results["message"] = "All issues fixed successfully!"
+        
+    except Exception as e:
+        results["success"] = False
+        results["error"] = str(e)
+    
+    return results
+
+
+@router.get("/diagnostic")
+async def run_diagnostic(secret_key: str = None):
+    """
+    Run a diagnostic check on the system.
+    """
+    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
+    if secret_key != INIT_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+    
+    diagnostic = {
+        "companies": [],
+        "super_admins": [],
+        "subscriptions": [],
+        "issues": []
+    }
+    
+    # Check companies
+    companies = await db.companies.find({}, {"_id": 0}).to_list(length=100)
+    for c in companies:
+        company_info = {
+            "name": c.get("name"),
+            "id": c.get("id"),
+            "code": c.get("company_code", "MISSING!"),
+            "is_active": c.get("is_active"),
+            "email": c.get("contact_email")
+        }
+        diagnostic["companies"].append(company_info)
+        
+        if not c.get("company_code"):
+            diagnostic["issues"].append(f"Company '{c.get('name')}' has no code")
+        if c.get("is_active") is None:
+            diagnostic["issues"].append(f"Company '{c.get('name')}' has null is_active")
+    
+    # Check super admins
+    admins = await db.users.find({
+        "$or": [
+            {"role": "Super Admin"},
+            {"role": "رئيس مجلس الإدارة"},
+            {"email": "dalia@datalifeai.com"},
+            {"email": "superadmin@datalife.com"}
+        ]
+    }, {"_id": 0, "password_hash": 0}).to_list(length=20)
+    
+    for admin in admins:
+        admin_info = {
+            "email": admin.get("email"),
+            "role": admin.get("role"),
+            "permissions_count": len(admin.get("permissions", [])),
+            "is_active": admin.get("is_active"),
+            "is_platform_admin": admin.get("is_platform_admin"),
+            "company_id": admin.get("company_id")
+        }
+        diagnostic["super_admins"].append(admin_info)
+        
+        if len(admin.get("permissions", [])) < 19:
+            diagnostic["issues"].append(f"Admin '{admin.get('email')}' has only {len(admin.get('permissions', []))} permissions (should be 19)")
+    
+    # Check subscriptions
+    subs = await db.subscriptions.find({}, {"_id": 0}).to_list(length=100)
+    for s in subs:
+        sub_info = {
+            "company_id": s.get("company_id"),
+            "plan": s.get("plan"),
+            "status": s.get("status"),
+            "duration": s.get("duration"),
+            "end_date": s.get("end_date")
+        }
+        diagnostic["subscriptions"].append(sub_info)
+    
+    diagnostic["total_companies"] = len(companies)
+    diagnostic["total_subscriptions"] = len(subs)
+    diagnostic["total_issues"] = len(diagnostic["issues"])
+    
+    return diagnostic
+
+
+
 
 # Import audit log function
 async def log_admin_audit(action, entity_type, user_data, **kwargs):
