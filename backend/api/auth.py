@@ -520,7 +520,7 @@ async def update_permissions(
 @router.post("/init-super-admin")
 async def initialize_super_admin(
     secret_key: str,
-    email: str = "superadmin@datalife.com",
+    email: str = "info@datalifeai.com",
     password: str = "SuperAdmin@2024",
     full_name: str = "Super Admin"
 ):

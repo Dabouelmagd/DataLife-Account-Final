@@ -53,7 +53,6 @@ async def fix_all_production_issues(secret_key: str = None):
         # 1. Fix Super Admin accounts - give them all permissions
         super_admin_emails = [
             "dalia@datalifeai.com",
-            "superadmin@datalife.com",
             "info@datalifeai.com"
         ]
         
@@ -187,7 +186,7 @@ async def run_diagnostic(secret_key: str = None):
             {"role": "Super Admin"},
             {"role": "رئيس مجلس الإدارة"},
             {"email": "dalia@datalifeai.com"},
-            {"email": "superadmin@datalife.com"}
+            {"email": "info@datalifeai.com"}
         ]
     }, {"_id": 0, "password_hash": 0}).to_list(length=20)
     

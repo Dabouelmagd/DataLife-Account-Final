@@ -459,6 +459,9 @@ async def get_admin_emails() -> List[str]:
         if settings and settings.get('admin_emails'):
             emails.extend(settings.get('admin_emails'))
         
+        # Filter out invalid/non-existent emails
+        blocked_emails = ['superadmin@datalife.com']
+        emails = [e for e in emails if e and e not in blocked_emails]
         return list(set(emails))  # Remove duplicates
         
     except Exception as e:
