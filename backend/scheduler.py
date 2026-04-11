@@ -237,6 +237,171 @@ async def check_subscription_expiry():
         print(f"[{datetime.now()}] Error checking subscription expiry: {e}")
 
 
+async def check_contract_expiry():
+    """Check for expiring employee contracts and send notifications"""
+    print(f"[{datetime.now()}] Running contract expiry check...")
+    
+    try:
+        client = AsyncIOMotorClient(MONGO_URL)
+        db = client[DB_NAME]
+        
+        now = datetime.now(timezone.utc)
+        expiry_threshold = now + timedelta(days=30)
+        
+        # Find employees with contracts expiring within 30 days
+        employees = await db.employees.find({
+            "contract_end": {"$lte": expiry_threshold.isoformat(), "$gte": now.isoformat()},
+            "is_active": True
+        }, {"_id": 0}).to_list(1000)
+        
+        for emp in employees:
+            company_id = emp.get("company_id")
+            if company_id:
+                # Get admin emails for this company
+                admins = await db.users.find({
+                    "company_id": company_id,
+                    "role": {"$in": ["HR Manager", "General Manager", "CEO", "مدير الموارد البشرية", "مدير عام"]}
+                }, {"email": 1}).to_list(10)
+                
+                admin_emails = [a.get("email") for a in admins if a.get("email")]
+                
+                if admin_emails:
+                    try:
+                        from services.professional_email_service import email_service
+                        contract_end = emp.get("contract_end", "")
+                        days_remaining = (datetime.fromisoformat(contract_end.replace('Z', '+00:00')) - now).days
+                        
+                        for email in admin_emails:
+                            html = email_service.get_contract_expiry_template(
+                                emp.get("name", ""),
+                                contract_end[:10],
+                                days_remaining
+                            ) if hasattr(email_service, 'get_contract_expiry_template') else None
+                            
+                            if html:
+                                await email_service.send_email(
+                                    to_email=email,
+                                    subject=f"تنبيه: انتهاء عقد {emp.get('name', '')} خلال {days_remaining} يوم",
+                                    html_content=html
+                                )
+                    except Exception as e:
+                        print(f"Error sending contract expiry email: {e}")
+        
+        client.close()
+        print(f"[{datetime.now()}] Contract expiry check completed. Found {len(employees)} expiring contracts.")
+        
+    except Exception as e:
+        print(f"[{datetime.now()}] Error checking contract expiry: {e}")
+
+
+async def check_leave_balance():
+    """Check for employees with expiring leave balance"""
+    print(f"[{datetime.now()}] Running leave balance check...")
+    
+    try:
+        client = AsyncIOMotorClient(MONGO_URL)
+        db = client[DB_NAME]
+        
+        now = datetime.now(timezone.utc)
+        
+        # Check if it's near end of year (December)
+        if now.month == 12 and now.day >= 15:
+            # Find employees with remaining annual leave
+            employees = await db.employees.find({
+                "is_active": True,
+                "annual_leave_balance": {"$gt": 5}
+            }, {"_id": 0, "name": 1, "email": 1, "annual_leave_balance": 1, "company_id": 1}).to_list(1000)
+            
+            for emp in employees:
+                if emp.get("email"):
+                    try:
+                        from services.professional_email_service import email_service
+                        
+                        content = f"""
+                        <p>مرحباً {emp.get('name', '')}،</p>
+                        <p>نود تذكيرك بأن رصيد إجازتك السنوية المتبقي هو <strong>{emp.get('annual_leave_balance', 0)}</strong> يوم.</p>
+                        <p>يرجى التنسيق مع مديرك لاستخدام رصيد إجازتك قبل نهاية العام.</p>
+                        """
+                        
+                        html = email_service._get_base_template("تذكير: رصيد الإجازة السنوية", content, "#f59e0b")
+                        
+                        await email_service.send_email(
+                            to_email=emp.get("email"),
+                            subject="تذكير: رصيد إجازتك السنوية",
+                            html_content=html
+                        )
+                    except Exception as e:
+                        print(f"Error sending leave balance email: {e}")
+        
+        client.close()
+        print(f"[{datetime.now()}] Leave balance check completed.")
+        
+    except Exception as e:
+        print(f"[{datetime.now()}] Error checking leave balance: {e}")
+
+
+async def send_payroll_notifications(company_id: str = None):
+    """Send payroll notifications to employees (called after payroll processing)"""
+    print(f"[{datetime.now()}] Sending payroll notifications...")
+    
+    try:
+        client = AsyncIOMotorClient(MONGO_URL)
+        db = client[DB_NAME]
+        
+        from services.professional_email_service import email_service
+        
+        now = datetime.now(timezone.utc)
+        month_name = now.strftime("%B")
+        year = now.year
+        
+        # Arabic month names
+        arabic_months = {
+            "January": "يناير", "February": "فبراير", "March": "مارس",
+            "April": "أبريل", "May": "مايو", "June": "يونيو",
+            "July": "يوليو", "August": "أغسطس", "September": "سبتمبر",
+            "October": "أكتوبر", "November": "نوفمبر", "December": "ديسمبر"
+        }
+        month_ar = arabic_months.get(month_name, month_name)
+        
+        query = {}
+        if company_id:
+            query["company_id"] = company_id
+        
+        # Find recent payroll records
+        payrolls = await db.payroll.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+        
+        sent_count = 0
+        for payroll in payrolls:
+            emp_email = payroll.get("employee_email")
+            if emp_email:
+                html = email_service.get_payslip_email(
+                    employee_name=payroll.get("employee_name", ""),
+                    month=month_ar,
+                    year=str(year),
+                    basic_salary=payroll.get("basic_salary", 0),
+                    allowances=payroll.get("total_allowances", 0),
+                    deductions=payroll.get("total_deductions", 0),
+                    net_salary=payroll.get("net_salary", 0)
+                )
+                
+                success = await email_service.send_email(
+                    to_email=emp_email,
+                    subject=f"كشف راتب - {month_ar} {year}",
+                    html_content=html
+                )
+                
+                if success:
+                    sent_count += 1
+        
+        client.close()
+        print(f"[{datetime.now()}] Payroll notifications sent to {sent_count} employees.")
+        return sent_count
+        
+    except Exception as e:
+        print(f"[{datetime.now()}] Error sending payroll notifications: {e}")
+        return 0
+
+
 def start_scheduler():
     """Start the scheduler with all jobs"""
     
@@ -282,6 +447,24 @@ def start_scheduler():
         CronTrigger(hour=8, minute=0),
         id='subscription_expiry_check',
         name='Subscription Expiry Check',
+        replace_existing=True
+    )
+    
+    # Contract expiry check daily at 7:30 AM (UTC)
+    scheduler.add_job(
+        check_contract_expiry,
+        CronTrigger(hour=7, minute=30),
+        id='contract_expiry_check',
+        name='Contract Expiry Check',
+        replace_existing=True
+    )
+    
+    # Leave balance check on 15th of December at 9 AM (UTC)
+    scheduler.add_job(
+        check_leave_balance,
+        CronTrigger(month=12, day=15, hour=9, minute=0),
+        id='leave_balance_check',
+        name='Leave Balance Reminder',
         replace_existing=True
     )
     

@@ -6,32 +6,37 @@
 
 ## 📋 آخر التحديثات (11 أبريل 2026)
 
-### 🔔 نظام الإشعارات بالبريد الإلكتروني (جديد!)
+### 🔔 نظام الإشعارات بالبريد الإلكتروني (مكتمل!)
 - تم إنشاء خدمة بريد إلكتروني احترافية مع قوالب HTML أنيقة
-- القوالب المتاحة:
-  - ترحيب بالموظف الجديد (welcome)
-  - كشف الراتب (payslip)
-  - الموافقة/رفض الإجازة (leave_approved/leave_rejected)
-  - الفاتورة (invoice)
-  - تنبيه معاملة بنكية (transaction)
-  - تذكير انتهاء الاشتراك (subscription)
-  - إعادة تعيين كلمة المرور (password_reset)
-- API Endpoint: `POST /api/notifications/send-test-email?to_email=...&template_type=...`
-- صفحة إعدادات الإشعارات مُحدَّثة مع اختيار نوع القالب
+- القوالب المتاحة: welcome, payslip, leave_approved, leave_rejected, invoice, transaction, subscription, password_reset
+- API Endpoint: `POST /api/notifications/send-test-email`
+- API لإرسال كشوف الرواتب: `POST /api/notifications/send-payroll-emails`
+
+### ⏰ Scheduler للإشعارات التلقائية (مكتمل!)
+المهام المجدولة:
+| المهمة | التوقيت | الوصف |
+|--------|---------|-------|
+| Contract Expiry Check | يومياً 7:30 AM | فحص انتهاء عقود الموظفين |
+| Subscription Expiry Check | يومياً 8:00 AM | فحص انتهاء اشتراكات الشركات |
+| Daily Audit Report | يومياً 7:00 AM | تقرير التدقيق اليومي |
+| Daily Coupon Check | يومياً 9:00 AM | فحص انتهاء الكوبونات |
+| Weekly Report | الأحد 8:00 AM | تقرير المبيعات الأسبوعي |
+| Monthly Report | 1 من كل شهر 8:00 AM | تقرير المبيعات الشهري |
+| Leave Balance Reminder | 15 ديسمبر 9:00 AM | تذكير رصيد الإجازات |
+
+### 🔧 إعادة هيكلة admin.py (مكتمل!)
+تم تقسيم الملف إلى:
+- `/app/backend/api/admin_common.py` - الأدوات المشتركة والثوابت
+- `/app/backend/api/admin_companies.py` - إدارة الشركات
+- `/app/backend/api/admin_users.py` - إدارة المستخدمين والصلاحيات
+- `/app/backend/api/admin_subscriptions.py` - إدارة الاشتراكات وأكواد التفعيل
 
 ### إصلاحات الترجمة
 - تم إصلاح مشكلة عدم ظهور الترجمة العربية في صفحات الإدارة المالية والموارد البشرية
-- تم إضافة `useLanguage` hook كـ fallback لجميع الصفحات التي تعتمد على `language` prop
-- الصفحات المُصلحة: BankManagementPage, AllowancesPage, DeductionsPage, SalariesPage, وغيرها
+- تم إضافة `useLanguage` hook كـ fallback لجميع الصفحات
 
 ### إصلاحات API Response Handling
 - تم إصلاح خطأ `filter is not a function` في صفحات الموارد البشرية
-- تم تعديل كود fetch ليتعامل مع responses بشكل `{data: [...]}` أو `[...]`
-
-### بنية الكود المُحسَّنة
-- ملف جديد: `/app/backend/services/professional_email_service.py` - خدمة البريد الإلكتروني
-- ملف جديد: `/app/backend/api/notification_events.py` - API الإشعارات
-- ملف جديد: `/app/backend/api/admin_common.py` - الأدوات المشتركة للـ Admin
 
 ---
 

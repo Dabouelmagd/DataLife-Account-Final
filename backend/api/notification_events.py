@@ -360,3 +360,24 @@ async def get_notification_logs(
             "skip": skip
         }
     }
+
+
+@router.post("/send-payroll-emails")
+async def send_payroll_emails(
+    company_id: str = None,
+    background_tasks: BackgroundTasks = None
+):
+    """إرسال كشوف الرواتب للموظفين"""
+    
+    try:
+        from scheduler import send_payroll_notifications
+        
+        if background_tasks:
+            background_tasks.add_task(send_payroll_notifications, company_id)
+            return {"status": "queued", "message": "Payroll emails are being sent in the background"}
+        else:
+            count = await send_payroll_notifications(company_id)
+            return {"status": "success", "emails_sent": count}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send payroll emails: {str(e)}")
