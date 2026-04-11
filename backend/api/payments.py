@@ -721,8 +721,9 @@ async def get_payment_methods():
                 "name_en": "InstaPay",
                 "name_ar": "إنستاباي",
                 "icon": "📱",
-                "description_en": "Pay via InstaPay mobile wallet",
-                "description_ar": "ادفع عبر محفظة إنستاباي",
+                "description_en": "Transfer to: 00201006008552",
+                "description_ar": "حول إلى رقم: 00201006008552",
+                "phone": "00201006008552",
                 "enabled": True,
                 "type": "manual"
             },
@@ -731,8 +732,9 @@ async def get_payment_methods():
                 "name_en": "Vodafone Cash",
                 "name_ar": "فودافون كاش",
                 "icon": "📲",
-                "description_en": "Pay via Vodafone Cash wallet",
-                "description_ar": "ادفع عبر محفظة فودافون كاش",
+                "description_en": "Transfer to: 00201012625529",
+                "description_ar": "حول إلى رقم: 00201012625529",
+                "phone": "00201012625529",
                 "enabled": True,
                 "type": "manual"
             },
