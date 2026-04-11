@@ -17,6 +17,18 @@ const NotificationSettingsPage = ({ language }) => {
   const [testSending, setTestSending] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [logs, setLogs] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('welcome');
+  
+  const emailTemplates = [
+    { id: 'welcome', label: language === 'ar' ? 'ترحيب بالموظف الجديد' : 'Welcome New Employee' },
+    { id: 'payslip', label: language === 'ar' ? 'كشف الراتب' : 'Payslip' },
+    { id: 'leave_approved', label: language === 'ar' ? 'الموافقة على الإجازة' : 'Leave Approved' },
+    { id: 'leave_rejected', label: language === 'ar' ? 'رفض الإجازة' : 'Leave Rejected' },
+    { id: 'invoice', label: language === 'ar' ? 'فاتورة جديدة' : 'New Invoice' },
+    { id: 'transaction', label: language === 'ar' ? 'تنبيه معاملة بنكية' : 'Bank Transaction Alert' },
+    { id: 'subscription', label: language === 'ar' ? 'تذكير انتهاء الاشتراك' : 'Subscription Expiry' },
+    { id: 'password_reset', label: language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Password Reset' },
+  ];
   
   const [settings, setSettings] = useState({
     email_notifications_enabled: true,
@@ -121,34 +133,21 @@ const NotificationSettingsPage = ({ language }) => {
     
     setTestSending(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/notifications/send-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          recipient_email: settings.admin_emails[0],
-          subject: language === 'ar' ? 'رسالة تجريبية - DataLife Account' : 'Test Email - DataLife Account',
-          html_content: `
-            <div style="font-family: Arial, sans-serif; padding: 20px; direction: rtl;">
-              <h2 style="color: #1e3a5f;">${language === 'ar' ? 'تم الاتصال بنجاح!' : 'Connection Successful!'}</h2>
-              <p>${language === 'ar' ? 'تم إعداد إشعارات البريد الإلكتروني بنجاح.' : 'Email notifications have been set up successfully.'}</p>
-              <p style="color: #666;">${language === 'ar' ? 'DataLife Account - نظام إدارة الأعمال' : 'DataLife Account - Business Management System'}</p>
-            </div>
-          `
-        })
-      });
+      const response = await fetch(
+        `${API_URL}/api/notifications/send-test-email?to_email=${encodeURIComponent(settings.admin_emails[0])}&template_type=${selectedTemplate}`,
+        { method: 'POST' }
+      );
       
       if (response.ok) {
-        alert(language === 'ar' ? 'تم إرسال البريد التجريبي بنجاح!' : 'Test email sent successfully!');
+        alert(language === 'ar' ? 'تم إرسال البريد التجريبي بنجاح! ✅' : 'Test email sent successfully! ✅');
         fetchLogs();
       } else {
-        alert(language === 'ar' ? 'فشل إرسال البريد' : 'Failed to send email');
+        const data = await response.json();
+        alert(language === 'ar' ? `فشل إرسال البريد: ${data.detail || 'خطأ غير معروف'}` : `Failed to send email: ${data.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error sending test email:', error);
+      alert(language === 'ar' ? 'حدث خطأ أثناء الإرسال' : 'Error occurred while sending');
     } finally {
       setTestSending(false);
     }
@@ -266,6 +265,24 @@ const NotificationSettingsPage = ({ language }) => {
                   {language === 'ar' ? 'لا يوجد بريد إلكتروني' : 'No emails added'}
                 </p>
               )}
+            </div>
+            
+            {/* Template Selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium dark:text-white">
+                {language === 'ar' ? 'نوع القالب' : 'Template Type'}
+              </label>
+              <select
+                value={selectedTemplate}
+                onChange={(e) => setSelectedTemplate(e.target.value)}
+                className="w-full p-2 border dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg text-sm"
+              >
+                {emailTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.label}
+                  </option>
+                ))}
+              </select>
             </div>
             
             <Button 

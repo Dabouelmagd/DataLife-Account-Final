@@ -51,6 +51,7 @@ from api.project_financials import router as project_financials_router
 from api.coupons import router as coupons_router
 from api.reports import router as reports_router
 from api.audit_log import router as audit_router
+from api.notification_events import router as notification_events_router
 from scheduler import start_scheduler, get_scheduler_status
 
 
@@ -145,6 +146,7 @@ app.include_router(project_financials_router)
 app.include_router(coupons_router)
 app.include_router(reports_router)
 app.include_router(audit_router)
+app.include_router(notification_events_router)
 
 app.add_middleware(
     CORSMiddleware,
