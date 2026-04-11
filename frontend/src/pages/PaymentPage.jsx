@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import axios from 'axios';
 import { 
   CreditCard, Shield, CheckCircle, Loader2, ArrowRight, 
-  Building2, Clock, Users, Star, Zap, Crown, DollarSign, Tag, X
+  Building2, Clock, Users, Star, Zap, Crown, DollarSign, Tag, X, Key, Copy
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -37,6 +37,10 @@ const PaymentPage = () => {
   const [selectedMethod, setSelectedMethod] = useState('stripe');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  
+  // Activation code states
+  const [activationCode, setActivationCode] = useState('');
+  const [activationSuccess, setActivationSuccess] = useState(null);
   
   // Coupon states
   const [couponCode, setCouponCode] = useState('');
@@ -115,7 +119,7 @@ const PaymentPage = () => {
   };
 
   const handlePayment = async () => {
-    if (!selectedPackage) {
+    if (!selectedPackage && selectedMethod !== 'activation_code') {
       toast.error(isRTL ? 'يرجى اختيار باقة' : 'Please select a package');
       return;
     }
@@ -123,6 +127,38 @@ const PaymentPage = () => {
     setProcessing(true);
 
     try {
+      // Handle activation code
+      if (selectedMethod === 'activation_code') {
+        if (!activationCode.trim()) {
+          toast.error(isRTL ? 'يرجى إدخال كود التفعيل' : 'Please enter activation code');
+          setProcessing(false);
+          return;
+        }
+        
+        const response = await axios.post(
+          `${API_URL}/api/subscriptions/redeem-code`,
+          { code: activationCode.trim() },
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        );
+        
+        if (response.data.success) {
+          setActivationSuccess(response.data);
+          toast.success(isRTL ? response.data.message_ar : response.data.message_en);
+        }
+        setProcessing(false);
+        return;
+      }
+      
+      // Handle manual methods (bank transfer, instapay, vodafone cash)
+      if (['bank_transfer', 'instapay', 'vodafone_cash'].includes(selectedMethod)) {
+        toast.info(isRTL 
+          ? 'يرجى إتمام التحويل ثم التواصل معنا لتأكيد الدفع' 
+          : 'Please complete the transfer and contact us to confirm payment'
+        );
+        setProcessing(false);
+        return;
+      }
+
       const originUrl = window.location.origin;
       const requestBody = {
         package_id: selectedPackage,
@@ -141,7 +177,6 @@ const PaymentPage = () => {
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
         
-        // Redirect to Stripe checkout
         if (response.data.url) {
           window.location.href = response.data.url;
         }
@@ -152,14 +187,20 @@ const PaymentPage = () => {
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
         
-        // Redirect to PayPal approval URL
         if (response.data.approval_url) {
           window.location.href = response.data.approval_url;
         }
       }
     } catch (error) {
       console.error('Payment error:', error);
-      toast.error(isRTL ? 'خطأ في إنشاء جلسة الدفع' : 'Error creating checkout session');
+      const detail = error.response?.data?.detail;
+      if (detail && typeof detail === 'object') {
+        toast.error(isRTL ? detail.message_ar : detail.message_en);
+      } else if (typeof detail === 'string') {
+        toast.error(detail);
+      } else {
+        toast.error(isRTL ? 'خطأ في العملية' : 'Error processing request');
+      }
     } finally {
       setProcessing(false);
     }
@@ -357,7 +398,117 @@ const PaymentPage = () => {
           </CardContent>
         </Card>
 
-        {/* Coupon Code Section */}
+        {/* Activation Code Success */}
+        {activationSuccess && (
+          <Card className="mb-8 border-2 border-green-400 bg-green-50">
+            <CardContent className="p-8 text-center">
+              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-green-800 mb-2">
+                {isRTL ? 'تم التفعيل بنجاح!' : 'Activated Successfully!'}
+              </h2>
+              <p className="text-green-700 mb-4">
+                {isRTL ? activationSuccess.message_ar : activationSuccess.message_en}
+              </p>
+              <div className="bg-white rounded-lg p-4 inline-block text-left mb-4">
+                <p className="text-sm text-gray-600">{isRTL ? 'الباقة:' : 'Plan:'} <strong>{activationSuccess.plan}</strong></p>
+                <p className="text-sm text-gray-600">{isRTL ? 'تاريخ الانتهاء:' : 'Expires:'} <strong>{new Date(activationSuccess.end_date).toLocaleDateString(isRTL ? 'ar-EG' : 'en-US')}</strong></p>
+                <p className="text-sm text-green-600 font-bold">{isRTL ? 'المبلغ: 0 ج.م (هدية مجانية)' : 'Amount: $0 (Free Gift)'}</p>
+              </div>
+              <br />
+              <Button onClick={() => navigate('/dashboard')} className="bg-green-600 hover:bg-green-700 text-white">
+                {isRTL ? 'الذهاب للوحة التحكم' : 'Go to Dashboard'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {!activationSuccess && (
+        <>
+        {/* Activation Code Input - shown when activation_code method is selected */}
+        {selectedMethod === 'activation_code' && (
+          <Card className="mb-8 border-2 border-amber-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5 text-amber-600" />
+                {isRTL ? 'أدخل كود التفعيل' : 'Enter Activation Code'}
+              </CardTitle>
+              <CardDescription>
+                {isRTL ? 'أدخل كود التفعيل الذي حصلت عليه. الكود يفعّل الاشتراك مجاناً.' : 'Enter the activation code you received. The code activates your subscription for free.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Input
+                  placeholder={isRTL ? 'مثال: DL-PRO-ABCD1234' : 'e.g. DL-PRO-ABCD1234'}
+                  value={activationCode}
+                  onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
+                  className="flex-1 text-lg font-mono tracking-wider"
+                  data-testid="activation-code-input"
+                  onKeyPress={(e) => e.key === 'Enter' && handlePayment()}
+                />
+              </div>
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-700 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  {isRTL ? 'كود التفعيل = اشتراك مجاني (المبلغ = 0)' : 'Activation Code = Free Subscription (Amount = $0)'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Manual Payment Instructions */}
+        {['bank_transfer', 'instapay', 'vodafone_cash'].includes(selectedMethod) && (
+          <Card className="mb-8 border-2 border-blue-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-700">
+                {selectedMethod === 'bank_transfer' ? '🏦' : selectedMethod === 'instapay' ? '📱' : '📲'}
+                {isRTL ? 'تعليمات الدفع' : 'Payment Instructions'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedMethod === 'instapay' && (
+                <div className="space-y-3">
+                  <p className="text-gray-700">{isRTL ? 'حول المبلغ عبر إنستاباي إلى الرقم:' : 'Transfer via InstaPay to:'}</p>
+                  <div className="bg-gray-50 p-4 rounded-lg flex items-center justify-between">
+                    <span className="font-mono text-xl font-bold">00201006008552</span>
+                    <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText('00201006008552'); toast.success(isRTL ? 'تم النسخ' : 'Copied!'); }}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {selectedMethod === 'vodafone_cash' && (
+                <div className="space-y-3">
+                  <p className="text-gray-700">{isRTL ? 'حول المبلغ عبر فودافون كاش إلى الرقم:' : 'Transfer via Vodafone Cash to:'}</p>
+                  <div className="bg-gray-50 p-4 rounded-lg flex items-center justify-between">
+                    <span className="font-mono text-xl font-bold">00201012625529</span>
+                    <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText('00201012625529'); toast.success(isRTL ? 'تم النسخ' : 'Copied!'); }}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {selectedMethod === 'bank_transfer' && (
+                <div className="space-y-3">
+                  <p className="text-gray-700">{isRTL ? 'حول المبلغ إلى الحساب البنكي التالي:' : 'Transfer to the following bank account:'}</p>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="font-medium">{isRTL ? 'تواصل معنا للحصول على بيانات الحساب البنكي' : 'Contact us for bank account details'}</p>
+                    <p className="text-sm text-gray-500 mt-1">info@datalifeai.com</p>
+                  </div>
+                </div>
+              )}
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-700">
+                  {isRTL ? 'بعد التحويل، تواصل معنا على info@datalifeai.com لتأكيد الدفع وتفعيل اشتراكك.' : 'After transfer, contact us at info@datalifeai.com to confirm payment and activate your subscription.'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Coupon Code Section - only for online methods */}
+        {['stripe', 'paypal'].includes(selectedMethod) && (
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -425,6 +576,7 @@ const PaymentPage = () => {
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* Checkout Button */}
         <div className="flex flex-col items-center gap-4">
@@ -432,12 +584,22 @@ const PaymentPage = () => {
             size="lg" 
             className="w-full max-w-md bg-[#28376B] hover:bg-[#1e2a52] text-white py-6 text-lg"
             onClick={handlePayment}
-            disabled={!selectedPackage || processing}
+            disabled={selectedMethod === 'activation_code' ? (!activationCode.trim() || processing) : (!selectedPackage || processing)}
+            data-testid="proceed-payment-btn"
           >
             {processing ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
                 {t.processing}
+              </>
+            ) : selectedMethod === 'activation_code' ? (
+              <>
+                <Key className="h-5 w-5 mr-2" />
+                {isRTL ? 'تفعيل الكود' : 'Activate Code'}
+              </>
+            ) : ['bank_transfer', 'instapay', 'vodafone_cash'].includes(selectedMethod) ? (
+              <>
+                {isRTL ? 'تم - سأتواصل بعد التحويل' : 'Done - I will contact after transfer'}
               </>
             ) : (
               <>
@@ -452,6 +614,8 @@ const PaymentPage = () => {
             {t.securePayment}
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

@@ -347,3 +347,138 @@ async def validate_activation_code(code: str):
         "duration": activation_code["duration"],
         "discount": activation_code.get("discount_percent", 0)
     }
+
+
+
+@router.post("/redeem-code")
+async def redeem_activation_code(
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Redeem an activation code - creates subscription with amount=0 (free gift)"""
+    code_str = data.get("code", "").strip()
+    if not code_str:
+        raise HTTPException(status_code=400, detail="Activation code is required")
+    
+    user_id = current_user.get("user_id")
+    company_id = current_user.get("company_id")
+    
+    if not company_id:
+        raise HTTPException(status_code=400, detail="User must belong to a company")
+    
+    # Find and validate the activation code
+    activation_code = await db.activation_codes.find_one(
+        {"code": code_str, "is_active": True}
+    )
+    
+    if not activation_code:
+        raise HTTPException(status_code=400, detail={
+            "message_en": "Invalid or inactive activation code",
+            "message_ar": "كود التفعيل غير صالح أو غير نشط"
+        })
+    
+    if activation_code.get("current_uses", 0) >= activation_code.get("max_uses", 1):
+        raise HTTPException(status_code=400, detail={
+            "message_en": "This activation code has been fully used",
+            "message_ar": "تم استخدام كود التفعيل بالكامل"
+        })
+    
+    if activation_code.get("expires_at"):
+        expires = activation_code["expires_at"]
+        if isinstance(expires, str):
+            expires = datetime.fromisoformat(expires.replace('Z', '+00:00'))
+        if datetime.utcnow() > expires.replace(tzinfo=None):
+            raise HTTPException(status_code=400, detail={
+                "message_en": "This activation code has expired",
+                "message_ar": "كود التفعيل منتهي الصلاحية"
+            })
+    
+    plan = activation_code.get("plan", "starter")
+    duration = activation_code.get("duration", "12_months")
+    
+    # Deactivate existing subscriptions for this company
+    await db.subscriptions.update_many(
+        {"company_id": company_id, "status": "active"},
+        {"$set": {"status": "replaced"}}
+    )
+    
+    # Create new subscription with amount=0 (free gift)
+    start_date = datetime.utcnow()
+    end_date = calculate_end_date(start_date, duration)
+    
+    import uuid
+    subscription_id = str(uuid.uuid4())
+    subscription = {
+        "id": subscription_id,
+        "user_id": user_id,
+        "company_id": company_id,
+        "plan": plan,
+        "duration": duration,
+        "status": "active",
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "amount_paid": 0,  # Free gift
+        "payment_method": "activation_code",
+        "activation_code_used": activation_code.get("code"),
+        "created_at": start_date.isoformat()
+    }
+    
+    await db.subscriptions.insert_one(subscription)
+    
+    # Update activation code usage
+    await db.activation_codes.update_one(
+        {"code": code_str},
+        {"$inc": {"current_uses": 1}}
+    )
+    
+    # If max uses reached, deactivate
+    new_uses = activation_code.get("current_uses", 0) + 1
+    if new_uses >= activation_code.get("max_uses", 1):
+        await db.activation_codes.update_one(
+            {"code": code_str},
+            {"$set": {"is_active": False}}
+        )
+    
+    # Update company subscription status
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {
+            "subscription_plan": plan,
+            "subscription_status": "active",
+            "subscription_end_date": end_date.isoformat(),
+            "is_active": True
+        }}
+    )
+    
+    # Activate all users in the company
+    await db.users.update_many(
+        {"company_id": company_id},
+        {"$set": {"is_active": True}}
+    )
+    
+    # Record payment as 0 in subscription_payments
+    await db.subscription_payments.insert_one({
+        "id": f"pay_{secrets.token_hex(8)}",
+        "subscription_id": subscription_id,
+        "company_id": company_id,
+        "amount": 0,
+        "is_paid": True,
+        "payment_method": "activation_code",
+        "payment_date": start_date.isoformat(),
+        "reference_number": code_str,
+        "notes": "Free gift - Activation Code",
+        "created_at": start_date.isoformat()
+    })
+    
+    plan_names = {"starter": "المبتدئ", "professional": "المحترف", "enterprise": "المؤسسي"}
+    
+    return {
+        "success": True,
+        "message_en": f"Subscription activated successfully! Plan: {plan.title()}, Duration: {duration}",
+        "message_ar": f"تم تفعيل الاشتراك بنجاح! الباقة: {plan_names.get(plan, plan)}",
+        "subscription_id": subscription_id,
+        "plan": plan,
+        "duration": duration,
+        "end_date": end_date.isoformat(),
+        "amount": 0
+    }
