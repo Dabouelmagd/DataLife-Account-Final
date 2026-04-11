@@ -4,6 +4,32 @@
 
 ---
 
+## 📋 آخر التحديثات (11 أبريل 2026 - تحديث 4)
+
+### ✅ إشعارات Push للمتصفح (P3 - تم)
+- **Service Worker** (`sw-push.js`) لاستقبال الإشعارات حتى عند إغلاق الموقع
+- **VAPID Keys** مولّدة ومخزّنة في `.env`
+- **أيقونة الجرس** في السايدبار مع badge للإشعارات غير المقروءة
+- **قائمة منسدلة** تعرض الإشعارات مع زر "قراءة الكل" و "تفعيل Push"
+- **حالة Push** تظهر في أسفل القائمة (مفعّل/غير مفعّل)
+
+**Endpoints الجديدة:**
+| Method | Endpoint | الوصف |
+|--------|----------|-------|
+| GET | /api/push/vapid-key | جلب المفتاح العام |
+| POST | /api/push/subscribe | تسجيل الاشتراك في Push |
+| POST | /api/push/unsubscribe | إلغاء الاشتراك |
+| GET | /api/push/notifications | جلب الإشعارات |
+| PUT | /api/push/notifications/read | تعليم الكل كمقروء |
+| POST | /api/push/send-test | إرسال إشعار تجريبي |
+
+**الملفات الجديدة:**
+- `backend/api/push_notifications.py` - API كامل
+- `frontend/public/sw-push.js` - Service Worker
+- `frontend/src/components/NotificationBell.jsx` - مكون الجرس
+
+---
+
 ## 📋 آخر التحديثات (11 أبريل 2026 - تحديث 3)
 
 ### ✅ إصلاحات وتحسينات 11 أبريل 2026 (الجلسة الثالثة)
