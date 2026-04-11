@@ -117,7 +117,7 @@ const AdminDashboard = () => {
     back: isRTL ? 'رجوع' : 'Back',
     overview: isRTL ? 'نظرة عامة' : 'Overview',
     subscriptions: isRTL ? 'الاشتراكات' : 'Subscriptions',
-    transactions: isRTL ? 'المدفوعات' : 'Transactions',
+    transactions: isRTL ? 'المعاملات' : 'Transactions',
     codes: isRTL ? 'أكواد التفعيل' : 'Activation Codes',
     companies: isRTL ? 'الشركات' : 'Companies',
     totalCompanies: isRTL ? 'إجمالي الشركات' : 'Total Companies',
@@ -1348,7 +1348,15 @@ const AdminDashboard = () => {
                       <select
                         className="w-full mt-2 p-2 border rounded-lg dark:bg-slate-800 dark:border-slate-600"
                         value={editingPayment.payment_method || ''}
-                        onChange={(e) => setEditingPayment({...editingPayment, payment_method: e.target.value})}
+                        onChange={(e) => {
+                          const method = e.target.value;
+                          const updates = { payment_method: method };
+                          // Activation code = free gift, amount must be 0
+                          if (method === 'activation_code') {
+                            updates.payment_amount = 0;
+                          }
+                          setEditingPayment({...editingPayment, ...updates});
+                        }}
                       >
                         <option value="">{isRTL ? 'اختر طريقة الدفع' : 'Select method'}</option>
                         {paymentMethods.map(method => (
@@ -1357,6 +1365,20 @@ const AdminDashboard = () => {
                           </option>
                         ))}
                       </select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium">{isRTL ? 'المبلغ' : 'Amount'}</label>
+                      <Input
+                        type="number"
+                        className="mt-2"
+                        value={editingPayment.payment_amount ?? ''}
+                        onChange={(e) => setEditingPayment({...editingPayment, payment_amount: parseFloat(e.target.value) || 0})}
+                        disabled={editingPayment.payment_method === 'activation_code'}
+                      />
+                      {editingPayment.payment_method === 'activation_code' && (
+                        <p className="text-xs text-green-600 mt-1">{isRTL ? 'كود التفعيل = هدية مجانية (المبلغ = 0)' : 'Activation Code = Free Gift (Amount = 0)'}</p>
+                      )}
                     </div>
                     
                     <div>
@@ -1386,7 +1408,8 @@ const AdminDashboard = () => {
                           is_paid: editingPayment.is_paid,
                           payment_method: editingPayment.payment_method,
                           payment_date: editingPayment.payment_date,
-                          reference_number: editingPayment.reference_number
+                          reference_number: editingPayment.reference_number,
+                          amount: editingPayment.payment_method === 'activation_code' ? 0 : editingPayment.payment_amount
                         })}
                       >
                         <Save className="h-4 w-4 mr-2" />

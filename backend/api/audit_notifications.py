@@ -167,6 +167,8 @@ def get_permissions_changed_template(user_name: str, user_email: str,
     permission_labels = {
         'dashboard': 'لوحة التحكم',
         'hr': 'الموارد البشرية',
+        'hr_admin': 'إدارة الموارد البشرية',
+        'hr_financial': 'مالية الموارد البشرية',
         'financial': 'الإدارة المالية',
         'invoices': 'الفواتير',
         'purchases': 'المشتريات',

@@ -21,7 +21,7 @@ ADMIN_ROLES = ['Super Admin', 'مدير النظام', 'General Manager', 'مد�
 
 # All permissions in the system
 ALL_SYSTEM_PERMISSIONS = [
-    'dashboard', 'hr', 'financial', 'invoices', 'purchases', 
+    'dashboard', 'hr', 'hr_admin', 'hr_financial', 'financial', 'invoices', 'purchases', 
     'projects', 'analytics', 'settings', 'users', 'approvals',
     'reports', 'inventory', 'admin', 'subscriptions', 'companies',
     'audit_logs', 'system_settings', 'billing', 'support'
@@ -1163,6 +1163,8 @@ async def get_all_permissions(authorization: Optional[str] = Header(None)):
     ALL_PERMISSIONS = [
         {'id': 'dashboard', 'name_en': 'Dashboard', 'name_ar': 'لوحة التحكم'},
         {'id': 'hr', 'name_en': 'Human Resources', 'name_ar': 'الموارد البشرية'},
+        {'id': 'hr_admin', 'name_en': 'HR Administration', 'name_ar': 'إدارة الموارد البشرية'},
+        {'id': 'hr_financial', 'name_en': 'HR Financial', 'name_ar': 'مالية الموارد البشرية'},
         {'id': 'financial', 'name_en': 'Financial', 'name_ar': 'الإدارة المالية'},
         {'id': 'invoices', 'name_en': 'Invoices', 'name_ar': 'الفواتير'},
         {'id': 'purchases', 'name_en': 'Purchases', 'name_ar': 'المشتريات'},
@@ -1315,9 +1317,9 @@ async def update_user_permissions(
     
     permissions = request_data.get("permissions", [])
     
-    # Validate permissions - all 19 permissions
+    # Validate permissions - all system permissions including HR sub-permissions
     valid_permission_ids = [
-        'dashboard', 'hr', 'financial', 'invoices', 'purchases', 
+        'dashboard', 'hr', 'hr_admin', 'hr_financial', 'financial', 'invoices', 'purchases', 
         'projects', 'analytics', 'settings', 'users', 'approvals',
         'reports', 'inventory', 'admin', 'subscriptions', 'companies',
         'audit_logs', 'system_settings', 'billing', 'support'

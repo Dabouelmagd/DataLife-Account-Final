@@ -132,6 +132,10 @@ class ProfessionalEmailService:
 
     def _create_data_table(self, rows: List[Dict[str, Any]], highlight_last: bool = True) -> str:
         """إنشاء جدول بيانات احترافي"""
+        # Filter out None rows
+        rows = [r for r in rows if r is not None]
+        if not rows:
+            return ''
         html = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 20px 0; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">'
         
         for i, row in enumerate(rows):

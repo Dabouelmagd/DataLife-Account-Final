@@ -36,6 +36,7 @@ class UpdatePaymentStatus(BaseModel):
     payment_method: Optional[str] = None
     payment_date: Optional[str] = None
     reference_number: Optional[str] = None
+    amount: Optional[float] = None
 
 
 # ===========================================
@@ -148,6 +149,14 @@ async def update_subscription_payment(
     # Get or create payment record
     existing_payment = await db.subscription_payments.find_one({"subscription_id": subscription_id})
     
+    # If activation code, force amount to 0 (free gift)
+    if payment_data.payment_method == "activation_code":
+        payment_amount = 0
+    elif payment_data.amount is not None:
+        payment_amount = payment_data.amount
+    else:
+        payment_amount = get_plan_price(subscription.get("plan"), subscription.get("duration"))
+    
     payment_record = {
         "subscription_id": subscription_id,
         "company_id": subscription.get("company_id"),
@@ -155,7 +164,7 @@ async def update_subscription_payment(
         "payment_method": payment_data.payment_method,
         "payment_date": payment_data.payment_date or get_current_timestamp(),
         "reference_number": payment_data.reference_number,
-        "amount": get_plan_price(subscription.get("plan"), subscription.get("duration")),
+        "amount": payment_amount,
         "updated_at": get_current_timestamp(),
         "updated_by": user.get("email")
     }
