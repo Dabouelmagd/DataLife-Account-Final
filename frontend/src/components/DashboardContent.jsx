@@ -114,25 +114,25 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
       title: language === 'ar' ? 'إضافة موظف' : 'Add Employee',
       icon: Users,
       color: moduleColors.hr,
-      action: () => onNavigate('hr', 'salaries')
+      action: () => onNavigate?.('hr', 'salaries')
     },
     {
       title: language === 'ar' ? 'قيد جديد' : 'New Entry',
       icon: FileText,
       color: moduleColors.financial,
-      action: () => onNavigate('financial', 'journal-entries')
+      action: () => onNavigate?.('financial', 'journal-entries')
     },
     {
       title: language === 'ar' ? 'فاتورة جديدة' : 'New Invoice',
       icon: Receipt,
       color: moduleColors.invoices,
-      action: () => onNavigate('invoices', 'invoices')
+      action: () => onNavigate?.('invoices', 'invoices')
     },
     {
       title: language === 'ar' ? 'تقارير' : 'Reports',
       icon: BarChart3,
       color: moduleColors.projects,
-      action: () => onNavigate('reports')
+      action: () => onNavigate?.('reports')
     }
   ];
 
@@ -247,7 +247,7 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
             <Card 
               key={card.id}
               className={`group relative overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer ${card.color.light}`}
-              onClick={() => onNavigate(card.module)}
+              onClick={() => onNavigate?.(card.module)}
               data-testid={`stat-card-${card.id}`}
             >
               {/* Gradient accent line */}
@@ -434,7 +434,7 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
         {/* HR Module */}
         <Card 
           className="group relative overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
-          onClick={() => onNavigate('hr', 'hr-overview')}
+          onClick={() => onNavigate?.('hr', 'hr-overview')}
           data-testid="module-card-hr"
         >
           <div className={`absolute inset-0 bg-gradient-to-br ${moduleColors.hr.gradient} opacity-5 group-hover:opacity-10 transition-opacity`}></div>
@@ -459,7 +459,7 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
         {/* Financial Module */}
         <Card 
           className="group relative overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
-          onClick={() => onNavigate('financial', 'financial-overview')}
+          onClick={() => onNavigate?.('financial', 'financial-overview')}
           data-testid="module-card-financial"
         >
           <div className={`absolute inset-0 bg-gradient-to-br ${moduleColors.financial.gradient} opacity-5 group-hover:opacity-10 transition-opacity`}></div>
@@ -484,7 +484,7 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
         {/* Invoices Module */}
         <Card 
           className="group relative overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
-          onClick={() => onNavigate('invoices', 'invoices')}
+          onClick={() => onNavigate?.('invoices', 'invoices')}
           data-testid="module-card-invoices"
         >
           <div className={`absolute inset-0 bg-gradient-to-br ${moduleColors.invoices.gradient} opacity-5 group-hover:opacity-10 transition-opacity`}></div>

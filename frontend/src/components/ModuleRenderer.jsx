@@ -229,7 +229,21 @@ const ModuleRenderer = ({
 }) => {
   // Dashboard Module
   if (activeModule === 'dashboard') {
-    return <DashboardContent language={language} stats={stats} />;
+    // Create onNavigate handler for dashboard quick actions
+    const handleDashboardNavigate = (module, subModule) => {
+      if (module === 'hr') {
+        setActiveHRSubModule(subModule || 'overview');
+      } else if (module === 'financial') {
+        setActiveFinancialSubModule(subModule || 'overview');
+      } else if (module === 'invoices') {
+        setActiveInvoiceSubModule(subModule || 'overview');
+      }
+      // Navigate to the module (this will be handled by parent component)
+      if (navigate) {
+        navigate(`/dashboard?module=${module}`);
+      }
+    };
+    return <DashboardContent language={language} stats={stats} onNavigate={handleDashboardNavigate} />;
   }
 
   // HR Module

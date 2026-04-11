@@ -19,8 +19,10 @@ const HROverviewContent = ({
   stats, 
   employees, 
   onAddEmployee, 
-  onViewProfile, 
-  onEditEmployee 
+  onViewProfile,
+  onViewEmployee,
+  onEditEmployee,
+  onNavigate
 }) => {
   // HR Module color theme (Cyan)
   const colors = {
@@ -83,25 +85,25 @@ const HROverviewContent = ({
       title: language === 'ar' ? 'إضافة موظف' : 'Add Employee',
       icon: Users,
       color: 'bg-cyan-500 hover:bg-cyan-600',
-      action: onAddEmployee
+      action: onAddEmployee || (() => onNavigate?.('employees'))
     },
     {
       title: language === 'ar' ? 'كشف الرواتب' : 'Payroll',
       icon: DollarSign,
       color: 'bg-emerald-500 hover:bg-emerald-600',
-      action: () => {}
+      action: () => onNavigate?.('payroll')
     },
     {
       title: language === 'ar' ? 'الحضور' : 'Attendance',
       icon: Clock,
       color: 'bg-amber-500 hover:bg-amber-600',
-      action: () => {}
+      action: () => onNavigate?.('attendance')
     },
     {
       title: language === 'ar' ? 'التقارير' : 'Reports',
       icon: ChartLineUp,
       color: 'bg-violet-500 hover:bg-violet-600',
-      action: () => {}
+      action: () => onNavigate?.('reports')
     }
   ];
 
@@ -271,17 +273,17 @@ const HROverviewContent = ({
                               <AvatarImage src={employee.photo_url} />
                             ) : null}
                             <AvatarFallback className="bg-cyan-100 text-cyan-700 font-semibold">
-                              {employee.employee_name?.split(' ').map(n => n[0]).join('') || 'NA'}
+                              {(employee.name || employee.employee_name || '')?.split(' ').map(n => n[0]).join('') || 'NA'}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium text-slate-900 dark:text-white">{employee.employee_name || 'N/A'}</p>
-                            <p className="text-xs text-slate-500">{employee.employee_id || ''}</p>
+                            <p className="font-medium text-slate-900 dark:text-white">{employee.name || employee.employee_name || 'N/A'}</p>
+                            <p className="text-xs text-slate-500">{employee.employee_id || employee.id || ''}</p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="text-slate-700 dark:text-slate-300">{employee.job_title || 'N/A'}</span>
+                        <span className="text-slate-700 dark:text-slate-300">{employee.position || employee.job_title || 'N/A'}</span>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="bg-slate-100 dark:bg-slate-800">
@@ -299,7 +301,7 @@ const HROverviewContent = ({
                             size="sm" 
                             variant="ghost"
                             className="h-8 w-8 p-0 text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50"
-                            onClick={() => onViewProfile(employee.id || employee.employee_id)}
+                            onClick={() => (onViewProfile || onViewEmployee)?.(employee.id || employee.employee_id)}
                             title={language === 'ar' ? 'عرض الملف' : 'View Profile'}
                           >
                             <Eye className="h-4 w-4" />

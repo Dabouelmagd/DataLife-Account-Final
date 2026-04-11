@@ -56,8 +56,9 @@ export const getAvailableModules = (user, language) => {
   // Full access roles
   const hasFullAccess = hasAnyRole(role, ['TOP_MANAGEMENT', 'SUPER_ADMIN']);
   
-  // HR Module
-  if (hasFullAccess || hasRole(role, 'HR_ONLY') || hasRole(role, 'FINANCIAL_MANAGER') || permissions.includes('hr')) {
+  // HR Module - check hr, hr_admin, or hr_financial
+  if (hasFullAccess || hasRole(role, 'HR_ONLY') || hasRole(role, 'FINANCIAL_MANAGER') || 
+      permissions.includes('hr') || permissions.includes('hr_admin') || permissions.includes('hr_financial')) {
     modules.push({
       id: 'hr',
       name: isArabic ? 'الموارد البشرية' : 'Human Resources',
@@ -108,7 +109,7 @@ export const getAvailableModules = (user, language) => {
   }
 
   // Analytics Module
-  if (hasFullAccess || permissions.includes('analytics')) {
+  if (hasFullAccess || permissions.includes('analytics') || permissions.includes('reports')) {
     modules.push({
       id: 'analytics',
       name: isArabic ? 'التحليلات والتقارير' : 'Analytics & Reports',
@@ -126,7 +127,7 @@ export const getAvailableModules = (user, language) => {
   }
 
   // Import Data Module
-  if (hasFullAccess || permissions.includes('settings')) {
+  if (hasFullAccess || permissions.includes('settings') || permissions.includes('admin')) {
     modules.push({
       id: 'import',
       name: isArabic ? 'استيراد البيانات' : 'Import Data',
