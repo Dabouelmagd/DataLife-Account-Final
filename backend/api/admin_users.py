@@ -263,6 +263,8 @@ async def get_all_permissions(authorization: Optional[str] = Header(None)):
     permissions = [
         {"id": "dashboard", "name": "Dashboard", "name_ar": "لوحة التحكم"},
         {"id": "hr", "name": "Human Resources", "name_ar": "الموارد البشرية"},
+        {"id": "hr_admin", "name": "HR Admin", "name_ar": "إداري الموارد البشرية"},
+        {"id": "hr_financial", "name": "HR Financial", "name_ar": "مالي الموارد البشرية"},
         {"id": "financial", "name": "Financial Management", "name_ar": "الإدارة المالية"},
         {"id": "invoices", "name": "Invoices", "name_ar": "الفواتير"},
         {"id": "purchases", "name": "Purchases", "name_ar": "المشتريات"},

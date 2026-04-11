@@ -22,7 +22,7 @@ ADMIN_ROLES = ['Super Admin', 'مدير النظام', 'General Manager', 'مد�
 
 # All permissions in the system
 ALL_SYSTEM_PERMISSIONS = [
-    'dashboard', 'hr', 'financial', 'invoices', 'purchases', 
+    'dashboard', 'hr', 'hr_admin', 'hr_financial', 'financial', 'invoices', 'purchases', 
     'projects', 'analytics', 'settings', 'users', 'approvals',
     'reports', 'inventory', 'admin', 'subscriptions', 'companies',
     'audit_logs', 'system_settings', 'billing', 'support'
