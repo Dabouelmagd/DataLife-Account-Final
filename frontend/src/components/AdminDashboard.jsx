@@ -295,10 +295,20 @@ const AdminDashboard = () => {
           const paymentsRes = await axios.get(`${API_URL}/api/admin/payments/subscriptions?status=${paymentFilter}&search=${paymentSearch}`, config);
           setPaymentsData(paymentsRes.data);
           
-          const methodsRes = await axios.get(`${API_URL}/api/admin/payments/methods`, config);
-          setPaymentMethods(methodsRes.data);
+          // Get payment methods from admin API
+          const methodsRes = await axios.get(`${API_URL}/api/admin/payments/methods`);
+          setPaymentMethods(methodsRes.data || []);
         } catch (e) {
           console.error('Error fetching payments:', e);
+          // Set default payment methods if API fails
+          setPaymentMethods([
+            { id: 'cash', name: 'Cash', name_ar: 'نقدي', icon: '💵' },
+            { id: 'credit_card', name: 'Credit Card', name_ar: 'بطاقة ائتمان', icon: '💳' },
+            { id: 'bank_transfer', name: 'Bank Transfer', name_ar: 'تحويل بنكي', icon: '🏦' },
+            { id: 'instapay', name: 'InstaPay', name_ar: 'إنستاباي', icon: '📱' },
+            { id: 'vodafone_cash', name: 'Vodafone Cash', name_ar: 'فودافون كاش', icon: '📲' },
+            { id: 'activation_code', name: 'Activation Code', name_ar: 'كود تفعيل', icon: '🔑' },
+          ]);
         }
         setLoadingPayments(false);
       }
@@ -702,13 +712,13 @@ const AdminDashboard = () => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       await axios.put(`${API_URL}/api/admin/payments/subscriptions/${subscriptionId}/payment`, paymentData, config);
-      showToast(isRTL ? 'تم تحديث حالة الدفع بنجاح' : 'Payment status updated', 'success');
+      showToastMessage(isRTL ? 'تم تحديث حالة الدفع بنجاح' : 'Payment status updated', 'success');
       setEditingPayment(null);
       // Refresh payments data
       const paymentsRes = await axios.get(`${API_URL}/api/admin/payments/subscriptions?status=${paymentFilter}&search=${paymentSearch}`, config);
       setPaymentsData(paymentsRes.data);
     } catch (error) {
-      showToast(isRTL ? 'فشل تحديث حالة الدفع' : 'Failed to update payment', 'error');
+      showToastMessage(isRTL ? 'فشل تحديث حالة الدفع' : 'Failed to update payment', 'error');
     }
   };
 
