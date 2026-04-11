@@ -6,9 +6,19 @@ import { Badge } from './ui/badge';
 import { 
   Bell, X, Check, CheckCheck, Trash2, AlertCircle, 
   CheckCircle, XCircle, Package, DollarSign, Calendar,
-  UserPlus, FileText, Settings
+  UserPlus, FileText, Settings, BellRing
 } from 'lucide-react';
 import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
+const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY;
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+}
 
 const NotificationCenter = () => {
   const { token, user } = useAuth();
@@ -19,10 +29,11 @@ const NotificationCenter = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushSupported, setPushSupported] = useState(false);
   const dropdownRef = useRef(null);
-  const wsRef = useRef(null);
 
-  const API_URL = process.env.REACT_APP_BACKEND_URL;
+  const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
 
   const t = {
     notifications: isRTL ? 'الإشعارات' : 'Notifications',
@@ -61,9 +72,11 @@ const NotificationCenter = () => {
 
   useEffect(() => {
     fetchNotifications();
-    setupWebSocket();
+    checkPushSupport();
     
-    // Click outside to close
+    // Poll every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
@@ -73,39 +86,47 @@ const NotificationCenter = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      clearInterval(interval);
     };
   }, []);
 
-  const setupWebSocket = () => {
-    if (!user?.id) return;
-    
-    try {
-      const wsUrl = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
-      wsRef.current = new WebSocket(`${wsUrl}/api/notifications/ws/${user.id}`);
-      
-      wsRef.current.onmessage = (event) => {
-        const notification = JSON.parse(event.data);
-        setNotifications(prev => [notification, ...prev]);
-        setUnreadCount(prev => prev + 1);
-        
-        // Play sound or show browser notification
-        if (Notification.permission === 'granted') {
-          new Notification(isRTL ? notification.title_ar : notification.title_en, {
-            body: isRTL ? notification.message_ar : notification.message_en,
-            icon: '/logo192.png'
-          });
+  const checkPushSupport = async () => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      setPushSupported(true);
+      try {
+        const reg = await navigator.serviceWorker.getRegistration('/sw-push.js');
+        if (reg) {
+          const sub = await reg.pushManager.getSubscription();
+          setPushEnabled(!!sub);
         }
+      } catch (e) {
+        // silent
+      }
+    }
+  };
+
+  const subscribePush = async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw-push.js');
+      await navigator.serviceWorker.ready;
+      
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+      
+      const keys = {
+        p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))),
+        auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth'))))
       };
       
-      wsRef.current.onclose = () => {
-        // Reconnect after 5 seconds
-        setTimeout(setupWebSocket, 5000);
-      };
-    } catch (error) {
-      // WebSocket not available
+      await axios.post(`${API_URL}/api/push/subscribe`, { endpoint: subscription.endpoint, keys }, config);
+      setPushEnabled(true);
+      
+      // Send test notification
+      await axios.post(`${API_URL}/api/push/send-test`, {}, config);
+    } catch (e) {
+      console.error('Push subscription error:', e);
     }
   };
 
@@ -114,12 +135,9 @@ const NotificationCenter = () => {
     
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${API_URL}/api/notifications/`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await axios.get(`${API_URL}/api/push/notifications?limit=15`, config);
       setNotifications(response.data.notifications || []);
-      setUnreadCount(response.data.unread_count || 0);
+      setUnreadCount(response.data.unread || 0);
     } catch (error) {
       // Error fetching notifications
     } finally {
@@ -129,60 +147,26 @@ const NotificationCenter = () => {
 
   const markAsRead = async (notificationId) => {
     try {
-      await axios.put(
-        `${API_URL}/api/notifications/${notificationId}/read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-      );
+      await axios.put(`${API_URL}/api/push/notifications/${notificationId}/read`, {}, config);
+      setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      // Error marking as read
-    }
+    } catch (error) {}
   };
 
   const markAllAsRead = async () => {
     try {
-      await axios.put(
-        `${API_URL}/api/notifications/read-all`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
+      await axios.put(`${API_URL}/api/push/notifications/read`, {}, config);
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
-    } catch (error) {
-      // Error
-    }
+    } catch (error) {}
   };
 
   const deleteNotification = async (notificationId) => {
-    try {
-      await axios.delete(
-        `${API_URL}/api/notifications/${notificationId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-    } catch (error) {
-      // Error
-    }
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
   };
 
   const clearAllRead = async () => {
-    try {
-      await axios.delete(
-        `${API_URL}/api/notifications/clear-all`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      setNotifications(prev => prev.filter(n => !n.read));
-    } catch (error) {
-      // Error
-    }
+    setNotifications(prev => prev.filter(n => !n.read));
   };
 
   const formatTime = (dateStr) => {
@@ -284,14 +268,14 @@ const NotificationCenter = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <p className="font-medium text-sm text-gray-900">
-                            {isRTL ? notification.title_ar : notification.title_en}
+                            {notification.title || (isRTL ? notification.title_ar : notification.title_en)}
                           </p>
                           {!notification.read && (
                             <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5"></span>
                           )}
                         </div>
                         <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
-                          {isRTL ? notification.message_ar : notification.message_en}
+                          {notification.body || (isRTL ? notification.message_ar : notification.message_en)}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
                           {formatTime(notification.created_at)}
@@ -314,6 +298,29 @@ const NotificationCenter = () => {
               })
             )}
           </div>
+          
+          {/* Push Status Footer */}
+          {pushSupported && (
+            <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className={`w-2 h-2 rounded-full ${pushEnabled ? 'bg-green-400' : 'bg-gray-300'}`} />
+                {pushEnabled 
+                  ? (isRTL ? 'إشعارات Push مفعّلة' : 'Push enabled')
+                  : (isRTL ? 'إشعارات Push غير مفعّلة' : 'Push disabled')
+                }
+              </div>
+              {!pushEnabled && (
+                <button
+                  onClick={subscribePush}
+                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
+                  data-testid="enable-push-btn"
+                >
+                  <BellRing className="h-3 w-3" />
+                  {isRTL ? 'تفعيل' : 'Enable'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

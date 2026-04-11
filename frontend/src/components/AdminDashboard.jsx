@@ -18,6 +18,7 @@ import {
 import axios from 'axios';
 import CompanyLogo from './CompanyLogo';
 import AuditLogPage from '../pages/AuditLogPage';
+import NotificationBell from './NotificationBell';
 
 const AdminDashboard = () => {
   const { token, user, logout } = useAuth();
@@ -795,6 +796,7 @@ const AdminDashboard = () => {
               <p className="font-medium text-sm truncate">{user?.full_name || 'Admin'}</p>
               <Badge className="bg-red-500/20 text-red-300 text-xs">Super Admin</Badge>
             </div>
+            <NotificationBell />
           </div>
         </div>
 
