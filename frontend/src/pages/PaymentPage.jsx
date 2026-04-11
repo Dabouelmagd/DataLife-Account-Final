@@ -327,8 +327,12 @@ const PaymentPage = () => {
                   <div className="flex items-center gap-3 flex-1">
                     {method.id === 'stripe' ? (
                       <CreditCard className="h-6 w-6 text-[#28376B]" />
-                    ) : (
+                    ) : method.id === 'paypal' ? (
                       <PayPalIcon />
+                    ) : method.icon && method.icon.length <= 2 ? (
+                      <span className="text-2xl">{method.icon}</span>
+                    ) : (
+                      <CreditCard className="h-6 w-6 text-[#28376B]" />
                     )}
                     <div>
                       <Label htmlFor={method.id} className="font-medium cursor-pointer">
@@ -337,6 +341,9 @@ const PaymentPage = () => {
                       <p className="text-sm text-gray-500">
                         {isRTL ? method.description_ar : method.description_en}
                       </p>
+                      {method.type === 'manual' && (
+                        <span className="text-xs text-amber-600">{isRTL ? '(يتطلب تأكيد يدوي)' : '(Requires manual confirmation)'}</span>
+                      )}
                     </div>
                   </div>
                   {(method.test_mode || method.sandbox_mode) && (

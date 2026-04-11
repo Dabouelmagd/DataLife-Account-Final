@@ -692,7 +692,8 @@ async def get_payment_methods():
                 "icon": "credit-card",
                 "description_en": "Pay securely with Visa, MasterCard, or Amex",
                 "description_ar": "ادفع بأمان باستخدام Visa أو MasterCard أو Amex",
-                "enabled": True
+                "enabled": True,
+                "type": "online"
             },
             {
                 "id": "paypal",
@@ -702,7 +703,48 @@ async def get_payment_methods():
                 "description_en": "Pay with your PayPal account",
                 "description_ar": "ادفع باستخدام حساب PayPal الخاص بك",
                 "enabled": True,
-                "sandbox_mode": True
+                "sandbox_mode": True,
+                "type": "online"
+            },
+            {
+                "id": "bank_transfer",
+                "name_en": "Bank Transfer",
+                "name_ar": "تحويل بنكي",
+                "icon": "🏦",
+                "description_en": "Transfer to our bank account",
+                "description_ar": "حول إلى حسابنا البنكي",
+                "enabled": True,
+                "type": "manual"
+            },
+            {
+                "id": "instapay",
+                "name_en": "InstaPay",
+                "name_ar": "إنستاباي",
+                "icon": "📱",
+                "description_en": "Pay via InstaPay mobile wallet",
+                "description_ar": "ادفع عبر محفظة إنستاباي",
+                "enabled": True,
+                "type": "manual"
+            },
+            {
+                "id": "vodafone_cash",
+                "name_en": "Vodafone Cash",
+                "name_ar": "فودافون كاش",
+                "icon": "📲",
+                "description_en": "Pay via Vodafone Cash wallet",
+                "description_ar": "ادفع عبر محفظة فودافون كاش",
+                "enabled": True,
+                "type": "manual"
+            },
+            {
+                "id": "activation_code",
+                "name_en": "Activation Code",
+                "name_ar": "كود تفعيل",
+                "icon": "🔑",
+                "description_en": "Use an activation code",
+                "description_ar": "استخدم كود تفعيل",
+                "enabled": True,
+                "type": "code"
             }
         ]
     }
