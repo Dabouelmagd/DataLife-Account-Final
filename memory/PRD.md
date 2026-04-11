@@ -4,6 +4,38 @@
 
 ---
 
+## 📋 آخر التحديثات (11 أبريل 2026 - تحديث 3)
+
+### ✅ إصلاحات وتحسينات 11 أبريل 2026 (الجلسة الثالثة)
+
+#### 1. كود التفعيل في بوابة الدفع (P1 - تم)
+- إضافة endpoint جديد: `POST /api/subscriptions/redeem-code`
+- المستخدم يدخل كود التفعيل → النظام يتحقق → يُنشئ اشتراك بمبلغ = 0 (هدية مجانية)
+- واجهة جديدة في `PaymentPage.jsx` لإدخال كود التفعيل
+- دعم طرق الدفع اليدوية (InstaPay, Vodafone Cash, Bank Transfer) مع تعليمات
+
+#### 2. إعادة هيكلة admin.py (P2 - تم)
+- **تقليص من 1946 سطر → 470 سطر (76% تقليص)**
+- حذف جميع الـ routes المكررة
+- Routes المتبقية في admin.py: dashboard, diagnostic, fix-all, transactions, notifications, sync, audit-logs, system-overview
+- تحديث ترتيب التسجيل في server.py: الملفات المنفصلة أولاً
+
+#### 3. إزالة superadmin@datalife.com
+- حذف من جميع الملفات (admin.py, auth.py)
+- إضافة فلتر في get_admin_emails() لحظر هذا الإيميل
+
+### البنية بعد الهيكلة:
+| الملف | الأسطر | المسؤولية |
+|-------|--------|----------|
+| admin.py | 470 | Dashboard, Diagnostics, Transactions, Notifications, Audit |
+| admin_common.py | 143 | أدوات مشتركة |
+| admin_companies.py | 338 | إدارة الشركات |
+| admin_users.py | 287 | إدارة المستخدمين والصلاحيات |
+| admin_subscriptions.py | 386 | الاشتراكات وأكواد التفعيل |
+| admin_payments.py | 342 | المدفوعات |
+
+---
+
 ## 📋 آخر التحديثات (11 أبريل 2026 - تحديث 2)
 
 ### ✅ إصلاحات 11 أبريل 2026 (الجلسة الثانية)
