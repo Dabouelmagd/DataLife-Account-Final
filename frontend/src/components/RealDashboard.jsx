@@ -82,24 +82,48 @@ const RealDashboard = () => {
         axios.get(`${API_URL}/api/financial/journal-entries`, config).catch(() => ({ data: [] }))
       ]);
       
-      setEmployees(employeesRes.data);
+      // Helper to safely extract array data from API responses
+      const safeArray = (res) => {
+        if (Array.isArray(res?.data)) return res.data;
+        if (Array.isArray(res)) return res;
+        if (res?.data?.data && Array.isArray(res.data.data)) return res.data.data;
+        return [];
+      };
+
+      const employeesData = safeArray(employeesRes);
+      const allowancesData = safeArray(allowances);
+      const deductionsData = safeArray(deductions);
+      const customersData = safeArray(customers);
+      const suppliersData = safeArray(suppliers);
+      const entriesData = safeArray(journalEntries);
+
+      setEmployees(employeesData);
       
-      const revenue = journalEntries.data
-        .filter(entry => entry.type === 'credit')
-        .reduce((sum, entry) => sum + (entry.amount || 0), 0);
-      const expenses = journalEntries.data
-        .filter(entry => entry.type === 'debit')
-        .reduce((sum, entry) => sum + (entry.amount || 0), 0);
+      // Calculate revenue and expenses from journal entry lines
+      let revenue = 0;
+      let expenses = 0;
+      entriesData.forEach(entry => {
+        if (entry.lines && Array.isArray(entry.lines)) {
+          entry.lines.forEach(line => {
+            revenue += line.credit || 0;
+            expenses += line.debit || 0;
+          });
+        } else {
+          // Fallback for simple entries
+          if (entry.type === 'credit') revenue += entry.amount || 0;
+          if (entry.type === 'debit') expenses += entry.amount || 0;
+        }
+      });
 
       setStats({
-        totalEmployees: employeesRes.data.length,
-        totalAllowances: allowances.data.reduce((sum, a) => sum + (a.amount || 0), 0),
-        totalDeductions: deductions.data.reduce((sum, d) => sum + (d.amount || 0), 0),
-        totalCustomers: customers.data.length,
-        totalSuppliers: suppliers.data.length,
+        totalEmployees: employeesData.length,
+        totalAllowances: allowancesData.reduce((sum, a) => sum + (a.amount || 0), 0),
+        totalDeductions: deductionsData.reduce((sum, d) => sum + (d.amount || 0), 0),
+        totalCustomers: customersData.length,
+        totalSuppliers: suppliersData.length,
         monthlyRevenue: revenue,
         monthlyExpenses: expenses,
-        activeProjects: customers.data.length + suppliers.data.length
+        activeProjects: customersData.length + suppliersData.length
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
