@@ -14,8 +14,11 @@ import {
 import { 
   ArrowUp, Money, Clock as ClockIcon, Gift, CurrencyDollar
 } from '@phosphor-icons/react';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const AllowancesPage = ({ language }) => {
+const AllowancesPage = ({ language: propLanguage }) => {
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage || 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;
   
   const [allowances, setAllowances] = useState([]);
@@ -62,7 +65,9 @@ const AllowancesPage = ({ language }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle both array and {data: [...]} responses
+        const data = Array.isArray(result) ? result : (result.data || []);
         setAllowances(data);
       }
     } catch (error) {

@@ -6,8 +6,11 @@ import {
   CheckCircle, AlertTriangle, Loader2, ArrowRight,
   Wallet, Users, FileText, Bell
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const BankSettingsPage = ({ language }) => {
+const BankSettingsPage = ({ language: propLanguage }) => {
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage || 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;
   const isRTL = language === 'ar';
   

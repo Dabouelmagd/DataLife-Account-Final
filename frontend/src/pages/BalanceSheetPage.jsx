@@ -8,8 +8,11 @@ import {
   ChevronDown, ChevronRight, CheckCircle, AlertCircle
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const BalanceSheetPage = ({ language }) => {
+const BalanceSheetPage = ({ language: propLanguage }) => {
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage || 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;
   const isRTL = language === 'ar';
   

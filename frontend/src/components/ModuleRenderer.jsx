@@ -121,21 +121,21 @@ export const renderHRContent = ({
 
   // HR Sub-modules
   const hrSubModuleMap = {
-    'employees': <PayrollPage />,
-    'payroll': <PayrollPage />,
-    'salaries': <SalariesPage />,
-    'allowances': <AllowancesPage />,
-    'deductions': <DeductionsPage />,
-    'attendance': <AttendancePage />,
-    'shifts': <ShiftsManagementPage />,
-    'casual-leave': <CasualLeavePage />,
-    'annual-leave': <AnnualLeavePage />,
-    'termination': <TerminationPage />,
-    'reports': <HRComprehensiveReportsPage />,
-    'hr-settings': <HRSettingsPage />
+    'employees': <PayrollPage language={language} />,
+    'payroll': <PayrollPage language={language} />,
+    'salaries': <SalariesPage language={language} />,
+    'allowances': <AllowancesPage language={language} />,
+    'deductions': <DeductionsPage language={language} />,
+    'attendance': <AttendancePage language={language} />,
+    'shifts': <ShiftsManagementPage language={language} />,
+    'casual-leave': <CasualLeavePage language={language} />,
+    'annual-leave': <AnnualLeavePage language={language} />,
+    'termination': <TerminationPage language={language} />,
+    'reports': <HRComprehensiveReportsPage language={language} />,
+    'hr-settings': <HRSettingsPage language={language} />
   };
 
-  return hrSubModuleMap[activeHRSubModule] || <PayrollPage />;
+  return hrSubModuleMap[activeHRSubModule] || <PayrollPage language={language} />;
 };
 
 /**
@@ -160,21 +160,21 @@ export const renderFinancialContent = ({
 
   // Financial Sub-modules
   const financialSubModuleMap = {
-    'journal-entries': <JournalEntriesPage />,
-    'general-ledger': <GeneralLedgerPage />,
-    'parties': <PartiesPage />,
-    'products': <ProductsPage />,
-    'currencies': <CurrenciesPage />,
-    'inventory': <InventoryPage />,
-    'bank': <BankManagementPage />,
-    'bank-settings': <BankSettingsPage />,
-    'trial-balance': <TrialBalancePage />,
-    'income-statement': <IncomeStatementPage />,
-    'balance-sheet': <BalanceSheetPage />,
-    'reports': <FinancialReportsPage />
+    'journal-entries': <JournalEntriesPage language={language} />,
+    'general-ledger': <GeneralLedgerPage language={language} />,
+    'parties': <PartiesPage language={language} />,
+    'products': <ProductsPage language={language} />,
+    'currencies': <CurrenciesPage language={language} />,
+    'inventory': <InventoryPage language={language} />,
+    'bank': <BankManagementPage language={language} />,
+    'bank-settings': <BankSettingsPage language={language} />,
+    'trial-balance': <TrialBalancePage language={language} />,
+    'income-statement': <IncomeStatementPage language={language} />,
+    'balance-sheet': <BalanceSheetPage language={language} />,
+    'reports': <FinancialReportsPage language={language} />
   };
 
-  return financialSubModuleMap[activeFinancialSubModule] || <JournalEntriesPage />;
+  return financialSubModuleMap[activeFinancialSubModule] || <JournalEntriesPage language={language} />;
 };
 
 /**
@@ -201,12 +201,12 @@ export const renderInvoiceContent = ({
 
   // Invoice Sub-modules
   const invoiceSubModuleMap = {
-    'invoices': <InvoicesPage />,
-    'reports': <InvoiceReportsPage />,
-    'eta-settings': <ETASettingsPage />
+    'invoices': <InvoicesPage language={language} />,
+    'reports': <InvoiceReportsPage language={language} />,
+    'eta-settings': <ETASettingsPage language={language} />
   };
 
-  return invoiceSubModuleMap[activeInvoiceSubModule] || <InvoicesPage />;
+  return invoiceSubModuleMap[activeInvoiceSubModule] || <InvoicesPage language={language} />;
 };
 
 /**
@@ -269,14 +269,14 @@ const ModuleRenderer = ({
   const simpleModuleMap = {
     'analytics': <AnalyticsModule language={language} />,
     'system-reports': <SystemReportsPage language={language} />,
-    'report-management': <ReportManagementPage />,
-    'customer-portal-mgmt': <CustomerPortalManagement />,
-    'purchases': <PurchasesModule />,
-    'approvals': <ApprovalsModule />,
-    'attendance-mgmt': <AttendanceManagement />,
-    'projects': <ProjectsModule />,
-    'documents': <DocumentsModule />,
-    'settings': <CompanySettings />,
+    'report-management': <ReportManagementPage language={language} />,
+    'customer-portal-mgmt': <CustomerPortalManagement language={language} />,
+    'purchases': <PurchasesModule language={language} />,
+    'approvals': <ApprovalsModule language={language} />,
+    'attendance-mgmt': <AttendanceManagement language={language} />,
+    'projects': <ProjectsModule language={language} />,
+    'documents': <DocumentsModule language={language} />,
+    'settings': <CompanySettings language={language} />,
     'import': <ImportDataPage language={language} />,
     'admin-dashboard': <AdminDashboardPage language={language} />,
     'super-admin': <SuperAdminDashboard language={language} />,

@@ -13,8 +13,11 @@ import {
 import { 
   Clock as ClockIcon, Sun as SunIcon, Moon as MoonIcon, CalendarBlank
 } from '@phosphor-icons/react';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const ShiftsManagementPage = ({ language }) => {
+const ShiftsManagementPage = ({ language: propLanguage }) => {
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage || 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;
   
   const [shifts, setShifts] = useState([]);

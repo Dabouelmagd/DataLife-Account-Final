@@ -7,8 +7,11 @@ import {
   Scale, TrendingUp, TrendingDown, CheckCircle, AlertCircle,
   ChevronDown, ChevronRight, FolderOpen, FileText
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const TrialBalancePage = ({ language }) => {
+const TrialBalancePage = ({ language: propLanguage }) => {
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage || 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;
   const isRTL = language === 'ar';
   

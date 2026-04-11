@@ -8,8 +8,11 @@ import {
   TrendingUp, TrendingDown, Wallet, CheckCircle, AlertCircle, Calendar,
   BookOpen, Link2
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const BankManagementPage = ({ language }) => {
+const BankManagementPage = ({ language: propLanguage }) => {
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage || 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;
   const isRTL = language === 'ar';
   

@@ -17,9 +17,12 @@ import {
   CalendarCheck, ClockCountdown, CheckCircle as CheckIcon,
   Warning, HourglassMedium
 } from '@phosphor-icons/react';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const CasualLeavePage = ({ language }) => {
+const CasualLeavePage = ({ language: propLanguage }) => {
   const isRTL = language === 'ar';
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage || 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;
   
   const [leaves, setLeaves] = useState([]);

@@ -23,8 +23,11 @@ import {
   PieChart, Pie, Cell, Legend, LineChart, Line, Area, AreaChart
 } from 'recharts';
 import html2pdf from 'html2pdf.js';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const HRComprehensiveReportsPage = ({ language }) => {
+const HRComprehensiveReportsPage = ({ language: propLanguage }) => {
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage || 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;
   const isRTL = language === 'ar';
   const reportRef = useRef(null);

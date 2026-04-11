@@ -4,6 +4,19 @@
 
 ---
 
+## 📋 آخر التحديثات (11 أبريل 2026)
+
+### إصلاحات الترجمة
+- تم إصلاح مشكلة عدم ظهور الترجمة العربية في صفحات الإدارة المالية والموارد البشرية
+- تم إضافة `useLanguage` hook كـ fallback لجميع الصفحات التي تعتمد على `language` prop
+- الصفحات المُصلحة: BankManagementPage, AllowancesPage, DeductionsPage, SalariesPage, وغيرها
+
+### إصلاحات API Response Handling
+- تم إصلاح خطأ `filter is not a function` في صفحات الموارد البشرية
+- تم تعديل كود fetch ليتعامل مع responses بشكل `{data: [...]}` أو `[...]`
+
+---
+
 ## 📋 نظرة عامة
 
 ### وصف المشروع
