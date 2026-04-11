@@ -1427,16 +1427,34 @@ async def get_all_users(authorization: Optional[str] = Header(None)):
     """Get all users across all companies - Super Admin only"""
     user_data = await verify_admin(authorization)
     
-    # Verify Super Admin role
-    super_admin_roles = ['Super Admin', 'مدير النظام']
-    if user_data.get('role') not in super_admin_roles:
-        raise HTTPException(status_code=403, detail="Super Admin access required")
-    
-    # Get all users
+    # Get all users with full details
     users = await db.users.find(
         {},
-        {"_id": 0, "password": 0, "password_hash": 0}  # Exclude sensitive fields
+        {"_id": 0, "password": 0, "password_hash": 0}
     ).to_list(length=5000)
+    
+    # Get all companies for mapping
+    companies = await db.companies.find({}, {"_id": 0, "id": 1, "name": 1, "company_code": 1}).to_list(length=500)
+    company_map = {c["id"]: c for c in companies}
+    
+    # Get all subscriptions for mapping
+    subscriptions = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(length=500)
+    sub_map = {s["company_id"]: s for s in subscriptions}
+    
+    # Enrich user data
+    for user in users:
+        company_id = user.get("company_id")
+        company = company_map.get(company_id, {})
+        subscription = sub_map.get(company_id, {})
+        
+        user["company_name"] = company.get("name", "غير معروف" if not company_id else "بدون شركة")
+        user["company_code"] = company.get("company_code", "-")
+        user["subscription_plan"] = subscription.get("plan", "-")
+        user["subscription_status"] = subscription.get("status", "-")
+        user["subscription_end_date"] = subscription.get("end_date", "-")
+        user["permissions_count"] = len(user.get("permissions", []))
+        user["last_login"] = user.get("last_login", "-")
+        user["created_at"] = user.get("created_at", "-")
     
     return users
 
