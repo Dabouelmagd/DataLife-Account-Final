@@ -6,37 +6,46 @@
 
 ## 📋 آخر التحديثات (11 أبريل 2026)
 
-### 🔔 نظام الإشعارات بالبريد الإلكتروني (مكتمل!)
-- تم إنشاء خدمة بريد إلكتروني احترافية مع قوالب HTML أنيقة
-- القوالب المتاحة: welcome, payslip, leave_approved, leave_rejected, invoice, transaction, subscription, password_reset
-- API Endpoint: `POST /api/notifications/send-test-email`
-- API لإرسال كشوف الرواتب: `POST /api/notifications/send-payroll-emails`
+### 💳 قسم المدفوعات في السوبر أدمن (جديد!)
+تم إضافة تاب جديد "Payments" في لوحة تحكم السوبر أدمن يتضمن:
+- **إحصائيات سريعة:** إجمالي الاشتراكات، المدفوع، غير المدفوع، إجمالي الإيرادات
+- **فلاتر:** الكل، مدفوع، غير مدفوع
+- **بحث:** بالاسم أو الإيميل أو الكود
+- **جدول تفصيلي:** الشركة، الكود، الخطة، المدة، المبلغ، الحالة، طريقة الدفع، تاريخ الدفع
+- **تعديل حالة الدفع:** Modal لتحديث حالة الدفع مع اختيار طريقة الدفع
 
-### ⏰ Scheduler للإشعارات التلقائية (مكتمل!)
-المهام المجدولة:
-| المهمة | التوقيت | الوصف |
-|--------|---------|-------|
-| Contract Expiry Check | يومياً 7:30 AM | فحص انتهاء عقود الموظفين |
-| Subscription Expiry Check | يومياً 8:00 AM | فحص انتهاء اشتراكات الشركات |
-| Daily Audit Report | يومياً 7:00 AM | تقرير التدقيق اليومي |
-| Daily Coupon Check | يومياً 9:00 AM | فحص انتهاء الكوبونات |
-| Weekly Report | الأحد 8:00 AM | تقرير المبيعات الأسبوعي |
-| Monthly Report | 1 من كل شهر 8:00 AM | تقرير المبيعات الشهري |
-| Leave Balance Reminder | 15 ديسمبر 9:00 AM | تذكير رصيد الإجازات |
+**طرق الدفع المتاحة:**
+| الطريقة | الأيقونة |
+|---------|----------|
+| نقدي (Cash) | 💵 |
+| بطاقة ائتمان (Credit Card) | 💳 |
+| تحويل بنكي (Bank Transfer) | 🏦 |
+| دفع إلكتروني (Online) | 💻 |
+| شيك (Check) | 📝 |
+| إنستاباي (InstaPay) | 📱 |
+| فودافون كاش (Vodafone Cash) | 📲 |
 
-### 🔧 إعادة هيكلة admin.py (مكتمل!)
-تم تقسيم الملف إلى:
-- `/app/backend/api/admin_common.py` - الأدوات المشتركة والثوابت
-- `/app/backend/api/admin_companies.py` - إدارة الشركات
-- `/app/backend/api/admin_users.py` - إدارة المستخدمين والصلاحيات
-- `/app/backend/api/admin_subscriptions.py` - إدارة الاشتراكات وأكواد التفعيل
+### 📧 قوالب البريد الإلكتروني (أزرق موحد)
+- تم تحديث جميع قوالب البريد الإلكتروني لاستخدام اللون الأزرق (#1e40af) بشكل موحد
 
-### إصلاحات الترجمة
-- تم إصلاح مشكلة عدم ظهور الترجمة العربية في صفحات الإدارة المالية والموارد البشرية
-- تم إضافة `useLanguage` hook كـ fallback لجميع الصفحات
+### 🔔 نظام الإشعارات بالبريد الإلكتروني
+- القوالب المتاحة: welcome, payslip, leave_approved, invoice, transaction, subscription, password_reset
+- API: `POST /api/notifications/send-test-email`
+- إرسال كشوف الرواتب: `POST /api/notifications/send-payroll-emails`
 
-### إصلاحات API Response Handling
-- تم إصلاح خطأ `filter is not a function` في صفحات الموارد البشرية
+### ⏰ Scheduler للإشعارات التلقائية
+| المهمة | التوقيت |
+|--------|---------|
+| فحص انتهاء العقود | يومياً 7:30 AM |
+| فحص انتهاء الاشتراكات | يومياً 8:00 AM |
+| تذكير رصيد الإجازات | 15 ديسمبر |
+
+### 🔧 إعادة هيكلة admin.py
+- `admin_common.py` - الأدوات المشتركة
+- `admin_companies.py` - إدارة الشركات
+- `admin_users.py` - إدارة المستخدمين
+- `admin_subscriptions.py` - إدارة الاشتراكات
+- `admin_payments.py` - إدارة المدفوعات
 
 ---
 

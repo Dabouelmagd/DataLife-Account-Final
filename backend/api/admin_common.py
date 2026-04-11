@@ -46,10 +46,35 @@ async def verify_admin(authorization: str) -> dict:
     
     token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
     
-    # Check in users collection
+    # Try to decode JWT token
+    try:
+        import jwt
+        secret_key = os.environ.get('JWT_SECRET_KEY', os.environ.get('SECRET_KEY', 'your-secret-key'))
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        user_id = payload.get("user_id")
+        
+        if user_id:
+            user = await db.users.find_one({"id": user_id})
+            if user:
+                # Check if user has admin role or is platform admin
+                is_admin = (
+                    user.get("role") in ADMIN_ROLES or 
+                    user.get("is_platform_admin") == True or
+                    "admin" in user.get("permissions", [])
+                )
+                
+                if not is_admin:
+                    raise HTTPException(status_code=403, detail="Admin access required")
+                
+                return user
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except Exception as e:
+        pass
+    
+    # Fallback: Check in users collection by id or token
     user = await db.users.find_one({"id": token})
     if not user:
-        # Try finding by token
         user = await db.users.find_one({"token": token})
     
     if not user:

@@ -78,6 +78,14 @@ const AdminDashboard = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
   
+  // Payments tab
+  const [paymentsData, setPaymentsData] = useState({ subscriptions: [], summary: {} });
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [paymentFilter, setPaymentFilter] = useState('all');
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [editingPayment, setEditingPayment] = useState(null);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  
   // Subscription search
   const [subscriptionSearchQuery, setSubscriptionSearchQuery] = useState('');
   const [filteredSubscriptions, setFilteredSubscriptions] = useState([]);
@@ -279,6 +287,20 @@ const AdminDashboard = () => {
           // Update local state to reflect read status
           setContactMessages(prev => prev.map(m => ({ ...m, read: true })));
         }
+      }
+      
+      if (activeTab === 'payments') {
+        setLoadingPayments(true);
+        try {
+          const paymentsRes = await axios.get(`${API_URL}/api/admin/payments/subscriptions?status=${paymentFilter}&search=${paymentSearch}`, config);
+          setPaymentsData(paymentsRes.data);
+          
+          const methodsRes = await axios.get(`${API_URL}/api/admin/payments/methods`, config);
+          setPaymentMethods(methodsRes.data);
+        } catch (e) {
+          console.error('Error fetching payments:', e);
+        }
+        setLoadingPayments(false);
       }
     } catch (error) {
       // Error fetching data
@@ -675,9 +697,32 @@ const AdminDashboard = () => {
     setSubscriptionSearchQuery('');
   }, [subscriptions]);
 
+  // Update payment status
+  const handleUpdatePayment = async (subscriptionId, paymentData) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.put(`${API_URL}/api/admin/payments/subscriptions/${subscriptionId}/payment`, paymentData, config);
+      showToast(isRTL ? 'تم تحديث حالة الدفع بنجاح' : 'Payment status updated', 'success');
+      setEditingPayment(null);
+      // Refresh payments data
+      const paymentsRes = await axios.get(`${API_URL}/api/admin/payments/subscriptions?status=${paymentFilter}&search=${paymentSearch}`, config);
+      setPaymentsData(paymentsRes.data);
+    } catch (error) {
+      showToast(isRTL ? 'فشل تحديث حالة الدفع' : 'Failed to update payment', 'error');
+    }
+  };
+
+  // Refresh payments when filter changes
+  useEffect(() => {
+    if (activeTab === 'payments') {
+      fetchData();
+    }
+  }, [paymentFilter, paymentSearch]);
+
   const tabs = [
     { id: 'overview', label: t.overview, icon: BarChart3 },
     { id: 'subscriptions', label: t.subscriptions, icon: CreditCard },
+    { id: 'payments', label: isRTL ? 'المدفوعات' : 'Payments', icon: DollarSign },
     { id: 'transactions', label: t.transactions, icon: DollarSign },
     { id: 'codes', label: t.codes, icon: Gift },
     { id: 'companies', label: t.companies, icon: Building2 },
@@ -1084,6 +1129,268 @@ const AdminDashboard = () => {
               </Table>
             </CardContent>
           </Card>
+        )}
+
+        {/* Payments Tab */}
+        {activeTab === 'payments' && (
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm opacity-80">{isRTL ? 'إجمالي الاشتراكات' : 'Total Subscriptions'}</p>
+                      <p className="text-2xl font-bold">{paymentsData.summary?.total || 0}</p>
+                    </div>
+                    <CreditCard className="h-10 w-10 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm opacity-80">{isRTL ? 'المدفوع' : 'Paid'}</p>
+                      <p className="text-2xl font-bold">{paymentsData.summary?.paid || 0}</p>
+                    </div>
+                    <CheckCircle className="h-10 w-10 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm opacity-80">{isRTL ? 'غير مدفوع' : 'Unpaid'}</p>
+                      <p className="text-2xl font-bold">{paymentsData.summary?.unpaid || 0}</p>
+                    </div>
+                    <Clock className="h-10 w-10 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm opacity-80">{isRTL ? 'إجمالي الإيرادات' : 'Total Revenue'}</p>
+                      <p className="text-2xl font-bold">{formatCurrency(paymentsData.summary?.total_revenue || 0)}</p>
+                    </div>
+                    <DollarSign className="h-10 w-10 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Filters */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-wrap gap-4 items-center">
+                  <div className="flex gap-2">
+                    <Button
+                      variant={paymentFilter === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPaymentFilter('all')}
+                    >
+                      {isRTL ? 'الكل' : 'All'}
+                    </Button>
+                    <Button
+                      variant={paymentFilter === 'paid' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPaymentFilter('paid')}
+                      className="bg-green-500 hover:bg-green-600"
+                    >
+                      {isRTL ? 'مدفوع' : 'Paid'}
+                    </Button>
+                    <Button
+                      variant={paymentFilter === 'unpaid' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPaymentFilter('unpaid')}
+                      className="bg-amber-500 hover:bg-amber-600"
+                    >
+                      {isRTL ? 'غير مدفوع' : 'Unpaid'}
+                    </Button>
+                  </div>
+                  
+                  <Input
+                    placeholder={isRTL ? 'بحث بالاسم أو الإيميل أو الكود...' : 'Search by name, email or code...'}
+                    value={paymentSearch}
+                    onChange={(e) => setPaymentSearch(e.target.value)}
+                    className="max-w-xs"
+                  />
+                  
+                  <Button variant="outline" size="sm" onClick={fetchData}>
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Payments Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{isRTL ? 'سجل المدفوعات' : 'Payment Records'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingPayments ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{isRTL ? 'الشركة' : 'Company'}</TableHead>
+                        <TableHead>{isRTL ? 'الكود' : 'Code'}</TableHead>
+                        <TableHead>{isRTL ? 'الخطة' : 'Plan'}</TableHead>
+                        <TableHead>{isRTL ? 'المدة' : 'Duration'}</TableHead>
+                        <TableHead>{isRTL ? 'المبلغ' : 'Amount'}</TableHead>
+                        <TableHead>{isRTL ? 'الحالة' : 'Status'}</TableHead>
+                        <TableHead>{isRTL ? 'طريقة الدفع' : 'Method'}</TableHead>
+                        <TableHead>{isRTL ? 'تاريخ الدفع' : 'Payment Date'}</TableHead>
+                        <TableHead>{isRTL ? 'إجراءات' : 'Actions'}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paymentsData.subscriptions?.map((sub) => (
+                        <TableRow key={sub.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{sub.company_name}</p>
+                              <p className="text-xs text-gray-500">{sub.company_email}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-mono text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                              {sub.company_code || '-'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{planNames[sub.plan] || sub.plan}</Badge>
+                          </TableCell>
+                          <TableCell>{durationNames[sub.duration] || sub.duration}</TableCell>
+                          <TableCell className="font-medium">{formatCurrency(sub.payment_amount)}</TableCell>
+                          <TableCell>
+                            <Badge className={sub.is_paid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>
+                              {sub.is_paid ? (isRTL ? '✅ مدفوع' : '✅ Paid') : (isRTL ? '⏳ غير مدفوع' : '⏳ Unpaid')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {sub.payment_method ? (
+                              <span className="flex items-center gap-1">
+                                {paymentMethods.find(m => m.id === sub.payment_method)?.icon || '💳'}
+                                {paymentMethods.find(m => m.id === sub.payment_method)?.[isRTL ? 'name_ar' : 'name'] || sub.payment_method}
+                              </span>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>{sub.payment_date ? formatDate(sub.payment_date) : '-'}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingPayment(sub)}
+                            >
+                              {isRTL ? 'تعديل' : 'Edit'}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+            
+            {/* Edit Payment Modal */}
+            {editingPayment && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <Card className="w-full max-w-md m-4">
+                  <CardHeader>
+                    <CardTitle>{isRTL ? 'تعديل حالة الدفع' : 'Edit Payment Status'}</CardTitle>
+                    <CardDescription>{editingPayment.company_name}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">{isRTL ? 'حالة الدفع' : 'Payment Status'}</label>
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          variant={editingPayment.is_paid ? 'default' : 'outline'}
+                          className={editingPayment.is_paid ? 'bg-green-500' : ''}
+                          onClick={() => setEditingPayment({...editingPayment, is_paid: true})}
+                        >
+                          {isRTL ? 'مدفوع' : 'Paid'}
+                        </Button>
+                        <Button
+                          variant={!editingPayment.is_paid ? 'default' : 'outline'}
+                          className={!editingPayment.is_paid ? 'bg-amber-500' : ''}
+                          onClick={() => setEditingPayment({...editingPayment, is_paid: false})}
+                        >
+                          {isRTL ? 'غير مدفوع' : 'Unpaid'}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium">{isRTL ? 'طريقة الدفع' : 'Payment Method'}</label>
+                      <select
+                        className="w-full mt-2 p-2 border rounded-lg dark:bg-slate-800 dark:border-slate-600"
+                        value={editingPayment.payment_method || ''}
+                        onChange={(e) => setEditingPayment({...editingPayment, payment_method: e.target.value})}
+                      >
+                        <option value="">{isRTL ? 'اختر طريقة الدفع' : 'Select method'}</option>
+                        {paymentMethods.map(method => (
+                          <option key={method.id} value={method.id}>
+                            {method.icon} {isRTL ? method.name_ar : method.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium">{isRTL ? 'تاريخ الدفع' : 'Payment Date'}</label>
+                      <Input
+                        type="date"
+                        className="mt-2"
+                        value={editingPayment.payment_date?.slice(0, 10) || ''}
+                        onChange={(e) => setEditingPayment({...editingPayment, payment_date: e.target.value})}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium">{isRTL ? 'رقم المرجع' : 'Reference Number'}</label>
+                      <Input
+                        className="mt-2"
+                        placeholder={isRTL ? 'رقم الإيصال أو التحويل' : 'Receipt or transfer number'}
+                        value={editingPayment.reference_number || ''}
+                        onChange={(e) => setEditingPayment({...editingPayment, reference_number: e.target.value})}
+                      />
+                    </div>
+                    
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        className="flex-1"
+                        onClick={() => handleUpdatePayment(editingPayment.id, {
+                          is_paid: editingPayment.is_paid,
+                          payment_method: editingPayment.payment_method,
+                          payment_date: editingPayment.payment_date,
+                          reference_number: editingPayment.reference_number
+                        })}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        {isRTL ? 'حفظ' : 'Save'}
+                      </Button>
+                      <Button variant="outline" onClick={() => setEditingPayment(null)}>
+                        {isRTL ? 'إلغاء' : 'Cancel'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Transactions Tab */}

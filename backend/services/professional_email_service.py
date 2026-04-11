@@ -30,7 +30,9 @@ class ProfessionalEmailService:
         self.company_logo = "https://datalifeaccount.com/logo.png"
     
     def _get_base_template(self, title: str, content: str, accent_color: str = "#1e40af") -> str:
-        """قالب البريد الإلكتروني الأساسي الاحترافي"""
+        """قالب البريد الإلكتروني الأساسي الاحترافي - اللون الأزرق"""
+        # Always use blue theme
+        accent_color = "#1e40af"
         return f'''
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
