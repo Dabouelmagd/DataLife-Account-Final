@@ -254,6 +254,7 @@ async def get_payment_methods():
         {"id": "check", "name": "Check", "name_ar": "شيك", "icon": "📝"},
         {"id": "instapay", "name": "InstaPay", "name_ar": "إنستاباي", "icon": "📱"},
         {"id": "vodafone_cash", "name": "Vodafone Cash", "name_ar": "فودافون كاش", "icon": "📲"},
+        {"id": "activation_code", "name": "Activation Code", "name_ar": "كود تفعيل", "icon": "🔑"},
     ]
 
 
