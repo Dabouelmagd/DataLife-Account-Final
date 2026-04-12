@@ -89,7 +89,7 @@ const HRComprehensiveReportsPage = ({ language: propLanguage }) => {
       if (response.ok) {
         const data = await response.json();
         // Handle both array and object with employees property
-        const employeesList = Array.isArray(data) ? data : (data.employees || []);
+        const employeesList = Array.isArray(data) ? data : (data.data || data.employees || []);
         setEmployees(employeesList);
       }
     } catch (error) {

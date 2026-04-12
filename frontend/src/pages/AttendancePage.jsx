@@ -264,7 +264,7 @@ const AttendancePage = ({ language = 'ar' }) => {
       const response = await fetch(`${API_URL}/api/employees`, { headers: getAuthHeader() });
       if (response.ok) {
         const data = await response.json();
-        setEmployees(data.employees || []);
+        setEmployees(Array.isArray(data) ? data : (data.data || data.employees || []));
       }
     } catch (error) {
       console.error('Error:', error);

@@ -88,7 +88,7 @@ const AdminDashboardPage = ({ language }) => {
       // Process employees
       if (employeesRes?.ok) {
         const data = await employeesRes.json();
-        const employees = data.employees || data || [];
+        const employees = Array.isArray(data) ? data : (data.data || data.employees || []);
         const active = employees.filter(e => e.is_active !== false);
         setStats(prev => ({
           ...prev,

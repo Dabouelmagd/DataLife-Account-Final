@@ -20,9 +20,9 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 
 const CasualLeavePage = ({ language: propLanguage }) => {
-  const isRTL = language === 'ar';
   const { language: contextLanguage } = useLanguage();
   const language = propLanguage || contextLanguage || 'ar';
+  const isRTL = language === 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;
   
   const [leaves, setLeaves] = useState([]);
@@ -82,7 +82,7 @@ const CasualLeavePage = ({ language: propLanguage }) => {
       });
       if (response.ok) {
         const data = await response.json();
-        setEmployees(data);
+        setEmployees(Array.isArray(data) ? data : (data.data || data.employees || []));
       }
     } catch (error) {
       console.error('Error fetching employees:', error);

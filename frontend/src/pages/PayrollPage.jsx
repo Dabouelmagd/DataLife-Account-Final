@@ -208,7 +208,7 @@ export default function PayrollPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      setEmployees(data || []);
+      setEmployees(Array.isArray(data) ? data : (data.data || data.employees || []));
     } catch (error) {
       console.error('Error fetching employees:', error);
     }
