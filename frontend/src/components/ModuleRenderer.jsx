@@ -121,7 +121,6 @@ export const renderHRContent = ({
 
   // HR Sub-modules
   const hrSubModuleMap = {
-    'employees': <PayrollPage language={language} />,
     'payroll': <PayrollPage language={language} />,
     'salaries': <SalariesPage language={language} />,
     'allowances': <AllowancesPage language={language} />,
@@ -135,7 +134,7 @@ export const renderHRContent = ({
     'hr-settings': <HRSettingsPage language={language} />
   };
 
-  return hrSubModuleMap[activeHRSubModule] || <PayrollPage language={language} />;
+  return hrSubModuleMap[activeHRSubModule] || null;
 };
 
 /**
