@@ -4,6 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
 import { Building2, User, Key, Globe, Users, ClipboardList, Shield } from 'lucide-react';
 import axios from 'axios';
+import ImageCropper from './ImageCropper';
 
 // Import refactored components
 import {
@@ -50,6 +51,7 @@ const CompanySettings = () => {
   });
   const [sendingInvite, setSendingInvite] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState(null);
   
   const isRTL = language === 'ar';
   const canManageEmployees = MANAGEMENT_ROLES.includes(user?.role);
@@ -232,10 +234,20 @@ const CompanySettings = () => {
       return;
     }
 
+    // Open cropper
+    const reader = new FileReader();
+    reader.onload = () => setCropImageSrc(reader.result);
+    reader.readAsDataURL(file);
+    // Reset input so same file can be selected again
+    event.target.value = '';
+  };
+
+  const handleCroppedUpload = async (blob) => {
+    setCropImageSrc(null);
     setUploadingPhoto(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', blob, 'profile.jpg');
 
       const token = localStorage.getItem('token');
       const response = await axios.post(
@@ -252,14 +264,17 @@ const CompanySettings = () => {
       setMessage(language === 'ar' ? 'تم رفع الصورة بنجاح!' : 'Photo uploaded successfully!');
       setMessageType('success');
       
-      // Build full URL for the photo
       const photoUrl = response.data.photo_url.startsWith('http') 
         ? response.data.photo_url 
         : `${process.env.REACT_APP_BACKEND_URL}${response.data.photo_url}`;
       
-      const updatedUser = { ...user, profile_photo: photoUrl, profile_photo_url: photoUrl };
+      // Update user in localStorage and auth context without page reload
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const updatedUser = { ...currentUser, profile_photo: photoUrl, profile_photo_url: photoUrl };
       localStorage.setItem('user', JSON.stringify(updatedUser));
-      window.location.reload();
+      
+      // Force re-render by updating window event
+      window.dispatchEvent(new Event('storage'));
     } catch (error) {
       console.error('Error uploading photo:', error);
       setMessage(language === 'ar' ? 'فشل رفع الصورة' : 'Failed to upload photo');
@@ -344,6 +359,16 @@ const CompanySettings = () => {
 
   return (
     <div className="min-h-screen bg-gray-50" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Image Cropper Modal */}
+      {cropImageSrc && (
+        <ImageCropper
+          imageSrc={cropImageSrc}
+          onCropComplete={handleCroppedUpload}
+          onCancel={() => setCropImageSrc(null)}
+          language={language}
+        />
+      )}
+
       <div className="container mx-auto p-6">
         <h1 className="text-3xl font-bold text-[#28376B] mb-6">
           {language === 'ar' ? 'الإعدادات' : 'Settings'}
