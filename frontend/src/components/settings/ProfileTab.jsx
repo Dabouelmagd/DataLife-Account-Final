@@ -335,6 +335,7 @@ const ProfileTab = ({
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
               { id: 'dashboard', name_en: 'Dashboard', name_ar: 'لوحة التحكم', emoji: '🏠', color: 'from-slate-500 to-slate-600' },
+              { id: 'hr', name_en: 'Human Resources', name_ar: 'الموارد البشرية', emoji: '👥', color: 'from-cyan-600 to-cyan-700', description_ar: 'وصول كامل', description_en: 'Full HR Access' },
               { id: 'hr_admin', name_en: 'HR - Administrative', name_ar: 'الموارد البشرية - إداري', emoji: '👥', color: 'from-cyan-500 to-blue-500', description_ar: 'حضور، إجازات، ورديات', description_en: 'Attendance, Leaves, Shifts' },
               { id: 'hr_financial', name_en: 'HR - Financial', name_ar: 'الموارد البشرية - مالي', emoji: '💵', color: 'from-teal-500 to-emerald-500', description_ar: 'رواتب، بدلات، خصومات', description_en: 'Payroll, Allowances, Deductions' },
               { id: 'financial', name_en: 'Financial Management', name_ar: 'الإدارة المالية', emoji: '💰', color: 'from-emerald-500 to-green-600' },
@@ -347,6 +348,13 @@ const ProfileTab = ({
               { id: 'settings', name_en: 'Settings', name_ar: 'الإعدادات', emoji: '⚙️', color: 'from-gray-500 to-gray-600' },
               { id: 'users', name_en: 'User Management', name_ar: 'إدارة المستخدمين', emoji: '👤', color: 'from-blue-500 to-cyan-500' },
               { id: 'approvals', name_en: 'Approvals', name_ar: 'الموافقات', emoji: '✅', color: 'from-green-500 to-emerald-600' },
+              { id: 'admin', name_en: 'Administration', name_ar: 'الإدارة', emoji: '🔧', color: 'from-red-500 to-red-600' },
+              { id: 'subscriptions', name_en: 'Subscriptions', name_ar: 'الاشتراكات', emoji: '📋', color: 'from-purple-500 to-purple-600' },
+              { id: 'companies', name_en: 'Companies', name_ar: 'الشركات', emoji: '🏢', color: 'from-orange-500 to-orange-600' },
+              { id: 'audit_logs', name_en: 'Audit Logs', name_ar: 'سجل التدقيق', emoji: '📝', color: 'from-gray-600 to-gray-700' },
+              { id: 'system_settings', name_en: 'System Settings', name_ar: 'إعدادات النظام', emoji: '🔩', color: 'from-slate-600 to-slate-700' },
+              { id: 'billing', name_en: 'Billing', name_ar: 'الفوترة', emoji: '💳', color: 'from-yellow-500 to-yellow-600' },
+              { id: 'support', name_en: 'Support', name_ar: 'الدعم الفني', emoji: '🎧', color: 'from-sky-500 to-sky-600' },
             ].map((module) => {
               const userPermissions = user?.permissions || [];
               // Check for legacy 'hr' permission and map to new hr_admin/hr_financial
