@@ -441,9 +441,11 @@ const LandingPage = () => {
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 pt-14 flex flex-col items-center gap-10">
+          <div className="border-t border-gray-800 pt-14 flex flex-col items-center">
             <CompanyLogo size="large" />
-            <p className="text-sm text-center">{ar ? '© 2026 دانا لايف لخدمات الذكاء الاصطناعي - جميع الحقوق محفوظة' : '© 2026 DataLife AI Services - All Rights Reserved'}</p>
+            <div className="mt-16">
+              <p className="text-sm text-center">{ar ? '© 2026 دانا لايف لخدمات الذكاء الاصطناعي - جميع الحقوق محفوظة' : '© 2026 DataLife AI Services - All Rights Reserved'}</p>
+            </div>
           </div>
         </div>
       </footer>
