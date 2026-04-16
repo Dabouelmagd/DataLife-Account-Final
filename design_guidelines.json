@@ -1,115 +1,104 @@
 {
-  "project_name": "Modern ERP Sidebar Redesign",
-  "theme": "Archetype 1: Organic & Earthy (Premium Corporate)",
-  "emotional_tone": "Trust, Authority, Clarity, and Distinctive Professionalism",
-  "instructions_to_main_agent": "Redesign the sidebar for the ERP system. Use the 'Organic & Earthy' high-contrast theme to move away from the generic slate/blue/purple look. The design MUST fully support RTL (Arabic) and LTR (English) dynamically by strictly using Tailwind's logical properties. Build the sidebar out of raw HTML/Tailwind rather than overusing pre-packaged components to ensure exact styling, while you can use Shadcn for standard interactive bits like tooltips or collapsible areas if needed.",
+  "theme": "Light",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "brand_color": "#28376B",
   "typography": {
-    "english_fonts": "IBM Plex Sans, Chivo, or Manrope",
-    "arabic_fonts": "Alexandria, Cairo, or Tajawal",
-    "banned_fonts": ["Inter", "Roboto", "Space Grotesk"],
-    "headings": "font-medium tracking-tight leading-none",
-    "body": "font-normal leading-relaxed text-[14px]",
-    "labels": "uppercase tracking-[0.15em] text-[10px] font-semibold"
+    "english": {
+      "heading": "Outfit, Cabinet Grotesk, system-ui",
+      "body": "Inter, system-ui"
+    },
+    "arabic": {
+      "heading": "Cairo, Tajawal, system-ui",
+      "body": "Tajawal, Cairo, system-ui"
+    },
+    "rules": [
+      "Use tight letter spacing for headings (tracking-tight or tracking-tighter).",
+      "Maximum heading size is text-6xl.",
+      "Ensure strong font weights (600, 700) for Cairo Arabic headings for optimal legibility.",
+      "Never use Inter for Headings."
+    ]
   },
   "colors": {
-    "light_mode": {
-      "base_bg": "#F7F7F5",
-      "surface": "#FFFFFF",
-      "primary_active": "#B65A46",
-      "primary_hover_bg": "#B65A4610",
-      "text_main": "#1C1C1A",
-      "text_muted": "#686865",
-      "border": "#E5E5E0",
-      "success": "#4A6B53",
-      "error": "#9D4343"
-    },
-    "dark_mode": {
-      "base_bg": "#141514",
-      "surface": "#1E1F1E",
-      "primary_active": "#D2705A",
-      "primary_hover_bg": "#D2705A15",
-      "text_main": "#F1F1F0",
-      "text_muted": "#8A8B8A",
-      "border": "#2C2D2C",
-      "success": "#628C6E",
-      "error": "#C65858"
-    }
+    "background": "#ffffff",
+    "foreground": "#0f172a",
+    "primary": "#28376B",
+    "primary_foreground": "#ffffff",
+    "primary_hover": "#1e2a5a",
+    "secondary": "#f8fafc",
+    "secondary_foreground": "#334155",
+    "border": "#e2e8f0",
+    "muted": "#64748b",
+    "accent_gold": "#eab308"
   },
-  "visual_enhancers": {
-    "borders": "1px solid, low contrast on surfaces, crisp on active elements. Avoid heavy shadows. Use flat, structural separation.",
-    "active_states": "Do not just fill the background. Use a subtle background tint AND a bold structural line on the inline-start (`border-s-2`) in the primary terracotta color.",
-    "hover_states": "Subtle translate on x-axis (`hover:translate-x-1` in LTR, `hover:-translate-x-1` in RTL) is tricky. Instead, rely on background tint, text brightening, and icon weight changes (Regular to Fill/Duotone).",
-    "glassmorphism": "Not recommended for this ERP structure. Stick to 'Tactile/Neumorphism-lite' with sharp 1px borders to separate the sidebar from the main content area."
-  },
-  "grids_and_layouts": {
-    "sidebar_container": "Fixed width `w-[280px] lg:w-[300px]`. Flex column layout, `h-screen`, `justify-between`.",
-    "spacing_system": "Use generous internal padding. Top logo area: `p-6`. Nav list: `px-4`. Bottom area: `p-6`.",
-    "nested_lists": "Sub-modules should be indented using logical properties (`ms-6`) and connected via a subtle `border-s` line."
-  },
-  "components": {
-    "company_plate": {
-      "description": "Top section containing the logo, company name, and subscription code.",
-      "styles": "Flex row, items-center, gap-3, pb-6 border-b border-border/60. Subscription code should be a micro-badge `text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-sm`."
-    },
-    "navigation_menu": {
-      "description": "Main list of modules (HR, Financial, E-Invoices, etc).",
-      "styles": "Flex column, gap-1. Items are `flex row items-center justify-between py-2.5 px-3 rounded-md transition-colors`. Icon on start, text, and chevron on end for expandable items."
-    },
-    "user_profile_card": {
-      "description": "Bento-style card at the bottom above actions.",
-      "styles": "bg-surface border border-border rounded-xl p-3 flex flex-row items-center gap-3. Avatar should be a slightly rounded square (`rounded-lg`). Name is `text-sm font-medium`, Role badge is a micro-tag."
-    },
-    "permissions_indicators": {
-      "description": "Green/red indicators showing allowed/not allowed status.",
-      "styles": "Use Phosphor Icons (CheckCircle for allowed in `text-success`, Lock/Prohibit for denied in `text-error`). Keep them small (`w-4 h-4`) and elegantly placed next to module names if required."
-    },
-    "bottom_actions": {
-      "description": "Grid or flex row for Dark Mode, Language Switcher, Settings, Logout.",
-      "styles": "Flex row, justify-between items-center pt-4 border-t border-border/60. Use icon-only square buttons `w-9 h-9 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5`."
-    }
-  },
-  "rtl_ltr_rules": {
-    "critical_warning": "DO NOT USE left/right or pl/pr margins and paddings. The app dynamically switches dir='rtl' and dir='ltr'.",
-    "allowed_classes": [
-      "ps-* (padding-inline-start instead of pl)",
-      "pe-* (padding-inline-end instead of pr)",
-      "ms-* (margin-inline-start instead of ml)",
-      "me-* (margin-inline-end instead of mr)",
-      "start-* (instead of left)",
-      "end-* (instead of right)",
-      "border-s, border-e, rounded-s-md, rounded-e-md"
-    ],
-    "flex_alignment": "Flexbox naturally respects RTL. `flex-row items-center justify-between` will put the icon on the right and chevron on the left in RTL automatically."
+  "spacing_and_layout": {
+    "container": "container mx-auto px-4 md:px-8",
+    "section_padding": "py-20 md:py-32",
+    "gap": "gap-6 md:gap-10",
+    "rtl_support": "CRITICAL: Use logical properties like ms-, me-, ps-, pe-, text-start, text-end. For grids, ensure direct children only. The app relies on index.css .rtl and .ltr classes."
   },
   "motion": {
-    "nav_expand": "Use Framer Motion or smooth CSS transitions for sub-modules (`grid-template-rows` from 0fr to 1fr is a clean way to animate height without JS libraries).",
-    "theme_switch": "Add a smooth color transition `transition-colors duration-300` to the main sidebar wrapper."
+    "hover": "hover:-translate-y-1 hover:shadow-lg transition-all duration-300",
+    "entrance": "Use framer-motion for fade-in-up staggering on Bento grids.",
+    "buttons": "Hover state must be a lighter hue of the active state. Do not rely on opacity alone."
   },
-  "image_urls": [
+  "components": [
     {
-      "category": "user_avatar",
-      "url": "https://images.unsplash.com/photo-1576533247967-79124db83e48?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNTl8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMGF2YXRhciUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NTM0NDI4OXww&ixlib=rb-4.1.0&q=85",
-      "description": "Man wearing blue dress shirt and gray waistcoat (Professional Avatar)"
+      "name": "Navbar",
+      "type": "Navigation",
+      "description": "Sticky Glassmorphism header (backdrop-blur-xl bg-white/70 or bg-white/90). Must contain LanguageSwitcher, DataLifeLogo, Navigation links (desktop visible), and Start Free Trial CTA button. Use z-50."
     },
     {
-      "category": "company_logo",
-      "url": "https://images.pexels.com/photos/5477692/pexels-photo-5477692.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-      "description": "Minimalist geometric symbol on a blue background (Abstract Company Logo)"
+      "name": "HeroSection",
+      "type": "Hero",
+      "description": "Split layout or centered authoritative structure targeting ERP buyers. Left/Start: Narrative copy targeting efficiency (CTA: Start Free Trial & Login). Right/End: High-quality dashboard visual (feature_analytics image). Max overlay bg-white/30. No full-screen gradients."
+    },
+    {
+      "name": "AdSenseBanner",
+      "type": "Monetization",
+      "description": "Reusable horizontal slot for Google AdSense placement to be used between major sections. Add data-testid='adsense-banner'."
+    },
+    {
+      "name": "FeaturesBentoGrid",
+      "type": "Section",
+      "description": "A dense 'Control Room' Bento Grid (Mode B). Highlight modules: HR Management, Financial Management, Invoicing (ETA support), Purchases, Projects & Tasks, Analytics, Approvals, Import Data. Hover lift effect, 1px borders, white backgrounds on gray-50 section base. Icons for each module. Must use h-full for children."
+    },
+    {
+      "name": "BenefitsGrid",
+      "type": "Section",
+      "description": "4-column icon-based grid: 1) Arabic/English Support, 2) Cloud-based, 3) High Security, 4) Notifications. Soft rounded icons, minimal borders, clear text."
+    },
+    {
+      "name": "Testimonials",
+      "type": "Section",
+      "description": "Social proof 3-column grid featuring professionals praising the ERP. Use testimonial images provided."
+    },
+    {
+      "name": "FAQAccordion",
+      "type": "Section",
+      "description": "Using Shadcn Accordion. Minimalist styling, #28376B primary color used sparingly on active/hover."
+    },
+    {
+      "name": "Footer",
+      "type": "Footer",
+      "description": "Dark footer (bg-[#0f172a]) contrasting the light body. Large logo, deep padding (py-24), containing quick links."
     }
   ],
-  "accessibility": {
-    "focus_states": "All interactive elements must have `focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2` (use `focus-visible:ring-offset-base_bg`).",
-    "contrast": "Ensure the text contrast against the #F7F7F5 light background and #141514 dark background passes APCA/WCAG standards.",
-    "testing": "Add `data-testid` attributes to all links, toggles, and buttons (e.g., `data-testid=\"nav-hr-module\"`, `data-testid=\"lang-switcher-btn\"`)."
+  "media_urls": {
+    "hero_visual": "https://images.unsplash.com/photo-1748609278627-4b0e483b9b70?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwzfHxkYXRhJTIwYW5hbHl0aWNzJTIwZGFzaGJvYXJkJTIwbW9kZXJufGVufDB8fHx8MTc3NjMwMDM2M3ww&ixlib=rb-4.1.0&q=85",
+    "feature_analytics": "https://images.unsplash.com/photo-1748609160056-7b95f30041f0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwxfHxkYXRhJTIwYW5hbHl0aWNzJTIwZGFzaGJvYXJkJTIwbW9kZXJufGVufDB8fHx8MTc3NjMwMDM2M3ww&ixlib=rb-4.1.0&q=85",
+    "feature_dashboard": "https://images.unsplash.com/photo-1772272935464-2e90d8218987?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwxfHxzYWFzJTIwZGFzaGJvYXJkJTIwdWklMjBzY3JlZW58ZW58MHx8fHwxNzc2MzAwMzc4fDA&ixlib=rb-4.1.0&q=85",
+    "testimonial_1": "https://images.unsplash.com/photo-1681505515542-3a6c4ef756c4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMHByb2Zlc3Npb25hbCUyMGFyYWIlMjBhY2NvdW50aW5nfGVufDB8fHx8MTc3NjMwMDM2M3ww&ixlib=rb-4.1.0&q=85",
+    "testimonial_2": "https://images.unsplash.com/photo-1681505546695-682d6c1e2c3a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwzfHxidXNpbmVzcyUyMHByb2Zlc3Npb25hbCUyMGFyYWIlMjBhY2NvdW50aW5nfGVufDB8fHx8MTc3NjMwMDM2M3ww&ixlib=rb-4.1.0&q=85",
+    "testimonial_3": "https://images.unsplash.com/photo-1681505512385-8b9d567a56c0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHw0fHxidXNpbmVzcyUyMHByb2Zlc3Npb25hbCUyMGFyYWIlMjBhY2NvdW50aW5nfGVufDB8fHx8MTc3NjMwMDM2M3ww&ixlib=rb-4.1.0&q=85",
+    "abstract_bg": "https://images.unsplash.com/photo-1675000971728-32e5470fb1c0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMG5hdnklMjBibHVlJTIwZGF0YSUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzc2MzAwMzc4fDA&ixlib=rb-4.1.0&q=85"
   },
-  "universal_guidelines": [
-    "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
-    "Do not use generic centered layouts or simplistic gradients.",
-    "Use Phosphor Icons (@phosphor-icons/react) for a premium, crafted feel.",
-    "Every interaction needs micro-animations - hover states, transitions.",
-    "Use 2-3x more spacing than feels comfortable.",
-    "NEVER use emojis for icons.",
-    "DO NOT use complete transparent background in header, overlays, any surface that has content under it.",
-    "Components MUST use named exports. Pages MUST use default exports."
+  "instructions_to_main_agent": [
+    "Ensure RTL language switching handles Tailwind logical margins/padding (e.g. ps-4 instead of pl-4) so the layout flips seamlessly for Arabic.",
+    "Reuse the FreeTrialModal, PricingSection, ContactSection, DataLifeLogo, CompanyLogo, LanguageSwitcher components from the existing codebase.",
+    "Include an <AdSenseBanner /> placeholder component between major sections.",
+    "Bento grid for features must not stretch jaggedly - use h-full to make children match height.",
+    "Avoid generic 'Inter' for English headings, use 'Outfit' or 'Cabinet Grotesk' if possible, or fallback to system sans with tight tracking.",
+    "Never use a fully transparent header over hero images. Use backdrop-blur-xl and bg-white/70 or bg-white/90.",
+    "All interactive elements and key info MUST include data-testid attribute."
   ]
 }
