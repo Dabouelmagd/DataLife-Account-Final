@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import { CheckCircle, X, Zap, Building2, Crown, Check } from 'lucide-react';
+import { Input } from './ui/input';
+import { CheckCircle, X, Zap, Building2, Crown, Check, Key, Loader2 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { toast } from 'sonner';
 import PaymentModal from './PaymentModal';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const PricingSection = () => {
   const { language, isRTL } = useLanguage();
@@ -12,6 +16,9 @@ const PricingSection = () => {
   const [currency, setCurrency] = useState('EGP');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [subCode, setSubCode] = useState('');
+  const [subDuration, setSubDuration] = useState('');
+  const [activating, setActivating] = useState(false);
 
   const ar = language === 'ar';
 
@@ -215,6 +222,47 @@ const PricingSection = () => {
     return <span className="text-sm font-medium text-gray-700">{val}</span>;
   };
 
+  const handleActivateCode = async () => {
+    if (!subCode.trim()) {
+      toast.error(ar ? 'يرجى إدخال كود الاشتراك' : 'Please enter subscription code');
+      return;
+    }
+    setActivating(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error(ar ? 'يرجى تسجيل الدخول أولاً' : 'Please login first');
+        window.location.href = '/login';
+        return;
+      }
+      const res = await fetch(`${API_URL}/api/subscriptions/redeem-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ code: subCode.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(ar ? data.message_ar : data.message_en);
+        setSubCode('');
+      } else {
+        const detail = data.detail;
+        toast.error(typeof detail === 'object' ? (ar ? detail.message_ar : detail.message_en) : (detail || (ar ? 'كود غير صالح' : 'Invalid code')));
+      }
+    } catch (e) {
+      toast.error(ar ? 'خطأ في تفعيل الكود' : 'Error activating code');
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  const durations = [
+    { id: '3m', label: ar ? '3 أشهر' : '3 Months', short: '3m' },
+    { id: '6m', label: ar ? '6 أشهر' : '6 Months', short: '6m' },
+    { id: '9m', label: ar ? '9 أشهر' : '9 Months', short: '9m' },
+    { id: '1y', label: ar ? 'سنة' : 'Year', short: '1Y' },
+    { id: 'lifetime', label: ar ? 'مدى الحياة' : 'Lifetime', short: '\u221E' },
+  ];
+
   return (
     <div className="container mx-auto max-w-6xl" dir={isRTL ? 'rtl' : 'ltr'} data-testid="pricing-section-inner">
       {/* Header */}
@@ -305,6 +353,64 @@ const PricingSection = () => {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* ── Subscription Codes ── */}
+      <div className="mb-16">
+        <Card className="border-2 border-dashed border-[#28376B]/30 bg-gradient-to-br from-[#28376B]/5 to-indigo-50">
+          <CardContent className="p-8">
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 bg-[#28376B]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Key className="h-7 w-7 text-[#28376B]" />
+              </div>
+              <h3 className="text-2xl font-bold text-[#0f172a]">
+                {ar ? 'أكواد الاشتراك' : 'Subscription Codes'}
+              </h3>
+              <p className="text-gray-500 text-sm mt-2">
+                {ar ? 'هل لديك كود اشتراك مسبق الدفع؟ يمكنك تفعيل اشتراكك بكود لمدة 3 أو 6 أو 9 أشهر أو سنة أو مدى الحياة' : 'Have a subscription code? You can activate your subscription with a prepaid code for 3, 6, 9 months, 1 year, or lifetime'}
+              </p>
+            </div>
+
+            {/* Duration badges */}
+            <div className="flex flex-wrap justify-center gap-3 mb-6">
+              {durations.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => setSubDuration(d.id)}
+                  className={`flex flex-col items-center px-5 py-3 rounded-xl border-2 transition-all min-w-[80px] ${
+                    subDuration === d.id 
+                      ? 'border-[#28376B] bg-[#28376B] text-white shadow-lg scale-105' 
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-[#28376B]/50 hover:shadow-sm'
+                  }`}
+                  data-testid={`duration-${d.id}`}
+                >
+                  <span className="text-lg font-bold">{d.short}</span>
+                  <span className="text-xs mt-0.5 opacity-80">{d.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Code input */}
+            <div className="max-w-md mx-auto flex gap-2">
+              <Input
+                placeholder={ar ? 'أدخل كود الاشتراك هنا...' : 'Enter subscription code here...'}
+                value={subCode}
+                onChange={(e) => setSubCode(e.target.value.toUpperCase())}
+                className="flex-1 h-12 text-center font-mono text-lg tracking-widest border-2 border-gray-200 focus:border-[#28376B]"
+                data-testid="subscription-code-input"
+                onKeyPress={(e) => e.key === 'Enter' && handleActivateCode()}
+              />
+              <Button
+                onClick={handleActivateCode}
+                disabled={!subCode.trim() || activating}
+                className="h-12 px-6 bg-[#28376B] hover:bg-[#1e2a5a] text-white font-semibold"
+                data-testid="activate-code-btn"
+              >
+                {activating ? <Loader2 className="h-5 w-5 animate-spin" /> : (ar ? 'تفعيل الكود' : 'Activate Code')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Full Comparison Table ── */}
