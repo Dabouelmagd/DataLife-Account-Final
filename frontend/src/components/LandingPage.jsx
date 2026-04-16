@@ -125,6 +125,9 @@ const LandingPage = () => {
 
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
+            <Button variant="ghost" size="icon" onClick={() => navigate('/admin-login')} className="hidden sm:inline-flex text-gray-400 hover:text-[#28376B]" title={ar ? 'دخول المدير' : 'Admin Login'}>
+              <Shield className="h-5 w-5" />
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/login')} className="hidden sm:inline-flex text-[#28376B]">
               {ar ? 'تسجيل الدخول' : 'Login'}
             </Button>
