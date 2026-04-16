@@ -307,35 +307,6 @@ const PricingSection = () => {
         ))}
       </div>
 
-      {/* ── Module Packages ── */}
-      <div className="mb-16">
-        <div className="text-center mb-8">
-          <h3 className="text-2xl font-bold text-[#0f172a]">{ar ? 'حزم الوحدات' : 'Module Packages'}</h3>
-          <p className="text-gray-500 text-sm mt-2">{ar ? 'اشترك في الوحدات التي تحتاجها فقط' : 'Subscribe to only the modules you need'}</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {modules.map((mod) => (
-            <Card key={mod.id} className="border border-gray-100 hover:shadow-md transition-shadow">
-              <CardContent className="p-5">
-                <h4 className="font-bold text-gray-900 mb-1">{mod.name}</h4>
-                <div className="flex items-baseline gap-1 mb-3">
-                  <span className="text-2xl font-bold text-[#28376B]">{currency === 'USD' ? mod.monthlyUSD : mod.monthlyEGP}</span>
-                  <span className="text-sm text-gray-500">{currencySymbol} {ar ? '/شهر' : '/mo'}</span>
-                </div>
-                <div className="space-y-1.5">
-                  {mod.features.map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      <Check className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                      <span className="text-gray-600">{f}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
       {/* ── Full Comparison Table ── */}
       <div className="mb-10">
         <div className="text-center mb-8">
