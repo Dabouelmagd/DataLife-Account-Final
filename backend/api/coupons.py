@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel, Field
 from typing import Optional, List
 import os
@@ -937,3 +937,103 @@ async def mark_notifications_read(notification_ids: List[str] = None, mark_all: 
     return {"message": "No notifications to update", "updated": 0}
 
 
+
+
+# ============================================
+# Referral System - ادعُ 5 واحصل على شهر مجاني
+# ============================================
+
+@router.get("/referral/my-link")
+async def get_referral_link(authorization: Optional[str] = Header(None)):
+    """Get or generate referral link for current user"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    from services.auth_service import verify_token
+    user = verify_token(authorization.split(" ")[1])
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    user_id = user.get("user_id")
+    
+    referral = await db.referrals.find_one({"user_id": user_id}, {"_id": 0})
+    
+    if not referral:
+        ref_code = f"REF-{''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))}"
+        referral = {
+            "user_id": user_id,
+            "email": user.get("email"),
+            "company_id": user.get("company_id"),
+            "referral_code": ref_code,
+            "invited_count": 0,
+            "rewarded": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.referrals.insert_one(referral)
+        referral.pop("_id", None)
+    
+    return {
+        "referral_code": referral["referral_code"],
+        "referral_link": f"{FRONTEND_URL}/register?ref={referral['referral_code']}",
+        "invited_count": referral.get("invited_count", 0),
+        "target": 5,
+        "rewarded": referral.get("rewarded", False)
+    }
+
+
+@router.post("/referral/track")
+async def track_referral(data: dict):
+    """Track a referral when someone registers with a referral code"""
+    ref_code = data.get("referral_code", "").strip()
+    new_user_email = data.get("email", "").strip()
+    
+    if not ref_code or not new_user_email:
+        return {"tracked": False}
+    
+    referral = await db.referrals.find_one({"referral_code": ref_code})
+    if not referral:
+        return {"tracked": False, "message": "Invalid referral code"}
+    
+    already_tracked = await db.referral_invites.find_one({
+        "referral_code": ref_code, "invited_email": new_user_email
+    })
+    if already_tracked:
+        return {"tracked": False, "message": "Already tracked"}
+    
+    await db.referral_invites.insert_one({
+        "referral_code": ref_code,
+        "referrer_user_id": referral["user_id"],
+        "invited_email": new_user_email,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    new_count = referral.get("invited_count", 0) + 1
+    await db.referrals.update_one(
+        {"referral_code": ref_code},
+        {"$set": {"invited_count": new_count}}
+    )
+    
+    if new_count >= 5 and not referral.get("rewarded"):
+        coupon_code = f"FREE-{''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))}"
+        await db.coupons.insert_one({
+            "code": coupon_code,
+            "type": "referral_reward",
+            "discount_type": "free_month",
+            "discount_value": 100,
+            "max_uses": 1,
+            "current_uses": 0,
+            "is_active": True,
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
+            "created_for": referral["user_id"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "description_ar": "كوبون شهر مجاني - مكافأة الدعوات",
+            "description_en": "Free month coupon - Referral reward"
+        })
+        
+        await db.referrals.update_one(
+            {"referral_code": ref_code},
+            {"$set": {"rewarded": True, "reward_coupon": coupon_code}}
+        )
+        
+        return {"tracked": True, "reward_unlocked": True, "coupon_code": coupon_code}
+    
+    return {"tracked": True, "invited_count": new_count, "remaining": 5 - new_count}

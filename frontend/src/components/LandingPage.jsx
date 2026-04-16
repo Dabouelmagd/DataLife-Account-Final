@@ -8,10 +8,11 @@ import {
   Users, DollarSign, Shield, Cloud, Bell, Calculator, FileText, Zap, Globe, 
   Lock, HeadphonesIcon, Building2, CreditCard, ChevronRight, Check,
   BarChart3, FolderKanban, Package, Upload, CheckCircle, Settings,
-  Clock, Calendar, Layers, ArrowRight, Play, Star, Menu, X
+  Clock, Calendar, Layers, ArrowRight, Play, Star, Menu, X, Gift, Phone, Key
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';
+import DataLifeLogo from './DataLifeLogo';
 import PricingSection from './PricingSection';
 import ContactSection from './ContactSection';
 import FreeTrialModal from './FreeTrialModal';
@@ -104,13 +105,6 @@ const LandingPage = () => {
     { q: ar ? 'هل بياناتي آمنة؟' : 'Is my data secure?', a: ar ? 'نعم، جميع البيانات مشفرة ومحمية بنظام صلاحيات متعدد المستويات (21 صلاحية).' : 'Yes, all data is encrypted and protected with a multi-level permission system (21 permissions).' },
   ];
 
-  const stats = [
-    { value: ar ? '+500' : '500+', label: ar ? 'شركة' : 'Companies' },
-    { value: ar ? '+5000' : '5,000+', label: ar ? 'مستخدم' : 'Users' },
-    { value: ar ? '+1M' : '1M+', label: ar ? 'معاملة' : 'Transactions' },
-    { value: '99.9%', label: ar ? 'وقت التشغيل' : 'Uptime' },
-  ];
-
   const fontClass = ar ? 'font-[Cairo]' : 'font-[Outfit]';
 
   return (
@@ -120,10 +114,7 @@ const LandingPage = () => {
       <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white/90 backdrop-blur-xl shadow-sm border-b border-gray-100' : 'bg-white/50 backdrop-blur-sm'}`} data-testid="navbar">
         <div className="container mx-auto px-4 md:px-8 flex items-center justify-between h-16">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({top:0,behavior:'smooth'})}>
-            <div className="w-9 h-9 bg-[#28376B] rounded-lg flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-bold text-lg text-[#28376B]">DataLife</span>
+            <DataLifeLogo size="small" className="h-10" />
           </div>
 
           <div className="hidden md:flex items-center gap-6">
@@ -166,9 +157,9 @@ const LandingPage = () => {
             </Badge>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#0f172a] tracking-tight leading-tight">
               {ar ? (
-                <><span className="text-[#28376B]">DataLife</span> — نظام إدارة أعمالك<br/>الشامل</>
+                <><span className="text-[#28376B]">داتا لايف أكونت</span><br/>نظام إدارة أعمالك الشامل</>
               ) : (
-                <>The <span className="text-[#28376B]">Complete</span> Business<br/>Management System</>
+                <><span className="text-[#28376B]">DataLife Account</span><br/>Complete Business Management</>
               )}
             </h1>
             <p className="mt-6 text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
@@ -187,14 +178,23 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* Stats */}
+          {/* Stats - replaced with value props */}
           <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4">
-            {stats.map((s, i) => (
-              <div key={i} className="text-center p-4 rounded-xl bg-white border border-gray-100 shadow-sm">
-                <div className="text-2xl font-bold text-[#28376B]">{s.value}</div>
-                <div className="text-sm text-gray-500 mt-1">{s.label}</div>
-              </div>
-            ))}
+            {[
+              { icon: Shield, value: ar ? '21 صلاحية' : '21 Permissions', label: ar ? 'تحكم كامل' : 'Full Control' },
+              { icon: Globe, value: ar ? 'عربي + EN' : 'AR + EN', label: ar ? 'ثنائي اللغة' : 'Bilingual' },
+              { icon: Cloud, value: ar ? 'سحابي' : 'Cloud', label: ar ? 'بدون تثبيت' : 'No Install' },
+              { icon: Lock, value: ar ? 'مشفّر' : 'Encrypted', label: ar ? 'أمان عالي' : 'High Security' },
+            ].map((s, i) => {
+              const Icon = s.icon;
+              return (
+                <div key={i} className="text-center p-4 rounded-xl bg-white border border-gray-100 shadow-sm">
+                  <Icon className="h-6 w-6 text-[#28376B] mx-auto mb-2" />
+                  <div className="text-lg font-bold text-[#28376B]">{s.value}</div>
+                  <div className="text-sm text-gray-500 mt-0.5">{s.label}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -331,6 +331,68 @@ const LandingPage = () => {
         <ContactSection />
       </section>
 
+      {/* ══════════ PAYMENT METHODS ══════════ */}
+      <section className="py-16 px-4 md:px-8 bg-slate-50" data-testid="payment-methods">
+        <div className="container mx-auto max-w-4xl text-center">
+          <h2 className="text-2xl font-bold text-[#0f172a] mb-8">
+            {ar ? 'طرق الدفع والاشتراك' : 'Payment & Subscription Methods'}
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+            {[
+              { name: ar ? 'بطاقة ائتمان' : 'Credit Card', icon: CreditCard, color: 'bg-blue-500' },
+              { name: 'PayPal', icon: DollarSign, color: 'bg-indigo-500' },
+              { name: 'InstaPay', icon: Zap, color: 'bg-orange-500' },
+              { name: ar ? 'فودافون كاش' : 'Vodafone Cash', icon: Phone, color: 'bg-red-500' },
+              { name: ar ? 'تحويل بنكي' : 'Bank Transfer', icon: Building2, color: 'bg-emerald-500' },
+              { name: ar ? 'كود تفعيل' : 'Activation Code', icon: Key, color: 'bg-purple-500' },
+            ].map((m, i) => {
+              const Icon = m.icon;
+              return (
+                <div key={i} className="bg-white rounded-xl p-4 border border-gray-100 flex flex-col items-center gap-2 hover:shadow-md transition-shadow">
+                  <div className={`w-10 h-10 ${m.color} rounded-lg flex items-center justify-center text-white`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 text-center">{m.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ REFERRAL PROGRAM ══════════ */}
+      <section className="py-16 px-4 md:px-8 bg-gradient-to-r from-[#28376B] to-indigo-700" data-testid="referral-section">
+        <div className="container mx-auto max-w-3xl text-center text-white">
+          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Gift className="h-8 w-8 text-yellow-300" />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
+            {ar ? 'ادعُ 5 أصدقاء واحصل على شهر مجاني!' : 'Invite 5 Friends & Get 1 Month Free!'}
+          </h2>
+          <p className="text-white/70 text-lg mb-6">
+            {ar ? 'شارك رابط الدعوة الخاص بك. عند تسجيل 5 أشخاص عبر رابطك، ستحصل على كوبون هدية لشهر اشتراك مجاني.' : 'Share your invite link. When 5 people register through your link, you get a free month coupon.'}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+            <div className="bg-white/10 backdrop-blur rounded-xl px-6 py-3 border border-white/20">
+              <p className="text-sm text-white/60 mb-1">{ar ? 'كيف يعمل؟' : 'How it works?'}</p>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="bg-white/20 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">1</span>
+                <span>{ar ? 'شارك الرابط' : 'Share link'}</span>
+                <ChevronRight className="h-4 w-4" />
+                <span className="bg-white/20 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">2</span>
+                <span>{ar ? '5 يسجلون' : '5 sign up'}</span>
+                <ChevronRight className="h-4 w-4" />
+                <span className="bg-white/20 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">3</span>
+                <span>{ar ? 'شهر مجاني' : 'Free month'}</span>
+              </div>
+            </div>
+          </div>
+          <Button size="lg" onClick={() => setIsTrialModalOpen(true)} className="mt-6 bg-yellow-400 hover:bg-yellow-500 text-[#28376B] font-bold h-12 px-8">
+            {ar ? 'ابدأ الآن وادعُ أصدقاءك' : 'Start Now & Invite Friends'}
+          </Button>
+        </div>
+      </section>
+
       {/* ══════════ AD BANNER 4 ══════════ */}
       <AdBanner className="bg-white" />
 
@@ -356,10 +418,7 @@ const LandingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
             <div className="md:col-span-2">
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-9 h-9 bg-[#28376B] rounded-lg flex items-center justify-center">
-                  <Building2 className="h-5 w-5 text-white" />
-                </div>
-                <span className="font-bold text-lg text-white">DataLife Account</span>
+                <DataLifeLogo size="small" className="h-8 brightness-0 invert" />
               </div>
               <p className="text-sm leading-relaxed max-w-sm">
                 {ar ? 'نظام متكامل لإدارة موارد المؤسسات — الموارد البشرية، الإدارة المالية، الفواتير، المشتريات، المشاريع والتقارير.' : 'Complete ERP system — HR, Finance, Invoicing, Purchases, Projects & Reports.'}
