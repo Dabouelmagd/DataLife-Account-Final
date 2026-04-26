@@ -57,6 +57,7 @@ from api.admin_users import router as admin_users_router
 from api.admin_subscriptions import router as admin_subscriptions_router
 from api.admin_payments import router as admin_payments_router
 from api.push_notifications import router as push_notifications_router
+from api.health_check import router as health_check_router
 from scheduler import start_scheduler, get_scheduler_status
 
 
@@ -157,6 +158,7 @@ app.include_router(reports_router)
 app.include_router(audit_router)
 app.include_router(notification_events_router)
 app.include_router(push_notifications_router)
+app.include_router(health_check_router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -468,10 +468,49 @@ def start_scheduler():
         replace_existing=True
     )
     
+    # Health check every 6 hours
+    scheduler.add_job(
+        run_health_check,
+        CronTrigger(hour='*/6', minute=0),
+        id='health_check',
+        name='System Health Check',
+        replace_existing=True
+    )
+    
     scheduler.start()
     print(f"[{datetime.now()}] Scheduler started with {len(scheduler.get_jobs())} jobs")
     for job in scheduler.get_jobs():
         print(f"  - {job.name}: {job.trigger}")
+
+
+async def run_health_check():
+    """Periodic health check - logs system status"""
+    try:
+        mongo_client = AsyncIOMotorClient(MONGO_URL)
+        health_db = mongo_client[DB_NAME]
+        
+        await health_db.command("ping")
+        user_count = await health_db.users.count_documents({})
+        company_count = await health_db.companies.count_documents({})
+        active_subs = await health_db.subscriptions.count_documents({"status": "active"})
+        
+        status = "ok" if user_count > 0 else "warn"
+        
+        await health_db.health_checks.insert_one({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "status": status,
+            "type": "scheduled",
+            "summary": {
+                "database": "ok",
+                "users": user_count,
+                "companies": company_count,
+                "active_subscriptions": active_subs
+            }
+        })
+        print(f"[{datetime.now()}] Health check: {status} | Users: {user_count} | Companies: {company_count}")
+        mongo_client.close()
+    except Exception as e:
+        print(f"[{datetime.now()}] Health check FAILED: {e}")
 
 
 def get_scheduler_status():
