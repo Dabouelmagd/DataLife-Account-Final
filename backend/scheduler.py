@@ -484,15 +484,27 @@ def start_scheduler():
 
 
 async def run_health_check():
-    """Periodic health check - logs system status"""
+    """Periodic health check - tests system + routes and logs results"""
     try:
+        import httpx
         mongo_client = AsyncIOMotorClient(MONGO_URL)
         health_db = mongo_client[DB_NAME]
         
+        # System check
         await health_db.command("ping")
         user_count = await health_db.users.count_documents({})
         company_count = await health_db.companies.count_documents({})
         active_subs = await health_db.subscriptions.count_documents({"status": "active"})
+        
+        # Route test via API
+        route_result = None
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get("http://localhost:8001/api/health/test-routes")
+                if resp.status_code == 200:
+                    route_result = resp.json().get("summary")
+        except:
+            pass
         
         status = "ok" if user_count > 0 else "warn"
         
@@ -504,10 +516,13 @@ async def run_health_check():
                 "database": "ok",
                 "users": user_count,
                 "companies": company_count,
-                "active_subscriptions": active_subs
+                "active_subscriptions": active_subs,
+                "route_test": route_result
             }
         })
-        print(f"[{datetime.now()}] Health check: {status} | Users: {user_count} | Companies: {company_count}")
+        
+        routes_info = f" | Routes: {route_result['passed']}/{route_result['total_tested']}" if route_result else ""
+        print(f"[{datetime.now()}] Health check: {status} | Users: {user_count} | Companies: {company_count}{routes_info}")
         mongo_client.close()
     except Exception as e:
         print(f"[{datetime.now()}] Health check FAILED: {e}")
