@@ -13,7 +13,7 @@ import {
   RefreshCw, Plus, Trash2, Copy, AlertCircle, Loader2,
   Calendar, BarChart3, Settings, ChevronDown, Power, Mail, 
   Send, Eye, UserX, UserCheck, Bell, Shield, Save, MessageSquare, Briefcase,
-  LogOut, Globe, LayoutDashboard, History, Crown, Sparkles, Zap, Star
+  LogOut, Globe, LayoutDashboard, History, Crown, Sparkles, Zap, Star, HeartPulse
 } from 'lucide-react';
 import axios from 'axios';
 import CompanyLogo from './CompanyLogo';
@@ -739,7 +739,8 @@ const AdminDashboard = () => {
     { id: 'companies', label: t.companies, icon: Building2 },
     { id: 'users', label: isRTL ? 'جميع المستخدمين' : 'All Users', icon: Users },
     { id: 'audit', label: isRTL ? 'سجل التدقيق' : 'Audit Log', icon: History },
-    { id: 'messages', label: isRTL ? 'الرسائل' : 'Messages', icon: Mail, badge: newMessagesCount }
+    { id: 'messages', label: isRTL ? 'الرسائل' : 'Messages', icon: Mail, badge: newMessagesCount },
+    { id: 'health', label: isRTL ? 'صحة النظام' : 'System Health', icon: HeartPulse }
   ];
 
   const formatDate = (dateStr) => {
@@ -2356,6 +2357,12 @@ const AdminDashboard = () => {
           </div>
         )}
 
+
+        {/* ══════════ Health Check Tab ══════════ */}
+        {activeTab === 'health' && (
+          <HealthCheckPanel isRTL={isRTL} />
+        )}
+
         {/* Edit Permissions Modal - Shared across tabs */}
         {editingUserPermissions && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -2764,5 +2771,183 @@ const AdminDashboard = () => {
     </div>
   );
 };
+
+/* ══════════ Health Check Panel Component ══════════ */
+const HealthCheckPanel = ({ isRTL }) => {
+  const [loading, setLoading] = React.useState(false);
+  const [routeResult, setRouteResult] = React.useState(null);
+  const [systemResult, setSystemResult] = React.useState(null);
+  const [history, setHistory] = React.useState([]);
+  const [lastChecked, setLastChecked] = React.useState(null);
+
+  const API_URL = process.env.REACT_APP_BACKEND_URL;
+  const token = localStorage.getItem('token');
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const runFullCheck = async () => {
+    setLoading(true);
+    try {
+      const [routeRes, detailRes, histRes] = await Promise.all([
+        axios.get(`${API_URL}/api/health/test-routes`, { headers }),
+        axios.get(`${API_URL}/api/health/detailed`, { headers }),
+        axios.get(`${API_URL}/api/health/history?limit=10`, { headers })
+      ]);
+      setRouteResult(routeRes.data);
+      setSystemResult(detailRes.data);
+      setHistory(histRes.data.history || []);
+      setLastChecked(new Date().toLocaleString(isRTL ? 'ar-EG' : 'en-US'));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => { runFullCheck(); }, []);
+
+  const statusColor = (s) => s === 'ok' || s === 'pass' ? 'text-green-600 bg-green-50' : s === 'warn' || s === 'degraded' ? 'text-yellow-600 bg-yellow-50' : 'text-red-600 bg-red-50';
+  const statusIcon = (s) => s === 'ok' || s === 'pass' ? <CheckCircle className="h-4 w-4 text-green-500" /> : s === 'warn' || s === 'degraded' ? <AlertCircle className="h-4 w-4 text-yellow-500" /> : <XCircle className="h-4 w-4 text-red-500" />;
+
+  return (
+    <div className="space-y-4" data-testid="health-check-panel">
+      {/* Header */}
+      <Card className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                <HeartPulse className="h-7 w-7" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold">{isRTL ? 'صحة النظام' : 'System Health'}</h2>
+                <p className="text-emerald-100">{isRTL ? 'فحص شامل لكل مسارات وخدمات التطبيق' : 'Full check of all routes and services'}</p>
+              </div>
+            </div>
+            <Button onClick={runFullCheck} disabled={loading} className="bg-white/20 hover:bg-white/30 text-white border-0">
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
+              <span className="ms-2">{isRTL ? 'فحص الآن' : 'Check Now'}</span>
+            </Button>
+          </div>
+          {lastChecked && <p className="text-emerald-200 text-xs mt-3">{isRTL ? 'آخر فحص:' : 'Last check:'} {lastChecked}</p>}
+        </CardContent>
+      </Card>
+
+      {/* System Checks */}
+      {systemResult && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              {statusIcon(systemResult.status)}
+              {isRTL ? 'فحص الأنظمة' : 'System Checks'}
+              <Badge className={`ms-auto ${statusColor(systemResult.status)} text-xs`}>
+                {systemResult.summary.passed}/{systemResult.summary.total} {isRTL ? 'ناجح' : 'passed'}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Object.entries(systemResult.checks).map(([name, check]) => (
+                <div key={name} className={`rounded-xl p-3 border ${check.status === 'ok' ? 'border-green-200 bg-green-50/50' : check.status === 'warn' ? 'border-yellow-200 bg-yellow-50/50' : 'border-red-200 bg-red-50/50'}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {statusIcon(check.status)}
+                    <span className="text-xs font-semibold text-gray-700 capitalize">{name}</span>
+                  </div>
+                  {check.latency_ms && <p className="text-xs text-gray-500">{check.latency_ms}ms</p>}
+                  {check.total !== undefined && <p className="text-xs text-gray-500">{check.total} {isRTL ? 'عنصر' : 'items'}</p>}
+                  {check.admins !== undefined && <p className="text-xs text-gray-500">{check.admins} {isRTL ? 'مدير' : 'admins'}</p>}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Route Tests */}
+      {routeResult && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              {statusIcon(routeResult.overall_status)}
+              {isRTL ? 'فحص المسارات' : 'Route Tests'}
+              <Badge className={`ms-auto ${statusColor(routeResult.overall_status)} text-xs`}>
+                {routeResult.summary.passed}/{routeResult.summary.total_tested} ({routeResult.summary.pass_rate})
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Categories Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-4">
+              {Object.entries(routeResult.categories).map(([cat, s]) => (
+                <div key={cat} className={`rounded-lg p-2.5 text-center border ${s.failed === 0 ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}`}>
+                  <p className="text-xs font-bold text-gray-700 capitalize">{cat}</p>
+                  <p className={`text-lg font-bold ${s.failed === 0 ? 'text-green-600' : 'text-red-600'}`}>{s.passed}/{s.passed + s.failed}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Failed Routes */}
+            {routeResult.failed_routes.length > 0 && (
+              <div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-200">
+                <p className="font-bold text-red-700 text-sm mb-2">{isRTL ? 'مسارات فاشلة:' : 'Failed Routes:'}</p>
+                {routeResult.failed_routes.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-red-600 py-1">
+                    <XCircle className="h-3 w-3" />
+                    <code className="font-mono">{r.method} {r.path}</code>
+                    <span className="text-red-400">({r.status_code})</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* All Routes Detail */}
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">{isRTL ? 'عرض كل المسارات' : 'Show all routes'}</summary>
+              <div className="mt-2 max-h-60 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead><tr className="bg-gray-50"><th className="p-1.5 text-start">{isRTL ? 'المسار' : 'Route'}</th><th className="p-1.5 text-center">{isRTL ? 'الحالة' : 'Status'}</th><th className="p-1.5 text-center">{isRTL ? 'السرعة' : 'Latency'}</th></tr></thead>
+                  <tbody>
+                    {routeResult.all_routes.map((r, i) => (
+                      <tr key={i} className="border-b border-gray-50">
+                        <td className="p-1.5 font-mono text-gray-700">{r.method} {r.path}</td>
+                        <td className="p-1.5 text-center">{r.result === 'pass' ? <CheckCircle className="h-3.5 w-3.5 text-green-500 mx-auto" /> : <XCircle className="h-3.5 w-3.5 text-red-500 mx-auto" />}</td>
+                        <td className="p-1.5 text-center text-gray-500">{r.latency_ms}ms</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* History */}
+      {history.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">{isRTL ? 'سجل الفحوصات' : 'Check History'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {history.map((h, i) => (
+                <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-2">
+                    {statusIcon(h.status)}
+                    <span className="text-sm text-gray-700">{h.type || 'check'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {h.summary && <span className="text-xs text-gray-500">{h.summary.passed !== undefined ? `${h.summary.passed}/${h.summary.total || h.summary.total_tested}` : ''}</span>}
+                    <span className="text-xs text-gray-400">{new Date(h.timestamp).toLocaleString(isRTL ? 'ar-EG' : 'en-US')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
+
 
 export default AdminDashboard;
