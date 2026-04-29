@@ -275,9 +275,11 @@ const JournalEntriesPage = () => {
   };
 
   const updateLine = (index, field, value) => {
-    const updatedLines = [...newEntry.lines];
-    updatedLines[index] = { ...updatedLines[index], [field]: value };
-    setNewEntry({ ...newEntry, lines: updatedLines });
+    setNewEntry(prev => {
+      const updatedLines = [...prev.lines];
+      updatedLines[index] = { ...updatedLines[index], [field]: value };
+      return { ...prev, lines: updatedLines };
+    });
   };
 
   const getStatusBadge = (status) => {
@@ -561,14 +563,17 @@ const JournalEntriesPage = () => {
                             type="number"
                             value={line.debit || ''}
                             onChange={(e) => {
-                              updateLine(index, 'debit', parseFloat(e.target.value) || 0);
-                              if (parseFloat(e.target.value) > 0) {
-                                updateLine(index, 'credit', 0);
-                              }
+                              const val = parseFloat(e.target.value) || 0;
+                              setNewEntry(prev => {
+                                const updatedLines = [...prev.lines];
+                                updatedLines[index] = { ...updatedLines[index], debit: val, credit: val > 0 ? 0 : updatedLines[index].credit };
+                                return { ...prev, lines: updatedLines };
+                              });
                             }}
                             className="w-full border rounded px-2 py-1 text-sm text-green-600"
                             min="0"
                             step="0.01"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -576,14 +581,17 @@ const JournalEntriesPage = () => {
                             type="number"
                             value={line.credit || ''}
                             onChange={(e) => {
-                              updateLine(index, 'credit', parseFloat(e.target.value) || 0);
-                              if (parseFloat(e.target.value) > 0) {
-                                updateLine(index, 'debit', 0);
-                              }
+                              const val = parseFloat(e.target.value) || 0;
+                              setNewEntry(prev => {
+                                const updatedLines = [...prev.lines];
+                                updatedLines[index] = { ...updatedLines[index], credit: val, debit: val > 0 ? 0 : updatedLines[index].debit };
+                                return { ...prev, lines: updatedLines };
+                              });
                             }}
                             className="w-full border rounded px-2 py-1 text-sm text-red-600"
                             min="0"
                             step="0.01"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-3 py-2 text-center">
