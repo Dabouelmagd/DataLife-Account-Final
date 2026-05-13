@@ -21,6 +21,7 @@ import { getTranslation } from '../data/translations';
 import NotificationCenter from './NotificationCenter';
 import ModernSidebar from './ModernSidebar';
 import AppFooter from './AppFooter';
+import TrialCountdownBanner from './TrialCountdownBanner';
 import InvoicesModule from './InvoicesModule';
 import CustomerPortalManagement from './CustomerPortalManagement';
 import PurchasesModule from './PurchasesModule';
@@ -955,6 +956,8 @@ const RealDashboard = () => {
 
       {/* Main Content */}
       <div className={`flex-1 flex flex-col overflow-y-auto ${isRTL ? 'mr-72' : 'ml-72'}`}>
+        {/* Trial Countdown Banner - sticky at top */}
+        <TrialCountdownBanner />
         <div className="flex-1 p-6">
           {renderContent()}
         </div>

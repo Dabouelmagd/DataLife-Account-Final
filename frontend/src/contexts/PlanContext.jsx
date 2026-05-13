@@ -16,6 +16,7 @@ export const PlanProvider = ({ children }) => {
   const [planLabelAr, setPlanLabelAr] = useState('تجربة مجانية');
   const [planLabelEn, setPlanLabelEn] = useState('Free Trial');
   const [allowedModules, setAllowedModules] = useState(ALL_MODULES);
+  const [trial, setTrial] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchPlanModules = useCallback(async () => {
@@ -32,10 +33,12 @@ export const PlanProvider = ({ children }) => {
       setPlanLabelAr(res.data.plan_label_ar || 'تجربة مجانية');
       setPlanLabelEn(res.data.plan_label_en || 'Free Trial');
       setAllowedModules(res.data.allowed_modules || ALL_MODULES);
+      setTrial(res.data.trial || null);
     } catch (err) {
       // Default to trial (full access) on error
       setPlan('trial');
       setAllowedModules(ALL_MODULES);
+      setTrial(null);
     } finally {
       setLoading(false);
     }
@@ -54,6 +57,7 @@ export const PlanProvider = ({ children }) => {
         planLabelAr,
         planLabelEn,
         allowedModules,
+        trial,
         isUnlocked,
         loading,
         refresh: fetchPlanModules,
@@ -73,6 +77,7 @@ export const usePlan = () => {
       planLabelAr: 'تجربة مجانية',
       planLabelEn: 'Free Trial',
       allowedModules: ALL_MODULES,
+      trial: null,
       isUnlocked: () => true,
       loading: false,
       refresh: () => {},

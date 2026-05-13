@@ -56,6 +56,7 @@ async def get_company_plan_modules(
 ):
     """Return the list of modules unlocked by the company's subscription plan."""
     from models.plan_modules import get_allowed_modules, PLAN_DISPLAY
+    from datetime import datetime, timedelta
 
     if current_user.get("company_id") != company_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -68,11 +69,31 @@ async def get_company_plan_modules(
     allowed = get_allowed_modules(plan)
     display = PLAN_DISPLAY.get(plan.lower().strip(), PLAN_DISPLAY["trial"])
 
+    # Trial countdown: 14 days from company creation
+    trial_info = None
+    if plan.lower() == "trial":
+        created_raw = company.get("created_at")
+        try:
+            created_dt = datetime.fromisoformat(created_raw) if isinstance(created_raw, str) else created_raw
+        except Exception:
+            created_dt = datetime.utcnow()
+        if not created_dt:
+            created_dt = datetime.utcnow()
+        ends_at = created_dt + timedelta(days=14)
+        days_remaining = max(0, (ends_at - datetime.utcnow()).days)
+        trial_info = {
+            "is_trial": True,
+            "trial_ends_at": ends_at.isoformat(),
+            "days_remaining": days_remaining,
+            "expired": days_remaining == 0,
+        }
+
     return {
         "plan": plan,
         "plan_label_en": display["en"],
         "plan_label_ar": display["ar"],
         "allowed_modules": allowed,
+        "trial": trial_info,
     }
 
 @router.get("/{company_id}", response_model=CompanyResponse)

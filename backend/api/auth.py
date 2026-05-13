@@ -175,11 +175,78 @@ async def join_company_by_code(request_data: dict):
     }
     await db.users.insert_one(new_user)
 
+    # Notify the company manager(s) by email
+    asyncio.create_task(_notify_managers_of_join_request(company, new_user))
+
     return {
         "message": "Join request submitted. Awaiting manager approval.",
         "message_ar": "تم إرسال طلب الانضمام بنجاح. في انتظار موافقة المدير.",
         "company_name": company.get("name"),
     }
+
+
+async def _notify_managers_of_join_request(company: dict, new_user: dict):
+    """Send an email to the company manager about a new pending join request."""
+    if not resend.api_key:
+        return
+    try:
+        # Recipients: company contact_email + all admin-role users of the company
+        recipients = set()
+        if company.get("contact_email"):
+            recipients.add(company["contact_email"])
+        admin_roles = [
+            'General Manager', 'CEO', 'Board Chairman',
+            'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة', 'Super Admin'
+        ]
+        async for u in db.users.find(
+            {"company_id": company["id"], "role": {"$in": admin_roles}, "is_active": True},
+            {"_id": 0, "email": 1}
+        ):
+            if u.get("email"):
+                recipients.add(u["email"])
+        if not recipients:
+            return
+
+        company_name = company.get("name", "DataLife Account")
+        html = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; direction: rtl;">
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+                <h1 style="color: white; margin: 0; text-align: center;">🔔 طلب انضمام جديد</h1>
+            </div>
+            <div style="background: #fffbeb; padding: 30px; border-radius: 0 0 10px 10px;">
+                <p style="color: #333; font-size: 16px;">مرحباً،</p>
+                <p style="color: #666; font-size: 15px;">
+                    تلقّت شركتك <strong style="color: #d97706;">{company_name}</strong> طلب انضمام جديد من موظف عبر كود الاشتراك.
+                </p>
+                <div style="background: #fff; border-right: 4px solid #f59e0b; padding: 15px 20px; margin: 20px 0; border-radius: 6px;">
+                    <p style="margin: 5px 0; color: #333;"><strong>الاسم:</strong> {new_user.get('full_name')}</p>
+                    <p style="margin: 5px 0; color: #333;"><strong>البريد الإلكتروني:</strong> {new_user.get('email')}</p>
+                </div>
+                <p style="color: #666; font-size: 14px;">
+                    يرجى مراجعة الطلب من تبويب <strong>الإعدادات → الموظفين</strong> والموافقة عليه أو رفضه.
+                </p>
+                <div style="text-align: center; margin: 25px 0;">
+                    <a href="https://datalifeaccount.com/settings"
+                       style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                        مراجعة الطلب
+                    </a>
+                </div>
+                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="color: #999; font-size: 11px; text-align: center;">
+                    © DataLife Account — رسالة تلقائية، يرجى عدم الرد عليها.
+                </p>
+            </div>
+        </div>
+        """
+        params = {
+            "from": SENDER_EMAIL,
+            "to": list(recipients),
+            "subject": f"🔔 طلب انضمام جديد - {company_name}",
+            "html": html,
+        }
+        await asyncio.to_thread(resend.Emails.send, params)
+    except Exception as e:
+        print(f"Failed to send join-request notification: {e}")
 
 
 @router.post("/reset-password")

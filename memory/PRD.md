@@ -7,6 +7,24 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Session Updates (February 2026)
 
+### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 2)
+
+#### 17. Email Notifications + Trial Countdown Banner
+- **Request**: Email manager on new join request, email employee on approval, and add Trial Countdown banner.
+- **Implementation**:
+  - **`auth.py / join-by-code`**: triggers `_notify_managers_of_join_request` (async task) — emails the company contact_email + all admin-role users (General Manager, CEO, Board Chairman, Arabic equivalents, Super Admin) via Resend. RTL Arabic HTML with "مراجعة الطلب" CTA.
+  - **`users.py / approve`**: triggers `_notify_user_approved` — emails the approved user in Arabic with "تسجيل الدخول الآن" CTA.
+  - Both calls are fire-and-forget via `asyncio.create_task` so the API does not block.
+  - **Trial Countdown Banner** (`TrialCountdownBanner.jsx`):
+    - Reads `trial` info from `PlanContext` (added in plan-modules endpoint).
+    - Shows days remaining; switches between indigo/orange/red gradient based on state (normal / urgent ≤3 days / expired).
+    - Buttons: **Upgrade Now** → `/subscription`, **X** → dismiss (saved in sessionStorage).
+    - Hidden for non-trial plans.
+  - Backend `GET /api/companies/{id}/plan-modules` now returns `trial: {is_trial, trial_ends_at, days_remaining, expired}`.
+- **Test Status**:
+  - Backend: ✅ Endpoint returns trial info correctly (verified at days=14, days=2, days=0).
+  - Frontend: ✅ Visual verification of 3 states — normal (indigo), urgent 1-day (orange), expired (red).
+
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026)
 
 #### 16. Plan-Based Feature Gating + Self-Join + Update Popup + Super Admin Fix

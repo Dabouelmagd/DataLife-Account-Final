@@ -529,7 +529,65 @@ async def approve_pending_user(
             update_data["permissions"] = request_data["permissions"]
 
     await db.users.update_one({"id": user_id}, {"$set": update_data})
+
+    # Notify the approved user by email
+    asyncio.create_task(_notify_user_approved(user_doc, current_user))
+
     return {"message": "User approved", "user_id": user_id}
+
+
+async def _notify_user_approved(user_doc: dict, approver: dict):
+    """Send an email to the user telling them their join request was approved."""
+    if not resend.api_key:
+        return
+    try:
+        company = await db.companies.find_one(
+            {"id": user_doc.get("company_id")}, {"_id": 0, "name": 1}
+        )
+        company_name = (company or {}).get("name", "DataLife Account")
+        approver_name = approver.get("full_name") or approver.get("email") or "المدير"
+        recipient = user_doc.get("email")
+        if not recipient:
+            return
+
+        html = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; direction: rtl;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+                <h1 style="color: white; margin: 0; text-align: center;">🎉 تمت الموافقة على طلبك!</h1>
+            </div>
+            <div style="background: #ecfdf5; padding: 30px; border-radius: 0 0 10px 10px;">
+                <p style="color: #333; font-size: 16px;">مرحباً <strong>{user_doc.get('full_name')}</strong>،</p>
+                <p style="color: #444; font-size: 15px; line-height: 1.7;">
+                    نسعد بإبلاغك بأنه تمت الموافقة على طلب انضمامك إلى شركة
+                    <strong style="color: #059669;">{company_name}</strong>
+                    على منصة DataLife Account من قِبل <strong>{approver_name}</strong>.
+                </p>
+                <div style="background: #fff; border-right: 4px solid #10b981; padding: 15px 20px; margin: 20px 0; border-radius: 6px;">
+                    <p style="margin: 5px 0; color: #333;">يمكنك الآن تسجيل الدخول باستخدام:</p>
+                    <p style="margin: 5px 0; color: #059669; font-weight: bold;">{user_doc.get('email')}</p>
+                </div>
+                <div style="text-align: center; margin: 25px 0;">
+                    <a href="https://datalifeaccount.com/login"
+                       style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 14px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                        تسجيل الدخول الآن
+                    </a>
+                </div>
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+                <p style="color: #999; font-size: 11px; text-align: center;">
+                    © DataLife Account — رسالة تلقائية، يرجى عدم الرد عليها.
+                </p>
+            </div>
+        </div>
+        """
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [recipient],
+            "subject": f"✅ تمت الموافقة على طلب انضمامك - {company_name}",
+            "html": html,
+        }
+        await asyncio.to_thread(resend.Emails.send, params)
+    except Exception as e:
+        print(f"Failed to send approval email: {e}")
 
 
 @router.post("/{user_id}/reject")
