@@ -7,6 +7,21 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Session Updates (February 2026)
 
+### ✅ COMPLETED AND VERIFIED (May 13, 2026)
+
+#### 15. Change Password & Delete Employee in Settings
+- **Request**: Add change password and delete employee features in Settings
+- **Implementation**:
+  - `POST /api/auth/change-password` (requires current password verification)
+  - `ProfileTab.jsx`: New "Change Password" card with show/hide toggles & validation
+  - `EmployeesTab.jsx`: Red trash icon next to each employee (hidden for current user)
+  - `CompanySettings.jsx`: wired `handleDeleteEmployee` with optimistic UI update
+  - Employee list filters out deactivated users (`is_active === false`)
+- **Test Status**:
+  - Backend: ✅ Verified via curl (login → change-password → re-login with new pwd → revert)
+  - Backend: ✅ Verified delete (invite → DELETE /api/users/{id} → 200 OK)
+  - Frontend: ✅ Visual verification of both tabs (Profile + Employees)
+
 ### ✅ COMPLETED AND VERIFIED (Feb 25, 2026)
 
 #### 14. Page Footer with Branding

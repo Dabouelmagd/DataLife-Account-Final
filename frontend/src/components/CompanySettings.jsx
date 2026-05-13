@@ -82,7 +82,9 @@ const CompanySettings = () => {
         `${process.env.REACT_APP_BACKEND_URL}/api/users/`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setEmployees(response.data || []);
+      // Only show active employees (deactivated = "deleted")
+      const activeEmployees = (response.data || []).filter(e => e.is_active !== false);
+      setEmployees(activeEmployees);
     } catch (error) {
       console.error('Error fetching employees:', error);
     } finally {
@@ -173,6 +175,28 @@ const CompanySettings = () => {
       setMessageType('error');
     } finally {
       setSendingInvite(false);
+    }
+  };
+
+  const handleDeleteEmployee = async (employeeId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/${employeeId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setMessage(language === 'ar' ? 'تم حذف الموظف بنجاح' : 'Employee deleted successfully');
+      setMessageType('success');
+      // Optimistically remove from local state so UI updates without refresh
+      setEmployees(prev => prev.filter(e => e.id !== employeeId));
+      // Then refresh from server
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      const errorMsg = error.response?.data?.detail || (language === 'ar' ? 'فشل حذف الموظف' : 'Failed to delete employee');
+      setMessage(errorMsg);
+      setMessageType('error');
     }
   };
 
@@ -360,6 +384,8 @@ const CompanySettings = () => {
             loadingEmployees={loadingEmployees}
             onInviteClick={() => setShowInviteModal(true)}
             onEditClick={openPermissionModal}
+            onDeleteEmployee={handleDeleteEmployee}
+            currentUserId={user?.id}
           />
         )}
 
