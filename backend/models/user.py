@@ -41,6 +41,8 @@ class User(BaseModel):
     permissions: List[str] = Field(default_factory=list)  # List of permission IDs
     profile_photo: Optional[str] = None  # URL to profile photo
     is_active: bool = True
+    pending_approval: bool = False  # True when user joined via subscription code and awaits manager approval
+    requested_at: Optional[str] = None  # ISO timestamp of join request
     created_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: datetime = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
@@ -64,6 +66,8 @@ class UserResponse(BaseModel):
     permissions: List[str] = []  # List of permission IDs
     profile_photo: Optional[str] = None  # URL to profile photo
     is_active: bool
+    pending_approval: bool = False
+    requested_at: Optional[str] = None
     created_at: str
     subscription_code: Optional[str] = None  # Subscription/Company code for display
 

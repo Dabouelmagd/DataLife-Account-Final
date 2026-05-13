@@ -3,12 +3,14 @@ import {
   Home, Users, Wallet, FileText, Settings, LogOut, ChevronDown, ChevronRight,
   BarChart3, Shield, Bell, Clock, FolderKanban, Package, CreditCard, 
   UserCheck, FileCheck, Building2, PieChart, TrendingUp, Globe, ClipboardList,
-  Boxes, CheckCircle2, Moon, Sun
+  Boxes, CheckCircle2, Moon, Sun, Lock
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from './ui/badge';
 import NotificationCenter from './NotificationCenter';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { usePlan } from '../contexts/PlanContext';
 
 const ModernSidebar = ({ 
   user, 
@@ -28,6 +30,22 @@ const ModernSidebar = ({
   const [expandedMenus, setExpandedMenus] = useState({});
   const { toggleLanguage } = useLanguage();
   const { darkMode, toggleDarkMode } = useTheme();
+  const { isUnlocked, planLabelAr, planLabelEn } = usePlan();
+
+  const showLockedToast = (moduleName) => {
+    toast.error(
+      language === 'ar'
+        ? `🔒 ${moduleName} غير متاحة في باقتك الحالية. يرجى الترقية للوصول لهذه الميزة.`
+        : `🔒 ${moduleName} is not available in your current plan. Please upgrade to access it.`,
+      {
+        duration: 4000,
+        action: {
+          label: language === 'ar' ? 'ترقية الباقة' : 'Upgrade Plan',
+          onClick: () => { navigate?.('/subscription'); },
+        },
+      }
+    );
+  };
 
   const toggleMenu = (menuId) => {
     setExpandedMenus(prev => ({
@@ -117,6 +135,20 @@ const ModernSidebar = ({
               </div>
             </div>
           </div>
+          {/* Current Plan Badge */}
+          <div className="mt-2 bg-gradient-to-r from-indigo-500/15 to-purple-500/15 rounded-xl px-3 py-2 border border-indigo-500/20">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-indigo-200/80">
+                {language === 'ar' ? 'الباقة الحالية' : 'Current Plan'}
+              </span>
+              <span
+                className="text-xs font-bold text-indigo-200"
+                data-testid="current-plan-badge"
+              >
+                {language === 'ar' ? planLabelAr : planLabelEn}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* User Profile Card */}
@@ -200,11 +232,17 @@ const ModernSidebar = ({
             const isActive = activeModule === module.id;
             const hasSubModules = module.hasSubModules && module.subModules?.length > 0;
             const isExpanded = expandedMenus[module.id];
+            const moduleUnlocked = isUnlocked(module.id);
 
             return (
               <div key={module.id}>
                 <button
+                  data-testid={`sidebar-module-${module.id}`}
                   onClick={() => {
+                    if (!moduleUnlocked) {
+                      showLockedToast(module.name);
+                      return;
+                    }
                     setActiveModule(module.id);
                     if (hasSubModules) {
                       toggleMenu(module.id);
@@ -218,23 +256,33 @@ const ModernSidebar = ({
                     }
                   }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 group
-                    ${isActive 
-                      ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white border border-blue-500/30' 
-                      : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                    ${!moduleUnlocked
+                      ? 'text-slate-500 opacity-60 cursor-not-allowed hover:bg-white/5'
+                      : isActive
+                        ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white border border-blue-500/30'
+                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
                     }
                   `}
                 >
                   <span className={`p-2 rounded-lg transition-all ${
-                    isActive 
-                      ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25' 
-                      : 'bg-white/10 text-slate-400 group-hover:bg-white/15'
+                    !moduleUnlocked
+                      ? 'bg-white/5 text-slate-500'
+                      : isActive
+                        ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25'
+                        : 'bg-white/10 text-slate-400 group-hover:bg-white/15'
                   }`}>
                     {React.cloneElement(module.icon, { className: 'h-4 w-4' })}
                   </span>
                   
                   <span className="flex-1 text-sm text-start">{module.name}</span>
+
+                  {!moduleUnlocked && (
+                    <span className="flex items-center gap-1 text-[10px] text-amber-300/80" data-testid={`locked-${module.id}`}>
+                      <Lock className="h-3 w-3" />
+                    </span>
+                  )}
                   
-                  {hasSubModules && (
+                  {moduleUnlocked && hasSubModules && (
                     <span className="text-slate-400">
                       {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </span>
@@ -242,7 +290,7 @@ const ModernSidebar = ({
                 </button>
 
                 {/* Sub-modules */}
-                {hasSubModules && isExpanded && module.subModules && (
+                {moduleUnlocked && hasSubModules && isExpanded && module.subModules && (
                   <div className={`mt-1 ${isRTL ? 'mr-4' : 'ml-4'} space-y-1`}>
                     {module.subModules.map((subModule) => {
                       const isSubActive = (module.id === 'hr' ? activeHRSubModule : activeFinancialSubModule) === subModule.id;

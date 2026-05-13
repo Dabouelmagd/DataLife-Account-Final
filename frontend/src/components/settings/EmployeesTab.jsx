@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
-import { Users, UserPlus, Edit2, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Users, UserPlus, Edit2, Trash2, AlertTriangle, Loader2, Check, X, Clock } from 'lucide-react';
 
 const EmployeesTab = ({ 
   language, 
@@ -10,10 +10,15 @@ const EmployeesTab = ({
   onInviteClick, 
   onEditClick,
   onDeleteEmployee,
-  currentUserId
+  currentUserId,
+  pendingUsers = [],
+  loadingPending = false,
+  onApprovePending,
+  onRejectPending,
 }) => {
   const [deletingId, setDeletingId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [processingPendingId, setProcessingPendingId] = useState(null);
 
   const handleDelete = async (emp) => {
     setDeletingId(emp.id);
@@ -25,8 +30,106 @@ const EmployeesTab = ({
     }
   };
 
+  const handleApprove = async (pendingId) => {
+    setProcessingPendingId(pendingId);
+    try {
+      await onApprovePending?.(pendingId);
+    } finally {
+      setProcessingPendingId(null);
+    }
+  };
+
+  const handleReject = async (pendingId) => {
+    setProcessingPendingId(pendingId);
+    try {
+      await onRejectPending?.(pendingId);
+    } finally {
+      setProcessingPendingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Pending Approvals Card */}
+      {(pendingUsers.length > 0 || loadingPending) && (
+        <Card className="border-amber-200 bg-amber-50/40" data-testid="pending-approvals-card">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-amber-700">
+                <Clock className="h-5 w-5" />
+                {language === 'ar' ? 'طلبات الانضمام المعلّقة' : 'Pending Join Requests'}
+              </div>
+              <span className="text-sm font-normal text-amber-700/80">
+                {pendingUsers.length} {language === 'ar' ? 'طلب' : 'pending'}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingPending ? (
+              <div className="text-center py-6 text-gray-500">
+                {language === 'ar' ? 'جاري التحميل...' : 'Loading...'}
+              </div>
+            ) : pendingUsers.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">
+                {language === 'ar' ? 'لا توجد طلبات معلّقة' : 'No pending requests'}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingUsers.map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white rounded-xl border border-amber-200"
+                    data-testid={`pending-row-${u.id}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                        {u.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{u.full_name}</p>
+                        <p className="text-sm text-gray-500 truncate">{u.email}</p>
+                        {u.requested_at && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {language === 'ar' ? 'تاريخ الطلب: ' : 'Requested: '}
+                            {new Date(u.requested_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleApprove(u.id)}
+                        disabled={processingPendingId === u.id}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        data-testid={`approve-btn-${u.id}`}
+                      >
+                        {processingPendingId === u.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <><Check className="h-4 w-4 mr-1" />{language === 'ar' ? 'موافقة' : 'Approve'}</>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleReject(u.id)}
+                        disabled={processingPendingId === u.id}
+                        className="text-red-600 border-red-300 hover:bg-red-600 hover:text-white hover:border-red-600"
+                        data-testid={`reject-btn-${u.id}`}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        {language === 'ar' ? 'رفض' : 'Reject'}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -41,6 +144,7 @@ const EmployeesTab = ({
               <Button
                 onClick={onInviteClick}
                 className="bg-green-600 hover:bg-green-700 text-white"
+                data-testid="invite-employee-btn"
               >
                 <UserPlus className="h-4 w-4 mr-2" />
                 {language === 'ar' ? 'دعوة موظف جديد' : 'Invite Employee'}

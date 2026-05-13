@@ -15,6 +15,7 @@ class Company(BaseModel):
     logo_url: Optional[str] = None  # Company logo URL
     trial_id: Optional[str] = None  # Link to trial if converted from trial
     subscription_status: str = "active"  # trial, active, expired
+    subscription_plan: str = "trial"  # starter, professional, enterprise, hr-only, financial-only, inventory-only, lifetime, trial
     subscription_code: Optional[str] = None  # Subscription code
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
@@ -39,5 +40,6 @@ class CompanyResponse(BaseModel):
     address: Optional[str] = None
     logo_url: Optional[str] = None
     subscription_status: str = "active"
+    subscription_plan: str = "trial"
     subscription_code: Optional[str] = None
     created_at: str

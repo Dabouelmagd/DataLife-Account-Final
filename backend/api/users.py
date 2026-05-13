@@ -486,6 +486,72 @@ async def remove_user(
     
     return {"message": "User deactivated successfully"}
 
+
+@router.get("/pending")
+async def get_pending_users(current_user: dict = Depends(get_current_user)):
+    """List users who joined via subscription code and await approval"""
+    check_user_permission(current_user.get("role"), "view")
+
+    company_id = current_user.get("company_id")
+    pending = await db.users.find(
+        {"company_id": company_id, "pending_approval": True},
+        {"_id": 0, "password": 0, "password_hash": 0}
+    ).to_list(length=1000)
+
+    return pending
+
+
+@router.post("/{user_id}/approve")
+async def approve_pending_user(
+    user_id: str,
+    request_data: dict = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Approve a pending user and optionally set role + permissions."""
+    check_user_permission(current_user.get("role"), "edit")
+
+    user_doc = await db.users.find_one({"id": user_id})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user_doc.get("company_id") != current_user.get("company_id"):
+        raise HTTPException(status_code=403, detail="Cannot manage users from other companies")
+    if not user_doc.get("pending_approval"):
+        raise HTTPException(status_code=400, detail="User is not pending approval")
+
+    update_data = {
+        "pending_approval": False,
+        "is_active": True,
+    }
+    if request_data:
+        if request_data.get("role") and request_data["role"] in ROLE_PERMISSIONS:
+            update_data["role"] = request_data["role"]
+        if isinstance(request_data.get("permissions"), list):
+            update_data["permissions"] = request_data["permissions"]
+
+    await db.users.update_one({"id": user_id}, {"$set": update_data})
+    return {"message": "User approved", "user_id": user_id}
+
+
+@router.post("/{user_id}/reject")
+async def reject_pending_user(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Reject a pending user (deletes the join request)."""
+    check_user_permission(current_user.get("role"), "delete")
+
+    user_doc = await db.users.find_one({"id": user_id})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user_doc.get("company_id") != current_user.get("company_id"):
+        raise HTTPException(status_code=403, detail="Cannot manage users from other companies")
+    if not user_doc.get("pending_approval"):
+        raise HTTPException(status_code=400, detail="User is not pending approval")
+
+    await db.users.delete_one({"id": user_id})
+    return {"message": "Join request rejected"}
+
+
 @router.get("/roles", response_model=List[str])
 async def list_roles():
     """List all available roles"""

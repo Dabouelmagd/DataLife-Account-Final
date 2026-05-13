@@ -6,6 +6,7 @@ import LandingPage from "./components/LandingPage";
 import DemoPage from "./components/DemoPage";
 import LoginPage from "./components/LoginPage";
 import CompanyRegistrationPage from "./components/CompanyRegistrationPage";
+import JoinCompanyPage from "./components/JoinCompanyPage";
 import RealDashboard from "./components/RealDashboard";
 import CompanySettings from "./components/CompanySettings";
 import UserManagement from "./components/UserManagement";
@@ -22,6 +23,9 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { PlanProvider } from "./contexts/PlanContext";
+import UpdateNotificationPopup from "./components/UpdateNotificationPopup";
+import { Toaster } from "./components/ui/sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -61,6 +65,7 @@ function App() {
     <LanguageProvider>
     <ThemeProvider>
       <AuthProvider>
+        <PlanProvider>
         <PermissionsProvider>
           <div className="App">
             <BrowserRouter>
@@ -70,6 +75,7 @@ function App() {
               <Route path="/demo" element={<DemoPage onClose={() => window.history.back()} />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register-company" element={<CompanyRegistrationPage />} />
+              <Route path="/join-company" element={<JoinCompanyPage />} />
               <Route 
                 path="/dashboard" 
                 element={
@@ -144,9 +150,14 @@ function App() {
             <SupportChatbot />
             {/* Notification Permission Request */}
             <NotificationPermissionRequest />
+            {/* New Update Available popup */}
+            <UpdateNotificationPopup />
+            {/* Toast notifications */}
+            <Toaster position="top-center" richColors closeButton />
           </BrowserRouter>
           </div>
         </PermissionsProvider>
+        </PlanProvider>
       </AuthProvider>
     </ThemeProvider>
     </LanguageProvider>

@@ -9,6 +9,36 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026)
 
+#### 16. Plan-Based Feature Gating + Self-Join + Update Popup + Super Admin Fix
+- **Request**: gate modules by plan, self-join by code, update popup, link Super Admin to admin role.
+- **Implementation**:
+  - **Super Admin role**: added to `ROLE_PERMISSIONS` with full module/permission access (matching Enterprise).
+  - **PLAN_MODULES mapping** in `backend/models/plan_modules.py`:
+    - Starter → dashboard, hr, financial, reports, settings
+    - Professional → +inventory, invoices, purchases, analytics, projects
+    - Enterprise → all modules
+    - HR-Only / Financial-Only / Inventory-Only / Lifetime / Trial → custom sets
+  - **`GET /api/companies/{id}/plan-modules`** returns plan + allowed modules + label.
+  - **Sidebar (`ModernSidebar.jsx`)**: shows current-plan badge; modules not in plan are grayed out with 🔒 icon; clicking shows a toast with "Upgrade Plan" CTA (Sonner). Sub-modules are hidden for locked items.
+  - **Self-join by subscription code**:
+    - `POST /api/auth/join-by-code` creates a user with `pending_approval=True`, `is_active=False`.
+    - New page `JoinCompanyPage.jsx` at `/join-company` with full RTL/LTR support.
+    - Link added on `LoginPage` (green CTA "Join as Employee").
+    - Login blocks pending users with proper Arabic message until approval.
+  - **Pending approvals UI** in `EmployeesTab.jsx`:
+    - New amber card "Pending Join Requests" with approve/reject actions.
+    - `GET /api/users/pending`, `POST /api/users/{id}/approve`, `POST /api/users/{id}/reject`.
+    - Manager can still edit permissions/role after approval from the existing Edit button.
+  - **UpdateNotificationPopup** (`UpdateNotificationPopup.jsx`):
+    - Shows a gradient popup in the corner when `REACT_APP_VERSION` differs from `localStorage.datalife_last_seen_version`.
+    - Buttons: Reload (refreshes page) / Later (dismisses + saves version).
+- **Test Status**:
+  - Backend: ✅ join-by-code (HTTP 200), wrong code (404), pending login (403 with Arabic msg), pending list, approve & re-login (200), reject.
+  - Backend: ✅ plan-modules endpoint returns correct modules per plan.
+  - Frontend: ✅ visual verification — join page, locked modules with lock icon, "Upgrade Plan" toast on click, pending approvals card with approve/reject buttons, update popup.
+
+### ✅ COMPLETED AND VERIFIED (May 13, 2026)
+
 #### 15. Change Password & Delete Employee in Settings
 - **Request**: Add change password and delete employee features in Settings
 - **Implementation**:

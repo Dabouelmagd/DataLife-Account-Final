@@ -29,6 +29,8 @@ const CompanySettings = () => {
   const [copied, setCopied] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [loadingPending, setLoadingPending] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState([]);
@@ -58,6 +60,7 @@ const CompanySettings = () => {
     fetchCompanyData();
     if (canManageEmployees) {
       fetchEmployees();
+      fetchPendingUsers();
     }
   }, []);
 
@@ -195,6 +198,60 @@ const CompanySettings = () => {
     } catch (error) {
       console.error('Error deleting employee:', error);
       const errorMsg = error.response?.data?.detail || (language === 'ar' ? 'فشل حذف الموظف' : 'Failed to delete employee');
+      setMessage(errorMsg);
+      setMessageType('error');
+    }
+  };
+
+  const fetchPendingUsers = async () => {
+    setLoadingPending(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/pending`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPendingUsers(response.data || []);
+    } catch (error) {
+      console.error('Error fetching pending users:', error);
+      setPendingUsers([]);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  const handleApprovePending = async (userId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/${userId}/approve`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMessage(language === 'ar' ? 'تمت الموافقة على الموظف' : 'Employee approved');
+      setMessageType('success');
+      setPendingUsers(prev => prev.filter(u => u.id !== userId));
+      fetchEmployees();
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || (language === 'ar' ? 'فشل الموافقة' : 'Failed to approve');
+      setMessage(errorMsg);
+      setMessageType('error');
+    }
+  };
+
+  const handleRejectPending = async (userId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/api/users/${userId}/reject`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMessage(language === 'ar' ? 'تم رفض الطلب' : 'Request rejected');
+      setMessageType('success');
+      setPendingUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || (language === 'ar' ? 'فشل الرفض' : 'Failed to reject');
       setMessage(errorMsg);
       setMessageType('error');
     }
@@ -386,6 +443,10 @@ const CompanySettings = () => {
             onEditClick={openPermissionModal}
             onDeleteEmployee={handleDeleteEmployee}
             currentUserId={user?.id}
+            pendingUsers={pendingUsers}
+            loadingPending={loadingPending}
+            onApprovePending={handleApprovePending}
+            onRejectPending={handleRejectPending}
           />
         )}
 

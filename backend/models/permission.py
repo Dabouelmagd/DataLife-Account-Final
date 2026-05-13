@@ -4,6 +4,26 @@ from typing import List, Dict
 # Define role permissions
 ROLE_PERMISSIONS = {
     # ========================================
+    # Super Admin - صلاحيات كاملة على كل شيء
+    # ========================================
+    "Super Admin": {
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
+        "permissions": {
+            "dashboard": ["view"],
+            "hr": ["view", "create", "edit", "delete", "send"],
+            "financial": ["view", "create", "edit", "delete", "send", "print"],
+            "inventory": ["view", "create", "edit", "delete"],
+            "reports": ["view", "export", "print"],
+            "analytics": ["view", "export"],
+            "projects": ["view", "create", "edit", "delete"],
+            "invoices": ["view", "create", "edit", "delete", "send", "print"],
+            "purchases": ["view", "create", "edit", "delete", "send"],
+            "settings": ["view", "edit"],
+            "users": ["view", "create", "edit", "delete", "assign_roles", "invite", "approve"],
+            "approvals": ["view", "approve", "reject"]
+        }
+    },
+    # ========================================
     # الأدوار الإدارية العليا (صلاحيات كاملة)
     # ========================================
     "General Manager": {

@@ -234,8 +234,14 @@ const LoginPage = () => {
           <div className="mt-6 text-center space-y-4">
             <p className="text-sm text-gray-600">
               {t.noAccount}{' '}
-              <Link to="/register-company" className="text-blue-600 hover:text-blue-700 font-semibold">
+              <Link to="/register-company" className="text-blue-600 hover:text-blue-700 font-semibold" data-testid="link-register-company">
                 {t.registerCompany}
+              </Link>
+            </p>
+            <p className="text-sm text-gray-600">
+              {language === 'ar' ? 'لديك كود اشتراك من شركتك؟' : 'Have a subscription code from your company?'}{' '}
+              <Link to="/join-company" className="text-emerald-600 hover:text-emerald-700 font-semibold" data-testid="link-join-company">
+                {language === 'ar' ? 'انضم كموظف' : 'Join as Employee'}
               </Link>
             </p>
             <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">

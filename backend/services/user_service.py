@@ -180,6 +180,8 @@ def user_to_response(user: User, subscription_code: str = None) -> UserResponse:
         permissions=permissions,
         profile_photo=getattr(user, 'profile_photo', None),
         is_active=user.is_active,
+        pending_approval=getattr(user, 'pending_approval', False),
+        requested_at=getattr(user, 'requested_at', None),
         created_at=user.created_at if isinstance(user.created_at, str) else user.created_at.isoformat(),
         subscription_code=subscription_code or user.company_id[:8].upper()  # First 8 chars of company_id as subscription code
     )

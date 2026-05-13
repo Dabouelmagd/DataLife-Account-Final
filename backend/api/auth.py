@@ -91,7 +91,13 @@ async def login(credentials: UserLogin):
     
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    
+
+    if getattr(user, "pending_approval", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Your join request is pending manager approval. You will be notified once approved."
+        )
+
     if not user.is_active:
         raise HTTPException(status_code=403, detail="User account is deactivated")
     
@@ -112,6 +118,68 @@ async def login(credentials: UserLogin):
         token_type="bearer",
         user=user_response
     )
+
+
+@router.post("/join-by-code")
+async def join_company_by_code(request_data: dict):
+    """
+    Self-service join: an employee provides the company's subscription code
+    plus their basic info to request membership. The created account is
+    pending manager approval and cannot log in until approved.
+    """
+    from datetime import datetime
+    import bcrypt
+
+    code = (request_data.get("subscription_code") or "").strip().upper()
+    email = (request_data.get("email") or "").strip().lower()
+    password = request_data.get("password") or ""
+    full_name = (request_data.get("full_name") or "").strip()
+
+    if not code or not email or not password or not full_name:
+        raise HTTPException(status_code=400, detail="All fields are required")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    # Find company by subscription_code or by the first 8 chars of company_id
+    company = await db.companies.find_one({"subscription_code": code})
+    if not company:
+        company = await db.companies.find_one({"id": {"$regex": f"^{code.lower()}", "$options": "i"}})
+
+    if not company:
+        raise HTTPException(status_code=404, detail="Invalid subscription code")
+
+    # Email must be unique
+    existing = await get_user_by_email(db, email)
+    if existing:
+        raise HTTPException(status_code=400, detail="A user with this email already exists")
+
+    # Hash password
+    hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    import uuid
+    new_user = {
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "full_name": full_name,
+        "company_id": company["id"],
+        "role": "موظف",
+        "permissions": ["dashboard"],
+        "password_hash": hashed_password,
+        "password": hashed_password,  # legacy compat
+        "profile_photo": None,
+        "is_active": False,
+        "pending_approval": True,
+        "requested_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    await db.users.insert_one(new_user)
+
+    return {
+        "message": "Join request submitted. Awaiting manager approval.",
+        "message_ar": "تم إرسال طلب الانضمام بنجاح. في انتظار موافقة المدير.",
+        "company_name": company.get("name"),
+    }
 
 
 @router.post("/reset-password")

@@ -48,6 +48,33 @@ async def get_current_company(
     
     return company
 
+
+@router.get("/{company_id}/plan-modules")
+async def get_company_plan_modules(
+    company_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Return the list of modules unlocked by the company's subscription plan."""
+    from models.plan_modules import get_allowed_modules, PLAN_DISPLAY
+
+    if current_user.get("company_id") != company_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    plan = company.get("subscription_plan") or "trial"
+    allowed = get_allowed_modules(plan)
+    display = PLAN_DISPLAY.get(plan.lower().strip(), PLAN_DISPLAY["trial"])
+
+    return {
+        "plan": plan,
+        "plan_label_en": display["en"],
+        "plan_label_ar": display["ar"],
+        "allowed_modules": allowed,
+    }
+
 @router.get("/{company_id}", response_model=CompanyResponse)
 async def get_company(
     company_id: str,
