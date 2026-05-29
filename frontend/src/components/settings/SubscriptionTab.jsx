@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Key, Shield, Copy, Check } from 'lucide-react';
+import TaxInvoicesSection from './TaxInvoicesSection';
 
 const SubscriptionTab = ({ 
   language, 
@@ -102,6 +103,9 @@ const SubscriptionTab = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* Tax Invoices History — spans full width */}
+      <TaxInvoicesSection language={language} companyId={company?.id} />
     </div>
   );
 };

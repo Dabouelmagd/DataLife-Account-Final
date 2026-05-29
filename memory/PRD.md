@@ -7,6 +7,23 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Session Updates (February 2026)
 
+### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 4)
+
+#### 19. Tax Invoices History in Subscription Tab
+- **Request**: Add "Tax Invoices History" section in the Subscription settings tab with download per invoice + Year/Month filter.
+- **Implementation**:
+  - **New component**: `frontend/src/components/settings/TaxInvoicesSection.jsx`
+    - Fetches `/api/payments/tax-invoices?company_id={id}`.
+    - Year + Month filter dropdowns.
+    - Table with: Invoice #, Date, Plan, VAT 14%, Total + Actions (View 🔗 / Download ⬇️).
+    - Filtered totals row (VAT total + grand total).
+    - Export to CSV (UTF-8 BOM for Arabic, friendly accountant headers).
+    - Empty/loading/error states.
+  - **Embedded** in `SubscriptionTab.jsx` (spans full width below existing cards).
+- **Test Status**:
+  - Backend: ✅ `/api/payments/tax-invoices` returns invoices.
+  - Frontend: ✅ Visual verification — 3 test invoices displayed with proper formatting, filters working, totals computed correctly (10,380 EGP, VAT 1,274.74 EGP).
+
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 3)
 
 #### 18. Tax Invoice (14% VAT-inclusive) Auto-Issuance + Email
