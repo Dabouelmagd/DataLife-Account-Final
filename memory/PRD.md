@@ -7,6 +7,28 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Session Updates (February 2026)
 
+### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 9)
+
+#### 24. AI Insights Cards on Dashboard
+- **Request**: AI-generated insight cards that surface automatically on the dashboard (no user input needed).
+- **Architecture** (deterministic metrics + LLM phrasing):
+  1. Python computes up to **7 deterministic metrics** for the company (revenue growth vs last month, suppliers we owe, customers who owe us, low-stock products, top-selling product last 30d, VAT collected this month, total cash balance).
+  2. LLM (GPT-4o) re-phrases each metric into a one-sentence friendly insight in the user's language (Arabic/English).
+  3. Result cached in `ai_insights` collection for 6 hours to save LLM tokens.
+- **Backend** (`services/ai_insights_service.py` + `GET /api/ai-assistant/insights?language=&refresh=`):
+  - Whitelist of metric kinds, severity flags (`good` / `info` / `warning`).
+  - LLM call only when cache stale or `refresh=true`.
+  - Robust try/except per metric → one failing metric doesn't kill the rest.
+- **Frontend** (`InsightsBoard.jsx`):
+  - Grid of cards (1 / 2 / 3 columns based on screen size).
+  - Per-kind gradient icon (revenue=emerald, ap=orange, ar=blue, inventory=rose, best_seller=yellow, tax=purple, cash=cyan).
+  - Severity dot in corner (good=emerald, info=blue, warning=amber).
+  - Refresh button + "Last updated" timestamp + "AI-powered" label.
+  - Embedded in `RealDashboard.jsx` above the KPI cards.
+- **Test Status**:
+  - Backend: ✅ Arabic insight generated: "العملاء مدينون: هناك عميلان يدينان لك بمبلغ إجمالي 15000.0 EGP."
+  - Frontend: ✅ Visual verification — "Outstanding Receivables: 2 customers owe you a total of 15,000 EGP" card renders correctly with refresh button + timestamp.
+
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 8)
 
 #### 23. AI Assistant (Arabic + English Natural Language Q&A)

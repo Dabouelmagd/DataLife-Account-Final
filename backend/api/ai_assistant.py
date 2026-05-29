@@ -36,6 +36,25 @@ class AskRequest(BaseModel):
     session_id: Optional[str] = None
 
 
+@router.get("/insights")
+async def dashboard_insights(
+    language: str = "ar",
+    refresh: bool = False,
+    current_user: dict = Depends(_get_current_user),
+):
+    """Return up to 7 AI-generated insight cards for the user's company."""
+    from services.ai_insights_service import get_dashboard_insights
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No company in token")
+    try:
+        return await get_dashboard_insights(
+            db=db, company_id=company_id, language=language, force=refresh,
+        )
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"Insights generation failed: {err}")
+
+
 @router.post("/ask")
 async def ask(req: AskRequest, current_user: dict = Depends(_get_current_user)):
     """Ask the AI assistant a question. Returns intent + result + natural-language answer."""

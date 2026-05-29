@@ -23,6 +23,7 @@ import ModernSidebar from './ModernSidebar';
 import AppFooter from './AppFooter';
 import TrialCountdownBanner from './TrialCountdownBanner';
 import TopHeaderBar from './TopHeaderBar';
+import InsightsBoard from './InsightsBoard';
 import InvoicesModule from './InvoicesModule';
 import CustomerPortalManagement from './CustomerPortalManagement';
 import PurchasesModule from './PurchasesModule';
@@ -409,6 +410,8 @@ const RealDashboard = () => {
 
       return (
         <div className="space-y-6">
+          {/* AI Insights Cards */}
+          <InsightsBoard />
           {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {kpiCards.map((kpi, index) => (
