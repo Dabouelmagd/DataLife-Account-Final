@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Request, HTTPException
 import os
 from datetime import datetime, timezone, timedelta
+from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from emergentintegrations.payments.stripe.checkout import StripeCheckout
+
+# Ensure .env vars are loaded before reading MONGO_URL/DB_NAME
+load_dotenv()
 
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 
@@ -67,6 +71,33 @@ async def stripe_webhook(request: Request):
                         duration=transaction.get("duration"),
                         amount_paid=transaction.get("amount_egp", 0)
                     )
+
+                # Issue + email the tax invoice (14% VAT inclusive)
+                if transaction.get("user_email"):
+                    try:
+                        from services.tax_invoice_service import send_tax_invoice_email
+                        company_doc = None
+                        if transaction.get("company_id"):
+                            company_doc = await db.companies.find_one(
+                                {"id": transaction.get("company_id")},
+                                {"_id": 0, "name": 1}
+                            )
+                        user_doc = await db.users.find_one(
+                            {"email": transaction.get("user_email")},
+                            {"_id": 0, "full_name": 1}
+                        )
+                        await send_tax_invoice_email(
+                            customer_email=transaction.get("user_email"),
+                            customer_name=(user_doc or {}).get("full_name") or transaction.get("user_email"),
+                            company_name=(company_doc or {}).get("name"),
+                            company_id=transaction.get("company_id"),
+                            plan=transaction.get("plan"),
+                            duration=transaction.get("duration"),
+                            amount_inclusive_egp=transaction.get("amount_egp", 0),
+                            db=db,
+                        )
+                    except Exception as inv_err:
+                        print(f"[webhook] Failed to issue tax invoice: {inv_err}")
             
             # Update transaction
             await db.payment_transactions.update_one(

@@ -7,6 +7,28 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Session Updates (February 2026)
 
+### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 3)
+
+#### 18. Tax Invoice (14% VAT-inclusive) Auto-Issuance + Email
+- **Request**: After payment, generate a 14% tax invoice (VAT-inclusive pricing) and email it to the customer.
+- **Implementation**:
+  - **New service**: `backend/services/tax_invoice_service.py`
+    - `calculate_vat_breakdown(total_inclusive, rate=0.14)`: splits VAT-inclusive total → subtotal + VAT
+    - `build_tax_invoice_html(...)`: renders bilingual (Arabic RTL + English) tax invoice HTML with gradient header, From/Bill-To cards, items table, totals with green emphasis on grand total, and Egyptian VAT-law note.
+    - `send_tax_invoice_email(...)`: persists invoice to `tax_invoices` collection AND emails it via Resend.
+  - **`/api/payments/status/{session_id}`** (success flow) and **`/api/webhook/stripe`** (webhook flow) now both call `send_tax_invoice_email` after activating the subscription.
+  - **New endpoints**:
+    - `GET /api/payments/tax-invoices?company_id=X` — list invoices
+    - `GET /api/payments/tax-invoices/{invoice_number}/html` — render full HTML for re-download/print
+  - **Invoice number format**: `DL-{YYYY}-{8-char-hex}` (e.g. `DL-2026-9224C579`)
+  - Pricing example: 2,390 EGP (incl) → 2,096.49 subtotal + 293.51 VAT (14%)
+- **Bug fix**: `payments.py` and `webhook.py` were using default `DB_NAME=multi_tenant_erp` because they didn't call `load_dotenv()` before reading env. Added `load_dotenv()` at the top of both files.
+- **Test Status**:
+  - Backend: ✅ VAT math verified for multiple amounts (87.72+12.28=100, 5607.02+784.98=6392).
+  - Backend: ✅ Invoice persisted to `tax_invoices` collection, Resend send returned success (`sent=True`).
+  - Backend: ✅ `GET /api/payments/tax-invoices` returns correct list filtered by company_id.
+  - Visual: ✅ Invoice HTML renders professionally (RTL Arabic + English) with proper VAT breakdown.
+
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 2)
 
 #### 17. Email Notifications + Trial Countdown Banner

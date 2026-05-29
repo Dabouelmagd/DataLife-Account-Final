@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict
 import os
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from emergentintegrations.payments.stripe.checkout import (
     StripeCheckout, 
@@ -10,6 +11,9 @@ from emergentintegrations.payments.stripe.checkout import (
     CheckoutStatusResponse, 
     CheckoutSessionRequest
 )
+
+# Ensure .env vars are loaded before reading MONGO_URL/DB_NAME
+load_dotenv()
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -214,13 +218,31 @@ async def get_payment_status(session_id: str, http_request: Request):
                     amount_paid=transaction.get("amount_egp")
                 )
             
-            # Send payment confirmation email
+            # Send tax invoice (14% VAT inclusive) by email — replaces the old simple confirmation
             if transaction.get("user_email"):
-                await send_payment_confirmation_email(
-                    email=transaction.get("user_email"),
+                from services.tax_invoice_service import send_tax_invoice_email
+                # Resolve customer & company name for the invoice
+                company_doc = None
+                if transaction.get("company_id"):
+                    company_doc = await db.companies.find_one(
+                        {"id": transaction.get("company_id")},
+                        {"_id": 0, "name": 1}
+                    )
+                user_doc = await db.users.find_one(
+                    {"email": transaction.get("user_email")},
+                    {"_id": 0, "full_name": 1}
+                )
+                customer_name = (user_doc or {}).get("full_name") or transaction.get("user_email")
+                company_name = (company_doc or {}).get("name")
+                await send_tax_invoice_email(
+                    customer_email=transaction.get("user_email"),
+                    customer_name=customer_name,
+                    company_name=company_name,
+                    company_id=transaction.get("company_id"),
                     plan=transaction.get("plan"),
                     duration=transaction.get("duration"),
-                    amount=transaction.get("amount_egp")
+                    amount_inclusive_egp=transaction.get("amount_egp"),
+                    db=db,
                 )
         
         # Update transaction record
@@ -419,3 +441,27 @@ async def get_transactions(company_id: Optional[str] = None):
     
     transactions = await db.payment_transactions.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
     return transactions
+
+
+@router.get("/tax-invoices")
+async def list_tax_invoices(company_id: Optional[str] = None, email: Optional[str] = None):
+    """List tax invoices for a given company or customer email."""
+    query = {}
+    if company_id:
+        query["company_id"] = company_id
+    if email:
+        query["customer_email"] = email
+    if not query:
+        raise HTTPException(status_code=400, detail="company_id or email is required")
+    invoices = await db.tax_invoices.find(query, {"_id": 0, "html": 0}).sort("issued_at", -1).to_list(200)
+    return invoices
+
+
+@router.get("/tax-invoices/{invoice_number}/html")
+async def get_tax_invoice_html(invoice_number: str):
+    """Return the HTML representation of a single tax invoice for re-download / print."""
+    from fastapi.responses import HTMLResponse
+    invoice = await db.tax_invoices.find_one({"invoice_number": invoice_number}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return HTMLResponse(content=invoice.get("html", ""), status_code=200)
