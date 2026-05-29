@@ -25,6 +25,7 @@ import { PermissionsProvider } from "./contexts/PermissionsContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { PlanProvider } from "./contexts/PlanContext";
 import UpdateNotificationPopup from "./components/UpdateNotificationPopup";
+import AIAssistant from "./components/AIAssistant";
 import { Toaster } from "./components/ui/sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -152,6 +153,8 @@ function App() {
             <NotificationPermissionRequest />
             {/* New Update Available popup */}
             <UpdateNotificationPopup />
+            {/* Floating AI Assistant */}
+            <AIAssistant />
             {/* Toast notifications */}
             <Toaster position="top-center" richColors closeButton />
           </BrowserRouter>

@@ -37,6 +37,7 @@ from api.contact import router as contact_router
 from api.permissions import router as permissions_router
 from api.import_data import router as import_data_router
 from api.search import router as search_router
+from api.ai_assistant import router as ai_assistant_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -114,6 +115,7 @@ app.include_router(contact_router)
 app.include_router(permissions_router)
 app.include_router(import_data_router)
 app.include_router(search_router)
+app.include_router(ai_assistant_router)
 
 app.add_middleware(
     CORSMiddleware,

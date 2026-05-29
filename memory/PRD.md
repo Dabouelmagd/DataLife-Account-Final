@@ -7,6 +7,33 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Session Updates (February 2026)
 
+### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 8)
+
+#### 23. AI Assistant (Arabic + English Natural Language Q&A)
+- **Request**: AI assistant that answers business questions in Arabic/English over MongoDB data.
+- **Architecture** (2 LLM calls per question + safe execution):
+  1. **Intent extraction** — LLM converts NL → strict JSON `{collection, action, filter, target_field, group_field, sort, limit}`.
+  2. **Safe execution** — Python builds & runs the MongoDB query with hard whitelist (`ALLOWED_SCHEMA`) and ALWAYS injects `company_id` from the JWT.
+  3. **Summarization** — LLM writes a friendly answer in the user's language using the raw result.
+- **Backend**:
+  - **`services/ai_assistant_service.py`** — whitelist of 9 collections + fields, sanitization of operators (`$where`, `$function`, `$accumulator` blocked), action whitelist (`find/count/sum/avg/min/max/group_by`).
+  - **`api/ai_assistant.py`** — `POST /api/ai-assistant/ask`, `GET /api/ai-assistant/history`, `DELETE /api/ai-assistant/history`.
+  - Model: **OpenAI `gpt-4o`** via Emergent LLM Key (`emergentintegrations` library).
+- **Frontend**:
+  - **`AIAssistant.jsx`** — floating gradient FAB with pulsing ring + "AI" badge.
+  - Drawer with chat-style messages (user blue / assistant white), 4 suggested questions, Send button, Clear chat, RTL/LTR support.
+  - Powered by GPT footer notice.
+  - Hidden until user is authenticated.
+- **Security**:
+  - `company_id` enforced server-side; LLM cannot override.
+  - Sensitive fields (`password`, `password_hash`, `html`) always excluded from projections.
+  - Limits enforced: max 50 results per find, max 20 group buckets.
+  - Conversation history persisted to `ai_assistant_history` for audit.
+- **Test Status**:
+  - Backend: ✅ Arabic question "كم عدد الموظفين؟" → "لديك حالياً 5 موظفين" (intent: count on employees).
+  - Backend: ✅ Arabic question "اعرض أعلى 3 عملاء حسب الرصيد" → ranked list with EGP amounts (intent: find sorted by balance).
+  - Frontend: ✅ Visual verification — FAB visible, drawer opens, suggestion clicked → English question answered correctly with employee count.
+
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 7)
 
 #### 22. Global Search + Responsive Header + Subscription Reminders
