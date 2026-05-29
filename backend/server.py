@@ -128,6 +128,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+@app.on_event("startup")
+async def startup_scheduler():
+    try:
+        from services.scheduler import start_scheduler
+        start_scheduler()
+    except Exception as err:
+        logger.warning(f"Could not start scheduler: {err}")
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    try:
+        from services.scheduler import shutdown_scheduler
+        shutdown_scheduler()
+    except Exception:
+        pass
     client.close()

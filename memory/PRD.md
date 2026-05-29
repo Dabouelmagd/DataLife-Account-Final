@@ -7,6 +7,32 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Session Updates (February 2026)
 
+### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 5)
+
+#### 20. PDF + Print + Bulk ZIP + Monthly VAT Report
+- **Request**: real PDF export, native print, bulk ZIP download, monthly VAT report.
+- **Implementation**:
+  - **WeasyPrint** installed for HTML → PDF (Arabic-friendly with Noto Sans Arabic fonts).
+  - **`render_invoice_pdf(html)`** + **`build_invoices_zip(invoices)`** + **`build_monthly_vat_report_html(...)`** + **`send_monthly_vat_report(...)`** in `tax_invoice_service.py`.
+  - **New backend endpoints** in `api/payments.py`:
+    - `GET /api/payments/tax-invoices/{invoice_number}/pdf` → 36KB PDF
+    - `GET /api/payments/tax-invoices/bulk-download?company_id=&year=&month=` → ZIP with one HTML + one PDF per invoice
+    - `POST /api/payments/tax-invoices/vat-report/send?company_id=&month=&year=&recipient_email=` → emails report (with PDF attachment) and persists to `vat_reports` collection
+    - `GET /api/payments/tax-invoices/vat-report/preview?company_id=&month=&year=` → HTML preview
+  - **Print button on invoice HTML**: floating top-left bar with "Print" + "Save as PDF" buttons (hidden in print via `.no-print`).
+  - **Scheduler** (`services/scheduler.py`) using APScheduler `AsyncIOScheduler`:
+    - Cron job: 1st of every month at 06:00 UTC (≈ 09:00 Cairo).
+    - Iterates over every company that issued invoices in the previous month and emails the VAT report to its `contact_email`.
+    - Started/stopped via FastAPI `on_event("startup"/"shutdown")`.
+  - **Frontend `TaxInvoicesSection.jsx`** updated:
+    - Header buttons: `Preview VAT` / `Email VAT` / `Download ZIP` / `Export CSV`.
+    - Per-row buttons: View 🔗, Print 🖨️, PDF 📄, Download ⬇️.
+    - Bulk ZIP respects current year/month filter.
+    - VAT report requires selecting both a year and a month (otherwise toast error).
+- **Test Status**:
+  - Backend: ✅ `GET /pdf` → 200 (36KB PDF), `bulk-download` → 200 (112KB ZIP, 3 HTML + 3 PDF), `vat-report/send` → 200 (sent:true, PDF attachment).
+  - Frontend: ✅ Visual verification — 4 header CTAs + 4 row actions render correctly with proper colors.
+
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 4)
 
 #### 19. Tax Invoices History in Subscription Tab

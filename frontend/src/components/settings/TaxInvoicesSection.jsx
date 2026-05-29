@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
-import { Receipt, Download, ExternalLink, FileSpreadsheet, Filter, Loader2 } from 'lucide-react';
+import {
+  Receipt, Download, ExternalLink, FileSpreadsheet, Filter, Loader2,
+  FileText, Printer, Archive, Mail, BarChart3
+} from 'lucide-react';
 
 /**
  * Tax invoices history section for the Subscription tab in Settings.
@@ -96,25 +100,128 @@ const TaxInvoicesSection = ({ language, companyId }) => {
     window.open(`${API_URL}/api/payments/tax-invoices/${invoiceNumber}/html`, '_blank');
   };
 
-  const downloadInvoice = async (invoiceNumber) => {
+  const printInvoice = (invoiceNumber) => {
+    // Open invoice in a hidden iframe and trigger native print dialog
+    const url = `${API_URL}/api/payments/tax-invoices/${invoiceNumber}/html`;
+    const w = window.open(url, '_blank');
+    if (w) {
+      // Give it a moment to load before printing
+      const timer = setInterval(() => {
+        try {
+          if (w.document && w.document.readyState === 'complete') {
+            clearInterval(timer);
+            setTimeout(() => w.print(), 400);
+          }
+        } catch {
+          clearInterval(timer);
+        }
+      }, 300);
+    }
+  };
+
+  const downloadInvoicePDF = async (invoiceNumber) => {
     try {
       const res = await axios.get(
-        `${API_URL}/api/payments/tax-invoices/${invoiceNumber}/html`,
-        { responseType: 'text' }
+        `${API_URL}/api/payments/tax-invoices/${invoiceNumber}/pdf`,
+        { responseType: 'blob' }
       );
-      const blob = new Blob([res.data], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${invoiceNumber}.html`;
+      a.download = `${invoiceNumber}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch {
-      // Fallback to opening in new tab
-      openInvoice(invoiceNumber);
+      toast.success(language === 'ar' ? 'تم تحميل PDF بنجاح' : 'PDF downloaded successfully');
+    } catch (err) {
+      toast.error(language === 'ar' ? 'فشل تحميل PDF' : 'PDF download failed');
     }
+  };
+
+  const downloadInvoice = async (invoiceNumber) => {
+    // Default download → PDF for nicer file format
+    await downloadInvoicePDF(invoiceNumber);
+  };
+
+  const bulkDownloadZIP = async () => {
+    try {
+      toast.loading(language === 'ar' ? 'جاري إنشاء الأرشيف...' : 'Building archive...', { id: 'zip' });
+      const params = { company_id: companyId };
+      if (yearFilter !== 'all') params.year = yearFilter;
+      if (monthFilter !== 'all') params.month = monthFilter;
+      const res = await axios.get(`${API_URL}/api/payments/tax-invoices/bulk-download`, {
+        params,
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      const tag = (yearFilter !== 'all' ? `-${yearFilter}` : '') + (monthFilter !== 'all' ? `-${String(monthFilter).padStart(2, '0')}` : '');
+      a.download = `tax-invoices${tag}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(language === 'ar' ? 'تم تحميل الأرشيف' : 'Archive downloaded', { id: 'zip' });
+    } catch (err) {
+      toast.error(
+        err.response?.status === 404
+          ? (language === 'ar' ? 'لا توجد فواتير في النطاق المحدد' : 'No invoices in the selected range')
+          : (language === 'ar' ? 'فشل تحميل الأرشيف' : 'Bulk download failed'),
+        { id: 'zip' }
+      );
+    }
+  };
+
+  const sendVatReport = async () => {
+    if (yearFilter === 'all' || monthFilter === 'all') {
+      toast.error(
+        language === 'ar'
+          ? 'اختر السنة والشهر أولاً لإرسال تقرير VAT'
+          : 'Select both year and month to send the VAT report'
+      );
+      return;
+    }
+    try {
+      toast.loading(language === 'ar' ? 'جاري إرسال التقرير...' : 'Sending report...', { id: 'vat' });
+      const token = localStorage.getItem('token');
+      const res = await axios.post(
+        `${API_URL}/api/payments/tax-invoices/vat-report/send`,
+        null,
+        {
+          params: { company_id: companyId, month: monthFilter, year: yearFilter },
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      toast.success(
+        language === 'ar'
+          ? `تم إرسال التقرير لـ ${res.data.recipient_email}`
+          : `Report sent to ${res.data.recipient_email}`,
+        { id: 'vat' }
+      );
+    } catch (err) {
+      toast.error(
+        err.response?.data?.detail ||
+          (language === 'ar' ? 'فشل إرسال التقرير' : 'Failed to send report'),
+        { id: 'vat' }
+      );
+    }
+  };
+
+  const previewVatReport = () => {
+    if (yearFilter === 'all' || monthFilter === 'all') {
+      toast.error(
+        language === 'ar'
+          ? 'اختر السنة والشهر أولاً'
+          : 'Select both year and month'
+      );
+      return;
+    }
+    window.open(
+      `${API_URL}/api/payments/tax-invoices/vat-report/preview?company_id=${companyId}&month=${monthFilter}&year=${yearFilter}`,
+      '_blank'
+    );
   };
 
   const exportCSV = () => {
@@ -173,17 +280,52 @@ const TaxInvoicesSection = ({ language, companyId }) => {
             <Receipt className="h-5 w-5 text-emerald-600" />
             {language === 'ar' ? 'سجل الفواتير الضريبية' : 'Tax Invoices History'}
           </div>
-          <Button
-            onClick={exportCSV}
-            disabled={filtered.length === 0}
-            size="sm"
-            variant="outline"
-            className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-            data-testid="export-invoices-csv"
-          >
-            <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-            {language === 'ar' ? 'تصدير CSV' : 'Export CSV'}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={previewVatReport}
+              size="sm"
+              variant="outline"
+              className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+              data-testid="preview-vat-report"
+              title={language === 'ar' ? 'معاينة تقرير VAT الشهري' : 'Preview Monthly VAT Report'}
+            >
+              <BarChart3 className="h-4 w-4 mr-1.5" />
+              {language === 'ar' ? 'معاينة VAT' : 'Preview VAT'}
+            </Button>
+            <Button
+              onClick={sendVatReport}
+              size="sm"
+              variant="outline"
+              className="text-blue-700 border-blue-300 hover:bg-blue-50"
+              data-testid="send-vat-report"
+              title={language === 'ar' ? 'إرسال تقرير VAT الشهري بالبريد' : 'Email Monthly VAT Report'}
+            >
+              <Mail className="h-4 w-4 mr-1.5" />
+              {language === 'ar' ? 'إرسال VAT' : 'Email VAT'}
+            </Button>
+            <Button
+              onClick={bulkDownloadZIP}
+              disabled={filtered.length === 0}
+              size="sm"
+              variant="outline"
+              className="text-purple-700 border-purple-300 hover:bg-purple-50"
+              data-testid="bulk-download-zip"
+            >
+              <Archive className="h-4 w-4 mr-1.5" />
+              {language === 'ar' ? 'تحميل ZIP' : 'Download ZIP'}
+            </Button>
+            <Button
+              onClick={exportCSV}
+              disabled={filtered.length === 0}
+              size="sm"
+              variant="outline"
+              className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+              data-testid="export-invoices-csv"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+              {language === 'ar' ? 'تصدير CSV' : 'Export CSV'}
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -284,12 +426,12 @@ const TaxInvoicesSection = ({ language, companyId }) => {
                         {Number(inv.total_egp).toLocaleString()} EGP
                       </td>
                       <td className="px-3 py-2.5">
-                        <div className="flex items-center justify-center gap-1.5">
+                        <div className="flex items-center justify-center gap-1">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => openInvoice(inv.invoice_number)}
-                            className="h-7 px-2 text-xs"
+                            className="h-7 w-7 p-0"
                             title={language === 'ar' ? 'عرض' : 'View'}
                             data-testid={`view-invoice-${inv.invoice_number}`}
                           >
@@ -297,8 +439,27 @@ const TaxInvoicesSection = ({ language, companyId }) => {
                           </Button>
                           <Button
                             size="sm"
+                            variant="outline"
+                            onClick={() => printInvoice(inv.invoice_number)}
+                            className="h-7 w-7 p-0 text-amber-700 border-amber-300 hover:bg-amber-50"
+                            title={language === 'ar' ? 'طباعة' : 'Print'}
+                            data-testid={`print-invoice-${inv.invoice_number}`}
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => downloadInvoicePDF(inv.invoice_number)}
+                            className="h-7 w-7 p-0 bg-rose-600 hover:bg-rose-700"
+                            title={language === 'ar' ? 'تحميل PDF' : 'Download PDF'}
+                            data-testid={`download-pdf-${inv.invoice_number}`}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
                             onClick={() => downloadInvoice(inv.invoice_number)}
-                            className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700"
+                            className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700"
                             title={language === 'ar' ? 'تحميل' : 'Download'}
                             data-testid={`download-invoice-${inv.invoice_number}`}
                           >

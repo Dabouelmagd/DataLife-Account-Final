@@ -465,3 +465,124 @@ async def get_tax_invoice_html(invoice_number: str):
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     return HTMLResponse(content=invoice.get("html", ""), status_code=200)
+
+
+@router.get("/tax-invoices/{invoice_number}/pdf")
+async def get_tax_invoice_pdf(invoice_number: str):
+    """Return the invoice as a downloadable PDF."""
+    from fastapi.responses import Response
+    from services.tax_invoice_service import render_invoice_pdf
+
+    invoice = await db.tax_invoices.find_one({"invoice_number": invoice_number}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    try:
+        pdf_bytes = render_invoice_pdf(invoice.get("html", ""))
+    except RuntimeError as err:
+        raise HTTPException(status_code=503, detail=str(err))
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"PDF rendering failed: {err}")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{invoice_number}.pdf"'},
+    )
+
+
+@router.get("/tax-invoices/bulk-download")
+async def bulk_download_tax_invoices(
+    company_id: Optional[str] = None,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+):
+    """
+    Bundle all matching invoices into a ZIP archive (one HTML + one PDF
+    per invoice). At least company_id or email must be provided.
+    """
+    from fastapi.responses import Response
+    from services.tax_invoice_service import build_invoices_zip
+    from datetime import datetime as _dt
+
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id is required")
+
+    query = {"company_id": company_id}
+    if year:
+        start = _dt(year, month or 1, 1).isoformat()
+        if month:
+            end = _dt(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1).isoformat()
+        else:
+            end = _dt(year + 1, 1, 1).isoformat()
+        query["issued_at"] = {"$gte": start, "$lt": end}
+
+    invoices = await db.tax_invoices.find(query, {"_id": 0}).sort("issued_at", -1).to_list(length=2000)
+    if not invoices:
+        raise HTTPException(status_code=404, detail="No invoices match the filter")
+
+    zip_bytes = build_invoices_zip(invoices)
+    suffix = f"-{year}" if year else ""
+    if month:
+        suffix += f"-{month:02d}"
+    filename = f"tax-invoices{suffix}.zip"
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/tax-invoices/vat-report/send")
+async def trigger_monthly_vat_report(
+    company_id: str,
+    month: int,
+    year: int,
+    recipient_email: Optional[str] = None,
+):
+    """Generate the monthly VAT report and email it to the given recipient."""
+    from services.tax_invoice_service import send_monthly_vat_report
+
+    if not (1 <= month <= 12):
+        raise HTTPException(status_code=400, detail="month must be between 1 and 12")
+    if year < 2000 or year > 2100:
+        raise HTTPException(status_code=400, detail="invalid year")
+
+    target_email = recipient_email
+    if not target_email:
+        company = await db.companies.find_one({"id": company_id}, {"_id": 0, "contact_email": 1})
+        target_email = (company or {}).get("contact_email")
+    if not target_email:
+        raise HTTPException(status_code=400, detail="recipient_email is required")
+
+    result = await send_monthly_vat_report(
+        company_id=company_id,
+        recipient_email=target_email,
+        month=month,
+        year=year,
+        db=db,
+    )
+    return result
+
+
+@router.get("/tax-invoices/vat-report/preview")
+async def preview_monthly_vat_report(company_id: str, month: int, year: int):
+    """Render the monthly VAT report as HTML (for browser preview)."""
+    from fastapi.responses import HTMLResponse
+    from services.tax_invoice_service import build_monthly_vat_report_html
+    from datetime import datetime as _dt
+
+    start = _dt(year, month, 1).isoformat()
+    end = _dt(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1).isoformat()
+    invoices = await db.tax_invoices.find(
+        {"company_id": company_id, "issued_at": {"$gte": start, "$lt": end}},
+        {"_id": 0, "html": 0},
+    ).sort("issued_at", 1).to_list(length=2000)
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1})
+    html = build_monthly_vat_report_html(
+        company_name=(company or {}).get("name") or "DataLife Account",
+        company_id=company_id,
+        month=month,
+        year=year,
+        invoices=invoices,
+    )
+    return HTMLResponse(content=html, status_code=200)
