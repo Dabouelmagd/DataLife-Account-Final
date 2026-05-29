@@ -3,10 +3,11 @@ import {
   Moon, Sun, Globe, ShieldCheck, CreditCard, Copy, Check,
   ChevronDown, Sparkles, Lock, Home, Users, Building2, FileText,
   Package, FolderKanban, ClipboardList, BarChart3, Boxes, Settings,
-  UserCheck, CheckCircle2,
+  UserCheck, CheckCircle2, MoreVertical,
 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import NotificationCenter from './NotificationCenter';
+import GlobalSearch from './GlobalSearch';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { usePlan } from '../contexts/PlanContext';
@@ -26,7 +27,9 @@ const TopHeaderBar = ({ company }) => {
 
   const [copied, setCopied] = useState(false);
   const [permOpen, setPermOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const permRef = useRef(null);
+  const moreRef = useRef(null);
 
   const subscriptionCode =
     user?.subscription_code ||
@@ -42,11 +45,14 @@ const TopHeaderBar = ({ company }) => {
     }
   };
 
-  // Close permissions popover on outside click
+  // Close popovers on outside click
   useEffect(() => {
     const onClickOutside = (e) => {
       if (permRef.current && !permRef.current.contains(e.target)) {
         setPermOpen(false);
+      }
+      if (moreRef.current && !moreRef.current.contains(e.target)) {
+        setMoreOpen(false);
       }
     };
     document.addEventListener('mousedown', onClickOutside);
@@ -108,30 +114,37 @@ const TopHeaderBar = ({ company }) => {
       data-testid="top-header-bar"
       dir={isRTL ? 'rtl' : 'ltr'}
     >
-      <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4 flex-wrap">
-        {/* Left: Company name + plan */}
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="px-3 sm:px-6 py-2 flex items-center gap-2 sm:gap-3">
+        {/* Left: Company name + plan (company name hidden on mobile) */}
+        <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
           {company?.name && (
-            <span className="hidden md:inline text-sm font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[200px]">
+            <span className="hidden xl:inline text-sm font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[180px]">
               {company.name}
             </span>
           )}
           <div
-            className={`inline-flex items-center gap-1.5 bg-gradient-to-r ${planColor} text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm`}
+            className={`inline-flex items-center gap-1 bg-gradient-to-r ${planColor} text-white text-[11px] font-bold px-2 sm:px-2.5 py-1 rounded-full shadow-sm`}
             data-testid="header-plan-badge"
             title={language === 'ar' ? 'نوع الحساب' : 'Account type'}
           >
             <Sparkles className="h-3 w-3" />
-            <span>{language === 'ar' ? planLabelAr : planLabelEn}</span>
+            <span className="hidden sm:inline whitespace-nowrap">
+              {language === 'ar' ? planLabelAr : planLabelEn}
+            </span>
           </div>
         </div>
 
+        {/* Center: Global Search (grows to fill) */}
+        <div className="flex-1 flex justify-center min-w-0">
+          <GlobalSearch />
+        </div>
+
         {/* Right: utility buttons */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Subscription code chip */}
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+          {/* Subscription code chip - hidden on small mobile, visible from sm */}
           <button
             onClick={copyCode}
-            className="inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-700 px-2.5 py-1.5 rounded-lg transition-colors group"
+            className="hidden sm:inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-700 px-2.5 py-1.5 rounded-lg transition-colors group"
             title={language === 'ar' ? 'انقر لنسخ كود الاشتراك' : 'Click to copy subscription code'}
             data-testid="header-subscription-code"
           >
@@ -146,8 +159,8 @@ const TopHeaderBar = ({ company }) => {
             )}
           </button>
 
-          {/* Permissions popover */}
-          <div className="relative" ref={permRef}>
+          {/* Permissions popover - hidden on mobile, in More menu */}
+          <div className="relative hidden lg:block" ref={permRef}>
             <button
               onClick={() => setPermOpen((v) => !v)}
               className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-700 px-2.5 py-1.5 rounded-lg transition-colors"
@@ -202,7 +215,7 @@ const TopHeaderBar = ({ company }) => {
             )}
           </div>
 
-          {/* Dark mode */}
+          {/* Dark mode - always visible */}
           <button
             onClick={toggleDarkMode}
             className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
@@ -214,10 +227,10 @@ const TopHeaderBar = ({ company }) => {
               : <Moon className="h-4 w-4 text-slate-700" />}
           </button>
 
-          {/* Language */}
+          {/* Language - always visible */}
           <button
             onClick={toggleLanguage}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
             title={language === 'ar' ? 'Switch language' : 'تبديل اللغة'}
             data-testid="header-language"
           >
@@ -232,8 +245,8 @@ const TopHeaderBar = ({ company }) => {
             <NotificationCenter />
           </div>
 
-          {/* User chip */}
-          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800">
+          {/* User chip (compact on mobile) */}
+          <div className="flex items-center gap-2 px-1.5 sm:px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800">
             {(user?.profile_photo_url || user?.profile_photo) ? (
               <img
                 src={user.profile_photo_url || user.profile_photo}
@@ -245,14 +258,78 @@ const TopHeaderBar = ({ company }) => {
                 {user?.full_name?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
               </div>
             )}
-            <div className="hidden sm:flex flex-col leading-tight">
-              <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[140px]">
+            <div className="hidden xl:flex flex-col leading-tight">
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[120px]">
                 {user?.full_name || 'User'}
               </span>
               <Badge className={`text-[9px] px-1.5 py-0 bg-gradient-to-r ${getRoleBadgeStyle(user?.role)} text-white border-0 w-fit`}>
                 {user?.role || 'N/A'}
               </Badge>
             </div>
+          </div>
+
+          {/* "More" menu — visible only on mobile to expose hidden controls */}
+          <div className="relative lg:hidden" ref={moreRef}>
+            <button
+              onClick={() => setMoreOpen((v) => !v)}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
+              title={language === 'ar' ? 'المزيد' : 'More'}
+              data-testid="header-more-btn"
+            >
+              <MoreVertical className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+            </button>
+            {moreOpen && (
+              <div
+                className={`absolute top-full mt-2 ${isRTL ? 'right-0' : 'left-0'} w-72 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 p-3 z-40`}
+                data-testid="more-menu"
+              >
+                {/* Subscription code (mobile) */}
+                <button
+                  onClick={() => { copyCode(); }}
+                  className="w-full flex items-center justify-between gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-3 py-2 rounded-lg mb-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CreditCard className="h-4 w-4 text-amber-600" />
+                    <span className="text-xs text-amber-700 dark:text-amber-300">
+                      {language === 'ar' ? 'كود الاشتراك' : 'Code'}
+                    </span>
+                  </div>
+                  <code className="text-xs font-mono font-bold text-amber-700 dark:text-amber-200">
+                    {subscriptionCode}
+                  </code>
+                  {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3 text-amber-600" />}
+                </button>
+
+                {/* Permissions (mobile) */}
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg p-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                      {language === 'ar' ? 'الصلاحيات' : 'Permissions'}
+                    </span>
+                    <span className="ml-auto text-xs font-bold text-emerald-700">{allowedCount}/{allModules.length}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {allModules.map((m) => {
+                      const allowed = hasModulePermission(m.id);
+                      const locked = !isUnlocked(m.id);
+                      return (
+                        <div
+                          key={m.id}
+                          className={`flex items-center justify-center p-1.5 rounded ${
+                            locked ? 'bg-gray-200 dark:bg-slate-700 text-gray-400' :
+                            allowed ? 'bg-emerald-200 text-emerald-700' : 'bg-red-200 text-red-700'
+                          }`}
+                          title={m.name}
+                        >
+                          {React.cloneElement(m.icon, { className: 'h-3 w-3' })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -7,6 +7,38 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Session Updates (February 2026)
 
+### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 7)
+
+#### 22. Global Search + Responsive Header + Subscription Reminders
+- **Request**: responsive TopHeaderBar, expiry reminders, Ctrl+K global search.
+- **Implementation**:
+  - **Global Search** — `backend/api/search.py`:
+    - `GET /api/search/?q=&limit=` searches employees, users, customers, suppliers, invoices, purchases, products, banks for current company (regex-escaped, case-insensitive).
+    - Returns grouped + total count; empty categories stripped from response.
+  - **Frontend `GlobalSearch.jsx`**:
+    - Modal opens via **Ctrl+K / Cmd+K**, closes via Esc or overlay click.
+    - Debounced fetch (250ms), grouped results with icons per category, click-to-navigate to relevant module.
+    - Footer kbd hints + total count.
+  - **Responsive TopHeaderBar**:
+    - Company name: hidden < xl
+    - Plan label: hidden < sm (badge icon only)
+    - Subscription chip: hidden < sm (moved into "More" menu)
+    - Permissions popover: hidden < lg (moved into "More" menu)
+    - User name+role: hidden < xl (avatar only)
+    - **`MoreVertical` menu** (visible only < lg) exposes subscription code + permissions grid on mobile.
+    - Search bar centered, grows to fill (Ctrl+K shortcut shown as kbd).
+  - **Subscription expiry reminders** — `services/scheduler.py`:
+    - New daily job at 08:00 UTC: `_send_subscription_expiry_reminders`.
+    - For paid `subscriptions` collection: warns at 14 / 7 / 3 / 0 days before `end_date`.
+    - For `trial` companies: warns at 7 / 3 / 0 days before the 14-day window ends.
+    - Bilingual HTML email with gradient header (color escalates: indigo → orange → red).
+    - Writes idempotency marker to `subscription_reminders` collection (avoids double-sending the same day).
+    - Also creates an in-app `notifications` entry per reminder.
+- **Test Status**:
+  - Backend: ✅ `GET /api/search/?q=dalia` returns 2 employees correctly.
+  - Backend: ✅ Reminder job executed for trial company with 7 days left → email sent + record persisted.
+  - Frontend: ✅ Visual verification — global search modal opens via Ctrl+K, shows grouped results; mobile view collapses correctly.
+
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 6)
 
 #### 21. Top Header Bar + Sidebar Decluttering
