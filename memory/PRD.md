@@ -7,6 +7,27 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Session Updates (February 2026)
 
+### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 6)
+
+#### 21. Top Header Bar + Sidebar Decluttering
+- **Request**: السايدبار ضيق، الكثير من البنود مدفونة. نقل الإعدادات السياقية إلى Top Bar.
+- **Implementation**:
+  - **New component**: `TopHeaderBar.jsx` (sticky, top of dashboard) hosts:
+    - Company name + **Plan badge** (gradient color per plan: trial=indigo, starter=blue, professional=purple, enterprise=amber, lifetime=yellow…)
+    - **Subscription code chip** with one-click copy (✓ feedback)
+    - **Permissions popover** showing `N/N` with a 12-module grid (allowed/locked/denied states)
+    - **Dark mode** toggle (sun/moon icon)
+    - **Language** switcher (عربي / EN)
+    - **NotificationCenter** (bell)
+    - **User avatar + role badge** with gradient color by role
+  - **Sidebar cleanup** (`ModernSidebar.jsx`):
+    - Removed: subscription code card, plan badge card, user profile card, permissions grid, dark mode button, language button.
+    - Kept: slim company logo header (44px), navigation, Admin/Settings/Logout footer.
+    - Result: ~250px of vertical space freed → all 11 navigation modules now visible without scrolling.
+  - **Integration**: `RealDashboard.jsx` renders `<TopHeaderBar />` above `<TrialCountdownBanner />`.
+- **Test Status**:
+  - Frontend: ✅ Visual verification — all sidebar items now visible (Dashboard, HR, Financial, Invoices, Purchases, Projects & Tasks, Reports, Analytics, Approvals, Settings, Inventory, Import Data), TopHeaderBar elements render correctly, permissions popover opens with module grid.
+
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 5)
 
 #### 20. PDF + Print + Bulk ZIP + Monthly VAT Report
