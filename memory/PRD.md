@@ -7,6 +7,30 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 
 ## Session Updates (February 2026)
 
+### ✅ COMPLETED AND VERIFIED (May 30, 2026 - Session 10)
+
+#### 25. Real Journal Entries / Ledger / Trial Balance Module
+- **Request**: User reported "مفيش طباعة لقيود اليومية، دفتر الاستاذ وميزان المراجعة صفر مع أنى مدخلة بيانات". The previous module used mock data.
+- **Backend** (`/app/backend/api/journal_entries.py`):
+  - `GET /api/journal-entries` — list of entries (filterable by date/account).
+  - `POST/PUT/DELETE /api/journal-entries[/id]` — CRUD with double-entry balance validation (debit==credit) and auto-generated `JE00001` numbering per company.
+  - `GET /api/journal-entries/ledger` — General Ledger aggregated per account with running balances.
+  - `GET /api/journal-entries/trial-balance` — net debit/credit per account + is_balanced flag.
+- **Frontend** (`/app/frontend/src/components/LedgerAccountingModule.jsx`):
+  - Single component with 3 tabs: Journal Entries / General Ledger / Trial Balance.
+  - Invoice-style **Print** for Journal Entries and Trial Balance (`window.print()` with full A4 layout, company header, signatures footer).
+  - **New Entry** modal with multi-line debit/credit table + live "balanced ✓" indicator.
+  - CSV export, delete, account auto-complete with Arabic chart of accounts.
+- **Integration**: `RealDashboard.jsx` now mounts `LedgerAccountingModule` instead of the old mock `JournalEntriesModule`. Sidebar label changed to "القيود والأستاذ والميزان" / "Journal • Ledger • Trial Balance".
+- **Test Status**:
+  - ✅ Backend curl test: 2 entries return real data, ledger groups 4 accounts, trial balance is balanced at 125,000 = 125,000 EGP.
+  - ✅ Frontend visual test: all three tabs render real data, Print button visible, Trial Balance shows "Balanced ✓" badge.
+
+#### 26. Inventory Module — verified working
+- User report: "المخزون مش مسمع". Investigated: module is unlocked for trial plan, backend `/api/inventory/items` works, frontend `InventoryModule` is correctly wired.
+- Root cause: empty array on Preview environment because items live only in the Production DB (datalifeaccount.com). No code fix needed.
+
+
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 9)
 
 #### 24. AI Insights Cards on Dashboard

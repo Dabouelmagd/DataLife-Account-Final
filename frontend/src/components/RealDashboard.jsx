@@ -44,7 +44,6 @@ import {
 } from './HRSubModules';
 
 import {
-  JournalEntriesModule,
   TreasuryModule,
   BankModule,
   CustomersModule,
@@ -54,6 +53,7 @@ import {
   InventoryModule,
   FinancialReportsModule
 } from './FinancialSubModules';
+import LedgerAccountingModule from './LedgerAccountingModule';
 
 import { AnalyticsModule } from './AnalyticsModule';
 import CompanySettings from './CompanySettings';
@@ -221,7 +221,7 @@ const RealDashboard = () => {
         hasSubModules: true,
         subModules: [
           { id: 'financial-overview', name: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: <BarChart /> },
-          { id: 'journal-entries', name: language === 'ar' ? 'القيود اليومية' : 'Journal Entries', icon: <FileText /> },
+          { id: 'journal-entries', name: language === 'ar' ? 'القيود والأستاذ والميزان' : 'Journal • Ledger • Trial Balance', icon: <FileText /> },
           { id: 'treasury', name: language === 'ar' ? 'الخزنة' : 'Treasury', icon: <DollarSign /> },
           { id: 'custody', name: language === 'ar' ? 'العهدة' : 'Custody', icon: <Award /> },
           { id: 'accounts', name: language === 'ar' ? 'الحسابات' : 'Accounts', icon: <Building2 /> },
@@ -817,7 +817,7 @@ const RealDashboard = () => {
       // Financial Sub-module components
       switch (activeFinancialSubModule) {
         case 'journal-entries':
-          return <JournalEntriesModule language={language} userRole={user?.role} />;
+          return <LedgerAccountingModule language={language} userRole={user?.role} company={user?.company} />;
         case 'treasury':
           return <TreasuryModule language={language} userRole={user?.role} />;
         case 'custody':
