@@ -282,3 +282,8 @@ frontend/node_modules/.cache/default-development/6.pack_
 *.env
 *.env.*
 frontend/node_modules/.cache/default-development/22.pack
+.env
+.env.*
+credentials.json
+*.key
+.credentials
