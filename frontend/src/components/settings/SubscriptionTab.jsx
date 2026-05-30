@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Key, Shield, Copy, Check } from 'lucide-react';
 import TaxInvoicesSection from './TaxInvoicesSection';
 import ReferralSection from './ReferralSection';
+import ConversionAnalytics from './ConversionAnalytics';
 
 const SubscriptionTab = ({ 
   language, 
@@ -104,6 +105,9 @@ const SubscriptionTab = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* Conversion Analytics — top of subscription tab */}
+      <ConversionAnalytics language={language} />
 
       {/* Referral Program — spans full width */}
       <ReferralSection language={language} />

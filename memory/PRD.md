@@ -30,6 +30,24 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - User report: "المخزون مش مسمع". Investigated: module is unlocked for trial plan, backend `/api/inventory/items` works, frontend `InventoryModule` is correctly wired.
 - Root cause: empty array on Preview environment because items live only in the Production DB (datalifeaccount.com). No code fix needed.
 
+#### 33. Conversion Analytics Dashboard (May 30, 2026)
+- **Goal**: One-glance growth health for the business owner inside Settings → Subscription.
+- **Backend** (`/app/backend/api/analytics_conversion.py`):
+  - `GET /api/analytics/conversion` (authenticated) returns 4 KPIs:
+    1. `conversion.this_month.rate_pct` + `prev_month` + `delta_pct` — Trial → Paid rate this vs previous month.
+    2. `referral_revenue_this_month` — sum of EGP from paid transactions whose company has `referred_by_code` OR `applied_credit_id` (via `$lookup` on companies).
+    3. `beta_users` — count of companies with `beta_access: true`.
+    4. `time_to_paid.median_days` — median delta (in days) between `companies.created_at` and the first successful `payment_transactions.created_at`. Samples count included.
+  - No new schema; all aggregations on existing collections.
+- **Frontend** (`/app/frontend/src/components/settings/ConversionAnalytics.jsx`):
+  - 4 colored KPI cards (emerald / amber / purple / blue) with delta chip on the conversion card.
+  - Loaded at the top of `SubscriptionTab.jsx`, above Referral Section.
+  - Bilingual labels + Last-updated timestamp.
+- **Test Status**:
+  - ✅ Endpoint returns valid JSON: 2 trials, 0 converted, 1 beta user, median time-to-paid null (no paid sample yet).
+  - ✅ Frontend renders all 4 KPI cards correctly (verified visually).
+
+
 #### 32. Smart Welcome — Auto Onboarding Email + Beta Access (May 30, 2026)
 - **Goal**: When a paid subscription is activated (Professional or Enterprise), automatically:
   1. Send a celebratory welcome email via Resend (free — reuses existing key).

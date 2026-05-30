@@ -40,6 +40,7 @@ from api.search import router as search_router
 from api.ai_assistant import router as ai_assistant_router
 from api.journal_entries import router as journal_entries_router
 from api.referrals import router as referrals_router
+from api.analytics_conversion import router as analytics_conversion_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -120,6 +121,7 @@ app.include_router(search_router)
 app.include_router(ai_assistant_router)
 app.include_router(journal_entries_router)
 app.include_router(referrals_router)
+app.include_router(analytics_conversion_router)
 
 app.add_middleware(
     CORSMiddleware,
