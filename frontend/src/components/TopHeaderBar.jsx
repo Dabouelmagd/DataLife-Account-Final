@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Moon, Sun, Globe, ShieldCheck, CreditCard, Copy, Check,
   ChevronDown, Sparkles, Lock, Home, Users, Building2, FileText,
@@ -8,7 +9,6 @@ import {
 import { Badge } from './ui/badge';
 import NotificationCenter from './NotificationCenter';
 import GlobalSearch from './GlobalSearch';
-import UpgradePlanModal from './UpgradePlanModal';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { usePlan } from '../contexts/PlanContext';
@@ -24,12 +24,12 @@ const TopHeaderBar = ({ company }) => {
   const { darkMode, toggleDarkMode } = useTheme();
   const { planLabelAr, planLabelEn, plan, isUnlocked } = usePlan();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isRTL = language === 'ar';
 
   const [copied, setCopied] = useState(false);
   const [permOpen, setPermOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const permRef = useRef(null);
   const moreRef = useRef(null);
 
@@ -221,7 +221,7 @@ const TopHeaderBar = ({ company }) => {
           {/* Upgrade button — visible for trial plan, prominent */}
           {plan === 'trial' && (
             <button
-              onClick={() => setUpgradeOpen(true)}
+              onClick={() => navigate('/upgrade-plan')}
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold shadow-sm transition-all hover:shadow-md"
               data-testid="header-upgrade-btn"
               title={language === 'ar' ? 'ترقية الباقة' : 'Upgrade your plan'}
@@ -349,8 +349,6 @@ const TopHeaderBar = ({ company }) => {
           </div>
         </div>
       </div>
-      {/* Upgrade Plan Modal */}
-      <UpgradePlanModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
     </header>
   );
 };

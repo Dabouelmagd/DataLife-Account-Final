@@ -30,7 +30,24 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - User report: "المخزون مش مسمع". Investigated: module is unlocked for trial plan, backend `/api/inventory/items` works, frontend `InventoryModule` is correctly wired.
 - Root cause: empty array on Preview environment because items live only in the Production DB (datalifeaccount.com). No code fix needed.
 
-#### 29. In-App Upgrade Plan Modal + Activation Code Field
+#### 30. Upgrade Plan Page + Referral Program (May 30, 2026)
+- **From Modal → Full Page**: The cramped `UpgradePlanModal` is replaced with a dedicated full-screen page `UpgradePlanPage.jsx` mounted at route `/upgrade-plan`. Both the TopBar "Upgrade" button and the Trial Banner "Upgrade Now" CTA now `navigate('/upgrade-plan')`. Modal file kept but unused.
+- **Backend Referrals** (`/app/backend/api/referrals.py`):
+  - `GET /api/referrals/my-code` — returns the company's unique code (`REF-XXXXXX`), share URL, referrals list, pending credits.
+  - `POST /api/referrals/validate?code=X` — public; returns referrer company name + free-days bonus.
+  - `POST /api/referrals/redeem` — records redemption: extends new company's trial by 30 days (writes `trial_extension_days` on the company) and creates a 20% pending discount credit for the referrer in `referral_credits`.
+  - `GET /api/referrals/credits` — list of unused discount credits.
+  - Companies collections updated: `referrals`, `referral_codes`, `referral_credits` are now created on demand.
+- **Trial Extension**: `GET /api/companies/{id}/plan-modules` now adds `trial_extension_days` from the company doc when computing trial end (`14 + bonus_days`), and returns `bonus_days` in the response.
+- **Frontend**:
+  - `UpgradePlanPage.jsx` has TWO code fields side-by-side: Activation Code (yellow, applies % discount) + Referral Code (emerald, applies +1 month free). Both pass through to checkout payload.
+  - `settings/ReferralSection.jsx` — new card in Subscription tab: shows the code + share URL + WhatsApp/Email/Twitter share buttons + stats cards (successful referrals + pending discounts) + list of referred companies.
+- **Test Status**:
+  - ✅ Backend curl: `REF-BC7781` generated for Data Life AI, validate returns `valid: true`, invalid code returns proper message.
+  - ✅ Frontend: Upgrade page renders 3 plans full-width, both code inputs work, referral toast `+1 month free from Data Life AI` displays.
+  - ✅ Settings → Subscription shows Referral card with full code + share buttons.
+
+
 - **Request**: Add a fast "Upgrade Plan" modal opened directly from the TopBar, showing Starter / Professional / Enterprise side-by-side with monthly + yearly + lifetime pricing and Stripe checkout in one click; also include an activation/subscription code field.
 - **New file**: `/app/frontend/src/components/UpgradePlanModal.jsx`
   - 3 plan cards (Starter / Professional / Enterprise) with feature lists, icons, "Most Popular" ribbon on Professional, RTL-aware.

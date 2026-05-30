@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Clock, Zap, X, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { usePlan } from '../contexts/PlanContext';
-import UpgradePlanModal from './UpgradePlanModal';
 
 /**
  * Trial Countdown Banner
@@ -13,11 +13,11 @@ import UpgradePlanModal from './UpgradePlanModal';
 const TrialCountdownBanner = () => {
   const { language } = useLanguage();
   const { plan, trial } = usePlan();
+  const navigate = useNavigate();
   const isRTL = language === 'ar';
   const [dismissed, setDismissed] = useState(
     () => sessionStorage.getItem('trial_banner_dismissed') === '1'
   );
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   // Only show for trial plan
   if (plan !== 'trial' || !trial?.is_trial || dismissed) return null;
@@ -94,7 +94,7 @@ const TrialCountdownBanner = () => {
 
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
-            onClick={() => setUpgradeOpen(true)}
+            onClick={() => navigate('/upgrade-plan')}
             className="flex items-center gap-1.5 bg-white text-indigo-700 hover:bg-white/90 font-semibold text-xs px-4 py-2 rounded-lg shadow-md transition-all hover:scale-105"
             data-testid="trial-upgrade-btn"
           >
@@ -114,7 +114,6 @@ const TrialCountdownBanner = () => {
           )}
         </div>
       </div>
-      <UpgradePlanModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
     </div>
   );
 };

@@ -69,7 +69,7 @@ async def get_company_plan_modules(
     allowed = get_allowed_modules(plan)
     display = PLAN_DISPLAY.get(plan.lower().strip(), PLAN_DISPLAY["trial"])
 
-    # Trial countdown: 14 days from company creation
+    # Trial countdown: 14 days from company creation + any referral bonus days
     trial_info = None
     if plan.lower() == "trial":
         created_raw = company.get("created_at")
@@ -79,13 +79,16 @@ async def get_company_plan_modules(
             created_dt = datetime.utcnow()
         if not created_dt:
             created_dt = datetime.utcnow()
-        ends_at = created_dt + timedelta(days=14)
+        base_days = 14
+        bonus_days = int(company.get("trial_extension_days") or 0)
+        ends_at = created_dt + timedelta(days=base_days + bonus_days)
         days_remaining = max(0, (ends_at - datetime.utcnow()).days)
         trial_info = {
             "is_trial": True,
             "trial_ends_at": ends_at.isoformat(),
             "days_remaining": days_remaining,
             "expired": days_remaining == 0,
+            "bonus_days": bonus_days,
         }
 
     return {

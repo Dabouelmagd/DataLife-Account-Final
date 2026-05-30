@@ -13,6 +13,7 @@ import UserManagement from "./components/UserManagement";
 import PermissionsManager from "./components/PermissionsManager";
 import SubscriptionPage from "./components/SubscriptionPage";
 import SubscriptionSuccess from "./components/SubscriptionSuccess";
+import UpgradePlanPage from "./components/UpgradePlanPage";
 import AdminDashboard from "./components/AdminDashboard";
 import AdminLogin from "./components/AdminLogin";
 import CustomerPortal from "./components/CustomerPortal";
@@ -116,6 +117,14 @@ function App() {
                     <SubscriptionPage />
                   </ProtectedRoute>
                 } 
+              />
+              <Route
+                path="/upgrade-plan"
+                element={
+                  <ProtectedRoute>
+                    <UpgradePlanPage />
+                  </ProtectedRoute>
+                }
               />
               <Route 
                 path="/subscription/success" 
