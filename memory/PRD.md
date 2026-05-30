@@ -30,7 +30,23 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - User report: "المخزون مش مسمع". Investigated: module is unlocked for trial plan, backend `/api/inventory/items` works, frontend `InventoryModule` is correctly wired.
 - Root cause: empty array on Preview environment because items live only in the Production DB (datalifeaccount.com). No code fix needed.
 
-#### 28. Permissions Count Mismatch — fixed (Production-reported bug)
+#### 29. In-App Upgrade Plan Modal + Activation Code Field
+- **Request**: Add a fast "Upgrade Plan" modal opened directly from the TopBar, showing Starter / Professional / Enterprise side-by-side with monthly + yearly + lifetime pricing and Stripe checkout in one click; also include an activation/subscription code field.
+- **New file**: `/app/frontend/src/components/UpgradePlanModal.jsx`
+  - 3 plan cards (Starter / Professional / Enterprise) with feature lists, icons, "Most Popular" ribbon on Professional, RTL-aware.
+  - Duration toggle: 3 / 6 / 12 (Yearly, -20%) / Lifetime (-33%).
+  - Activation code input with `POST /api/subscriptions/validate-code?code=X` validation; visual discount applied live to the displayed price.
+  - "Subscribe Now" → `POST /api/payments/create-checkout` with `company_id` + email + selected `package_id`, then redirects browser to Stripe.
+  - Trust strip (SSL, 14-day money back, cancel anytime).
+- **Wired into**:
+  - `TopHeaderBar.jsx` → new "Upgrade" button (visible only for trial users) opens the modal.
+  - `TrialCountdownBanner.jsx` → "Upgrade Now" CTA now opens the modal (no longer navigates to `/subscription`).
+- **Test Status**:
+  - ✅ DOM verification: modal renders 3 plan cards, 4 duration buttons, code input, validate button, 3 checkout buttons.
+  - ✅ Backend: `GET /api/payments/packages` returns 15 packages; `POST /api/subscriptions/validate-code` rejects invalid codes with proper message.
+  - ⚠️ Stripe checkout flow not E2E-tested (needs a real Stripe test card on the production deploy).
+
+
 - **Report (Production)**: Board Chairman saw only 10 permissions on Profile and 12/12 on the Top Bar — should be 13.
 - **Root cause**: Two hard-coded lists in `TopHeaderBar.jsx` (missing `import`) and `settings/ProfileTab.jsx` (missing `settings`, `users`, `import`); profile also hard-coded `hasAccess = true` without role check.
 - **Fix**:

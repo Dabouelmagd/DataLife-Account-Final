@@ -3,11 +3,12 @@ import {
   Moon, Sun, Globe, ShieldCheck, CreditCard, Copy, Check,
   ChevronDown, Sparkles, Lock, Home, Users, Building2, FileText,
   Package, FolderKanban, ClipboardList, BarChart3, Boxes, Settings,
-  UserCheck, CheckCircle2, MoreVertical,
+  UserCheck, CheckCircle2, MoreVertical, Rocket,
 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import NotificationCenter from './NotificationCenter';
 import GlobalSearch from './GlobalSearch';
+import UpgradePlanModal from './UpgradePlanModal';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { usePlan } from '../contexts/PlanContext';
@@ -28,6 +29,7 @@ const TopHeaderBar = ({ company }) => {
   const [copied, setCopied] = useState(false);
   const [permOpen, setPermOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const permRef = useRef(null);
   const moreRef = useRef(null);
 
@@ -216,6 +218,19 @@ const TopHeaderBar = ({ company }) => {
             )}
           </div>
 
+          {/* Upgrade button — visible for trial plan, prominent */}
+          {plan === 'trial' && (
+            <button
+              onClick={() => setUpgradeOpen(true)}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold shadow-sm transition-all hover:shadow-md"
+              data-testid="header-upgrade-btn"
+              title={language === 'ar' ? 'ترقية الباقة' : 'Upgrade your plan'}
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              <span>{language === 'ar' ? 'ترقية' : 'Upgrade'}</span>
+            </button>
+          )}
+
           {/* Dark mode - always visible */}
           <button
             onClick={toggleDarkMode}
@@ -334,6 +349,8 @@ const TopHeaderBar = ({ company }) => {
           </div>
         </div>
       </div>
+      {/* Upgrade Plan Modal */}
+      <UpgradePlanModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
     </header>
   );
 };
