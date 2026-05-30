@@ -17,6 +17,8 @@ export const PlanProvider = ({ children }) => {
   const [planLabelEn, setPlanLabelEn] = useState('Free Trial');
   const [allowedModules, setAllowedModules] = useState(ALL_MODULES);
   const [trial, setTrial] = useState(null);
+  const [betaAccess, setBetaAccess] = useState(false);
+  const [calendlyUrl, setCalendlyUrl] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchPlanModules = useCallback(async () => {
@@ -34,6 +36,8 @@ export const PlanProvider = ({ children }) => {
       setPlanLabelEn(res.data.plan_label_en || 'Free Trial');
       setAllowedModules(res.data.allowed_modules || ALL_MODULES);
       setTrial(res.data.trial || null);
+      setBetaAccess(Boolean(res.data.beta_access));
+      setCalendlyUrl(res.data.onboarding_calendly_url || null);
     } catch (err) {
       // Default to trial (full access) on error
       setPlan('trial');
@@ -58,6 +62,8 @@ export const PlanProvider = ({ children }) => {
         planLabelEn,
         allowedModules,
         trial,
+        betaAccess,
+        calendlyUrl,
         isUnlocked,
         loading,
         refresh: fetchPlanModules,
@@ -78,6 +84,8 @@ export const usePlan = () => {
       planLabelEn: 'Free Trial',
       allowedModules: ALL_MODULES,
       trial: null,
+      betaAccess: false,
+      calendlyUrl: null,
       isUnlocked: () => true,
       loading: false,
       refresh: () => {},

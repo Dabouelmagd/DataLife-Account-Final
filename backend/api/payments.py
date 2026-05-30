@@ -287,6 +287,16 @@ async def get_payment_status(session_id: str, http_request: Request):
                     duration=transaction.get("duration"),
                     amount_paid=transaction.get("amount_egp")
                 )
+                # Smart Welcome (free Resend email + beta access flag) — fire-and-forget
+                try:
+                    from services.smart_welcome_service import trigger_smart_welcome
+                    await trigger_smart_welcome(
+                        company_id=transaction.get("company_id"),
+                        plan=transaction.get("plan", ""),
+                        db=db,
+                    )
+                except Exception as err:
+                    print(f"[smart_welcome] hook failed: {err}")
 
             # Mark referral credit as used
             if transaction.get("applied_credit_id"):

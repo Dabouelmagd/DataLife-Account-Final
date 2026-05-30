@@ -97,6 +97,8 @@ async def get_company_plan_modules(
         "plan_label_ar": display["ar"],
         "allowed_modules": allowed,
         "trial": trial_info,
+        "beta_access": bool(company.get("beta_access", False)),
+        "onboarding_calendly_url": company.get("onboarding_calendly_url"),
     }
 
 @router.get("/{company_id}", response_model=CompanyResponse)

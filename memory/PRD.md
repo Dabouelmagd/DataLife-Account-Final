@@ -30,6 +30,28 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - User report: "المخزون مش مسمع". Investigated: module is unlocked for trial plan, backend `/api/inventory/items` works, frontend `InventoryModule` is correctly wired.
 - Root cause: empty array on Preview environment because items live only in the Production DB (datalifeaccount.com). No code fix needed.
 
+#### 32. Smart Welcome — Auto Onboarding Email + Beta Access (May 30, 2026)
+- **Goal**: When a paid subscription is activated (Professional or Enterprise), automatically:
+  1. Send a celebratory welcome email via Resend (free — reuses existing key).
+  2. Grant `beta_access: true` on the company, unlocking early features.
+  3. Provide a Calendly link for a free 30-min onboarding session.
+- **New service** (`/app/backend/services/smart_welcome_service.py`):
+  - `trigger_smart_welcome(company_id, plan, db)` — fire-and-forget; never blocks payments.
+  - Sets `beta_access`, `beta_access_granted_at`, `onboarding_calendly_url` on company doc.
+  - Sends bilingual HTML email with 3 gift cards: Onboarding call / Beta access / Priority support.
+  - Inserts in-app notification (`type: smart_welcome`).
+- **Hook**: `api/payments.py` → `get_payment_status()` calls `trigger_smart_welcome` after `activate_subscription` on first paid-status transition.
+- **Frontend**:
+  - `PlanContext` now exposes `betaAccess` + `calendlyUrl` from `/plan-modules`.
+  - `TopHeaderBar` shows a `⚡ BETA` badge (purple→pink gradient) + a `📅 Onboarding` button (links to Calendly) when `betaAccess === true`.
+  - Backend `/api/companies/{id}/plan-modules` extended to include `beta_access` + `onboarding_calendly_url`.
+- **Env**: `CALENDLY_URL` (defaults to `https://calendly.com/datalifeaccount/onboarding`). User can override per environment.
+- **Test Status**:
+  - ✅ Direct call to `trigger_smart_welcome` returned `sent: True`, email delivered to `info@datalifeai.com`.
+  - ✅ Company doc updated: `beta_access: true`, `onboarding_calendly_url` set.
+  - ✅ Frontend: TopBar now shows BETA badge + Onboarding button (verified visually).
+
+
 #### 31. Auto-Applied Referral Discount + Referrer Notification Email + Leaderboard (May 30, 2026)
 - **(1) Stripe Coupons via amount adjustment** (`api/payments.py`):
   - `CreateCheckoutRequest` now accepts `activation_code` and `apply_referral_credit` (default `True`).

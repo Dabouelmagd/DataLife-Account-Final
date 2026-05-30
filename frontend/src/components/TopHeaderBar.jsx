@@ -22,7 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 const TopHeaderBar = ({ company }) => {
   const { language, toggleLanguage } = useLanguage();
   const { darkMode, toggleDarkMode } = useTheme();
-  const { planLabelAr, planLabelEn, plan, isUnlocked } = usePlan();
+  const { planLabelAr, planLabelEn, plan, isUnlocked, betaAccess, calendlyUrl } = usePlan();
   const { user } = useAuth();
   const navigate = useNavigate();
   const isRTL = language === 'ar';
@@ -229,6 +229,29 @@ const TopHeaderBar = ({ company }) => {
               <Rocket className="h-3.5 w-3.5" />
               <span>{language === 'ar' ? 'ترقية' : 'Upgrade'}</span>
             </button>
+          )}
+
+          {/* BETA badge + Onboarding button — visible only for paid users with beta_access */}
+          {betaAccess && (
+            <span
+              className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[10px] font-bold tracking-wider shadow-sm"
+              data-testid="header-beta-badge"
+              title={language === 'ar' ? 'وصول البيتا — متاح لكِ مميزات قبل إطلاقها' : 'Beta access — preview features before launch'}
+            >
+              ⚡ BETA
+            </span>
+          )}
+          {betaAccess && calendlyUrl && (
+            <a
+              href={calendlyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-500 hover:bg-sky-600 text-white text-[11px] font-semibold shadow-sm transition-colors"
+              data-testid="header-onboarding-btn"
+              title={language === 'ar' ? 'احجزي جلسة Onboarding مجانية' : 'Book a free onboarding session'}
+            >
+              📅 {language === 'ar' ? 'احجز' : 'Onboarding'}
+            </a>
           )}
 
           {/* Dark mode - always visible */}
