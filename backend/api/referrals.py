@@ -196,11 +196,117 @@ async def redeem_referral(payload: RedeemRequest):
         {"code": code}, {"$inc": {"uses_count": 1}}
     )
 
+    # 5) Notify referrer by email (Resend) — fire-and-forget
+    try:
+        await _send_referral_notification(
+            referrer_company_id=rec["company_id"],
+            new_company_name=new_company.get("name") or "a new company",
+        )
+    except Exception as err:
+        print(f"[referrals] notification email failed: {err}")
+
     return {
         "success": True,
         "free_days_granted": INVITEE_FREE_DAYS,
         "referrer_credit_percent": REFERRER_DISCOUNT_PERCENT,
     }
+
+
+async def _send_referral_notification(referrer_company_id: str, new_company_name: str):
+    """Send a celebratory email to the referrer when someone uses their code."""
+    import asyncio
+    import resend
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        return
+    company = await db.companies.find_one(
+        {"id": referrer_company_id},
+        {"_id": 0, "name": 1, "contact_email": 1},
+    )
+    if not company or not company.get("contact_email"):
+        return
+    sender = os.environ.get("SENDER_EMAIL", "noreply@datalifeaccount.com")
+    html = f"""
+    <div style="font-family:Arial,sans-serif;direction:rtl;max-width:600px;margin:auto;">
+      <div style="background:linear-gradient(135deg,#10b981,#0d9488);color:#fff;padding:28px;border-radius:10px 10px 0 0;text-align:center;">
+        <div style="font-size:42px;line-height:1;margin-bottom:6px;">🎉</div>
+        <h2 style="margin:0;font-size:20px;">تهانينا! إحالة جديدة ناجحة</h2>
+        <p style="margin:6px 0 0;opacity:.9;font-size:13px;">Congratulations! A new referral signed up</p>
+      </div>
+      <div style="background:#fff;padding:24px;border:1px solid #e5e7eb;border-radius:0 0 10px 10px;">
+        <p style="color:#334155;font-size:14px;">مرحباً <strong>{company.get('name','')}</strong>،</p>
+        <p style="color:#334155;font-size:14px;line-height:1.8;">
+          <strong>{new_company_name}</strong> انضمت إلى DataLife Account باستخدام كود الإحالة الخاص بك.
+        </p>
+        <div style="background:#ecfdf5;border:1px solid #10b981;border-radius:8px;padding:16px;margin:16px 0;">
+          <div style="font-size:13px;color:#065f46;">🎁 مكافأتك:</div>
+          <div style="font-size:18px;font-weight:bold;color:#065f46;margin-top:4px;">
+            خصم {REFERRER_DISCOUNT_PERCENT}% على فاتورتك التالية
+          </div>
+        </div>
+        <p style="color:#64748b;font-size:12px;">سيتم تطبيق الخصم تلقائياً عند دفع اشتراكك القادم.</p>
+        <div style="text-align:center;margin-top:18px;">
+          <a href="https://datalifeaccount.com/upgrade-plan"
+             style="background:#10b981;color:#fff;text-decoration:none;padding:10px 24px;border-radius:8px;font-weight:bold;font-size:13px;display:inline-block;">
+            استخدمي الخصم الآن
+          </a>
+        </div>
+      </div>
+      <p style="color:#94a3b8;font-size:11px;text-align:center;margin-top:14px;">DataLife Account © {datetime.now().year}</p>
+    </div>
+    """
+    try:
+        resend.api_key = api_key
+        await asyncio.to_thread(resend.Emails.send, {
+            "from": f"DataLife Account <{sender}>",
+            "to": [company["contact_email"]],
+            "subject": "🎉 إحالة جديدة — خصم 20% انتظرك! | New referral — 20% off awaits!",
+            "html": html,
+        })
+        # in-app notification
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "company_id": referrer_company_id,
+            "type": "referral_redeemed",
+            "title": "إحالة جديدة ناجحة 🎉",
+            "title_en": "New successful referral",
+            "message": f"{new_company_name} استخدمت كودك — حصلت على خصم {REFERRER_DISCOUNT_PERCENT}%",
+            "severity": "info",
+            "read": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as err:
+        print(f"[referrals] resend failed: {err}")
+
+
+@router.get("/leaderboard")
+async def referrals_leaderboard(limit: int = 10):
+    """
+    Public-ish: top N companies by number of successful referrals.
+    Returns company_name, referrals_count, joined_at.
+    """
+    pipeline = [
+        {"$group": {
+            "_id": "$referrer_company_id",
+            "referrals_count": {"$sum": 1},
+            "last_referral_at": {"$max": "$created_at"},
+        }},
+        {"$sort": {"referrals_count": -1, "last_referral_at": -1}},
+        {"$limit": min(max(limit, 1), 50)},
+    ]
+    rows = await db.referrals.aggregate(pipeline).to_list(length=50)
+    result = []
+    for r in rows:
+        company = await db.companies.find_one(
+            {"id": r["_id"]}, {"_id": 0, "name": 1}
+        ) or {}
+        result.append({
+            "company_id": r["_id"],
+            "company_name": company.get("name") or "—",
+            "referrals_count": r["referrals_count"],
+            "last_referral_at": r["last_referral_at"],
+        })
+    return result
 
 
 @router.get("/credits")

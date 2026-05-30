@@ -30,6 +30,22 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - User report: "المخزون مش مسمع". Investigated: module is unlocked for trial plan, backend `/api/inventory/items` works, frontend `InventoryModule` is correctly wired.
 - Root cause: empty array on Preview environment because items live only in the Production DB (datalifeaccount.com). No code fix needed.
 
+#### 31. Auto-Applied Referral Discount + Referrer Notification Email + Leaderboard (May 30, 2026)
+- **(1) Stripe Coupons via amount adjustment** (`api/payments.py`):
+  - `CreateCheckoutRequest` now accepts `activation_code` and `apply_referral_credit` (default `True`).
+  - On `POST /api/payments/create-checkout`, the backend looks up the OLDEST unused referral credit for the company plus any valid activation code, sums their `discount_percent` (capped at 90%), and **reduces both `amount_usd` and `amount_egp` before creating the Stripe session**.
+  - Transaction document now stores `original_amount_*`, `discount_percent`, `discount_breakdown`, `applied_credit_id`, `applied_activation_code_id`.
+  - On successful payment (`/api/payments/status/{session_id}` polling), the referral credit is flagged `used=True` and the activation code's `current_uses` is incremented atomically.
+  - Curl test confirmed: a 20% credit reduces Professional-3M from `1598 EGP → 1278.4 EGP`.
+- **(2) Email Notification on Redemption** (`api/referrals.py`):
+  - `_send_referral_notification()` fires after each successful `redeem` call. Sends a celebratory bilingual Resend email to the referrer's contact email + creates an in-app notification (`type: referral_redeemed`).
+  - Includes CTA button to `/upgrade-plan` so the user can apply the discount immediately.
+- **(3) Leaderboard** (`api/referrals.py`):
+  - `GET /api/referrals/leaderboard?limit=10` — public; aggregates `referrals` collection, returns top companies by count.
+  - Frontend `ReferralSection` fetches it in parallel with `/my-code` and shows a "Top Referrers" list with podium colors (gold / silver / bronze).
+- **Bug uncovered + fixed**: discovered actual MongoDB DB name is `datalife_production`, not the fallback `multi_tenant_erp` used in some payment helpers. No code change needed (env var is honoured), but test scripts must use the right DB.
+
+
 #### 30. Upgrade Plan Page + Referral Program (May 30, 2026)
 - **From Modal → Full Page**: The cramped `UpgradePlanModal` is replaced with a dedicated full-screen page `UpgradePlanPage.jsx` mounted at route `/upgrade-plan`. Both the TopBar "Upgrade" button and the Trial Banner "Upgrade Now" CTA now `navigate('/upgrade-plan')`. Modal file kept but unused.
 - **Backend Referrals** (`/app/backend/api/referrals.py`):

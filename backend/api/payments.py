@@ -51,6 +51,8 @@ class CreateCheckoutRequest(BaseModel):
     origin_url: str = Field(..., description="Frontend origin URL")
     user_email: Optional[str] = Field(None, description="User email for reference")
     company_id: Optional[str] = Field(None, description="Company ID")
+    activation_code: Optional[str] = Field(None, description="Activation/discount code")
+    apply_referral_credit: bool = Field(True, description="Apply pending referral credit if any")
 
 
 class CheckoutResponse(BaseModel):
@@ -86,6 +88,62 @@ async def create_checkout_session(request: CreateCheckoutRequest, http_request: 
     
     package = SUBSCRIPTION_PACKAGES[request.package_id]
     
+    # ---------- Apply discounts (activation code + referral credit) ----------
+    discount_breakdown = []  # list of {source, percent, amount_egp}
+    total_discount_percent = 0.0
+    applied_credit_id = None
+    applied_activation_code_id = None
+
+    # 1) Activation code discount
+    if request.activation_code:
+        code_doc = await db.activation_codes.find_one(
+            {"code": request.activation_code.strip(), "is_active": True},
+            {"_id": 0},
+        )
+        if (code_doc
+            and code_doc.get("current_uses", 0) < code_doc.get("max_uses", 1)
+            and (not code_doc.get("expires_at")
+                 or datetime.fromisoformat(code_doc["expires_at"]) > datetime.now(timezone.utc))):
+            ap = float(code_doc.get("discount_percent", 0))
+            if ap > 0:
+                total_discount_percent += ap
+                applied_activation_code_id = code_doc.get("id")
+                discount_breakdown.append({
+                    "source": "activation_code",
+                    "code": code_doc.get("code"),
+                    "percent": ap,
+                })
+
+    # 2) Referral credit (uses the OLDEST unused credit for this company)
+    if request.apply_referral_credit and request.company_id:
+        credit = await db.referral_credits.find_one(
+            {"company_id": request.company_id, "used": False},
+            {"_id": 0},
+            sort=[("created_at", 1)],
+        )
+        if credit:
+            cp = float(credit.get("discount_percent", 0))
+            if cp > 0:
+                total_discount_percent += cp
+                applied_credit_id = credit.get("id")
+                discount_breakdown.append({
+                    "source": "referral_credit",
+                    "credit_id": applied_credit_id,
+                    "percent": cp,
+                })
+
+    # Cap at 100% (defensive)
+    total_discount_percent = min(total_discount_percent, 90.0)
+
+    # Compute final price
+    original_price_egp = float(package["price_egp"])
+    original_price_usd = float(package["price_usd"])
+    final_price_egp = round(original_price_egp * (1 - total_discount_percent / 100), 2)
+    final_price_usd = round(original_price_usd * (1 - total_discount_percent / 100), 2)
+    # Stripe requires amount > 0; enforce a small minimum
+    if final_price_usd < 0.50:
+        final_price_usd = 0.50
+    
     # Get Stripe API key
     api_key = os.environ.get('STRIPE_API_KEY')
     if not api_key:
@@ -110,13 +168,16 @@ async def create_checkout_session(request: CreateCheckoutRequest, http_request: 
         "duration": package["duration"],
         "price_egp": str(package["price_egp"]),
         "user_email": request.user_email or "",
-        "company_id": request.company_id or ""
+        "company_id": request.company_id or "",
+        "discount_percent": str(total_discount_percent),
+        "applied_credit_id": applied_credit_id or "",
+        "applied_activation_code_id": applied_activation_code_id or "",
     }
     
     try:
         # Create checkout session with amount from backend (not from frontend)
         checkout_request = CheckoutSessionRequest(
-            amount=float(package["price_usd"]),
+            amount=float(final_price_usd),
             currency="usd",
             success_url=success_url,
             cancel_url=cancel_url,
@@ -131,8 +192,14 @@ async def create_checkout_session(request: CreateCheckoutRequest, http_request: 
             "package_id": request.package_id,
             "plan": package["plan"],
             "duration": package["duration"],
-            "amount_usd": package["price_usd"],
-            "amount_egp": package["price_egp"],
+            "amount_usd": final_price_usd,
+            "amount_egp": final_price_egp,
+            "original_amount_usd": original_price_usd,
+            "original_amount_egp": original_price_egp,
+            "discount_percent": total_discount_percent,
+            "discount_breakdown": discount_breakdown,
+            "applied_credit_id": applied_credit_id,
+            "applied_activation_code_id": applied_activation_code_id,
             "currency": "usd",
             "user_email": request.user_email,
             "company_id": request.company_id,
@@ -151,8 +218,11 @@ async def create_checkout_session(request: CreateCheckoutRequest, http_request: 
                 "id": request.package_id,
                 "name_en": package["name_en"],
                 "name_ar": package["name_ar"],
-                "price_usd": package["price_usd"],
-                "price_egp": package["price_egp"]
+                "price_usd": final_price_usd,
+                "price_egp": final_price_egp,
+                "original_price_egp": original_price_egp,
+                "discount_percent": total_discount_percent,
+                "discount_breakdown": discount_breakdown,
             }
         }
         
@@ -216,6 +286,24 @@ async def get_payment_status(session_id: str, http_request: Request):
                     plan=transaction.get("plan"),
                     duration=transaction.get("duration"),
                     amount_paid=transaction.get("amount_egp")
+                )
+
+            # Mark referral credit as used
+            if transaction.get("applied_credit_id"):
+                await db.referral_credits.update_one(
+                    {"id": transaction["applied_credit_id"]},
+                    {"$set": {
+                        "used": True,
+                        "used_at": datetime.now(timezone.utc).isoformat(),
+                        "used_session_id": session_id,
+                    }},
+                )
+
+            # Increment activation code usage
+            if transaction.get("applied_activation_code_id"):
+                await db.activation_codes.update_one(
+                    {"id": transaction["applied_activation_code_id"]},
+                    {"$inc": {"current_uses": 1}},
                 )
             
             # Send tax invoice (14% VAT inclusive) by email — replaces the old simple confirmation
