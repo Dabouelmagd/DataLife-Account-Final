@@ -30,6 +30,24 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - User report: "المخزون مش مسمع". Investigated: module is unlocked for trial plan, backend `/api/inventory/items` works, frontend `InventoryModule` is correctly wired.
 - Root cause: empty array on Preview environment because items live only in the Production DB (datalifeaccount.com). No code fix needed.
 
+#### 27. Financial Reports — PDF Export + Monthly Email + Date Filters + Cleanup
+- **PDF Export** (`/app/backend/services/financial_reports_service.py`):
+  - Renders Trial Balance and General Ledger as A4 PDFs via WeasyPrint, RTL, with company header, signatures footer, and balanced/unbalanced indicator.
+  - Endpoints: `GET /api/journal-entries/trial-balance/pdf?start_date&end_date` and `GET /api/journal-entries/ledger/pdf?start_date&end_date`.
+- **Monthly Email**:
+  - `POST /api/journal-entries/send-monthly-report` triggers a Resend email with TB + Ledger PDF attachments (defaults to previous month + company contact email).
+  - Scheduled automatically by `apscheduler` on the 1st of every month at 06:30 UTC for every company with journal entries in the previous month (`_send_monthly_financial_reports_for_all_companies`).
+  - Logs sent reports in `financial_report_logs` collection.
+- **Date Filters (Frontend)**: `LedgerAccountingModule.jsx` now has From / To date inputs in the toolbar; backend `start_date` / `end_date` query params are honoured on all three tabs (Journal / Ledger / Trial Balance). PDF download buttons + Monthly Email button per tab.
+- **Cleanup of `FinancialSubModules.jsx`**:
+  - Removed old `JournalEntriesModule` (used mock data) + two orphan "Add New Entry" modals that referenced non-existent `journalEntries` state inside Treasury and Bank modules.
+  - File size: 5851 → 4902 lines (−949 lines). Kept a tiny stub `JournalEntriesModule` for `DemoPage` back-compat.
+- **Test Status**:
+  - ✅ Backend curl: TB PDF (19KB), Ledger PDF (18KB), date-filtered TB PDF all return valid `%PDF` content.
+  - ✅ Date filter on `/api/journal-entries?start_date=2026-05-15&end_date=2026-05-15` returns 1 entry (JE00002) as expected.
+  - ✅ Frontend visual: date filters applied → Trial Balance updates live (4 accounts → 2 accounts; 125k → 75k; still Balanced ✓).
+  - ✅ Other Financial sub-modules (Treasury, Custody, Bank, etc.) still render correctly after cleanup.
+
 
 ### ✅ COMPLETED AND VERIFIED (May 13, 2026 - Session 9)
 

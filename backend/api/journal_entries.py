@@ -5,6 +5,7 @@ Journal Entries API — persistent double-entry accounting.
 - Trial Balance aggregates net debit/credit per account.
 """
 from fastapi import APIRouter, HTTPException, Depends, Header, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,8 +13,14 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 import os
 import uuid
+import io
 
 from services.auth_service import verify_token
+from services.financial_reports_service import (
+    build_trial_balance_pdf,
+    build_ledger_pdf,
+    send_monthly_financial_report,
+)
 
 load_dotenv()
 
@@ -264,3 +271,77 @@ async def trial_balance(
             "is_balanced": round(grand_debit, 2) == round(grand_credit, 2),
         },
     }
+
+
+
+# ---------- PDF Export Endpoints ----------
+@router.get("/trial-balance/pdf")
+async def trial_balance_pdf(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(_get_current_user),
+):
+    """Return Trial Balance as a downloadable PDF."""
+    company_id = current_user.get("company_id")
+    try:
+        pdf_bytes, _ = await build_trial_balance_pdf(db, company_id, start_date, end_date)
+    except RuntimeError as err:
+        raise HTTPException(status_code=503, detail=str(err))
+    fname = f"trial-balance-{datetime.now().date().isoformat()}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+@router.get("/ledger/pdf")
+async def ledger_pdf(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(_get_current_user),
+):
+    """Return General Ledger as a downloadable PDF."""
+    company_id = current_user.get("company_id")
+    try:
+        pdf_bytes, _ = await build_ledger_pdf(db, company_id, start_date, end_date)
+    except RuntimeError as err:
+        raise HTTPException(status_code=503, detail=str(err))
+    fname = f"general-ledger-{datetime.now().date().isoformat()}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+class MonthlyReportRequest(BaseModel):
+    month: Optional[int] = None  # 1-12; defaults to previous month
+    year: Optional[int] = None
+    recipient_email: Optional[str] = None  # defaults to company contact email
+
+
+@router.post("/send-monthly-report")
+async def send_monthly_report(payload: MonthlyReportRequest,
+                              current_user: dict = Depends(_get_current_user)):
+    """Manually trigger the monthly financial reports email for this company."""
+    company_id = current_user.get("company_id")
+    company = await db.companies.find_one({"id": company_id},
+                                          {"_id": 0, "contact_email": 1, "name": 1}) or {}
+    recipient = payload.recipient_email or company.get("contact_email")
+    if not recipient:
+        raise HTTPException(status_code=400, detail="No recipient email available")
+    now = datetime.now(timezone.utc)
+    if payload.month and payload.year:
+        month, year = payload.month, payload.year
+    else:
+        if now.month == 1:
+            month, year = 12, now.year - 1
+        else:
+            month, year = now.month - 1, now.year
+    res = await send_monthly_financial_report(
+        company_id=company_id, recipient_email=recipient, month=month, year=year, db=db,
+    )
+    if not res.get("sent"):
+        raise HTTPException(status_code=500, detail=res.get("error", "Failed to send report"))
+    return res

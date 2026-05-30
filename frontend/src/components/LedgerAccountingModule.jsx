@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import {
   Plus, Trash2, Printer, Download, FileSpreadsheet, BookOpen, Scale,
-  X, Save, Loader2, AlertCircle, ChevronDown, ChevronRight, Eye,
+  X, Save, Loader2, AlertCircle, ChevronDown, ChevronRight, Eye, Mail, FileText,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +30,10 @@ const LedgerAccountingModule = ({ language: lang = 'ar', userRole, company }) =>
   const [loading, setLoading] = useState(true);
   const [ledger, setLedger] = useState([]);
   const [trial, setTrial] = useState(null);
+  // Date filters (from, to)
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sending, setSending] = useState(false);
 
   const canEdit = ['Financial Manager', 'المدير المالي', 'Chief Accountant', 'رئيس الحسابات',
     'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي',
@@ -37,10 +41,17 @@ const LedgerAccountingModule = ({ language: lang = 'ar', userRole, company }) =>
 
   const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
+  const buildParams = () => {
+    const params = {};
+    if (dateFrom) params.start_date = dateFrom;
+    if (dateTo) params.end_date = dateTo;
+    return params;
+  };
+
   const fetchEntries = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/api/journal-entries`, { headers: headers() });
+      const res = await axios.get(`${API}/api/journal-entries`, { headers: headers(), params: buildParams() });
       setEntries(res.data || []);
     } catch {
       setEntries([]);
@@ -51,26 +62,26 @@ const LedgerAccountingModule = ({ language: lang = 'ar', userRole, company }) =>
 
   const fetchLedger = async () => {
     try {
-      const res = await axios.get(`${API}/api/journal-entries/ledger`, { headers: headers() });
+      const res = await axios.get(`${API}/api/journal-entries/ledger`, { headers: headers(), params: buildParams() });
       setLedger(res.data || []);
     } catch { setLedger([]); }
   };
 
   const fetchTrial = async () => {
     try {
-      const res = await axios.get(`${API}/api/journal-entries/trial-balance`, { headers: headers() });
+      const res = await axios.get(`${API}/api/journal-entries/trial-balance`, { headers: headers(), params: buildParams() });
       setTrial(res.data || null);
     } catch { setTrial(null); }
   };
 
   useEffect(() => {
     fetchEntries();
-  }, []);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     if (activeTab === 'ledger') fetchLedger();
     if (activeTab === 'trial') fetchTrial();
-  }, [activeTab]);
+  }, [activeTab, dateFrom, dateTo]);
 
   const totals = useMemo(() => {
     const td = entries.reduce((s, e) => s + Number(e.total_debit || 0), 0);
@@ -311,6 +322,55 @@ const LedgerAccountingModule = ({ language: lang = 'ar', userRole, company }) =>
     toast.success(language === 'ar' ? 'تم التصدير' : 'Exported');
   };
 
+  // ----- PDF Download (server-rendered via WeasyPrint) -----
+  const downloadPdf = async (kind /* 'trial-balance' | 'ledger' */) => {
+    try {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append('start_date', dateFrom);
+      if (dateTo) params.append('end_date', dateTo);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await axios.get(
+        `${API}/api/journal-entries/${kind}/pdf${qs}`,
+        { headers: headers(), responseType: 'blob' },
+      );
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${kind}-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(language === 'ar' ? 'تم تنزيل PDF' : 'PDF downloaded');
+    } catch (err) {
+      toast.error(language === 'ar' ? 'فشل تنزيل PDF' : 'PDF download failed');
+    }
+  };
+
+  // ----- Send monthly report email -----
+  const sendMonthlyEmail = async () => {
+    if (sending) return;
+    setSending(true);
+    try {
+      const res = await axios.post(
+        `${API}/api/journal-entries/send-monthly-report`,
+        {},
+        { headers: headers() },
+      );
+      toast.success(
+        language === 'ar'
+          ? `تم إرسال التقرير الشهري إلى ${res.data?.recipient || ''}`
+          : `Monthly report sent to ${res.data?.recipient || ''}`
+      );
+    } catch (err) {
+      toast.error(err.response?.data?.detail
+        || (language === 'ar' ? 'فشل إرسال الإيميل' : 'Email send failed'));
+    } finally {
+      setSending(false);
+    }
+  };
+
   // -------------- RENDER --------------
   const Tab = ({ id, icon: Icon, label }) => (
     <button
@@ -329,27 +389,71 @@ const LedgerAccountingModule = ({ language: lang = 'ar', userRole, company }) =>
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'} data-testid="ledger-accounting-module">
-      {/* Tabs */}
+      {/* Tabs + Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           <Tab id="journal" icon={BookOpen} label={language === 'ar' ? 'القيود اليومية' : 'Journal Entries'} />
           <Tab id="ledger"  icon={Eye}      label={language === 'ar' ? 'دفتر الأستاذ' : 'General Ledger'} />
           <Tab id="trial"   icon={Scale}    label={language === 'ar' ? 'ميزان المراجعة' : 'Trial Balance'} />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Date filters — apply across all tabs */}
+          <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+            <span className="text-xs text-slate-500 px-1">{language === 'ar' ? 'من' : 'From'}</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="text-xs bg-transparent border-0 outline-none p-1 w-32"
+              data-testid="ledger-date-from"
+            />
+            <span className="text-xs text-slate-500 px-1">{language === 'ar' ? 'إلى' : 'To'}</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="text-xs bg-transparent border-0 outline-none p-1 w-32"
+              data-testid="ledger-date-to"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(''); setDateTo(''); }}
+                className="text-xs text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 p-1 rounded"
+                title={language === 'ar' ? 'مسح الفلاتر' : 'Clear filters'}
+                data-testid="ledger-date-clear"
+              ><X className="h-3 w-3" /></button>
+            )}
+          </div>
+
           {activeTab === 'journal' && (
             <>
-              <Button size="sm" variant="outline" onClick={exportCSV}><FileSpreadsheet className="h-4 w-4 mr-1" />CSV</Button>
-              <Button size="sm" variant="outline" onClick={printJournal}><Printer className="h-4 w-4 mr-1" />{language === 'ar' ? 'طباعة' : 'Print'}</Button>
+              <Button size="sm" variant="outline" onClick={exportCSV} data-testid="journal-export-csv"><FileSpreadsheet className="h-4 w-4 mr-1" />CSV</Button>
+              <Button size="sm" variant="outline" onClick={printJournal} data-testid="journal-print"><Printer className="h-4 w-4 mr-1" />{language === 'ar' ? 'طباعة' : 'Print'}</Button>
               {canEdit && (
-                <Button size="sm" onClick={() => setShowAdd(true)} className="bg-blue-600 hover:bg-blue-700">
+                <Button size="sm" onClick={() => setShowAdd(true)} className="bg-blue-600 hover:bg-blue-700" data-testid="journal-new-entry-btn">
                   <Plus className="h-4 w-4 mr-1" />{language === 'ar' ? 'قيد جديد' : 'New Entry'}
                 </Button>
               )}
             </>
           )}
+          {activeTab === 'ledger' && (
+            <>
+              <Button size="sm" variant="outline" onClick={() => downloadPdf('ledger')} data-testid="ledger-pdf-btn"><FileText className="h-4 w-4 mr-1" />PDF</Button>
+              <Button size="sm" variant="outline" onClick={sendMonthlyEmail} disabled={sending} data-testid="ledger-email-btn">
+                {sending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Mail className="h-4 w-4 mr-1" />}
+                {language === 'ar' ? 'تقرير شهري' : 'Monthly Email'}
+              </Button>
+            </>
+          )}
           {activeTab === 'trial' && (
-            <Button size="sm" variant="outline" onClick={printTrial}><Printer className="h-4 w-4 mr-1" />{language === 'ar' ? 'طباعة' : 'Print'}</Button>
+            <>
+              <Button size="sm" variant="outline" onClick={() => downloadPdf('trial-balance')} data-testid="trial-pdf-btn"><FileText className="h-4 w-4 mr-1" />PDF</Button>
+              <Button size="sm" variant="outline" onClick={printTrial} data-testid="trial-print-btn"><Printer className="h-4 w-4 mr-1" />{language === 'ar' ? 'طباعة' : 'Print'}</Button>
+              <Button size="sm" variant="outline" onClick={sendMonthlyEmail} disabled={sending} data-testid="trial-email-btn">
+                {sending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Mail className="h-4 w-4 mr-1" />}
+                {language === 'ar' ? 'تقرير شهري' : 'Monthly Email'}
+              </Button>
+            </>
           )}
         </div>
       </div>

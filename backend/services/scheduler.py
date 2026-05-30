@@ -9,6 +9,7 @@ from apscheduler.triggers.cron import CronTrigger
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from services.tax_invoice_service import send_monthly_vat_report
+from services.financial_reports_service import send_monthly_financial_report
 
 
 async def _send_subscription_expiry_reminders():
@@ -250,6 +251,51 @@ async def _send_monthly_vat_reports_for_all_companies():
             print(f"[scheduler] Failed to send VAT report for {cid}: {err}")
 
 
+async def _send_monthly_financial_reports_for_all_companies():
+    """
+    On the 1st of each month, build & email a financial report (Trial
+    Balance + General Ledger PDFs) for the *previous* month to every
+    company that has at least one journal entry in that month.
+    """
+    db = _get_db()
+    now = datetime.now(timezone.utc)
+    if now.month == 1:
+        prev_month, prev_year = 12, now.year - 1
+    else:
+        prev_month, prev_year = now.month - 1, now.year
+
+    print(f"[scheduler] Running monthly financial reports for {prev_year}-{prev_month:02d}")
+    start = f"{prev_year:04d}-{prev_month:02d}-01"
+    if prev_month == 12:
+        end = f"{prev_year+1:04d}-01-01"
+    else:
+        end = f"{prev_year:04d}-{prev_month+1:02d}-01"
+
+    pipeline = [
+        {"$match": {"date": {"$gte": start, "$lt": end}}},
+        {"$group": {"_id": "$company_id"}},
+    ]
+    company_ids = [doc["_id"] async for doc in db.journal_entries.aggregate(pipeline)]
+    for cid in company_ids:
+        if not cid:
+            continue
+        company = await db.companies.find_one(
+            {"id": cid}, {"_id": 0, "contact_email": 1, "name": 1}
+        )
+        recipient = (company or {}).get("contact_email")
+        if not recipient:
+            print(f"[scheduler] No contact_email for company {cid}, skipping financial report")
+            continue
+        try:
+            res = await send_monthly_financial_report(
+                company_id=cid, recipient_email=recipient,
+                month=prev_month, year=prev_year, db=db,
+            )
+            print(f"[scheduler] Financial report sent: {res}")
+        except Exception as err:
+            print(f"[scheduler] Failed financial report for {cid}: {err}")
+
+
 def start_scheduler():
     """Start the scheduler. Must be called once at app startup."""
     global _scheduler
@@ -261,6 +307,13 @@ def start_scheduler():
         _send_monthly_vat_reports_for_all_companies,
         trigger=CronTrigger(day=1, hour=6, minute=0),
         id="monthly_vat_report",
+        replace_existing=True,
+    )
+    # Monthly Trial Balance + General Ledger emails (1st of each month, 06:30 UTC)
+    _scheduler.add_job(
+        _send_monthly_financial_reports_for_all_companies,
+        trigger=CronTrigger(day=1, hour=6, minute=30),
+        id="monthly_financial_reports",
         replace_existing=True,
     )
     # Daily subscription expiry reminders at 08:00 UTC (11:00 Cairo time)
