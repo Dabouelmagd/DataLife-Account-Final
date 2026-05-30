@@ -30,6 +30,18 @@ Multi-tenant SaaS ERP application for financial and HR management supporting Ara
 - User report: "المخزون مش مسمع". Investigated: module is unlocked for trial plan, backend `/api/inventory/items` works, frontend `InventoryModule` is correctly wired.
 - Root cause: empty array on Preview environment because items live only in the Production DB (datalifeaccount.com). No code fix needed.
 
+#### 28. Permissions Count Mismatch — fixed (Production-reported bug)
+- **Report (Production)**: Board Chairman saw only 10 permissions on Profile and 12/12 on the Top Bar — should be 13.
+- **Root cause**: Two hard-coded lists in `TopHeaderBar.jsx` (missing `import`) and `settings/ProfileTab.jsx` (missing `settings`, `users`, `import`); profile also hard-coded `hasAccess = true` without role check.
+- **Fix**:
+  - `TopHeaderBar.jsx` `allModules` now has all 13 ids matching `backend/models/plan_modules.py`.
+  - `settings/ProfileTab.jsx` rebuilt to: enumerate all 13 modules, compute access via top-management role check + `user.permissions` array, and show a "Total permissions X / 13" summary.
+- **Test Status** (Preview):
+  - ✅ Top Bar chip shows `13/13` (was `12/12`).
+  - ✅ Profile Permissions grid renders 13 cards, header "Total permissions 13 / 13".
+  - ⚠️ The user must **redeploy to production** for the fix to appear on `datalifeaccount.com`.
+
+
 #### 27. Financial Reports — PDF Export + Monthly Email + Date Filters + Cleanup
 - **PDF Export** (`/app/backend/services/financial_reports_service.py`):
   - Renders Trial Balance and General Ledger as A4 PDFs via WeasyPrint, RTL, with company header, signatures footer, and balanced/unbalanced indicator.

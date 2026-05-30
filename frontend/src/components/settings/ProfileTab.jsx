@@ -329,8 +329,14 @@ const ProfileTab = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {[
+          {(() => {
+            const TOP_ROLES = [
+              'رئيس مجلس الإدارة', 'Board Chairman',
+              'مدير عام', 'General Manager',
+              'المدير التنفيذي', 'CEO', 'Super Admin',
+            ];
+            const isTopManager = TOP_ROLES.includes(user?.role);
+            const modules = [
               { id: 'dashboard', name: language === 'ar' ? 'لوحة التحكم' : 'Dashboard' },
               { id: 'hr', name: language === 'ar' ? 'الموارد البشرية' : 'Human Resources' },
               { id: 'financial', name: language === 'ar' ? 'المالية' : 'Financial' },
@@ -341,23 +347,45 @@ const ProfileTab = ({
               { id: 'analytics', name: language === 'ar' ? 'التحليلات' : 'Analytics' },
               { id: 'inventory', name: language === 'ar' ? 'المخزون' : 'Inventory' },
               { id: 'approvals', name: language === 'ar' ? 'الموافقات' : 'Approvals' },
-            ].map((module) => {
-              const hasAccess = true;
-              return (
-                <div
-                  key={module.id}
-                  className={`p-3 rounded-lg border-2 flex items-center gap-2 ${
-                    hasAccess
-                      ? 'bg-green-50 border-green-200 text-green-700'
-                      : 'bg-red-50 border-red-200 text-red-700'
-                  }`}
-                >
-                  <div className={`w-3 h-3 rounded-full ${hasAccess ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <span className="font-medium text-sm">{module.name}</span>
+              { id: 'settings', name: language === 'ar' ? 'الإعدادات' : 'Settings' },
+              { id: 'users', name: language === 'ar' ? 'إدارة المستخدمين' : 'Users' },
+              { id: 'import', name: language === 'ar' ? 'استيراد البيانات' : 'Import Data' },
+            ];
+            const hasAccess = (id) => isTopManager
+              || (Array.isArray(user?.permissions) && user.permissions.includes(id));
+            const allowedCount = modules.filter((m) => hasAccess(m.id)).length;
+            return (
+              <>
+                <div className="flex items-center justify-between mb-3 text-sm">
+                  <span className="text-gray-600 dark:text-slate-400">
+                    {language === 'ar' ? 'إجمالي الصلاحيات' : 'Total permissions'}
+                  </span>
+                  <span className="font-bold text-emerald-700">
+                    {allowedCount} / {modules.length}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3" data-testid="profile-permissions-grid">
+                  {modules.map((module) => {
+                    const allowed = hasAccess(module.id);
+                    return (
+                      <div
+                        key={module.id}
+                        className={`p-3 rounded-lg border-2 flex items-center gap-2 ${
+                          allowed
+                            ? 'bg-green-50 border-green-200 text-green-700'
+                            : 'bg-red-50 border-red-200 text-red-700'
+                        }`}
+                        data-testid={`profile-perm-${module.id}`}
+                      >
+                        <div className={`w-3 h-3 rounded-full ${allowed ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className="font-medium text-sm">{module.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
     </div>

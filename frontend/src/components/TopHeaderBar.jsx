@@ -71,7 +71,7 @@ const TopHeaderBar = ({ company }) => {
     trial: 'from-indigo-500 to-purple-600',
   }[plan] || 'from-indigo-500 to-purple-600';
 
-  // All modules for permissions popover
+  // All modules for permissions popover (must match backend plan_modules.py)
   const allModules = [
     { id: 'dashboard', name: language === 'ar' ? 'لوحة التحكم' : 'Dashboard', icon: <Home /> },
     { id: 'hr',        name: language === 'ar' ? 'الموارد البشرية' : 'HR', icon: <Users /> },
@@ -85,6 +85,7 @@ const TopHeaderBar = ({ company }) => {
     { id: 'settings',  name: language === 'ar' ? 'الإعدادات' : 'Settings', icon: <Settings /> },
     { id: 'users',     name: language === 'ar' ? 'إدارة المستخدمين' : 'Users', icon: <UserCheck /> },
     { id: 'approvals', name: language === 'ar' ? 'الموافقات' : 'Approvals', icon: <CheckCircle2 /> },
+    { id: 'import',    name: language === 'ar' ? 'استيراد البيانات' : 'Import Data', icon: <FileText /> },
   ];
 
   const isTopManager = [
