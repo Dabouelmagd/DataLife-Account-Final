@@ -1,0 +1,43 @@
+version: '3.9'
+services:
+  mongo_dl:
+    image: mongo:7
+    container_name: datalife_mongo
+    restart: always
+    volumes:
+      - mongo_dl_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    networks:
+      - datalife_net
+
+  backend:
+    image: datalife-backend:latest
+    container_name: datalife_backend
+    restart: always
+    depends_on:
+      - mongo_dl
+    env_file: .env
+    ports:
+      - "8003:8000"
+    networks:
+      - datalife_net
+
+  frontend:
+    image: datalife-frontend:latest
+    container_name: datalife_frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "3003:80"
+    networks:
+      - datalife_net
+
+volumes:
+  mongo_dl_data:
+
+networks:
+  datalife_net:
+    driver: bridge

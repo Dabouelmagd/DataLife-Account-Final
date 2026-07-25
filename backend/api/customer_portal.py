@@ -264,40 +264,7 @@ async def initiate_payment(
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
     
-    if payment_method == "stripe":
-        # Create Stripe checkout session
-        from api.payments import SUBSCRIPTION_PACKAGES
-        from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
-        
-        api_key = os.environ.get('STRIPE_API_KEY')
-        if not api_key:
-            raise HTTPException(status_code=500, detail="Payment not configured")
-        
-        stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
-        
-        success_url = f"{FRONTEND_URL}/customer-portal/payment-success?invoice={invoice_number}"
-        cancel_url = f"{FRONTEND_URL}/customer-portal/invoices/{invoice_number}"
-        
-        checkout_request = CheckoutSessionRequest(
-            amount=amount / 50,  # Convert EGP to USD
-            currency="usd",
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata={
-                "invoice_number": invoice_number,
-                "customer_id": customer_id,
-                "type": "invoice_payment"
-            }
-        )
-        
-        session = await stripe_checkout.create_checkout_session(checkout_request)
-        
-        return {
-            "payment_url": session.url,
-            "session_id": session.session_id
-        }
-    
-    return {"error": "Payment method not supported"}
+    return {"message": "Online payment coming soon", "status": "not_configured"}
 
 
 @router.get("/payments")
