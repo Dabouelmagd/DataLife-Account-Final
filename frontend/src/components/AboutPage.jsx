@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 export default function AboutPage() {
   const { language, isRTL } = useLanguage();
   const navigate = useNavigate();
-  const isRTL = language === 'ar';
   const t = (ar, en) => language === 'ar' ? ar : en;
   return (
     <div className="min-h-screen bg-[#0F1729]" dir={isRTL?'rtl':'ltr'}>

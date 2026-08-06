@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 export default function TermsPage() {
   const { language, isRTL } = useLanguage();
   const navigate = useNavigate();
-  const isRTL = language === 'ar';
   const t = (ar, en) => language === 'ar' ? ar : en;
   const sections = [
     {icon:'✅',title:t('الموافقة على الشروط','Agreement'),content:t('باستخدامك DataLife Account، فأنت توافق على هذه الشروط والأحكام.','By using DataLife Account, you agree to these Terms and Conditions.')},

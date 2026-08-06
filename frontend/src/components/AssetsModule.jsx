@@ -15,7 +15,6 @@ const DEP_METHODS = {buildings:'straight_line',machinery:'straight_line',vehicle
 
 export default function AssetsModule() {
   const { language, isRTL } = useLanguage();
-  const isRTL = language === 'ar';
   const t = (ar, en) => language === 'ar' ? ar : en;
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };

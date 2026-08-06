@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 export default function PrivacyPage() {
   const { language, isRTL } = useLanguage();
   const navigate = useNavigate();
-  const isRTL = language === 'ar';
   const t = (ar, en) => language === 'ar' ? ar : en;
   const sections = [
     {icon:'🗄️',title:t('البيانات التي نجمعها','Data We Collect'),content:t('نجمع البيانات اللازمة لتشغيل النظام فقط: بيانات الشركة والموظفين، المعاملات المالية، وبيانات الاستخدام. لا نبيع بياناتك لأي طرف ثالث.','We only collect data necessary to operate the system. We never sell your data to third parties.')},

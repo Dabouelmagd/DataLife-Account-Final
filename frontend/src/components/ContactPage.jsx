@@ -7,7 +7,6 @@ const API = process.env.REACT_APP_BACKEND_URL;
 export default function ContactPage() {
   const { language, isRTL } = useLanguage();
   const navigate = useNavigate();
-  const isRTL = language === 'ar';
   const t = (ar, en) => language === 'ar' ? ar : en;
   const [form, setForm] = useState({name:'',email:'',subject:'',message:'',type:'general'});
   const [status, setStatus] = useState('idle');
