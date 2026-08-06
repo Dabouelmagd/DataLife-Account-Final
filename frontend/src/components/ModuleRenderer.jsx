@@ -50,6 +50,7 @@ import SuperAdminDashboard from '../pages/SuperAdminDashboard';
 import NotificationSettingsPage from '../pages/NotificationSettingsPage';
 import UserGuidePage from '../pages/UserGuidePage';
 import ReportManagementPage from '../pages/ReportManagementPage';
+import AssetsModule from '../components/AssetsModule';
 
 // Overview components
 import HROverviewContent from '../components/HROverviewContent';
@@ -280,6 +281,7 @@ const ModuleRenderer = ({
 
   // Simple modules (no sub-modules)
   const simpleModuleMap = {
+    'assets': <AssetsModule />,
     'analytics': <AnalyticsModule language={language} />,
     'system-reports': <SystemReportsPage language={language} />,
     'report-management': <ReportManagementPage language={language} />,

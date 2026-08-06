@@ -126,6 +126,15 @@ export const getAvailableModules = (user, language) => {
     });
   }
 
+  // Assets & Tax Module
+  if (hasFullAccess || permissions.includes('financial')) {
+    modules.push({
+      id: 'assets',
+      name: isArabic ? 'الأصول والضرائب' : 'Assets & Taxes',
+      icon: <Building2 />
+    });
+  }
+
   // Import Data Module
   if (hasFullAccess || permissions.includes('settings') || permissions.includes('admin')) {
     modules.push({
