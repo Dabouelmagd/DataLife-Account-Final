@@ -32,6 +32,12 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import AboutPage from "./components/AboutPage";
+import PrivacyPage from "./components/PrivacyPage";
+import TermsPage from "./components/TermsPage";
+import ContactPage from "./components/ContactPage";
+import PartnersPage from "./components/PartnersPage";
+import AssetsModule from "./components/AssetsModule";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -212,7 +218,12 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
-            </Routes>
+                      <Route path="/about" element={<AboutPage language={language} />} />
+          <Route path="/privacy" element={<PrivacyPage language={language} />} />
+          <Route path="/terms" element={<TermsPage language={language} />} />
+          <Route path="/contact" element={<ContactPage language={language} />} />
+          <Route path="/partners" element={<PartnersPage language={language} />} />
+        </Routes>
             {/* Support Chatbot - appears on all pages */}
             <SupportChatbot />
             {/* Notification Permission Request */}
