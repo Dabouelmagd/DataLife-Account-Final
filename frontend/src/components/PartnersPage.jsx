@@ -1,7 +1,9 @@
+import { useLanguage } from '../contexts/LanguageContext';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function PartnersPage({ language }) {
+export default function PartnersPage() {
+  const { language, isRTL } = useLanguage();
   const navigate = useNavigate();
   const isRTL = language === 'ar';
   const t = (ar, en) => language === 'ar' ? ar : en;

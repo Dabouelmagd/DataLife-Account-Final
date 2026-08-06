@@ -1,9 +1,11 @@
+import { useLanguage } from '../contexts/LanguageContext';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-export default function ContactPage({ language }) {
+export default function ContactPage() {
+  const { language, isRTL } = useLanguage();
   const navigate = useNavigate();
   const isRTL = language === 'ar';
   const t = (ar, en) => language === 'ar' ? ar : en;

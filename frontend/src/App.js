@@ -218,11 +218,11 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
-                      <Route path="/about" element={<AboutPage language={language} />} />
-          <Route path="/privacy" element={<PrivacyPage language={language} />} />
-          <Route path="/terms" element={<TermsPage language={language} />} />
-          <Route path="/contact" element={<ContactPage language={language} />} />
-          <Route path="/partners" element={<PartnersPage language={language} />} />
+                      <Route path="/about" element={<AboutPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/partners" element={<PartnersPage />} />
         </Routes>
             {/* Support Chatbot - appears on all pages */}
             <SupportChatbot />
