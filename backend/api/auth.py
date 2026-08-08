@@ -472,10 +472,12 @@ async def update_permissions(
         raise HTTPException(status_code=401, detail="User not found")
     
     # Check if current user has admin privileges
-    if current_user.role not in ADMIN_ROLES:
+    is_super_admin = getattr(current_user, 'is_platform_admin', False) or current_user.role == "Super Admin"
+    
+    if not is_super_admin and current_user.role not in ADMIN_ROLES:
         raise HTTPException(
             status_code=403, 
-            detail="Only General Manager, CEO, or Board Chairman can modify permissions"
+            detail="Only admins can modify permissions"
         )
     
     # Get target user
@@ -483,16 +485,17 @@ async def update_permissions(
     if not target_user:
         raise HTTPException(status_code=404, detail="Target user not found")
     
-    # Check if they're in the same company
-    if current_user.company_id != target_user.company_id:
-        raise HTTPException(status_code=403, detail="Cannot modify users from other companies")
-    
-    # Cannot modify permissions of other admins (only self or lower roles)
-    if target_user.role in ADMIN_ROLES and target_user.id != current_user.id:
-        raise HTTPException(
-            status_code=403, 
-            detail="Cannot modify permissions of other administrators"
-        )
+    # Super Admin can modify ANY user across ALL companies
+    # Company admin can only modify users in same company
+    if not is_super_admin:
+        if current_user.company_id != target_user.company_id:
+            raise HTTPException(status_code=403, detail="Cannot modify users from other companies")
+        
+        if target_user.role in ADMIN_ROLES and target_user.id != current_user.id:
+            raise HTTPException(
+                status_code=403, 
+                detail="Cannot modify permissions of other administrators"
+            )
     
     # Validate permissions
     valid_permission_ids = [p['id'] for p in ALL_PERMISSIONS]

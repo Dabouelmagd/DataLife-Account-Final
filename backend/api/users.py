@@ -502,8 +502,16 @@ async def upload_profile_photo(
 async def list_company_users(
     current_user: dict = Depends(get_current_user)
 ):
-    """List all users in the current user's company"""
-    users = await get_users_by_company(db, current_user.get("company_id"))
+    """List all users — Super Admin sees all, company admin sees own company"""
+    is_super_admin = current_user.get("is_platform_admin") or current_user.get("role") == "Super Admin"
+    
+    if is_super_admin:
+        # Super Admin / Owner: return all users across all companies
+        users = await db.users.find({}, {"_id": 0}).to_list(length=10000)
+    else:
+        # Company admin: return only users in same company
+        company_id = current_user.get("company_id")
+        users = await get_users_by_company(db, company_id)
     
     return [user_to_response(user) for user in users]
 

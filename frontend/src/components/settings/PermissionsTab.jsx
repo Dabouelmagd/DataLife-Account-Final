@@ -75,6 +75,8 @@ const ROLE_TEMPLATES = {
 
 const PermissionsTab = ({ language = 'ar', currentUserId }) => {
   const isRTL = language === 'ar';
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isOwner = currentUser?.is_platform_admin || currentUser?.role === 'Super Admin';
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,8 +98,15 @@ const PermissionsTab = ({ language = 'ar', currentUserId }) => {
       });
       
       const users = response.data || [];
-      // Filter out current user
-      setEmployees(users.filter(u => u.id !== currentUserId));
+      // Filter out current user (Super Admin)
+      const filtered = users.filter(u => u.id !== currentUserId);
+      // Sort: group by company_id
+      filtered.sort((a, b) => {
+        const cA = a.company_id || '';
+        const cB = b.company_id || '';
+        return cA.localeCompare(cB);
+      });
+      setEmployees(filtered);
     } catch (error) {
       console.error('Error fetching employees:', error);
       toast.error(language === 'ar' ? 'خطأ في جلب الموظفين' : 'Error fetching employees');
@@ -314,14 +323,27 @@ const PermissionsTab = ({ language = 'ar', currentUserId }) => {
         </Card>
       ) : (
         <div className="space-y-4">
-          {filteredEmployees.map((emp) => {
+          {filteredEmployees.map((emp, index) => {
             const isExpanded = expandedEmployee === emp.id;
             const hasChanges = hasEmployeeChanges(emp.id);
             const enabledCount = getEnabledPermissionsCount(emp.id);
+            const prevEmp = filteredEmployees[index - 1];
+            const showCompanyHeader = isOwner && (index === 0 || emp.company_id !== prevEmp?.company_id);
+            const companyLabel = emp.company_id
+              ? (emp.company_name || (language === 'ar' ? `شركة (${emp.company_id?.slice(0,8)})` : `Company (${emp.company_id?.slice(0,8)})`))
+              : (language === 'ar' ? '🛡️ مستخدمو المنصة' : '🛡️ Platform Users');
             
             return (
+              <div key={emp.id}>
+                {showCompanyHeader && (
+                  <div className="flex items-center gap-2 px-2 py-1 mb-2 mt-3">
+                    <span className="text-xs font-bold text-[#28376B] bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                      {companyLabel}
+                    </span>
+                    <div className="flex-1 h-px bg-blue-100"></div>
+                  </div>
+                )}
               <Card 
-                key={emp.id} 
                 className={`transition-all ${hasChanges ? 'ring-2 ring-amber-400 bg-amber-50/50 dark:bg-amber-900/10' : ''}`}
               >
                 <CardContent className="p-0">
@@ -499,6 +521,7 @@ const PermissionsTab = ({ language = 'ar', currentUserId }) => {
                   )}
                 </CardContent>
               </Card>
+              </div>
             );
           })}
         </div>
