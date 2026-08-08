@@ -8,6 +8,14 @@ import string
 
 router = APIRouter(prefix="/api/approvals", tags=["approvals"])
 
+async def _broadcast_approval(company_id: str, event: str, data: dict):
+    """Broadcast approval event to connected WebSocket clients"""
+    try:
+        from api.attachments import broadcast_update
+        await broadcast_update(company_id, event, data)
+    except Exception:
+        pass  # Non-critical — WebSocket broadcast failure shouldn't break the API
+
 # MongoDB connection
 MONGO_URL = os.environ.get('MONGO_URL')
 DB_NAME = os.environ.get('DB_NAME', 'multi_tenant_erp')
@@ -393,6 +401,15 @@ async def approve_request(
         "approved" if update_data.get("status") == "approved" else "level_approved"
     )
     
+    # Broadcast real-time update to all connected clients
+    await _broadcast_approval(company_id, "approval_updated", {
+        "request_id": request_id,
+        "status": update_data.get("status", "pending"),
+        "approved_by": user_id,
+        "type": request.get("type"),
+        "title": request.get("title", ""),
+    })
+
     return {"success": True, "status": update_data.get("status", "pending")}
 
 

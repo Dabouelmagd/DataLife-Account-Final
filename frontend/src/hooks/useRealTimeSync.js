@@ -13,13 +13,15 @@ export const useRealTimeSync = (onUpdate) => {
   const maxReconnectAttempts = 5;
 
   const connect = useCallback(() => {
-    if (!user?.company_id || wsRef.current?.readyState === WebSocket.OPEN) {
+    const roomId = user?.company_id || user?.id;
+    if (!roomId || wsRef.current?.readyState === WebSocket.OPEN) {
       return;
     }
 
     // Convert HTTP URL to WebSocket URL
     const wsUrl = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
-    const fullUrl = `${wsUrl}/api/attachments/ws/sync/${user.company_id}`;
+    const roomId = user?.company_id || user?.id;
+    const fullUrl = `${wsUrl}/api/attachments/ws/sync/${roomId}`;
 
     try {
       wsRef.current = new WebSocket(fullUrl);
