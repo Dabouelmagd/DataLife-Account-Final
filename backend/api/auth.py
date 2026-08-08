@@ -107,6 +107,15 @@ async def login(credentials: UserLogin):
     
     user_response = user_to_response(user)
     
+    # Track last login time and mark as having logged in
+    await db.users.update_one(
+        {"email": credentials.email},
+        {"$set": {
+            "last_login": datetime.now(timezone.utc).isoformat(),
+            "has_logged_in": True
+        }}
+    )
+    
     return Token(
         access_token=access_token,
         token_type="bearer",

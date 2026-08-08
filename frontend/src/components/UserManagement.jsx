@@ -419,6 +419,7 @@ const UserManagement = () => {
                     <TableHead className="font-bold">{language === 'ar' ? 'الدور' : 'Role'}</TableHead>
                     <TableHead className="font-bold">{language === 'ar' ? 'الصلاحيات' : 'Permissions'}</TableHead>
                     <TableHead className="font-bold">{language === 'ar' ? 'تاريخ الإنشاء' : 'Created'}</TableHead>
+                    <TableHead className="font-bold">{language === 'ar' ? 'حالة الدعوة' : 'Invite Status'}</TableHead>
                     <TableHead className="font-bold">{language === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -471,6 +472,35 @@ const UserManagement = () => {
                       <TableCell className="text-sm text-gray-600">
                         {new Date(usr.created_at).toLocaleDateString()}
                       </TableCell>
+
+                      {/* Invitation Status Column */}
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {usr.has_logged_in ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+                              {language === 'ar' ? 'دخل' : 'Logged in'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                              <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 inline-block"></span>
+                              {language === 'ar' ? 'لم يدخل بعد' : 'Not logged in'}
+                            </span>
+                          )}
+                          {usr.last_login && (
+                            <span className="text-xs text-gray-400">
+                              {language === 'ar' ? 'آخر دخول: ' : 'Last: '}
+                              {new Date(usr.last_login).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
+                            </span>
+                          )}
+                          {usr.invitation_sent_at && !usr.has_logged_in && (
+                            <span className="text-xs text-gray-400">
+                              {language === 'ar' ? `أُرسلت ${usr.invitation_count || 1} مرة` : `Sent ${usr.invitation_count || 1}x`}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
@@ -498,8 +528,14 @@ const UserManagement = () => {
                             size="sm"
                             onClick={() => handleResendInvite(usr.id, usr.email)}
                             title={language === 'ar' ? 'إعادة إرسال الدعوة' : 'Resend Invitation'}
+                            className={`flex items-center gap-1 text-xs ${usr.has_logged_in ? 'text-gray-400' : 'text-green-600 hover:bg-green-50'}`}
                           >
-                            <Mail className="h-4 w-4 text-green-600" />
+                            <Mail className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">
+                              {usr.has_logged_in
+                                ? (language === 'ar' ? 'إعادة إرسال' : 'Resend')
+                                : (language === 'ar' ? 'إرسال دعوة' : 'Send Invite')}
+                            </span>
                           </Button>
                           {usr.id !== user?.id && (
                             <Button

@@ -235,13 +235,19 @@ async def resend_invitation(
         new_password = ''.join(secrets.choice(alphabet) for _ in range(10))
         hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
         
-        # Update password in database
+        # Update password and invitation tracking in database
+        from datetime import datetime, timezone
         await db.users.update_one(
             {"id": user_id},
-            {"$set": {
-                "password": hashed.decode('utf-8'),
-                "password_hash": hashed.decode('utf-8')
-            }}
+            {
+                "$set": {
+                    "password": hashed.decode('utf-8'),
+                    "password_hash": hashed.decode('utf-8'),
+                    "invitation_sent_at": datetime.now(timezone.utc).isoformat(),
+                    "last_invite_resent_by": current_user.get("full_name", ""),
+                },
+                "$inc": {"invitation_count": 1}
+            }
         )
         
         # Get company name
@@ -356,6 +362,7 @@ async def invite_employee(
     user_id = str(uuid.uuid4())
     company_id = current_user.get("company_id")
     
+    from datetime import timezone
     new_user = {
         "id": user_id,
         "email": invite_data.email,
@@ -366,7 +373,12 @@ async def invite_employee(
         "is_active": True,
         "permissions": invite_data.permissions,
         "created_at": datetime.utcnow().isoformat(),
-        "invited_by": current_user.get("user_id")
+        "invited_by": current_user.get("user_id"),
+        "invited_by_name": current_user.get("full_name", ""),
+        "invitation_sent_at": datetime.now(timezone.utc).isoformat(),
+        "invitation_count": 1,
+        "has_logged_in": False,
+        "last_login": None,
     }
     
     await db.users.insert_one(new_user)
