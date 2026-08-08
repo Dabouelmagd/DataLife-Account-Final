@@ -162,6 +162,19 @@ const RealDashboard = () => {
       {/* Main Content */}
       <div className={`flex-1 flex flex-col overflow-y-auto ${isRTL ? 'mr-72' : 'ml-72'}`}>
         <div className="flex-1 p-6">
+          {/* Back Button */}
+          {activeModule !== 'dashboard' && (
+            <button
+              onClick={() => setActiveModule('dashboard')}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:text-[#28376B] hover:bg-gray-100 rounded-lg transition-colors mb-4"
+            >
+              {isRTL
+                ? <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                : <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              }
+              <span>{language === 'ar' ? 'رجوع للرئيسية' : 'Back to Dashboard'}</span>
+            </button>
+          )}
           <ModuleRenderer
             activeModule={activeModule}
             activeHRSubModule={activeHRSubModule}

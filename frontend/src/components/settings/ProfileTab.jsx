@@ -327,7 +327,7 @@ const ProfileTab = ({
             <Shield className="h-5 w-5 text-[#28376B]" />
             {language === 'ar' ? 'الصلاحيات' : 'My Permissions'}
             <span className="text-sm font-normal text-gray-500">
-              ({(user?.permissions || []).length} / 21)
+              ({(user?.permissions || []).length} / {(user?.permissions || []).length})
             </span>
           </CardTitle>
         </CardHeader>

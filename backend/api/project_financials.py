@@ -99,6 +99,28 @@ async def add_project_expense(
     if "_id" in expense:
         del expense["_id"]
     
+    # Create journal entry for expense — يظهر في دفتر الأستاذ والميزانية
+    project = await db.projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
+    project_name = project.get("name", project_id) if project else project_id
+    cat_info = EXPENSE_CATEGORIES.get(expense.get("category", "other"), {})
+    cat_name = cat_info.get("name_ar", "مصروف مشروع")
+    credit_account = "البنك" if expense.get("payment_method", "cash") == "bank" else "الخزينة"
+    import uuid as _uuid_exp
+    await db.journal_entries.insert_one({
+        "id": str(_uuid_exp.uuid4()),
+        "company_id": company_id,
+        "date": expense.get("date"),
+        "description": f"مصروف مشروع ({project_name}): {expense.get('description', cat_name)}",
+        "debit_account": f"مصروفات المشاريع — {cat_name}",
+        "credit_account": credit_account,
+        "amount": expense.get("amount", 0),
+        "type": "journal",
+        "source": "project_expense",
+        "project_id": project_id,
+        "reference": expense.get("id"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
     # Update project total expenses
     await update_project_financials(project_id)
     
@@ -230,6 +252,28 @@ async def add_project_revenue(
     if "_id" in revenue:
         del revenue["_id"]
     
+    # Create journal entry for revenue — يظهر في دفتر الأستاذ والميزانية
+    project = await db.projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
+    project_name = project.get("name", project_id) if project else project_id
+    rev_cat = REVENUE_CATEGORIES.get(revenue.get("category", "other"), {})
+    rev_name = rev_cat.get("name_ar", "إيراد مشروع")
+    debit_account = "البنك" if revenue.get("payment_method", "bank") == "bank" else "الخزينة"
+    import uuid as _uuid_rev
+    await db.journal_entries.insert_one({
+        "id": str(_uuid_rev.uuid4()),
+        "company_id": company_id,
+        "date": revenue.get("date"),
+        "description": f"إيراد مشروع ({project_name}): {revenue.get('description', rev_name)}",
+        "debit_account": debit_account,
+        "credit_account": f"إيرادات المشاريع — {rev_name}",
+        "amount": revenue.get("amount", 0),
+        "type": "journal",
+        "source": "project_revenue",
+        "project_id": project_id,
+        "reference": revenue.get("id"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
     # Update project total revenues
     await update_project_financials(project_id)
     

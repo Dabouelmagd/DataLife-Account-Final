@@ -474,24 +474,42 @@ export const SalariesModule = ({ language, userRole }) => {
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const formData = new FormData(e.target);
-              const newEmployee = {
-                id: `E${String(salaries.length + 1).padStart(3, '0')}`,
-                name: formData.get('name'),
+              const token = localStorage.getItem('token');
+              const employeeData = {
+                full_name: formData.get('name'),
                 position: formData.get('position'),
-                basicSalary: parseFloat(formData.get('basicSalary')),
-                totalSalary: parseFloat(formData.get('basicSalary')) * 1.2,
-                status: 'pending',
-                photo: formData.get('photo')?.name || null,
-                documents: formData.get('documents')?.name || null
+                department: formData.get('department') || '',
+                basic_salary: parseFloat(formData.get('basicSalary')) || 0,
+                hire_date: formData.get('hire_date') || new Date().toISOString().split('T')[0],
+                national_id: formData.get('national_id') || '',
+                phone: formData.get('phone') || '',
+                email: formData.get('email') || '',
+                employment_type: 'full_time',
+                status: 'active',
               };
-              setSalaries([...salaries, newEmployee]);
-              setShowAddModal(false);
-              setSuccessMessage(language === 'ar' ? 'تم إضافة الموظف بنجاح!' : 'Employee added successfully!');
-              setShowSuccessModal(true);
-              setTimeout(() => setShowSuccessModal(false), 2000);
+              try {
+                const res = await fetch(`${API_URL}/api/hr/employees`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify(employeeData),
+                });
+                if (res.ok) {
+                  const saved = await res.json();
+                  setSalaries(prev => [...prev, { ...saved, name: saved.full_name, basicSalary: saved.basic_salary }]);
+                  setShowAddModal(false);
+                  setSuccessMessage(language === 'ar' ? 'تم إضافة الموظف بنجاح!' : 'Employee added successfully!');
+                  setShowSuccessModal(true);
+                  setTimeout(() => setShowSuccessModal(false), 2000);
+                } else {
+                  const err = await res.json();
+                  alert(language === 'ar' ? `خطأ: ${err.detail || 'فشل الحفظ'}` : `Error: ${err.detail || 'Save failed'}`);
+                }
+              } catch (err) {
+                alert(language === 'ar' ? 'خطأ في الاتصال بالسيرفر' : 'Connection error');
+              }
             }} className="space-y-6">
               
               {/* Personal Photo Upload */}
