@@ -553,77 +553,119 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
 
       {/* Users Table */}
       {activeTab === 'users' && (
-        <Card>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <RefreshCw className="w-8 h-8 animate-spin text-purple-600" />
-              </div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>{text.noUsers}</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{language === 'ar' ? 'الاسم' : 'Name'}</TableHead>
-                    <TableHead>{text.email}</TableHead>
-                    <TableHead>{text.company}</TableHead>
-                    <TableHead>{text.role}</TableHead>
-                    <TableHead>{text.status}</TableHead>
-                    <TableHead>{text.actions}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.map((user) => {
-                    const userCompany = companies.find(c => c.id === user.company_id);
-                    return (
-                      <TableRow key={user.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800 ${user.is_active === false ? 'bg-red-50/50' : ''}`}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${user.is_active === false ? 'bg-gray-400' : 'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
-                              {user.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
-                            </div>
-                            <span className="font-medium">{user.full_name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          <span className="text-gray-600">{userCompany?.name || '-'}</span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{user.role}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {user.is_active === false ? (
-                            <Badge className="bg-red-100 text-red-700 flex items-center gap-1 w-fit">
-                              <XCircle className="w-3 h-3" />
-                              {text.suspended}
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-green-100 text-green-700 flex items-center gap-1 w-fit">
-                              <CheckCircle className="w-3 h-3" />
-                              {text.active}
-                            </Badge>
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="w-8 h-8 animate-spin text-purple-600" />
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>{text.noUsers}</p>
+            </div>
+          ) : (() => {
+            // Group users by company
+            const grouped = {};
+            filteredUsers.forEach(user => {
+              const companyId = user.company_id || '__platform__';
+              if (!grouped[companyId]) grouped[companyId] = [];
+              grouped[companyId].push(user);
+            });
+            return Object.entries(grouped).map(([companyId, companyUsers]) => {
+              const company = companies.find(c => c.id === companyId);
+              const companyName = companyId === '__platform__'
+                ? (language === 'ar' ? '🛡️ مستخدمو المنصة (Super Admins)' : '🛡️ Platform Users (Super Admins)')
+                : (company?.name || (language === 'ar' ? 'شركة غير معروفة' : 'Unknown Company'));
+              const isExpanded = expandedCompany === companyId;
+              return (
+                <Card key={companyId} className="overflow-hidden">
+                  {/* Company Header */}
+                  <div
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => setExpandedCompany(isExpanded ? null : companyId)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${companyId === '__platform__' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {companyId === '__platform__' ? <Shield className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-900 dark:text-white">{companyName}</h3>
+                        <p className="text-sm text-gray-500">
+                          {companyUsers.length} {language === 'ar' ? 'مستخدم' : 'users'}
+                          {company?.subscription_type && (
+                            <span className="mx-2">·</span>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" title={text.edit}>
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                          {company?.subscription_type && (
+                            <span className="text-purple-600 font-medium">{company.subscription_type}</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {company && (
+                        <Badge className={company.is_active !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                          {company.is_active !== false ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'موقوف' : 'Suspended')}
+                        </Badge>
+                      )}
+                      {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                    </div>
+                  </div>
+
+                  {/* Users List */}
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 dark:border-gray-700">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                            <TableHead className="text-xs">{language === 'ar' ? 'الاسم' : 'Name'}</TableHead>
+                            <TableHead className="text-xs">{text.email}</TableHead>
+                            <TableHead className="text-xs">{text.role}</TableHead>
+                            <TableHead className="text-xs">{text.status}</TableHead>
+                            <TableHead className="text-xs">{text.actions}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {companyUsers.map((user) => (
+                            <TableRow key={user.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800 ${user.is_active === false ? 'opacity-60' : ''}`}>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${user.is_active === false ? 'bg-gray-400' : 'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
+                                    {user.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                                  </div>
+                                  <span className="font-medium text-sm">{user.full_name}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm text-gray-600">{user.email}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">{user.role}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                {user.is_active === false ? (
+                                  <Badge className="bg-red-100 text-red-700 text-xs flex items-center gap-1 w-fit">
+                                    <XCircle className="w-3 h-3" />{text.suspended}
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-green-100 text-green-700 text-xs flex items-center gap-1 w-fit">
+                                    <CheckCircle className="w-3 h-3" />{text.active}
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" title={text.edit}>
+                                  <Edit2 className="w-3 h-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </Card>
+              );
+            });
+          })()}
+        </div>
       )}
 
       {/* Company Details Modal */}
