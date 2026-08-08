@@ -1127,11 +1127,21 @@ async def send_payslip_emails(
         employees_data.append({
             "employee_name": emp.get("employee_name"),
             "email": emp_email,
+            "employee_id": emp.get("employee_id", ""),
+            "department": emp.get("department", ""),
+            "position": emp.get("position", ""),
             "basic_salary": emp.get("basic_salary", 0),
             "total_allowances": emp.get("total_allowances", 0),
+            "allowances_breakdown": emp.get("allowances", []),
             "gross_salary": emp.get("gross_salary", 0),
             "total_deductions": emp.get("total_deductions", 0),
-            "net_salary": emp.get("net_salary", 0)
+            "deductions_breakdown": emp.get("deductions", []),
+            "social_insurance": emp.get("social_insurance", 0),
+            "income_tax": emp.get("income_tax", 0),
+            "stamp_duty": emp.get("stamp_duty", 0),
+            "net_salary": emp.get("net_salary", 0),
+            "payment_method": emp.get("payment_method", "bank_transfer"),
+            "approved_by": current_user.get("full_name", "المسؤول المالي"),
         })
     
     # إرسال الإشعارات

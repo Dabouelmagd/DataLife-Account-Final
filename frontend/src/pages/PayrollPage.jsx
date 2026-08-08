@@ -568,14 +568,18 @@ export default function PayrollPage() {
                                 <Banknote className="w-4 h-4 mr-1" />
                                 {text.pay}
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={() => handleSendPayslips(run.id)} title={language === 'ar' ? 'إرسال قسائم الرواتب' : 'Send Payslips'}>
+                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1" onClick={() => handleSendPayslips(run.id)}>
                                 <Mail className="w-4 h-4" />
+                                {language === 'ar' ? 'إرسال القسائم' : 'Send Payslips'}
                               </Button>
                             </>
                           )}
                           {run.status === 'paid' && (
-                            <Button size="sm" variant="ghost" onClick={() => handleSendPayslips(run.id)} title={language === 'ar' ? 'إرسال قسائم الرواتب' : 'Send Payslips'}>
+                            <Button size="sm" className={`flex items-center gap-1 ${run.payslips_sent ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={() => handleSendPayslips(run.id)}>
                               <Mail className="w-4 h-4" />
+                              {run.payslips_sent
+                                ? (language === 'ar' ? `✓ أُرسلت (${run.payslips_sent_count || 0})` : `✓ Sent (${run.payslips_sent_count || 0})`)
+                                : (language === 'ar' ? 'إرسال القسائم' : 'Send Payslips')}
                             </Button>
                           )}
                           <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(run); setModalType('viewPayroll'); setShowModal(true); }}>
