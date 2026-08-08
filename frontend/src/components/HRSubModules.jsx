@@ -646,6 +646,34 @@ export const SalariesModule = ({ language, userRole }) => {
                     />
                   </div>
 
+                  {/* Hire Date */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'تاريخ التعيين *' : 'Hire Date *'}
+                    </label>
+                    <input
+                      type="date"
+                      name="hire_date"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+
+                  {/* National ID */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === 'ar' ? 'الرقم القومي' : 'National ID'}
+                    </label>
+                    <input
+                      type="text"
+                      name="national_id"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#28376B] focus:border-transparent"
+                      placeholder={language === 'ar' ? '14 رقم' : '14 digits'}
+                      maxLength={14}
+                    />
+                  </div>
+
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {language === 'ar' ? 'العنوان' : 'Address'}
