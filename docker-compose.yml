@@ -21,6 +21,8 @@ services:
     env_file: .env
     ports:
       - "8003:8000"
+    volumes:
+      - uploads_data:/app/uploads
     networks:
       - datalife_net
 
@@ -37,6 +39,7 @@ services:
 
 volumes:
   mongo_dl_data:
+  uploads_data:
 
 networks:
   datalife_net:
