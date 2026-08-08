@@ -214,6 +214,7 @@ export const renderInvoiceContent = ({
  */
 const ModuleRenderer = ({
   activeModule,
+  setActiveModule,
   activeHRSubModule,
   activeFinancialSubModule,
   activeInvoiceSubModule,
@@ -233,14 +234,17 @@ const ModuleRenderer = ({
     const handleDashboardNavigate = (module, subModule) => {
       if (module === 'hr') {
         setActiveHRSubModule(subModule || 'overview');
+        if (setActiveModule) setActiveModule('hr');
       } else if (module === 'financial') {
         setActiveFinancialSubModule(subModule || 'overview');
+        if (setActiveModule) setActiveModule('financial');
       } else if (module === 'invoices') {
         setActiveInvoiceSubModule(subModule || 'overview');
-      }
-      // Navigate to the module (this will be handled by parent component)
-      if (navigate) {
-        navigate(`/dashboard?module=${module}`);
+        if (setActiveModule) setActiveModule('invoices');
+      } else if (module === 'reports') {
+        if (setActiveModule) setActiveModule('reports');
+      } else {
+        if (setActiveModule) setActiveModule(module);
       }
     };
     return <DashboardContent language={language} stats={stats} onNavigate={handleDashboardNavigate} />;

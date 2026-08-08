@@ -74,13 +74,14 @@ const RealDashboard = () => {
       const token = localStorage.getItem('token');
       const config = { headers: { Authorization: `Bearer ${token}` } };
       
-      const [employeesRes, allowances, deductions, customers, suppliers, journalEntries] = await Promise.all([
+      const [employeesRes, allowances, deductions, customers, suppliers, journalEntries, projectsRes] = await Promise.all([
         axios.get(`${API_URL}/api/hr/employees`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/hr/allowances`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/hr/deductions`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/financial/customers`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/financial/suppliers`, config).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/financial/journal-entries`, config).catch(() => ({ data: [] }))
+        axios.get(`${API_URL}/api/financial/journal-entries`, config).catch(() => ({ data: [] })),
+        axios.get(`${API_URL}/api/projects`, config).catch(() => ({ data: [] }))
       ]);
       
       // Helper to safely extract array data from API responses
@@ -97,22 +98,33 @@ const RealDashboard = () => {
       const customersData = safeArray(customers);
       const suppliersData = safeArray(suppliers);
       const entriesData = safeArray(journalEntries);
+      const projectsData = safeArray(projectsRes);
 
       setEmployees(employeesData);
       
-      // Calculate revenue and expenses from journal entry lines
+      // Calculate revenue and expenses from journal entries
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
       let revenue = 0;
       let expenses = 0;
       entriesData.forEach(entry => {
+        const entryMonth = (entry.date || entry.created_at || '').slice(0, 7);
+        const isCurrentMonth = entryMonth === currentMonth;
         if (entry.lines && Array.isArray(entry.lines)) {
           entry.lines.forEach(line => {
-            revenue += line.credit || 0;
-            expenses += line.debit || 0;
+            if (isCurrentMonth) {
+              revenue += line.credit || 0;
+              expenses += line.debit || 0;
+            }
           });
         } else {
-          // Fallback for simple entries
-          if (entry.type === 'credit') revenue += entry.amount || 0;
-          if (entry.type === 'debit') expenses += entry.amount || 0;
+          // Simple entry format: credit_account = revenue, debit_account = expense
+          const creditAcc = (entry.credit_account || '').toLowerCase();
+          const debitAcc = (entry.debit_account || '').toLowerCase();
+          const amt = entry.amount || 0;
+          const revenueKeywords = ['إيراد', 'revenue', 'مبيعات', 'sales', 'دخل', 'income'];
+          const expenseKeywords = ['مصروف', 'expense', 'تكلفة', 'cost', 'إهلاك', 'depreciation'];
+          if (revenueKeywords.some(k => creditAcc.includes(k))) revenue += amt;
+          if (expenseKeywords.some(k => debitAcc.includes(k))) expenses += amt;
         }
       });
 
@@ -124,7 +136,7 @@ const RealDashboard = () => {
         totalSuppliers: suppliersData.length,
         monthlyRevenue: revenue,
         monthlyExpenses: expenses,
-        activeProjects: customersData.length + suppliersData.length
+        activeProjects: projectsData.filter(p => p.status === 'active' || p.status === 'in_progress').length || projectsData.length
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -177,6 +189,7 @@ const RealDashboard = () => {
           )}
           <ModuleRenderer
             activeModule={activeModule}
+            setActiveModule={setActiveModule}
             activeHRSubModule={activeHRSubModule}
             activeFinancialSubModule={activeFinancialSubModule}
             activeInvoiceSubModule={activeInvoiceSubModule}
