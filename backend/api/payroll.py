@@ -575,7 +575,7 @@ async def approve_loan(
             return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
         return None, default_code, f"حساب {default_code}"
     
-    loan_id_acc, loan_code, loan_name = get_acc(settings.get("loans_receivable_account"), "1200")
+    loan_id_acc, loan_code, loan_name = get_acc(settings.get("loans_receivable_account"), "134")  # سلف الموظفين
     bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "162")  # النقدية بالبنوك الجارية
     
     if not loan_id_acc or not bank_id:
@@ -1323,7 +1323,7 @@ async def approve_end_of_service(
         return None, default_code, f"حساب {default_code}"
     
     eos_id, eos_code, eos_name = get_acc(settings.get("eos_provision_account"), "2600")  # القروض طويلة الأجل
-    loan_id, loan_code, loan_name = get_acc(settings.get("loans_receivable_account"), "1200")
+    loan_id, loan_code, loan_name = get_acc(settings.get("loans_receivable_account"), "134")  # سلف الموظفين
     bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "162")  # النقدية بالبنوك الجارية
     
     lines = []

@@ -293,9 +293,9 @@ class InvoiceService:
         
         if doc_type == DocumentType.SALES_INVOICE.value:
             # فاتورة بيع: العملاء (مدين) - المبيعات (دائن) - ضريبة (دائن)
-            customers_acc = find_account("1200")  # العملاء
-            sales_acc = find_account("4100")      # المبيعات
-            tax_acc = find_account("2400")        # الضرائب المستحقة
+            customers_acc = find_account("131")   # العملاء
+            sales_acc = find_account("411")   # إيراد مبيعات بضائع
+            tax_acc = find_account("254")   # الضرائب المستحقة
             
             if customers_acc:
                 lines.append(JournalEntryLine(
@@ -329,9 +329,9 @@ class InvoiceService:
         
         elif doc_type == DocumentType.PURCHASE_INVOICE.value:
             # فاتورة شراء: المشتريات (مدين) - ضريبة (مدين) - الموردين (دائن)
-            suppliers_acc = find_account("2100")  # الموردين
-            purchases_acc = find_account("5100")  # تكلفة البضاعة المباعة
-            tax_acc = find_account("1400")        # مصروفات مدفوعة مقدماً (ضريبة مستردة)
+            suppliers_acc = find_account("251")   # الموردون
+            purchases_acc = find_account("311")   # تكلفة الخامات والمواد
+            tax_acc = find_account("254")   # الضرائب المستحقة
             
             if purchases_acc:
                 lines.append(JournalEntryLine(
@@ -431,11 +431,11 @@ class InvoiceService:
             return next((a for a in accounts if a["account_code"] == code), None)
         
         lines = []
-        cash_acc = find_account("1101")  # الصندوق
+        cash_acc = find_account("161")   # النقدية بالصندوق
         
         if invoice["document_type"] == DocumentType.SALES_INVOICE.value:
             # سداد فاتورة بيع: النقدية (مدين) - العملاء (دائن)
-            customers_acc = find_account("1200")
+            customers_acc = find_account("131")
             
             if cash_acc:
                 lines.append(JournalEntryLine(
@@ -459,7 +459,7 @@ class InvoiceService:
         
         else:
             # سداد فاتورة شراء: الموردين (مدين) - النقدية (دائن)
-            suppliers_acc = find_account("2100")
+            suppliers_acc = find_account("251")
             
             if suppliers_acc:
                 lines.append(JournalEntryLine(

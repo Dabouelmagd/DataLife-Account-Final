@@ -70,7 +70,7 @@ class BankSettings(BaseModel):
     """إعدادات البنك للشركة"""
     auto_post_journal: bool = Field(default=False, description="ترحيل القيود تلقائياً")
     default_deposit_account: str = Field(default="161", description="حساب الإيداع الافتراضي")
-    default_withdrawal_account: str = Field(default="331", description="حساب السحب الافتراضي")
+    default_withdrawal_account: str = Field(default="332", description="حساب السحب الافتراضي (مصروفات متنوعة)")
     default_check_deposit_account: str = Field(default="131", description="حساب الشيكات الواردة الافتراضي")
     default_check_issued_account: str = Field(default="251", description="حساب الشيكات الصادرة الافتراضي")
     require_approval_above: Optional[float] = Field(None, description="مبلغ يتطلب موافقة فوقه")
@@ -476,7 +476,7 @@ def get_default_counter_account(transaction_type: str) -> str:
     """
     defaults = {
         "deposit": "161",         # النقدية بالصندوق (تحويل من الخزينة للبنك)
-        "withdrawal": "331",      # رواتب وأجور إدارية (افتراضي)
+        "withdrawal": "332",      # مصروفات خدمية متنوعة (افتراضي)
         "check_deposit": "131",   # العملاء (شيك وارد من عميل)
         "check_issued": "251",    # الموردون (شيك صادر لمورد)
         "transfer_in": "162",     # حساب بنك آخر
@@ -492,7 +492,7 @@ def get_default_counter_account_from_settings(transaction_type: str, settings: d
     if transaction_type == "deposit":
         return settings.get("default_deposit_account", "161")
     elif transaction_type == "withdrawal":
-        return settings.get("default_withdrawal_account", "331")
+        return settings.get("default_withdrawal_account", "332")
     elif transaction_type == "check_deposit":
         return settings.get("default_check_deposit_account", "131")
     elif transaction_type == "check_issued":
@@ -809,7 +809,7 @@ async def get_bank_settings(current_user: dict = Depends(get_current_user)):
         return {
             "auto_post_journal": False,
             "default_deposit_account": "161",
-            "default_withdrawal_account": "331",
+            "default_withdrawal_account": "332",
             "default_check_deposit_account": "131",
             "default_check_issued_account": "251",
             "require_approval_above": None,
@@ -820,7 +820,7 @@ async def get_bank_settings(current_user: dict = Depends(get_current_user)):
     return {
         "auto_post_journal": settings.get("auto_post_journal", False),
         "default_deposit_account": settings.get("default_deposit_account", "161"),
-        "default_withdrawal_account": settings.get("default_withdrawal_account", "331"),
+        "default_withdrawal_account": settings.get("default_withdrawal_account", "332"),
         "default_check_deposit_account": settings.get("default_check_deposit_account", "131"),
         "default_check_issued_account": settings.get("default_check_issued_account", "251"),
         "require_approval_above": settings.get("require_approval_above"),
@@ -865,7 +865,7 @@ async def get_company_bank_settings(company_id: str) -> dict:
         return {
             "auto_post_journal": False,
             "default_deposit_account": "161",
-            "default_withdrawal_account": "331",
+            "default_withdrawal_account": "332",
             "default_check_deposit_account": "131",
             "default_check_issued_account": "251"
         }
