@@ -60,8 +60,16 @@ async def create_journal_entry(entry: JournalEntry, current_user: dict = Depends
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     entry.company_id = current_user.get("company_id")
-    await db.journal_entries.insert_one(entry.dict())
-    return {"message": "Journal entry created successfully", "id": entry.id}
+    from services.accounting_service import AccountingService
+    service = AccountingService(db)
+    result = await service.create_journal_entry(entry)
+    # Auto-post journal entry so it reflects in balance sheet immediately
+    if result.get("id"):
+        try:
+            await service.post_journal_entry(result["id"], current_user.get("user_id"))
+        except Exception as e:
+            pass  # Entry created but not posted — user can post manually
+    return {"message": "Journal entry created successfully", "id": result.get("id")}
 
 # Treasury
 @router.get("/treasury")
@@ -295,12 +303,23 @@ async def create_fixed_asset(asset_data: dict, current_user: dict = Depends(get_
     }
     await db.fixed_assets.insert_one(asset.copy())
     import uuid
+    # Map asset type to account code
+    asset_account_map = {
+        "buildings": "112", "machinery": "114", "vehicles": "113",
+        "computers": "116", "furniture": "115", "software": "116",
+        "land": "111", "leasehold": "115", "goodwill": "116", "other": "116"
+    }
+    asset_acc_code = asset_account_map.get(asset_type, "116")
     await db.journal_entries.insert_one({
         "id": str(uuid.uuid4()), "company_id": company_id,
         "date": asset_data.get("purchase_date"),
         "description": f"شراء أصل ثابت: {asset['name']} ({asset_code})",
-        "debit_account": dep_info["name_ar"], "credit_account": "البنك",
+        "debit_account": dep_info["name_ar"],
+        "debit_account_code": asset_acc_code,
+        "credit_account": "النقدية بالبنوك الجارية",
+        "credit_account_code": "162",
         "amount": cost, "type": "journal", "reference": asset_code, "source": "asset_purchase",
+        "status": "posted",
     })
     return asset
 
@@ -330,8 +349,10 @@ async def run_depreciation(request_data: dict, current_user: dict = Depends(get_
             "id": str(_uuid.uuid4()), "company_id": company_id,
             "date": f"{period}-28",
             "description": f"إهلاك {period}: {asset['name']} ({asset['asset_code']})",
-            "debit_account": "مصروف الإهلاك",
-            "credit_account": f"مجمع الإهلاك — {asset.get('asset_type_ar', 'أصول')}",
+            "debit_account": "إهلاكات الأصول الإدارية",
+            "debit_account_code": "333",
+            "credit_account": f"مجمع إهلاك — {asset.get('asset_type_ar', 'أصول')}",
+            "credit_account_code": "222",
             "amount": monthly_dep, "type": "journal", "source": "depreciation",
             "asset_id": asset["id"], "period": period,
         })

@@ -106,20 +106,42 @@ async def add_project_expense(
     cat_name = cat_info.get("name_ar", "مصروف مشروع")
     credit_account = "البنك" if expense.get("payment_method", "cash") == "bank" else "الخزينة"
     import uuid as _uuid_exp
-    await db.journal_entries.insert_one({
-        "id": str(_uuid_exp.uuid4()),
+    # Map expense category to account code
+    exp_account_map = {
+        "labor": "312", "materials": "311", "equipment": "313",
+        "overhead": "313", "subcontract": "312", "travel": "332",
+        "utilities": "332", "other": "332"
+    }
+    exp_code = exp_account_map.get(expense.get("category","other"), "332")
+    credit_code = "162" if expense.get("payment_method","cash") == "bank" else "161"
+    import uuid as _uuid_exp2
+    je = {
+        "id": str(_uuid_exp2.uuid4()),
         "company_id": company_id,
         "date": expense.get("date"),
         "description": f"مصروف مشروع ({project_name}): {expense.get('description', cat_name)}",
         "debit_account": f"مصروفات المشاريع — {cat_name}",
+        "debit_account_code": exp_code,
         "credit_account": credit_account,
+        "credit_account_code": credit_code,
         "amount": expense.get("amount", 0),
         "type": "journal",
         "source": "project_expense",
         "project_id": project_id,
         "reference": expense.get("id"),
+        "status": "posted",
         "created_at": datetime.now(timezone.utc).isoformat(),
-    })
+    }
+    await db.journal_entries.insert_one(je)
+    # Update account balances
+    try:
+        from services.accounting_service import AccountingService as _ACS
+        _svc = _ACS(db)
+        exp_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": exp_code})
+        cre_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": credit_code})
+        if exp_acc: await _svc.update_account_balance(exp_acc["id"], expense.get("amount",0), 0)
+        if cre_acc: await _svc.update_account_balance(cre_acc["id"], 0, expense.get("amount",0))
+    except: pass
 
     # Update project total expenses
     await update_project_financials(project_id)
@@ -259,20 +281,36 @@ async def add_project_revenue(
     rev_name = rev_cat.get("name_ar", "إيراد مشروع")
     debit_account = "البنك" if revenue.get("payment_method", "bank") == "bank" else "الخزينة"
     import uuid as _uuid_rev
-    await db.journal_entries.insert_one({
-        "id": str(_uuid_rev.uuid4()),
+    debit_code = "162" if revenue.get("payment_method","bank") == "bank" else "161"
+    import uuid as _uuid_rev2
+    rev_je = {
+        "id": str(_uuid_rev2.uuid4()),
         "company_id": company_id,
         "date": revenue.get("date"),
         "description": f"إيراد مشروع ({project_name}): {revenue.get('description', rev_name)}",
         "debit_account": debit_account,
+        "debit_account_code": debit_code,
         "credit_account": f"إيرادات المشاريع — {rev_name}",
+        "credit_account_code": "412",
         "amount": revenue.get("amount", 0),
         "type": "journal",
         "source": "project_revenue",
         "project_id": project_id,
         "reference": revenue.get("id"),
+        "status": "posted",
         "created_at": datetime.now(timezone.utc).isoformat(),
-    })
+    }
+    await db.journal_entries.insert_one(rev_je)
+    # Update account balances
+    try:
+        from services.accounting_service import AccountingService as _ACS2
+        _svc2 = _ACS2(db)
+        deb_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": debit_code})
+        rev_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "412"})
+        rev_amount = revenue.get("amount", 0)
+        if deb_acc: await _svc2.update_account_balance(deb_acc["id"], rev_amount, 0)
+        if rev_acc: await _svc2.update_account_balance(rev_acc["id"], 0, rev_amount)
+    except: pass
 
     # Update project total revenues
     await update_project_financials(project_id)
