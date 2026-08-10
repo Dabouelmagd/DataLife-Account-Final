@@ -12,13 +12,16 @@ import uuid
 
 class DocumentType(str, Enum):
     """أنواع المستندات"""
-    CONTRACT = "contract"                    # عقد العمل
-    NATIONAL_ID = "national_id"              # البطاقة الشخصية
-    PASSPORT = "passport"                    # جواز السفر
-    CERTIFICATE = "certificate"              # شهادة
-    INSURANCE_CARD = "insurance_card"        # كارنيه التأمين
-    MEDICAL_REPORT = "medical_report"        # تقرير طبي
-    OTHER = "other"                          # أخرى
+    APPOINTMENT_LETTER = "appointment_letter"  # خطاب التعيين
+    CONTRACT = "contract"                      # عقد العمل
+    NATIONAL_ID = "national_id"                # البطاقة الشخصية
+    PASSPORT = "passport"                      # جواز السفر
+    CERTIFICATE = "certificate"                # شهادة علمية
+    INSURANCE_CARD = "insurance_card"          # كارنيه التأمين
+    MEDICAL_REPORT = "medical_report"          # تقرير طبي
+    BANK_ACCOUNT = "bank_account"              # بيانات الحساب البنكي
+    CRIMINAL_RECORD = "criminal_record"        # صحيفة الحالة الجنائية
+    OTHER = "other"                            # أخرى
 
 
 class AllowanceCategory(str, Enum):

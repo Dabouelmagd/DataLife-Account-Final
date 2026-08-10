@@ -498,11 +498,41 @@ export const SalariesModule = ({ language, userRole }) => {
                 });
                 if (res.ok) {
                   const saved = await res.json();
+                  const employeeId = saved.id;
+
+                  // Upload photo if provided
+                  const photoFile = formData.get('photo');
+                  if (photoFile && photoFile.size > 0 && employeeId) {
+                    const photoForm = new FormData();
+                    photoForm.append('photo', photoFile);
+                    await fetch(`${API_URL}/api/employees/${employeeId}/photo`, {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${token}` },
+                      body: photoForm,
+                    }).catch(() => {});
+                  }
+
+                  // Upload appointment documents
+                  for (const [docKey, docType] of [['appointment_letter','appointment_letter'],['national_id_doc','national_id'],['contract_doc','contract']]) {
+                    const docFile = formData.get(docKey);
+                    if (docFile && docFile.size > 0 && employeeId) {
+                      const docForm = new FormData();
+                      docForm.append('file', docFile);
+                      docForm.append('document_type', docType);
+                      docForm.append('document_name', docFile.name);
+                      await fetch(`${API_URL}/api/employees/${employeeId}/documents`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        body: docForm,
+                      }).catch(() => {});
+                    }
+                  }
+
                   setSalaries(prev => [...prev, { ...saved, name: saved.full_name, basicSalary: saved.basic_salary }]);
                   setShowAddModal(false);
-                  setSuccessMessage(language === 'ar' ? 'تم إضافة الموظف بنجاح!' : 'Employee added successfully!');
+                  setSuccessMessage(language === 'ar' ? 'تم إضافة الموظف بنجاح مع الصورة والمستندات!' : 'Employee added successfully with photo & documents!');
                   setShowSuccessModal(true);
-                  setTimeout(() => setShowSuccessModal(false), 2000);
+                  setTimeout(() => setShowSuccessModal(false), 3000);
                 } else {
                   const err = await res.json();
                   alert(language === 'ar' ? `خطأ: ${err.detail || 'فشل الحفظ'}` : `Error: ${err.detail || 'Save failed'}`);
@@ -974,6 +1004,62 @@ export const SalariesModule = ({ language, userRole }) => {
                       placeholder={language === 'ar' ? 'مثال: أب، أخ، زوجة' : 'e.g., Father, Brother, Spouse'}
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Appointment Documents Section */}
+              <div className="border rounded-xl overflow-hidden">
+                <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center gap-2">
+                  <span className="text-lg">📋</span>
+                  <h4 className="font-semibold text-amber-800">
+                    {language === 'ar' ? 'أوراق التعيين (اختياري)' : 'Appointment Documents (Optional)'}
+                  </h4>
+                </div>
+                <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Appointment Letter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">
+                      📄 {language === 'ar' ? 'خطاب التعيين' : 'Appointment Letter'}
+                    </label>
+                    <input
+                      type="file"
+                      name="appointment_letter"
+                      accept=".pdf,.doc,.docx,.jpg,.png"
+                      className="w-full text-xs border border-dashed border-amber-300 rounded-lg p-2 bg-white file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">PDF, DOC, JPG</p>
+                  </div>
+                  {/* National ID */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">
+                      🪪 {language === 'ar' ? 'صورة البطاقة الشخصية' : 'National ID Copy'}
+                    </label>
+                    <input
+                      type="file"
+                      name="national_id_doc"
+                      accept=".pdf,.jpg,.png,.jpeg"
+                      className="w-full text-xs border border-dashed border-blue-300 rounded-lg p-2 bg-white file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-blue-500 file:text-white hover:file:bg-blue-600 cursor-pointer"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG</p>
+                  </div>
+                  {/* Contract */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">
+                      📝 {language === 'ar' ? 'عقد العمل' : 'Employment Contract'}
+                    </label>
+                    <input
+                      type="file"
+                      name="contract_doc"
+                      accept=".pdf,.doc,.docx"
+                      className="w-full text-xs border border-dashed border-green-300 rounded-lg p-2 bg-white file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-green-500 file:text-white hover:file:bg-green-600 cursor-pointer"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">PDF, DOC</p>
+                  </div>
+                </div>
+                <div className="px-4 pb-3">
+                  <p className="text-xs text-amber-700 bg-amber-50 rounded p-2">
+                    💡 {language === 'ar' ? 'يمكنك رفع المستندات الآن أو لاحقاً من ملف الموظف' : 'You can upload documents now or later from the employee profile'}
+                  </p>
                 </div>
               </div>
 

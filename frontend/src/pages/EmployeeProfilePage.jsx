@@ -1243,13 +1243,16 @@ const DocumentUploadModal = ({ onClose, onUpload, t, language }) => {
   const [expiryDate, setExpiryDate] = useState('');
 
   const documentTypes = [
-    { value: 'contract', label: t.contract_doc },
-    { value: 'national_id', label: t.national_id_doc },
-    { value: 'passport', label: t.passport },
-    { value: 'certificate', label: t.certificate },
-    { value: 'insurance_card', label: t.insurance_card },
-    { value: 'medical_report', label: t.medical_report },
-    { value: 'other', label: t.other },
+    { value: 'appointment_letter', label: language === 'ar' ? '📄 خطاب التعيين' : '📄 Appointment Letter' },
+    { value: 'contract', label: language === 'ar' ? '📝 عقد العمل' : '📝 Employment Contract' },
+    { value: 'national_id', label: language === 'ar' ? '🪪 البطاقة الشخصية' : '🪪 National ID' },
+    { value: 'passport', label: language === 'ar' ? '🛂 جواز السفر' : '🛂 Passport' },
+    { value: 'certificate', label: language === 'ar' ? '🎓 شهادة علمية' : '🎓 Certificate' },
+    { value: 'insurance_card', label: language === 'ar' ? '🏥 كارنيه التأمين' : '🏥 Insurance Card' },
+    { value: 'medical_report', label: language === 'ar' ? '🩺 تقرير طبي' : '🩺 Medical Report' },
+    { value: 'bank_account', label: language === 'ar' ? '🏦 بيانات الحساب البنكي' : '🏦 Bank Account Info' },
+    { value: 'criminal_record', label: language === 'ar' ? '📋 صحيفة الحالة الجنائية' : '📋 Criminal Record' },
+    { value: 'other', label: language === 'ar' ? '📁 أخرى' : '📁 Other' },
   ];
 
   const handleSubmit = () => {

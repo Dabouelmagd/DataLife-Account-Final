@@ -339,7 +339,8 @@ async def delete_employee(
 @router.post("/{employee_id}/photo")
 async def upload_employee_photo(
     employee_id: str,
-    file: UploadFile = File(...),
+    photo: UploadFile = File(None),
+    file: UploadFile = File(None),
     current_user: dict = Depends(get_current_user)
 ):
     """رفع صورة الموظف"""
@@ -352,6 +353,9 @@ async def upload_employee_photo(
         raise HTTPException(status_code=404, detail="الموظف غير موجود")
     
     # التحقق من نوع الملف
+    file = photo or file
+    if not file:
+        raise HTTPException(status_code=400, detail="No file provided")
     allowed_types = ["image/jpeg", "image/png", "image/webp"]
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="نوع الملف غير مدعوم")
