@@ -21,6 +21,8 @@ from models.hr_settings import (
     OvertimeCalculationMethod, AttendancePayrollSummary
 )
 from models.accounting import JournalEntry, JournalEntryLine, JournalEntryStatus
+import logging
+logger = logging.getLogger(__name__)
 from services.accounting_service import AccountingService
 from services.email_service import send_bulk_payslip_notifications, send_payroll_approved_notification
 
@@ -330,13 +332,14 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
     
     # الحصول على الحسابات المطلوبة مع معلوماتها الكاملة
     # تم تحديث الأكواد الافتراضية لتتوافق مع دليل الحسابات المصري
-    sal_id, sal_code, sal_name = get_account_info(settings.get("salaries_expense_account"), "5200")
-    allow_id, allow_code, allow_name = get_account_info(settings.get("allowances_expense_account"), "5200")  # نفس حساب الرواتب
-    si_exp_id, si_exp_code, si_exp_name = get_account_info(settings.get("social_insurance_expense_account"), "5900")  # التأمين
-    si_pay_id, si_pay_code, si_pay_name = get_account_info(settings.get("social_insurance_payable_account"), "2400")  # الضرائب المستحقة
-    tax_id, tax_code, tax_name = get_account_info(settings.get("income_tax_payable_account"), "2400")  # الضرائب المستحقة
-    sal_pay_id, sal_pay_code, sal_pay_name = get_account_info(settings.get("salaries_payable_account"), "2300")  # الرواتب المستحقة
-    loan_id, loan_code, loan_name = get_account_info(settings.get("loans_receivable_account"), "1200")  # العملاء/المدينون
+    # الأكواد تتوافق مع دليل الحسابات المصري المعياري في النظام
+    sal_id, sal_code, sal_name = get_account_info(settings.get("salaries_expense_account"), "331")     # رواتب وأجور إدارية
+    allow_id, allow_code, allow_name = get_account_info(settings.get("allowances_expense_account"), "331")  # نفس حساب الرواتب
+    si_exp_id, si_exp_code, si_exp_name = get_account_info(settings.get("social_insurance_expense_account"), "331")  # رواتب (تأمينات حصة الشركة)
+    si_pay_id, si_pay_code, si_pay_name = get_account_info(settings.get("social_insurance_payable_account"), "255")  # التأمينات الاجتماعية المستحقة
+    tax_id, tax_code, tax_name = get_account_info(settings.get("income_tax_payable_account"), "254")   # الضرائب المستحقة
+    sal_pay_id, sal_pay_code, sal_pay_name = get_account_info(settings.get("salaries_payable_account"), "253")  # مصروفات مستحقة (رواتب)
+    loan_id, loan_code, loan_name = get_account_info(settings.get("loans_receivable_account"), "132")  # مدينون متنوعون
     
     lines = []
     
@@ -961,6 +964,14 @@ async def approve_payroll(
         payroll, settings, current_user["user_id"]
     )
     
+    # ترحيل القيد — يحدّث أرصدة الحسابات ويظهر في الميزانية والأستاذ
+    if journal_id:
+        try:
+            service = AccountingService(db)
+            await service.post_journal_entry(journal_id, current_user["user_id"])
+        except Exception as e:
+            logger.warning(f"Could not auto-post payroll journal {journal_id}: {e}")
+    
     # تحديث أرصدة السُلف
     for emp in payroll.get("employees", []):
         for ded in emp.get("deductions", []):
@@ -1035,8 +1046,8 @@ async def pay_payroll(
             return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
         return None, default_code, f"حساب {default_code}"
     
-    sal_pay_id, sal_pay_code, sal_pay_name = get_acc(settings.get("salaries_payable_account"), "2300")
-    bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "1101")
+    sal_pay_id, sal_pay_code, sal_pay_name = get_acc(settings.get("salaries_payable_account"), "253")  # مصروفات مستحقة
+    bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "111")  # البنك
     
     if not sal_pay_id or not bank_id:
         raise HTTPException(status_code=400, detail="الحسابات المحاسبية غير متوفرة")
@@ -1072,6 +1083,14 @@ async def pay_payroll(
     )
     
     result = await service.create_journal_entry(entry)
+    
+    # ترحيل قيد الصرف — يحدّث رصيد البنك في الميزانية
+    payment_journal_id = result.get("id")
+    if payment_journal_id:
+        try:
+            await service.post_journal_entry(payment_journal_id, current_user["user_id"])
+        except Exception as e:
+            logger.warning(f"Could not auto-post payment journal {payment_journal_id}: {e}")
     
     # تحديث مسير الرواتب
     await db.payroll_runs.update_one(
