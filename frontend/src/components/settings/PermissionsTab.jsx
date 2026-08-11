@@ -15,60 +15,120 @@ import { toast } from 'sonner';
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 // Permission definitions with icons and colors (21 permissions)
-const PERMISSIONS_CONFIG = [
-  { id: 'dashboard', name_en: 'Dashboard', name_ar: 'لوحة التحكم', icon: Home, color: 'bg-slate-500', emoji: '🏠' },
-  { id: 'hr', name_en: 'Human Resources', name_ar: 'الموارد البشرية', icon: Users, color: 'bg-cyan-600', emoji: '👥', desc_en: 'Full HR Access', desc_ar: 'وصول كامل للموارد البشرية' },
-  { id: 'hr_admin', name_en: 'HR - Administrative', name_ar: 'الموارد البشرية - إداري', icon: Users, color: 'bg-cyan-500', emoji: '👥', desc_en: 'Attendance, Leaves, Shifts', desc_ar: 'حضور، إجازات، ورديات' },
-  { id: 'hr_financial', name_en: 'HR - Financial', name_ar: 'الموارد البشرية - مالي', icon: Building2, color: 'bg-teal-500', emoji: '💵', desc_en: 'Payroll, Allowances, Deductions', desc_ar: 'رواتب، بدلات، خصومات' },
-  { id: 'financial', name_en: 'Financial Management', name_ar: 'الإدارة المالية', icon: Building2, color: 'bg-emerald-500', emoji: '💰' },
-  { id: 'invoices', name_en: 'Invoices', name_ar: 'الفواتير', icon: FileText, color: 'bg-amber-500', emoji: '📄' },
-  { id: 'purchases', name_en: 'Purchases', name_ar: 'المشتريات', icon: Package, color: 'bg-rose-500', emoji: '🛒' },
-  { id: 'projects', name_en: 'Projects & Tasks', name_ar: 'المشاريع والمهام', icon: FolderKanban, color: 'bg-indigo-500', emoji: '📊' },
-  { id: 'reports', name_en: 'Reports', name_ar: 'التقارير', icon: FileBarChart, color: 'bg-violet-500', emoji: '📑' },
-  { id: 'analytics', name_en: 'Analytics', name_ar: 'التحليلات', icon: BarChart3, color: 'bg-blue-500', emoji: '📈' },
-  { id: 'inventory', name_en: 'Inventory', name_ar: 'المخزون', icon: Layers, color: 'bg-teal-500', emoji: '📦' },
-  { id: 'settings', name_en: 'Settings', name_ar: 'الإعدادات', icon: Settings, color: 'bg-gray-500', emoji: '⚙️' },
-  { id: 'users', name_en: 'User Management', name_ar: 'إدارة المستخدمين', icon: UserCog, color: 'bg-blue-600', emoji: '👤' },
-  { id: 'approvals', name_en: 'Approvals', name_ar: 'الموافقات', icon: CheckCircle, color: 'bg-green-500', emoji: '✅' },
-  { id: 'admin', name_en: 'Administration', name_ar: 'الإدارة', icon: Settings, color: 'bg-red-500', emoji: '🔧' },
-  { id: 'subscriptions', name_en: 'Subscriptions', name_ar: 'الاشتراكات', icon: FileText, color: 'bg-purple-500', emoji: '📋' },
-  { id: 'companies', name_en: 'Companies', name_ar: 'الشركات', icon: Building2, color: 'bg-orange-500', emoji: '🏢' },
-  { id: 'audit_logs', name_en: 'Audit Logs', name_ar: 'سجل التدقيق', icon: FileBarChart, color: 'bg-gray-600', emoji: '📝' },
-  { id: 'system_settings', name_en: 'System Settings', name_ar: 'إعدادات النظام', icon: Settings, color: 'bg-slate-600', emoji: '🔩' },
-  { id: 'billing', name_en: 'Billing', name_ar: 'الفوترة', icon: FileText, color: 'bg-yellow-500', emoji: '💳' },
-  { id: 'support', name_en: 'Support', name_ar: 'الدعم الفني', icon: UserCog, color: 'bg-sky-500', emoji: '🎧' },
+// ════════════════════════════════════════════════════════
+// PERMISSIONS — مقسّمة في 3 مجموعات
+// ════════════════════════════════════════════════════════
+
+const PERMISSION_GROUPS = [
+  // ── Group 1: صلاحيات المستخدمين (User Permissions) ──
+  {
+    id: 'user_permissions',
+    name_ar: '👤 صلاحيات المستخدمين',
+    name_en: '👤 User Permissions',
+    desc_ar: 'الصلاحيات التشغيلية اليومية للموظفين',
+    desc_en: 'Daily operational permissions for employees',
+    color: 'bg-blue-600',
+    permissions: [
+      { id: 'dashboard',    name_ar: 'لوحة التحكم',              name_en: 'Dashboard',              emoji: '🏠', icon: Home },
+      { id: 'hr_admin',     name_ar: 'HR — حضور وإجازات وورديات', name_en: 'HR — Attendance & Leaves', emoji: '👥', icon: Users },
+      { id: 'hr_financial', name_ar: 'HR — رواتب وبدلات وخصومات', name_en: 'HR — Payroll & Allowances', emoji: '💵', icon: Building2 },
+      { id: 'invoices',     name_ar: 'الفواتير',                  name_en: 'Invoices',               emoji: '📄', icon: FileText },
+      { id: 'purchases',    name_ar: 'المشتريات',                 name_en: 'Purchases',              emoji: '🛒', icon: Package },
+      { id: 'inventory',    name_ar: 'المخزون',                   name_en: 'Inventory',              emoji: '📦', icon: Layers },
+      { id: 'projects',     name_ar: 'المشاريع والمهام',           name_en: 'Projects & Tasks',       emoji: '📊', icon: FolderKanban },
+      { id: 'approvals',    name_ar: 'الموافقات',                  name_en: 'Approvals',              emoji: '✅', icon: CheckCircle },
+      { id: 'reports',      name_ar: 'التقارير',                  name_en: 'Reports',                emoji: '📑', icon: FileBarChart },
+      { id: 'analytics',    name_ar: 'التحليلات',                 name_en: 'Analytics',              emoji: '📈', icon: BarChart3 },
+    ]
+  },
+
+  // ── Group 2: صلاحيات الـ Owner (Company Owner Permissions) ──
+  {
+    id: 'owner_permissions',
+    name_ar: '🏢 صلاحيات صاحب الشركة',
+    name_en: '🏢 Company Owner Permissions',
+    desc_ar: 'صلاحيات إدارة الشركة والإعدادات والمستخدمين',
+    desc_en: 'Company management, settings and user control',
+    color: 'bg-emerald-600',
+    permissions: [
+      { id: 'hr',             name_ar: 'HR — وصول كامل',          name_en: 'HR — Full Access',       emoji: '👥', icon: Users },
+      { id: 'financial',      name_ar: 'الإدارة المالية الكاملة',   name_en: 'Full Financial Access',  emoji: '💰', icon: Building2 },
+      { id: 'settings',       name_ar: 'إعدادات الشركة',           name_en: 'Company Settings',       emoji: '⚙️', icon: Settings },
+      { id: 'users',          name_ar: 'إدارة المستخدمين',          name_en: 'User Management',        emoji: '👤', icon: UserCog },
+      { id: 'admin',          name_ar: 'إدارة النظام',              name_en: 'System Administration',  emoji: '🔧', icon: Settings },
+      { id: 'audit_logs',     name_ar: 'سجل التدقيق',              name_en: 'Audit Logs',             emoji: '📝', icon: FileBarChart },
+      { id: 'billing',        name_ar: 'الفوترة والاشتراك',         name_en: 'Billing & Subscription', emoji: '💳', icon: FileText },
+      { id: 'support',        name_ar: 'الدعم الفني',              name_en: 'Support',                emoji: '🎧', icon: UserCog },
+    ]
+  },
+
+  // ── Group 3: صلاحيات السوبر ادمن (Super Admin / Platform Owner) ──
+  {
+    id: 'super_admin_permissions',
+    name_ar: '👑 صلاحيات السوبر ادمن',
+    name_en: '👑 Super Admin Permissions',
+    desc_ar: 'صلاحيات المنصة الكاملة — لصاحب النظام فقط',
+    desc_en: 'Full platform permissions — Platform owner only',
+    color: 'bg-purple-700',
+    permissions: [
+      { id: 'companies',       name_ar: 'إدارة كل الشركات',         name_en: 'Manage All Companies',   emoji: '🏢', icon: Building2 },
+      { id: 'subscriptions',   name_ar: 'إدارة الاشتراكات',          name_en: 'Manage Subscriptions',   emoji: '📋', icon: FileText },
+      { id: 'system_settings', name_ar: 'إعدادات النظام الكاملة',    name_en: 'Full System Settings',   emoji: '🔩', icon: Settings },
+    ]
+  },
 ];
+
+// Flatten for backward compatibility
+const PERMISSIONS_CONFIG = PERMISSION_GROUPS.flatMap(g => g.permissions);
 
 // Pre-defined role templates
 const ROLE_TEMPLATES = {
+  super_admin: {
+    name_en: '👑 Super Admin (Platform Owner)',
+    name_ar: '👑 سوبر ادمن (مالك المنصة)',
+    permissions: PERMISSIONS_CONFIG.map(p => p.id),
+    color: 'bg-purple-700'
+  },
+  owner: {
+    name_en: '🏢 Company Owner',
+    name_ar: '🏢 صاحب الشركة',
+    permissions: ['dashboard','hr','hr_admin','hr_financial','financial','invoices','purchases','inventory','projects','approvals','reports','analytics','settings','users','admin','audit_logs','billing','support'],
+    color: 'bg-emerald-600'
+  },
   admin: {
-    name_en: 'Administrator',
-    name_ar: 'مدير النظام',
-    permissions: ['dashboard', 'hr', 'hr_admin', 'hr_financial', 'financial', 'invoices', 'purchases', 'projects', 'reports', 'analytics', 'inventory', 'settings', 'users', 'approvals', 'admin', 'subscriptions', 'companies', 'audit_logs', 'system_settings', 'billing', 'support'],
+    name_en: '🔧 Administrator',
+    name_ar: '🔧 مدير النظام',
+    permissions: ['dashboard','hr','hr_admin','hr_financial','financial','invoices','purchases','projects','reports','analytics','inventory','settings','users','approvals','admin'],
     color: 'bg-red-500'
   },
   financial_manager: {
-    name_en: 'Financial Manager',
-    name_ar: 'المدير المالي',
-    permissions: ['dashboard', 'hr_admin', 'hr_financial', 'financial', 'invoices', 'reports', 'analytics', 'approvals', 'billing'],
+    name_en: '💰 Financial Manager',
+    name_ar: '💰 المدير المالي',
+    permissions: ['dashboard','hr_admin','hr_financial','financial','invoices','reports','analytics','approvals','billing'],
     color: 'bg-emerald-500'
   },
   accountant: {
-    name_en: 'Accountant',
-    name_ar: 'محاسب',
-    permissions: ['dashboard', 'hr_financial', 'financial', 'invoices', 'reports', 'analytics'],
+    name_en: '📊 Accountant',
+    name_ar: '📊 محاسب',
+    permissions: ['dashboard','hr_financial','financial','invoices','reports','analytics'],
     color: 'bg-green-500'
   },
   hr_manager: {
-    name_en: 'HR Manager',
-    name_ar: 'مدير الموارد البشرية',
-    permissions: ['dashboard', 'hr', 'hr_admin', 'hr_financial', 'reports', 'approvals'],
+    name_en: '👥 HR Manager',
+    name_ar: '👥 مدير الموارد البشرية',
+    permissions: ['dashboard','hr','hr_admin','hr_financial','reports','approvals'],
     color: 'bg-cyan-500'
   },
+  sales: {
+    name_en: '📄 Sales',
+    name_ar: '📄 مبيعات',
+    permissions: ['dashboard','invoices','inventory','reports'],
+    color: 'bg-amber-500'
+  },
   viewer: {
-    name_en: 'Viewer Only',
-    name_ar: 'مشاهد فقط',
-    permissions: ['dashboard', 'reports'],
+    name_en: '👁️ Viewer Only',
+    name_ar: '👁️ مشاهد فقط',
+    permissions: ['dashboard','reports'],
     color: 'bg-gray-500'
   },
 };
@@ -447,50 +507,49 @@ const PermissionsTab = ({ language = 'ar', currentUserId }) => {
                       </div>
 
                       {/* Permissions Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {PERMISSIONS_CONFIG.map((perm) => {
-                          const isEnabled = isPermissionEnabled(emp.id, perm.id);
-                          const Icon = perm.icon;
-                          
-                          return (
-                            <div
-                              key={perm.id}
-                              onClick={() => togglePermission(emp.id, perm.id)}
-                              className={`
-                                flex items-center gap-3 p-3 rounded-lg cursor-pointer border-2 transition-all
-                                ${isEnabled 
-                                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
-                                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                                }
-                              `}
-                            >
-                              {/* Checkbox */}
-                              <div className={`
-                                w-5 h-5 rounded flex items-center justify-center
-                                ${isEnabled ? 'bg-green-500 text-white' : 'bg-white dark:bg-gray-800 border-2 border-gray-300'}
-                              `}>
-                                {isEnabled && <Check className="h-3 w-3" />}
+                      <div className="space-y-4">
+                        {PERMISSION_GROUPS.map((group) => (
+                          <div key={group.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                            {/* Group Header */}
+                            <div className={`${group.color} px-4 py-2.5 flex items-center justify-between`}>
+                              <div>
+                                <span className="text-white font-bold text-sm">{language === 'ar' ? group.name_ar : group.name_en}</span>
+                                <p className="text-white/70 text-xs mt-0.5">{language === 'ar' ? group.desc_ar : group.desc_en}</p>
                               </div>
-                              
-                              {/* Icon */}
-                              <div className={`w-8 h-8 rounded-lg ${perm.color} flex items-center justify-center`}>
-                                <span className="text-white text-sm">{perm.emoji}</span>
-                              </div>
-                              
-                              {/* Text */}
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium truncate ${isEnabled ? 'text-green-700 dark:text-green-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                                  {language === 'ar' ? perm.name_ar : perm.name_en}
-                                </p>
-                                {perm.desc_ar && (
-                                  <p className="text-xs text-gray-400 truncate">
-                                    {language === 'ar' ? perm.desc_ar : perm.desc_en}
-                                  </p>
-                                )}
-                              </div>
+                              <span className="text-white/80 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                                {group.permissions.filter(p => isPermissionEnabled(emp.id, p.id)).length}/{group.permissions.length}
+                              </span>
                             </div>
-                          );
-                        })}
+                            {/* Group Permissions */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3 bg-gray-50">
+                              {group.permissions.map((perm) => {
+                                const isEnabled = isPermissionEnabled(emp.id, perm.id);
+                                const Icon = perm.icon;
+                                return (
+                                  <div
+                                    key={perm.id}
+                                    onClick={() => togglePermission(emp.id, perm.id)}
+                                    className={`flex items-center gap-2 p-2.5 rounded-lg cursor-pointer border transition-all ${
+                                      isEnabled
+                                        ? 'bg-white border-blue-200 shadow-sm'
+                                        : 'bg-gray-100 border-gray-200 opacity-60'
+                                    }`}
+                                  >
+                                    <span className="text-base">{perm.emoji}</span>
+                                    <span className={`text-xs font-medium flex-1 ${isEnabled ? 'text-gray-800' : 'text-gray-500'}`}>
+                                      {language === 'ar' ? perm.name_ar : perm.name_en}
+                                    </span>
+                                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                      isEnabled ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                                    }`}>
+                                      {isEnabled && <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
 
                       {/* Footer Actions */}
