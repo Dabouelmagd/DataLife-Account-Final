@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PublishUpdatePanel from '../components/PublishUpdatePanel';
 import AssistantsPanel from '../components/AssistantsPanel';
+import SubscriptionsPanel from '../components/SubscriptionsPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -576,6 +577,10 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
             <PublishUpdatePanel />
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === 'subscriptions' && (
+        <SubscriptionsPanel />
       )}
 
       {activeTab === 'assistants' && (
