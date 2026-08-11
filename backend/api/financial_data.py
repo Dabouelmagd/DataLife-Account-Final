@@ -321,6 +321,18 @@ async def create_fixed_asset(asset_data: dict, current_user: dict = Depends(get_
         "amount": cost, "type": "journal", "reference": asset_code, "source": "asset_purchase",
         "status": "posted",
     })
+    # Update account balances for asset purchase
+    try:
+        from services.accounting_service import AccountingService as _ACS_asset
+        _svc_asset = _ACS_asset(db)
+        _je_ref = await db.journal_entries.find_one(
+            {"company_id": company_id, "source": "asset_purchase", "reference": asset_code},
+            {"_id": 0}
+        )
+        if _je_ref:
+            await _svc_asset.post_simple_journal_entry(_je_ref, current_user.get("user_id", "system"))
+    except Exception as _e:
+        pass  # Non-critical
     return asset
 
 @router.put("/assets/{asset_id}")

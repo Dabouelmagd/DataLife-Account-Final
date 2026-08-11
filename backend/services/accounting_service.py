@@ -216,6 +216,35 @@ class AccountingService:
         
         return entries
     
+    async def post_simple_journal_entry(self, entry: dict, user_id: str) -> bool:
+        """ترحيل قيد بسيط (debit_account_code / credit_account_code) إلى الأرصدة"""
+        company_id = entry.get("company_id")
+        amount = float(entry.get("amount", 0))
+        if not company_id or amount <= 0:
+            return False
+
+        debit_code  = entry.get("debit_account_code")
+        credit_code = entry.get("credit_account_code")
+
+        if debit_code:
+            acc = await self.db.chart_of_accounts.find_one(
+                {"company_id": company_id, "account_code": debit_code}, {"_id": 0})
+            if acc:
+                await self.update_account_balance(acc["id"], amount, 0)
+
+        if credit_code:
+            acc = await self.db.chart_of_accounts.find_one(
+                {"company_id": company_id, "account_code": credit_code}, {"_id": 0})
+            if acc:
+                await self.update_account_balance(acc["id"], 0, amount)
+
+        # Mark as posted
+        await self.db.journal_entries.update_one(
+            {"id": entry.get("id")},
+            {"$set": {"status": "posted", "posted_at": datetime.utcnow().isoformat(), "posted_by": user_id}}
+        )
+        return True
+
     async def post_journal_entry(self, entry_id: str, user_id: str) -> bool:
         """ترحيل القيد إلى دفتر الأستاذ"""
         entry = await self.get_journal_entry(entry_id)
