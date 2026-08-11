@@ -332,14 +332,20 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
     
     # الحصول على الحسابات المطلوبة مع معلوماتها الكاملة
     # تم تحديث الأكواد الافتراضية لتتوافق مع دليل الحسابات المصري
-    # الأكواد تتوافق مع دليل الحسابات المصري المعياري في النظام
-    sal_id, sal_code, sal_name = get_account_info(settings.get("salaries_expense_account"), "331")     # رواتب وأجور إدارية
-    allow_id, allow_code, allow_name = get_account_info(settings.get("allowances_expense_account"), "331")  # نفس حساب الرواتب
-    si_exp_id, si_exp_code, si_exp_name = get_account_info(settings.get("social_insurance_expense_account"), "331")  # رواتب (تأمينات حصة الشركة)
-    si_pay_id, si_pay_code, si_pay_name = get_account_info(settings.get("social_insurance_payable_account"), "255")  # التأمينات الاجتماعية المستحقة
-    tax_id, tax_code, tax_name = get_account_info(settings.get("income_tax_payable_account"), "254")   # الضرائب المستحقة
-    sal_pay_id, sal_pay_code, sal_pay_name = get_account_info(settings.get("salaries_payable_account"), "253")  # مصروفات مستحقة (رواتب)
-    loan_id, loan_code, loan_name = get_account_info(settings.get("loans_receivable_account"), "132")  # مدينون متنوعون
+    # الأكواد تتوافق مع دليل الحسابات المصري — قانون 148/2019 و91/2005
+    sal_id,    sal_code,    sal_name    = get_account_info(settings.get("salaries_expense_account"),         "331")  # رواتب وأجور إدارية
+    allow_id,  allow_code,  allow_name  = get_account_info(settings.get("allowances_expense_account"),       "331")  # بدلات (نفس حساب الرواتب)
+    si_exp_id, si_exp_code, si_exp_name = get_account_info(settings.get("social_insurance_expense_account"),"331")  # تأمينات حصة الشركة 18.75%
+    si_pay_id, si_pay_code, si_pay_name = get_account_info(settings.get("social_insurance_payable_account"),"255")  # التأمينات الاجتماعية المستحقة
+    tax_id,    tax_code,    tax_name    = get_account_info(settings.get("income_tax_payable_account"),       "254")  # ضريبة كسب العمل
+    sal_pay_id,sal_pay_code,sal_pay_name= get_account_info(settings.get("salaries_payable_account"),        "253")  # صافي الرواتب المستحقة
+    loan_id,   loan_code,   loan_name   = get_account_info(settings.get("loans_receivable_account"),        "134")  # سلف الموظفين
+    # صناديق إجبارية — قانون 148/2019
+    emg_exp_id,emg_exp_code,emg_exp_name= get_account_info(None, "339")  # مصروف صندوق الطوارئ 1%
+    emg_pay_id,emg_pay_code,emg_pay_name= get_account_info(None, "258")  # صندوق الطوارئ مستحق
+    mrt_pay_id,mrt_pay_code,mrt_pay_name= get_account_info(None, "259")  # صندوق الشهداء 0.05% مستحق
+    uhi_exp_id,uhi_exp_code,uhi_exp_name= get_account_info(None, "340")  # مصروف التأمين الصحي الشامل 0.25%
+    uhi_pay_id,uhi_pay_code,uhi_pay_name= get_account_info(None, "262")  # التأمين الصحي الشامل مستحق
     
     lines = []
     
@@ -365,28 +371,68 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
             description="البدلات"
         ))
     
-    # مدين: تأمينات حصة الشركة
+    # مدين: تأمينات حصة الشركة 18.75% (قانون 148/2019)
     company_si = payroll["total_basic_salary"] * (settings.get("company_social_insurance_rate", 18.75) / 100)
     if company_si > 0 and si_exp_id:
         lines.append(JournalEntryLine(
-            account_id=si_exp_id,
-            account_code=si_exp_code,
-            account_name=si_exp_name,
-            debit=round(company_si, 2),
-            credit=0,
-            description="تأمينات اجتماعية - حصة الشركة"
+            account_id=si_exp_id, account_code=si_exp_code, account_name=si_exp_name,
+            debit=round(company_si, 2), credit=0,
+            description="تأمينات اجتماعية — حصة الشركة 18.75%"
         ))
-    
-    # دائن: تأمينات مستحقة (حصة الموظف + حصة الشركة)
+
+    # مدين: مصروف صندوق إعانة الطوارئ 1% من أجر الاشتراك الأساسي
+    emergency_basic = payroll["total_basic_salary"]  # أجر الاشتراك الأساسي
+    emg_amount = round(emergency_basic * 0.01, 2)
+    if emg_amount > 0 and emg_exp_id:
+        lines.append(JournalEntryLine(
+            account_id=emg_exp_id, account_code=emg_exp_code, account_name=emg_exp_name,
+            debit=emg_amount, credit=0,
+            description="صندوق إعانة الطوارئ للعمال — 1%"
+        ))
+
+    # مدين: مصروف التأمين الصحي الشامل — حصة الشركة 0.25% من إجمالي الإيرادات
+    # يُحسب تقريباً على إجمالي الأجر الشامل
+    gross_payroll = payroll.get("total_gross_salary", payroll["total_basic_salary"])
+    uhi_amount = round(gross_payroll * 0.0025, 2)
+    if uhi_amount > 0 and uhi_exp_id:
+        lines.append(JournalEntryLine(
+            account_id=uhi_exp_id, account_code=uhi_exp_code, account_name=uhi_exp_name,
+            debit=uhi_amount, credit=0,
+            description="التأمين الصحي الشامل — حصة الشركة 0.25%"
+        ))
+
+    # دائن: التأمينات الاجتماعية مستحقة (حصة الموظف + حصة الشركة)
     total_si = payroll["total_social_insurance"] + company_si
     if total_si > 0 and si_pay_id:
         lines.append(JournalEntryLine(
-            account_id=si_pay_id,
-            account_code=si_pay_code,
-            account_name=si_pay_name,
-            debit=0,
-            credit=round(total_si, 2),
-            description="تأمينات اجتماعية مستحقة"
+            account_id=si_pay_id, account_code=si_pay_code, account_name=si_pay_name,
+            debit=0, credit=round(total_si, 2),
+            description="التأمينات الاجتماعية مستحقة — حصة الموظف + الشركة"
+        ))
+
+    # دائن: صندوق إعانة الطوارئ مستحق
+    if emg_amount > 0 and emg_pay_id:
+        lines.append(JournalEntryLine(
+            account_id=emg_pay_id, account_code=emg_pay_code, account_name=emg_pay_name,
+            debit=0, credit=emg_amount,
+            description="صندوق إعانة الطوارئ مستحق"
+        ))
+
+    # دائن: صندوق تكريم الشهداء 0.05% من أجر الاشتراك الأساسي
+    martyrs_amount = round(emergency_basic * 0.0005, 2)
+    if martyrs_amount > 0 and mrt_pay_id:
+        lines.append(JournalEntryLine(
+            account_id=mrt_pay_id, account_code=mrt_pay_code, account_name=mrt_pay_name,
+            debit=0, credit=martyrs_amount,
+            description="صندوق تكريم الشهداء والمفقودين — 0.05%"
+        ))
+
+    # دائن: التأمين الصحي الشامل مستحق
+    if uhi_amount > 0 and uhi_pay_id:
+        lines.append(JournalEntryLine(
+            account_id=uhi_pay_id, account_code=uhi_pay_code, account_name=uhi_pay_name,
+            debit=0, credit=uhi_amount,
+            description="التأمين الصحي الشامل مستحق — 0.25%"
         ))
     
     # دائن: ضريبة كسب العمل مستحقة

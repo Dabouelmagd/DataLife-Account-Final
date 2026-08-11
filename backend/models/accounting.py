@@ -58,6 +58,8 @@ class AccountCategory(str, Enum):
     ADMIN_EXPENSE = "admin_expense"           # مصروفات إدارية
     SELLING_EXPENSE = "selling_expense"       # مصروفات بيعية وتسويقية
     FINANCE_COST = "finance_cost"             # مصروفات تمويلية وفوائد
+    COGS = "cogs"                             # تكلفة البضاعة المباعة / تكلفة الأعمال
+    OPERATING_REVENUE = "operating_revenue"   # إيرادات النشاط الأساسي
     COGS = "cogs"                             # تكلفة البضاعة المباعة
     OTHER_EXPENSE = "other_expense"           # مصروفات أخرى
     EXPENSE = "expense"                       # مصروفات عامة
@@ -417,4 +419,54 @@ DEFAULT_ACCOUNTS = [
      "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "43"},
     {"code": "432", "name": "أرباح فروق عملة أجنبية", "name_en": "Foreign Exchange Gains",
      "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "43"},
+    # ══════════════════════════════════════════════════
+    # حسابات القانون المصري — قانون 148/2019 و91/2005
+    # ══════════════════════════════════════════════════
+
+    # ── أصول: ضرائب مدخلات وضمانات ──
+    {"code": "137", "name": "ضريبة المدخلات (VAT قابلة للاسترداد)", "name_en": "VAT Input (Recoverable)",
+     "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "13", "is_system": True},
+    {"code": "138", "name": "ضريبة الخصم والتحصيل المحتجزة (1%/3%)", "name_en": "Withholding Tax Retained by Others",
+     "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "13", "is_system": True},
+    {"code": "141", "name": "أصول ضمان محتجزة لدى العملاء (Retention)", "name_en": "Retention Receivable",
+     "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "13"},
+
+    # ── خصوم: صناديق واستقطاعات إجبارية ──
+    {"code": "258", "name": "صندوق إعانة الطوارئ للعمال مستحق (1%)", "name_en": "Emergency Workers Fund Payable (1%)",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25", "is_system": True},
+    {"code": "259", "name": "صندوق تكريم الشهداء والمفقودين (0.05%)", "name_en": "Martyrs Fund Payable (0.05%)",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25", "is_system": True},
+    {"code": "260", "name": "ضريبة القيمة المضافة المخرجات (VAT Output)", "name_en": "VAT Output (Payable)",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25", "is_system": True},
+    {"code": "261", "name": "ضريبة الخصم والتحصيل المستقطعة", "name_en": "Withholding Tax Payable (1%/3%/5%)",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25", "is_system": True},
+    {"code": "262", "name": "المساهمة التكافلية — التأمين الصحي الشامل (0.25%)", "name_en": "UHI Solidarity Contribution Payable (0.25%)",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25", "is_system": True},
+    {"code": "263", "name": "ضمان حسن التنفيذ محتجز — مقاولو الباطن", "name_en": "Retention Payable — Subcontractors",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
+    {"code": "264", "name": "أمانات أطباء استشاريين مستحقة", "name_en": "Consultant Doctors Fees Payable",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
+
+    # ── تكاليف: قطاع الإنشاءات والمقاولات ──
+    {"code": "315", "name": "تكلفة مقاولي الباطن", "name_en": "Subcontractor Costs",
+     "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
+    {"code": "316", "name": "تكاليف إنشاءات — مواد ومستلزمات الموقع", "name_en": "Construction — Site Materials",
+     "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
+    {"code": "317", "name": "تكاليف إنشاءات — أجور عمال الموقع", "name_en": "Construction — Site Labor",
+     "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
+
+    # ── مصروفات: الصناديق والمساهمات الإجبارية ──
+    {"code": "339", "name": "مصروفات صندوق إعانة الطوارئ (1% من أجر الاشتراك)", "name_en": "Emergency Workers Fund Expense (1%)",
+     "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33", "is_system": True},
+    {"code": "340", "name": "مصروفات التأمين الصحي الشامل — حصة الشركة (0.25%)", "name_en": "UHI Solidarity Contribution Expense (0.25%)",
+     "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33", "is_system": True},
+
+    # ── إيرادات: قطاعات متخصصة ──
+    {"code": "414", "name": "إيرادات مقاولات وإنشاءات (مستخلصات)", "name_en": "Construction & Contracting Revenue (Progress Claims)",
+     "type": AccountType.REVENUE, "category": AccountCategory.OPERATING_REVENUE, "parent_code": "41"},
+    {"code": "415", "name": "إيرادات الخدمات الطبية", "name_en": "Medical Services Revenue",
+     "type": AccountType.REVENUE, "category": AccountCategory.OPERATING_REVENUE, "parent_code": "41"},
+    {"code": "416", "name": "إيرادات استشارات هندسية ومهنية", "name_en": "Engineering & Professional Consulting Revenue",
+     "type": AccountType.REVENUE, "category": AccountCategory.OPERATING_REVENUE, "parent_code": "41"},
+]
 ]

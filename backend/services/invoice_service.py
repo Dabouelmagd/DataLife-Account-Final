@@ -293,9 +293,11 @@ class InvoiceService:
         
         if doc_type == DocumentType.SALES_INVOICE.value:
             # فاتورة بيع: العملاء (مدين) - المبيعات (دائن) - ضريبة (دائن)
-            customers_acc = find_account("131")   # العملاء
-            sales_acc = find_account("411")   # إيراد مبيعات بضائع
-            tax_acc = find_account("254")   # الضرائب المستحقة
+            customers_acc  = find_account("131")   # العملاء
+            sales_acc      = find_account("411")   # إيراد مبيعات بضائع
+            vat_out_acc    = find_account("260")   # ضريبة القيمة المضافة مخرجات
+            wht_asset_acc  = find_account("138")   # ضريبة الخصم والتحصيل المحتجزة (1%)
+            tax_acc        = find_account("260")   # VAT output (default)
             
             if customers_acc:
                 lines.append(JournalEntryLine(

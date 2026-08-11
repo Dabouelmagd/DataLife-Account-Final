@@ -22,12 +22,19 @@ DB_NAME   = os.environ.get("DB_NAME", "datalife_erp")
 
 # Codes added in this migration (19 new accounts)
 NEW_CODES = {
+    # Migration 1 — July 2026
     "15","151","163",
     "214","215",
     "23","231","256","257",
     "32","321",
     "335","336","337","338","344",
     "43","431","432",
+    # Migration 2 — Egyptian Law 148/2019 + 91/2005
+    "137","138","141",
+    "258","259","260","261","262","263","264",
+    "315","316","317",
+    "339","340",
+    "414","415","416",
 }
 
 async def migrate():
