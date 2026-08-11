@@ -8,7 +8,7 @@ import {
   Users, DollarSign, Shield, Cloud, Bell, Calculator, FileText, Zap, Globe, 
   Lock, HeadphonesIcon, Building2, CreditCard, ChevronRight, Check,
   BarChart3, FolderKanban, Package, Upload, CheckCircle, Settings,
-  Clock, Calendar, Layers, ArrowRight, Play, Star, Menu, X, Gift, Phone, Key
+  Clock, Calendar, Layers, ArrowRight, Play, Star, Menu, X, Gift, Phone, Key, MapPin, Zap
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -61,20 +61,20 @@ const LandingPage = () => {
   /* ── Data ── */
   const services = [
     { icon: Users, color: 'bg-cyan-500', title: ar ? 'إدارة الموارد البشرية' : 'HR Management',
-      desc: ar ? 'كشف المرتبات والرواتب، البدلات والخصومات، الحضور والانصراف، الورديات، الإجازات العارضة والسنوية، إنهاء الخدمة' : 'Payroll, salaries, allowances, deductions, attendance, shifts, casual & annual leave, termination',
-      features: ar ? ['كشف المرتبات','الرواتب','البدلات','الخصومات','الحضور','الورديات','الإجازات','إنهاء الخدمة','التقارير'] : ['Payroll','Salaries','Allowances','Deductions','Attendance','Shifts','Leaves','Termination','Reports'] },
-    { icon: Calculator, color: 'bg-emerald-500', title: ar ? 'الإدارة المالية' : 'Financial Management',
-      desc: ar ? 'القيود اليومية، دفتر الأستاذ العام، إدارة العملاء والموردين، المنتجات، العملات، المخزون، البنوك' : 'Journal entries, general ledger, customers & suppliers, products, currencies, inventory, banks',
-      features: ar ? ['القيود اليومية','دفتر الأستاذ','العملاء والموردين','المنتجات','العملات','المخزون','البنوك','ميزان المراجعة','قائمة الدخل','الميزانية'] : ['Journal Entries','General Ledger','Parties','Products','Currencies','Inventory','Banks','Trial Balance','Income Statement','Balance Sheet'] },
+      desc: ar ? 'كشف المرتبات وفق قانون 148/2019، تسجيل الحضور بالـ GPS، إرسال قسائم الرواتب بالبريد، البدلات والخصومات، الورديات، الإجازات، إنهاء الخدمة' : 'Payroll per Law 148/2019, GPS attendance, email payslips, allowances, deductions, shifts, leaves, termination',
+      features: ar ? ['كشف المرتبات التلقائي','حضور GPS تلقائي','قسيمة راتب بالإيميل','البدلات والخصومات','الورديات','الإجازات','إنهاء الخدمة','ملف الموظف + صورة + مستندات','تتبع الدعوات'] : ['Auto Payroll','GPS Attendance','Email Payslips','Allowances & Deductions','Shifts','Leaves','Termination','Employee Profile + Photo + Docs','Invitation Tracking'] },
+    { icon: Calculator, color: 'bg-emerald-500', title: ar ? 'المحاسبة المالية' : 'Financial Accounting',
+      desc: ar ? '108 حساب وفق الدليل المصري المعياري، قيود تلقائية للرواتب والفواتير والأصول، نظام غير قابل للتعديل (Immutable Ledger) على مستوى SAP' : '108 accounts per Egyptian standard chart, automatic entries for payroll/invoices/assets, SAP-level immutable ledger',
+      features: ar ? ['108 حساب مصري معياري','قيود تلقائية كاملة','دفتر الأستاذ Enterprise','ميزان المراجعة','قائمة الدخل','الميزانية العمومية','VAT 137/260','خصم وتحصيل 261','تأمينات 255/258/259','مراكز التكلفة','متعدد العملات'] : ['108 Egyptian Accounts','Full Auto Journal Entries','Enterprise General Ledger','Trial Balance','Income Statement','Balance Sheet','VAT Input/Output','Withholding Tax','Insurance Funds','Cost Centers','Multi-currency'] },
     { icon: FileText, color: 'bg-amber-500', title: ar ? 'الفواتير الإلكترونية' : 'E-Invoicing',
       desc: ar ? 'إنشاء وإدارة الفواتير مع دعم منظومة الفاتورة الإلكترونية المصرية (ETA)' : 'Create & manage invoices with Egyptian e-invoicing (ETA) support',
       features: ar ? ['إنشاء الفواتير','طباعة PDF','ربط ETA','تقارير الفواتير'] : ['Create Invoices','PDF Export','ETA Integration','Invoice Reports'] },
     { icon: Package, color: 'bg-rose-500', title: ar ? 'المشتريات' : 'Purchases',
       desc: ar ? 'إدارة أوامر الشراء ومتابعة الطلبات وتسجيل استلام البضاعة' : 'Purchase orders, order tracking, goods receipt',
       features: ar ? ['أوامر الشراء','متابعة الطلبات','استلام البضاعة'] : ['Purchase Orders','Order Tracking','Goods Receipt'] },
-    { icon: FolderKanban, color: 'bg-indigo-500', title: ar ? 'المشاريع والمهام' : 'Projects & Tasks',
-      desc: ar ? 'إنشاء المشاريع وتوزيع المهام على الفريق ومتابعة التقدم' : 'Create projects, assign tasks, track progress',
-      features: ar ? ['إدارة المشاريع','توزيع المهام','متابعة التقدم','تقارير المشاريع'] : ['Project Management','Task Assignment','Progress Tracking','Project Reports'] },
+    { icon: FolderKanban, color: 'bg-indigo-500', title: ar ? 'المشاريع والمقاولات' : 'Projects & Contracting',
+      desc: ar ? 'إدارة المشاريع مع ربط المحاسبة تلقائياً، مستخلصات المقاولات وفق المعيار المصري 8، تأمينات محتجزة، BOQ' : 'Project management with auto accounting, progress claims per Egyptian Standard 8, retention, BOQ',
+      features: ar ? ['إدارة المشاريع','مصروفات وإيرادات ← قيود تلقائية','مستخلصات المقاولات','تأمين محتجز Retention','جداول كميات BOQ','قطاع طبي ← فصل أتعاب الأطباء','قطاع استشارات هندسية'] : ['Project Management','Expenses & Revenue → Auto Entries','Progress Claims','Retention Tracking','BOQ Items','Medical sector → Doctor fee split','Engineering Consulting'] },
     { icon: BarChart3, color: 'bg-violet-500', title: ar ? 'التحليلات والتقارير' : 'Analytics & Reports',
       desc: ar ? 'تقارير شاملة للموارد البشرية والمالية والمبيعات والمخزون مع رسوم بيانية' : 'Comprehensive HR, financial, sales & inventory reports with charts',
       features: ar ? ['تقارير HR','التقارير المالية','تقارير المبيعات','رسوم بيانية'] : ['HR Reports','Financial Reports','Sales Reports','Charts'] },
@@ -87,12 +87,14 @@ const LandingPage = () => {
   ];
 
   const benefits = [
-    { icon: Globe, title: ar ? 'دعم عربي كامل' : 'Full Arabic Support', desc: ar ? 'واجهة عربية كاملة مع دعم RTL' : 'Complete Arabic interface with RTL support' },
-    { icon: Cloud, title: ar ? 'سحابي 100%' : '100% Cloud-Based', desc: ar ? 'لا حاجة لتثبيت — يعمل من أي متصفح' : 'No installation — works from any browser' },
-    { icon: Shield, title: ar ? 'أمان عالي' : 'High Security', desc: ar ? 'تشفير البيانات وصلاحيات متعددة المستويات' : 'Data encryption & multi-level permissions' },
-    { icon: Bell, title: ar ? 'إشعارات فورية' : 'Push Notifications', desc: ar ? 'إشعارات Push حتى عند إغلاق الموقع' : 'Push notifications even when site is closed' },
-    { icon: Lock, title: ar ? '21 صلاحية' : '21 Permissions', desc: ar ? 'تحكم كامل في صلاحيات كل موظف' : 'Full control over each employee permissions' },
-    { icon: CreditCard, title: ar ? 'طرق دفع متعددة' : 'Multiple Payment Methods', desc: ar ? 'بطاقة، PayPal، InstaPay، فودافون كاش، كود تفعيل' : 'Card, PayPal, InstaPay, Vodafone Cash, Activation Code' },
+    { icon: Globe, title: ar ? 'دعم عربي كامل + RTL' : 'Full Arabic + RTL', desc: ar ? 'واجهة عربية كاملة مع دعم RTL وقانون مصري' : 'Complete Arabic interface with RTL and Egyptian law' },
+    { icon: Cloud, title: ar ? 'سحابي 100%' : '100% Cloud-Based', desc: ar ? 'لا حاجة لتثبيت — يعمل من أي متصفح أو هاتف' : 'No installation — works from any browser or phone' },
+    { icon: Shield, title: ar ? 'أمان Enterprise' : 'Enterprise Security', desc: ar ? 'HTTPS + JWT 8h + خروج تلقائي 30 د + Rate Limiting + Audit Log' : 'HTTPS + JWT 8h + Auto-logout 30min + Rate Limiting + Audit Log' },
+    { icon: Bell, title: ar ? 'Real-time WebSocket' : 'Real-time WebSocket', desc: ar ? 'موافقات وتحديثات فورية بدون تحديث الصفحة' : 'Instant approvals and updates without page refresh' },
+    { icon: MapPin, title: ar ? 'حضور GPS تلقائي' : 'GPS Auto Attendance', desc: ar ? 'تسجيل الحضور بالموقع الجغرافي مع نطاق مسموح قابل للضبط' : 'GPS location-based attendance with configurable geofence radius' },
+    { icon: Lock, title: ar ? 'صلاحيات متقدمة' : 'Advanced Permissions', desc: ar ? 'تحكم كامل في صلاحيات كل موظف + Super Admin يدير كل الشركات' : 'Full employee permission control + Super Admin manages all companies' },
+    { icon: CreditCard, title: ar ? 'طرق دفع متعددة' : 'Multiple Payments', desc: ar ? 'بطاقة، PayPal، InstaPay، فودافون كاش، كود تفعيل' : 'Card, PayPal, InstaPay, Vodafone Cash, Activation Code' },
+    { icon: Zap, title: ar ? 'تحديثات تلقائية' : 'Auto Updates', desc: ar ? 'إشعار بكل تحديث جديد — اضغط زر واحد للتحديث' : 'Notification for every new update — one-tap to update' },
   ];
 
   const faqs = [

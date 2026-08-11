@@ -3,7 +3,9 @@ import { useLanguage } from '../contexts/LanguageContext';
 import axios from 'axios';
 import { 
   BookOpen, Search, Filter, Calendar, Download, ChevronDown,
-  Loader2, ArrowUpRight, ArrowDownRight
+  Loader2, ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown,
+  Scale, Building2, DollarSign, FileText, BarChart3, ChevronRight,
+  RefreshCw, Eye, Shield
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -181,15 +183,55 @@ const GeneralLedgerPage = () => {
   const accountTypeOrder = ['asset', 'contra_asset', 'liability', 'equity', 'revenue', 'expense'];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6" dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#28376B] flex items-center gap-3">
-            <BookOpen className="w-8 h-8" />
-            {t.title}
-          </h1>
-          <p className="text-gray-600 mt-1">{t.subtitle}</p>
+    <div className="min-h-screen bg-gray-50" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Enterprise Header */}
+        <div className="bg-gradient-to-r from-[#0F1729] to-[#1e3a8a] rounded-2xl p-6 mb-6 text-white">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black">{t.title}</h1>
+                <p className="text-blue-200 text-sm mt-0.5">{t.subtitle}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 bg-white/10 rounded-lg px-3 py-1.5 text-xs">
+                <Shield className="w-3.5 h-3.5 text-green-400" />
+                <span className="text-green-300">{isRTL ? 'Immutable Ledger' : 'Immutable Ledger'}</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-white/10 rounded-lg px-3 py-1.5 text-xs">
+                <Scale className="w-3.5 h-3.5 text-yellow-400" />
+                <span className="text-yellow-300">{isRTL ? '108 حساب' : '108 Accounts'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick stats */}
+          {accountStatement && (
+            <div className="grid grid-cols-3 gap-4 mt-5 pt-5 border-t border-white/10">
+              <div className="text-center">
+                <p className="text-white/60 text-xs">{isRTL ? 'إجمالي المدين' : 'Total Debit'}</p>
+                <p className="text-white font-bold text-lg mt-0.5">
+                  {(accountStatement.total_debit || 0).toLocaleString()} {isRTL ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="text-center border-x border-white/10">
+                <p className="text-white/60 text-xs">{isRTL ? 'إجمالي الدائن' : 'Total Credit'}</p>
+                <p className="text-white font-bold text-lg mt-0.5">
+                  {(accountStatement.total_credit || 0).toLocaleString()} {isRTL ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-white/60 text-xs">{isRTL ? 'الرصيد الختامي' : 'Closing Balance'}</p>
+                <p className={`font-bold text-lg mt-0.5 ${(accountStatement.closing_balance || 0) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                  {Math.abs(accountStatement.closing_balance || 0).toLocaleString()} {isRTL ? 'ج.م' : 'EGP'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-12 gap-6">
@@ -227,20 +269,27 @@ const GeneralLedgerPage = () => {
                           <div
                             key={account.id}
                             onClick={() => setSelectedAccount(account)}
-                            className={`px-4 py-3 cursor-pointer hover:bg-blue-50 transition-colors border-b last:border-0 ${
-                              selectedAccount?.id === account.id ? 'bg-blue-50 border-l-4 border-l-[#28376B]' : ''
+                            className={`px-3 py-2.5 cursor-pointer hover:bg-blue-50/80 transition-all border-b last:border-0 ${
+                              selectedAccount?.id === account.id ? 'bg-blue-50 border-r-3 border-r-[#28376B] shadow-sm' : ''
                             }`}
                           >
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <div className="font-medium text-gray-800">
-                                  {account.account_code} - {account.account_name}
+                            <div className="flex justify-between items-center gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-mono font-bold text-[#1e3a8a] bg-blue-50 px-1.5 py-0.5 rounded flex-shrink-0">
+                                    {account.account_code}
+                                  </span>
+                                  <span className="font-medium text-gray-800 text-sm truncate">
+                                    {account.account_name}
+                                  </span>
                                 </div>
                                 {account.account_name_en && (
-                                  <div className="text-xs text-gray-500">{account.account_name_en}</div>
+                                  <div className="text-xs text-gray-400 mt-0.5 truncate">{account.account_name_en}</div>
                                 )}
                               </div>
-                              {formatBalance(account.current_balance || 0, account.account_type)}
+                              <div className="flex-shrink-0">
+                                {formatBalance(account.current_balance || 0, account.account_type)}
+                              </div>
                             </div>
                           </div>
                         ))}
