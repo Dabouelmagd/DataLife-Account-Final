@@ -60,7 +60,6 @@ class AccountCategory(str, Enum):
     FINANCE_COST = "finance_cost"             # مصروفات تمويلية وفوائد
     COGS = "cogs"                             # تكلفة البضاعة المباعة / تكلفة الأعمال
     OPERATING_REVENUE = "operating_revenue"   # إيرادات النشاط الأساسي
-    COGS = "cogs"                             # تكلفة البضاعة المباعة
     OTHER_EXPENSE = "other_expense"           # مصروفات أخرى
     EXPENSE = "expense"                       # مصروفات عامة
 
