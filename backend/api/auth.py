@@ -589,6 +589,141 @@ async def initialize_super_admin(
 
 
 @router.get("/check-super-admin")
+
+
+# ══════════════════════════════════════════
+# Owner Assistants Management
+# ══════════════════════════════════════════
+
+@router.post("/create-assistant")
+async def create_owner_assistant(
+    data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Super Admin يضيف مساعد له بصلاحيات محددة"""
+    user_data = await verify_token(authorization)
+    
+    # Only Super Admin can create assistants
+    is_super = user_data.get("is_platform_admin") or user_data.get("role") == "Super Admin"
+    if not is_super:
+        raise HTTPException(status_code=403, detail="Super Admin only")
+    
+    email = data.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email required")
+    
+    # Check if email already exists
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Generate temp password
+    import secrets, string
+    temp_password = "DL@" + "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
+    
+    from passlib.context import CryptContext
+    pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    hashed = pwd_ctx.hash(temp_password)
+    
+    # Allowed permissions for assistant (subset of Super Admin)
+    allowed_permissions = data.get("permissions", [])
+    
+    assistant = {
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "full_name": data.get("full_name", ""),
+        "password_hash": hashed,
+        "role": "Owner Assistant",
+        "is_platform_admin": False,
+        "is_owner_assistant": True,
+        "created_by_super_admin": user_data.get("user_id"),
+        "company_id": None,
+        "permissions": allowed_permissions,
+        "is_active": True,
+        "temp_password": temp_password,
+        "must_change_password": True,
+        "invitation_sent_at": datetime.now(timezone.utc).isoformat(),
+        "has_logged_in": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    await db.users.insert_one(assistant)
+    assistant.pop("_id", None)
+    
+    # Send invitation email
+    try:
+        from services.email_service import send_assistant_invitation
+        await send_assistant_invitation(
+            email=email,
+            full_name=data.get("full_name", ""),
+            temp_password=temp_password,
+            permissions=allowed_permissions
+        )
+    except Exception:
+        pass
+    
+    return {
+        "message": "تم إنشاء حساب المساعد بنجاح",
+        "assistant_id": assistant["id"],
+        "temp_password": temp_password,
+        "email": email
+    }
+
+
+@router.get("/assistants")
+async def get_owner_assistants(authorization: Optional[str] = Header(None)):
+    """جلب قائمة مساعدي الـ Owner"""
+    user_data = await verify_token(authorization)
+    is_super = user_data.get("is_platform_admin") or user_data.get("role") == "Super Admin"
+    if not is_super:
+        raise HTTPException(status_code=403, detail="Super Admin only")
+    
+    assistants = await db.users.find(
+        {"is_owner_assistant": True},
+        {"_id": 0, "password_hash": 0, "temp_password": 0}
+    ).to_list(length=100)
+    
+    return {"assistants": assistants}
+
+
+@router.patch("/assistants/{assistant_id}")
+async def update_assistant(
+    assistant_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """تعديل صلاحيات أو حالة مساعد"""
+    user_data = await verify_token(authorization)
+    is_super = user_data.get("is_platform_admin") or user_data.get("role") == "Super Admin"
+    if not is_super:
+        raise HTTPException(status_code=403, detail="Super Admin only")
+    
+    update = {}
+    if "permissions" in data: update["permissions"] = data["permissions"]
+    if "is_active" in data:   update["is_active"] = data["is_active"]
+    if "full_name" in data:   update["full_name"] = data["full_name"]
+    
+    await db.users.update_one(
+        {"id": assistant_id, "is_owner_assistant": True},
+        {"$set": {**update, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "تم تحديث المساعد"}
+
+
+@router.delete("/assistants/{assistant_id}")
+async def delete_assistant(
+    assistant_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """حذف مساعد"""
+    user_data = await verify_token(authorization)
+    is_super = user_data.get("is_platform_admin") or user_data.get("role") == "Super Admin"
+    if not is_super:
+        raise HTTPException(status_code=403, detail="Super Admin only")
+    
+    await db.users.delete_one({"id": assistant_id, "is_owner_assistant": True})
+    return {"message": "تم حذف المساعد"}
+
 async def check_super_admin_exists():
     """Check if Super Admin exists in the database"""
     super_admin = await db.users.find_one({"role": "Super Admin"})

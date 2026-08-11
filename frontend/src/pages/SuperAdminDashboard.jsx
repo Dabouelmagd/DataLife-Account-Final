@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PublishUpdatePanel from '../components/PublishUpdatePanel';
+import AssistantsPanel from '../components/AssistantsPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -391,6 +392,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
           {language === 'ar' ? 'التحديثات' : 'Updates'}
         </Button>
         <Button
+          variant={activeTab === 'assistants' ? 'default' : 'ghost'}
+          className={activeTab === 'assistants' ? 'bg-purple-600 hover:bg-purple-700' : ''}
+          onClick={() => setActiveTab('assistants')}
+        >
+          <span>👥</span>
+          {language === 'ar' ? 'المساعدون' : 'Assistants'}
+        </Button>
+        <Button
           variant={activeTab === 'users' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('users')}
           className={activeTab === 'users' ? 'bg-purple-600 hover:bg-purple-700' : ''}
@@ -565,6 +574,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
         <Card>
           <CardContent className="p-6">
             <PublishUpdatePanel />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'assistants' && (
+        <Card>
+          <CardContent className="p-6">
+            <AssistantsPanel />
           </CardContent>
         </Card>
       )}
