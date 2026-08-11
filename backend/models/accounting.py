@@ -493,4 +493,3 @@ DEFAULT_ACCOUNTS = [
     {"code": "416", "name": "إيرادات استشارات هندسية ومهنية", "name_en": "Engineering & Professional Consulting Revenue",
      "type": AccountType.REVENUE, "category": AccountCategory.OPERATING_REVENUE, "parent_code": "41"},
 ]
-]
