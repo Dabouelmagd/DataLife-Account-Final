@@ -340,3 +340,38 @@ def get_plan_price(plan: str, duration: str) -> float:
     
     plan_prices = prices.get(plan, prices["basic"])
     return plan_prices.get(duration, plan_prices["monthly"])
+
+
+@router.get("/payment-requests")
+async def get_payment_requests(
+    authorization: Optional[str] = Header(None),
+    status: str = None
+):
+    """جلب طلبات الدفع اليدوي من العملاء"""
+    await verify_admin(authorization)
+    query = {}
+    if status: query["status"] = status
+    requests = await db.payment_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(length=200)
+    return {"requests": requests}
+
+
+@router.patch("/payment-requests/{request_id}")
+async def update_payment_request(
+    request_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """الموافقة على أو رفض طلب دفع"""
+    user = await verify_admin(authorization)
+    status = data.get("status")  # approved / rejected
+    
+    await db.payment_requests.update_one(
+        {"id": request_id},
+        {"$set": {
+            "status": status,
+            "reviewed_by": user.get("email"),
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "review_notes": data.get("notes", "")
+        }}
+    )
+    return {"message": f"Request {status}"}

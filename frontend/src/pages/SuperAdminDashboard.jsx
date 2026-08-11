@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import PublishUpdatePanel from '../components/PublishUpdatePanel';
 import AssistantsPanel from '../components/AssistantsPanel';
 import SubscriptionsPanel from '../components/SubscriptionsPanel';
+import PaymentsAdminPanel from '../components/PaymentsAdminPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -401,6 +402,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
           {language === 'ar' ? 'المساعدون' : 'Assistants'}
         </Button>
         <Button
+          variant={activeTab === 'payments' ? 'default' : 'ghost'}
+          className={activeTab === 'payments' ? 'bg-green-700 hover:bg-green-800' : ''}
+          onClick={() => setActiveTab('payments')}
+        >
+          <span>💰</span>
+          {language === 'ar' ? 'المدفوعات' : 'Payments'}
+        </Button>
+        <Button
           variant={activeTab === 'users' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('users')}
           className={activeTab === 'users' ? 'bg-purple-600 hover:bg-purple-700' : ''}
@@ -581,6 +590,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
 
       {activeTab === 'subscriptions' && (
         <SubscriptionsPanel />
+      )}
+
+      {activeTab === 'payments' && (
+        <Card>
+          <CardContent className="p-6">
+            <PaymentsAdminPanel />
+          </CardContent>
+        </Card>
       )}
 
       {activeTab === 'assistants' && (
