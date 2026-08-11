@@ -8,7 +8,7 @@ import {
   Users, DollarSign, Shield, Cloud, Bell, Calculator, FileText, Zap, Globe, 
   Lock, HeadphonesIcon, Building2, CreditCard, ChevronRight, Check,
   BarChart3, FolderKanban, Package, Upload, CheckCircle, Settings,
-  Clock, Calendar, Layers, ArrowRight, Play, Star, Menu, X, Gift, Phone, Key, MapPin, Zap
+  Clock, Calendar, Layers, ArrowRight, Play, Star, Menu, X, Gift, Phone, Key
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';

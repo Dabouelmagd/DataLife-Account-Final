@@ -165,6 +165,7 @@ const RealDashboard = () => {
   const modules = getAvailableModules(user, language);
 
   return (
+    <>
     <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Sidebar */}
       <ModernSidebar
@@ -222,22 +223,23 @@ const RealDashboard = () => {
         <AppFooter />
       </div>
     </div>
-      <AppUpdateNotification />
+    <AppUpdateNotification />
 
-      {/* Idle Warning Banner */}
-      {idleWarning && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white text-center py-2 text-sm font-medium">
-          ⚠️ {language === 'ar'
-            ? `سيتم تسجيل خروجك تلقائياً خلال ${Math.floor(idleWarning)} ثانية بسبب عدم النشاط`
-            : `You will be logged out in ${Math.floor(idleWarning)} seconds due to inactivity`}
-          <button
-            onClick={() => setIdleWarning(false)}
-            className="mr-4 underline font-bold"
-          >
-            {language === 'ar' ? 'استمرار' : 'Stay logged in'}
-          </button>
-        </div>
-      )}
+    {/* Idle Warning Banner */}
+    {idleWarning && (
+      <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white text-center py-2 text-sm font-medium">
+        ⚠️ {language === 'ar'
+          ? `سيتم تسجيل خروجك تلقائياً خلال ${Math.floor(idleWarning)} ثانية بسبب عدم النشاط`
+          : `You will be logged out in ${Math.floor(idleWarning)} seconds due to inactivity`}
+        <button
+          onClick={() => setIdleWarning(false)}
+          className="mr-4 underline font-bold"
+        >
+          {language === 'ar' ? 'استمرار' : 'Stay logged in'}
+        </button>
+      </div>
+    )}
+    </>
   );
 };
 
