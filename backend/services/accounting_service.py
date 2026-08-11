@@ -187,6 +187,26 @@ class AccountingService:
         entry_dict = entry.dict()
         await self.db.journal_entries.insert_one(entry_dict)
         entry_dict.pop("_id", None)
+
+        # Audit log — every journal entry creation is logged
+        try:
+            await self.db.audit_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "company_id": entry.company_id,
+                "action": "journal_entry.created",
+                "entity_type": "journal_entry",
+                "entity_id": entry.id,
+                "entry_number": entry.entry_number,
+                "total_debit": entry.total_debit,
+                "total_credit": entry.total_credit,
+                "source_document_type": getattr(entry, "source_document_type", "manual"),
+                "created_by": entry.created_by,
+                "timestamp": datetime.utcnow().isoformat(),
+                "ip_address": None,
+            })
+        except Exception:
+            pass  # Non-critical
+
         return entry_dict
     
     async def get_journal_entry(self, entry_id: str) -> Optional[Dict]:
@@ -301,6 +321,23 @@ class AccountingService:
             # تحديث رصيد الحساب
             await self.update_account_balance(line["account_id"], line["debit"], line["credit"])
         
+        # Audit log — posting is logged
+        try:
+            await self.db.audit_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "company_id": entry.get("company_id"),
+                "action": "journal_entry.posted",
+                "entity_type": "journal_entry",
+                "entity_id": entry_id,
+                "entry_number": entry.get("entry_number"),
+                "total_debit": entry.get("total_debit"),
+                "total_credit": entry.get("total_credit"),
+                "posted_by": user_id,
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+        except Exception:
+            pass
+
         # تحديث حالة القيد (ONLY status/posted fields — immutable ledger)
         await self.db.journal_entries.update_one(
             {"id": entry_id, "status": {"$ne": JournalEntryStatus.POSTED.value}},

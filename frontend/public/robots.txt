@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /privacy
+Allow: /terms
+Allow: /contact
+Allow: /partners
+
+# Disallow private areas
+Disallow: /dashboard
+Disallow: /api/
+Disallow: /admin/
+
+Sitemap: https://datalifeaccount.com/sitemap.xml

@@ -7,7 +7,7 @@ import os
 # JWT settings
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8   # 8 hours — financial data security
 
 def hash_password(password: str) -> str:
     """Hash a password"""
