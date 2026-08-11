@@ -20,7 +20,6 @@ export const useRealTimeSync = (onUpdate) => {
 
     // Convert HTTP URL to WebSocket URL
     const wsUrl = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
-    const roomId = user?.company_id || user?.id;
     const fullUrl = `${wsUrl}/api/attachments/ws/sync/${roomId}`;
 
     try {
