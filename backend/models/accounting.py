@@ -57,6 +57,7 @@ class AccountCategory(str, Enum):
     OPERATING_EXPENSE = "operating_expense"   # مصروفات تشغيلية
     ADMIN_EXPENSE = "admin_expense"           # مصروفات إدارية
     SELLING_EXPENSE = "selling_expense"       # مصروفات بيعية وتسويقية
+    FINANCE_COST = "finance_cost"             # مصروفات تمويلية وفوائد
     COGS = "cogs"                             # تكلفة البضاعة المباعة
     OTHER_EXPENSE = "other_expense"           # مصروفات أخرى
     EXPENSE = "expense"                       # مصروفات عامة
@@ -360,4 +361,60 @@ DEFAULT_ACCOUNTS = [
     {"code": "421", "name": "أرباح رأسمالية", "name_en": "Capital Gains", "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "42"},
     {"code": "422", "name": "إيرادات فوائد دائنة", "name_en": "Interest Income", "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "42"},
     {"code": "423", "name": "إيرادات متنوعة أخرى", "name_en": "Other Miscellaneous Revenue", "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "42"},
+
+    # ==========================================
+    # حسابات مكملة — الدليل المصري الكامل
+    # ==========================================
+
+    # الاستثمارات قصيرة الأجل
+    {"code": "15", "name": "الاستثمارات قصيرة الأجل", "name_en": "Short-term Investments",
+     "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "is_header": True, "parent_code": "1"},
+    {"code": "151", "name": "أوراق مالية متداولة", "name_en": "Marketable Securities",
+     "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "15"},
+    {"code": "163", "name": "شيكات برسم التحصيل", "name_en": "Checks Under Collection",
+     "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "16"},
+
+    # حقوق الملكية — إضافية
+    {"code": "214", "name": "الأرباح الموزعة", "name_en": "Dividends Paid",
+     "type": AccountType.EQUITY, "category": AccountCategory.EQUITY, "parent_code": "21"},
+    {"code": "215", "name": "احتياطي إعادة التقييم", "name_en": "Revaluation Reserve",
+     "type": AccountType.EQUITY, "category": AccountCategory.EQUITY, "parent_code": "21"},
+
+    # الدائنون — إضافية
+    {"code": "23", "name": "الدائنون قصيرو الأجل", "name_en": "Short-term Creditors",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "is_header": True, "parent_code": "2"},
+    {"code": "231", "name": "دائنون تجاريون", "name_en": "Trade Creditors",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "23"},
+    {"code": "256", "name": "أرباح موزعة مستحقة", "name_en": "Dividends Payable",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
+    {"code": "257", "name": "إيرادات مقدمة (دفعات مقدمة من عملاء)", "name_en": "Deferred Revenue",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
+
+    # المصروفات التمويلية
+    {"code": "32", "name": "المصروفات التمويلية", "name_en": "Finance Costs",
+     "type": AccountType.EXPENSE, "category": AccountCategory.FINANCE_COST, "is_header": True, "parent_code": "3"},
+    {"code": "321", "name": "فوائد وعمولات بنكية مدينة", "name_en": "Bank Interest & Charges",
+     "type": AccountType.EXPENSE, "category": AccountCategory.FINANCE_COST, "parent_code": "32"},
+
+    # مصروفات إدارية إضافية
+    {"code": "335", "name": "إيجارات ومدفوعات إيجار", "name_en": "Rent & Lease Payments",
+     "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
+    {"code": "336", "name": "مصروفات قانونية ومهنية", "name_en": "Legal & Professional Fees",
+     "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
+    {"code": "337", "name": "بدل سفر وانتقالات", "name_en": "Travel & Transportation",
+     "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
+    {"code": "338", "name": "مصروفات تأمين", "name_en": "Insurance Expenses",
+     "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
+
+    # مصروفات بيعية إضافية
+    {"code": "344", "name": "مصروفات عينات وعروض تجارية", "name_en": "Samples & Promotion",
+     "type": AccountType.EXPENSE, "category": AccountCategory.SELLING_EXPENSE, "parent_code": "34"},
+
+    # إيرادات مشاريع
+    {"code": "43", "name": "إيرادات مشاريع وتشغيل", "name_en": "Projects & Operations Revenue",
+     "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "is_header": True, "parent_code": "4"},
+    {"code": "431", "name": "إيرادات مقاولات وتشغيل للغير", "name_en": "Contracting Revenue",
+     "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "43"},
+    {"code": "432", "name": "أرباح فروق عملة أجنبية", "name_en": "Foreign Exchange Gains",
+     "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "43"},
 ]
