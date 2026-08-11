@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import ErrorBoundary from "./components/ErrorBoundary";
+import NotFoundPage from "./components/NotFoundPage";
 import axios from "axios";
 import LandingPage from "./components/LandingPage";
 import DemoPage from "./components/DemoPage";
@@ -63,6 +65,7 @@ const ProtectedRoute = ({ children }) => {
 
   if (loading) {
     return (
+    <ErrorBoundary>
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Loading...</div>
       </div>
@@ -223,6 +226,7 @@ function App() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/partners" element={<PartnersPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
             {/* Support Chatbot - appears on all pages */}
             <SupportChatbot />
@@ -234,6 +238,7 @@ function App() {
       </AuthProvider>
     </ThemeProvider>
     </LanguageProvider>
+    </ErrorBoundary>
   );
 }
 

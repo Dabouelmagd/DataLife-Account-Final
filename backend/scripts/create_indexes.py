@@ -1,0 +1,88 @@
+"""
+Database Indexes — Performance Optimization
+Run: docker exec -it datalife_backend python3 -m scripts.create_indexes
+"""
+import asyncio, os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
+load_dotenv()
+
+MONGO_URL = os.environ.get("MONGO_URL")
+DB_NAME   = os.environ.get("DB_NAME", "datalife_erp")
+
+INDEXES = {
+    "journal_entries": [
+        [("company_id", 1), ("entry_date", -1)],
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("fiscal_year", 1), ("period", 1)],
+        [("source_document_type", 1), ("source_document_id", 1)],
+    ],
+    "chart_of_accounts": [
+        [("company_id", 1), ("account_code", 1)],
+        [("company_id", 1), ("account_type", 1)],
+        [("company_id", 1), ("is_active", 1)],
+    ],
+    "general_ledger": [
+        [("company_id", 1), ("account_id", 1), ("entry_date", -1)],
+        [("journal_entry_id", 1)],
+    ],
+    "employees": [
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("department", 1)],
+        [("email", 1)],
+    ],
+    "invoices": [
+        [("company_id", 1), ("invoice_date", -1)],
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("customer_id", 1)],
+        [("eta_uuid", 1)],
+    ],
+    "payroll_runs": [
+        [("company_id", 1), ("month", -1)],
+        [("company_id", 1), ("status", 1)],
+    ],
+    "audit_logs": [
+        [("company_id", 1), ("timestamp", -1)],
+        [("entity_type", 1), ("entity_id", 1)],
+    ],
+    "users": [
+        [("email", 1)],
+        [("company_id", 1), ("is_active", 1)],
+    ],
+    "companies": [
+        [("is_active", 1)],
+        [("subscription_type", 1)],
+    ],
+    "progress_claims": [
+        [("company_id", 1), ("project_id", 1), ("claim_number", 1)],
+    ],
+    "payroll_tax_brackets": [
+        [("tax_year", 1), ("bracket_order", 1)],
+    ],
+    "app_updates": [
+        [("is_active", 1), ("created_at", -1)],
+    ],
+}
+
+async def create_indexes():
+    print("=" * 55)
+    print("DataLife — Creating Database Indexes")
+    print("=" * 55)
+    client = AsyncIOMotorClient(MONGO_URL)
+    db = client[DB_NAME]
+    total = 0
+    for collection, indexes in INDEXES.items():
+        col = db[collection]
+        for idx in indexes:
+            try:
+                await col.create_index(idx, background=True)
+                print(f"  ✅ {collection}: {idx}")
+                total += 1
+            except Exception as e:
+                print(f"  ⚠️  {collection}: {e}")
+    print(f"\n✅ Done — {total} indexes created")
+    client.close()
+
+if __name__ == "__main__":
+    asyncio.run(create_indexes())

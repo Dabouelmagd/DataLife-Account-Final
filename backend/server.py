@@ -164,6 +164,44 @@ app.include_router(health_check_router)
 app.include_router(updates_router)
 app.include_router(enterprise_router)
 
+# ── Simple Rate Limiting Middleware ──────────────────
+from collections import defaultdict
+from time import time
+
+class RateLimitMiddleware:
+    def __init__(self, app, calls_per_minute=120):
+        self.app = app
+        self.calls = defaultdict(list)
+        self.limit = calls_per_minute
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            # Get IP from headers or connection
+            headers = dict(scope.get("headers", []))
+            ip = headers.get(b"x-real-ip", b"").decode() or                  headers.get(b"x-forwarded-for", b"").decode().split(",")[0].strip() or                  (scope.get("client") or ["unknown"])[0]
+
+            # Auth endpoints: stricter limit (20/min)
+            path = scope.get("path", "")
+            limit = 20 if "/api/auth/login" in path else self.limit
+
+            now = time()
+            self.calls[ip] = [t for t in self.calls[ip] if now - t < 60]
+
+            if len(self.calls[ip]) >= limit:
+                from starlette.responses import JSONResponse
+                response = JSONResponse(
+                    {"detail": "Too many requests. Please wait a minute."},
+                    status_code=429,
+                    headers={"Retry-After": "60"}
+                )
+                await response(scope, receive, send)
+                return
+
+            self.calls[ip].append(now)
+        await self.app(scope, receive, send)
+
+app.add_middleware(RateLimitMiddleware, calls_per_minute=120)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
