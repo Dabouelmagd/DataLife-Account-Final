@@ -16,6 +16,7 @@ import axios from 'axios';
 import ModernSidebar from './ModernSidebar';
 import AppFooter from './AppFooter';
 import ModuleRenderer from './ModuleRenderer';
+import AppUpdateNotification from './AppUpdateNotification';
 
 // Config
 import { getAvailableModules } from '../config/moduleConfig';
@@ -209,6 +210,7 @@ const RealDashboard = () => {
         <AppFooter />
       </div>
     </div>
+      <AppUpdateNotification />
   );
 };
 

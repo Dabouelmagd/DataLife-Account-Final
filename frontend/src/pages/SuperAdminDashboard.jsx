@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import PublishUpdatePanel from '../components/PublishUpdatePanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -382,6 +383,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
           {text.companies}
         </Button>
         <Button
+          variant={activeTab === 'updates' ? 'default' : 'ghost'}
+          className={activeTab === 'updates' ? 'bg-purple-600 hover:bg-purple-700' : ''}
+          onClick={() => setActiveTab('updates')}
+        >
+          <span>🚀</span>
+          {language === 'ar' ? 'التحديثات' : 'Updates'}
+        </Button>
+        <Button
           variant={activeTab === 'users' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('users')}
           className={activeTab === 'users' ? 'bg-purple-600 hover:bg-purple-700' : ''}
@@ -552,6 +561,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
       )}
 
       {/* Users Table */}
+      {activeTab === 'updates' && (
+        <Card>
+          <CardContent className="p-6">
+            <PublishUpdatePanel />
+          </CardContent>
+        </Card>
+      )}
+
       {activeTab === 'users' && (
         <div className="space-y-4">
           {loading ? (
