@@ -65,8 +65,7 @@ const ProtectedRoute = ({ children }) => {
 
   if (loading) {
     return (
-    <ErrorBoundary>
-      <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Loading...</div>
       </div>
     );
@@ -77,6 +76,7 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   return (
+    <ErrorBoundary>
     <LanguageProvider>
     <ThemeProvider>
       <AuthProvider>
@@ -237,7 +237,7 @@ function App() {
         </PermissionsProvider>
       </AuthProvider>
     </ThemeProvider>
-    </LanguageProvider>
+      </LanguageProvider>
     </ErrorBoundary>
   );
 }
