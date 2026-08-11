@@ -5,7 +5,7 @@ import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { 
-  Users, DollarSign, Shield, Cloud, Bell, Calculator, FileText, Zap, Globe, 
+  Users, DollarSign, Shield, Cloud, Bell, Calculator, FileText, Zap, Globe, MapPin, 
   Lock, HeadphonesIcon, Building2, CreditCard, ChevronRight, Check,
   BarChart3, FolderKanban, Package, Upload, CheckCircle, Settings,
   Clock, Calendar, Layers, ArrowRight, Play, Star, Menu, X, Gift, Phone, Key
