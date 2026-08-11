@@ -47,10 +47,43 @@ async def check_in(
     
     employee_id = check_in_data.get("employee_id")
     location = check_in_data.get("location", {})
-    method = check_in_data.get("method", "manual")  # manual, qr, biometric
+    method = check_in_data.get("method", "manual")  # manual, gps, qr, biometric
     
     if not employee_id:
         raise HTTPException(status_code=400, detail="Employee ID required")
+    
+    # GPS Geofencing validation
+    if method == "gps" and location.get("latitude") and location.get("longitude"):
+        # Get company GPS settings
+        company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+        gps_settings = company.get("gps_settings", {}) if company else {}
+        
+        if gps_settings.get("enabled") and gps_settings.get("latitude"):
+            from math import radians, sin, cos, sqrt, atan2
+            
+            def haversine(lat1, lon1, lat2, lon2):
+                R = 6371000  # Earth radius in meters
+                dlat = radians(lat2 - lat1)
+                dlon = radians(lon2 - lon1)
+                a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+                return R * 2 * atan2(sqrt(a), sqrt(1-a))
+            
+            distance = haversine(
+                float(gps_settings["latitude"]),
+                float(gps_settings["longitude"]),
+                float(location["latitude"]),
+                float(location["longitude"])
+            )
+            
+            allowed_radius = float(gps_settings.get("radius_meters", 200))
+            location["distance_from_office"] = round(distance, 1)
+            location["within_geofence"] = distance <= allowed_radius
+            
+            if not location["within_geofence"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"أنت خارج نطاق العمل المسموح به. المسافة: {round(distance)}م | النطاق المسموح: {int(allowed_radius)}م"
+                )
     
     today = datetime.now(timezone.utc).date().isoformat()
     
@@ -431,3 +464,73 @@ async def update_attendance_settings(
     )
     
     return {"success": True}
+
+
+# ══════════════════════════════════════════════
+# GPS Settings — Company Location Management
+# ══════════════════════════════════════════════
+
+@router.get("/gps-settings")
+async def get_gps_settings(authorization: Optional[str] = Header(None)):
+    """جلب إعدادات GPS للشركة"""
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "gps_settings": 1, "name": 1})
+    return {
+        "gps_settings": company.get("gps_settings", {
+            "enabled": False,
+            "latitude": None,
+            "longitude": None,
+            "radius_meters": 200,
+            "address": "",
+            "allow_remote": False,
+        }) if company else {}
+    }
+
+
+@router.post("/gps-settings")
+async def save_gps_settings(data: dict, authorization: Optional[str] = Header(None)):
+    """حفظ إعدادات GPS للشركة"""
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    
+    gps_settings = {
+        "enabled": data.get("enabled", True),
+        "latitude": float(data["latitude"]),
+        "longitude": float(data["longitude"]),
+        "radius_meters": float(data.get("radius_meters", 200)),
+        "address": data.get("address", ""),
+        "allow_remote": data.get("allow_remote", False),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": user_data.get("user_id"),
+    }
+    
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {"gps_settings": gps_settings}}
+    )
+    return {"message": "تم حفظ إعدادات GPS بنجاح", "gps_settings": gps_settings}
+
+
+@router.get("/today-status/{employee_id}")
+async def get_today_status(employee_id: str, authorization: Optional[str] = Header(None)):
+    """حالة حضور الموظف اليوم"""
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    today = datetime.now(timezone.utc).date().isoformat()
+    
+    record = await db.attendance.find_one(
+        {"employee_id": employee_id, "company_id": company_id, "date": today},
+        {"_id": 0}
+    )
+    
+    # Also get GPS settings
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "gps_settings": 1})
+    
+    return {
+        "today": today,
+        "attendance": record,
+        "checked_in": record is not None and record.get("check_in_time") is not None,
+        "checked_out": record is not None and record.get("check_out_time") is not None,
+        "gps_settings": company.get("gps_settings", {}) if company else {},
+    }
