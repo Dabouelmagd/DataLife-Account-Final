@@ -3,6 +3,7 @@ import PublishUpdatePanel from '../components/PublishUpdatePanel';
 import AssistantsPanel from '../components/AssistantsPanel';
 import SubscriptionsPanel from '../components/SubscriptionsPanel';
 import PaymentsAdminPanel from '../components/PaymentsAdminPanel';
+import ActivationCodesPanel from '../components/ActivationCodesPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -193,7 +194,7 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
       }
 
       // Fetch all users
-      const usersRes = await fetch(`${API_URL}/api/admin/users`, { headers });
+      const usersRes = await fetch(`${API_URL}/api/admin/all-users`, { headers });
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         setUsers(usersData);
@@ -410,6 +411,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
           {language === 'ar' ? 'المدفوعات' : 'Payments'}
         </Button>
         <Button
+          variant={activeTab === 'codes' ? 'default' : 'ghost'}
+          className={activeTab === 'codes' ? 'bg-purple-700 hover:bg-purple-800' : ''}
+          onClick={() => setActiveTab('codes')}
+        >
+          <span>🔑</span>
+          {language === 'ar' ? 'أكواد التفعيل' : 'Activation Codes'}
+        </Button>
+        <Button
           variant={activeTab === 'users' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('users')}
           className={activeTab === 'users' ? 'bg-purple-600 hover:bg-purple-700' : ''}
@@ -596,6 +605,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
         <Card>
           <CardContent className="p-6">
             <PaymentsAdminPanel />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'codes' && (
+        <Card>
+          <CardContent className="p-6">
+            <ActivationCodesPanel />
           </CardContent>
         </Card>
       )}
