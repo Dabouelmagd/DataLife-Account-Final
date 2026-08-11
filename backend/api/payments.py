@@ -14,17 +14,20 @@ router = APIRouter(prefix="/api/payments", tags=["payments"])
 # ═══════════════════════════════════════════
 # خطط الاشتراك بالجنيه المصري
 # ═══════════════════════════════════════════
+# سعر الصرف: 1 USD = 30 EGP
+EGP_TO_USD_RATE = 30
+
 PLANS = {
-    "starter_monthly":      {"plan": "starter",      "duration": "monthly",  "price_egp": 299,   "price_usd": 6,   "employees": 10,  "name_ar": "المبتدئ — شهري",       "name_en": "Starter — Monthly"},
-    "starter_3months":      {"plan": "starter",      "duration": "3months",  "price_egp": 797,   "price_usd": 16,  "employees": 10,  "name_ar": "المبتدئ — 3 أشهر",      "name_en": "Starter — 3 Months"},
-    "starter_yearly":       {"plan": "starter",      "duration": "yearly",   "price_egp": 2390,  "price_usd": 48,  "employees": 10,  "name_ar": "المبتدئ — سنوي",        "name_en": "Starter — Yearly"},
-    "professional_monthly": {"plan": "professional", "duration": "monthly",  "price_egp": 799,   "price_usd": 16,  "employees": 100, "name_ar": "المحترف — شهري",        "name_en": "Professional — Monthly"},
-    "professional_3months": {"plan": "professional", "duration": "3months",  "price_egp": 2157,  "price_usd": 43,  "employees": 100, "name_ar": "المحترف — 3 أشهر",      "name_en": "Professional — 3 Months"},
-    "professional_yearly":  {"plan": "professional", "duration": "yearly",   "price_egp": 6392,  "price_usd": 128, "employees": 100, "name_ar": "المحترف — سنوي",        "name_en": "Professional — Yearly"},
-    "enterprise_monthly":   {"plan": "enterprise",   "duration": "monthly",  "price_egp": 1499,  "price_usd": 30,  "employees": -1,  "name_ar": "المؤسسي — شهري",        "name_en": "Enterprise — Monthly"},
-    "enterprise_3months":   {"plan": "enterprise",   "duration": "3months",  "price_egp": 4047,  "price_usd": 81,  "employees": -1,  "name_ar": "المؤسسي — 3 أشهر",      "name_en": "Enterprise — 3 Months"},
-    "enterprise_yearly":    {"plan": "enterprise",   "duration": "yearly",   "price_egp": 11992, "price_usd": 240, "employees": -1,  "name_ar": "المؤسسي — سنوي",        "name_en": "Enterprise — Yearly"},
-    "enterprise_lifetime":  {"plan": "enterprise",   "duration": "lifetime", "price_egp": 49999, "price_usd": 999, "employees": -1,  "name_ar": "المؤسسي — مدى الحياة",  "name_en": "Enterprise — Lifetime"},
+    "starter_monthly":      {"plan": "starter",      "duration": "monthly",  "price_egp": 299,   "price_usd": 10,   "employees": 10,  "name_ar": "المبتدئ — شهري",       "name_en": "Starter — Monthly"},
+    "starter_3months":      {"plan": "starter",      "duration": "3months",  "price_egp": 797,   "price_usd": 27,   "employees": 10,  "name_ar": "المبتدئ — 3 أشهر",      "name_en": "Starter — 3 Months"},
+    "starter_yearly":       {"plan": "starter",      "duration": "yearly",   "price_egp": 2390,  "price_usd": 80,   "employees": 10,  "name_ar": "المبتدئ — سنوي",        "name_en": "Starter — Yearly"},
+    "professional_monthly": {"plan": "professional", "duration": "monthly",  "price_egp": 799,   "price_usd": 27,   "employees": 100, "name_ar": "المحترف — شهري",        "name_en": "Professional — Monthly"},
+    "professional_3months": {"plan": "professional", "duration": "3months",  "price_egp": 2157,  "price_usd": 72,   "employees": 100, "name_ar": "المحترف — 3 أشهر",      "name_en": "Professional — 3 Months"},
+    "professional_yearly":  {"plan": "professional", "duration": "yearly",   "price_egp": 6392,  "price_usd": 213,  "employees": 100, "name_ar": "المحترف — سنوي",        "name_en": "Professional — Yearly"},
+    "enterprise_monthly":   {"plan": "enterprise",   "duration": "monthly",  "price_egp": 1499,  "price_usd": 50,   "employees": -1,  "name_ar": "المؤسسي — شهري",        "name_en": "Enterprise — Monthly"},
+    "enterprise_3months":   {"plan": "enterprise",   "duration": "3months",  "price_egp": 4047,  "price_usd": 135,  "employees": -1,  "name_ar": "المؤسسي — 3 أشهر",      "name_en": "Enterprise — 3 Months"},
+    "enterprise_yearly":    {"plan": "enterprise",   "duration": "yearly",   "price_egp": 11992, "price_usd": 400,  "employees": -1,  "name_ar": "المؤسسي — سنوي",        "name_en": "Enterprise — Yearly"},
+    "enterprise_lifetime":  {"plan": "enterprise",   "duration": "lifetime", "price_egp": 49999, "price_usd": 1667, "employees": -1,  "name_ar": "المؤسسي — مدى الحياة",  "name_en": "Enterprise — Lifetime"},
 }
 
 PLAN_FEATURES = {
@@ -44,8 +47,9 @@ PLAN_FEATURES = {
 
 
 @router.get("/packages")
-async def get_packages():
-    """الخطط المتاحة للاشتراك"""
+async def get_packages(country: str = "EG"):
+    """الخطط المتاحة للاشتراك — بالجنيه المصري لمصر، بالدولار لخارج مصر"""
+    is_egypt = country.upper() == "EG"
     result = []
     for pkg_id, pkg in PLANS.items():
         plan = pkg["plan"]
@@ -63,6 +67,10 @@ async def get_packages():
             "is_popular": plan == "professional" and pkg["duration"] == "monthly",
             "is_best_value": plan == "professional" and pkg["duration"] == "yearly",
             "discount_pct": 20 if pkg["duration"] == "yearly" else (10 if pkg["duration"] == "3months" else 0),
+            # Currency for display
+            "display_currency": "EGP" if is_egypt else "USD",
+            "display_price": pkg["price_egp"] if is_egypt else pkg["price_usd"],
+            "egp_to_usd_rate": EGP_TO_USD_RATE,
         })
     return result
 

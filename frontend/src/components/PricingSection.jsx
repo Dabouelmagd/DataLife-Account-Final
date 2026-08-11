@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useCurrency } from '../hooks/useCurrency';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -13,7 +14,11 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 const PricingSection = () => {
   const { language, isRTL } = useLanguage();
   const [billingCycle, setBillingCycle] = useState('monthly');
+  // Auto-detect currency: Egypt → EGP, Outside → USD (1 USD = 30 EGP)
+  const { currency: detectedCurrency, isEgypt, country } = useCurrency();
   const [currency, setCurrency] = useState('EGP');
+  // Sync with detected currency on load
+  React.useEffect(() => { setCurrency(detectedCurrency); }, [detectedCurrency]);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [subCode, setSubCode] = useState('');
@@ -22,7 +27,7 @@ const PricingSection = () => {
 
   const ar = language === 'ar';
 
-  const exchangeRate = 50; // 1 USD ≈ 50 EGP
+  const exchangeRate = 30; // 1 USD = 30 EGP (سعر الصرف الرسمي)
 
   const plans = [
     {
@@ -30,7 +35,7 @@ const PricingSection = () => {
       name: ar ? 'المبتدئ' : 'Starter',
       desc: ar ? 'للشركات الصغيرة والناشئة' : 'For small & startup businesses',
       monthlyEGP: 299, annualEGP: 2390,
-      monthlyUSD: 6, annualUSD: 48,
+      monthlyUSD: 10, annualUSD: 80,
       employees: ar ? '1-10 موظفين' : '1-10 Employees',
       icon: <Zap className="h-6 w-6" />,
       color: 'border-gray-200',
@@ -70,7 +75,7 @@ const PricingSection = () => {
       name: ar ? 'المحترف' : 'Professional',
       desc: ar ? 'للشركات المتوسطة والنامية' : 'For growing medium businesses',
       monthlyEGP: 799, annualEGP: 6392,
-      monthlyUSD: 16, annualUSD: 128,
+      monthlyUSD: 27, annualUSD: 213,
       employees: ar ? '11-100 موظف' : '11-100 Employees',
       icon: <Building2 className="h-6 w-6" />,
       color: 'border-[#28376B]',
@@ -119,7 +124,7 @@ const PricingSection = () => {
       name: ar ? 'المؤسسي' : 'Enterprise',
       desc: ar ? 'للمؤسسات والشركات الكبيرة' : 'For large organizations',
       monthlyEGP: 1499, annualEGP: 11992,
-      monthlyUSD: 30, annualUSD: 240,
+      monthlyUSD: 50, annualUSD: 400,
       employees: ar ? 'غير محدود' : 'Unlimited',
       icon: <Crown className="h-6 w-6" />,
       color: 'border-gray-200',

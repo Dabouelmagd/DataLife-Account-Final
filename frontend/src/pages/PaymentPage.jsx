@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { useCurrency } from '../hooks/useCurrency';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
@@ -31,6 +32,7 @@ const PaymentPage = () => {
   const navigate = useNavigate();
   const isRTL = language === 'ar';
 
+  const { currency, country, isEgypt, loading: currencyLoading, convertPrice, formatPrice } = useCurrency();
   const [packages, setPackages] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedPackage, setSelectedPackage] = useState(null);
@@ -334,7 +336,10 @@ const PaymentPage = () => {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-[#28376B]">${pkg.price_usd}</p>
-                        <p className="text-xs text-gray-500">{pkg.price_egp} EGP</p>
+                        <p className="text-xs text-gray-500">
+                          {formatPrice(pkg.price_egp, language)}
+                          {!isEgypt && <span className="text-gray-400 text-xs mr-1">(≈ {pkg.price_egp?.toLocaleString()} ج.م)</span>}
+                        </p>
                       </div>
                     </div>
                   ))}
