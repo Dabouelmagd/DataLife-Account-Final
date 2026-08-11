@@ -85,13 +85,22 @@ class ChartOfAccount(BaseModel):
 
 
 class JournalEntryLine(BaseModel):
-    """سطر في القيد اليومي"""
-    account_id: str                 # معرف الحساب
-    account_code: str               # رقم الحساب
-    account_name: str               # اسم الحساب
-    debit: float = 0.0              # مدين
-    credit: float = 0.0             # دائن
-    description: Optional[str] = None  # وصف السطر
+    """سطر في القيد اليومي — Enterprise Double-Entry Ledger"""
+    account_id: str                          # معرف الحساب
+    account_code: str                        # رقم الحساب
+    account_name: str                        # اسم الحساب
+    debit: float = 0.0                       # مدين (DECIMAL 18,4)
+    credit: float = 0.0                      # دائن (DECIMAL 18,4)
+    description: Optional[str] = None        # وصف السطر
+    # ── Enterprise Fields ──
+    cost_center_id: Optional[str] = None     # مركز التكلفة
+    project_id: Optional[str] = None         # المشروع (للمقاولات والهندسة)
+    partner_type: Optional[str] = None       # customer | vendor | employee | doctor
+    partner_id: Optional[str] = None         # معرف الطرف الخارجي
+    currency_id: Optional[str] = "EGP"      # رمز العملة
+    exchange_rate: float = 1.0               # سعر الصرف مقابل العملة الأساسية
+    debit_foreign: float = 0.0               # المدين بالعملة الأجنبية
+    credit_foreign: float = 0.0             # الدائن بالعملة الأجنبية
 
 
 class JournalEntryStatus(str, Enum):
@@ -102,21 +111,36 @@ class JournalEntryStatus(str, Enum):
 
 
 class JournalEntry(BaseModel):
-    """القيد اليومي - Journal Entry"""
+    """القيد اليومي — Immutable Double-Entry Ledger (Enterprise Grade)"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     company_id: str
-    entry_number: int               # رقم القيد التسلسلي
-    entry_date: str                 # تاريخ القيد
-    reference: Optional[str] = None  # المرجع (رقم فاتورة، إيصال، إلخ)
-    description: str                # وصف القيد
-    lines: List[JournalEntryLine]   # سطور القيد
-    total_debit: float = 0.0        # إجمالي المدين
-    total_credit: float = 0.0       # إجمالي الدائن
+    entry_number: int               # رقم القيد التسلسلي (AUTO-INCREMENT per company)
+    entry_date: str                 # تاريخ القيد (accounting date)
+    posting_date: Optional[str] = None  # تاريخ الترحيل الفعلي
+    reference: Optional[str] = None     # مرجع المستند (رقم فاتورة، إيصال)
+    description: str                    # وصف القيد
+    lines: List[JournalEntryLine]       # سطور القيد (يجب أن يتوازن)
+    total_debit: float = 0.0            # إجمالي المدين (محسوب تلقائياً)
+    total_credit: float = 0.0           # إجمالي الدائن (محسوب تلقائياً)
     status: JournalEntryStatus = JournalEntryStatus.DRAFT
-    created_by: str                 # معرف المستخدم
+    # ── Source Document Linking ──
+    source_document_type: Optional[str] = "manual"   # manual|payroll|invoice|claim|medical_service
+    source_document_id: Optional[str] = None          # ID المستند المصدر
+    # ── Immutability & Reversal ──
+    is_reversal: bool = False            # هل هذا قيد عكسي؟
+    reversal_of: Optional[str] = None   # ID القيد الأصلي المعكوس
+    reversal_date: Optional[str] = None
+    # ── Approval Workflow ──
+    created_by: str                     # منشئ القيد
+    approved_by: Optional[str] = None  # معتمد القيد
+    approved_at: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     posted_at: Optional[str] = None
     posted_by: Optional[str] = None
+    # ── Audit Trail ──
+    narration: Optional[str] = None     # شرح تفصيلي للقيد
+    fiscal_year: Optional[str] = None   # السنة المالية
+    period: Optional[str] = None        # الفترة المحاسبية (YYYY-MM)
 
 
 class LedgerEntry(BaseModel):

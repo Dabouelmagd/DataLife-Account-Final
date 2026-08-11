@@ -178,9 +178,15 @@ class AccountingService:
         # الحصول على رقم القيد
         entry.entry_number = await self.get_next_entry_number(entry.company_id)
         
+        # Set fiscal year + period + posting date automatically
+        from datetime import datetime as _dt2
+        entry_date = entry.entry_date or _dt2.utcnow().strftime("%Y-%m-%d")
+        entry.fiscal_year = entry_date[:4]
+        entry.period = entry_date[:7]
+        
         entry_dict = entry.dict()
         await self.db.journal_entries.insert_one(entry_dict)
-        entry_dict.pop("_id", None)  # Remove MongoDB _id
+        entry_dict.pop("_id", None)
         return entry_dict
     
     async def get_journal_entry(self, entry_id: str) -> Optional[Dict]:
@@ -246,13 +252,22 @@ class AccountingService:
         return True
 
     async def post_journal_entry(self, entry_id: str, user_id: str) -> bool:
-        """ترحيل القيد إلى دفتر الأستاذ"""
+        """ترحيل القيد إلى دفتر الأستاذ — IMMUTABLE after posting"""
         entry = await self.get_journal_entry(entry_id)
         if not entry:
             raise ValueError("Journal entry not found")
         
         if entry["status"] == JournalEntryStatus.POSTED.value:
-            raise ValueError("Journal entry already posted")
+            raise ValueError("IMMUTABILITY VIOLATION: Journal entry already posted. Use reversal to correct.")
+        
+        if entry["status"] == JournalEntryStatus.CANCELLED.value:
+            raise ValueError("Cannot post a cancelled entry")
+        
+        # Set fiscal year and period automatically
+        from datetime import datetime as _dt
+        entry_date = entry.get("entry_date", _dt.utcnow().strftime("%Y-%m-%d"))
+        fiscal_year = entry_date[:4]
+        period = entry_date[:7]  # YYYY-MM
         
         # إنشاء قيود في دفتر الأستاذ
         for line in entry["lines"]:
@@ -286,14 +301,17 @@ class AccountingService:
             # تحديث رصيد الحساب
             await self.update_account_balance(line["account_id"], line["debit"], line["credit"])
         
-        # تحديث حالة القيد
+        # تحديث حالة القيد (ONLY status/posted fields — immutable ledger)
         await self.db.journal_entries.update_one(
-            {"id": entry_id},
+            {"id": entry_id, "status": {"$ne": JournalEntryStatus.POSTED.value}},
             {
                 "$set": {
                     "status": JournalEntryStatus.POSTED.value,
+                    "posting_date": datetime.utcnow().isoformat(),
                     "posted_at": datetime.utcnow().isoformat(),
-                    "posted_by": user_id
+                    "posted_by": user_id,
+                    "fiscal_year": entry.get("fiscal_year") or entry.get("entry_date","")[:4],
+                    "period": entry.get("period") or entry.get("entry_date","")[:7],
                 }
             }
         )
