@@ -180,11 +180,19 @@ async def get_contact_messages():
 
 
 @router.put("/messages/mark-read")
-async def mark_messages_as_read():
-    """Mark all messages as read"""
+async def mark_messages_as_read(data: dict = None):
+    """Mark specific or all messages as read"""
+    from typing import Optional
+    message_ids = (data or {}).get("message_ids", [])
+    
+    if message_ids:
+        query = {"id": {"$in": message_ids}}
+    else:
+        query = {"is_read": False}
+    
     result = await db.contact_messages.update_many(
-        {"read": False},
-        {"$set": {"read": True}}
+        query,
+        {"$set": {"is_read": True, "read": True}}
     )
     return {
         "success": True,

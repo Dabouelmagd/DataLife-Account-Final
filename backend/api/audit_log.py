@@ -327,3 +327,43 @@ async def get_available_entity_types():
             for k, v in ENTITY_TRANSLATIONS.items()
         ]
     }
+
+
+# ══════════════════════════════════════════════
+# Helper — Auto Audit Logger (used by other APIs)
+# ══════════════════════════════════════════════
+
+async def auto_audit_log(
+    db_conn,
+    company_id: str,
+    user_id: str,
+    user_name: str,
+    action: str,
+    entity_type: str,
+    entity_id: str,
+    description: str,
+    old_value=None,
+    new_value=None,
+    metadata: dict = None
+):
+    """Helper function to create audit log entries from any API"""
+    import uuid as _uuid
+    from datetime import datetime, timezone
+    try:
+        await db_conn.audit_logs.insert_one({
+            "id": str(_uuid.uuid4()),
+            "company_id": company_id,
+            "performed_by": user_id,
+            "performed_by_name": user_name,
+            "action": action,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "description": description,
+            "old_value": old_value,
+            "new_value": new_value,
+            "metadata": metadata or {},
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "ip_address": None,
+        })
+    except Exception:
+        pass  # Non-critical — never block main operation
