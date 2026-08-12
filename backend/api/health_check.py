@@ -20,7 +20,7 @@ DB_NAME = os.environ.get('DB_NAME', 'multi_tenant_erp')
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
-BASE_URL = "http://localhost:8001"
+BASE_URL = "http://localhost:8000"  # Internal uvicorn port
 
 
 async def get_admin_token():
