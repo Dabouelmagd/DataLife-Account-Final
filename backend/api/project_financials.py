@@ -115,33 +115,59 @@ async def add_project_expense(
     exp_code = exp_account_map.get(expense.get("category","other"), "332")
     credit_code = "162" if expense.get("payment_method","cash") == "bank" else "161"
     import uuid as _uuid_exp2
-    je = {
-        "id": str(_uuid_exp2.uuid4()),
-        "company_id": company_id,
-        "date": expense.get("date"),
-        "description": f"مصروف مشروع ({project_name}): {expense.get('description', cat_name)}",
-        "debit_account": f"مصروفات المشاريع — {cat_name}",
-        "debit_account_code": exp_code,
-        "credit_account": credit_account,
-        "credit_account_code": credit_code,
-        "amount": expense.get("amount", 0),
-        "type": "journal",
-        "source": "project_expense",
-        "project_id": project_id,
-        "reference": expense.get("id"),
-        "status": "posted",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    await db.journal_entries.insert_one(je)
-    # Update account balances
-    try:
-        from services.accounting_service import AccountingService as _ACS
-        _svc = _ACS(db)
-        exp_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": exp_code})
-        cre_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": credit_code})
-        if exp_acc: await _svc.update_account_balance(exp_acc["id"], expense.get("amount",0), 0)
-        if cre_acc: await _svc.update_account_balance(cre_acc["id"], 0, expense.get("amount",0))
-    except: pass
+    from services.accounting_service import AccountingService as _ACS
+    from models.accounting import JournalEntry, JournalEntryLine, JournalEntryStatus
+    _svc = _ACS(db)
+    exp_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": exp_code})
+    cre_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": credit_code})
+    
+    # Build proper lines[] format — posts to General Ledger + Trial Balance
+    exp_amount = expense.get("amount", 0)
+    je_lines = []
+    if exp_acc:
+        je_lines.append(JournalEntryLine(
+            account_id=exp_acc["id"], account_code=exp_code,
+            account_name=exp_acc.get("account_name", cat_name),
+            debit=exp_amount, credit=0,
+            description=f"مصروف مشروع: {expense.get('description', cat_name)}",
+            project_id=project_id
+        ))
+    if cre_acc:
+        je_lines.append(JournalEntryLine(
+            account_id=cre_acc["id"], account_code=credit_code,
+            account_name=cre_acc.get("account_name", credit_account),
+            debit=0, credit=exp_amount,
+            description=f"سداد مصروف مشروع ({credit_account})",
+            project_id=project_id
+        ))
+    
+    if je_lines:
+        next_num = await _svc.get_next_entry_number(company_id)
+        je_obj = JournalEntry(
+            company_id=company_id,
+            entry_number=next_num,
+            entry_date=expense.get("date"),
+            description=f"مصروف مشروع ({project_name}): {expense.get('description', cat_name)}",
+            lines=je_lines,
+            total_debit=exp_amount,
+            total_credit=exp_amount,
+            status=JournalEntryStatus.POSTED,
+            source_document_type="project_expense",
+            source_document_id=expense.get("id"),
+            created_by=user_data.get("user_id","system"),
+            fiscal_year=expense.get("date","")[:4],
+            period=expense.get("date","")[:7],
+        )
+        je_dict = await _svc.create_journal_entry(je_obj)
+        # Post to general_ledger — يظهر في الأستاذ العام + ميزان المراجعة + الميزانية
+        try:
+            await _svc.post_journal_entry(je_dict["id"], user_data.get("user_id","system"))
+        except Exception as e:
+            # If already posted or error, update balances manually
+            try:
+                if exp_acc: await _svc.update_account_balance(exp_acc["id"], exp_amount, 0)
+                if cre_acc: await _svc.update_account_balance(cre_acc["id"], 0, exp_amount)
+            except: pass
 
     # Update project total expenses
     await update_project_financials(project_id)
@@ -282,35 +308,58 @@ async def add_project_revenue(
     debit_account = "البنك" if revenue.get("payment_method", "bank") == "bank" else "الخزينة"
     import uuid as _uuid_rev
     debit_code = "162" if revenue.get("payment_method","bank") == "bank" else "161"
-    import uuid as _uuid_rev2
-    rev_je = {
-        "id": str(_uuid_rev2.uuid4()),
-        "company_id": company_id,
-        "date": revenue.get("date"),
-        "description": f"إيراد مشروع ({project_name}): {revenue.get('description', rev_name)}",
-        "debit_account": debit_account,
-        "debit_account_code": debit_code,
-        "credit_account": f"إيرادات المشاريع — {rev_name}",
-        "credit_account_code": "412",
-        "amount": revenue.get("amount", 0),
-        "type": "journal",
-        "source": "project_revenue",
-        "project_id": project_id,
-        "reference": revenue.get("id"),
-        "status": "posted",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    await db.journal_entries.insert_one(rev_je)
-    # Update account balances
-    try:
-        from services.accounting_service import AccountingService as _ACS2
-        _svc2 = _ACS2(db)
-        deb_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": debit_code})
-        rev_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "412"})
-        rev_amount = revenue.get("amount", 0)
-        if deb_acc: await _svc2.update_account_balance(deb_acc["id"], rev_amount, 0)
-        if rev_acc: await _svc2.update_account_balance(rev_acc["id"], 0, rev_amount)
-    except: pass
+    from services.accounting_service import AccountingService as _ACS2
+    from models.accounting import JournalEntry, JournalEntryLine, JournalEntryStatus
+    _svc2 = _ACS2(db)
+    deb_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": debit_code})
+    rev_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "412"})
+    
+    # Build proper lines[] format — posts to General Ledger + Trial Balance + Balance Sheet
+    rev_amount = revenue.get("amount", 0)
+    rev_lines = []
+    if deb_acc:
+        rev_lines.append(JournalEntryLine(
+            account_id=deb_acc["id"], account_code=debit_code,
+            account_name=deb_acc.get("account_name", debit_account),
+            debit=rev_amount, credit=0,
+            description=f"تحصيل إيراد مشروع ({debit_account})",
+            project_id=project_id
+        ))
+    if rev_acc:
+        rev_lines.append(JournalEntryLine(
+            account_id=rev_acc["id"], account_code="412",
+            account_name=rev_acc.get("account_name", "إيرادات المشاريع"),
+            debit=0, credit=rev_amount,
+            description=f"إيراد مشروع: {revenue.get('description', rev_name)}",
+            project_id=project_id
+        ))
+    
+    if rev_lines:
+        next_num2 = await _svc2.get_next_entry_number(company_id)
+        rev_je_obj = JournalEntry(
+            company_id=company_id,
+            entry_number=next_num2,
+            entry_date=revenue.get("date"),
+            description=f"إيراد مشروع ({project_name}): {revenue.get('description', rev_name)}",
+            lines=rev_lines,
+            total_debit=rev_amount,
+            total_credit=rev_amount,
+            status=JournalEntryStatus.POSTED,
+            source_document_type="project_revenue",
+            source_document_id=revenue.get("id"),
+            created_by=user_data.get("user_id","system"),
+            fiscal_year=revenue.get("date","")[:4],
+            period=revenue.get("date","")[:7],
+        )
+        rev_je_dict = await _svc2.create_journal_entry(rev_je_obj)
+        # Post to general_ledger — يظهر في الأستاذ العام + ميزان المراجعة + الميزانية
+        try:
+            await _svc2.post_journal_entry(rev_je_dict["id"], user_data.get("user_id","system"))
+        except Exception as e:
+            try:
+                if deb_acc: await _svc2.update_account_balance(deb_acc["id"], rev_amount, 0)
+                if rev_acc: await _svc2.update_account_balance(rev_acc["id"], 0, rev_amount)
+            except: pass
 
     # Update project total revenues
     await update_project_financials(project_id)

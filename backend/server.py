@@ -59,6 +59,7 @@ from api.admin_payments import router as admin_payments_router
 from api.push_notifications import router as push_notifications_router
 from api.health_check import router as health_check_router
 from api.app_updates import router as updates_router
+from api.ads import router as ads_router
 from api.enterprise_accounting import router as enterprise_router
 from scheduler import start_scheduler, get_scheduler_status
 
@@ -162,6 +163,7 @@ app.include_router(notification_events_router)
 app.include_router(push_notifications_router)
 app.include_router(health_check_router)
 app.include_router(updates_router)
+app.include_router(ads_router)
 app.include_router(enterprise_router)
 
 # ── Simple Rate Limiting Middleware ──────────────────

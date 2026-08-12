@@ -6,6 +6,7 @@ import PaymentsAdminPanel from '../components/PaymentsAdminPanel';
 import ActivationCodesPanel from '../components/ActivationCodesPanel';
 import MessagesAdminPanel from '../components/MessagesAdminPanel';
 import SystemHealthPanel from '../components/SystemHealthPanel';
+import AdsPanel from '../components/AdsPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -611,6 +612,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
         <Card>
           <CardContent className="p-6">
             <SystemHealthPanel />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'ads' && (
+        <Card>
+          <CardContent className="p-6">
+            <AdsPanel />
           </CardContent>
         </Card>
       )}
