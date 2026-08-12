@@ -634,3 +634,240 @@ async def send_payment_invoice_email(
         return True
     except Exception:
         return False
+
+
+async def send_welcome_email(
+    company_name: str,
+    company_email: str,
+    user_name: str = "",
+    plan: str = "trial",
+):
+    """إيميل ترحيب عند تسجيل شركة جديدة"""
+    try:
+        import resend, os
+        from datetime import datetime, timezone
+
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key:
+            return False
+
+        PLAN_LABELS = {
+            "trial":        "تجريبي مجاني (14 يوم)",
+            "starter":      "المبتدئ",
+            "professional": "المحترف",
+            "enterprise":   "المؤسسي",
+        }
+
+        # DataLife Logo SVG (inline)
+        LOGO_SVG = """<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="44" height="44" rx="12" fill="url(#grad)"/>
+  <defs><linearGradient id="grad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+    <stop offset="0%" stop-color="#f59e0b"/>
+    <stop offset="100%" stop-color="#f97316"/>
+  </linearGradient></defs>
+  <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
+    font-family="Arial Black, sans-serif" font-size="22" font-weight="900" fill="white">D</text>
+</svg>"""
+
+        html_body = f"""<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مرحباً بكم في DataLife Account</title>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ background-color: #f1f5f9; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; }}
+  .wrapper {{ max-width: 600px; margin: 32px auto; padding: 0 16px 40px; }}
+
+  /* Header */
+  .header {{ background: linear-gradient(135deg, #0F1729 0%, #1e3a8a 60%, #1d4ed8 100%); border-radius: 20px 20px 0 0; padding: 40px 32px 32px; text-align: center; }}
+  .logo-wrap {{ display: inline-flex; align-items: center; gap: 12px; margin-bottom: 24px; }}
+  .logo-text {{ font-size: 20px; font-weight: 900; color: white; letter-spacing: -0.5px; }}
+  .logo-sub {{ font-size: 11px; color: rgba(255,255,255,0.5); font-weight: 400; display: block; text-align: right; }}
+  .header-wave {{ color: rgba(255,255,255,0.15); font-size: 64px; line-height: 1; margin-bottom: 12px; }}
+  .header h1 {{ color: white; font-size: 26px; font-weight: 900; margin-bottom: 8px; }}
+  .header p {{ color: rgba(255,255,255,0.7); font-size: 15px; }}
+
+  /* Badge */
+  .badge-wrap {{ background: linear-gradient(135deg, #0F1729, #1e3a8a); padding: 0 32px; }}
+  .plan-badge {{ background: linear-gradient(90deg, #f59e0b, #f97316); color: white; text-align: center; padding: 10px 24px; font-size: 14px; font-weight: 700; border-radius: 0 0 16px 16px; display: inline-block; margin: 0 auto; width: 100%; }}
+
+  /* Body */
+  .body {{ background: white; padding: 36px 32px; }}
+  .greeting {{ font-size: 16px; color: #1f2937; line-height: 1.7; margin-bottom: 24px; }}
+  .greeting strong {{ color: #0F1729; }}
+
+  /* Features */
+  .features-title {{ font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 14px; }}
+  .feature {{ display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; padding: 14px 16px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; }}
+  .feature-icon {{ font-size: 24px; flex-shrink: 0; }}
+  .feature-title {{ font-size: 14px; font-weight: 700; color: #0F1729; }}
+  .feature-desc {{ font-size: 12px; color: #6b7280; margin-top: 2px; }}
+
+  /* CTA */
+  .cta-wrap {{ text-align: center; margin: 32px 0; }}
+  .cta {{ display: inline-block; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white !important; text-decoration: none; padding: 16px 48px; border-radius: 14px; font-size: 16px; font-weight: 800; letter-spacing: 0.3px; box-shadow: 0 4px 15px rgba(30,58,138,0.35); }}
+
+  /* Info box */
+  .info-box {{ background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 1px solid #bae6fd; border-radius: 14px; padding: 20px 24px; margin-top: 24px; }}
+  .info-box h4 {{ font-size: 14px; font-weight: 700; color: #0369a1; margin-bottom: 10px; }}
+  .info-row {{ display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; border-bottom: 1px dashed #bae6fd; }}
+  .info-row:last-child {{ border-bottom: none; }}
+  .info-label {{ color: #64748b; }}
+  .info-value {{ font-weight: 600; color: #0F1729; }}
+
+  /* Support */
+  .support {{ text-align: center; margin-top: 28px; padding: 20px; background: #fefce8; border: 1px solid #fde68a; border-radius: 12px; }}
+  .support p {{ font-size: 13px; color: #92400e; }}
+  .support a {{ color: #1e3a8a; font-weight: 700; text-decoration: none; }}
+
+  /* Footer */
+  .footer {{ background: #1e293b; border-radius: 0 0 20px 20px; padding: 28px 32px; text-align: center; }}
+  .footer-logo {{ display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px; }}
+  .footer-logo-text {{ font-size: 16px; font-weight: 900; color: white; }}
+  .footer p {{ font-size: 12px; color: #94a3b8; line-height: 1.8; }}
+  .footer a {{ color: #60a5fa; text-decoration: none; }}
+  .social {{ margin-top: 16px; }}
+  .social a {{ display: inline-block; background: rgba(255,255,255,0.08); color: #94a3b8; border-radius: 8px; padding: 6px 14px; font-size: 12px; margin: 0 4px; text-decoration: none; }}
+  .divider {{ height: 1px; background: #334155; margin: 16px 0; }}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <div class="header">
+    <!-- Logo -->
+    <div class="logo-wrap">
+      {LOGO_SVG}
+      <div>
+        <span class="logo-text">DataLife Account</span>
+        <span class="logo-sub">نظام ERP المصري الأول</span>
+      </div>
+    </div>
+    <div class="header-wave">🎉</div>
+    <h1>أهلاً وسهلاً!</h1>
+    <p>يسعدنا انضمامك إلى عائلة DataLife Account</p>
+  </div>
+
+  <!-- PLAN BADGE -->
+  <div class="badge-wrap">
+    <div class="plan-badge">
+      ⭐ الحساب التجريبي المجاني — 14 يوم كامل بدون قيود
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+    <p class="greeting">
+      مرحباً <strong>{user_name or company_name}</strong>،<br><br>
+      شكراً لتسجيلك في <strong>DataLife Account</strong> — النظام المحاسبي وإدارة الموارد البشرية
+      المصمم خصيصاً للشركات المصرية. سجّلت بنجاح شركة <strong>{company_name}</strong>
+      وأصبح حسابك جاهزاً للاستخدام الفوري.
+    </p>
+
+    <!-- Features -->
+    <p class="features-title">✨ ما يمكنك فعله الآن:</p>
+
+    <div class="feature">
+      <span class="feature-icon">👥</span>
+      <div>
+        <p class="feature-title">إدارة الموارد البشرية</p>
+        <p class="feature-desc">أضف موظفيك، حضور GPS، كشف مرتبات تلقائي وفق قانون 148/2019</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <span class="feature-icon">💰</span>
+      <div>
+        <p class="feature-title">المحاسبة المالية الكاملة</p>
+        <p class="feature-desc">108 حساب وفق الدليل المصري، أستاذ عام، ميزانية، قائمة دخل</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <span class="feature-icon">📄</span>
+      <div>
+        <p class="feature-title">الفواتير والمشتريات</p>
+        <p class="feature-desc">فواتير إلكترونية ETA، مشتريات، مخزون، عملاء وموردين</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <span class="feature-icon">🗺️</span>
+      <div>
+        <p class="feature-title">حضور GPS تلقائي</p>
+        <p class="feature-desc">تسجيل حضور الموظفين بالموقع الجغرافي مع نطاق قابل للضبط</p>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-wrap">
+      <a href="https://datalifeaccount.com/dashboard" class="cta">
+        🚀 ابدأ الاستخدام الآن
+      </a>
+    </div>
+
+    <!-- Account Info -->
+    <div class="info-box">
+      <h4>📋 بيانات حسابك</h4>
+      <div class="info-row">
+        <span class="info-label">اسم الشركة</span>
+        <span class="info-value">{company_name}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">البريد الإلكتروني</span>
+        <span class="info-value">{company_email}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">نوع الحساب</span>
+        <span class="info-value">⭐ تجريبي مجاني — 14 يوم</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">رابط الدخول</span>
+        <span class="info-value"><a href="https://datalifeaccount.com" style="color:#1e3a8a;">datalifeaccount.com</a></span>
+      </div>
+    </div>
+
+    <!-- Support -->
+    <div class="support">
+      <p>💬 هل تحتاج مساعدة في البداية؟<br>
+      تواصل معنا: <a href="mailto:info@datalifeai.com">info@datalifeai.com</a>
+      أو زر <a href="https://datalifeaccount.com">دليل الاستخدام</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-logo">
+      {LOGO_SVG}
+      <span class="footer-logo-text">DataLife Account</span>
+    </div>
+    <div class="divider"></div>
+    <p>
+      © 2026 DataLife Account — جميع الحقوق محفوظة<br>
+      <a href="https://datalifeaccount.com">datalifeaccount.com</a> |
+      <a href="mailto:info@datalifeai.com">info@datalifeai.com</a>
+    </p>
+    <div class="social">
+      <a href="https://datalifeaccount.com/terms">الشروط والأحكام</a>
+      <a href="https://datalifeaccount.com/privacy">الخصوصية</a>
+      <a href="https://datalifeaccount.com/contact">تواصل معنا</a>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>"""
+
+        resend.Emails.send({
+            "from": "DataLife Account <noreply@datalifeaccount.com>",
+            "to": [company_email],
+            "subject": f"🎉 أهلاً بك في DataLife Account — {company_name}",
+            "html": html_body,
+        })
+        return True
+    except Exception:
+        return False

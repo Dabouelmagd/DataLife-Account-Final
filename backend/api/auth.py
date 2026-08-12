@@ -77,7 +77,20 @@ async def register_company(
     )
     
     user_response = user_to_response(user)
-    
+
+    # ── Send welcome email ──────────────────────────────────
+    try:
+        from services.professional_email_service import send_welcome_email
+        await send_welcome_email(
+            company_name=company_data.name,
+            company_email=company_data.contact_email or user_email,
+            user_name=user_full_name,
+            plan="trial",
+        )
+    except Exception:
+        pass  # Never block registration due to email failure
+    # ────────────────────────────────────────────────────────
+
     return Token(
         access_token=access_token,
         token_type="bearer",
