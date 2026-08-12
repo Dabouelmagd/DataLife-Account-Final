@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LogoImg, LogoImgSmall } from '../assets/logos';
 
 const AD_SPACES = [
   {

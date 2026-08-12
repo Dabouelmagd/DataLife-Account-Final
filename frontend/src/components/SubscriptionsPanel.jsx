@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { LogoImg, LogoImgSmall } from '../assets/logos';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   CreditCard, Search, RefreshCw, CheckCircle, XCircle,

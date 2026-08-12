@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LogoImg, LogoImgSmall } from '../assets/logos';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -61,8 +62,7 @@ export default function TermsPage() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0f1e]/90 backdrop-blur-md border-b border-white/5 px-6 h-16 flex items-center justify-between">
         <button onClick={() => navigate('/')} className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center font-black text-white">D</div>
-          <span className="font-bold text-white">DataLife Account</span>
+          <LogoImgSmall width={44} />
         </button>
         <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white text-sm">← {ar ? 'رجوع' : 'Back'}</button>
       </nav>

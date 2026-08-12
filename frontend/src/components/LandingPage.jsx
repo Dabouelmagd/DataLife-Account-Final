@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { LogoImg, LogoImgSmall } from '../assets/logos';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
