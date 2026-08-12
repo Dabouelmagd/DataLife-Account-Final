@@ -7,6 +7,7 @@ import ActivationCodesPanel from '../components/ActivationCodesPanel';
 import MessagesAdminPanel from '../components/MessagesAdminPanel';
 import SystemHealthPanel from '../components/SystemHealthPanel';
 import AdsPanel from '../components/AdsPanel';
+import NewsletterPanel from '../components/NewsletterPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -430,6 +431,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
           {language === 'ar' ? 'الرسائل' : 'Messages'}
         </Button>
         <Button
+          variant={activeTab === 'newsletter' ? 'default' : 'ghost'}
+          className={activeTab === 'newsletter' ? 'bg-indigo-700 hover:bg-indigo-800' : ''}
+          onClick={() => setActiveTab('newsletter')}
+        >
+          <span>📨</span>
+          {language === 'ar' ? 'النشرة البريدية' : 'Newsletter'}
+        </Button>
+        <Button
           variant={activeTab === 'users' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('users')}
           className={activeTab === 'users' ? 'bg-purple-600 hover:bg-purple-700' : ''}
@@ -632,6 +641,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
         <Card>
           <CardContent className="p-6">
             <PaymentsAdminPanel />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'newsletter' && (
+        <Card>
+          <CardContent className="p-6">
+            <NewsletterPanel />
           </CardContent>
         </Card>
       )}
