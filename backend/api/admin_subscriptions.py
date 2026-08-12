@@ -384,3 +384,40 @@ def get_plan_features(plan: str) -> dict:
         }
     }
     return plans.get(plan, plans["basic"])
+
+
+@router.post("/send-renewal-reminders")
+async def send_renewal_reminders(authorization: Optional[str] = Header(None)):
+    """Super Admin: إرسال تذكيرات التجديد للشركات التي اشتراكها ينتهي خلال 7 أيام"""
+    await verify_admin(authorization)
+
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
+    in_7days = (now + timedelta(days=7)).isoformat()
+    in_3days = (now + timedelta(days=3)).isoformat()
+
+    subs = await db.subscriptions.find({
+        "status": "active",
+        "end_date": {"$lte": in_7days, "$gte": now.isoformat()}
+    }).to_list(length=None)
+
+    sent = 0
+    for sub in subs:
+        try:
+            company = await db.companies.find_one({"id": sub.get("company_id")}, {"_id": 0})
+            if not company or not company.get("email"): continue
+            end_date = sub.get("end_date", "")[:10]
+            days_left = (datetime.fromisoformat(sub["end_date"].replace("Z","")) - now).days
+            from services.professional_email_service import send_renewal_reminder_email
+            await send_renewal_reminder_email(
+                company_name=company.get("name", ""),
+                email=company.get("email"),
+                plan=sub.get("plan", ""),
+                days_left=max(1, days_left),
+                end_date=end_date,
+            )
+            sent += 1
+        except Exception:
+            continue
+
+    return {"message": f"تم إرسال {sent} تذكير", "sent": sent, "total": len(subs)}

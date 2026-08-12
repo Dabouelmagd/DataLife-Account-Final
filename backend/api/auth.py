@@ -917,85 +917,12 @@ def generate_otp(length=6):
     return ''.join(random.choices(string.digits, k=length))
 
 async def send_otp_email(email: str, otp: str, user_name: str = ""):
-    """Send OTP via SMTP"""
-    smtp_host = os.environ.get("SMTP_HOST", "gtxm1001.siteground.biz")
-    smtp_port = int(os.environ.get("SMTP_PORT", 465))
-    smtp_email = os.environ.get("SMTP_EMAIL", "info@datalifeai.com")
-    smtp_password = os.environ.get("SMTP_PASSWORD", "")
-    
-    if not smtp_password:
-        raise Exception("SMTP password not configured")
-    
-    # Create message
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = 'رمز إعادة تعيين كلمة المرور - DataLife Account'
-    msg['From'] = f"DataLife Account <{smtp_email}>"
-    msg['To'] = email
-    
-    # HTML email content
-    html_content = f"""
-    <!DOCTYPE html>
-    <html dir="rtl" lang="ar">
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-            .header {{ background: linear-gradient(135deg, #f59e0b, #ea580c); padding: 30px; text-align: center; }}
-            .header h1 {{ color: white; margin: 0; font-size: 24px; }}
-            .content {{ padding: 40px 30px; text-align: center; }}
-            .otp-box {{ background: linear-gradient(135deg, #1e293b, #334155); color: white; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px; display: inline-block; margin: 20px 0; }}
-            .message {{ color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 20px; }}
-            .warning {{ color: #dc2626; font-size: 14px; margin-top: 20px; }}
-            .footer {{ background-color: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 12px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>🔐 DataLife Account</h1>
-            </div>
-            <div class="content">
-                <p class="message">مرحباً{' ' + user_name if user_name else ''},</p>
-                <p class="message">لقد طلبت إعادة تعيين كلمة المرور الخاصة بك. استخدم الرمز التالي:</p>
-                <div class="otp-box">{otp}</div>
-                <p class="message">هذا الرمز صالح لمدة <strong>10 دقائق</strong> فقط.</p>
-                <p class="warning">⚠️ إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذا البريد.</p>
-            </div>
-            <div class="footer">
-                <p>© 2026 DataLife AI Services - جميع الحقوق محفوظة</p>
-                <p>هذا البريد تم إرساله تلقائياً، يرجى عدم الرد عليه</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    # Plain text version
-    text_content = f"""
-    مرحباً {user_name},
-    
-    رمز إعادة تعيين كلمة المرور الخاص بك هو: {otp}
-    
-    هذا الرمز صالح لمدة 10 دقائق فقط.
-    
-    إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذا البريد.
-    
-    DataLife Account
-    """
-    
-    msg.attach(MIMEText(text_content, 'plain', 'utf-8'))
-    msg.attach(MIMEText(html_content, 'html', 'utf-8'))
-    
-    # Send email
+    """Send OTP via branded email"""
     try:
-        with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
-            server.login(smtp_email, smtp_password)
-            server.send_message(msg)
-        return True
+        from services.professional_email_service import send_password_reset_email
+        await send_password_reset_email(user_name=user_name, email=email, otp=otp)
     except Exception as e:
-        print(f"SMTP Error: {e}")
-        raise e
+        print(f"Failed to send OTP email: {e}")
 
 
 @router.post("/request-password-reset")

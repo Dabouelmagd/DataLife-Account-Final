@@ -871,3 +871,470 @@ async def send_welcome_email(
         return True
     except Exception:
         return False
+
+
+# ══════════════════════════════════════════════════════════════
+# Shared email helpers
+# ══════════════════════════════════════════════════════════════
+
+def _email_base(header_gradient: str, icon: str, title: str, subtitle: str, badge_color: str, badge_text: str, body_html: str, cta_url: str = "", cta_text: str = "") -> str:
+    """Base HTML template for all transactional emails"""
+    LOGO_SVG = """<svg width="40" height="40" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="44" height="44" rx="12" fill="url(#dg)"/>
+  <defs><linearGradient id="dg" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+    <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/>
+  </linearGradient></defs>
+  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
+    font-family="Arial Black,sans-serif" font-size="22" font-weight="900" fill="white">D</text>
+</svg>"""
+
+    cta_block = f"""<div style="text-align:center;margin:28px 0;">
+      <a href="{cta_url}" style="display:inline-block;background:{badge_color};color:white;text-decoration:none;padding:15px 44px;border-radius:12px;font-size:15px;font-weight:800;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(0,0,0,0.2);">{cta_text}</a>
+    </div>""" if cta_url else ""
+
+    return f"""<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{background:#f1f5f9;font-family:'Segoe UI',Tahoma,Arial,sans-serif;direction:rtl}}
+.wrap{{max-width:600px;margin:28px auto;padding:0 16px 36px}}
+.head{{background:{header_gradient};border-radius:20px 20px 0 0;padding:36px 32px 28px;text-align:center}}
+.logo-row{{display:inline-flex;align-items:center;gap:10px;margin-bottom:22px}}
+.logo-name{{font-size:18px;font-weight:900;color:white}}
+.logo-tag{{font-size:10px;color:rgba(255,255,255,0.45);display:block;text-align:right}}
+.big-icon{{font-size:52px;line-height:1;margin-bottom:10px}}
+.head h1{{color:white;font-size:24px;font-weight:900;margin-bottom:6px}}
+.head p{{color:rgba(255,255,255,0.72);font-size:14px}}
+.badge-strip{{background:{badge_color};color:white;text-align:center;padding:9px 24px;font-size:13px;font-weight:700;display:block;border-radius:0 0 14px 14px}}
+.body{{background:white;padding:32px}}
+.greeting{{font-size:15px;color:#1f2937;line-height:1.75;margin-bottom:22px}}
+.info-card{{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px;margin:16px 0}}
+.info-row{{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px dashed #e2e8f0}}
+.info-row:last-child{{border:none}}
+.il{{color:#64748b}}.iv{{font-weight:600;color:#0f172a}}
+.alert{{border-radius:12px;padding:16px 18px;margin:18px 0;font-size:13px;line-height:1.7}}
+.alert.warn{{background:#fef3c7;border-right:4px solid #f59e0b;color:#92400e}}
+.alert.danger{{background:#fef2f2;border-right:4px solid #ef4444;color:#991b1b}}
+.alert.info{{background:#f0f9ff;border-right:4px solid #0ea5e9;color:#0c4a6e}}
+.alert.success{{background:#f0fdf4;border-right:4px solid #22c55e;color:#14532d}}
+.step{{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}}
+.step-num{{width:28px;height:28px;border-radius:50%;background:{badge_color};color:white;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}}
+.step-text{{font-size:13px;color:#374151;padding-top:4px;line-height:1.6}}
+.support{{text-align:center;margin-top:24px;padding:18px;background:#fefce8;border:1px solid #fde68a;border-radius:12px;font-size:13px;color:#92400e}}
+.support a{{color:#1e3a8a;font-weight:700;text-decoration:none}}
+.foot{{background:#1e293b;border-radius:0 0 20px 20px;padding:24px 32px;text-align:center}}
+.foot-row{{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}}
+.foot-name{{font-size:15px;font-weight:900;color:white}}
+.divider{{height:1px;background:#334155;margin:12px 0}}
+.foot p{{font-size:11px;color:#94a3b8;line-height:1.8}}
+.foot a{{color:#60a5fa;text-decoration:none}}
+.links a{{display:inline-block;background:rgba(255,255,255,0.07);color:#94a3b8;border-radius:6px;padding:5px 12px;font-size:11px;margin:0 3px;text-decoration:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="logo-row">
+      {LOGO_SVG}
+      <div><span class="logo-name">DataLife Account</span><span class="logo-tag">نظام ERP المصري الأول</span></div>
+    </div>
+    <div class="big-icon">{icon}</div>
+    <h1>{title}</h1>
+    <p>{subtitle}</p>
+  </div>
+  <div style="background:{badge_color};padding:0 32px">
+    <div class="badge-strip">{badge_text}</div>
+  </div>
+  <div class="body">
+    {body_html}
+    {cta_block}
+    <div class="support">
+      💬 هل تحتاج مساعدة؟ تواصل معنا:
+      <a href="mailto:info@datalifeai.com">info@datalifeai.com</a> |
+      <a href="https://datalifeaccount.com">datalifeaccount.com</a>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="foot-row">
+      {LOGO_SVG}
+      <span class="foot-name">DataLife Account</span>
+    </div>
+    <div class="divider"></div>
+    <p>© 2026 DataLife Account — جميع الحقوق محفوظة<br>
+       <a href="https://datalifeaccount.com">datalifeaccount.com</a> |
+       <a href="mailto:info@datalifeai.com">info@datalifeai.com</a>
+    </p>
+    <div class="links" style="margin-top:10px">
+      <a href="https://datalifeaccount.com/terms">الشروط</a>
+      <a href="https://datalifeaccount.com/privacy">الخصوصية</a>
+      <a href="https://datalifeaccount.com/contact">تواصل معنا</a>
+    </div>
+  </div>
+</div>
+</body></html>"""
+
+
+# ══════════════════════════════════════════════════════════════
+# 1. Password Reset OTP
+# ══════════════════════════════════════════════════════════════
+
+async def send_password_reset_email(user_name: str, email: str, otp: str) -> bool:
+    """إيميل إعادة تعيين كلمة المرور"""
+    try:
+        import resend, os
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key: return False
+
+        body = f"""
+<p class="greeting">مرحباً <strong>{user_name}</strong>،<br><br>
+تلقينا طلباً لإعادة تعيين كلمة المرور لحسابك في DataLife Account.
+استخدم الكود التالي لإتمام العملية:</p>
+
+<div style="text-align:center;margin:28px 0">
+  <div style="display:inline-block;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;font-size:40px;font-weight:900;letter-spacing:12px;padding:20px 40px;border-radius:16px;font-family:monospace;">{otp}</div>
+  <p style="font-size:12px;color:#6b7280;margin-top:10px">⏱️ صالح لمدة 15 دقيقة فقط</p>
+</div>
+
+<div class="alert danger">
+  <strong>⚠️ تحذير أمني:</strong> إذا لم تطلب إعادة تعيين كلمة المرور، تجاهل هذا الإيميل فوراً.
+  حسابك في أمان ولن يتغير شيء.
+</div>
+
+<div class="info-card">
+  <div class="info-row"><span class="il">البريد الإلكتروني</span><span class="iv">{email}</span></div>
+  <div class="info-row"><span class="il">الكود</span><span class="iv" style="font-family:monospace;font-size:18px;color:#dc2626;letter-spacing:4px">{otp}</span></div>
+  <div class="info-row"><span class="il">ينتهي خلال</span><span class="iv">15 دقيقة</span></div>
+</div>"""
+
+        resend.Emails.send({
+            "from": "DataLife Account <noreply@datalifeaccount.com>",
+            "to": [email],
+            "subject": f"🔐 كود إعادة تعيين كلمة المرور — {otp}",
+            "html": _email_base(
+                header_gradient="linear-gradient(135deg,#7f1d1d,#dc2626,#ef4444)",
+                icon="🔐", title="إعادة تعيين كلمة المرور",
+                subtitle="استخدم الكود أدناه لإعادة ضبط كلمة مرورك",
+                badge_color="#dc2626", badge_text="🔑 الكود صالح لمدة 15 دقيقة فقط",
+                body_html=body,
+                cta_url="https://datalifeaccount.com/login", cta_text="🔐 تسجيل الدخول",
+            ),
+        })
+        return True
+    except Exception: return False
+
+
+# ══════════════════════════════════════════════════════════════
+# 2. Password Changed Confirmation
+# ══════════════════════════════════════════════════════════════
+
+async def send_password_changed_email(user_name: str, email: str) -> bool:
+    """تأكيد تغيير كلمة المرور"""
+    try:
+        import resend, os
+        from datetime import datetime, timezone
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key: return False
+
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        body = f"""
+<p class="greeting">مرحباً <strong>{user_name}</strong>،<br><br>
+تم تغيير كلمة المرور لحسابك في DataLife Account بنجاح.</p>
+
+<div class="alert success">
+  ✅ تم تحديث كلمة المرور بنجاح في {now}
+</div>
+
+<div class="alert danger">
+  <strong>🚨 لم تقم بهذا التغيير؟</strong><br>
+  إذا لم تقم أنت بتغيير كلمة المرور، تواصل معنا فوراً على
+  <a href="mailto:info@datalifeai.com" style="color:#991b1b;font-weight:700;">info@datalifeai.com</a>
+  لتأمين حسابك.
+</div>
+
+<div class="info-card">
+  <div class="info-row"><span class="il">البريد الإلكتروني</span><span class="iv">{email}</span></div>
+  <div class="info-row"><span class="il">وقت التغيير</span><span class="iv">{now}</span></div>
+  <div class="info-row"><span class="il">الحالة</span><span class="iv" style="color:#16a34a">✅ تم التغيير بنجاح</span></div>
+</div>"""
+
+        resend.Emails.send({
+            "from": "DataLife Account <noreply@datalifeaccount.com>",
+            "to": [email],
+            "subject": "🔒 تم تغيير كلمة المرور بنجاح — DataLife Account",
+            "html": _email_base(
+                header_gradient="linear-gradient(135deg,#14532d,#16a34a,#22c55e)",
+                icon="🔒", title="تم تغيير كلمة المرور",
+                subtitle="تم تحديث كلمة مرور حسابك بنجاح",
+                badge_color="#16a34a", badge_text="✅ حسابك آمن ومحمي",
+                body_html=body,
+                cta_url="https://datalifeaccount.com/login", cta_text="🚀 تسجيل الدخول",
+            ),
+        })
+        return True
+    except Exception: return False
+
+
+# ══════════════════════════════════════════════════════════════
+# 3. Account Login Alert (new device/location)
+# ══════════════════════════════════════════════════════════════
+
+async def send_login_alert_email(user_name: str, email: str, ip: str = "", time_str: str = "") -> bool:
+    """تنبيه تسجيل دخول من جهاز/مكان جديد"""
+    try:
+        import resend, os
+        from datetime import datetime, timezone
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key: return False
+
+        now = time_str or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        body = f"""
+<p class="greeting">مرحباً <strong>{user_name}</strong>،<br><br>
+تم تسجيل الدخول إلى حسابك في DataLife Account.</p>
+
+<div class="info-card">
+  <div class="info-row"><span class="il">البريد الإلكتروني</span><span class="iv">{email}</span></div>
+  <div class="info-row"><span class="il">وقت الدخول</span><span class="iv">{now}</span></div>
+  {f'<div class="info-row"><span class="il">عنوان IP</span><span class="iv" style="font-family:monospace">{ip}</span></div>' if ip else ''}
+</div>
+
+<div class="alert warn">
+  <strong>⚠️ لم تكن أنت؟</strong><br>
+  إذا لم تقم بتسجيل الدخول، قم فوراً بتغيير كلمة المرور وتواصل معنا على
+  <a href="mailto:info@datalifeai.com" style="color:#92400e;font-weight:700;">info@datalifeai.com</a>
+</div>"""
+
+        resend.Emails.send({
+            "from": "DataLife Account <noreply@datalifeaccount.com>",
+            "to": [email],
+            "subject": "🔔 تنبيه: تسجيل دخول جديد — DataLife Account",
+            "html": _email_base(
+                header_gradient="linear-gradient(135deg,#78350f,#d97706,#fbbf24)",
+                icon="🔔", title="تنبيه تسجيل دخول",
+                subtitle="تم تسجيل الدخول إلى حسابك",
+                badge_color="#d97706", badge_text="⚠️ إذا لم تكن أنت — غيّر كلمة المرور فوراً",
+                body_html=body,
+                cta_url="https://datalifeaccount.com/settings", cta_text="🔐 تغيير كلمة المرور",
+            ),
+        })
+        return True
+    except Exception: return False
+
+
+# ══════════════════════════════════════════════════════════════
+# 4. Subscription Renewal Reminder
+# ══════════════════════════════════════════════════════════════
+
+async def send_renewal_reminder_email(
+    company_name: str, email: str,
+    plan: str, days_left: int, end_date: str
+) -> bool:
+    """تذكير تجديد الاشتراك"""
+    try:
+        import resend, os
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key: return False
+
+        PLAN_PRICES = {"starter":"299 ج.م/شهر","professional":"799 ج.م/شهر","enterprise":"1,499 ج.م/شهر"}
+        urgency = "danger" if days_left <= 3 else ("warn" if days_left <= 7 else "info")
+        urgency_icon = "🚨" if days_left <= 3 else ("⚠️" if days_left <= 7 else "📅")
+
+        body = f"""
+<p class="greeting">مرحباً <strong>{company_name}</strong>،<br><br>
+نود تذكيركم بأن اشتراككم في DataLife Account سينتهي قريباً. جددوا الآن لضمان الاستمرارية بدون انقطاع.</p>
+
+<div class="alert {urgency}">
+  {urgency_icon} <strong>متبقي {days_left} {'يوم' if days_left == 1 else 'أيام'} فقط</strong> — ينتهي الاشتراك في {end_date}
+</div>
+
+<div class="info-card">
+  <div class="info-row"><span class="il">الشركة</span><span class="iv">{company_name}</span></div>
+  <div class="info-row"><span class="il">الخطة الحالية</span><span class="iv">{plan}</span></div>
+  <div class="info-row"><span class="il">تاريخ الانتهاء</span><span class="iv" style="color:#dc2626">{end_date}</span></div>
+  <div class="info-row"><span class="il">السعر</span><span class="iv">{PLAN_PRICES.get(plan,"—")}</span></div>
+</div>
+
+<p style="font-size:13px;color:#374151;margin:16px 0">طرق الدفع المتاحة:</p>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+  {''.join(f'<span style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:6px 12px;font-size:12px;color:#0369a1">{m}</span>' for m in ['📱 InstaPay','📲 فودافون كاش','🏦 تحويل بنكي','🔑 كود تفعيل'])}
+</div>"""
+
+        resend.Emails.send({
+            "from": "DataLife Account <noreply@datalifeaccount.com>",
+            "to": [email],
+            "subject": f"{'🚨' if days_left<=3 else '⏰'} تذكير تجديد اشتراكك — {days_left} أيام متبقية | DataLife Account",
+            "html": _email_base(
+                header_gradient="linear-gradient(135deg,#78350f,#b45309,#d97706)",
+                icon="⏰", title="تذكير تجديد الاشتراك",
+                subtitle=f"اشتراكك ينتهي خلال {days_left} أيام",
+                badge_color="#b45309", badge_text=f"📅 تاريخ الانتهاء: {end_date}",
+                body_html=body,
+                cta_url="https://datalifeaccount.com", cta_text="🔄 جدد الاشتراك الآن",
+            ),
+        })
+        return True
+    except Exception: return False
+
+
+# ══════════════════════════════════════════════════════════════
+# 5. Subscription Expired
+# ══════════════════════════════════════════════════════════════
+
+async def send_subscription_expired_email(company_name: str, email: str, plan: str) -> bool:
+    """إيميل انتهاء الاشتراك"""
+    try:
+        import resend, os
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key: return False
+
+        body = f"""
+<p class="greeting">مرحباً <strong>{company_name}</strong>،<br><br>
+انتهت صلاحية اشتراكك في DataLife Account. بياناتك محفوظة ومؤمّنة، لكن تم تعليق الوصول مؤقتاً.</p>
+
+<div class="alert danger">
+  🚫 <strong>تم تعليق الوصول إلى حسابك</strong><br>
+  جدد اشتراكك الآن لاستعادة الوصول الكامل لجميع البيانات والمميزات.
+</div>
+
+<div class="info-card">
+  <div class="info-row"><span class="il">الشركة</span><span class="iv">{company_name}</span></div>
+  <div class="info-row"><span class="il">الخطة المنتهية</span><span class="iv">{plan}</span></div>
+  <div class="info-row"><span class="il">حالة البيانات</span><span class="iv" style="color:#16a34a">✅ محفوظة ومؤمّنة</span></div>
+  <div class="info-row"><span class="il">مهلة التجديد</span><span class="iv" style="color:#dc2626">30 يوم من تاريخ الانتهاء</span></div>
+</div>
+
+<div class="alert warn">
+  ⚠️ <strong>تنبيه:</strong> إذا لم يتم التجديد خلال 30 يوماً، سيتم حذف البيانات نهائياً وفق سياسة الخصوصية.
+</div>"""
+
+        resend.Emails.send({
+            "from": "DataLife Account <noreply@datalifeaccount.com>",
+            "to": [email],
+            "subject": "🚫 انتهى اشتراكك في DataLife Account — جدد الآن",
+            "html": _email_base(
+                header_gradient="linear-gradient(135deg,#1c1917,#57534e,#78716c)",
+                icon="🚫", title="انتهى الاشتراك",
+                subtitle="بياناتك محفوظة — جدد الآن للعودة",
+                badge_color="#dc2626", badge_text="⚡ جدد خلال 30 يوم لتجنب حذف البيانات",
+                body_html=body,
+                cta_url="https://datalifeaccount.com", cta_text="🔄 جدد الاشتراك الآن",
+            ),
+        })
+        return True
+    except Exception: return False
+
+
+# ══════════════════════════════════════════════════════════════
+# 6. System Maintenance / Downtime Alert
+# ══════════════════════════════════════════════════════════════
+
+async def send_maintenance_email(
+    email: str, company_name: str,
+    start_time: str, duration: str, reason: str = ""
+) -> bool:
+    """إيميل صيانة وتوقف مؤقت"""
+    try:
+        import resend, os
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key: return False
+
+        body = f"""
+<p class="greeting">مرحباً <strong>{company_name}</strong>،<br><br>
+نعلمكم بأنه سيتم إجراء أعمال صيانة مجدولة على نظام DataLife Account. خلال هذه الفترة قد يكون النظام غير متاح مؤقتاً.</p>
+
+<div class="alert warn">
+  🔧 <strong>فترة الصيانة المجدولة:</strong><br>
+  تبدأ: {start_time} | المدة المتوقعة: {duration}
+</div>
+
+<div class="info-card">
+  <div class="info-row"><span class="il">وقت البدء</span><span class="iv">{start_time}</span></div>
+  <div class="info-row"><span class="il">المدة المتوقعة</span><span class="iv">{duration}</span></div>
+  {f'<div class="info-row"><span class="il">السبب</span><span class="iv">{reason}</span></div>' if reason else ''}
+  <div class="info-row"><span class="il">الحالة بعد الصيانة</span><span class="iv" style="color:#16a34a">✅ أداء وأمان أفضل</span></div>
+</div>
+
+<div class="alert info">
+  💡 <strong>نصيحة:</strong> احرص على حفظ أي عمل جارٍ قبل وقت الصيانة. سيعود النظام للعمل تلقائياً بعد انتهاء الصيانة.
+</div>
+
+<p style="font-size:13px;color:#374151;margin-top:16px">نعتذر عن أي إزعاج. نسعى دائماً لتحسين تجربتكم.</p>"""
+
+        resend.Emails.send({
+            "from": "DataLife Account <noreply@datalifeaccount.com>",
+            "to": [email],
+            "subject": f"🔧 صيانة مجدولة — {start_time} | DataLife Account",
+            "html": _email_base(
+                header_gradient="linear-gradient(135deg,#1e3a5f,#1e40af,#3b82f6)",
+                icon="🔧", title="صيانة مجدولة للنظام",
+                subtitle="توقف مؤقت لتحسين الأداء والأمان",
+                badge_color="#2563eb", badge_text=f"🕐 موعد الصيانة: {start_time}",
+                body_html=body,
+            ),
+        })
+        return True
+    except Exception: return False
+
+
+# ══════════════════════════════════════════════════════════════
+# 7. Account Suspended / Reactivated
+# ══════════════════════════════════════════════════════════════
+
+async def send_account_status_email(
+    company_name: str, email: str,
+    is_suspended: bool, reason: str = ""
+) -> bool:
+    """إيميل تعليق أو إعادة تفعيل الحساب"""
+    try:
+        import resend, os
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key: return False
+
+        if is_suspended:
+            body = f"""
+<p class="greeting">مرحباً <strong>{company_name}</strong>،<br><br>
+تم تعليق حسابكم في DataLife Account مؤقتاً.</p>
+
+<div class="alert danger">
+  🚫 <strong>سبب التعليق:</strong> {reason or 'انتهاء فترة الاشتراك أو مخالفة شروط الاستخدام'}
+</div>
+
+<div class="info-card">
+  <div class="info-row"><span class="il">الحالة</span><span class="iv" style="color:#dc2626">🚫 موقوف مؤقتاً</span></div>
+  <div class="info-row"><span class="il">البيانات</span><span class="iv" style="color:#16a34a">✅ محفوظة ومؤمّنة</span></div>
+</div>
+
+<p style="font-size:13px;color:#374151;margin-top:16px">لإعادة تفعيل حسابك، تواصل معنا أو جدد اشتراكك.</p>"""
+            subject = "🚫 تم تعليق حسابك مؤقتاً — DataLife Account"
+            gradient = "linear-gradient(135deg,#450a0a,#991b1b,#dc2626)"
+            icon, badge_color, badge_text = "🚫", "#dc2626", "تواصل معنا لإعادة التفعيل"
+            cta_url, cta_text = "mailto:info@datalifeai.com", "📧 تواصل معنا"
+        else:
+            body = f"""
+<p class="greeting">مرحباً <strong>{company_name}</strong>،<br><br>
+يسعدنا إعلامكم بأنه تم إعادة تفعيل حسابكم في DataLife Account بنجاح.</p>
+
+<div class="alert success">
+  ✅ <strong>حسابك نشط الآن</strong> — يمكنك الوصول لجميع المميزات والبيانات
+</div>"""
+            subject = "✅ تم إعادة تفعيل حسابك — DataLife Account"
+            gradient = "linear-gradient(135deg,#14532d,#16a34a,#22c55e)"
+            icon, badge_color, badge_text = "✅", "#16a34a", "حسابك نشط ومفعّل الآن"
+            cta_url, cta_text = "https://datalifeaccount.com/dashboard", "🚀 الدخول للحساب"
+
+        resend.Emails.send({
+            "from": "DataLife Account <noreply@datalifeaccount.com>",
+            "to": [email],
+            "subject": subject,
+            "html": _email_base(
+                header_gradient=gradient, icon=icon,
+                title="تعليق الحساب" if is_suspended else "إعادة تفعيل الحساب",
+                subtitle="إشعار من DataLife Account",
+                badge_color=badge_color, badge_text=badge_text,
+                body_html=body, cta_url=cta_url, cta_text=cta_text,
+            ),
+        })
+        return True
+    except Exception: return False
