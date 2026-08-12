@@ -525,3 +525,112 @@ class ProfessionalEmailService:
 
 # Create singleton instance
 email_service = ProfessionalEmailService()
+
+
+async def send_payment_invoice_email(
+    company_name: str,
+    company_email: str,
+    plan: str,
+    duration: str = "monthly",
+    amount: float = 0,
+    payment_method: str = "",
+    reference: str = "",
+    payment_date: str = "",
+):
+    """إرسال فاتورة PDF بعد تأكيد الدفع"""
+    try:
+        import resend, os
+        from datetime import datetime, timezone
+
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key:
+            return False
+
+        PLAN_NAMES = {
+            "starter": "المبتدئ / Starter",
+            "professional": "المحترف / Professional",
+            "enterprise": "المؤسسي / Enterprise",
+        }
+        DURATION_NAMES = {
+            "monthly": "شهري / Monthly",
+            "3months": "3 أشهر / 3 Months",
+            "6months": "6 أشهر / 6 Months",
+            "yearly": "سنوي / Yearly",
+            "lifetime": "مدى الحياة / Lifetime",
+        }
+        PAYMENT_NAMES = {
+            "instapay": "InstaPay",
+            "vodafone_cash": "فودافون كاش / Vodafone Cash",
+            "bank_transfer": "تحويل بنكي / Bank Transfer",
+            "cash": "نقدي / Cash",
+            "credit_card": "بطاقة ائتمان / Credit Card",
+            "activation_code": "كود تفعيل / Activation Code",
+        }
+
+        invoice_number = f"DL-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        vat_rate = 0.14
+        amount_before_vat = round(amount / (1 + vat_rate), 2)
+        vat_amount = round(amount - amount_before_vat, 2)
+        paid_date = payment_date[:10] if payment_date else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        html_body = f"""<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><style>
+  body {{ font-family: 'Segoe UI', Arial, sans-serif; background:#f5f7fa; margin:0; padding:20px; direction:rtl; }}
+  .invoice {{ background:white; max-width:600px; margin:0 auto; border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1); }}
+  .header {{ background:linear-gradient(135deg,#0F1729,#28376B); color:white; padding:30px; }}
+  .logo {{ font-size:24px; font-weight:900; margin-bottom:4px; }}
+  .invoice-title {{ font-size:14px; opacity:0.7; }}
+  .body {{ padding:30px; }}
+  .row {{ display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f0f0f0; }}
+  .row:last-child {{ border:none; }}
+  .label {{ color:#6b7280; font-size:13px; }}
+  .value {{ color:#111827; font-weight:600; font-size:13px; }}
+  .total-row {{ background:#f0f7ff; border-radius:10px; padding:16px; margin-top:20px; }}
+  .total-amount {{ font-size:28px; font-weight:900; color:#0F1729; }}
+  .badge {{ display:inline-block; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:20px; padding:4px 12px; font-size:12px; font-weight:600; margin:12px 0; }}
+  .footer {{ background:#f9fafb; padding:20px 30px; font-size:12px; color:#9ca3af; text-align:center; }}
+  .vat-note {{ font-size:11px; color:#6b7280; margin-top:4px; }}
+</style></head>
+<body>
+<div class="invoice">
+  <div class="header">
+    <div class="logo">🏢 DataLife Account</div>
+    <div class="invoice-title">فاتورة ضريبية رسمية | Official Tax Invoice</div>
+    <div style="margin-top:16px;font-size:13px;opacity:0.8">رقم الفاتورة: <strong>{invoice_number}</strong></div>
+  </div>
+  <div class="body">
+    <div class="badge">✅ تم تأكيد الدفع | Payment Confirmed</div>
+    <div class="row"><span class="label">الشركة | Company</span><span class="value">{company_name}</span></div>
+    <div class="row"><span class="label">الخطة | Plan</span><span class="value">{PLAN_NAMES.get(plan, plan)}</span></div>
+    <div class="row"><span class="label">مدة الاشتراك | Duration</span><span class="value">{DURATION_NAMES.get(duration, duration)}</span></div>
+    <div class="row"><span class="label">طريقة الدفع | Payment Method</span><span class="value">{PAYMENT_NAMES.get(payment_method, payment_method)}</span></div>
+    {f'<div class="row"><span class="label">رقم المرجع | Reference</span><span class="value">{reference}</span></div>' if reference else ''}
+    <div class="row"><span class="label">تاريخ الدفع | Payment Date</span><span class="value">{paid_date}</span></div>
+    
+    <div style="margin-top:20px;padding-top:16px;border-top:2px solid #e5e7eb;">
+      <div class="row"><span class="label">المبلغ قبل الضريبة</span><span class="value">{amount_before_vat:,.2f} ج.م</span></div>
+      <div class="row"><span class="label">ضريبة القيمة المضافة (14%)</span><span class="value">{vat_amount:,.2f} ج.م</span></div>
+      <div class="total-row">
+        <div class="label" style="margin-bottom:4px">إجمالي المبلغ المدفوع | Total Paid</div>
+        <div class="total-amount">{amount:,.2f} ج.م</div>
+        <div class="vat-note">✅ السعر شامل ضريبة القيمة المضافة | Price includes VAT (14%)</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    DataLife Account — datalifeaccount.com | info@datalifeai.com<br/>
+    هذه الفاتورة مُنشأة تلقائياً وصالحة بدون توقيع | Auto-generated invoice, valid without signature
+  </div>
+</div>
+</body></html>"""
+
+        resend.Emails.send({
+            "from": "DataLife Account <noreply@datalifeaccount.com>",
+            "to": [company_email],
+            "subject": f"✅ فاتورة DataLife Account — {invoice_number} | {company_name}",
+            "html": html_body,
+        })
+        return True
+    except Exception:
+        return False

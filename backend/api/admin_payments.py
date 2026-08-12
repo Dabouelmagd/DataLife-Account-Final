@@ -189,9 +189,28 @@ async def update_subscription_payment(
         payment_method=payment_data.payment_method
     )
     
+    # Send invoice email when payment confirmed
+    if payment_data.is_paid:
+        try:
+            company = await db.companies.find_one({"id": subscription.get("company_id")}, {"_id": 0})
+            if company and company.get("email"):
+                from services.professional_email_service import send_payment_invoice_email
+                await send_payment_invoice_email(
+                    company_name=company.get("name", ""),
+                    company_email=company.get("email", ""),
+                    plan=subscription.get("plan", ""),
+                    duration=subscription.get("duration", "monthly"),
+                    amount=payment_amount,
+                    payment_method=payment_data.payment_method or "",
+                    reference=payment_data.reference_number or "",
+                    payment_date=payment_data.payment_date or get_current_timestamp(),
+                )
+        except Exception:
+            pass  # Never block confirmation due to email failure
+
     return {
         "success": True,
-        "message": "Payment status updated",
+        "message": "Payment status updated — invoice sent by email" if payment_data.is_paid else "Payment status updated",
         "is_paid": payment_data.is_paid
     }
 

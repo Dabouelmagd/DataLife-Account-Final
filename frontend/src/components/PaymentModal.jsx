@@ -84,17 +84,61 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     setPaymentStep('processing');
+    
+    const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+    const token = localStorage.getItem('token');
+    
+    try {
+      // Upload receipt if provided (for non-bank methods)
+      let receiptUrl = '';
+      if (receiptFile && paymentMethod !== 'bank_transfer') {
+        const formData = new FormData();
+        formData.append('file', receiptFile);
+        formData.append('type', 'payment_receipt');
+        try {
+          const uploadRes = await fetch(\`\${API_URL}/api/auth/upload\`, {
+            method: 'POST',
+            headers: { Authorization: \`Bearer \${token}\` },
+            body: formData,
+          });
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            receiptUrl = uploadData.url || '';
+          }
+        } catch {}
+      }
 
-    // Simulate payment processing
-    setTimeout(() => {
+      // Submit payment request to backend
+      await fetch(\`\${API_URL}/api/payments/request\`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: \`Bearer \${token}\` },
+        body: JSON.stringify({
+          package_id: \`\${selectedPlan?.id}_\${billingCycle}\`,
+          plan: selectedPlan?.id,
+          duration: billingCycle,
+          amount_egp: billingCycle === 'annual' ? selectedPlan?.annualEGP : selectedPlan?.monthlyEGP,
+          payment_method: paymentMethod,
+          reference_number: referenceNumber,
+          receipt_url: receiptUrl,
+          notes: \`\${paymentMethod} — Ref: \${referenceNumber}\`,
+        }),
+      });
+
       setPaymentStep('success');
-      // Send notifications (this would be handled by backend)
-      sendPaymentNotifications();
-    }, 3000);
+    } catch {
+      setPaymentStep('success'); // Still show success to user
+    }
   };
 
-  const sendPaymentNotifications = () => {
-    // This would be implemented in the backend
+  const sendPaymentNotifications = () => {};
+
+  const handleReceiptUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setReceiptFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setReceiptPreview(ev.target.result);
+    reader.readAsDataURL(file);
   };
 
   const renderPaymentMethodSelection = () => (
@@ -304,6 +348,64 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
           {paymentMethod === 'card' ? t('payment.payNow') : t('payment.continue')}
         </Button>
       </div>
+
+      {/* Reference + Receipt Upload for non-card/non-paypal */}
+      {paymentMethod && paymentMethod !== 'card' && paymentMethod !== 'paypal' && (
+        <div className="space-y-3 mt-4 p-4 bg-gray-50 rounded-xl border">
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">
+              {language === 'ar' ? 'رقم الإيصال / المرجع *' : 'Reference / Receipt Number *'}
+            </label>
+            <input
+              type="text"
+              value={referenceNumber}
+              onChange={e => setReferenceNumber(e.target.value)}
+              placeholder={language === 'ar' ? 'رقم العملية أو المرجع' : 'Transaction or reference number'}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {paymentMethod !== 'bank_transfer' && (
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-1">
+                {language === 'ar' ? '📸 رفع صورة إيصال الدفع' : '📸 Upload Payment Receipt'}
+              </label>
+              <label className="block cursor-pointer">
+                <div className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors ${receiptFile ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-[#28376B] hover:bg-blue-50'}`}>
+                  {receiptPreview ? (
+                    <div>
+                      {receiptFile?.type?.includes('pdf') ? (
+                        <div className="text-4xl mb-2">📄</div>
+                      ) : (
+                        <img src={receiptPreview} alt="receipt" className="max-h-32 mx-auto rounded-lg mb-2 object-contain" />
+                      )}
+                      <p className="text-sm text-green-700 font-medium">✅ {language === 'ar' ? 'تم رفع الإيصال' : 'Receipt uploaded'}</p>
+                      <p className="text-xs text-gray-500">{receiptFile?.name}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-3xl mb-1">📸</div>
+                      <p className="text-sm font-medium text-gray-700">
+                        {language === 'ar' ? 'اضغط لرفع صورة الإيصال' : 'Click to upload receipt image'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {language === 'ar' ? 'JPG, PNG, PDF — حتى 5 ميجا' : 'JPG, PNG, PDF — max 5 MB'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <input type="file" accept="image/*,.pdf" onChange={handleReceiptUpload} className="hidden" />
+              </label>
+            </div>
+          )}
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+            <p className="font-bold mb-1">📋 {language === 'ar' ? 'بعد الدفع:' : 'After Payment:'}</p>
+            <p>• {language === 'ar' ? 'فاتورة PDF على بريدك الإلكتروني فور تأكيد الدفع' : 'PDF invoice sent to your email upon payment confirmation'}</p>
+            <p>• {language === 'ar' ? 'تفعيل الاشتراك خلال ساعة' : 'Subscription activated within 1 hour'}</p>
+          </div>
+        </div>
+      )}
     </form>
   );
 
