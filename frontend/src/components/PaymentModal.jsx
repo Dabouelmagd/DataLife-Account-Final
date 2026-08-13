@@ -96,9 +96,9 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
         formData.append('file', receiptFile);
         formData.append('type', 'payment_receipt');
         try {
-          const uploadRes = await fetch(\`\${API_URL}/api/auth/upload\`, {
+          const uploadRes = await fetch(`${API_URL}/api/auth/upload`, {
             method: 'POST',
-            headers: { Authorization: \`Bearer \${token}\` },
+            headers: { Authorization: `Bearer ${token}` },
             body: formData,
           });
           if (uploadRes.ok) {
@@ -109,18 +109,18 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
       }
 
       // Submit payment request to backend
-      await fetch(\`\${API_URL}/api/payments/request\`, {
+      await fetch(`${API_URL}/api/payments/request`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: \`Bearer \${token}\` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          package_id: \`\${selectedPlan?.id}_\${billingCycle}\`,
+          package_id: `${selectedPlan?.id}_${billingCycle}`,
           plan: selectedPlan?.id,
           duration: billingCycle,
           amount_egp: billingCycle === 'annual' ? selectedPlan?.annualEGP : selectedPlan?.monthlyEGP,
           payment_method: paymentMethod,
           reference_number: referenceNumber,
           receipt_url: receiptUrl,
-          notes: \`\${paymentMethod} — Ref: \${referenceNumber}\`,
+          notes: `${paymentMethod} — Ref: ${referenceNumber}`,
         }),
       });
 
