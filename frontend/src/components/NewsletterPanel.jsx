@@ -32,7 +32,7 @@ const RECURRENCE = [
 ];
 
 const HTML_TEMPLATES = {
-  welcome: (company='{{company_name}}') => `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;direction:rtl;">
+  welcome: (company='اسم الشركة') => `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;direction:rtl;">
   <div style="background:linear-gradient(135deg,#0F1729,#28376B);color:white;padding:32px;border-radius:16px 16px 0 0;text-align:center;">
     <div style="font-size:36px;margin-bottom:8px;">🎉</div>
     <h1 style="margin:0;font-size:24px;">مرحباً بكم في DataLife Account</h1>
@@ -56,7 +56,7 @@ const HTML_TEMPLATES = {
   </div>
 </div>`,
 
-  feature_update: (company='{{company_name}}') => `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;direction:rtl;">
+  feature_update: (company='اسم الشركة') => `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;direction:rtl;">
   <div style="background:linear-gradient(135deg,#1e3a8a,#7c3aed);color:white;padding:32px;border-radius:16px 16px 0 0;text-align:center;">
     <div style="font-size:36px;margin-bottom:8px;">🚀</div>
     <h1 style="margin:0;font-size:22px;">تحديثات جديدة في DataLife Account</h1>
@@ -79,7 +79,7 @@ const HTML_TEMPLATES = {
   <div style="background:#f9fafb;padding:16px;text-align:center;font-size:12px;color:#9ca3af;border-radius:0 0 16px 16px;">DataLife Account | datalifeaccount.com</div>
 </div>`,
 
-  renewal_reminder: (company='{{company_name}}') => `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;direction:rtl;">
+  renewal_reminder: (company='اسم الشركة') => `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;direction:rtl;">
   <div style="background:linear-gradient(135deg,#92400e,#d97706);color:white;padding:32px;border-radius:16px 16px 0 0;text-align:center;">
     <div style="font-size:36px;margin-bottom:8px;">⏰</div>
     <h1 style="margin:0;font-size:22px;">تذكير: تجديد الاشتراك</h1>
@@ -99,7 +99,7 @@ const HTML_TEMPLATES = {
   <div style="background:#f9fafb;padding:16px;text-align:center;font-size:12px;color:#9ca3af;border-radius:0 0 16px 16px;">DataLife Account | datalifeaccount.com</div>
 </div>`,
 
-  monthly_tips: (company='{{company_name}}') => `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;direction:rtl;">
+  monthly_tips: (company='اسم الشركة') => `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;direction:rtl;">
   <div style="background:linear-gradient(135deg,#065f46,#059669);color:white;padding:32px;border-radius:16px 16px 0 0;text-align:center;">
     <div style="font-size:36px;margin-bottom:8px;">💡</div>
     <h1 style="margin:0;font-size:22px;">نصائح شهرية — DataLife Account</h1>
