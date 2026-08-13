@@ -2220,7 +2220,7 @@ const DemoPage = ({ onClose }) => {
         case 'hr-overview':
           return renderHRModule();
         case 'salaries':
-          return <SalariesModule language={language} userRole={userRole} />;
+          return <SalariesModule language={language} userRole={userRole} onNavigateToEmployees={() => setActiveSubModule ? setActiveSubModule('employees') : null} />;
         case 'allowances':
           return <AllowancesModule language={language} userRole={userRole} />;
         case 'deductions':

@@ -17,7 +17,7 @@ import {
 } from '@phosphor-icons/react';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const SalariesPage = ({ language: propLanguage }) => {
+const SalariesPage = ({ language: propLanguage, onNavigateToEmployees }) => {
   const { language: contextLanguage } = useLanguage();
   const language = propLanguage || contextLanguage || 'ar';
   const API_URL = process.env.REACT_APP_BACKEND_URL;

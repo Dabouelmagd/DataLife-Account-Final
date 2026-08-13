@@ -65,7 +65,7 @@ export const renderHRContent = ({
     case 'attendance':
       return <AttendancePage language={language} />;
     case 'salaries':
-      return <SalaryPage />;
+      return <SalaryPage onNavigateToEmployees={() => setActiveHRSubModule('employees')} />;
     case 'employee-profile':
       return <EmployeeProfileContent employeeId={selectedEmployeeId} language={language} />;
     case 'deductions':

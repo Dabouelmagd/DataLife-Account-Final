@@ -8,7 +8,7 @@ import { printContent, exportToPDF, generateTableHTML, generateStatsHTML } from 
 import ImportButton from './ImportButton';
 
 // Salaries Module
-export const SalariesModule = ({ language, userRole }) => {
+export const SalariesModule = ({ language, userRole, onNavigateToEmployees }) => {
   const isRTL = language === 'ar';
   const canEdit = ['HR Manager', 'مدير الموارد البشرية', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
@@ -213,9 +213,11 @@ export const SalariesModule = ({ language, userRole }) => {
           </Button>
           {canEdit && (
             <>
-              <Button size="sm" className="bg-green-600 hover:bg-green-700 flex items-center gap-2" onClick={() => setShowAddModal(true)}>
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                onClick={() => onNavigateToEmployees ? onNavigateToEmployees() : null}
+              >
                 <Plus className="h-4 w-4" />
-                <span>{language === 'ar' ? 'موظف جديد' : 'New Employee'}</span>
+                <span>{language === 'ar' ? 'إضافة موظف' : 'Add Employee'}</span>
               </Button>
               <Button size="sm" className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2" onClick={() => setShowProcessModal(true)}>
                 <DollarSign className="h-4 w-4" />
