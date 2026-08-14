@@ -41,8 +41,7 @@ export const renderHRContent = ({
         stats={stats}
         employees={employees}
         onAddEmployee={() => {
-          setActiveModule('hr');
-          setActiveHRSubModule('salaries');
+          setActiveHRSubModule('employees');
         }}
         onViewProfile={(employeeId) => {
           setSelectedEmployeeId(employeeId);

@@ -114,7 +114,7 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
       title: language === 'ar' ? 'إضافة موظف' : 'Add Employee',
       icon: Users,
       color: moduleColors.hr,
-      action: () => onNavigate?.('hr', 'salaries')
+      action: () => onNavigate?.('hr', 'employees')
     },
     {
       title: language === 'ar' ? 'قيد جديد' : 'New Entry',

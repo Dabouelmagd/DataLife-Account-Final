@@ -114,6 +114,7 @@ export const renderHRContent = ({
         language={language}
         stats={stats}
         employees={employees}
+        onAddEmployee={() => setActiveHRSubModule('employees')}
         onNavigate={(subModule) => setActiveHRSubModule(subModule)}
         onViewEmployee={(id) => setSelectedEmployeeId(id)}
       />
@@ -123,7 +124,7 @@ export const renderHRContent = ({
   // HR Sub-modules
   const hrSubModuleMap = {
     'payroll': <PayrollPage language={language} />,
-    'salaries': <SalariesPage language={language} onNavigateToEmployees={() => setActiveHRSubModule('overview')} />,
+    'salaries': <SalariesPage language={language} onNavigateToEmployees={() => setActiveHRSubModule('employees')} />,
     'allowances': <AllowancesPage language={language} />,
     'deductions': <DeductionsPage language={language} />,
     'attendance': <AttendancePage language={language} />,
