@@ -38,6 +38,7 @@ import DeductionsPage from '../pages/DeductionsPage';
 import AllowancesPage from '../pages/AllowancesPage';
 import ShiftsManagementPage from '../pages/ShiftsManagementPage';
 import SalariesPage from '../pages/SalariesPage';
+import SalesModule from '../pages/SalesModule';
 import HRComprehensiveReportsPage from '../pages/HRComprehensiveReportsPage';
 import SystemReportsPage from '../pages/SystemReportsPage';
 import TrialBalancePage from '../pages/TrialBalancePage';
@@ -286,6 +287,7 @@ const ModuleRenderer = ({
 
   // Simple modules (no sub-modules)
   const simpleModuleMap = {
+    'sales': <SalesModule language={language} />,
     'assets': <AssetsModule />,
     'analytics': <AnalyticsModule language={language} />,
     'system-reports': <SystemReportsPage language={language} />,

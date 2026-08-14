@@ -90,6 +90,15 @@ export const getAvailableModules = (user, language) => {
     });
   }
 
+  // Sales Module
+  if (hasFullAccess || hasRole(role, 'FINANCIAL_MANAGER') || hasRole(role, 'SALES') || permissions.includes('sales') || permissions.includes('invoices')) {
+    modules.push({
+      id: 'sales',
+      name: isArabic ? 'المبيعات CRM' : 'Sales CRM',
+      icon: <TrendingUp />,
+    });
+  }
+
   // Purchases Module
   if (hasFullAccess || hasRole(role, 'FINANCIAL_MANAGER') || permissions.includes('purchases')) {
     modules.push({
