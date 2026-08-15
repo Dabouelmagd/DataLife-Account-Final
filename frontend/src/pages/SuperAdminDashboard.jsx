@@ -381,7 +381,7 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b pb-2">
+      <div className="flex gap-2 border-b pb-2 overflow-x-auto flex-nowrap scrollbar-hide">
         <Button
           variant={activeTab === 'companies' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('companies')}
@@ -445,6 +445,30 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
         >
           <Users className="w-4 h-4 mr-2" />
           {text.users}
+        </Button>
+        <Button
+          variant={activeTab === 'subscriptions' ? 'default' : 'ghost'}
+          className={activeTab === 'subscriptions' ? 'bg-blue-700 hover:bg-blue-800' : ''}
+          onClick={() => setActiveTab('subscriptions')}
+        >
+          <span>💳</span>
+          {language === 'ar' ? 'الاشتراكات' : 'Subscriptions'}
+        </Button>
+        <Button
+          variant={activeTab === 'health' ? 'default' : 'ghost'}
+          className={activeTab === 'health' ? 'bg-emerald-700 hover:bg-emerald-800' : ''}
+          onClick={() => setActiveTab('health')}
+        >
+          <span>🩺</span>
+          {language === 'ar' ? 'صحة النظام' : 'System Health'}
+        </Button>
+        <Button
+          variant={activeTab === 'ads' ? 'default' : 'ghost'}
+          className={activeTab === 'ads' ? 'bg-orange-700 hover:bg-orange-800' : ''}
+          onClick={() => setActiveTab('ads')}
+        >
+          <span>📢</span>
+          {language === 'ar' ? 'الإعلانات' : 'Ads'}
         </Button>
       </div>
 
