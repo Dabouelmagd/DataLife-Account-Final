@@ -326,168 +326,434 @@ const ProjectsModule = () => {
   };
 
   // Print project summary
-  const handlePrintProject = (project) => {
-    const printWindow = window.open('', '_blank');
+  const handlePrintProject = async (project) => {
     const projectTasks = tasks.filter(t => t.project_id === project.id);
-    const content = `
+
+    // ── Fetch financial data ──────────────────────────────
+    let financials = null;
+    try {
+      const res = await fetch(
+        `${API_URL}/api/projects/${project.id}/financials`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) financials = await res.json();
+    } catch {}
+
+    const expenses     = financials?.expenses || [];
+    const revenues     = financials?.revenues || [];
+    const totalExp     = financials?.total_expenses || 0;
+    const totalRev     = financials?.total_revenues || 0;
+    const profitLoss   = financials?.profit_loss || 0;
+    const budget       = project.budget || 0;
+
+    const fmt = (n) => Number(n || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+
+    const EXP_CAT = {
+      labor:'عمالة', materials:'مواد', equipment:'معدات', subcontractor:'مقاول فرعي',
+      consulting:'استشارات', transportation:'نقل', utilities:'مرافق', permits:'تصاريح',
+      insurance:'تأمين', other:'أخرى'
+    };
+    const REV_CAT = {
+      payment:'دفعة عميل', advance:'دفعة مقدمة', milestone:'مستخلص',
+      final_payment:'دفعة نهائية', variation:'أعمال إضافية', other:'أخرى'
+    };
+
+    const expenseRows = expenses.map(e => `
+      <tr>
+        <td>${e.date || '—'}</td>
+        <td>${isRTL ? (EXP_CAT[e.category] || e.category) : e.category}</td>
+        <td>${e.description || '—'}</td>
+        <td style="text-align:left">${fmt(e.amount)} ج.م</td>
+      </tr>`).join('');
+
+    const revenueRows = revenues.map(r => `
+      <tr>
+        <td>${r.date || '—'}</td>
+        <td>${isRTL ? (REV_CAT[r.category] || r.category) : r.category}</td>
+        <td>${r.description || '—'}</td>
+        <td style="text-align:left">${fmt(r.amount)} ج.م</td>
+      </tr>`).join('');
+
+    const printContent = `
       <!DOCTYPE html>
       <html dir="${isRTL ? 'rtl' : 'ltr'}">
       <head>
+        <meta charset="UTF-8">
         <title>${project.name}</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'}; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-          .header h1 { margin: 0; color: #1a365d; }
-          .progress-bar { height: 20px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 10px 0; }
-          .progress-fill { height: 100%; background: #48bb78; border-radius: 10px; }
-          .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
-          .stat-card { background: #ebf8ff; padding: 15px; border-radius: 8px; text-align: center; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'}; }
-          th { background: #edf2f7; }
-          .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-          .footer { margin-top: 40px; text-align: center; color: #718096; font-size: 12px; }
-          @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; padding: 24px; direction: ${isRTL ? 'rtl' : 'ltr'}; color: #1a202c; font-size: 13px; }
+          .header { text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid #1e3a8a; }
+          .header h1 { font-size: 22px; color: #1e3a8a; margin-bottom: 4px; }
+          .header p  { color: #4a5568; font-size: 12px; }
+          .section { margin-bottom: 24px; }
+          .section-title { font-size: 15px; font-weight: bold; color: #1e3a8a; border-bottom: 2px solid #bee3f8; padding-bottom: 6px; margin-bottom: 12px; }
+          .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
+          .kpi { background: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; padding: 12px; text-align: center; }
+          .kpi .val { font-size: 18px; font-weight: 900; color: #1e3a8a; }
+          .kpi .lbl { font-size: 11px; color: #4a5568; margin-top: 2px; }
+          .kpi.profit  { background: #f0fff4; border-color: #9ae6b4; }
+          .kpi.loss    { background: #fff5f5; border-color: #fed7d7; }
+          .kpi.neutral { background: #f7fafc; border-color: #e2e8f0; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          th, td { border: 1px solid #e2e8f0; padding: 8px 10px; }
+          th { background: #edf2f7; font-weight: bold; color: #2d3748; }
+          tr:nth-child(even) { background: #f7fafc; }
+          .total-row { background: #ebf8ff !important; font-weight: bold; }
+          .profit-row { background: #f0fff4 !important; font-weight: bold; color: #276749; }
+          .loss-row   { background: #fff5f5 !important; font-weight: bold; color: #c53030; }
+          .progress-bar { height: 16px; background: #e2e8f0; border-radius: 8px; overflow: hidden; margin: 8px 0; }
+          .progress-fill { height: 100%; background: #48bb78; border-radius: 8px; }
+          .footer { margin-top: 40px; text-align: center; color: #718096; font-size: 11px; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+          @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         </style>
       </head>
       <body>
+
+        <!-- HEADER -->
         <div class="header">
           <h1>${project.name}</h1>
           <p>${project.description || ''}</p>
+          <p style="margin-top:6px; font-size:11px; color:#718096">
+            ${isRTL ? 'تاريخ التقرير:' : 'Report Date:'} ${new Date().toLocaleDateString('ar-EG')}
+            &nbsp;|&nbsp;
+            ${isRTL ? 'حالة المشروع:' : 'Status:'} ${project.status || '—'}
+            ${project.start_date ? `&nbsp;|&nbsp; ${isRTL?'البداية:':'Start:'} ${project.start_date}` : ''}
+            ${project.end_date   ? `&nbsp;|&nbsp; ${isRTL?'النهاية:':'End:'} ${project.end_date}` : ''}
+          </p>
         </div>
-        
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${project.progress || 0}%"></div>
-        </div>
-        <p style="text-align: center">${isRTL ? 'التقدم' : 'Progress'}: ${project.progress || 0}%</p>
-        
-        <div class="stats">
-          <div class="stat-card">
-            <h3>${projectTasks.length}</h3>
-            <p>${isRTL ? 'إجمالي المهام' : 'Total Tasks'}</p>
-          </div>
-          <div class="stat-card">
-            <h3>${projectTasks.filter(t => t.status === 'completed').length}</h3>
-            <p>${isRTL ? 'مكتملة' : 'Completed'}</p>
-          </div>
-          <div class="stat-card">
-            <h3>${projectTasks.filter(t => t.status === 'in_progress').length}</h3>
-            <p>${isRTL ? 'جارية' : 'In Progress'}</p>
-          </div>
-          <div class="stat-card">
-            <h3>${projectTasks.filter(t => t.status === 'todo').length}</h3>
-            <p>${isRTL ? 'قيد الانتظار' : 'To Do'}</p>
+
+        <!-- PROGRESS -->
+        <div class="section">
+          <p style="font-weight:bold; margin-bottom:6px">${isRTL ? 'التقدم:' : 'Progress:'} ${project.progress || 0}%</p>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:${Math.min(100, project.progress || 0)}%"></div>
           </div>
         </div>
-        
-        <h3>${isRTL ? 'المهام' : 'Tasks'}</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>${isRTL ? 'المهمة' : 'Task'}</th>
-              <th>${isRTL ? 'الحالة' : 'Status'}</th>
-              <th>${isRTL ? 'الأولوية' : 'Priority'}</th>
-              <th>${isRTL ? 'تاريخ الاستحقاق' : 'Due Date'}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${projectTasks.map(t => `
+
+        <!-- FINANCIAL KPIs -->
+        <div class="kpis">
+          <div class="kpi">
+            <div class="val">${fmt(totalRev)} ج.م</div>
+            <div class="lbl">${isRTL ? 'إجمالي الإيرادات' : 'Total Revenue'}</div>
+          </div>
+          <div class="kpi">
+            <div class="val">${fmt(totalExp)} ج.م</div>
+            <div class="lbl">${isRTL ? 'إجمالي المصروفات' : 'Total Expenses'}</div>
+          </div>
+          <div class="kpi ${profitLoss >= 0 ? 'profit' : 'loss'}">
+            <div class="val" style="color:${profitLoss >= 0 ? '#276749' : '#c53030'}">${fmt(Math.abs(profitLoss))} ج.م</div>
+            <div class="lbl">${profitLoss >= 0 ? (isRTL?'صافي الربح':'Net Profit') : (isRTL?'صافي الخسارة':'Net Loss')}</div>
+          </div>
+          <div class="kpi neutral">
+            <div class="val">${fmt(budget)} ج.م</div>
+            <div class="lbl">${isRTL ? 'الميزانية المعتمدة' : 'Approved Budget'}</div>
+          </div>
+        </div>
+
+        <!-- REVENUES TABLE -->
+        <div class="section">
+          <div class="section-title">💰 ${isRTL ? 'الإيرادات' : 'Revenues'} (${revenues.length})</div>
+          ${revenues.length === 0 ? `<p style="color:#718096; font-size:12px">${isRTL?'لا توجد إيرادات مسجلة':'No revenues recorded'}</p>` : `
+          <table>
+            <thead>
               <tr>
-                <td>${t.title}</td>
-                <td>${t.status}</td>
-                <td>${t.priority}</td>
-                <td>${t.due_date || '-'}</td>
+                <th>${isRTL ? 'التاريخ' : 'Date'}</th>
+                <th>${isRTL ? 'النوع' : 'Category'}</th>
+                <th>${isRTL ? 'الوصف' : 'Description'}</th>
+                <th>${isRTL ? 'المبلغ' : 'Amount'}</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        
-        <div class="footer"><p>DataLife Account ERP System - ${new Date().toLocaleDateString()}</p></div>
+            </thead>
+            <tbody>
+              ${revenueRows}
+              <tr class="total-row">
+                <td colspan="3">${isRTL ? 'إجمالي الإيرادات' : 'Total Revenues'}</td>
+                <td>${fmt(totalRev)} ج.م</td>
+              </tr>
+            </tbody>
+          </table>`}
+        </div>
+
+        <!-- EXPENSES TABLE -->
+        <div class="section">
+          <div class="section-title">📋 ${isRTL ? 'المصروفات' : 'Expenses'} (${expenses.length})</div>
+          ${expenses.length === 0 ? `<p style="color:#718096; font-size:12px">${isRTL?'لا توجد مصروفات مسجلة':'No expenses recorded'}</p>` : `
+          <table>
+            <thead>
+              <tr>
+                <th>${isRTL ? 'التاريخ' : 'Date'}</th>
+                <th>${isRTL ? 'التصنيف' : 'Category'}</th>
+                <th>${isRTL ? 'الوصف' : 'Description'}</th>
+                <th>${isRTL ? 'المبلغ' : 'Amount'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${expenseRows}
+              <tr class="total-row">
+                <td colspan="3">${isRTL ? 'إجمالي المصروفات' : 'Total Expenses'}</td>
+                <td>${fmt(totalExp)} ج.م</td>
+              </tr>
+            </tbody>
+          </table>`}
+        </div>
+
+        <!-- PROFIT/LOSS SUMMARY -->
+        <div class="section">
+          <div class="section-title">📊 ${isRTL ? 'ملخص الربح والخسارة' : 'Profit & Loss Summary'}</div>
+          <table>
+            <tbody>
+              <tr>
+                <td>${isRTL ? 'إجمالي الإيرادات' : 'Total Revenues'}</td>
+                <td style="text-align:left; font-weight:bold; color:#276749">${fmt(totalRev)} ج.م</td>
+              </tr>
+              <tr>
+                <td>${isRTL ? 'إجمالي المصروفات' : 'Total Expenses'}</td>
+                <td style="text-align:left; font-weight:bold; color:#c53030">${fmt(totalExp)} ج.م</td>
+              </tr>
+              <tr class="${profitLoss >= 0 ? 'profit-row' : 'loss-row'}">
+                <td>${profitLoss >= 0 ? (isRTL?'صافي الربح':'Net Profit') : (isRTL?'صافي الخسارة':'Net Loss')}</td>
+                <td style="text-align:left">${fmt(Math.abs(profitLoss))} ج.م</td>
+              </tr>
+              ${budget > 0 ? `
+              <tr>
+                <td>${isRTL ? 'الميزانية المعتمدة' : 'Approved Budget'}</td>
+                <td style="text-align:left">${fmt(budget)} ج.م</td>
+              </tr>
+              <tr>
+                <td>${isRTL ? 'المتبقي من الميزانية' : 'Budget Remaining'}</td>
+                <td style="text-align:left; font-weight:bold">${fmt(budget - totalExp)} ج.م</td>
+              </tr>` : ''}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- TASKS TABLE -->
+        <div class="section">
+          <div class="section-title">✅ ${isRTL ? 'المهام' : 'Tasks'} (${projectTasks.length})</div>
+          ${projectTasks.length === 0 ? `<p style="color:#718096; font-size:12px">${isRTL?'لا توجد مهام':'No tasks'}</p>` : `
+          <table>
+            <thead>
+              <tr>
+                <th>${isRTL ? 'المهمة' : 'Task'}</th>
+                <th>${isRTL ? 'الحالة' : 'Status'}</th>
+                <th>${isRTL ? 'الأولوية' : 'Priority'}</th>
+                <th>${isRTL ? 'تاريخ الاستحقاق' : 'Due Date'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${projectTasks.map(t => `
+                <tr>
+                  <td>${t.title || '—'}</td>
+                  <td>${t.status || '—'}</td>
+                  <td>${t.priority || '—'}</td>
+                  <td>${t.due_date || '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`}
+        </div>
+
+        <div class="footer">
+          <p>DataLife Account ERP — datalifeaccount.com | ${new Date().toLocaleDateString('ar-EG', {year:'numeric',month:'long',day:'numeric'})}</p>
+        </div>
+
       </body>
-      </html>
-    `;
-    printWindow.document.write(content);
+      </html>`;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.onload = () => printWindow.print();
   };
 
   // Export project to PDF
-  const handleExportProjectPDF = (project) => {
+    // Export project to PDF (html2pdf with full financial data)
+  const handleExportProjectPDF = async (project) => {
     const projectTasks = tasks.filter(t => t.project_id === project.id);
-    const content = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'};">
-        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
-          <h1 style="margin: 0; color: #1a365d;">${project.name}</h1>
-          <p style="margin: 10px 0; color: #4a5568;">${project.description || ''}</p>
+
+    // Fetch financial data
+    let financials = null;
+    try {
+      const res = await fetch(
+        `${API_URL}/api/projects/${project.id}/financials`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) financials = await res.json();
+    } catch {}
+
+    const expenses   = financials?.expenses || [];
+    const revenues   = financials?.revenues || [];
+    const totalExp   = financials?.total_expenses || 0;
+    const totalRev   = financials?.total_revenues || 0;
+    const profitLoss = financials?.profit_loss || 0;
+    const budget     = project.budget || 0;
+
+    const fmt = (n) => Number(n || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+
+    const EXP_CAT = { labor:'عمالة', materials:'مواد', equipment:'معدات', subcontractor:'مقاول فرعي', consulting:'استشارات', transportation:'نقل', utilities:'مرافق', permits:'تصاريح', insurance:'تأمين', other:'أخرى' };
+    const REV_CAT = { payment:'دفعة عميل', advance:'دفعة مقدمة', milestone:'مستخلص', final_payment:'دفعة نهائية', variation:'أعمال إضافية', other:'أخرى' };
+
+    const tableStyle = 'width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px';
+    const thStyle    = 'border:1px solid #e2e8f0;padding:8px 10px;background:#edf2f7;font-weight:bold;';
+    const tdStyle    = 'border:1px solid #e2e8f0;padding:8px 10px;';
+
+    const pdfContent = `
+      <div style="font-family:Arial,sans-serif;padding:20px;direction:${isRTL?'rtl':'ltr'};color:#1a202c;">
+
+        <div style="text-align:center;margin-bottom:20px;padding-bottom:12px;border-bottom:3px solid #1e3a8a;">
+          <h1 style="margin:0;color:#1e3a8a;font-size:20px">${project.name}</h1>
+          <p style="color:#4a5568;font-size:12px;margin-top:4px">${project.description || ''}</p>
+          <p style="color:#718096;font-size:11px;margin-top:4px">
+            ${isRTL?'تاريخ التقرير:':'Report Date:'} ${new Date().toLocaleDateString('ar-EG')} |
+            ${isRTL?'الحالة:':'Status:'} ${project.status || '—'}
+          </p>
         </div>
-        
-        <div style="height: 20px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 20px 0;">
-          <div style="height: 100%; background: #48bb78; border-radius: 10px; width: ${project.progress || 0}%;"></div>
-        </div>
-        <p style="text-align: center; margin-bottom: 20px;">${isRTL ? 'التقدم' : 'Progress'}: ${project.progress || 0}%</p>
-        
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-          <div style="flex: 1; background: #ebf8ff; padding: 15px; border-radius: 8px; text-align: center;">
-            <h3 style="margin: 0; font-size: 24px; color: #2b6cb0;">${projectTasks.length}</h3>
-            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'إجمالي المهام' : 'Total Tasks'}</p>
+
+        <!-- KPIs -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
+          <div style="background:#ebf8ff;border:1px solid #bee3f8;border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:16px;font-weight:900;color:#1e3a8a">${fmt(totalRev)} ج.م</div>
+            <div style="font-size:10px;color:#4a5568;margin-top:2px">${isRTL?'إجمالي الإيرادات':'Total Revenue'}</div>
           </div>
-          <div style="flex: 1; background: #c6f6d5; padding: 15px; border-radius: 8px; text-align: center;">
-            <h3 style="margin: 0; font-size: 24px; color: #276749;">${projectTasks.filter(t => t.status === 'completed').length}</h3>
-            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'مكتملة' : 'Completed'}</p>
+          <div style="background:#ebf8ff;border:1px solid #bee3f8;border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:16px;font-weight:900;color:#1e3a8a">${fmt(totalExp)} ج.م</div>
+            <div style="font-size:10px;color:#4a5568;margin-top:2px">${isRTL?'إجمالي المصروفات':'Total Expenses'}</div>
           </div>
-          <div style="flex: 1; background: #fefcbf; padding: 15px; border-radius: 8px; text-align: center;">
-            <h3 style="margin: 0; font-size: 24px; color: #975a16;">${projectTasks.filter(t => t.status === 'in_progress').length}</h3>
-            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'جارية' : 'In Progress'}</p>
+          <div style="background:${profitLoss>=0?'#f0fff4':'#fff5f5'};border:1px solid ${profitLoss>=0?'#9ae6b4':'#fed7d7'};border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:16px;font-weight:900;color:${profitLoss>=0?'#276749':'#c53030'}">${fmt(Math.abs(profitLoss))} ج.م</div>
+            <div style="font-size:10px;color:#4a5568;margin-top:2px">${profitLoss>=0?(isRTL?'صافي الربح':'Net Profit'):(isRTL?'صافي الخسارة':'Net Loss')}</div>
           </div>
-          <div style="flex: 1; background: #e9d8fd; padding: 15px; border-radius: 8px; text-align: center;">
-            <h3 style="margin: 0; font-size: 24px; color: #553c9a;">${projectTasks.filter(t => t.status === 'todo').length}</h3>
-            <p style="margin: 5px 0 0; color: #4a5568;">${isRTL ? 'قيد الانتظار' : 'To Do'}</p>
+          <div style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:16px;font-weight:900;color:#1e3a8a">${fmt(budget)} ج.م</div>
+            <div style="font-size:10px;color:#4a5568;margin-top:2px">${isRTL?'الميزانية':'Budget'}</div>
           </div>
         </div>
-        
-        <h3 style="margin-bottom: 10px;">${isRTL ? 'المهام' : 'Tasks'}</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="background: #edf2f7;">
-              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'المهمة' : 'Task'}</th>
-              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'الحالة' : 'Status'}</th>
-              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'الأولوية' : 'Priority'}</th>
-              <th style="border: 1px solid #e2e8f0; padding: 10px; text-align: ${isRTL ? 'right' : 'left'};">${isRTL ? 'تاريخ الاستحقاق' : 'Due Date'}</th>
-            </tr>
-          </thead>
+
+        <!-- REVENUES -->
+        <h3 style="color:#1e3a8a;border-bottom:2px solid #bee3f8;padding-bottom:6px;margin-bottom:10px;font-size:14px">
+          💰 ${isRTL?'الإيرادات':'Revenues'} (${revenues.length})
+        </h3>
+        ${revenues.length === 0
+          ? `<p style="color:#718096;font-size:12px;margin-bottom:16px">${isRTL?'لا توجد إيرادات مسجلة':'No revenues recorded'}</p>`
+          : `<table style="${tableStyle}">
+              <thead><tr>
+                <th style="${thStyle}">${isRTL?'التاريخ':'Date'}</th>
+                <th style="${thStyle}">${isRTL?'النوع':'Category'}</th>
+                <th style="${thStyle}">${isRTL?'الوصف':'Description'}</th>
+                <th style="${thStyle}">${isRTL?'المبلغ':'Amount'}</th>
+              </tr></thead>
+              <tbody>
+                ${revenues.map(r => `<tr>
+                  <td style="${tdStyle}">${r.date||'—'}</td>
+                  <td style="${tdStyle}">${isRTL?(REV_CAT[r.category]||r.category):r.category}</td>
+                  <td style="${tdStyle}">${r.description||'—'}</td>
+                  <td style="${tdStyle};font-weight:bold;color:#276749">${fmt(r.amount)} ج.م</td>
+                </tr>`).join('')}
+                <tr style="background:#f0fff4">
+                  <td colspan="3" style="${tdStyle};font-weight:bold">${isRTL?'إجمالي الإيرادات':'Total Revenues'}</td>
+                  <td style="${tdStyle};font-weight:bold;color:#276749">${fmt(totalRev)} ج.م</td>
+                </tr>
+              </tbody>
+            </table>`}
+
+        <!-- EXPENSES -->
+        <h3 style="color:#1e3a8a;border-bottom:2px solid #bee3f8;padding-bottom:6px;margin-bottom:10px;font-size:14px">
+          📋 ${isRTL?'المصروفات':'Expenses'} (${expenses.length})
+        </h3>
+        ${expenses.length === 0
+          ? `<p style="color:#718096;font-size:12px;margin-bottom:16px">${isRTL?'لا توجد مصروفات مسجلة':'No expenses recorded'}</p>`
+          : `<table style="${tableStyle}">
+              <thead><tr>
+                <th style="${thStyle}">${isRTL?'التاريخ':'Date'}</th>
+                <th style="${thStyle}">${isRTL?'التصنيف':'Category'}</th>
+                <th style="${thStyle}">${isRTL?'الوصف':'Description'}</th>
+                <th style="${thStyle}">${isRTL?'المبلغ':'Amount'}</th>
+              </tr></thead>
+              <tbody>
+                ${expenses.map(e => `<tr>
+                  <td style="${tdStyle}">${e.date||'—'}</td>
+                  <td style="${tdStyle}">${isRTL?(EXP_CAT[e.category]||e.category):e.category}</td>
+                  <td style="${tdStyle}">${e.description||'—'}</td>
+                  <td style="${tdStyle};font-weight:bold;color:#c53030">${fmt(e.amount)} ج.م</td>
+                </tr>`).join('')}
+                <tr style="background:#fff5f5">
+                  <td colspan="3" style="${tdStyle};font-weight:bold">${isRTL?'إجمالي المصروفات':'Total Expenses'}</td>
+                  <td style="${tdStyle};font-weight:bold;color:#c53030">${fmt(totalExp)} ج.م</td>
+                </tr>
+              </tbody>
+            </table>`}
+
+        <!-- P&L SUMMARY -->
+        <h3 style="color:#1e3a8a;border-bottom:2px solid #bee3f8;padding-bottom:6px;margin-bottom:10px;font-size:14px">
+          📊 ${isRTL?'ملخص الربح والخسارة':'Profit & Loss'}
+        </h3>
+        <table style="${tableStyle}">
           <tbody>
-            ${projectTasks.map(t => `
-              <tr>
-                <td style="border: 1px solid #e2e8f0; padding: 10px;">${t.title}</td>
-                <td style="border: 1px solid #e2e8f0; padding: 10px;">${t.status}</td>
-                <td style="border: 1px solid #e2e8f0; padding: 10px;">${t.priority}</td>
-                <td style="border: 1px solid #e2e8f0; padding: 10px;">${t.due_date || '-'}</td>
-              </tr>
-            `).join('')}
+            <tr><td style="${tdStyle}">${isRTL?'إجمالي الإيرادات':'Revenues'}</td><td style="${tdStyle};font-weight:bold;color:#276749">${fmt(totalRev)} ج.م</td></tr>
+            <tr><td style="${tdStyle}">${isRTL?'إجمالي المصروفات':'Expenses'}</td><td style="${tdStyle};font-weight:bold;color:#c53030">${fmt(totalExp)} ج.م</td></tr>
+            <tr style="background:${profitLoss>=0?'#f0fff4':'#fff5f5'}">
+              <td style="${tdStyle};font-weight:bold">${profitLoss>=0?(isRTL?'صافي الربح':'Net Profit'):(isRTL?'صافي الخسارة':'Net Loss')}</td>
+              <td style="${tdStyle};font-weight:bold;color:${profitLoss>=0?'#276749':'#c53030'}">${fmt(Math.abs(profitLoss))} ج.م</td>
+            </tr>
+            ${budget > 0 ? `
+            <tr><td style="${tdStyle}">${isRTL?'الميزانية المعتمدة':'Approved Budget'}</td><td style="${tdStyle}">${fmt(budget)} ج.م</td></tr>
+            <tr><td style="${tdStyle}">${isRTL?'المتبقي من الميزانية':'Budget Remaining'}</td><td style="${tdStyle};font-weight:bold">${fmt(budget - totalExp)} ج.م</td></tr>` : ''}
           </tbody>
         </table>
-        
-        <div style="margin-top: 40px; text-align: center; color: #718096; font-size: 12px;">
-          <p>DataLife Account ERP System - ${new Date().toLocaleDateString()}</p>
+
+        <!-- TASKS -->
+        <h3 style="color:#1e3a8a;border-bottom:2px solid #bee3f8;padding-bottom:6px;margin-bottom:10px;font-size:14px">
+          ✅ ${isRTL?'المهام':'Tasks'} (${projectTasks.length})
+        </h3>
+        ${projectTasks.length === 0
+          ? `<p style="color:#718096;font-size:12px">${isRTL?'لا توجد مهام':'No tasks'}</p>`
+          : `<table style="${tableStyle}">
+              <thead><tr>
+                <th style="${thStyle}">${isRTL?'المهمة':'Task'}</th>
+                <th style="${thStyle}">${isRTL?'الحالة':'Status'}</th>
+                <th style="${thStyle}">${isRTL?'الأولوية':'Priority'}</th>
+                <th style="${thStyle}">${isRTL?'الاستحقاق':'Due Date'}</th>
+              </tr></thead>
+              <tbody>
+                ${projectTasks.map(t => `<tr>
+                  <td style="${tdStyle}">${t.title||'—'}</td>
+                  <td style="${tdStyle}">${t.status||'—'}</td>
+                  <td style="${tdStyle}">${t.priority||'—'}</td>
+                  <td style="${tdStyle}">${t.due_date||'—'}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>`}
+
+        <div style="margin-top:32px;text-align:center;color:#718096;font-size:11px;border-top:1px solid #e2e8f0;padding-top:10px">
+          DataLife Account ERP — datalifeaccount.com | ${new Date().toLocaleDateString('ar-EG', {year:'numeric',month:'long',day:'numeric'})}
         </div>
-      </div>
-    `;
-    
-    const element = document.createElement('div');
-    element.innerHTML = content;
-    
-    const opt = {
-      margin: 10,
-      filename: `project_${project.name.replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    
-    html2pdf().set(opt).from(element).save();
-    toast.success(isRTL ? 'تم تصدير المشروع PDF' : 'Project exported as PDF');
+      </div>`;
+
+    // Use html2pdf if available, fallback to print
+    if (window.html2pdf) {
+      const element = document.createElement('div');
+      element.innerHTML = pdfContent;
+      document.body.appendChild(element);
+      const opt = {
+        margin: 8,
+        filename: `project_${project.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(element).save().then(() => {
+        document.body.removeChild(element);
+      });
+    } else {
+      // Fallback: print dialog
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:0}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>${pdfContent}</body></html>`);
+      printWindow.document.close();
+      printWindow.onload = () => printWindow.print();
+    }
+    toast.success(isRTL ? 'تم تصدير التقرير المالي للمشروع' : 'Project financial report exported');
   };
 
+  
   const handleUpdateTask = async (taskId, updates) => {
     try {
       await axios.put(
