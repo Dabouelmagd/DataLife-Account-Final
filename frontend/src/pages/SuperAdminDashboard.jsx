@@ -251,11 +251,18 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
 
   // Filter users
   const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+    const matchesSearch =
       user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesSearch;
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.company_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === 'all'       ? true :
+      statusFilter === 'active'    ? user.is_active !== false :
+      statusFilter === 'suspended' ? user.is_active === false :
+      true;
+
+    return matchesSearch && matchesStatus;
   });
 
   const getStatusBadge = (company) => {
@@ -820,111 +827,212 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
 
       {activeTab === 'users' && (
         <div className="space-y-4">
+
+          {/* Summary bar */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: language==='ar'?'إجمالي المستخدمين':'Total Users',  value: users.length,                                    color:'text-blue-700',   bg:'bg-blue-50' },
+              { label: language==='ar'?'نشط':'Active',                      value: users.filter(u=>u.is_active!==false).length,     color:'text-green-700',  bg:'bg-green-50' },
+              { label: language==='ar'?'موقوف':'Suspended',                  value: users.filter(u=>u.is_active===false).length,     color:'text-red-700',    bg:'bg-red-50' },
+            ].map((s,i) => (
+              <div key={i} className={`${s.bg} rounded-xl p-3 text-center`}>
+                <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
           {loading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex justify-center py-12">
               <RefreshCw className="w-8 h-8 animate-spin text-purple-600" />
             </div>
           ) : filteredUsers.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <div className="text-center py-12 text-gray-400">
+              <Users className="w-12 h-12 mx-auto mb-2 opacity-30" />
               <p>{text.noUsers}</p>
             </div>
           ) : (() => {
-            // Group users by company
+            // Group by company
             const grouped = {};
             filteredUsers.forEach(user => {
-              const companyId = user.company_id || '__platform__';
-              if (!grouped[companyId]) grouped[companyId] = [];
-              grouped[companyId].push(user);
+              const key = user.company_id || '__platform__';
+              if (!grouped[key]) grouped[key] = [];
+              grouped[key].push(user);
             });
+
             return Object.entries(grouped).map(([companyId, companyUsers]) => {
               const company = companies.find(c => c.id === companyId);
               const companyName = companyId === '__platform__'
-                ? (language === 'ar' ? '🛡️ مستخدمو المنصة (Super Admins)' : '🛡️ Platform Users (Super Admins)')
-                : (company?.name || (language === 'ar' ? 'شركة غير معروفة' : 'Unknown Company'));
+                ? (language==='ar' ? '🛡️ مستخدمو المنصة (Super Admins)' : '🛡️ Platform Users (Super Admins)')
+                : (company?.name || companyUsers[0]?.company_name || (language==='ar'?'شركة غير معروفة':'Unknown Company'));
               const isExpanded = expandedCompany === companyId;
+              const activeInGroup = companyUsers.filter(u => u.is_active !== false).length;
+
               return (
-                <Card key={companyId} className="overflow-hidden">
-                  {/* Company Header */}
+                <Card key={companyId} className="overflow-hidden border border-gray-100">
+
+                  {/* Company header — clickable */}
                   <div
-                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => setExpandedCompany(isExpanded ? null : companyId)}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${companyId === '__platform__' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {companyId === '__platform__' ? <Shield className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${companyId==='__platform__'?'bg-purple-100 text-purple-700':'bg-blue-100 text-blue-700'}`}>
+                        {companyId==='__platform__' ? <Shield className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
                       </div>
                       <div>
-                        <h3 className="font-bold text-gray-900 dark:text-white">{companyName}</h3>
-                        <p className="text-sm text-gray-500">
-                          {companyUsers.length} {language === 'ar' ? 'مستخدم' : 'users'}
-                          {company?.subscription_type && (
-                            <span className="mx-2">·</span>
-                          )}
-                          {company?.subscription_type && (
-                            <span className="text-purple-600 font-medium">{company.subscription_type}</span>
+                        <h3 className="font-bold text-gray-900">{companyName}</h3>
+                        <p className="text-xs text-gray-500">
+                          {companyUsers.length} {language==='ar'?'مستخدم':'users'}
+                          <span className="mx-1.5">·</span>
+                          <span className="text-green-600 font-medium">{activeInGroup} {language==='ar'?'نشط':'active'}</span>
+                          {company?.subscription_plan && (
+                            <><span className="mx-1.5">·</span>
+                            <span className="text-purple-600 font-medium capitalize">{company.subscription_plan}</span></>
                           )}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {company && (
-                        <Badge className={company.is_active !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
-                          {company.is_active !== false ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'موقوف' : 'Suspended')}
+                        <Badge className={company.is_active!==false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                          {company.is_active!==false ? (language==='ar'?'نشط':'Active') : (language==='ar'?'موقوف':'Suspended')}
                         </Badge>
                       )}
-                      {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                      {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                     </div>
                   </div>
 
-                  {/* Users List */}
+                  {/* Users table */}
                   {isExpanded && (
-                    <div className="border-t border-gray-100 dark:border-gray-700">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                            <TableHead className="text-xs">{language === 'ar' ? 'الاسم' : 'Name'}</TableHead>
-                            <TableHead className="text-xs">{text.email}</TableHead>
-                            <TableHead className="text-xs">{text.role}</TableHead>
-                            <TableHead className="text-xs">{text.status}</TableHead>
-                            <TableHead className="text-xs">{text.actions}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {companyUsers.map((user) => (
-                            <TableRow key={user.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800 ${user.is_active === false ? 'opacity-60' : ''}`}>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${user.is_active === false ? 'bg-gray-400' : 'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
-                                    {user.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
-                                  </div>
-                                  <span className="font-medium text-sm">{user.full_name}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-sm text-gray-600">{user.email}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="text-xs">{user.role}</Badge>
-                              </TableCell>
-                              <TableCell>
-                                {user.is_active === false ? (
-                                  <Badge className="bg-red-100 text-red-700 text-xs flex items-center gap-1 w-fit">
-                                    <XCircle className="w-3 h-3" />{text.suspended}
-                                  </Badge>
-                                ) : (
-                                  <Badge className="bg-green-100 text-green-700 text-xs flex items-center gap-1 w-fit">
-                                    <CheckCircle className="w-3 h-3" />{text.active}
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" title={text.edit}>
-                                  <Edit2 className="w-3 h-3" />
-                                </Button>
-                              </TableCell>
+                    <div className="border-t border-gray-100">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-gray-50">
+                              <TableHead className="text-xs">{language==='ar'?'المستخدم':'User'}</TableHead>
+                              <TableHead className="text-xs">{language==='ar'?'البريد':'Email'}</TableHead>
+                              <TableHead className="text-xs">{language==='ar'?'الهاتف':'Phone'}</TableHead>
+                              <TableHead className="text-xs">{language==='ar'?'الدور':'Role'}</TableHead>
+                              <TableHead className="text-xs">{language==='ar'?'الصلاحيات':'Permissions'}</TableHead>
+                              <TableHead className="text-xs">{language==='ar'?'آخر دخول':'Last Login'}</TableHead>
+                              <TableHead className="text-xs">{language==='ar'?'الحالة':'Status'}</TableHead>
+                              <TableHead className="text-xs">{language==='ar'?'الإجراءات':'Actions'}</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {companyUsers.map(user => (
+                              <TableRow key={user.id}
+                                className={`hover:bg-gray-50 ${user.is_active===false?'opacity-60 bg-red-50/20':''}`}>
+
+                                {/* Avatar + name */}
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${user.is_active===false?'bg-gray-400':'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
+                                      {user.full_name?.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2)||'U'}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-sm truncate max-w-[120px]">{user.full_name}</p>
+                                      {user.employee_id && <p className="text-xs text-gray-400">{user.employee_id}</p>}
+                                    </div>
+                                  </div>
+                                </TableCell>
+
+                                {/* Email */}
+                                <TableCell className="text-sm text-gray-600">
+                                  <p className="truncate max-w-[160px]">{user.email}</p>
+                                </TableCell>
+
+                                {/* Phone */}
+                                <TableCell className="text-sm text-gray-500">
+                                  {user.phone || '—'}
+                                </TableCell>
+
+                                {/* Role */}
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs capitalize whitespace-nowrap">
+                                    {user.role?.replace(/_/g,' ') || '—'}
+                                  </Badge>
+                                </TableCell>
+
+                                {/* Permissions count */}
+                                <TableCell className="text-center">
+                                  <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">
+                                    {user.permissions?.length || 0}
+                                  </span>
+                                </TableCell>
+
+                                {/* Last login */}
+                                <TableCell className="text-xs text-gray-400 whitespace-nowrap">
+                                  {user.last_login
+                                    ? new Date(user.last_login).toLocaleDateString(language==='ar'?'ar-EG':'en-US')
+                                    : '—'}
+                                </TableCell>
+
+                                {/* Status */}
+                                <TableCell>
+                                  {user.is_active===false ? (
+                                    <Badge className="bg-red-100 text-red-700 text-xs">
+                                      ❌ {language==='ar'?'موقوف':'Suspended'}
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-green-100 text-green-700 text-xs">
+                                      ✅ {language==='ar'?'نشط':'Active'}
+                                    </Badge>
+                                  )}
+                                </TableCell>
+
+                                {/* Actions */}
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    {/* Toggle active/suspended */}
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          const res = await fetch(`${API_URL}/api/admin/users/${user.id}/toggle`, {
+                                            method: 'PUT', headers
+                                          });
+                                          if (res.ok) {
+                                            toast.success(user.is_active!==false
+                                              ? (language==='ar'?'✅ تم إيقاف المستخدم':'✅ User suspended')
+                                              : (language==='ar'?'✅ تم تفعيل المستخدم':'✅ User activated'));
+                                            fetchData();
+                                          }
+                                        } catch {}
+                                      }}
+                                      title={user.is_active!==false ? (language==='ar'?'إيقاف':'Suspend') : (language==='ar'?'تفعيل':'Activate')}
+                                      className={`p-1.5 rounded-lg transition-colors ${user.is_active!==false ? 'text-red-400 hover:text-red-600 hover:bg-red-50' : 'text-green-500 hover:text-green-700 hover:bg-green-50'}`}
+                                    >
+                                      {user.is_active!==false ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                                    </button>
+
+                                    {/* Delete */}
+                                    <button
+                                      onClick={async () => {
+                                        if (!window.confirm(language==='ar'?'حذف هذا المستخدم نهائياً؟':'Delete this user permanently?')) return;
+                                        try {
+                                          const res = await fetch(`${API_URL}/api/admin/users/${user.id}`, {
+                                            method: 'DELETE', headers
+                                          });
+                                          if (res.ok) {
+                                            toast.success(language==='ar'?'✅ تم حذف المستخدم':'✅ User deleted');
+                                            fetchData();
+                                          }
+                                        } catch {}
+                                      }}
+                                      title={language==='ar'?'حذف':'Delete'}
+                                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </TableCell>
+
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
                   )}
                 </Card>
@@ -934,80 +1042,4 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
         </div>
       )}
 
-      {/* Company Details Modal */}
-      <Dialog open={showCompanyModal} onOpenChange={setShowCompanyModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-purple-600" />
-              {text.companyDetails}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedCompany && (
-            <div className="space-y-6">
-              {/* Company Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-gray-500">{text.companyName}</label>
-                  <p className="font-semibold">{selectedCompany.name}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">{text.email}</label>
-                  <p className="font-semibold">{selectedCompany.email || '-'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">{text.phone}</label>
-                  <p className="font-semibold">{selectedCompany.phone || '-'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">{text.status}</label>
-                  <div className="mt-1">{getStatusBadge(selectedCompany)}</div>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">{text.usersCount}</label>
-                  <p className="font-semibold">{selectedCompany.user_count || 0}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">{text.createdAt}</label>
-                  <p className="font-semibold">{formatDate(selectedCompany.created_at)}</p>
-                </div>
-              </div>
 
-              {/* Subscription Info */}
-              {selectedCompany.subscription && (
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-4 flex items-center gap-2">
-                    <CreditCard className="w-4 h-4" />
-                    {text.subscriptionDetails}
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-gray-500">{text.plan}</label>
-                      <p className="font-semibold capitalize">{selectedCompany.subscription.plan}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-500">{text.status}</label>
-                      <Badge variant="outline" className="capitalize">
-                        {selectedCompany.subscription.status}
-                      </Badge>
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-500">{text.startDate}</label>
-                      <p className="font-semibold">{formatDate(selectedCompany.subscription.start_date)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-500">{text.endDate}</label>
-                      <p className="font-semibold">{formatDate(selectedCompany.subscription.end_date)}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
-
-export default SuperAdminDashboard;
