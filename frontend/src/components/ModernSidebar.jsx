@@ -309,7 +309,7 @@ const ModernSidebar = ({
         </div>
 
         {/* Navigation Menu */}
-        <nav className="flex-1 overflow-y-auto px-2 py-2">
+        <nav className="flex-1 overflow-y-auto min-h-0 px-2 py-2">
           {/* Dashboard and other simple modules */}
           {otherModules.filter(m => m.id === 'dashboard').map((module) => {
             const isActive = activeModule === module.id;

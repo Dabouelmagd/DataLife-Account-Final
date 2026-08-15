@@ -479,7 +479,8 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
         </Button>
       </div>
 
-      {/* Filters */}
+      {/* Filters - only for companies and users tabs */}
+      {(activeTab === 'companies' || activeTab === 'users') && (
       <div className="flex flex-wrap gap-4 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -490,24 +491,58 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
             className="pl-10"
           />
         </div>
-        {activeTab === 'companies' && (
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder={text.status} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{text.all}</SelectItem>
-              <SelectItem value="active">{text.active}</SelectItem>
-              <SelectItem value="suspended">{text.suspended}</SelectItem>
-              <SelectItem value="trial">{text.trial}</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder={text.status} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{text.all}</SelectItem>
+            <SelectItem value="active">{text.active}</SelectItem>
+            <SelectItem value="suspended">{text.suspended}</SelectItem>
+            {activeTab === 'companies' && <SelectItem value="trial">{text.trial}</SelectItem>}
+          </SelectContent>
+        </Select>
+      </div>
+      )}
+      
       </div>
 
       {/* Companies Table */}
       {activeTab === 'companies' && (
-        <Card>
+        <div className="space-y-4">
+
+          {/* Colored Banner */}
+          <div className="bg-gradient-to-r from-[#0f1729] to-[#4c1d95] rounded-2xl p-5 text-white flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center">
+                <Building2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black">{language === 'ar' ? 'إدارة الشركات' : 'Companies Management'}</h2>
+                <p className="text-purple-200 text-xs mt-0.5">
+                  {language === 'ar'
+                    ? `${stats.totalCompanies} شركة — ${stats.activeCompanies} نشطة — ${stats.trialSubscriptions} تجريبي`
+                    : `${stats.totalCompanies} companies — ${stats.activeCompanies} active — ${stats.trialSubscriptions} trial`}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {[
+                { v: stats.totalCompanies,      l: language==='ar'?'الكل':'Total',      bg:'bg-white/15' },
+                { v: stats.activeCompanies,     l: language==='ar'?'نشط':'Active',      bg:'bg-green-500/30' },
+                { v: stats.suspendedCompanies,  l: language==='ar'?'موقوف':'Suspended', bg:'bg-red-500/30' },
+                { v: stats.activeSubscriptions, l: language==='ar'?'مدفوع':'Paid',      bg:'bg-blue-500/30' },
+                { v: stats.trialSubscriptions,  l: language==='ar'?'تجريبي':'Trial',    bg:'bg-yellow-500/30' },
+              ].map((s,i) => (
+                <div key={i} className={`${s.bg} rounded-xl px-3 py-1.5 text-center min-w-[50px]`}>
+                  <p className="text-lg font-black">{s.v}</p>
+                  <p className="text-[10px] text-white/70">{s.l}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Card>
           <CardContent className="p-0">
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -754,31 +789,20 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
             )}
           </CardContent>
         </Card>
+        </div>
       )}
 
       {/* Users Table */}
       {activeTab === 'updates' && (
-        <Card>
-          <CardContent className="p-6">
-            <PublishUpdatePanel />
-          </CardContent>
-        </Card>
+        <PublishUpdatePanel />
       )}
 
       {activeTab === 'health' && (
-        <Card>
-          <CardContent className="p-6">
-            <SystemHealthPanel />
-          </CardContent>
-        </Card>
+        <SystemHealthPanel />
       )}
 
       {activeTab === 'ads' && (
-        <Card>
-          <CardContent className="p-6">
-            <AdsPanel />
-          </CardContent>
-        </Card>
+        <AdsPanel />
       )}
 
       {activeTab === 'subscriptions' && (
@@ -786,47 +810,57 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
       )}
 
       {activeTab === 'payments' && (
-        <Card>
-          <CardContent className="p-6">
-            <PaymentsAdminPanel />
-          </CardContent>
-        </Card>
+        <PaymentsAdminPanel />
       )}
 
       {activeTab === 'newsletter' && (
-        <Card>
-          <CardContent className="p-6">
-            <NewsletterPanel />
-          </CardContent>
-        </Card>
+        <NewsletterPanel />
       )}
 
       {activeTab === 'messages' && (
-        <Card>
-          <CardContent className="p-6">
-            <MessagesAdminPanel />
-          </CardContent>
-        </Card>
+        <MessagesAdminPanel />
       )}
 
       {activeTab === 'codes' && (
-        <Card>
-          <CardContent className="p-6">
-            <ActivationCodesPanel />
-          </CardContent>
-        </Card>
+        <ActivationCodesPanel />
       )}
 
       {activeTab === 'assistants' && (
-        <Card>
-          <CardContent className="p-6">
-            <AssistantsPanel />
-          </CardContent>
-        </Card>
+        <AssistantsPanel />
       )}
 
       {activeTab === 'users' && (
         <div className="space-y-4">
+
+          {/* Colored Banner */}
+          <div className="bg-gradient-to-r from-[#0f1729] to-[#065f46] rounded-2xl p-5 text-white flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black">{language === 'ar' ? 'إدارة المستخدمين' : 'Users Management'}</h2>
+                <p className="text-green-200 text-xs mt-0.5">
+                  {language === 'ar'
+                    ? `${users.length} مستخدم — ${users.filter(u=>u.is_active!==false).length} نشط — ${users.filter(u=>u.is_active===false).length} موقوف`
+                    : `${users.length} users — ${users.filter(u=>u.is_active!==false).length} active — ${users.filter(u=>u.is_active===false).length} suspended`}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {[
+                { v: users.length,                                   l: language==='ar'?'الكل':'Total',     bg:'bg-white/15' },
+                { v: users.filter(u=>u.is_active!==false).length,    l: language==='ar'?'نشط':'Active',    bg:'bg-green-500/30' },
+                { v: users.filter(u=>u.is_active===false).length,    l: language==='ar'?'موقوف':'Suspended',bg:'bg-red-500/30' },
+                { v: companies.length,                               l: language==='ar'?'شركة':'Companies', bg:'bg-blue-500/30' },
+              ].map((s,i) => (
+                <div key={i} className={`${s.bg} rounded-xl px-3 py-1.5 text-center min-w-[50px]`}>
+                  <p className="text-lg font-black">{s.v}</p>
+                  <p className="text-[10px] text-white/70">{s.l}</p>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Summary bar */}
           <div className="grid grid-cols-3 gap-3">
