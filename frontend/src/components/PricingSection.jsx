@@ -169,31 +169,75 @@ const PricingSection = () => {
 
   // Comparison features
   const comparisonFeatures = [
-    { name: ar ? 'عدد الموظفين' : 'Employees', starter: ar ? '1-10' : '1-10', professional: ar ? '11-100' : '11-100', enterprise: ar ? 'غير محدود' : 'Unlimited' },
-    { name: ar ? 'إدارة الموظفين' : 'Employee Management', starter: true, professional: true, enterprise: true },
-    { name: ar ? 'الحضور والانصراف' : 'Attendance', starter: true, professional: true, enterprise: true },
-    { name: ar ? 'كشف المرتبات' : 'Payroll', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'البدلات والخصومات' : 'Allowances & Deductions', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'الورديات' : 'Shifts', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'الإجازات' : 'Leave Management', starter: true, professional: true, enterprise: true },
-    { name: ar ? 'إنهاء الخدمة' : 'Termination', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'الإدارة المالية' : 'Financial Management', starter: true, professional: true, enterprise: true },
-    { name: ar ? 'القيود اليومية' : 'Journal Entries', starter: true, professional: true, enterprise: true },
-    { name: ar ? 'دفتر الأستاذ' : 'General Ledger', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'ميزان المراجعة' : 'Trial Balance', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'الفواتير' : 'Invoicing', starter: true, professional: true, enterprise: true },
-    { name: ar ? 'الفاتورة الإلكترونية (ETA)' : 'E-Invoicing (ETA)', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'المشتريات' : 'Purchases', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'المخزون' : 'Inventory', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'البنوك' : 'Banking', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'المشاريع والمهام' : 'Projects & Tasks', starter: false, professional: false, enterprise: true },
-    { name: ar ? 'إشعارات Push' : 'Push Notifications', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'التقارير المتقدمة' : 'Advanced Reports', starter: false, professional: true, enterprise: true },
-    { name: ar ? 'فروع متعددة' : 'Multi-Location', starter: false, professional: false, enterprise: true },
-    { name: ar ? 'ربط API' : 'API Integration', starter: false, professional: false, enterprise: true },
-    { name: ar ? 'مدير حساب مخصص' : 'Dedicated Manager', starter: false, professional: false, enterprise: true },
-    { name: ar ? 'التخزين' : 'Storage', starter: '5 GB', professional: '25 GB', enterprise: ar ? 'غير محدود' : 'Unlimited' },
-    { name: ar ? 'الدعم' : 'Support', starter: ar ? 'بريد' : 'Email', professional: ar ? 'أولوية' : 'Priority', enterprise: ar ? 'هاتف + مدير' : 'Phone + Manager' },
+    // ── الأساسيات ─────────────────────────────────
+    { category: ar?'الأساسيات':'Basics' },
+    { name: ar?'عدد الموظفين':'Employees',                      starter:'1-10',      professional:'11-100',   enterprise:ar?'غير محدود':'Unlimited' },
+    { name: ar?'المساحة التخزينية':'Storage',                   starter:'5 GB',      professional:'25 GB',    enterprise:ar?'غير محدود':'Unlimited' },
+    { name: ar?'الدعم الفني':'Support',                         starter:ar?'بريد':'Email', professional:ar?'أولوية':'Priority', enterprise:ar?'هاتف 24/7':'Phone 24/7' },
+    { name: ar?'فاتورة بعد الدفع (PDF)':'Invoice after payment', starter:true,       professional:true,        enterprise:true },
+    { name: ar?'إشعارات Push':'Push Notifications',             starter:false,       professional:true,        enterprise:true },
+    { name: ar?'متعدد العملات':'Multi-currency',                starter:false,       professional:true,        enterprise:true },
+
+    // ── الموارد البشرية ────────────────────────────
+    { category: ar?'الموارد البشرية':'Human Resources' },
+    { name: ar?'إدارة الموظفين':'Employee Management',          starter:true,        professional:true,        enterprise:true },
+    { name: ar?'الحضور والانصراف':'Attendance',                 starter:true,        professional:true,        enterprise:true },
+    { name: ar?'الإجازات العارضة والسنوية':'Leave Management',  starter:true,        professional:true,        enterprise:true },
+    { name: ar?'كشف مرتبات يدوي':'Manual Payroll',              starter:true,        professional:true,        enterprise:true },
+    { name: ar?'كشف مرتبات تلقائي (قانون 148/2019)':'Auto Payroll (Law 148/2019)', starter:false, professional:true, enterprise:true },
+    { name: ar?'7 صناديق تأمينات اجتماعية':'7 Insurance Funds', starter:false,      professional:true,        enterprise:true },
+    { name: ar?'حضور GPS تلقائي':'GPS Auto Attendance',         starter:false,       professional:true,        enterprise:true },
+    { name: ar?'قسيمة راتب بالإيميل':'Email Payslips',          starter:false,       professional:true,        enterprise:true },
+    { name: ar?'الورديات':'Shifts Management',                   starter:false,       professional:true,        enterprise:true },
+    { name: ar?'إنهاء الخدمة':'End of Service',                 starter:false,       professional:true,        enterprise:true },
+    { name: ar?'ملف موظف + صورة + مستندات':'Employee Profile + Docs', starter:true, professional:true,        enterprise:true },
+
+    // ── المحاسبة المالية ───────────────────────────
+    { category: ar?'المحاسبة المالية':'Financial Accounting' },
+    { name: ar?'108 حساب وفق الدليل المصري':'108 Egyptian Standard Accounts', starter:true, professional:true, enterprise:true },
+    { name: ar?'القيود اليومية والأستاذ العام':'Journal Entries & Ledger', starter:true, professional:true, enterprise:true },
+    { name: ar?'ميزان المراجعة':'Trial Balance',                starter:true,        professional:true,        enterprise:true },
+    { name: ar?'قائمة الدخل':'Income Statement',                starter:true,        professional:true,        enterprise:true },
+    { name: ar?'الميزانية العمومية':'Balance Sheet',             starter:true,        professional:true,        enterprise:true },
+    { name: ar?'VAT (ضريبة القيمة المضافة)':'VAT',              starter:false,       professional:true,        enterprise:true },
+    { name: ar?'خصم وتحصيل ضريبي':'Withholding Tax',            starter:false,       professional:true,        enterprise:true },
+    { name: ar?'الأصول الثابتة والإهلاك':'Fixed Assets & Depreciation', starter:false, professional:true,     enterprise:true },
+    { name: ar?'التسويات البنكية':'Bank Reconciliation',         starter:false,       professional:true,        enterprise:true },
+    { name: ar?'مراكز التكلفة':'Cost Centers',                  starter:false,       professional:false,       enterprise:true },
+    { name: ar?'محاسبة Immutable Ledger':'Immutable Ledger',     starter:false,       professional:false,       enterprise:true },
+
+    // ── الفواتير والمبيعات ─────────────────────────
+    { category: ar?'الفواتير والمبيعات':'Invoicing & Sales' },
+    { name: ar?'الفواتير الأساسية':'Basic Invoicing',           starter:true,        professional:true,        enterprise:true },
+    { name: ar?'الفاتورة الإلكترونية (ETA)':'E-Invoicing (ETA)', starter:false,     professional:true,        enterprise:true },
+    { name: ar?'إدارة العملاء CRM':'Customer CRM',               starter:false,       professional:true,        enterprise:true },
+    { name: ar?'عروض الأسعار':'Quotations',                      starter:false,       professional:true,        enterprise:true },
+    { name: ar?'فواتير المبيعات':'Sales Invoices',               starter:false,       professional:true,        enterprise:true },
+    { name: ar?'اشتراكات العملاء الدورية':'Recurring Subscriptions', starter:false,  professional:true,        enterprise:true },
+    { name: ar?'العملاء والموردين':'Customers & Suppliers',       starter:true,        professional:true,        enterprise:true },
+    { name: ar?'المنتجات والمخزون':'Products & Inventory',       starter:true,        professional:true,        enterprise:true },
+    { name: ar?'المشتريات وأوامر التوريد':'Purchases & PO',      starter:false,       professional:true,        enterprise:true },
+
+    // ── المشاريع ───────────────────────────────────
+    { category: ar?'المشاريع':'Projects' },
+    { name: ar?'إدارة المشاريع':'Project Management',            starter:false,       professional:false,       enterprise:true },
+    { name: ar?'مصروفات وإيرادات المشاريع':'Project Financials', starter:false,      professional:false,       enterprise:true },
+    { name: ar?'مستخلصات المقاولات (معيار 8)':'Progress Claims (Std 8)', starter:false, professional:false,   enterprise:true },
+    { name: ar?'جداول الكميات BOQ':'BOQ',                        starter:false,       professional:false,       enterprise:true },
+    { name: ar?'قطاع طبي — أتعاب الأطباء':'Medical Sector',     starter:false,       professional:false,       enterprise:true },
+    { name: ar?'فروع متعددة':'Multi-branch',                     starter:false,       professional:false,       enterprise:true },
+    { name: ar?'ربط API':'API Integration',                      starter:false,       professional:false,       enterprise:true },
+
+    // ── الأمان والصلاحيات ──────────────────────────
+    { category: ar?'الأمان والصلاحيات':'Security & Permissions' },
+    { name: ar?'نظام صلاحيات متقدم (21 صلاحية)':'Advanced Permissions (21)', starter:true, professional:true, enterprise:true },
+    { name: ar?'Super Admin يدير كل الشركات':'Super Admin',      starter:false,       professional:false,       enterprise:true },
+    { name: ar?'سجل التدقيق':'Audit Log',                        starter:true,        professional:true,        enterprise:true },
+    { name: ar?'تسجيل الدخول بالـ OTP':'OTP Login',              starter:true,        professional:true,        enterprise:true },
+    { name: ar?'إشعارات أمان (دخول من جهاز جديد)':'Security Alerts', starter:true,  professional:true,        enterprise:true },
+    { name: ar?'تشفير HTTPS':'HTTPS Encryption',                 starter:true,        professional:true,        enterprise:true },
+    { name: ar?'SLA مضمون':'Guaranteed SLA',                     starter:false,       professional:false,       enterprise:true },
+    { name: ar?'مدير حساب مخصص':'Dedicated Account Manager',    starter:false,       professional:false,       enterprise:true },
   ];
 
   const getPrice = (plan) => {
@@ -432,6 +476,13 @@ const PricingSection = () => {
             </thead>
             <tbody>
               {comparisonFeatures.map((feat, i) => (
+                feat.category ? (
+                  <tr key={i} className="bg-[#1e3a8a]">
+                    <td colSpan={4} className="p-3 text-xs font-bold text-white uppercase tracking-wider">
+                      {feat.category}
+                    </td>
+                  </tr>
+                ) : (
                 <tr key={i} className={`border-b border-gray-100 ${i % 2 === 0 ? 'bg-gray-50/50' : 'bg-white'}`}>
                   <td className="p-3 text-sm font-medium text-gray-800">{feat.name}</td>
                   <td className="p-3 text-center">{renderCell(feat.starter)}</td>

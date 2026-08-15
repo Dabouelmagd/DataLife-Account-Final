@@ -85,6 +85,9 @@ const LandingPage = () => {
     { icon: Upload, color: 'bg-sky-500', title: ar ? 'استيراد البيانات' : 'Data Import',
       desc: ar ? 'استيراد بيانات الموظفين والعملاء والمنتجات من ملفات Excel' : 'Import employees, customers & products from Excel files',
       features: ar ? ['استيراد الموظفين','استيراد العملاء','استيراد المنتجات'] : ['Import Employees','Import Customers','Import Products'] },
+    { icon: TrendingUp, color: 'bg-orange-500', title: ar ? 'المبيعات وإدارة العملاء CRM' : 'Sales & CRM',
+      desc: ar ? 'نظام مبيعات شامل — عروض أسعار، فواتير مبيعات، إدارة العملاء CRM، اشتراكات العملاء، تحويل عرض سعر لفاتورة بنقرة، وقيود محاسبية تلقائية' : 'Complete sales system — quotations, sales invoices, customer CRM, subscriptions, convert quote to invoice, auto accounting entries',
+      features: ar ? ['إدارة العملاء CRM (Lead→VIP)','عروض الأسعار + صلاحية','فواتير المبيعات','تسجيل الدفعات الجزئية','تحويل عرض → فاتورة','اشتراكات دورية تلقائية','قيود محاسبية تلقائية','تتبع الرصيد المستحق','تقارير المبيعات'] : ['Customer CRM (Lead→VIP)','Quotations + Validity','Sales Invoices','Partial Payment Tracking','Convert Quote → Invoice','Auto Recurring Subscriptions','Auto Accounting Entries','Outstanding Balance Tracking','Sales Reports'] },
   ];
 
   const benefits = [
@@ -212,12 +215,17 @@ const LandingPage = () => {
       <section id="services" className="py-20 md:py-28 px-4 md:px-8" data-testid="services-section">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-14">
-            <Badge className="mb-4 bg-cyan-50 text-cyan-700 hover:bg-cyan-50 border-0">{ar ? 'خدماتنا' : 'Our Services'}</Badge>
+            <Badge className="mb-4 bg-cyan-50 text-cyan-700 hover:bg-cyan-50 border-0">{ar ? '🚀 خدماتنا' : '🚀 Our Services'}</Badge>
             <h2 className="text-3xl sm:text-4xl font-bold text-[#0f172a] tracking-tight">
               {ar ? 'كل ما تحتاجه لإدارة أعمالك' : 'Everything You Need to Run Your Business'}
             </h2>
-            <p className="mt-3 text-gray-500 max-w-xl mx-auto">
-              {ar ? '8 وحدات متكاملة تغطي جميع احتياجات شركتك' : '8 integrated modules covering all your business needs'}
+            <p className="mt-2 text-lg font-semibold text-[#1e3a8a]">
+              {ar ? '9 وحدات متكاملة تغطي جميع احتياجات شركتك' : '9 Integrated Modules Covering All Your Business Needs'}
+            </p>
+            <p className="mt-2 text-gray-500 max-w-2xl mx-auto text-sm">
+              {ar
+                ? 'من الموارد البشرية والمحاسبة إلى المبيعات والمشاريع — كل شيء في منصة واحدة مصممة للشركات المصرية'
+                : 'From HR and accounting to sales and projects — everything in one platform built for Egyptian businesses'}
             </p>
           </div>
 
@@ -421,35 +429,77 @@ const LandingPage = () => {
       {/* ══════════ FOOTER ══════════ */}
       <footer className="bg-[#0f172a] text-gray-400 py-14 px-4 md:px-8" data-testid="footer">
         <div className="container mx-auto max-w-6xl">
+
+          {/* Logo + desc + columns */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-2 mb-4">
-                <DataLifeLogo size="small" className="h-8 brightness-0 invert" />
+
+            {/* Brand */}
+            <div className="md:col-span-1">
+              <div className="mb-4">
+                <DataLifeLogo size="small" style={{maxWidth:140}} />
               </div>
-              <p className="text-sm leading-relaxed max-w-sm">
-                {ar ? 'نظام متكامل لإدارة موارد المؤسسات — الموارد البشرية، الإدارة المالية، الفواتير، المشتريات، المشاريع والتقارير.' : 'Complete ERP system — HR, Finance, Invoicing, Purchases, Projects & Reports.'}
+              <p className="text-sm leading-relaxed text-gray-400">
+                {ar ? 'نظام ERP مصري متكامل — موارد بشرية، محاسبة، فواتير، مشتريات، مبيعات، مشاريع وتقارير.' : 'Egyptian ERP system — HR, Accounting, Invoicing, Purchases, Sales, Projects & Reports.'}
               </p>
+              <div className="mt-4 space-y-1 text-sm">
+                <p>📧 info@datalifeai.com</p>
+                <p>📍 {ar ? 'القاهرة، مصر' : 'Cairo, Egypt'}</p>
+                <p>🌐 datalifeaccount.com</p>
+              </div>
             </div>
+
+            {/* Quick Links */}
             <div>
-              <h4 className="font-semibold text-white mb-3 text-sm">{ar ? 'روابط سريعة' : 'Quick Links'}</h4>
+              <h4 className="font-semibold text-white mb-4 text-sm">{ar ? 'روابط سريعة' : 'Quick Links'}</h4>
               <ul className="space-y-2 text-sm">
-                {navLinks.map(l => <li key={l.href}><a href={l.href} className="hover:text-white transition-colors">{l.label}</a></li>)}
+                {navLinks.map(l => (
+                  <li key={l.href}><a href={l.href} className="hover:text-white transition-colors">{l.label}</a></li>
+                ))}
+                <li><a href="/ads" className="hover:text-white transition-colors">{ar ? 'أعلن معنا' : 'Advertise'}</a></li>
               </ul>
             </div>
+
+            {/* Legal */}
             <div>
-              <h4 className="font-semibold text-white mb-3 text-sm">{ar ? 'تواصل معنا' : 'Contact'}</h4>
+              <h4 className="font-semibold text-white mb-4 text-sm">{ar ? 'قانوني' : 'Legal'}</h4>
               <ul className="space-y-2 text-sm">
-                <li>info@datalifeai.com</li>
-                <li>{ar ? 'القاهرة، مصر' : 'Cairo, Egypt'}</li>
+                <li><a href="/terms" className="hover:text-white transition-colors">{ar ? 'شروط الاستخدام' : 'Terms of Use'}</a></li>
+                <li><a href="/privacy" className="hover:text-white transition-colors">{ar ? 'سياسة الخصوصية' : 'Privacy Policy'}</a></li>
+                <li><a href="/terms#subscription" className="hover:text-white transition-colors">{ar ? 'شروط الاشتراك' : 'Subscription Terms'}</a></li>
+                <li><a href="/terms#payment" className="hover:text-white transition-colors">{ar ? 'سياسة الدفع' : 'Payment Policy'}</a></li>
+                <li><a href="/terms#refund" className="hover:text-white transition-colors">{ar ? 'سياسة الاسترداد' : 'Refund Policy'}</a></li>
+                <li><a href="/terms#security" className="hover:text-white transition-colors">{ar ? 'سياسة الأمان' : 'Security Policy'}</a></li>
+              </ul>
+            </div>
+
+            {/* Help */}
+            <div>
+              <h4 className="font-semibold text-white mb-4 text-sm">{ar ? 'المساعدة' : 'Help'}</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="/guide" className="hover:text-white transition-colors">{ar ? 'دليل الاستخدام' : 'User Guide'}</a></li>
+                <li><a href="/about" className="hover:text-white transition-colors">{ar ? 'من نحن' : 'About Us'}</a></li>
+                <li><a href="/contact" className="hover:text-white transition-colors">{ar ? 'تواصل معنا' : 'Contact Us'}</a></li>
+                <li><a href="/partners" className="hover:text-white transition-colors">{ar ? 'الشركاء' : 'Partners'}</a></li>
+                <li><a href="#faq" className="hover:text-white transition-colors">{ar ? 'الأسئلة الشائعة' : 'FAQ'}</a></li>
+                <li><a href="/ads" className="hover:text-white transition-colors">{ar ? 'الإعلانات' : 'Advertising'}</a></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 pt-14 flex flex-col items-center">
-            <CompanyLogo size="large" />
-            <div className="mt-16">
-              <p className="text-sm text-center">{ar ? '© 2026 دانا لايف لخدمات الذكاء الاصطناعي - جميع الحقوق محفوظة' : '© 2026 DataLife AI Services - All Rights Reserved'}</p>
+
+          {/* Bottom bar */}
+          <div className="border-t border-gray-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-gray-500">
+              {ar ? '© 2026 داتا لايف لخدمات الذكاء الاصطناعي — جميع الحقوق محفوظة' : '© 2026 DataLife AI Services — All Rights Reserved'}
+            </p>
+            <div className="flex items-center gap-4 text-xs text-gray-600">
+              <a href="/terms" className="hover:text-white transition-colors">{ar?'الشروط':'Terms'}</a>
+              <span>·</span>
+              <a href="/privacy" className="hover:text-white transition-colors">{ar?'الخصوصية':'Privacy'}</a>
+              <span>·</span>
+              <a href="/contact" className="hover:text-white transition-colors">{ar?'تواصل':'Contact'}</a>
             </div>
           </div>
+
         </div>
       </footer>
 
