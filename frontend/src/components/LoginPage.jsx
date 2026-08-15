@@ -149,8 +149,8 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <CompanyLogo />
+        <div className="flex justify-center mb-8">
+          <CompanyLogo size="default" style={{ maxWidth: 200, display: "block", margin: "0 auto" }} />
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">

@@ -7,11 +7,12 @@ ROLE_PERMISSIONS = {
     # الأدوار الإدارية العليا (صلاحيات كاملة)
     # ========================================
     "General Manager": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "sales", "settings", "users", "approvals"],
         "permissions": {
             "dashboard": ["view"],
             "hr": ["view", "create", "edit", "delete", "send"],
             "financial": ["view", "create", "edit", "delete", "send", "print"],
+            "sales": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
             "reports": ["view", "export", "print"],
             "analytics": ["view", "export"],
@@ -24,11 +25,12 @@ ROLE_PERMISSIONS = {
         }
     },
     "مدير عام": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "sales", "settings", "users", "approvals"],
         "permissions": {
             "dashboard": ["view"],
             "hr": ["view", "create", "edit", "delete", "send"],
             "financial": ["view", "create", "edit", "delete", "send", "print"],
+            "sales": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
             "reports": ["view", "export", "print"],
             "analytics": ["view", "export"],
@@ -41,11 +43,12 @@ ROLE_PERMISSIONS = {
         }
     },
     "CEO": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "sales", "settings", "users", "approvals"],
         "permissions": {
             "dashboard": ["view"],
             "hr": ["view", "create", "edit", "delete", "send"],
             "financial": ["view", "create", "edit", "delete", "send", "print"],
+            "sales": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
             "reports": ["view", "export", "print"],
             "analytics": ["view", "export"],
@@ -58,11 +61,12 @@ ROLE_PERMISSIONS = {
         }
     },
     "المدير التنفيذي": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "sales", "settings", "users", "approvals"],
         "permissions": {
             "dashboard": ["view"],
             "hr": ["view", "create", "edit", "delete", "send"],
             "financial": ["view", "create", "edit", "delete", "send", "print"],
+            "sales": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
             "reports": ["view", "export", "print"],
             "analytics": ["view", "export"],
@@ -75,11 +79,12 @@ ROLE_PERMISSIONS = {
         }
     },
     "Board Chairman": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "sales", "settings", "users", "approvals"],
         "permissions": {
             "dashboard": ["view"],
             "hr": ["view", "create", "edit", "delete", "send"],
             "financial": ["view", "create", "edit", "delete", "send", "print"],
+            "sales": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
             "reports": ["view", "export", "print"],
             "analytics": ["view", "export"],
@@ -92,11 +97,12 @@ ROLE_PERMISSIONS = {
         }
     },
     "رئيس مجلس الإدارة": {
-        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "settings", "users", "approvals"],
+        "modules": ["dashboard", "hr", "financial", "inventory", "reports", "analytics", "projects", "invoices", "purchases", "sales", "settings", "users", "approvals"],
         "permissions": {
             "dashboard": ["view"],
             "hr": ["view", "create", "edit", "delete", "send"],
             "financial": ["view", "create", "edit", "delete", "send", "print"],
+            "sales": ["view", "create", "edit", "delete", "send", "print"],
             "inventory": ["view", "create", "edit", "delete"],
             "reports": ["view", "export", "print"],
             "analytics": ["view", "export"],
@@ -113,10 +119,11 @@ ROLE_PERMISSIONS = {
     # الأدوار الإدارية المتوسطة (إضافة، تعديل، إرسال)
     # ========================================
     "Financial Manager": {
-        "modules": ["dashboard", "financial", "reports", "analytics", "invoices", "purchases"],
+        "modules": ["dashboard", "financial", "reports", "analytics", "invoices", "sales", "purchases"],
         "permissions": {
             "dashboard": ["view"],
             "financial": ["view", "create", "edit", "send", "print"],
+            "sales": ["view", "create", "edit", "send", "print"],
             "reports": ["view", "export", "print"],
             "analytics": ["view"],
             "invoices": ["view", "create", "edit", "send", "print"],
@@ -125,10 +132,11 @@ ROLE_PERMISSIONS = {
         }
     },
     "المدير المالي": {
-        "modules": ["dashboard", "financial", "reports", "analytics", "invoices", "purchases"],
+        "modules": ["dashboard", "financial", "reports", "analytics", "invoices", "sales", "purchases"],
         "permissions": {
             "dashboard": ["view"],
             "financial": ["view", "create", "edit", "send", "print"],
+            "sales": ["view", "create", "edit", "send", "print"],
             "reports": ["view", "export", "print"],
             "analytics": ["view"],
             "invoices": ["view", "create", "edit", "send", "print"],
@@ -137,20 +145,22 @@ ROLE_PERMISSIONS = {
         }
     },
     "Chief Accountant": {
-        "modules": ["dashboard", "financial", "reports", "invoices"],
+        "modules": ["dashboard", "financial", "reports", "invoices", "sales"],
         "permissions": {
             "dashboard": ["view"],
             "financial": ["view", "create", "edit", "send", "print"],
+            "sales": ["view", "create", "edit", "send", "print"],
             "reports": ["view", "export", "print"],
             "invoices": ["view", "create", "edit", "send", "print"],
             "users": ["view"]
         }
     },
     "رئيس الحسابات": {
-        "modules": ["dashboard", "financial", "reports", "invoices"],
+        "modules": ["dashboard", "financial", "reports", "invoices", "sales"],
         "permissions": {
             "dashboard": ["view"],
             "financial": ["view", "create", "edit", "send", "print"],
+            "sales": ["view", "create", "edit", "send", "print"],
             "reports": ["view", "export", "print"],
             "invoices": ["view", "create", "edit", "send", "print"],
             "users": ["view"]
@@ -205,6 +215,7 @@ ROLE_PERMISSIONS = {
         "permissions": {
             "dashboard": ["view"],
             "financial": ["view", "create", "edit"],
+            "sales": ["view", "create", "edit"],
             "reports": ["view", "print"],
             "users": []
         }
@@ -214,6 +225,7 @@ ROLE_PERMISSIONS = {
         "permissions": {
             "dashboard": ["view"],
             "financial": ["view", "create", "edit"],
+            "sales": ["view", "create", "edit"],
             "reports": ["view", "print"],
             "users": []
         }
@@ -223,6 +235,7 @@ ROLE_PERMISSIONS = {
         "permissions": {
             "dashboard": ["view"],
             "financial": ["view", "create", "edit"],
+            "sales": ["view", "create", "edit"],
             "reports": ["view", "print"],
             "users": []
         }
@@ -232,6 +245,7 @@ ROLE_PERMISSIONS = {
         "permissions": {
             "dashboard": ["view"],
             "financial": ["view", "create", "edit"],
+            "sales": ["view", "create", "edit"],
             "reports": ["view", "print"],
             "users": []
         }
