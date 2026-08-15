@@ -39,6 +39,8 @@ const PERMISSION_GROUPS = [
       { id: 'approvals',    name_ar: 'الموافقات',                  name_en: 'Approvals',              emoji: '✅', icon: CheckCircle },
       { id: 'reports',      name_ar: 'التقارير',                  name_en: 'Reports',                emoji: '📑', icon: FileBarChart },
       { id: 'analytics',    name_ar: 'التحليلات',                 name_en: 'Analytics',              emoji: '📈', icon: BarChart3 },
+      { id: 'financial',    name_ar: 'المحاسبة المالية',           name_en: 'Financial Accounting',   emoji: '📒', icon: Building2 },
+      { id: 'sales',        name_ar: 'المبيعات وإدارة العملاء CRM', name_en: 'Sales & CRM',            emoji: '💼', icon: TrendingUp },
     ]
   },
 

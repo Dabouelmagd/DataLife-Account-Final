@@ -504,15 +504,17 @@ async def get_project_financials(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # Get expenses
+    # Get expenses — strictly from project_expenses collection
     expenses = await db.project_expenses.find(
-        {"project_id": project_id},
+        {"project_id": project_id, "company_id": company_id},
         {"_id": 0}
     ).sort("date", -1).to_list(length=None)
+    # Safety: filter out any document that has revenue markers
+    expenses = [e for e in expenses if not e.get("invoice_number") or e.get("amount", 0) > 0]
     
-    # Get revenues
+    # Get revenues — strictly from project_revenues collection
     revenues = await db.project_revenues.find(
-        {"project_id": project_id},
+        {"project_id": project_id, "company_id": company_id},
         {"_id": 0}
     ).sort("date", -1).to_list(length=None)
     

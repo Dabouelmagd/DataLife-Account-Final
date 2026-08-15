@@ -93,8 +93,8 @@ export default function SubscriptionsPanel() {
     const matchSearch = name.includes(search.toLowerCase());
     const matchFilter =
       filter === 'all' ? true :
-      filter === 'active' ? s.status === 'active' && s.plan !== 'trial' :
-      filter === 'trial' ? s.plan === 'trial' :
+      filter === 'active' ? s.status === 'active' :
+      filter === 'trial' ? s.plan === 'trial' || s.status === 'trial' :
       filter === 'expiring' ? (() => { const d = (new Date(s.end_date) - new Date()) / (1000*60*60*24); return d > 0 && d <= 7; })() :
       filter === 'expired' ? (s.status === 'expired' || new Date(s.end_date) < new Date()) : true;
     return matchSearch && matchFilter;

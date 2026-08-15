@@ -158,53 +158,89 @@ const LandingPage = () => {
       </nav>
 
       {/* ══════════ HERO ══════════ */}
-      <section className="pt-28 pb-20 px-4 md:px-8 bg-gradient-to-b from-slate-50 to-white" data-testid="hero-section">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center max-w-3xl mx-auto">
-            <Badge className="mb-6 bg-[#28376B]/10 text-[#28376B] hover:bg-[#28376B]/10 border-0 text-sm px-4 py-1.5">
-              {ar ? 'نظام ERP متكامل للشركات العربية' : 'Complete ERP System for Businesses'}
-            </Badge>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#0f172a] tracking-tight leading-tight">
-              {ar ? (
-                <><span className="text-[#28376B]">داتا لايف أكونت</span><br/>نظام إدارة أعمالك الشامل</>
-              ) : (
-                <><span className="text-[#28376B]">DataLife Account</span><br/>Complete Business Management</>
-              )}
-            </h1>
-            <p className="mt-6 text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
-              {ar 
-                ? 'نظام متكامل لإدارة الموارد البشرية، الإدارة المالية، الفواتير، المشتريات، المشاريع والتقارير — يدعم العربية والإنجليزية بالكامل'
-                : 'Integrated HR, Financial, Invoicing, Purchasing, Projects & Reporting system — with full Arabic and English support'}
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-              <Button size="lg" onClick={() => setIsTrialModalOpen(true)} className="bg-[#28376B] hover:bg-[#1e2a5a] text-white h-12 px-8 text-base">
-                {ar ? 'ابدأ تجربة مجانية' : 'Start Free Trial'}
-                <ArrowRight className="h-4 w-4 ms-2" />
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => navigate('/login')} className="h-12 px-8 text-base border-gray-300">
-                {ar ? 'تسجيل الدخول' : 'Login'}
-              </Button>
-            </div>
+      <section className="relative overflow-hidden pt-24 pb-0 px-4 md:px-8" data-testid="hero-section"
+        style={{background: 'linear-gradient(135deg, #0f1729 0%, #1e3a8a 50%, #0f1729 100%)'}}>
+
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-10"
+          style={{backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '32px 32px'}} />
+
+        <div className="relative container mx-auto max-w-6xl">
+
+          {/* Top badge */}
+          <div className="text-center mb-6">
+            <span className="inline-flex items-center gap-2 bg-white/10 text-white border border-white/20 rounded-full px-4 py-1.5 text-sm font-medium backdrop-blur-sm">
+              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              {ar ? '🇪🇬 النظام المحاسبي المصري الأول على السحابة' : '🇪🇬 Egypt's First Cloud ERP Platform'}
+            </span>
           </div>
 
-          {/* Stats - replaced with value props */}
-          <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { icon: Shield, value: ar ? '21 صلاحية' : '21 Permissions', label: ar ? 'تحكم كامل' : 'Full Control' },
-              { icon: Globe, value: ar ? 'عربي + EN' : 'AR + EN', label: ar ? 'ثنائي اللغة' : 'Bilingual' },
-              { icon: Cloud, value: ar ? 'سحابي' : 'Cloud', label: ar ? 'بدون تثبيت' : 'No Install' },
-              { icon: Lock, value: ar ? 'مشفّر' : 'Encrypted', label: ar ? 'أمان عالي' : 'High Security' },
-            ].map((s, i) => {
-              const Icon = s.icon;
-              return (
-                <div key={i} className="text-center p-4 rounded-xl bg-white border border-gray-100 shadow-sm">
-                  <Icon className="h-6 w-6 text-[#28376B] mx-auto mb-2" />
-                  <div className="text-lg font-bold text-[#28376B]">{s.value}</div>
-                  <div className="text-sm text-gray-500 mt-0.5">{s.label}</div>
-                </div>
-              );
-            })}
+          {/* Main headline */}
+          <div className="text-center max-w-4xl mx-auto mb-8">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.1] mb-6">
+              {ar ? (
+                <>
+                  <span className="text-white">داتا لايف</span>
+                  <br/>
+                  <span style={{background:'linear-gradient(90deg,#60a5fa,#34d399)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>
+                    أكونت
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-white">DataLife</span>
+                  <br/>
+                  <span style={{background:'linear-gradient(90deg,#60a5fa,#34d399)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>
+                    Account
+                  </span>
+                </>
+              )}
+            </h1>
+            <p className="text-xl sm:text-2xl text-blue-100 font-medium mb-3">
+              {ar ? 'نظام إدارة الأعمال الشامل' : 'Complete Business Management System'}
+            </p>
+            <p className="text-base text-blue-200/80 max-w-2xl mx-auto leading-relaxed">
+              {ar
+                ? '9 وحدات متكاملة — موارد بشرية، محاسبة، فواتير، مشتريات، مبيعات CRM، مشاريع، تقارير — بالكامل للشركات المصرية'
+                : '9 integrated modules — HR, Accounting, Invoicing, Purchases, Sales CRM, Projects, Reports — built for Egyptian businesses'}
+            </p>
           </div>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <button onClick={() => setIsTrialModalOpen(true)}
+              className="group relative inline-flex items-center justify-center gap-2 bg-white text-[#1e3a8a] font-bold px-8 py-3.5 rounded-2xl text-base hover:bg-blue-50 transition-all shadow-lg shadow-blue-900/30 hover:shadow-xl">
+              {ar ? 'ابدأ تجربة مجانية 14 يوم' : 'Start 14-Day Free Trial'}
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <button onClick={() => navigate('/login')}
+              className="inline-flex items-center justify-center gap-2 bg-white/10 text-white border border-white/30 font-semibold px-8 py-3.5 rounded-2xl text-base hover:bg-white/20 transition-all backdrop-blur-sm">
+              {ar ? 'تسجيل الدخول' : 'Login'}
+            </button>
+          </div>
+
+          {/* Stats bar */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/10 rounded-2xl overflow-hidden mb-0">
+            {[
+              { value: '9',          label: ar ? 'وحدات متكاملة' : 'Modules' },
+              { value: '108',        label: ar ? 'حساب محاسبي' : 'Chart Accounts' },
+              { value: ar?'14 يوم':'14 Days', label: ar ? 'تجربة مجانية' : 'Free Trial' },
+              { value: ar?'مصري':'Egyptian', label: ar ? 'قانون 148/2019' : 'Law 148/2019' },
+            ].map((s, i) => (
+              <div key={i} className="bg-white/5 backdrop-blur-sm text-center py-5 px-4">
+                <div className="text-2xl font-black text-white">{s.value}</div>
+                <div className="text-xs text-blue-200 mt-1">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Wave bottom */}
+          <div className="relative -mb-px mt-0">
+            <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
+              <path d="M0 60 L0 30 Q360 0 720 30 Q1080 60 1440 30 L1440 60 Z" fill="white"/>
+            </svg>
+          </div>
+
         </div>
       </section>
 

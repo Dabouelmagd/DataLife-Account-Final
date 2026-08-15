@@ -25,17 +25,51 @@ async def get_all_subscriptions(
     status: str = None,
     search: str = None
 ):
-    """Get all subscriptions"""
+    """Get all subscriptions — including free trial companies"""
     await verify_admin(authorization)
-    
+
+    # 1. Get paid subscriptions from subscriptions collection
     query = {}
-    if status:
+    if status and status not in ("trial", "free"):
         query["status"] = status
-    
-    subscriptions = await db.subscriptions.find(query, {"_id": 0}).to_list(length=None)
-    
-    # Enrich with company info
-    for sub in subscriptions:
+
+    paid_subs = await db.subscriptions.find(query, {"_id": 0}).to_list(length=None)
+
+    # Build set of company_ids already covered
+    covered_ids = {s.get("company_id") for s in paid_subs}
+
+    # 2. Get ALL companies and build synthetic subscription records
+    #    for those not already in the subscriptions collection
+    all_companies = await db.companies.find(
+        {}, {"_id": 0, "id": 1, "name": 1, "email": 1, "company_code": 1,
+             "subscription_status": 1, "subscription_plan": 1,
+             "trial_ends_at": 1, "subscription_expires_at": 1,
+             "created_at": 1}
+    ).to_list(length=None)
+
+    synthetic_subs = []
+    for c in all_companies:
+        if c.get("id") in covered_ids:
+            continue  # already in paid_subs
+        sub_status = c.get("subscription_status", "trial")
+        sub_plan   = c.get("subscription_plan", "trial")
+        end_date   = c.get("subscription_expires_at") or c.get("trial_ends_at")
+        synthetic_subs.append({
+            "id": f"syn_{c.get('id', '')}",
+            "company_id":    c.get("id"),
+            "company_name":  c.get("name"),
+            "company_email": c.get("email"),
+            "company_code":  c.get("company_code"),
+            "plan":   sub_plan,
+            "status": sub_status,
+            "end_date":    end_date,
+            "start_date":  c.get("created_at", "")[:10] if c.get("created_at") else None,
+            "amount": 0,
+            "is_synthetic": True,   # flag for frontend
+        })
+
+    # 3. Enrich paid_subs with company info
+    for sub in paid_subs:
         company_id = sub.get("company_id")
         if company_id:
             company = await db.companies.find_one(
@@ -43,9 +77,24 @@ async def get_all_subscriptions(
                 {"_id": 0, "name": 1, "email": 1, "company_code": 1}
             )
             if company:
-                sub["company_name"] = company.get("name")
+                sub["company_name"]  = company.get("name")
                 sub["company_email"] = company.get("email")
-                sub["company_code"] = company.get("company_code")
+                sub["company_code"]  = company.get("company_code")
+
+    # 4. Merge and filter
+    subscriptions = paid_subs + synthetic_subs
+
+    # Status filter
+    if status:
+        if status == "trial":
+            subscriptions = [s for s in subscriptions
+                             if s.get("plan") in ("trial", "free") or s.get("status") in ("trial", "free")]
+        elif status == "active":
+            subscriptions = [s for s in subscriptions if s.get("status") == "active"]
+        elif status == "expired":
+            subscriptions = [s for s in subscriptions if s.get("status") == "expired"]
+        elif status == "suspended":
+            subscriptions = [s for s in subscriptions if s.get("status") == "suspended"]
     
     # Filter by search if provided
     if search:
