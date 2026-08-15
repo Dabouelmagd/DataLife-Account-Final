@@ -48,18 +48,33 @@ async def get_all_companies(authorization: Optional[str] = Header(None)):
                 {"$set": {"company_code": new_code}}
             )
         
-        # Get subscription (only active ones)
+        # Get subscription — check paid subscriptions first, fallback to company fields
         subscription = await db.subscriptions.find_one(
-            {"company_id": company_id, "status": "active"}, 
+            {"company_id": company_id, "status": "active"},
             {"_id": 0}
         )
         if not subscription:
             subscription = await db.subscriptions.find_one(
-                {"company_id": company_id}, 
+                {"company_id": company_id},
                 {"_id": 0},
                 sort=[("created_at", -1)]
             )
+        # Fallback: build synthetic subscription from company fields for free/trial companies
+        if not subscription:
+            subscription = {
+                "plan":       company.get("subscription_plan", "trial"),
+                "status":     company.get("subscription_status", "trial"),
+                "end_date":   company.get("subscription_expires_at") or company.get("trial_ends_at"),
+                "start_date": company.get("created_at", "")[:10] if company.get("created_at") else None,
+                "amount":     0,
+                "is_synthetic": True,
+            }
         company["subscription"] = subscription
+
+        # Also expose key subscription fields at top level for easier frontend access
+        company["subscription_plan"]   = subscription.get("plan",   company.get("subscription_plan", "trial"))
+        company["subscription_status"] = subscription.get("status", company.get("subscription_status", "trial"))
+        company["subscription_end"]    = subscription.get("end_date", company.get("subscription_expires_at") or company.get("trial_ends_at"))
         
         # Get user count
         user_count = await db.users.count_documents({"company_id": company_id})
@@ -84,7 +99,7 @@ async def get_company_details(
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     
-    # Get subscription
+    # Get subscription — paid first, fallback to company fields for free/trial
     subscription = await db.subscriptions.find_one(
         {"company_id": company_id, "status": "active"},
         {"_id": 0}
@@ -95,6 +110,14 @@ async def get_company_details(
             {"_id": 0},
             sort=[("created_at", -1)]
         )
+    if not subscription:
+        subscription = {
+            "plan":       company.get("subscription_plan", "trial"),
+            "status":     company.get("subscription_status", "trial"),
+            "end_date":   company.get("subscription_expires_at") or company.get("trial_ends_at"),
+            "amount":     0,
+            "is_synthetic": True,
+        }
     
     # Get users
     users = await db.users.find(

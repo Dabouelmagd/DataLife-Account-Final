@@ -490,11 +490,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead></TableHead>
+                  <TableRow className="bg-gray-50">
+                    <TableHead className="w-8"></TableHead>
                     <TableHead>{text.companyName}</TableHead>
+                    <TableHead>{language==='ar'?'كود الشركة':'Code'}</TableHead>
                     <TableHead>{text.email}</TableHead>
+                    <TableHead>{language==='ar'?'الهاتف':'Phone'}</TableHead>
                     <TableHead>{text.subscriptionType}</TableHead>
+                    <TableHead>{language==='ar'?'انتهاء الاشتراك':'Sub End'}</TableHead>
                     <TableHead>{text.usersCount}</TableHead>
                     <TableHead>{text.status}</TableHead>
                     <TableHead>{text.createdAt}</TableHead>
@@ -505,96 +508,210 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
                   {filteredCompanies.map((company) => (
                     <React.Fragment key={company.id}>
                       <TableRow className={`hover:bg-gray-50 dark:hover:bg-gray-800 ${company.is_active === false ? 'bg-red-50/50' : ''}`}>
+
+                        {/* Expand */}
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setExpandedCompany(expandedCompany === company.id ? null : company.id)}
-                          >
-                            {expandedCompany === company.id ? (
-                              <ChevronUp className="w-4 h-4" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )}
+                          <Button variant="ghost" size="sm"
+                            onClick={() => setExpandedCompany(expandedCompany === company.id ? null : company.id)}>
+                            {expandedCompany === company.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </Button>
                         </TableCell>
+
+                        {/* Company name */}
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                               <Building2 className="w-4 h-4 text-purple-600" />
                             </div>
-                            {company.name}
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate max-w-[140px]">{company.name}</p>
+                              {company.industry && <p className="text-xs text-gray-400 truncate">{company.industry}</p>}
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell>{company.email || '-'}</TableCell>
+
+                        {/* Company code */}
                         <TableCell>
-                          <Badge variant="outline" className="capitalize">
-                            {company.subscription?.plan || 'N/A'}
-                          </Badge>
+                          <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded font-mono text-gray-700">
+                            {company.company_code || '—'}
+                          </code>
                         </TableCell>
+
+                        {/* Email */}
+                        <TableCell className="text-sm">
+                          <p className="truncate max-w-[160px]">{company.email || '—'}</p>
+                        </TableCell>
+
+                        {/* Phone */}
+                        <TableCell className="text-sm text-gray-600">
+                          {company.phone || '—'}
+                        </TableCell>
+
+                        {/* Subscription plan */}
                         <TableCell>
-                          <span className="font-semibold">{company.active_users || 0}</span>
-                          <span className="text-gray-400">/{company.user_count || 0}</span>
+                          {(() => {
+                            const plan = company.subscription?.plan || company.subscription_plan || 'trial';
+                            const colors = {
+                              trial: 'bg-gray-100 text-gray-600',
+                              starter: 'bg-blue-100 text-blue-700',
+                              professional: 'bg-purple-100 text-purple-700',
+                              enterprise: 'bg-amber-100 text-amber-700',
+                            };
+                            const labels = {
+                              trial: language==='ar'?'تجريبي':'Trial',
+                              starter: language==='ar'?'مبتدئ':'Starter',
+                              professional: language==='ar'?'احترافي':'Professional',
+                              enterprise: language==='ar'?'مؤسسي':'Enterprise',
+                            };
+                            return (
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors[plan]||colors.trial}`}>
+                                {labels[plan] || plan}
+                              </span>
+                            );
+                          })()}
                         </TableCell>
-                        <TableCell>{getStatusBadge(company)}</TableCell>
-                        <TableCell>{formatDate(company.created_at)}</TableCell>
+
+                        {/* Subscription end date */}
+                        <TableCell className="text-sm">
+                          {(() => {
+                            const endDate = company.subscription?.end_date
+                              || company.subscription_end
+                              || company.subscription_expires_at
+                              || company.trial_ends_at;
+                            if (!endDate) return <span className="text-gray-400">—</span>;
+                            const d = new Date(endDate);
+                            const now = new Date();
+                            const daysLeft = Math.ceil((d - now) / (1000*60*60*24));
+                            const color = daysLeft < 0 ? 'text-red-600' : daysLeft <= 7 ? 'text-orange-600' : 'text-gray-700';
+                            return (
+                              <div>
+                                <p className={`text-xs font-medium ${color}`}>{formatDate(endDate)}</p>
+                                {daysLeft >= 0 && daysLeft <= 30 && (
+                                  <p className="text-xs text-orange-500">{daysLeft} {language==='ar'?'يوم متبقي':'days left'}</p>
+                                )}
+                                {daysLeft < 0 && (
+                                  <p className="text-xs text-red-500">{language==='ar'?'منتهي':'Expired'}</p>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
+
+                        {/* Users */}
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
+                            <Users className="w-3 h-3 text-gray-400" />
+                            <span className="font-semibold text-sm">{company.active_users || 0}</span>
+                            <span className="text-gray-400 text-xs">/{company.user_count || 0}</span>
+                          </div>
+                        </TableCell>
+
+                        {/* Status */}
+                        <TableCell>{getStatusBadge(company)}</TableCell>
+
+                        {/* Created */}
+                        <TableCell className="text-xs text-gray-500">{formatDate(company.created_at)}</TableCell>
+
+                        {/* Actions */}
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon"
                               onClick={() => { setSelectedCompany(company); setShowCompanyModal(true); }}
-                              title={text.view}
-                            >
+                              title={text.view}>
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
+                            <Button variant="ghost" size="icon"
                               onClick={() => handleToggleCompany(company.id, company.is_active !== false)}
                               title={company.is_active !== false ? text.suspend : text.activate}
-                              className={company.is_active !== false ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
-                            >
-                              {company.is_active !== false ? (
-                                <PowerOff className="w-4 h-4" />
-                              ) : (
-                                <Power className="w-4 h-4" />
-                              )}
+                              className={company.is_active !== false ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}>
+                              {company.is_active !== false ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                             </Button>
                           </div>
                         </TableCell>
+
                       </TableRow>
-                      
-                      {/* Expanded Row - Company Users */}
+
+                      {/* EXPANDED ROW — full details */}
                       {expandedCompany === company.id && (
                         <TableRow>
-                          <TableCell colSpan={8} className="bg-gray-50 dark:bg-gray-900/50 p-4">
-                            <div className="space-y-3">
-                              <h4 className="font-semibold flex items-center gap-2">
-                                <Users className="w-4 h-4" />
-                                {text.users} ({company.user_count || 0})
-                              </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {users.filter(u => u.company_id === company.id).map(user => (
-                                  <div key={user.id} className={`p-3 rounded-lg border ${user.is_active === false ? 'bg-red-50 border-red-200' : 'bg-white dark:bg-gray-800'}`}>
-                                    <div className="flex items-center gap-3">
-                                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${user.is_active === false ? 'bg-gray-400' : 'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
-                                        {user.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                          <TableCell colSpan={11} className="bg-blue-50/30 p-0">
+                            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                              {/* Company Info */}
+                              <div className="bg-white rounded-xl border border-gray-100 p-4">
+                                <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2 text-sm">
+                                  <Building2 className="w-4 h-4 text-purple-600" />
+                                  {language==='ar'?'بيانات الشركة':'Company Info'}
+                                </h4>
+                                <div className="space-y-2 text-sm">
+                                  {[
+                                    {label: language==='ar'?'الاسم':'Name', value: company.name},
+                                    {label: language==='ar'?'الكود':'Code', value: company.company_code, mono: true},
+                                    {label: language==='ar'?'البريد':'Email', value: company.email},
+                                    {label: language==='ar'?'الهاتف':'Phone', value: company.phone},
+                                    {label: language==='ar'?'القطاع':'Industry', value: company.industry},
+                                    {label: language==='ar'?'العنوان':'Address', value: company.address},
+                                    {label: language==='ar'?'المدينة':'City', value: company.city},
+                                    {label: language==='ar'?'الرقم الضريبي':'Tax No.', value: company.tax_number},
+                                    {label: language==='ar'?'السجل التجاري':'Comm. Reg.', value: company.commercial_registration},
+                                  ].filter(f => f.value).map((f, i) => (
+                                    <div key={i} className="flex justify-between items-start gap-2">
+                                      <span className="text-gray-500 flex-shrink-0">{f.label}:</span>
+                                      <span className={`font-medium text-left break-all ${f.mono ? 'font-mono text-xs bg-gray-100 px-1 rounded' : ''}`}>{f.value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Subscription Info */}
+                              <div className="bg-white rounded-xl border border-gray-100 p-4">
+                                <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2 text-sm">
+                                  <CreditCard className="w-4 h-4 text-blue-600" />
+                                  {language==='ar'?'بيانات الاشتراك':'Subscription'}
+                                </h4>
+                                <div className="space-y-2 text-sm">
+                                  {[
+                                    {label: language==='ar'?'الخطة':'Plan', value: company.subscription?.plan || company.subscription_plan},
+                                    {label: language==='ar'?'الحالة':'Status', value: company.subscription?.status || company.subscription_status},
+                                    {label: language==='ar'?'تاريخ البدء':'Start', value: formatDate(company.subscription?.start_date || company.created_at)},
+                                    {label: language==='ar'?'تاريخ الانتهاء':'End', value: formatDate(company.subscription?.end_date || company.subscription_expires_at || company.trial_ends_at)},
+                                    {label: language==='ar'?'المبلغ':'Amount', value: company.subscription?.amount ? `${company.subscription.amount} ج.م` : language==='ar'?'مجاني':'Free'},
+                                    {label: language==='ar'?'طريقة الدفع':'Payment', value: company.subscription?.payment_method},
+                                    {label: language==='ar'?'عدد الموظفين المسموح':'Max Employees', value: company.max_employees},
+                                  ].filter(f => f.value).map((f, i) => (
+                                    <div key={i} className="flex justify-between items-start gap-2">
+                                      <span className="text-gray-500 flex-shrink-0">{f.label}:</span>
+                                      <span className="font-medium text-left">{f.value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Users in this company */}
+                              <div className="bg-white rounded-xl border border-gray-100 p-4">
+                                <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2 text-sm">
+                                  <Users className="w-4 h-4 text-green-600" />
+                                  {language==='ar'?'المستخدمون':'Users'} ({company.user_count || 0})
+                                </h4>
+                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                  {users.filter(u => u.company_id === company.id).map(user => (
+                                    <div key={user.id} className={`flex items-center gap-2 p-2 rounded-lg ${user.is_active === false ? 'bg-red-50' : 'bg-gray-50'}`}>
+                                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${user.is_active === false ? 'bg-gray-400' : 'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
+                                        {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="font-medium truncate">{user.full_name}</p>
-                                        <p className="text-sm text-gray-500 truncate">{user.email}</p>
-                                        <Badge variant="outline" className="text-xs mt-1">{user.role}</Badge>
+                                        <p className="text-xs font-medium truncate">{user.full_name}</p>
+                                        <p className="text-xs text-gray-400 truncate">{user.email}</p>
                                       </div>
-                                      {user.is_active === false && (
-                                        <Badge className="bg-red-100 text-red-700 text-xs">
-                                          {text.suspended}
-                                        </Badge>
-                                      )}
+                                      <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex-shrink-0">{user.role?.replace('_',' ') || '—'}</span>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                  {users.filter(u => u.company_id === company.id).length === 0 && (
+                                    <p className="text-xs text-gray-400 text-center py-3">{language==='ar'?'لا يوجد مستخدمون':'No users'}</p>
+                                  )}
+                                </div>
                               </div>
+
                             </div>
                           </TableCell>
                         </TableRow>
