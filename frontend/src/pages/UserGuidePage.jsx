@@ -125,6 +125,25 @@ export default function UserGuidePage() {
       ]
     },
 
+    // ─── المبيعات CRM ────────────────────────────────
+    {
+      id: 'sales', icon: TrendingUp, color: 'bg-orange-500',
+      badge: ar ? 'جديد' : 'New',
+      title: ar ? 'المبيعات وإدارة العملاء CRM' : 'Sales & CRM',
+      items: [
+        { q: ar ? 'كيف أضيف عميل جديد في CRM؟' : 'How to add a new customer in CRM?',
+          a: ar ? 'المبيعات CRM ← العملاء ← "+ عميل جديد"\n\nالبيانات الأساسية:\n• الاسم (عربي + إنجليزي)\n• النوع: فرد / شركة / حكومي\n• المرحلة: عميل محتمل → مرتقب → عميل → VIP\n• الهاتف والبريد الإلكتروني والعنوان\n• الرقم الضريبي والسجل التجاري\n• حد الائتمان وشروط الدفع (أيام)\n• خصم خاص بالعميل\n\nالعميل يحصل على كود تلقائي (CUS-0001)' : 'Sales CRM → Customers → "+ New Customer"\n\nBasic data:\n• Name (Arabic + English)\n• Type: Individual / Company / Government\n• Stage: Lead → Prospect → Customer → VIP\n• Phone, email, address\n• Tax number, commercial registration\n• Credit limit and payment terms (days)\n• Customer-specific discount\n\nAuto-generated code (CUS-0001)' },
+        { q: ar ? 'كيف أنشئ عرض سعر؟' : 'How to create a quotation?',
+          a: ar ? 'المبيعات CRM ← عروض الأسعار ← "+ عرض سعر جديد"\n\n1. اختر اسم العميل\n2. حدد تاريخ العرض ومدة الصلاحية (أيام)\n3. أضف الأصناف:\n   • وصف الصنف | الكمية | الوحدة | سعر الوحدة\n4. حدد الخصم % وضريبة القيمة المضافة %\n5. النظام يحسب تلقائياً: إجمالي + خصم + ضريبة + صافي\n6. "حفظ عرض السعر"\n\nحالات العرض:\n• مسودة → مرسل → مقبول / مرفوض / منتهي\n\nتحويل لفاتورة:\nاضغط "تحويل" ← تنشأ فاتورة مبيعات مباشرة بنفس البيانات' : 'Sales CRM → Quotations → "+ New Quote"\n\n1. Enter customer name\n2. Set quote date and validity period (days)\n3. Add items:\n   • Description | Qty | Unit | Unit Price\n4. Set discount % and VAT %\n5. System auto-calculates: subtotal + discount + tax + total\n6. "Save Quotation"\n\nQuote statuses:\n• Draft → Sent → Accepted / Rejected / Expired\n\nConvert to invoice:\nClick "Convert" → Sales invoice created with same data' },
+        { q: ar ? 'كيف أنشئ فاتورة مبيعات وأسجل دفعة؟' : 'How to create sales invoice and record payment?',
+          a: ar ? 'المبيعات CRM ← فواتير المبيعات\n\nإنشاء فاتورة:\n• مباشرة "+ فاتورة جديدة" أو من تحويل عرض سعر\n• رقم الفاتورة يُولَّد تلقائياً (INV-2026-0001)\n• تاريخ الفاتورة وتاريخ الاستحقاق\n\nتسجيل دفعة:\n1. اضغط "تسجيل دفعة" على الفاتورة\n2. أدخل المبلغ (جزئي أو كامل)\n3. طريقة الدفع: نقدي / تحويل بنكي / InstaPay / شيك\n4. المرجع والتاريخ\n\nحالات الدفع:\n• غير مدفوعة → جزئية (شريط تقدم) → مدفوعة بالكامل\n\nقيود محاسبية تلقائية:\n► فاتورة: مدين: عملاء 131 | دائن: إيراد 411 + VAT 260\n► دفعة: مدين: بنك 162 | دائن: عملاء 131' : 'Sales CRM → Sales Invoices\n\nCreate invoice:\n• Directly "+ New Invoice" or convert from quotation\n• Invoice number auto-generated (INV-2026-0001)\n• Invoice date and due date\n\nRecord payment:\n1. Click "Record Payment" on invoice\n2. Enter amount (partial or full)\n3. Payment method: Cash / Bank Transfer / InstaPay / Check\n4. Reference and date\n\nPayment statuses:\n• Unpaid → Partial (progress bar) → Fully Paid\n\nAutomatic journal entries:\n► Invoice: Dr: Customers 131 | Cr: Revenue 411 + VAT 260\n► Payment: Dr: Bank 162 | Cr: Customers 131' },
+        { q: ar ? 'كيف أدير اشتراكات العملاء الدورية؟' : 'How to manage recurring customer subscriptions?',
+          a: ar ? 'المبيعات CRM ← الاشتراكات ← "+ اشتراك جديد"\n\n• اسم العميل، اسم الخدمة، الوصف\n• دورة الفوترة: شهري / ربع سنوي / نصف سنوي / سنوي\n• المبلغ والعملة\n• تاريخ البداية\n• تجديد تلقائي (تفعيل/تعطيل)\n\nإدارة الاشتراكات:\n• إيقاف مؤقت / استئناف / إلغاء\n• توليد فاتورة تلقائية من الاشتراك بضغطة واحدة\n• تتبع تاريخ الفوترة القادم' : 'Sales CRM → Subscriptions → "+ New Subscription"\n\n• Customer name, service name, description\n• Billing cycle: Monthly / Quarterly / Semi-annual / Annual\n• Amount and currency\n• Start date\n• Auto-renew (on/off)\n\nManage subscriptions:\n• Pause / Resume / Cancel\n• Generate invoice from subscription in one click\n• Track next billing date' },
+        { q: ar ? 'تقارير ومؤشرات المبيعات' : 'Sales reports and KPIs',
+          a: ar ? 'المبيعات CRM ← نظرة عامة:\n\n📊 المؤشرات الرئيسية:\n• إجمالي العملاء / الفواتير / عروض الأسعار\n• إيرادات الشهر الحالي\n• الرصيد المستحق (غير مدفوع)\n• نسبة تحويل عروض الأسعار لفواتير\n• الفواتير المتأخرة\n\n⚡ وصول سريع:\n• 4 أزرار للانتقال لكل قسم مباشرة\n• عميل جديد | عرض سعر | فاتورة | اشتراك' : 'Sales CRM → Overview:\n\n📊 Key Metrics:\n• Total customers / invoices / quotations\n• Current month revenue\n• Outstanding balance (unpaid)\n• Quote-to-invoice conversion rate\n• Overdue invoices\n\n⚡ Quick Access:\n• 4 buttons for direct section navigation\n• New Customer | Quote | Invoice | Subscription' },
+      ]
+    },
+
     // ─── المخزون ────────────────────────────────
     {
       id: 'inventory', icon: Package, color: 'bg-orange-500',
@@ -225,7 +244,7 @@ export default function UserGuidePage() {
           <div>
             <h1 className="text-xl font-bold">{ar ? 'دليل المستخدم الشامل' : 'Complete User Guide'}</h1>
             <p className="text-white/60 text-xs mt-0.5">
-              {ar ? 'DataLife Account — v2.1 | 108 حساب | قانون 148/2019 و91/2005' : 'DataLife Account — v2.1 | 108 Accounts | Law 148/2019 & 91/2005'}
+              {ar ? 'DataLife Account — v3.0 | 108 حساب | 14 وحدة | قانون 148/2019 و91/2005' : 'DataLife Account — v3.0 | 108 Accounts | 14 Modules | Law 148/2019 & 91/2005'}
             </p>
           </div>
         </div>
@@ -244,7 +263,7 @@ export default function UserGuidePage() {
       <div className="grid grid-cols-4 gap-2">
         {[
           { n: '108', l: ar ? 'حساب محاسبي' : 'Accounts' },
-          { n: '11', l: ar ? 'وحدة رئيسية' : 'Modules' },
+          { n: '14', l: ar ? 'وحدة رئيسية' : 'Modules' },
           { n: '24/7', l: ar ? 'متاح دائماً' : 'Available' },
           { n: '🔒', l: ar ? 'بيانات آمنة' : 'Secure Data' },
         ].map((s, i) => (
