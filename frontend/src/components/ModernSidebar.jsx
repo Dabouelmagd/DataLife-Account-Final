@@ -3,7 +3,8 @@ import {
   House, Users, Wallet, FileText, Gear, SignOut, CaretDown, CaretRight,
   ChartBar, ShieldCheck, Bell, Clock, Folders, Package, CreditCard, 
   UserCheck, FileCheck, Buildings, PieChart, TrendingUp, Globe, ClipboardText,
-  Cube, CheckCircle, Moon, Sun, Lock, Copy, CaretUp, Tag
+  Cube, CheckCircle, Moon, Sun, Lock, Copy, CaretUp, Tag,
+  UploadSimple, Book, Shield
 } from '@phosphor-icons/react';
 import { Badge } from './ui/badge';
 import NotificationCenter from './NotificationCenter';
@@ -113,6 +114,41 @@ const ModernSidebar = ({
         text: 'text-indigo-600 dark:text-indigo-400',
         icon: 'bg-indigo-500 dark:bg-indigo-600'
       },
+      // Sales CRM - Orange
+      'sales': { 
+        bg: 'bg-orange-500/10 dark:bg-orange-500/15', 
+        border: 'border-orange-500',
+        text: 'text-orange-600 dark:text-orange-400',
+        icon: 'bg-orange-500 dark:bg-orange-600'
+      },
+      // Assets - Purple
+      'assets': { 
+        bg: 'bg-purple-500/10 dark:bg-purple-500/15', 
+        border: 'border-purple-500',
+        text: 'text-purple-600 dark:text-purple-400',
+        icon: 'bg-purple-500 dark:bg-purple-600'
+      },
+      // Approvals - Green
+      'approvals': { 
+        bg: 'bg-green-500/10 dark:bg-green-500/15', 
+        border: 'border-green-500',
+        text: 'text-green-600 dark:text-green-400',
+        icon: 'bg-green-500 dark:bg-green-600'
+      },
+      // User Guide - Sky
+      'user-guide': { 
+        bg: 'bg-sky-500/10 dark:bg-sky-500/15', 
+        border: 'border-sky-500',
+        text: 'text-sky-600 dark:text-sky-400',
+        icon: 'bg-sky-500 dark:bg-sky-600'
+      },
+      // Import - Slate
+      'import': { 
+        bg: 'bg-slate-500/10 dark:bg-slate-500/15', 
+        border: 'border-slate-400',
+        text: 'text-slate-600 dark:text-slate-400',
+        icon: 'bg-slate-400 dark:bg-slate-500'
+      },
       // Default - Slate
       'default': { 
         bg: 'bg-slate-500/10 dark:bg-slate-500/15', 
@@ -155,10 +191,15 @@ const ModernSidebar = ({
       'report-management': <ClipboardText weight={weight} />,
       'analytics': <ChartBar weight={weight} />,
       'inventory': <Cube weight={weight} />,
-      'settings': <Gear weight={weight} />,
-      'coupons': <Tag weight={weight} />,
-      'users': <UserCheck weight={weight} />,
-      'approvals': <CheckCircle weight={weight} />,
+      'settings':    <Gear weight={weight} />,
+      'coupons':     <Tag weight={weight} />,
+      'users':       <UserCheck weight={weight} />,
+      'approvals':   <CheckCircle weight={weight} />,
+      'sales':       <TrendingUp weight={weight} />,
+      'assets':      <Buildings weight={weight} />,
+      'import':      <UploadSimple weight={weight} />,
+      'user-guide':  <Book weight={weight} />,
+      'super-admin': <Shield weight={weight} />,
     };
     return iconMap[moduleId] || <House weight={weight} />;
   };
@@ -196,8 +237,10 @@ const ModernSidebar = ({
   };
 
   // Group modules - Main modules with sub-menus vs others
-  const mainModules = modules.filter(m => ['hr', 'financial', 'invoices'].includes(m.id));
-  const otherModules = modules.filter(m => !['hr', 'financial', 'invoices'].includes(m.id));
+  // Modules with sub-menus (accordion style)
+  const MAIN_MODULE_IDS = ['hr', 'financial', 'invoices'];
+  const mainModules  = modules.filter(m => MAIN_MODULE_IDS.includes(m.id));
+  const otherModules = modules.filter(m => !MAIN_MODULE_IDS.includes(m.id));
 
   return (
     <aside 
@@ -331,8 +374,13 @@ const ModernSidebar = ({
             );
           })}
 
-          {/* Main Modules (HR, Financial, Invoices) */}
-          <div className="mt-1">
+          {/* Main Modules — with sub-menus */}
+          {mainModules.length > 0 && (
+            <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600 px-2.5 mt-3 mb-1">
+              {language === 'ar' ? 'الوحدات الرئيسية' : 'MAIN MODULES'}
+            </p>
+          )}
+          <div className="mt-0">
             {mainModules.map((module) => {
               const isActive = activeModule === module.id;
               const hasSubModules = module.hasSubModules && module.subModules?.length > 0;
@@ -412,10 +460,69 @@ const ModernSidebar = ({
             })}
           </div>
 
-          {/* Other Modules (Reports, Analytics, Approvals, Import, etc.) */}
+          {/* Other Modules — grouped by category */}
           {otherModules.filter(m => m.id !== 'dashboard' && m.id !== 'settings').length > 0 && (
             <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-800">
-              {otherModules.filter(m => m.id !== 'dashboard' && m.id !== 'settings').map((module) => {
+
+              {/* Section label: Business modules */}
+              {otherModules.some(m => ['sales','purchases','projects','assets'].includes(m.id)) && (
+                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600 px-2.5 mt-1 mb-1">
+                  {language === 'ar' ? 'الأعمال' : 'BUSINESS'}
+                </p>
+              )}
+              {otherModules.filter(m => ['sales','purchases','projects','assets'].includes(m.id)).map((module) => {
+                const isActive = activeModule === module.id;
+                const colors = getModuleColor(module.id);
+                return (
+                  <button
+                    key={module.id}
+                    onClick={() => setActiveModule(module.id)}
+                    data-testid={`nav-${module.id}-module`}
+                    className={`w-full flex items-center gap-2 py-2 px-2.5 rounded-lg mb-0.5 transition-all
+                      ${isActive ? `${colors.bg} border-s-2 ${colors.border} ${colors.text}` : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
+                    `}
+                  >
+                    <span className={`w-7 h-7 flex items-center justify-center rounded-md ${isActive ? `${colors.icon} text-white` : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+                      {React.cloneElement(getModuleIcon(module.id, isActive), { className: 'w-4 h-4' })}
+                    </span>
+                    <span className="text-sm font-medium">{module.name}</span>
+                  </button>
+                );
+              })}
+
+              {/* Section label: Reports & Management */}
+              {otherModules.some(m => ['analytics','system-reports','approvals'].includes(m.id)) && (
+                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600 px-2.5 mt-3 mb-1">
+                  {language === 'ar' ? 'التقارير والإدارة' : 'REPORTS'}
+                </p>
+              )}
+              {otherModules.filter(m => ['analytics','system-reports','approvals'].includes(m.id)).map((module) => {
+                const isActive = activeModule === module.id;
+                const colors = getModuleColor(module.id);
+                return (
+                  <button
+                    key={module.id}
+                    onClick={() => setActiveModule(module.id)}
+                    data-testid={`nav-${module.id}-module`}
+                    className={`w-full flex items-center gap-2 py-2 px-2.5 rounded-lg mb-0.5 transition-all
+                      ${isActive ? `${colors.bg} border-s-2 ${colors.border} ${colors.text}` : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
+                    `}
+                  >
+                    <span className={`w-7 h-7 flex items-center justify-center rounded-md ${isActive ? `${colors.icon} text-white` : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+                      {React.cloneElement(getModuleIcon(module.id, isActive), { className: 'w-4 h-4' })}
+                    </span>
+                    <span className="text-sm font-medium">{module.name}</span>
+                  </button>
+                );
+              })}
+
+              {/* Section label: Tools */}
+              {otherModules.some(m => ['import','user-guide','super-admin'].includes(m.id)) && (
+                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600 px-2.5 mt-3 mb-1">
+                  {language === 'ar' ? 'أدوات' : 'TOOLS'}
+                </p>
+              )}
+              {otherModules.filter(m => ['import','user-guide','super-admin'].includes(m.id)).map((module) => {
                 const isActive = activeModule === module.id;
                 const colors = getModuleColor(module.id);
                 return (

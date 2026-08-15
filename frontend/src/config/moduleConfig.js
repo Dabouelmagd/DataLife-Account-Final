@@ -5,7 +5,8 @@
 
 import { 
   Shield, Home, Users, Calculator, FileText, FolderKanban, 
-  BarChart, Settings, Upload, Book, Building2, Bell, ShoppingCart
+  BarChart, Settings, Upload, Book, Building2, Bell, ShoppingCart,
+  TrendingUp, Receipt, Repeat, UserCheck
 } from 'lucide-react';
 
 // Role categories
@@ -37,27 +38,26 @@ export const getAvailableModules = (user, language) => {
   const modules = [];
   const isArabic = language === 'ar';
 
-  // Super Admin Dashboard
+  const hasFullAccess = hasAnyRole(role, ['TOP_MANAGEMENT', 'SUPER_ADMIN']);
+
+  // ── 1. Super Admin ────────────────────────────────────────
   if (hasRole(role, 'SUPER_ADMIN')) {
-    modules.push({ 
-      id: 'super-admin', 
-      name: isArabic ? 'إدارة المنصة' : 'Platform Admin', 
-      icon: <Shield /> 
+    modules.push({
+      id: 'super-admin',
+      name: isArabic ? '🛡️ إدارة المنصة' : '🛡️ Platform Admin',
+      icon: <Shield />
     });
   }
 
-  // Dashboard - available to all
-  modules.push({ 
-    id: 'dashboard', 
-    name: isArabic ? 'لوحة التحكم' : 'Dashboard', 
-    icon: <Home /> 
+  // ── 2. Dashboard ──────────────────────────────────────────
+  modules.push({
+    id: 'dashboard',
+    name: isArabic ? 'الرئيسية' : 'Dashboard',
+    icon: <Home />
   });
 
-  // Full access roles
-  const hasFullAccess = hasAnyRole(role, ['TOP_MANAGEMENT', 'SUPER_ADMIN']);
-  
-  // HR Module - check hr, hr_admin, or hr_financial
-  if (hasFullAccess || hasRole(role, 'HR_ONLY') || hasRole(role, 'FINANCIAL_MANAGER') || 
+  // ── 3. HR ──────────────────────────────────────────────────
+  if (hasFullAccess || hasRole(role, 'HR_ONLY') || hasRole(role, 'FINANCIAL_MANAGER') ||
       permissions.includes('hr') || permissions.includes('hr_admin') || permissions.includes('hr_financial')) {
     modules.push({
       id: 'hr',
@@ -68,8 +68,9 @@ export const getAvailableModules = (user, language) => {
     });
   }
 
-  // Financial Module
-  if (hasFullAccess || hasRole(role, 'FINANCIAL_MANAGER') || hasRole(role, 'EXECUTIVE') || permissions.includes('financial')) {
+  // ── 4. Financial ───────────────────────────────────────────
+  if (hasFullAccess || hasRole(role, 'FINANCIAL_MANAGER') || hasRole(role, 'EXECUTIVE') ||
+      permissions.includes('financial')) {
     modules.push({
       id: 'financial',
       name: isArabic ? 'الإدارة المالية' : 'Financial Management',
@@ -79,27 +80,28 @@ export const getAvailableModules = (user, language) => {
     });
   }
 
-  // Invoices Module
+  // ── 5. Sales CRM ───────────────────────────────────────────
+  if (hasFullAccess || hasRole(role, 'FINANCIAL_MANAGER') ||
+      permissions.includes('sales') || permissions.includes('invoices')) {
+    modules.push({
+      id: 'sales',
+      name: isArabic ? 'المبيعات CRM' : 'Sales & CRM',
+      icon: <TrendingUp />
+    });
+  }
+
+  // ── 6. Invoices ────────────────────────────────────────────
   if (hasFullAccess || hasRole(role, 'FINANCIAL_MANAGER') || permissions.includes('invoices')) {
     modules.push({
       id: 'invoices',
-      name: isArabic ? 'الفواتير' : 'Invoices',
-      icon: <FileText />,
+      name: isArabic ? 'الفواتير الإلكترونية' : 'E-Invoicing',
+      icon: <Receipt />,
       hasSubModules: true,
       subModules: getInvoiceSubModules(isArabic)
     });
   }
 
-  // Sales Module
-  if (hasFullAccess || hasRole(role, 'FINANCIAL_MANAGER') || hasRole(role, 'SALES') || permissions.includes('sales') || permissions.includes('invoices')) {
-    modules.push({
-      id: 'sales',
-      name: isArabic ? 'المبيعات CRM' : 'Sales CRM',
-      icon: <TrendingUp />,
-    });
-  }
-
-  // Purchases Module
+  // ── 7. Purchases ───────────────────────────────────────────
   if (hasFullAccess || hasRole(role, 'FINANCIAL_MANAGER') || permissions.includes('purchases')) {
     modules.push({
       id: 'purchases',
@@ -108,7 +110,7 @@ export const getAvailableModules = (user, language) => {
     });
   }
 
-  // Projects Module
+  // ── 8. Projects ────────────────────────────────────────────
   if (hasFullAccess || hasRole(role, 'PROJECT_ONLY') || permissions.includes('projects')) {
     modules.push({
       id: 'projects',
@@ -117,25 +119,7 @@ export const getAvailableModules = (user, language) => {
     });
   }
 
-  // Analytics Module
-  if (hasFullAccess || permissions.includes('analytics') || permissions.includes('reports')) {
-    modules.push({
-      id: 'analytics',
-      name: isArabic ? 'التحليلات والتقارير' : 'Analytics & Reports',
-      icon: <BarChart />
-    });
-  }
-
-  // Approvals Module
-  if (hasFullAccess || permissions.includes('approvals')) {
-    modules.push({
-      id: 'approvals',
-      name: isArabic ? 'الموافقات' : 'Approvals',
-      icon: <FileText />
-    });
-  }
-
-  // Assets & Tax Module
+  // ── 9. Assets & Taxes ─────────────────────────────────────
   if (hasFullAccess || permissions.includes('financial')) {
     modules.push({
       id: 'assets',
@@ -144,7 +128,25 @@ export const getAvailableModules = (user, language) => {
     });
   }
 
-  // Import Data Module
+  // ── 10. Analytics & Reports ────────────────────────────────
+  if (hasFullAccess || permissions.includes('analytics') || permissions.includes('reports')) {
+    modules.push({
+      id: 'analytics',
+      name: isArabic ? 'التقارير والتحليلات' : 'Reports & Analytics',
+      icon: <BarChart />
+    });
+  }
+
+  // ── 11. Approvals ──────────────────────────────────────────
+  if (hasFullAccess || permissions.includes('approvals')) {
+    modules.push({
+      id: 'approvals',
+      name: isArabic ? 'الموافقات' : 'Approvals',
+      icon: <UserCheck />
+    });
+  }
+
+  // ── 12. Import Data ────────────────────────────────────────
   if (hasFullAccess || permissions.includes('settings') || permissions.includes('admin')) {
     modules.push({
       id: 'import',
@@ -153,7 +155,7 @@ export const getAvailableModules = (user, language) => {
     });
   }
 
-  // Settings Module
+  // ── 13. Settings ───────────────────────────────────────────
   if (hasFullAccess || permissions.includes('settings')) {
     modules.push({
       id: 'settings',
@@ -162,10 +164,10 @@ export const getAvailableModules = (user, language) => {
     });
   }
 
-  // User Guide Module
+  // ── 14. User Guide (always shown) ─────────────────────────
   modules.push({
     id: 'user-guide',
-    name: isArabic ? 'دليل المستخدم' : 'User Guide',
+    name: isArabic ? 'دليل الاستخدام' : 'User Guide',
     icon: <Book />
   });
 
@@ -176,45 +178,44 @@ export const getAvailableModules = (user, language) => {
  * HR Sub-modules
  */
 export const getHRSubModules = (isArabic) => [
-  { id: 'overview', name: isArabic ? 'نظرة عامة' : 'Overview' },
-  { id: 'payroll', name: isArabic ? 'كشف المرتبات' : 'Payroll' },
-  { id: 'salaries', name: isArabic ? 'الرواتب' : 'Salaries' },
-  { id: 'allowances', name: isArabic ? 'البدلات' : 'Allowances' },
-  { id: 'deductions', name: isArabic ? 'الخصومات' : 'Deductions' },
-  { id: 'attendance', name: isArabic ? 'الحضور' : 'Attendance' },
-  { id: 'shifts', name: isArabic ? 'الورديات' : 'Shifts' },
-  { id: 'casual-leave', name: isArabic ? 'الإجازات العارضة' : 'Casual Leave' },
-  { id: 'annual-leave', name: isArabic ? 'الإجازات السنوية' : 'Annual Leave' },
-  { id: 'termination', name: isArabic ? 'إنهاء الخدمة' : 'Termination' },
-  { id: 'reports', name: isArabic ? 'التقارير' : 'Reports' },
-  { id: 'hr-settings', name: isArabic ? 'الإعدادات' : 'Settings' }
+  { id: 'overview',      name: isArabic ? '🏠 نظرة عامة'         : '🏠 Overview' },
+  { id: 'employees',     name: isArabic ? '👥 الموظفون'           : '👥 Employees' },
+  { id: 'salaries',      name: isArabic ? '💵 الرواتب'            : '💵 Salaries' },
+  { id: 'payroll',       name: isArabic ? '📋 كشف المرتبات'       : '📋 Payroll' },
+  { id: 'allowances',    name: isArabic ? '➕ البدلات'            : '➕ Allowances' },
+  { id: 'deductions',    name: isArabic ? '➖ الخصومات'           : '➖ Deductions' },
+  { id: 'attendance',    name: isArabic ? '⏰ الحضور والانصراف'   : '⏰ Attendance' },
+  { id: 'shifts',        name: isArabic ? '🔄 الورديات'           : '🔄 Shifts' },
+  { id: 'casual-leave',  name: isArabic ? '🌴 إجازة عارضة'        : '🌴 Casual Leave' },
+  { id: 'annual-leave',  name: isArabic ? '📅 إجازة سنوية'        : '📅 Annual Leave' },
+  { id: 'termination',   name: isArabic ? '🔚 إنهاء الخدمة'       : '🔚 End of Service' },
+  { id: 'reports',       name: isArabic ? '📊 تقارير HR'          : '📊 HR Reports' },
 ];
 
 /**
  * Financial Sub-modules
  */
 export const getFinancialSubModules = (isArabic) => [
-  { id: 'overview', name: isArabic ? 'نظرة عامة' : 'Overview' },
-  { id: 'journal-entries', name: isArabic ? 'القيود اليومية' : 'Journal Entries' },
-  { id: 'general-ledger', name: isArabic ? 'دفتر الأستاذ' : 'General Ledger' },
-  { id: 'parties', name: isArabic ? 'العملاء والموردين' : 'Parties' },
-  { id: 'products', name: isArabic ? 'المنتجات' : 'Products' },
-  { id: 'currencies', name: isArabic ? 'العملات' : 'Currencies' },
-  { id: 'inventory', name: isArabic ? 'المخزون' : 'Inventory' },
-  { id: 'bank', name: isArabic ? 'البنوك' : 'Banks' },
-  { id: 'bank-settings', name: isArabic ? 'إعدادات البنوك' : 'Bank Settings' },
-  { id: 'trial-balance', name: isArabic ? 'ميزان المراجعة' : 'Trial Balance' },
-  { id: 'income-statement', name: isArabic ? 'قائمة الدخل' : 'Income Statement' },
-  { id: 'balance-sheet', name: isArabic ? 'الميزانية' : 'Balance Sheet' },
-  { id: 'reports', name: isArabic ? 'التقارير المالية' : 'Financial Reports' }
+  { id: 'overview',         name: isArabic ? '🏠 نظرة عامة'        : '🏠 Overview' },
+  { id: 'journal-entries',  name: isArabic ? '📝 القيود اليومية'    : '📝 Journal Entries' },
+  { id: 'general-ledger',   name: isArabic ? '📒 دفتر الأستاذ'      : '📒 General Ledger' },
+  { id: 'trial-balance',    name: isArabic ? '⚖️ ميزان المراجعة'    : '⚖️ Trial Balance' },
+  { id: 'income-statement', name: isArabic ? '📈 قائمة الدخل'       : '📈 Income Statement' },
+  { id: 'balance-sheet',    name: isArabic ? '🏦 الميزانية العمومية' : '🏦 Balance Sheet' },
+  { id: 'parties',          name: isArabic ? '🤝 العملاء والموردين' : '🤝 Parties' },
+  { id: 'products',         name: isArabic ? '📦 المنتجات'          : '📦 Products' },
+  { id: 'inventory',        name: isArabic ? '🗄️ المخزون'           : '🗄️ Inventory' },
+  { id: 'bank',             name: isArabic ? '🏧 البنوك والخزائن'    : '🏧 Banks & Cash' },
+  { id: 'currencies',       name: isArabic ? '💱 العملات'           : '💱 Currencies' },
+  { id: 'reports',          name: isArabic ? '📊 التقارير المالية'  : '📊 Financial Reports' },
 ];
 
 /**
  * Invoice Sub-modules
  */
 export const getInvoiceSubModules = (isArabic) => [
-  { id: 'overview', name: isArabic ? 'نظرة عامة' : 'Overview' },
-  { id: 'invoices', name: isArabic ? 'الفواتير' : 'Invoices' },
-  { id: 'reports', name: isArabic ? 'التقارير' : 'Reports' },
-  { id: 'eta-settings', name: isArabic ? 'إعدادات ETA' : 'ETA Settings' }
+  { id: 'overview',     name: isArabic ? '🏠 نظرة عامة'         : '🏠 Overview' },
+  { id: 'invoices',     name: isArabic ? '📄 الفواتير'           : '📄 Invoices' },
+  { id: 'reports',      name: isArabic ? '📊 التقارير'           : '📊 Reports' },
+  { id: 'eta-settings', name: isArabic ? '⚙️ إعدادات ETA'        : '⚙️ ETA Settings' },
 ];
