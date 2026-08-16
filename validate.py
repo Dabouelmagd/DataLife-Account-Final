@@ -87,7 +87,12 @@ for path in jsx_files:
             if icon in LUCIDE_CONFIRMED_MISSING:
                 err(f"{rel}: '{icon}' NOT in lucide-react v1.7.0")
 
-    # f. Div balance in main JSX return
+    # f. Missing export default in page components
+    if '/pages/' in rel and path.endswith('.jsx'):
+        if 'export default' not in content:
+            err(f"{rel}: missing 'export default'")
+
+    # g. Div balance in main JSX return
     if path.endswith('.jsx') and '\n  return (' in content:
         try:
             idx = content.index('\n  return (')

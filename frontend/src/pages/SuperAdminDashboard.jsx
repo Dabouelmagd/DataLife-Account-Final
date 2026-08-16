@@ -1077,3 +1077,5 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
     </div>
   );
 }
+
+export default SuperAdminDashboard;
