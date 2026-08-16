@@ -489,6 +489,7 @@ const PricingSection = () => {
                   <td className="p-3 text-center bg-[#28376B]/5">{renderCell(feat.professional)}</td>
                   <td className="p-3 text-center">{renderCell(feat.enterprise)}</td>
                 </tr>
+                )
               ))}
               {/* Price row */}
               <tr className="bg-[#28376B]/10 font-bold">
