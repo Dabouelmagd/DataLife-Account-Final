@@ -1074,4 +1074,6 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
         </div>
       )}
 
-
+    </div>
+  );
+}
