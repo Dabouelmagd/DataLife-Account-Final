@@ -2,15 +2,14 @@
  * GuideWebPage — صفحة دليل الاستخدام العامة على الموقع
  * Public page at /guide — no login required
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DataLifeLogo } from '../components/DataLifeLogo';
 import {
   Search, ChevronDown, ChevronUp, ArrowRight, Home,
-  Users, Calculator, FileText, FolderOpen, TrendingUp,
-  Package, BarChart3, Shield, CreditCard, Bell, BookOpen,
-  CheckCircle, AlertTriangle, Zap, Clock, Globe, Mail,
-  Phone, Play, Star, Award, Lock
+  Users, Calculator, FileText, Folder, TrendingUp,
+  Package, BarChart, Shield, CreditCard, Bell, Book,
+  CheckCircle, AlertTriangle, Clock, Mail,
+  Phone, Star
 } from 'lucide-react';
 
 const SECTIONS = (ar) => [
@@ -835,7 +834,7 @@ export default function GuideWebPage() {
 
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center">
-              <BookOpen className="w-7 h-7" />
+              <Book className="w-7 h-7" />
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-black">

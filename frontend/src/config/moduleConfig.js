@@ -6,7 +6,7 @@
 import { 
   Shield, Home, Users, Calculator, FileText, FolderKanban, 
   BarChart, Settings, Upload, Book, Building2, Bell, ShoppingCart,
-  TrendingUp, Receipt, Repeat, UserCheck
+  TrendingUp
 } from 'lucide-react';
 
 // Role categories
@@ -95,7 +95,7 @@ export const getAvailableModules = (user, language) => {
     modules.push({
       id: 'invoices',
       name: isArabic ? 'الفواتير الإلكترونية' : 'E-Invoicing',
-      icon: <Receipt />,
+      icon: <FileText />,
       hasSubModules: true,
       subModules: getInvoiceSubModules(isArabic)
     });
@@ -142,7 +142,7 @@ export const getAvailableModules = (user, language) => {
     modules.push({
       id: 'approvals',
       name: isArabic ? 'الموافقات' : 'Approvals',
-      icon: <UserCheck />
+      icon: <Users />
     });
   }
 

@@ -40,6 +40,7 @@ import TermsPage from "./components/TermsPage";
 import ContactPage from "./components/ContactPage";
 import PartnersPage from "./components/PartnersPage";
 import AssetsModule from "./components/AssetsModule";
+import GuideWebPage from "./pages/GuideWebPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;

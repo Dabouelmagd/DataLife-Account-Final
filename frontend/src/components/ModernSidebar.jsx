@@ -4,7 +4,7 @@ import {
   ChartBar, ShieldCheck, Bell, Clock, Folders, Package, CreditCard, 
   UserCheck, FileCheck, Buildings, PieChart, TrendingUp, Globe, ClipboardText,
   Cube, CheckCircle, Moon, Sun, Lock, Copy, CaretUp, Tag,
-  UploadSimple, Book, Shield
+  UploadSimple, Book
 } from '@phosphor-icons/react';
 import { Badge } from './ui/badge';
 import NotificationCenter from './NotificationCenter';
@@ -199,7 +199,7 @@ const ModernSidebar = ({
       'assets':      <Buildings weight={weight} />,
       'import':      <UploadSimple weight={weight} />,
       'user-guide':  <Book weight={weight} />,
-      'super-admin': <Shield weight={weight} />,
+      'super-admin': <ShieldCheck weight={weight} />,
     };
     return iconMap[moduleId] || <House weight={weight} />;
   };
