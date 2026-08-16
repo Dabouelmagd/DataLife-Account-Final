@@ -120,13 +120,31 @@ async def login(credentials: UserLogin):
     
     user_response = user_to_response(user)
     
-    # Track last login time and mark as having logged in
+    # Track last login time, session history, and mark as having logged in
+    from datetime import datetime, timezone
+    login_time = datetime.now(timezone.utc).isoformat()
+    new_session = {
+        "login_at":  login_time,
+        "logout_at": None,
+        "ip":        credentials.email,  # placeholder — real IP needs middleware
+        "duration_minutes": None
+    }
     await db.users.update_one(
         {"email": credentials.email},
-        {"$set": {
-            "last_login": datetime.now(timezone.utc).isoformat(),
-            "has_logged_in": True
-        }}
+        {
+            "$set": {
+                "last_login":    login_time,
+                "has_logged_in": True,
+                "is_online":     True,
+                "current_login_at": login_time,
+            },
+            "$push": {
+                "login_sessions": {
+                    "$each": [new_session],
+                    "$slice": -50  # keep last 50 sessions
+                }
+            }
+        }
     )
     
     return Token(
@@ -134,6 +152,56 @@ async def login(credentials: UserLogin):
         token_type="bearer",
         user=user_response
     )
+
+
+@router.post("/logout")
+async def logout(authorization: str = Header(None)):
+    """Track logout time and session duration"""
+    from datetime import datetime, timezone
+    from services.auth_service import verify_token
+    try:
+        token_data = verify_token(authorization.replace("Bearer ", "") if authorization else "")
+        if token_data:
+            logout_time = datetime.now(timezone.utc)
+            user = await db.users.find_one({"id": token_data.get("user_id")})
+            if user:
+                login_at_str = user.get("current_login_at")
+                duration = None
+                if login_at_str:
+                    try:
+                        from dateutil import parser as dtparser
+                        login_at = dtparser.parse(login_at_str)
+                        if login_at.tzinfo is None:
+                            login_at = login_at.replace(tzinfo=timezone.utc)
+                        duration = int((logout_time - login_at).total_seconds() / 60)
+                    except Exception:
+                        pass
+                await db.users.update_one(
+                    {"id": token_data.get("user_id")},
+                    {"$set": {
+                        "is_online": False,
+                        "last_logout": logout_time.isoformat(),
+                        "last_session_duration_minutes": duration,
+                    },
+                    "$push": {
+                        "login_sessions": {
+                            "$each": [],  # no-op push to trigger $set on last element
+                        }
+                    }}
+                )
+                # Update last session logout_at
+                user_updated = await db.users.find_one({"id": token_data.get("user_id")})
+                sessions = user_updated.get("login_sessions", [])
+                if sessions:
+                    sessions[-1]["logout_at"] = logout_time.isoformat()
+                    sessions[-1]["duration_minutes"] = duration
+                    await db.users.update_one(
+                        {"id": token_data.get("user_id")},
+                        {"$set": {"login_sessions": sessions, "is_online": False}}
+                    )
+    except Exception:
+        pass
+    return {"message": "Logged out successfully"}
 
 
 @router.post("/reset-password")
