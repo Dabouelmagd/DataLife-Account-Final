@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   House, Users, Wallet, FileText, Gear, SignOut, CaretDown, CaretRight,
   ChartBar, ShieldCheck, Bell, Clock, Folders, Package, CreditCard, 
-  UserCheck, FileCheck, Buildings, PieChart, TrendingUp, Globe, ClipboardText,
+  UserCheck, FileCheck, Buildings, PieChart, Globe, ClipboardText,
   Cube, CheckCircle, Moon, Sun, Lock, Copy, CaretUp, Tag,
   UploadSimple, Book
 } from '@phosphor-icons/react';
@@ -195,7 +195,7 @@ const ModernSidebar = ({
       'coupons':     <Tag weight={weight} />,
       'users':       <UserCheck weight={weight} />,
       'approvals':   <CheckCircle weight={weight} />,
-      'sales':       <TrendingUp weight={weight} />,
+      'sales':       <ChartBar weight={weight} />,
       'assets':      <Buildings weight={weight} />,
       'import':      <UploadSimple weight={weight} />,
       'user-guide':  <Book weight={weight} />,
