@@ -171,7 +171,7 @@ const LandingPage = () => {
           <div className="text-center mb-6">
             <span className="inline-flex items-center gap-2 bg-white/10 text-white border border-white/20 rounded-full px-4 py-1.5 text-sm font-medium backdrop-blur-sm">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-              {ar ? '🇪🇬 النظام المحاسبي المصري الأول على السحابة' : '🇪🇬 Egypt's First Cloud ERP Platform'}
+              {ar ? '🇪🇬 النظام المحاسبي المصري الأول على السحابة' : "🇪🇬 Egypt's First Cloud ERP Platform"}
             </span>
           </div>
 

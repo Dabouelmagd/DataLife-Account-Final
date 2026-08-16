@@ -505,8 +505,6 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
       </div>
       )}
       
-      </div>
-
       {/* Companies Table */}
       {activeTab === 'companies' && (
         <div className="space-y-4">
