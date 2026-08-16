@@ -89,7 +89,8 @@ for path in jsx_files:
 
     # f. Missing export default in page components
     if '/pages/' in rel and path.endswith('.jsx'):
-        if 'export default' not in content:
+        has_export = 'export default' in content or 'export { default }' in content
+        if not has_export:
             err(f"{rel}: missing 'export default'")
 
     # g. Div balance in main JSX return
