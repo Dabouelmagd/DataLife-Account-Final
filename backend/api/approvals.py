@@ -624,6 +624,25 @@ async def execute_approval_action(request: dict):
             {"id": ref_id},
             {"$set": {"status": "approved", "approved_at": datetime.now(timezone.utc).isoformat()}}
         )
+        # Send email notification to employee
+        try:
+            leave = await db.leaves.find_one({"id": ref_id})
+            if leave:
+                employee = await db.users.find_one({"id": leave.get("employee_id")})
+                if employee and employee.get("email"):
+                    from api.notification_events import notify_leave_decision
+                    await notify_leave_decision({
+                        "employee_email": employee.get("email"),
+                        "employee_name": employee.get("full_name", ""),
+                        "leave_type": leave.get("leave_type", "إجازة"),
+                        "start_date": leave.get("start_date", ""),
+                        "end_date": leave.get("end_date", ""),
+                        "status": "approved",
+                        "approver_name": current_user.get("full_name", "المدير"),
+                        "rejection_reason": None,
+                    }, leave.get("company_id", ""))
+        except Exception as e:
+            pass  # Email failure should not block approval
     elif ref_type == "purchase_order":
         await db.purchase_orders.update_one(
             {"po_number": ref_id},
