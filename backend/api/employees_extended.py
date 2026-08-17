@@ -69,6 +69,8 @@ class EmployeeCreateRequest(BaseModel):
     bank_name: Optional[str] = None
     bank_account_number: Optional[str] = None
     iban: Optional[str] = None
+    wallet_number: Optional[str] = None
+    payment_method: Optional[str] = "bank_transfer"  # bank_transfer | cash | instapay | vodafone_cash
     
     annual_leave_balance: int = 21
     notes: Optional[str] = None

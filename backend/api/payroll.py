@@ -1700,3 +1700,122 @@ async def get_attendance_payroll_preview(
             "net_adjustment": round(totals["net_adjustment"], 2)
         }
     }
+
+
+@router.get("/runs/{run_id}/bank-transfer-report")
+async def get_bank_transfer_report(
+    run_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """تقرير التحويلات البنكية — يُصدَّر للبنك لتنفيذ التحويلات"""
+    company_id = current_user["company_id"]
+
+    payroll = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id})
+    if not payroll:
+        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+    if payroll["status"] not in ["approved", "paid"]:
+        raise HTTPException(status_code=400, detail="يجب اعتماد المسير أولاً")
+
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    company_name = company.get("name", "") if company else ""
+
+    rows = []
+    totals = {"bank_transfer": 0, "cash": 0, "instapay": 0, "vodafone_cash": 0, "total": 0}
+
+    for emp in payroll.get("employees", []):
+        # Get employee bank info
+        emp_doc = await db.employees.find_one({"id": emp["employee_id"]}, {"_id": 0})
+        emp_user = await db.users.find_one({"id": emp["employee_id"]}, {"_id": 0})
+
+        bank_name   = ""
+        account_no  = ""
+        iban        = ""
+        wallet_no   = ""
+        pay_method  = emp.get("payment_method", "bank_transfer")
+
+        if emp_doc:
+            bank_name  = emp_doc.get("bank_name", "")
+            account_no = emp_doc.get("bank_account_number", "")
+            iban       = emp_doc.get("iban", "")
+            wallet_no  = emp_doc.get("wallet_number", "")
+            if not pay_method or pay_method == "bank_transfer":
+                pay_method = emp_doc.get("payment_method", "bank_transfer")
+
+        net = emp.get("net_salary", 0)
+        totals[pay_method] = totals.get(pay_method, 0) + net
+        totals["total"] += net
+
+        rows.append({
+            "employee_id":   emp["employee_id"],
+            "employee_name": emp.get("employee_name", ""),
+            "department":    emp.get("department", ""),
+            "position":      emp.get("position", ""),
+            "net_salary":    net,
+            "payment_method": pay_method,
+            "bank_name":     bank_name,
+            "account_number": account_no,
+            "iban":          iban,
+            "wallet_number": wallet_no,
+            "email":         emp_user.get("email", "") if emp_user else "",
+        })
+
+    # Group by payment method
+    by_method = {}
+    for r in rows:
+        m = r["payment_method"]
+        if m not in by_method:
+            by_method[m] = []
+        by_method[m].append(r)
+
+    return {
+        "payroll_number": payroll["payroll_number"],
+        "month":          payroll["month"],
+        "company_name":   company_name,
+        "status":         payroll["status"],
+        "generated_at":   datetime.now(timezone.utc).isoformat(),
+        "employees":      rows,
+        "by_method":      by_method,
+        "totals":         totals,
+        "summary": {
+            "total_employees":  len(rows),
+            "bank_transfer":    {"count": len(by_method.get("bank_transfer", [])), "total": totals.get("bank_transfer", 0)},
+            "cash":             {"count": len(by_method.get("cash", [])),          "total": totals.get("cash", 0)},
+            "instapay":         {"count": len(by_method.get("instapay", [])),      "total": totals.get("instapay", 0)},
+            "vodafone_cash":    {"count": len(by_method.get("vodafone_cash", [])), "total": totals.get("vodafone_cash", 0)},
+            "total_net":        totals["total"],
+        }
+    }
+
+
+@router.post("/runs/{run_id}/pay-with-method")
+async def pay_with_method(
+    run_id: str,
+    payment_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """صرف الرواتب مع تحديد طريقة الصرف لكل موظف"""
+    company_id = current_user["company_id"]
+
+    payroll = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id})
+    if not payroll:
+        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+    if payroll["status"] != "approved":
+        raise HTTPException(status_code=400, detail="يجب اعتماد المسير أولاً")
+
+    default_method  = payment_data.get("default_method", "bank_transfer")
+    employee_methods = payment_data.get("employee_methods", {})  # {employee_id: method}
+
+    # Update each employee payment method in the run
+    employees = payroll.get("employees", [])
+    for emp in employees:
+        eid = emp["employee_id"]
+        emp["payment_method"] = employee_methods.get(eid, default_method)
+
+    await db.payroll_runs.update_one(
+        {"id": run_id},
+        {"$set": {"employees": employees, "default_payment_method": default_method}}
+    )
+
+    # Now trigger normal pay flow
+    from fastapi import BackgroundTasks
+    return await pay_payroll(run_id, default_method, current_user)

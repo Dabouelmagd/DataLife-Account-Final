@@ -15,6 +15,122 @@ const API = process.env.REACT_APP_BACKEND_URL + '/api/payroll';
 
 const getToken = () => localStorage.getItem('token');
 
+
+      {/* ════ Bank Transfer Modal ════ */}
+      {bankModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            
+            {/* Header */}
+            <div className="bg-gradient-to-r from-[#0f1729] to-[#28376B] text-white p-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold">{language === 'ar' ? 'صرف الرواتب وإدارة طرق الدفع' : 'Payroll Distribution'}</h2>
+                <p className="text-white/70 text-sm">{bankModal.payroll_number} — {bankModal.month}</p>
+              </div>
+              <button onClick={() => { setBankModal(null); setBankReport(null); }} className="p-2 hover:bg-white/20 rounded-full">✕</button>
+            </div>
+
+            {loadingBank ? (
+              <div className="flex-1 flex items-center justify-center py-16 text-gray-500">
+                <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
+              </div>
+            ) : bankReport ? (
+              <>
+                {/* Summary cards */}
+                <div className="grid grid-cols-4 gap-3 p-4 bg-gray-50 border-b">
+                  {[
+                    { id: 'bank_transfer', icon: '🏦', label: language === 'ar' ? 'تحويل بنكي' : 'Bank Transfer' },
+                    { id: 'cash',          icon: '💵', label: language === 'ar' ? 'نقدي' : 'Cash' },
+                    { id: 'instapay',      icon: '📱', label: 'InstaPay' },
+                    { id: 'vodafone_cash', icon: '📲', label: 'Vodafone Cash' },
+                  ].map(m => (
+                    <div key={m.id} className="bg-white rounded-xl p-3 border text-center">
+                      <div className="text-xl mb-1">{m.icon}</div>
+                      <div className="text-xs text-gray-500 mb-1">{m.label}</div>
+                      <div className="font-bold text-sm">{bankReport.summary?.[m.id]?.count || 0} {language === 'ar' ? 'موظف' : 'emp'}</div>
+                      <div className="text-blue-700 font-semibold text-xs">{(bankReport.summary?.[m.id]?.total || 0).toLocaleString()} ج</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Employees table */}
+                <div className="flex-1 overflow-auto p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-800 text-sm">
+                      {language === 'ar' ? 'تفاصيل كل موظف — يمكن تغيير طريقة الدفع' : 'Per-employee payment method'}
+                    </h3>
+                    <button onClick={downloadBankFile} className="flex items-center gap-2 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg text-gray-700 font-medium">
+                      ⬇️ {language === 'ar' ? 'تحميل CSV للبنك' : 'Download CSV'}
+                    </button>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-xs text-gray-600">
+                      <tr>
+                        <th className="text-start px-3 py-2">{language === 'ar' ? 'الموظف' : 'Employee'}</th>
+                        <th className="text-start px-3 py-2">{language === 'ar' ? 'البنك / المحفظة' : 'Bank / Wallet'}</th>
+                        <th className="text-start px-3 py-2">{language === 'ar' ? 'رقم الحساب / IBAN' : 'Account / IBAN'}</th>
+                        <th className="text-start px-3 py-2">{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</th>
+                        <th className="text-end px-3 py-2">{language === 'ar' ? 'صافي الراتب' : 'Net Salary'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(bankReport.employees || []).map(emp => (
+                        <tr key={emp.employee_id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="px-3 py-2 font-medium">{emp.employee_name}</td>
+                          <td className="px-3 py-2 text-gray-500 text-xs">{emp.bank_name || '—'}</td>
+                          <td className="px-3 py-2 text-gray-500 text-xs font-mono">
+                            {emp.account_number || emp.iban || emp.wallet_number || '—'}
+                          </td>
+                          <td className="px-3 py-2">
+                            <select
+                              value={employeeMethods[emp.employee_id] || 'bank_transfer'}
+                              onChange={e => setEmployeeMethods(prev => ({ ...prev, [emp.employee_id]: e.target.value }))}
+                              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-400"
+                            >
+                              <option value="bank_transfer">🏦 {language === 'ar' ? 'تحويل بنكي' : 'Bank Transfer'}</option>
+                              <option value="cash">💵 {language === 'ar' ? 'نقدي' : 'Cash'}</option>
+                              <option value="instapay">📱 InstaPay</option>
+                              <option value="vodafone_cash">📲 Vodafone Cash</option>
+                            </select>
+                          </td>
+                          <td className="px-3 py-2 text-end font-bold text-emerald-700">
+                            {emp.net_salary?.toLocaleString()} ج
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50">
+                      <tr>
+                        <td colSpan={4} className="px-3 py-2 font-bold text-gray-700">{language === 'ar' ? 'الإجمالي' : 'Total'}</td>
+                        <td className="px-3 py-2 text-end font-bold text-emerald-700">{bankReport.summary?.total_net?.toLocaleString()} ج</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Footer actions */}
+                <div className="border-t p-4 flex justify-between items-center bg-gray-50">
+                  <div className="text-xs text-gray-500">
+                    {language === 'ar' ? `${bankReport.summary?.total_employees} موظف — إجمالي: ${bankReport.summary?.total_net?.toLocaleString()} ج.م` : `${bankReport.summary?.total_employees} employees — Total: EGP ${bankReport.summary?.total_net?.toLocaleString()}`}
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => { setBankModal(null); setBankReport(null); }} className="px-4 py-2 text-sm border rounded-xl hover:bg-gray-100">
+                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                    </button>
+                    <button
+                      onClick={() => handlePayWithMethod(bankModal.id, 'bank_transfer')}
+                      className="px-6 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold flex items-center gap-2"
+                    >
+                      ✅ {language === 'ar' ? 'تأكيد الصرف وتحديث المحاسبة' : 'Confirm & Post Accounting'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+
 export default function PayrollPage() {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('runs');
@@ -320,6 +436,85 @@ export default function PayrollPage() {
     }
   };
 
+  // ─── Bank Transfer ─────────────────────
+  const [bankModal, setBankModal]           = useState(null);  // run object
+  const [bankReport, setBankReport]         = useState(null);
+  const [loadingBank, setLoadingBank]       = useState(false);
+  const [employeeMethods, setEmployeeMethods] = useState({});
+
+  const PAYMENT_METHODS = [
+    { id: 'bank_transfer', label_ar: 'تحويل بنكي', label_en: 'Bank Transfer', icon: '🏦' },
+    { id: 'cash',          label_ar: 'نقدي',         label_en: 'Cash',          icon: '💵' },
+    { id: 'instapay',      label_ar: 'InstaPay',     label_en: 'InstaPay',      icon: '📱' },
+    { id: 'vodafone_cash', label_ar: 'Vodafone Cash',label_en: 'Vodafone Cash', icon: '📲' },
+  ];
+
+  const openBankModal = async (run) => {
+    setBankModal(run);
+    setLoadingBank(true);
+    try {
+      const token = getToken();
+      const r = await fetch(`${API}/runs/${run.id}/bank-transfer-report`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      setBankReport(data);
+      // Pre-fill employee methods from report
+      const methods = {};
+      (data.employees || []).forEach(e => { methods[e.employee_id] = e.payment_method || 'bank_transfer'; });
+      setEmployeeMethods(methods);
+    } catch (e) {
+      toast.error(language === 'ar' ? 'خطأ في تحميل بيانات التحويل' : 'Error loading transfer data');
+    }
+    setLoadingBank(false);
+  };
+
+  const handlePayWithMethod = async (runId, defaultMethod) => {
+    try {
+      const token = getToken();
+      const r = await fetch(`${API}/runs/${runId}/pay-with-method`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_method: defaultMethod, employee_methods: employeeMethods })
+      });
+      const data = await r.json();
+      if (r.ok) {
+        toast.success(data.message || (language === 'ar' ? 'تم صرف الرواتب بنجاح' : 'Payroll paid successfully'));
+        setBankModal(null);
+        setBankReport(null);
+        fetchPayrollRuns();
+      } else {
+        toast.error(data.detail || 'Error');
+      }
+    } catch (e) {
+      toast.error('Error');
+    }
+  };
+
+  const downloadBankFile = () => {
+    if (!bankReport) return;
+    const ar = language === 'ar';
+    const lines = [
+      `${ar ? 'تقرير التحويلات البنكية' : 'Bank Transfer Report'}`,
+      `${ar ? 'الشركة' : 'Company'}: ${bankReport.company_name}`,
+      `${ar ? 'الشهر' : 'Month'}: ${bankReport.month}`,
+      `${ar ? 'رقم المسير' : 'Payroll No'}: ${bankReport.payroll_number}`,
+      '',
+      `${ar ? 'الموظف' : 'Employee'},${ar ? 'القسم' : 'Dept'},${ar ? 'طريقة الدفع' : 'Payment'},${ar ? 'البنك' : 'Bank'},${ar ? 'رقم الحساب' : 'Acc No'},${ar ? 'IBAN' : 'IBAN'},${ar ? 'رقم المحفظة' : 'Wallet'},${ar ? 'صافي الراتب' : 'Net Salary'}`,
+      ...(bankReport.employees || []).map(e =>
+        `${e.employee_name},${e.department},${e.payment_method},${e.bank_name},${e.account_number},${e.iban},${e.wallet_number},${e.net_salary}`
+      ),
+      '',
+      `${ar ? 'الإجمالي' : 'Total'}: ${bankReport.summary?.total_net?.toFixed(2)} EGP`,
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `bank_transfer_${bankReport.month}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+  // ─────────────────────────────────────────
+
   const handleSendPayslips = async (runId) => {
     if (!window.confirm(language === 'ar' 
       ? 'هل تريد إرسال قسائم الرواتب بالبريد الإلكتروني للموظفين؟' 
@@ -564,9 +759,9 @@ export default function PayrollPage() {
                           )}
                           {run.status === 'approved' && (
                             <>
-                              <Button size="sm" variant="outline" onClick={() => handlePayrollAction(run.id, 'pay')}>
+                              <Button size="sm" variant="outline" onClick={() => openBankModal(run)} className="border-emerald-500 text-emerald-700 hover:bg-emerald-50">
                                 <Banknote className="w-4 h-4 mr-1" />
-                                {text.pay}
+                                {language === 'ar' ? 'صرف الرواتب' : 'Pay Salaries'}
                               </Button>
                               <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1" onClick={() => handleSendPayslips(run.id)}>
                                 <Mail className="w-4 h-4" />
