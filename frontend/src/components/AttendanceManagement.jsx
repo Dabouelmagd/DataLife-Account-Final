@@ -154,9 +154,37 @@ const AttendanceManagement = () => {
     }
   };
 
-  const handleCheckIn = async () => {
+  const handleCheckIn = async (useGPS = false) => {
     if (!selectedEmployee) {
       toast.error(isRTL ? 'اختر الموظف أولاً' : 'Please select an employee');
+      return;
+    }
+
+    if (useGPS) {
+      if (!navigator.geolocation) {
+        toast.error(isRTL ? 'المتصفح لا يدعم GPS' : 'Browser does not support GPS');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            await axios.post(
+              `${API_URL}/api/attendance/check-in`,
+              { employee_id: selectedEmployee, method: 'gps',
+                location: { latitude: pos.coords.latitude, longitude: pos.coords.longitude } },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(isRTL ? '✅ تم تسجيل الحضور بـ GPS' : '✅ GPS check-in successful');
+            setShowCheckInDialog(false);
+            setSelectedEmployee('');
+            fetchTodayAttendance();
+          } catch (error) {
+            toast.error(error.response?.data?.detail || (isRTL ? 'خارج نطاق العمل' : 'Outside work zone'));
+          }
+        },
+        () => toast.error(isRTL ? 'تعذّر الحصول على الموقع' : 'Could not get GPS location'),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
       return;
     }
 
@@ -874,7 +902,11 @@ const AttendanceManagement = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCheckInDialog(false)}>{t.cancel}</Button>
-            <Button onClick={handleCheckIn} className="bg-green-600 hover:bg-green-700">
+            <Button onClick={() => handleCheckIn(true)} variant="outline" className="border-blue-500 text-blue-700 hover:bg-blue-50">
+              <MapPin className="h-4 w-4 mr-2" />
+              {isRTL ? 'حضور GPS' : 'GPS Check-in'}
+            </Button>
+            <Button onClick={() => handleCheckIn(false)} className="bg-green-600 hover:bg-green-700">
               <LogIn className="h-4 w-4 mr-2" />
               {t.confirm}
             </Button>
