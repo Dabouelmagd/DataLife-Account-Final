@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دليل الاستخدام الشامل — DataLife Account</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;background:#f8fafc;color:#1e293b}
+.wrap{max-width:800px;margin:0 auto;padding:24px 16px}
+.hero{background:#0f1729;border-radius:16px;padding:28px 24px 22px;margin-bottom:20px}
+.hero-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.hero-ico{width:44px;height:44px;background:#1e3a8a;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.hero h1{font-size:22px;font-weight:700;color:#ffffff;line-height:1.3}
+.hero .sub{font-size:13px;color:#93c5fd;margin-top:3px}
+.search-wrap{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);border-radius:10px;display:flex;align-items:center;gap:8px;padding:11px 14px;margin-bottom:16px}
+.search-wrap span{color:rgba(255,255,255,0.4);font-size:16px}
+.search-wrap input{background:none;border:none;outline:none;color:#fff;font-size:13px;flex:1;font-family:inherit}
+.search-wrap input::placeholder{color:rgba(255,255,255,0.35)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat{background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 6px;text-align:center}
+.stat .n{font-size:17px;font-weight:700;color:#fff}
+.stat .l{font-size:10px;color:#93c5fd;margin-top:2px}
+.qnav{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;margin-bottom:10px}
+.qn{flex-shrink:0;border:1px solid #cbd5e1;background:#fff;border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;color:#64748b;text-decoration:none;transition:.12s;display:inline-block}
+.qn:hover{border-color:#3b82f6;color:#1d4ed8;background:#eff6ff}
+.sec{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:10px;background:#fff}
+.sec-h{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;background:#fff;transition:.1s}
+.sec-h:hover{background:#f8fafc}
+.sec-ico{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.sec-txt{flex:1}
+.sec-txt h3{font-size:14px;font-weight:600;color:#1e293b;line-height:1.3}
+.sec-txt p{font-size:11px;color:#94a3b8;margin-top:2px}
+.sec-right{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.badge-green{background:#dcfce7;color:#166534}
+.ct{font-size:10px;color:#94a3b8}
+.ch{color:#94a3b8;font-size:14px;transition:transform .18s;display:inline-block}
+.ch.open{transform:rotate(180deg)}
+.sec-body{border-top:1px solid #f1f5f9}
+.qi{border-bottom:1px solid #f8fafc}
+.qi:last-child{border-bottom:none}
+.qi-h{display:flex;align-items:flex-start;gap:8px;padding:12px 16px;cursor:pointer;background:#fff;transition:.1s}
+.qi-h:hover{background:#f8fafc}
+.qi-arr{color:#3b82f6;font-size:12px;flex-shrink:0;margin-top:2px}
+.qi-q{font-size:13px;color:#1e293b;flex:1;line-height:1.5}
+.qi-ch{font-size:11px;color:#94a3b8;flex-shrink:0;transition:transform .15s;display:inline-block}
+.qi-ch.open{transform:rotate(180deg)}
+.qi-ans{padding:0 16px 14px 32px;background:#f8fafc}
+.ans-pre{font-family:inherit;font-size:12px;color:#475569;white-space:pre-wrap;line-height:1.8;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px}
+.empty{text-align:center;padding:40px 16px;color:#94a3b8}
+.cta-wrap{background:#0f1729;border:1px solid #1e3a8a;border-radius:14px;padding:24px;text-align:center;margin-top:10px}
+.cta-wrap h3{font-size:18px;font-weight:700;color:#fff;margin-bottom:8px}
+.cta-wrap p{font-size:13px;color:#93c5fd;margin-bottom:18px;line-height:1.7}
+.cta-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn-white{background:#fff;color:#1e3a8a;border:none;padding:10px 22px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-white:hover{background:#eff6ff}
+.btn-outline{background:transparent;color:#93c5fd;border:2px solid #93c5fd;padding:10px 22px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-outline:hover{background:#93c5fd;color:#0f1729}
+footer{text-align:center;padding:24px 0 8px;font-size:12px;color:#94a3b8}
+footer a{color:#3b82f6;text-decoration:none}
+@media(max-width:480px){.stats{grid-template-columns:repeat(2,1fr)}.cta-btns{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="hero-top">
+    <div class="hero-ico">📖</div>
+    <div>
+      <h1>دليل الاستخدام الشامل</h1>
+      <div class="sub">DataLife Account — نظام ERP المصري الأول · v3.0</div>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <span>🔍</span>
+    <input id="srch" type="text" placeholder="ابحث... (مثال: كيف أضيف موظف)" oninput="doFilter()">
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="n">14</div><div class="l">وحدة متكاملة</div></div>
+    <div class="stat"><div class="n">108</div><div class="l">حساب محاسبي</div></div>
+    <div class="stat"><div class="n">14</div><div class="l">يوم مجاني</div></div>
+    <div class="stat"><div class="n">🔒</div><div class="l">بيانات آمنة</div></div>
+  </div>
+</div>
+
+<div class="qnav" id="qnav"></div>
+<div id="body"></div>
+
+<footer>
+  <p>DataLife Account — دليل الاستخدام v3.0</p>
+  <p style="margin-top:4px"><a href="mailto:info@datalifeai.com">info@datalifeai.com</a> · <a href="https://datalifeaccount.com">datalifeaccount.com</a></p>
+</footer>
+
+</div>
+
+<script>
+const D=[
+{id:'start',ico:'🚀',bg:'#1e3a8a',bgL:'#dbeafe',badge:'ابدأ الآن',badgeC:'blue',t:'البداية السريعة',d:'تسجيل الشركة والدخول والإعداد',items:[
+{q:'كيف أسجل شركتي وأبدأ التجربة المجانية؟',a:`1. افتح datalifeaccount.com
+2. اضغط "تجربة مجانية 14 يوم"
+3. أدخل: اسم الشركة | البريد | كلمة المرور | الهاتف
+4. اضغط "إنشاء حساب"
+5. رسالة ترحيب تصلك فوراً على بريدك
+
+✅ 14 يوم مجاناً — بدون بطاقة ائتمان
+✅ تفعيل فوري — تبدأ العمل في دقيقتين`},
+{q:'كيف أضيف موظفين للنظام؟',a:`الإعدادات ← إدارة المستخدمين ← "دعوة موظف"
+
+← يصله بريد بكلمة مرور مؤقتة
+← تحدد صلاحياته: HR | مالية | فواتير | مشاريع
+← يسجل الدخول ويغير كلمة المرور
+
+💡 عدد مستخدمين غير محدود`},
+{q:'ما هي الوحدات المتاحة؟',a:`14 وحدة متكاملة:
+
+👥 الموارد البشرية — رواتب | حضور | إجازات | ورديات | إنهاء خدمة
+💰 الإدارة المالية — قيود | أستاذ عام | ميزان | قوائم مالية
+📈 المبيعات CRM — عملاء | عروض أسعار | فواتير | اشتراكات
+🧾 الفواتير الإلكترونية ETA
+🛒 المشتريات | 📁 المشاريع | 🏦 الأصول والضرائب
+📊 التقارير والتحليلات | ✅ الموافقات
+⬆️ استيراد البيانات | ⚙️ الإعدادات`},
+]},
+{id:'hr',ico:'👥',bg:'#0e7490',bgL:'#cffafe',badge:'قانون 148/2019',badgeC:'blue',t:'الموارد البشرية والمرتبات',d:'إدارة الموظفين وفق القانون المصري',items:[
+{q:'كيف أضيف موظف مع صورته ومستنداته؟',a:`الموارد البشرية ← نظرة عامة ← "إضافة موظف"
+
+البيانات: الاسم | القسم | الوظيفة | الراتب الأساسي
+📸 صورة شخصية: اسحب JPG أو PNG
+
+المستندات (يمكن إضافتها لاحقاً):
+• خطاب التعيين | البطاقة الشخصية | عقد العمل
+• شهادات علمية | تقرير طبي | بيانات بنكية`},
+{q:'كيف يعمل كشف المرتبات وفق القانون المصري؟',a:`النظام يطبق قانون 148/2019 و91/2005 تلقائياً:
+
+📉 استقطاعات تلقائية:
+• ضريبة كسب العمل (7 شرائح تصاعدية)
+• تأمينات اجتماعية — حصة الموظف: 11%
+• صندوق إعانة الطوارئ: 1%
+• صندوق تكريم الشهداء: 0.05%
+
+📈 التزامات الشركة (لا تُخصم من الموظف):
+• تأمينات — حصة الشركة: 18.75%
+• التأمين الصحي الشامل: 0.25%
+
+📧 "إرسال القسائم" ← كل موظف يستلم PDF على بريده`},
+{q:'إدارة الحضور والإجازات والورديات',a:`الحضور:
+HR ← الحضور ← اختر التاريخ ← سجل الحالة
+حالات: حاضر | غائب | إجازة | مأمورية | تأخير
+
+الإجازات:
+HR ← الإجازات ← "+ طلب إجازة"
+← المدير يوافق من صفحة الموافقات فوراً
+
+الورديات:
+HR ← الورديات ← "+ إضافة وردية"
+← تأثير تلقائي على التأخير والأوفر تايم`},
+{q:'حساب مكافأة نهاية الخدمة',a:`HR ← إنهاء الخدمة ← "+ إنهاء خدمة"
+اختر: الموظف | التاريخ | السبب (استقالة / فصل / تقاعد)
+
+النظام يحسب تلقائياً:
+✓ مكافأة نهاية الخدمة وفق سنوات الخدمة
+✓ الإجازات السنوية غير المستهلكة
+✓ الراتب المتبقي حتى تاريخ الإنهاء
+← قيد محاسبي يُنشأ تلقائياً`},
+]},
+{id:'fin',ico:'💰',bg:'#047857',bgL:'#d1fae5',badge:'108 حساب',badgeC:'green',t:'المحاسبة المالية',d:'الدليل المصري المعياري — قيود تلقائية',items:[
+{q:'ما هي الحسابات المتاحة؟',a:`108 حساب وفق الدليل المصري المعياري:
+
+الأصول (1xx):
+أصول ثابتة 111-116 | عملاء 131 | VAT مدخلات 137
+ضمانات 141 | خزينة 161 | بنك 162
+
+الالتزامات (2xx):
+موردون 251 | رواتب مستحقة 253 | ضرائب 254
+تأمينات 255 | طوارئ 258 | VAT مخرجات 260
+
+المصروفات (3xx): مواد 311 | مقاولون 315 | رواتب 331 | إهلاك 333
+الإيرادات (4xx): مبيعات 411 | خدمات 412 | مقاولات 414`},
+{q:'كيف أنشئ قيد يومي؟',a:`الإدارة المالية ← القيود اليومية ← "+ قيد جديد"
+
+1. التاريخ والوصف
+2. أضف سطور: ابحث بكود أو اسم الحساب
+3. أدخل مدين أو دائن لكل سطر
+4. تأكد: مجموع المدين = مجموع الدائن
+5. "حفظ" ← يُرحَّل فوراً للأستاذ العام
+
+⚠️ القيود المرحلة لا تُحذف — للتصحيح: قيد عكسي`},
+{q:'ما هي القيود التلقائية في النظام؟',a:`فاتورة بيع: مدين عملاء 131 | دائن إيراد 411 + VAT 260
+فاتورة شراء: مدين تكلفة + VAT 137 | دائن موردون 251
+
+الرواتب: مدين رواتب 331 + تأمينات الشركة
+           دائن تأمينات + ضريبة + رواتب مستحقة 253
+
+دفعة مبيعات: مدين بنك 162 | دائن عملاء 131
+إيراد مشروع: مدين بنك | دائن إيرادات مشاريع 412`},
+{q:'كيف أقرأ التقارير المالية؟',a:`ميزان المراجعة: ∑مدين = ∑دائن ← يؤكد صحة القيود
+
+قائمة الدخل:
+الإيرادات — التكاليف = مجمل الربح
+مجمل الربح — المصروفات = صافي الربح
+
+الميزانية العمومية: الأصول = الالتزامات + حقوق الملكية
+
+دفتر الأستاذ العام: كل حركة مع الرصيد التراكمي
+💡 استخدم فلتر التاريخ لمقارنة الفترات`},
+]},
+{id:'sales',ico:'📈',bg:'#c2410c',bgL:'#ffedd5',badge:'جديد',badgeC:'green',t:'المبيعات وإدارة العملاء CRM',d:'عملاء | عروض أسعار | فواتير | اشتراكات',items:[
+{q:'كيف أضيف عميل وأتابع مراحله؟',a:`المبيعات CRM ← العملاء ← "+ عميل جديد"
+
+مراحل العميل:
+عميل محتمل (Lead) ← مرتقب (Prospect) ← عميل ← VIP
+
+بيانات: الاسم | النوع (فرد / شركة / حكومي)
+حد الائتمان | شروط الدفع | خصم خاص
+كود تلقائي: CUS-0001`},
+{q:'كيف أنشئ عرض سعر وأحوله لفاتورة؟',a:`المبيعات CRM ← عروض الأسعار ← "+ عرض سعر"
+
+1. اسم العميل + تاريخ الصلاحية (أيام)
+2. أضف الأصناف: الوصف | الكمية | الوحدة | السعر
+3. حدد الخصم % والضريبة %
+4. الإجمالي يُحسب تلقائياً
+5. "حفظ" ← رقم تلقائي QUO-2026-0001
+
+تحويل لفاتورة بنقرة:
+← اضغط "تحويل" ← تنشأ فاتورة مبيعات تلقائياً`},
+{q:'كيف أسجل دفعة جزئية أو كاملة؟',a:`فاتورة المبيعات ← "تسجيل دفعة"
+
+• المبلغ: جزئي أو كامل
+• طريقة الدفع: نقدي | بنك | InstaPay | شيك
+• رقم المرجع والتاريخ
+
+شريط التقدم يُظهر نسبة السداد
+غير مدفوعة ← جزئية ← مدفوعة بالكامل
+
+قيد تلقائي: مدين بنك 162 | دائن عملاء 131`},
+{q:'الاشتراكات الدورية للعملاء',a:`المبيعات CRM ← الاشتراكات ← "+ اشتراك جديد"
+
+دورات الفوترة: شهري | ربع سنوي | نصف سنوي | سنوي
+الإدارة: تفعيل | إيقاف مؤقت | إلغاء
+
+توليد فاتورة بنقرة:
+← اضغط "فاتورة" على أي اشتراك
+← تنشأ فاتورة وتحتسب تاريخ الفوترة القادم`},
+]},
+{id:'projects',ico:'📁',bg:'#6d28d9',bgL:'#ede9fe',badge:'معيار 8',badgeC:'blue',t:'المشاريع والمقاولات',d:'ربط محاسبي تلقائي مع كل حركة',items:[
+{q:'كيف أدير مشروع مرتبط بالمحاسبة؟',a:`المشاريع ← "+ مشروع جديد"
+اسم | العميل | تاريخ البداية والنهاية | الميزانية
+
+كل حركة مالية ← قيد محاسبي تلقائي:
+• إيراد: مدين بنك | دائن إيرادات مشاريع 412
+• مصروف: مدين المصروف | دائن بنك
+
+تقرير المشروع يشمل:
+✓ 4 KPIs (إيرادات | مصروفات | ربح | ميزانية)
+✓ جدول إيرادات مفصل + مصروفات مفصل
+✓ ملخص الربح والخسارة + جدول المهام`},
+{q:'المستخلصات — قطاع المقاولات (معيار 8)',a:`المشاريع ← المستخلصات
+
+وفق المعيار المحاسبي المصري رقم 8:
+الإجمالي
+ - خصم التأمين المحتجز (5-10%)
+ - خصم الدفعة المقدمة
+ + ضريبة القيمة المضافة (5% أو 14%)
+ - خصم وتحصيل 1%
+= صافي المستحق
+
+قيد تلقائي:
+مدين: عملاء 131 + ضمان 141 + خصم 138
+دائن: إيرادات مقاولات 414 + VAT 260`},
+]},
+{id:'sec',ico:'🔒',bg:'#334155',bgL:'#f1f5f9',badge:'Enterprise',badgeC:'blue',t:'الأمان والصلاحيات',d:'21 صلاحية — حماية متعددة الطبقات',items:[
+{q:'كيف أدير صلاحيات المستخدمين؟',a:`الإعدادات ← الصلاحيات ← اختر المستخدم
+
+21 صلاحية في مجموعات:
+👥 HR: موظفون | رواتب | حضور | إجازات | ورديات | إنهاء
+💰 مالية: قيود | أستاذ عام | بنوك | أصول | تقارير
+📈 مبيعات: عملاء | عروض | فواتير | اشتراكات
+📁 مشاريع | 🛒 مشتريات | ⚙️ إعدادات
+
+قوالب جاهزة: مدير عام | مدير مالي | محاسب | مدير HR | مشاهد`},
+{q:'كيف تُحمى بياناتي المالية؟',a:`HTTPS: تشفير SSL/TLS 1.3 لكل البيانات
+JWT Token: مدة صلاحية 8 ساعات
+خروج تلقائي: 30 دقيقة خمول + تحذير قبل دقيقتين
+Rate Limiting: حماية من الاختراق والـ brute force
+سجل المراجعة: كل عملية بالتوقيت والمستخدم
+
+المحاسبة الثابتة (Immutable Ledger):
+← القيود المرحلة لا تُحذف نهائياً
+← للتصحيح: قيد عكسي فقط`},
+]},
+{id:'gps',ico:'📍',bg:'#065f46',bgL:'#d1fae5',badge:'جديد',badgeC:'green',t:'الحضور بالـ GPS',d:'تسجيل حضور الموظفين بالموقع الجغرافي',items:[
+{q:'كيف أُعِد نظام GPS؟ (للمدير)',a:`الإعدادات ← إعدادات GPS
+
+1. اضغط "📍 تحديد موقع الشركة"
+   المتصفح يطلب إذن الموقع → "سماح"
+   الإحداثيات تظهر تلقائياً
+
+2. أو أدخل يدوياً: خط العرض | خط الطول
+
+3. حدد نطاق الحضور (بالمتر) — مثال: 200م
+
+4. فعّل "تفعيل GPS" → حفظ الإعدادات
+
+💡 عطّل GPS للسماح بالعمل عن بُعد`},
+{q:'كيف يسجل الموظف حضوره بالـ GPS؟',a:`الموارد البشرية ← الحضور ← "+ تسجيل حضور"
+
+← اختر الموظف
+← اضغط "📍 حضور GPS"
+
+داخل النطاق ✅ → يُسجَّل فوراً
+خارج النطاق ❌ → رسالة خطأ بالمسافة
+
+مثال: "أنت خارج النطاق. المسافة: 450م | المسموح: 200م"
+
+أو اضغط "تأكيد" للحضور اليدوي بدون GPS
+🔒 GPS لا يمكن التلاعب به — الإحداثيات مُسجَّلة بالتوقيت`},
+{q:'تقارير الحضور',a:`الموارد البشرية ← الحضور ← تقرير الحضور
+
+فلتر: الموظف | القسم | الفترة الزمنية
+
+كل سجل يُظهر:
+• وقت الحضور + طريقته (GPS / يدوي)
+• وقت الانصراف + مدة العمل
+• الإحداثيات والمسافة من المكتب
+
+📊 مسير الرواتب يستند لبيانات الحضور تلقائياً`},
+]},
+{id:'paybank',ico:'🏦',bg:'#1e40af',bgL:'#dbeafe',badge:'جديد',badgeC:'green',t:'صرف المرتبات للبنك',d:'تحويل بنكي | InstaPay | Vodafone | نقدي',items:[
+{q:'كيف أُعِد بيانات البنك لكل موظف؟',a:`الموارد البشرية ← بيانات الموظف ← تعديل
+
+قسم "البيانات البنكية":
+• اسم البنك
+• رقم الحساب البنكي
+• IBAN (اختياري)
+• رقم المحفظة (InstaPay / فودافون كاش)
+• طريقة الاستلام الافتراضية
+
+الطرق المتاحة:
+🏦 تحويل بنكي — يتطلب حساب أو IBAN
+💵 نقدي — لا يتطلب بيانات
+📱 InstaPay — يتطلب رقم المحفظة
+📲 Vodafone Cash — يتطلب رقم المحفظة`},
+{q:'كيف أصرف المرتبات مع اختيار طريقة الدفع؟',a:`مسير الرواتب ← بعد الاعتماد ← "🏦 صرف الرواتب"
+
+نافذة "إدارة التحويلات":
+• ملخص لكل طريقة: عدد الموظفين + الإجمالي
+• جدول: بنك الموظف | رقم حسابه | IBAN | محفظته
+• قائمة dropdown لتغيير طريقة أي موظف
+
+1. "⬇️ تحميل CSV للبنك"
+   ← ملف جاهز لرفعه على بوابة البنك مباشرة
+   (اسم | حساب | IBAN | المبلغ)
+
+2. "✅ تأكيد الصرف"
+   ← قيد محاسبي تلقائي
+   ← حالة المسير: "مصروف"`},
+{q:'كيف أُرسل قسائم الراتب بالإيميل؟',a:`مسير الرواتب ← "📧 إرسال قسائم الرواتب"
+
+كل موظف يستلم:
+• قسيمة راتب HTML / PDF
+• الراتب الأساسي + البدلات
+• الاستقطاعات: تأمينات + ضريبة
+• صافي الراتب المستحق`},
+]},
+{id:'empman',ico:'👤',bg:'#5b21b6',bgL:'#ede9fe',badge:'جديد',badgeC:'blue',t:'إدارة الموظفين المتقدمة',d:'الدعوة | الصلاحيات | تتبع الجلسات | الصورة',items:[
+{q:'كيف أدعو موظف بصلاحيات تلقائية؟',a:`الإعدادات ← إدارة المستخدمين ← "دعوة موظف"
+
+1. أدخل الاسم والبريد الإلكتروني
+2. اختر الدور الوظيفي:
+   • مدير عام / CEO ← كل الصلاحيات
+   • مدير مالي ← مالية | مبيعات | فواتير
+   • مدير HR ← موارد بشرية | تقارير
+   • محاسب ← مالية | فواتير
+   • مشاهد ← تقارير فقط
+
+3. الصلاحيات تُضبط تلقائياً (قابلة للتعديل)
+4. اضغط "إرسال الدعوة"
+
+✅ شاشة تأكيد: البريد المُرسل + الصلاحيات + زر إعادة إرسال
+📧 البريد: اسم المستخدم + كلمة مرور مؤقتة + رابط الدخول`},
+{q:'كيف أتابع جلسات عمل الموظفين؟',a:`الإعدادات ← إدارة المستخدمين (للمدراء فقط)
+
+لكل موظف:
+• 🟢 متصل الآن
+• آخر دخول | آخر خروج | مدة الجلسة
+
+اضغط عدد الجلسات ← جدول بآخر 10 جلسات
+
+الأمان:
+• تسجيل خروج تلقائي بعد 30 دقيقة خمول
+• كل جلسة مُسجَّلة بالتاريخ والوقت والمدة`},
+{q:'صورة الموظف وإعادة إرسال الدعوة',a:`صورة الموظف:
+الموارد البشرية ← بيانات الموظف ← تعديل
+← اسحب JPG/PNG أو اضغط لاختيار ملف
+← الصورة تظهر في جدول الموظفين
+
+إعادة الإرسال:
+← موظف لم يدخل بعد → "⚠️ لم يدخل بعد"
+← اضغط "📧 إعادة إرسال"
+
+الحالات:
+🟢 نشط | ⚠️ لم يدخل بعد | 🔴 معطل`},
+]},
+{id:'price',ico:'💳',bg:'#92400e',bgL:'#fef3c7',badge:'محدّث',badgeC:'green',t:'الأسعار والخطط',d:'3 خطط + كود تفعيل + 14 يوم تجربة',items:[
+{q:'ما هي الخطط المتاحة وأسعارها؟',a:`🔵 المبتدئ — 299 ج.م / شهر (2,390 سنوياً)
+   1-10 موظفين
+   HR أساسي + محاسبة كاملة + فواتير + مخزون
+   108 حساب وفق الدليل المصري + 5 جيجا تخزين
+
+⭐ المحترف — 799 ج.م / شهر (6,392 سنوياً)
+   11-100 موظف — الأكثر مبيعاً
+   + كشف مرتبات تلقائي (قانون 148/2019 + 91/2005)
+   + حضور GPS مع جيوفنسينج
+   + قسيمة راتب PDF بالإيميل
+   + صرف مرتبات: بنك / InstaPay / Vodafone / نقدي
+   + تقرير تحويلات بنكية CSV
+   + الفاتورة الإلكترونية ETA
+   + المبيعات CRM + مشتريات + مخزون متقدم
+   + بنوك وتسويات + VAT + أصول ثابتة
+   + دعم أولوية + 25 جيجا تخزين
+
+👑 المؤسسي — 1,499 ج.م / شهر (11,992 سنوياً)
+   موظفون غير محدودون
+   + المشاريع والمقاولات (معيار 8)
+   + مستخلصات وجداول كميات BOQ
+   + قطاع طبي — أتعاب أطباء
+   + مراكز التكلفة + فروع متعددة
+   + مدير حساب مخصص + تدريب
+   + دعم هاتفي 24/7 + SLA مضمون
+
+💡 خصم 20% عند الدفع السنوي`},
+{q:'طرق الدفع المتاحة',a:`فيزا / ماستركارد
+InstaPay: 00201006008552
+فودافون كاش: 00201012625529
+تحويل بنكي
+كود تفعيل مجاني
+
+بعد الدفع:
+← ارفع صورة الإيصال من صفحة الدفع
+← فاتورة PDF تصلك تلقائياً على بريدك`},
+]},
+];
+
+let openSec=null,openQ={},q='';
+
+function build(){
+  document.getElementById('qnav').innerHTML=D.map(s=>
+    `<a class="qn" href="#s-${s.id}" onclick="jump('${s.id}');return false">${s.ico} ${s.t.split(' ')[0]}</a>`
+  ).join('');
+}
+
+function jump(id){document.getElementById('s-'+id)?.scrollIntoView({behavior:'smooth',block:'start'})}
+function doFilter(){q=document.getElementById('srch').value.toLowerCase();render()}
+
+function render(){
+  const filtered=D.map(s=>({...s,items:s.items.filter(i=>!q||i.q.includes(q)||i.a.includes(q))})).filter(s=>!q||s.items.length>0);
+  const el=document.getElementById('body');
+  if(!filtered.length){
+    el.innerHTML=`<div class="empty"><p style="font-size:28px;opacity:.3">🔍</p><p style="margin-top:8px;font-size:14px;color:#64748b">لم يُوجد نتائج لـ "${q}"</p><button onclick="document.getElementById('srch').value='';q='';render()" style="margin-top:12px;font-size:12px;color:#3b82f6;background:none;border:none;cursor:pointer;text-decoration:underline">مسح البحث</button></div>`;
+    return;
+  }
+  el.innerHTML=filtered.map(s=>{
+    const open=q||openSec===s.id;
+    return `<div class="sec" id="s-${s.id}">
+<div class="sec-h" onclick="toggleS('${s.id}')">
+  <div class="sec-ico" style="background:${s.bgL||'#f1f5f9'}">${s.ico}</div>
+  <div class="sec-txt"><h3>${s.t}</h3><p>${s.d}</p></div>
+  <div class="sec-right">
+    ${s.badge?`<span class="badge badge-${s.badgeC||'blue'}">${s.badge}</span>`:''}
+    <span class="ct">${s.items.length} موضوع</span>
+    <span class="ch${open?' open':''}">⌄</span>
+  </div>
+</div>
+${open?`<div class="sec-body">${s.items.map((it,i)=>{
+  const k=s.id+'_'+i,io=q||openQ[k];
+  return `<div class="qi">
+<div class="qi-h" onclick="toggleQ('${k}')">
+  <span class="qi-arr">&#9656;</span>
+  <span class="qi-q">${it.q}</span>
+  <span class="qi-ch${io?' open':''}">⌄</span>
+</div>
+${io?`<div class="qi-ans"><pre class="ans-pre">${it.a}</pre></div>`:''}
+</div>`;}).join('')}</div>`:''}
+</div>`;
+  }).join('')+`
+<div class="cta-wrap">
+  <h3>جاهز للبداية؟</h3>
+  <p>14 يوم تجربة مجانية · بدون بطاقة ائتمان · تفعيل فوري</p>
+  <div class="cta-btns">
+    <button class="btn-white" onclick="window.open('https://datalifeaccount.com','_blank')">ابدأ التجربة المجانية ←</button>
+    <button class="btn-outline" onclick="window.open('mailto:info@datalifeai.com','_blank')">تواصل معنا</button>
+  </div>
+</div>`;
+}
+
+function toggleS(id){openSec=openSec===id?null:id;openQ={};render()}
+function toggleQ(k){openQ[k]=!openQ[k];render()}
+build();render();
+</script>
+</body>
+</html>

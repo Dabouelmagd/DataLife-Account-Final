@@ -652,73 +652,455 @@ Hosting: Hetzner Europe | HTTPS on datalifeaccount.com`
       },
     ]
   },
+
   {
-    id: 'pricing', icon: '💳', color: 'from-purple-600 to-indigo-700',
-    title: ar ? 'الأسعار والاشتراك' : 'Pricing & Subscription',
-    desc: ar ? 'خطط مرنة تناسب كل شركة' : 'Flexible plans for every business',
+    id: 'gps-attendance', icon: '📍', color: 'from-green-600 to-emerald-600',
+    title: ar ? 'الحضور بالـ GPS' : 'GPS Attendance',
+    desc: ar ? 'تسجيل حضور الموظفين بالموقع الجغرافي' : 'Location-based attendance check-in',
     items: [
       {
-        q: ar ? 'ما هي الخطط المتاحة؟' : 'What plans are available?',
-        a: ar ? `📦 المبتدئ — 299 ج.م / شهر
-• 1-10 موظفين
-• HR أساسي + محاسبة + فواتير
+        q: ar ? 'كيف أُعِد نظام الحضور بالـ GPS؟ (للمدير)' : 'How to setup GPS attendance? (Admin)',
+        a: ar ? `الإعدادات ← إعدادات GPS
 
-📦 المحترف — 799 ج.م / شهر ⭐ الأكثر شيوعاً
-• 11-100 موظف
-• كل شيء في المبتدئ +
-• مسير رواتب كامل وفق قانون 148/2019
-• ضرائب مصرية كاملة
-• فاتورة إلكترونية ETA
-• مخزون | بنوك | موافقات | تقارير كاملة
+1. اضغط "📍 تحديد موقع الشركة"
+   ← المتصفح سيطلب إذن الموقع → اضغط "سماح"
+   ← ستظهر الإحداثيات تلقائياً
 
-📦 المؤسسي — 1,499 ج.م / شهر 👑
-• موظفون غير محدودين
-• كل المميزات + مشاريع + فروع + مدير حساب مخصص + SLA
+2. أو أدخل الإحداثيات يدوياً:
+   خط العرض (Latitude) | خط الطول (Longitude)
 
-💡 تجربة مجانية 14 يوم — بدون بطاقة
-💡 خصم 20% عند الدفع السنوي` : `📦 Starter — 299 EGP / month
-• 1-10 employees
-• Basic HR + accounting + invoices
+3. حدد نطاق الحضور المسموح (بالمتر):
+   مثال: 200 متر حول مقر الشركة
 
-📦 Professional — 799 EGP / month ⭐ Most popular
-• 11-100 employees
-• Everything in Starter +
-• Full payroll per Law 148/2019
-• Full Egyptian taxes
-• ETA e-invoicing
-• Inventory | Banks | Approvals | Full reports
+4. فعّل خيار "تفعيل GPS"
 
-📦 Enterprise — 1,499 EGP / month 👑
-• Unlimited employees
-• Everything + projects + branches + dedicated manager + SLA
+5. اضغط "حفظ الإعدادات"
 
-💡 14-day free trial — no credit card
-💡 20% discount on annual payment`
+💡 يمكن السماح بالعمل عن بُعد بتعطيل التحقق من GPS` : `Settings → GPS Settings
+
+1. Click "📍 Detect Company Location"
+   ← Browser asks location permission → click "Allow"
+   ← Coordinates filled automatically
+
+2. Or enter manually: Latitude | Longitude
+
+3. Set allowed radius in meters:
+   e.g., 200 meters around the office
+
+4. Enable "GPS Attendance" toggle
+
+5. Click "Save Settings"
+
+💡 Allow remote work by disabling GPS verification`
       },
       {
-        q: ar ? 'طرق الدفع المتاحة' : 'Available payment methods',
-        a: ar ? `💳 بطاقة ائتمان (Visa / Mastercard)
-📲 InstaPay: 00201006008552
-📱 فودافون كاش: 00201012625529
-🏦 تحويل بنكي (تواصل معنا للتفاصيل)
-🎫 كود تفعيل مجاني
+        q: ar ? 'كيف يسجل الموظف حضوره بالـ GPS؟' : 'How does an employee check in via GPS?',
+        a: ar ? `الموارد البشرية ← الحضور ← "+ تسجيل حضور"
 
-بعد الدفع:
-← رفع صورة الإيصال من صفحة الدفع
-← التفعيل خلال ساعات عمل (أحياناً فوري)
-← فاتورة PDF تصلك على بريدك تلقائياً` : `💳 Credit card (Visa / Mastercard)
-📲 InstaPay: 00201006008552
-📱 Vodafone Cash: 00201012625529
-🏦 Bank transfer (contact us for details)
-🎫 Free activation code
+في نافذة تسجيل الحضور:
+← اختر الموظف
+← اضغط "📍 حضور GPS"
 
-After payment:
-← Upload receipt screenshot from payment page
-← Activation within business hours (sometimes instant)
-← PDF invoice automatically sent to your email`
+المتصفح سيطلب إذن الموقع:
+• داخل النطاق المسموح ✅ → يُسجَّل الحضور فوراً
+• خارج النطاق ❌ → رسالة خطأ بالمسافة
+
+رسالة الخطأ مثال:
+"أنت خارج نطاق العمل المسموح به.
+المسافة: 450م | النطاق المسموح: 200م"
+
+الموظف يمكنه أيضاً:
+← اضغط "تأكيد" (حضور يدوي بدون GPS)
+
+🔒 GPS لا يمكن التلاعب به — الإحداثيات مُسجَّلة بالتوقيت` : `HR → Attendance → "+ Add Attendance"
+
+In the check-in dialog:
+← Select employee
+← Click "📍 GPS Check-in"
+
+Browser requests location:
+• Within radius ✅ → check-in recorded instantly
+• Outside radius ❌ → error with distance shown
+
+Error example:
+"You are outside the allowed work zone.
+Distance: 450m | Allowed: 200m"
+
+Employee can also:
+← Click "Confirm" for manual check-in (no GPS)
+
+🔒 GPS cannot be faked — coordinates stored with timestamp`
+      },
+      {
+        q: ar ? 'كيف أتابع تقارير الحضور والغياب؟' : 'How to track attendance reports?',
+        a: ar ? `الموارد البشرية ← الحضور ← تقرير الحضور
+
+فلتر حسب:
+• الموظف | القسم | الفترة الزمنية
+
+كل سجل يُظهر:
+• وقت الحضور (check-in) وطريقته (GPS / يدوي)
+• وقت الانصراف (check-out)
+• مدة العمل الفعلية
+• الإحداثيات (إن كان GPS)
+• المسافة من المكتب
+
+📊 تقرير مسير الرواتب يستند إلى بيانات الحضور تلقائياً` : `HR → Attendance → Attendance Report
+
+Filter by:
+• Employee | Department | Date range
+
+Each record shows:
+• Check-in time and method (GPS / Manual)
+• Check-out time
+• Actual work duration
+• Coordinates (if GPS)
+• Distance from office
+
+📊 Payroll automatically uses attendance data`
       },
     ]
   },
+  {
+    id: 'salary-disbursement', icon: '🏦', color: 'from-blue-700 to-indigo-700',
+    title: ar ? 'صرف المرتبات للبنك' : 'Salary Disbursement',
+    desc: ar ? 'تحويل المرتبات للبنك / InstaPay / Vodafone / نقدي' : 'Pay salaries: Bank / InstaPay / Vodafone / Cash',
+    items: [
+      {
+        q: ar ? 'كيف أُعِد بيانات البنك لكل موظف؟' : 'How to set up bank data for each employee?',
+        a: ar ? `الموارد البشرية ← بيانات الموظف ← تعديل
+
+في قسم "البيانات البنكية":
+• اسم البنك
+• رقم الحساب البنكي
+• IBAN (اختياري)
+• رقم المحفظة (للـ InstaPay / فودافون كاش)
+• طريقة الاستلام الافتراضية
+
+طرق الاستلام المتاحة:
+🏦 تحويل بنكي — يتطلب رقم حساب أو IBAN
+💵 نقدي — لا يتطلب بيانات
+📱 InstaPay — يتطلب رقم المحفظة
+📲 Vodafone Cash — يتطلب رقم المحفظة
+
+💡 يمكن تغيير الطريقة لكل موظف عند كل صرف` : `HR → Employee Profile → Edit
+
+In "Banking Data" section:
+• Bank name
+• Account number
+• IBAN (optional)
+• Wallet number (for InstaPay / Vodafone Cash)
+• Default payment method
+
+Available payment methods:
+🏦 Bank Transfer — requires account or IBAN
+💵 Cash — no data needed
+📱 InstaPay — requires wallet number
+📲 Vodafone Cash — requires wallet number
+
+💡 Method can be changed per employee at each payroll`
+      },
+      {
+        q: ar ? 'كيف أصرف المرتبات مع اختيار طريقة الدفع؟' : 'How to pay salaries with payment methods?',
+        a: ar ? `الموارد البشرية ← مسير الرواتب ← الشهر المطلوب
+
+1. بعد اعتماد المسير ← اضغط "🏦 صرف الرواتب"
+
+2. تفتح نافذة "إدارة التحويلات" تُظهر:
+   • ملخص لكل طريقة (عدد الموظفين + الإجمالي)
+   • جدول بكل موظف: بنكه | رقم حسابه | IBAN | محفظته
+
+3. يمكنك تغيير طريقة أي موظف من القائمة المنسدلة
+
+4. اضغط "⬇️ تحميل CSV للبنك"
+   ← ملف جاهز برفعه على بوابة البنك مباشرة
+   (يحتوي: اسم الموظف | رقم الحساب | IBAN | المبلغ)
+
+5. اضغط "✅ تأكيد الصرف وتحديث المحاسبة"
+   ← قيد محاسبي تلقائي: دائن البنك | مدين الرواتب
+   ← حالة المسير تصبح "مصروف"` : `HR → Payroll Runs → Select month
+
+1. After approving run → click "🏦 Pay Salaries"
+
+2. "Transfer Management" modal opens showing:
+   • Summary by method (employee count + total)
+   • Table: each employee's bank | account | IBAN | wallet
+
+3. Change any employee's method from the dropdown
+
+4. Click "⬇️ Download CSV for Bank"
+   ← Ready file to upload directly to bank portal
+   (contains: employee name | account | IBAN | amount)
+
+5. Click "✅ Confirm & Post Accounting"
+   ← Auto journal entry: credit bank | debit salaries
+   ← Run status becomes "Paid"`
+      },
+      {
+        q: ar ? 'كيف أُرسل قسائم الراتب بالإيميل؟' : 'How to send payslips by email?',
+        a: ar ? `بعد تنفيذ مسير الرواتب:
+
+الموارد البشرية ← مسير الرواتب ← "📧 إرسال قسائم الرواتب"
+
+← رسالة تأكيد "إرسال لجميع الموظفين؟"
+← اضغط موافق
+
+كل موظف يستلم بريداً يحتوي:
+• قسيمة راتب HTML مفصلة (أو PDF)
+• الراتب الأساسي + البدلات
+• الاستقطاعات: تأمينات + ضريبة
+• صافي الراتب المستحق
+
+المتطلبات على السيرفر:
+RESEND_API_KEY=re_VbrSsejP_...
+SENDER_EMAIL=noreply@datalifeaccount.com` : `After running payroll:
+
+HR → Payroll Runs → "📧 Send Payslips"
+
+← Confirmation "Send to all employees?"
+← Click OK
+
+Each employee receives an email containing:
+• Detailed HTML payslip (or PDF)
+• Basic salary + allowances
+• Deductions: insurance + tax
+• Net salary
+
+Server requirements:
+RESEND_API_KEY=re_VbrSsejP_...
+SENDER_EMAIL=noreply@datalifeaccount.com`
+      },
+    ]
+  },
+  {
+    id: 'employee-management', icon: '👤', color: 'from-violet-600 to-purple-700',
+    title: ar ? 'إدارة الموظفين المتقدمة' : 'Advanced Employee Management',
+    desc: ar ? 'الدعوة | الصلاحيات | تتبع الجلسات | الصورة' : 'Invites | Permissions | Sessions | Photos',
+    items: [
+      {
+        q: ar ? 'كيف أدعو موظف بصلاحيات تلقائية حسب وظيفته؟' : 'How to invite employee with auto-permissions by role?',
+        a: ar ? `الإعدادات ← إدارة المستخدمين ← "دعوة موظف"
+
+1. أدخل اسم الموظف والبريد الإلكتروني
+
+2. اختر الدور الوظيفي من القائمة:
+   • مدير عام / CEO ← كل الصلاحيات تلقائياً
+   • مدير مالي ← مالية | مبيعات | فواتير | مشتريات
+   • مدير HR ← موارد بشرية | تقارير
+   • محاسب ← مالية | فواتير
+   • مشاهد ← تقارير فقط
+
+3. الصلاحيات تُضبط تلقائياً ← يمكنك التعديل يدوياً
+
+4. اضغط "إرسال الدعوة"
+
+5. ✅ شاشة تأكيد تُظهر:
+   • البريد المُرسل إليه
+   • الصلاحيات المُرسلة
+   • زر "إعادة إرسال البريد" إذا لم يصله
+
+📧 البريد يحتوي: اسم المستخدم + كلمة مرور مؤقتة + رابط الدخول` : `Settings → User Management → "Invite Employee"
+
+1. Enter employee name and email
+
+2. Choose job role from dropdown:
+   • General Manager / CEO ← all permissions auto-set
+   • Financial Manager ← finance | sales | invoices | purchases
+   • HR Manager ← HR | reports
+   • Accountant ← finance | invoices
+   • Viewer ← reports only
+
+3. Permissions auto-set ← can still edit manually
+
+4. Click "Send Invitation"
+
+5. ✅ Confirmation screen shows:
+   • Email sent to address
+   • Permissions included
+   • "Resend Email" button if not received
+
+📧 Email contains: username + temp password + login link`
+      },
+      {
+        q: ar ? 'كيف أتابع جلسات عمل الموظفين (دخول وخروج)؟' : 'How to track employee work sessions?',
+        a: ar ? `الإعدادات ← إدارة المستخدمين
+
+في جدول الموظفين (مدير عام / رئيس مجلس الإدارة فقط):
+
+لكل موظف يُظهر:
+• 🟢 متصل الآن (نقطة خضراء مضيئة)
+• آخر دخول: التاريخ والوقت
+• آخر خروج: التاريخ والوقت
+• مدة آخر جلسة (ساعات:دقائق)
+
+لعرض تاريخ الجلسات الكاملة:
+← اضغط على عدد الجلسات (مثال: "12 جلسة")
+← يظهر جدول بآخر 10 جلسات
+
+الأمان:
+• تسجيل خروج تلقائي بعد 30 دقيقة خمول
+• كل جلسة مُسجَّلة بالتاريخ والوقت والمدة
+
+💡 هذه البيانات للمدراء فقط — الموظف العادي لا يراها` : `Settings → User Management
+
+In employee table (General Manager / Chairman only):
+
+Per employee shows:
+• 🟢 Online now (pulsing green dot)
+• Last login: date and time
+• Last logout: date and time
+• Last session duration (hours:minutes)
+
+To see full session history:
+← Click session count (e.g., "12 sessions")
+← Table showing last 10 sessions appears
+
+Security:
+• Auto-logout after 30 minutes idle
+• Every session logged with date, time, and duration
+
+💡 Only visible to managers — regular employees cannot see this`
+      },
+      {
+        q: ar ? 'كيف أضيف صورة الموظف وأُعيد إرسال الدعوة؟' : 'How to add employee photo and resend invite?',
+        a: ar ? `إضافة صورة الموظف:
+الموارد البشرية ← بيانات الموظف ← تعديل
+← اسحب صورة JPG/PNG أو اضغط لاختيار ملف
+← الصورة تظهر في جدول الموظفين وملفه الشخصي
+
+إعادة إرسال الدعوة:
+في جدول إدارة المستخدمين:
+← إذا الموظف لم يسجل الدخول بعد:
+  • يظهر تحذير "⚠️ لم يدخل بعد"
+  • زر "📧 إعادة إرسال" يظهر بجانبه
+  • اضغطه ← يُرسَل بريد جديد بنفس بيانات الدخول
+
+حالات الموظفين:
+🟢 نشط — يمكنه الدخول
+⚠️ لم يدخل بعد — أُرسلت له دعوة لم يستجب
+🔴 معطل — تم إيقاف حسابه` : `Add employee photo:
+HR → Employee Profile → Edit
+← Drag JPG/PNG or click to select file
+← Photo appears in employee table and profile
+
+Resend invitation:
+In User Management table:
+← If employee never logged in:
+  • Warning "⚠️ Never logged in" shown
+  • "📧 Resend" button appears next to them
+  • Click it ← New email sent with same credentials
+
+Employee statuses:
+🟢 Active — can login
+⚠️ Never logged in — invite sent, not yet accepted
+🔴 Disabled — account deactivated`
+      },
+    ]
+  },
+  {
+    id: 'pricing', icon: '💳', color: 'from-amber-600 to-orange-600',
+    title: ar ? 'الأسعار والخطط' : 'Pricing & Plans',
+    desc: ar ? '3 خطط + كود تفعيل مجاني + 14 يوم تجربة' : '3 plans + free activation code + 14-day trial',
+    items: [
+      {
+        q: ar ? 'ما هي الخطط المتاحة وأسعارها؟' : 'What plans are available and their prices?',
+        a: ar ? `3 خطط تناسب كل شركة:
+
+🔵 المبتدئ — 299 ج.م / شهر (أو 2,390 سنوياً)
+   • 1-10 موظفين
+   • HR أساسي + محاسبة كاملة + فواتير + مخزون
+   • 108 حساب وفق الدليل المصري المعياري
+   • دعم بريد إلكتروني + 5 جيجا تخزين
+
+⭐ المحترف — 799 ج.م / شهر (أو 6,392 سنوياً)
+   • 11-100 موظف
+   • كل مميزات المبتدئ +
+   • كشف مرتبات تلقائي (قانون 148/2019 + 91/2005)
+   • حضور GPS مع جيوفنسينج
+   • قسيمة راتب PDF بالإيميل
+   • صرف مرتبات: بنك / InstaPay / Vodafone / نقدي
+   • تقرير تحويلات بنكية CSV
+   • الفاتورة الإلكترونية ETA
+   • المبيعات CRM + مشتريات + مخزون متقدم
+   • بنوك وتسويات بنكية + VAT
+   • أصول ثابتة وإهلاك
+   • دعم أولوية + 25 جيجا تخزين
+
+👑 المؤسسي — 1,499 ج.م / شهر (أو 11,992 سنوياً)
+   • موظفون غير محدودون
+   • كل مميزات المحترف +
+   • المشاريع والمقاولات (معيار 8)
+   • مستخلصات وجداول كميات BOQ
+   • قطاع طبي — أتعاب أطباء
+   • مراكز التكلفة + فروع متعددة
+   • مدير حساب مخصص + تدريب
+   • دعم هاتفي 24/7 + SLA مضمون
+
+💡 خصم 20% عند الدفع السنوي` : `3 plans for every business:
+
+🔵 Starter — 299 EGP/month (or 2,390/year)
+   • 1-10 employees
+   • Basic HR + full accounting + invoices + inventory
+   • 108 accounts (Egyptian standard)
+   • Email support + 5 GB storage
+
+⭐ Professional — 799 EGP/month (or 6,392/year)
+   • 11-100 employees
+   • All Starter features +
+   • Auto payroll (Law 148/2019 + 91/2005)
+   • GPS attendance with geofencing
+   • PDF payslip by email
+   • Salary disbursement: Bank / InstaPay / Vodafone / Cash
+   • Bank transfer CSV report
+   • E-Invoice ETA
+   • Sales CRM + purchases + advanced inventory
+   • Banking & reconciliation + VAT
+   • Fixed assets & depreciation
+   • Priority support + 25 GB storage
+
+👑 Enterprise — 1,499 EGP/month (or 11,992/year)
+   • Unlimited employees
+   • All Professional features +
+   • Projects & contracting (Standard 8)
+   • Progress claims + BOQ
+   • Medical sector — doctor fees
+   • Cost centers + multi-branch
+   • Dedicated account manager + training
+   • Phone support 24/7 + guaranteed SLA
+
+💡 20% discount on annual billing`
+      },
+      {
+        q: ar ? 'كيف أدفع وما هي طرق الدفع؟' : 'How to pay and what are payment methods?',
+        a: ar ? `datalifeaccount.com ← الأسعار ← اختر خطتك
+
+طرق الدفع المتاحة:
+💳 فيزا / ماستركارد
+📱 InstaPay: 00201006008552
+📲 فودافون كاش: 00201012625529
+🏦 تحويل بنكي (بيانات التحويل في صفحة الدفع)
+🔑 كود تفعيل مجاني
+
+بعد الدفع:
+← ارفع صورة الإيصال في صفحة الدفع
+← فاتورة PDF ترسل تلقائياً لبريدك
+← الحساب يُفعَّل فور التأكيد` : `datalifeaccount.com → Pricing → Choose plan
+
+Available payment methods:
+💳 Visa / Mastercard
+📱 InstaPay: 00201006008552
+📲 Vodafone Cash: 00201012625529
+🏦 Bank transfer (details on payment page)
+🔑 Free activation code
+
+After payment:
+← Upload receipt screenshot on payment page
+← PDF invoice auto-sent to your email
+← Account activated upon confirmation`
+      },
+    ]
+  },
+
 ];
 
 // ── Section Card ──────────────────────────────────────────────
