@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { CheckCircle, X, Zap, Building2, Crown, Key, Loader2 } from 'lucide-react';
+import { CheckCircle, X, Zap, Building2, Crown, Key } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../hooks/useCurrency';
 import { toast } from 'sonner';
 import PaymentModal from './PaymentModal';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -556,10 +554,8 @@ const PricingSection = () => {
         <PaymentModal
           isOpen={isPaymentModalOpen}
           onClose={() => setIsPaymentModalOpen(false)}
-          plan={selectedPlan}
+          selectedPlan={selectedPlan}
           billingCycle={billingCycle}
-          currency={currency}
-          price={getPrice(selectedPlan)}
         />
       )}
     </div>
