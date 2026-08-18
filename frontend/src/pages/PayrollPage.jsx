@@ -16,121 +16,6 @@ const API = process.env.REACT_APP_BACKEND_URL + '/api/payroll';
 const getToken = () => localStorage.getItem('token');
 
 
-      {/* ════ Bank Transfer Modal ════ */}
-      {bankModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-            
-            {/* Header */}
-            <div className="bg-gradient-to-r from-[#0f1729] to-[#28376B] text-white p-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold">{language === 'ar' ? 'صرف الرواتب وإدارة طرق الدفع' : 'Payroll Distribution'}</h2>
-                <p className="text-white/70 text-sm">{bankModal.payroll_number} — {bankModal.month}</p>
-              </div>
-              <button onClick={() => { setBankModal(null); setBankReport(null); }} className="p-2 hover:bg-white/20 rounded-full">✕</button>
-            </div>
-
-            {loadingBank ? (
-              <div className="flex-1 flex items-center justify-center py-16 text-gray-500">
-                <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
-              </div>
-            ) : bankReport ? (
-              <>
-                {/* Summary cards */}
-                <div className="grid grid-cols-4 gap-3 p-4 bg-gray-50 border-b">
-                  {[
-                    { id: 'bank_transfer', icon: '🏦', label: language === 'ar' ? 'تحويل بنكي' : 'Bank Transfer' },
-                    { id: 'cash',          icon: '💵', label: language === 'ar' ? 'نقدي' : 'Cash' },
-                    { id: 'instapay',      icon: '📱', label: 'InstaPay' },
-                    { id: 'vodafone_cash', icon: '📲', label: 'Vodafone Cash' },
-                  ].map(m => (
-                    <div key={m.id} className="bg-white rounded-xl p-3 border text-center">
-                      <div className="text-xl mb-1">{m.icon}</div>
-                      <div className="text-xs text-gray-500 mb-1">{m.label}</div>
-                      <div className="font-bold text-sm">{bankReport.summary?.[m.id]?.count || 0} {language === 'ar' ? 'موظف' : 'emp'}</div>
-                      <div className="text-blue-700 font-semibold text-xs">{(bankReport.summary?.[m.id]?.total || 0).toLocaleString()} ج</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Employees table */}
-                <div className="flex-1 overflow-auto p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-gray-800 text-sm">
-                      {language === 'ar' ? 'تفاصيل كل موظف — يمكن تغيير طريقة الدفع' : 'Per-employee payment method'}
-                    </h3>
-                    <button onClick={downloadBankFile} className="flex items-center gap-2 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg text-gray-700 font-medium">
-                      ⬇️ {language === 'ar' ? 'تحميل CSV للبنك' : 'Download CSV'}
-                    </button>
-                  </div>
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-xs text-gray-600">
-                      <tr>
-                        <th className="text-start px-3 py-2">{language === 'ar' ? 'الموظف' : 'Employee'}</th>
-                        <th className="text-start px-3 py-2">{language === 'ar' ? 'البنك / المحفظة' : 'Bank / Wallet'}</th>
-                        <th className="text-start px-3 py-2">{language === 'ar' ? 'رقم الحساب / IBAN' : 'Account / IBAN'}</th>
-                        <th className="text-start px-3 py-2">{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</th>
-                        <th className="text-end px-3 py-2">{language === 'ar' ? 'صافي الراتب' : 'Net Salary'}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(bankReport.employees || []).map(emp => (
-                        <tr key={emp.employee_id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="px-3 py-2 font-medium">{emp.employee_name}</td>
-                          <td className="px-3 py-2 text-gray-500 text-xs">{emp.bank_name || '—'}</td>
-                          <td className="px-3 py-2 text-gray-500 text-xs font-mono">
-                            {emp.account_number || emp.iban || emp.wallet_number || '—'}
-                          </td>
-                          <td className="px-3 py-2">
-                            <select
-                              value={employeeMethods[emp.employee_id] || 'bank_transfer'}
-                              onChange={e => setEmployeeMethods(prev => ({ ...prev, [emp.employee_id]: e.target.value }))}
-                              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-400"
-                            >
-                              <option value="bank_transfer">🏦 {language === 'ar' ? 'تحويل بنكي' : 'Bank Transfer'}</option>
-                              <option value="cash">💵 {language === 'ar' ? 'نقدي' : 'Cash'}</option>
-                              <option value="instapay">📱 InstaPay</option>
-                              <option value="vodafone_cash">📲 Vodafone Cash</option>
-                            </select>
-                          </td>
-                          <td className="px-3 py-2 text-end font-bold text-emerald-700">
-                            {emp.net_salary?.toLocaleString()} ج
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50">
-                      <tr>
-                        <td colSpan={4} className="px-3 py-2 font-bold text-gray-700">{language === 'ar' ? 'الإجمالي' : 'Total'}</td>
-                        <td className="px-3 py-2 text-end font-bold text-emerald-700">{bankReport.summary?.total_net?.toLocaleString()} ج</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-
-                {/* Footer actions */}
-                <div className="border-t p-4 flex justify-between items-center bg-gray-50">
-                  <div className="text-xs text-gray-500">
-                    {language === 'ar' ? `${bankReport.summary?.total_employees} موظف — إجمالي: ${bankReport.summary?.total_net?.toLocaleString()} ج.م` : `${bankReport.summary?.total_employees} employees — Total: EGP ${bankReport.summary?.total_net?.toLocaleString()}`}
-                  </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => { setBankModal(null); setBankReport(null); }} className="px-4 py-2 text-sm border rounded-xl hover:bg-gray-100">
-                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                    </button>
-                    <button
-                      onClick={() => handlePayWithMethod(bankModal.id, 'bank_transfer')}
-                      className="px-6 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold flex items-center gap-2"
-                    >
-                      ✅ {language === 'ar' ? 'تأكيد الصرف وتحديث المحاسبة' : 'Confirm & Post Accounting'}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-      )}
-
 export default function PayrollPage() {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('runs');
@@ -624,6 +509,7 @@ export default function PayrollPage() {
   }
 
   return (
+    <>
     <div className="p-6 space-y-6" data-testid="payroll-page">
       {/* Header */}
       <div className="flex justify-between items-center">
@@ -1172,5 +1058,123 @@ export default function PayrollPage() {
         </div>
       )}
     </div>
+
+      {/* ════ Bank Transfer Modal ════ */}
+      {bankModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            
+            {/* Header */}
+            <div className="bg-gradient-to-r from-[#0f1729] to-[#28376B] text-white p-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold">{language === 'ar' ? 'صرف الرواتب وإدارة طرق الدفع' : 'Payroll Distribution'}</h2>
+                <p className="text-white/70 text-sm">{bankModal.payroll_number} — {bankModal.month}</p>
+              </div>
+              <button onClick={() => { setBankModal(null); setBankReport(null); }} className="p-2 hover:bg-white/20 rounded-full">✕</button>
+            </div>
+
+            {loadingBank ? (
+              <div className="flex-1 flex items-center justify-center py-16 text-gray-500">
+                <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
+              </div>
+            ) : bankReport ? (
+              <>
+                {/* Summary cards */}
+                <div className="grid grid-cols-4 gap-3 p-4 bg-gray-50 border-b">
+                  {[
+                    { id: 'bank_transfer', icon: '🏦', label: language === 'ar' ? 'تحويل بنكي' : 'Bank Transfer' },
+                    { id: 'cash',          icon: '💵', label: language === 'ar' ? 'نقدي' : 'Cash' },
+                    { id: 'instapay',      icon: '📱', label: 'InstaPay' },
+                    { id: 'vodafone_cash', icon: '📲', label: 'Vodafone Cash' },
+                  ].map(m => (
+                    <div key={m.id} className="bg-white rounded-xl p-3 border text-center">
+                      <div className="text-xl mb-1">{m.icon}</div>
+                      <div className="text-xs text-gray-500 mb-1">{m.label}</div>
+                      <div className="font-bold text-sm">{bankReport.summary?.[m.id]?.count || 0} {language === 'ar' ? 'موظف' : 'emp'}</div>
+                      <div className="text-blue-700 font-semibold text-xs">{(bankReport.summary?.[m.id]?.total || 0).toLocaleString()} ج</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Employees table */}
+                <div className="flex-1 overflow-auto p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-800 text-sm">
+                      {language === 'ar' ? 'تفاصيل كل موظف — يمكن تغيير طريقة الدفع' : 'Per-employee payment method'}
+                    </h3>
+                    <button onClick={downloadBankFile} className="flex items-center gap-2 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg text-gray-700 font-medium">
+                      ⬇️ {language === 'ar' ? 'تحميل CSV للبنك' : 'Download CSV'}
+                    </button>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-xs text-gray-600">
+                      <tr>
+                        <th className="text-start px-3 py-2">{language === 'ar' ? 'الموظف' : 'Employee'}</th>
+                        <th className="text-start px-3 py-2">{language === 'ar' ? 'البنك / المحفظة' : 'Bank / Wallet'}</th>
+                        <th className="text-start px-3 py-2">{language === 'ar' ? 'رقم الحساب / IBAN' : 'Account / IBAN'}</th>
+                        <th className="text-start px-3 py-2">{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</th>
+                        <th className="text-end px-3 py-2">{language === 'ar' ? 'صافي الراتب' : 'Net Salary'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(bankReport.employees || []).map(emp => (
+                        <tr key={emp.employee_id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="px-3 py-2 font-medium">{emp.employee_name}</td>
+                          <td className="px-3 py-2 text-gray-500 text-xs">{emp.bank_name || '—'}</td>
+                          <td className="px-3 py-2 text-gray-500 text-xs font-mono">
+                            {emp.account_number || emp.iban || emp.wallet_number || '—'}
+                          </td>
+                          <td className="px-3 py-2">
+                            <select
+                              value={employeeMethods[emp.employee_id] || 'bank_transfer'}
+                              onChange={e => setEmployeeMethods(prev => ({ ...prev, [emp.employee_id]: e.target.value }))}
+                              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-400"
+                            >
+                              <option value="bank_transfer">🏦 {language === 'ar' ? 'تحويل بنكي' : 'Bank Transfer'}</option>
+                              <option value="cash">💵 {language === 'ar' ? 'نقدي' : 'Cash'}</option>
+                              <option value="instapay">📱 InstaPay</option>
+                              <option value="vodafone_cash">📲 Vodafone Cash</option>
+                            </select>
+                          </td>
+                          <td className="px-3 py-2 text-end font-bold text-emerald-700">
+                            {emp.net_salary?.toLocaleString()} ج
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50">
+                      <tr>
+                        <td colSpan={4} className="px-3 py-2 font-bold text-gray-700">{language === 'ar' ? 'الإجمالي' : 'Total'}</td>
+                        <td className="px-3 py-2 text-end font-bold text-emerald-700">{bankReport.summary?.total_net?.toLocaleString()} ج</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Footer actions */}
+                <div className="border-t p-4 flex justify-between items-center bg-gray-50">
+                  <div className="text-xs text-gray-500">
+                    {language === 'ar' ? `${bankReport.summary?.total_employees} موظف — إجمالي: ${bankReport.summary?.total_net?.toLocaleString()} ج.م` : `${bankReport.summary?.total_employees} employees — Total: EGP ${bankReport.summary?.total_net?.toLocaleString()}`}
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => { setBankModal(null); setBankReport(null); }} className="px-4 py-2 text-sm border rounded-xl hover:bg-gray-100">
+                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                    </button>
+                    <button
+                      onClick={() => handlePayWithMethod(bankModal.id, 'bank_transfer')}
+                      className="px-6 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold flex items-center gap-2"
+                    >
+                      ✅ {language === 'ar' ? 'تأكيد الصرف وتحديث المحاسبة' : 'Confirm & Post Accounting'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+
+    </>
   );
 }
