@@ -391,6 +391,78 @@ async def sync_all_companies(authorization: Optional[str] = Header(None)):
 # Audit Logs & System Overview
 # ===========================================
 
+
+
+@router.get("/companies")
+async def get_all_companies(authorization: Optional[str] = Header(None)):
+    """Get all companies with subscription and user count for SuperAdmin overview"""
+    await verify_admin(authorization)
+
+    companies = await db.companies.find({}, {"_id": 0}).to_list(length=None)
+    subscriptions = await db.subscriptions.find({}, {"_id": 0}).to_list(length=None)
+    users = await db.users.find({}, {"_id": 0}).to_list(length=None)
+
+    # Index subscriptions and user counts by company_id
+    sub_map = {s["company_id"]: s for s in subscriptions if "company_id" in s}
+    user_counts = {}
+    for u in users:
+        cid = u.get("company_id")
+        if cid:
+            user_counts[cid] = user_counts.get(cid, 0) + 1
+
+    result = []
+    for c in companies:
+        cid = c.get("id")
+        sub = sub_map.get(cid, {})
+        result.append({
+            **c,
+            "subscription": {
+                "plan":       sub.get("plan", "free"),
+                "status":     sub.get("status", "inactive"),
+                "start_date": sub.get("start_date"),
+                "end_date":   sub.get("end_date"),
+            },
+            "user_count": user_counts.get(cid, 0),
+        })
+
+    return result
+
+
+@router.get("/all-users")
+async def get_all_users(authorization: Optional[str] = Header(None)):
+    """Get all users across all companies for SuperAdmin"""
+    await verify_admin(authorization)
+
+    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(length=None)
+    companies = await db.companies.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(length=None)
+    company_names = {c["id"]: c.get("name", "") for c in companies}
+
+    result = []
+    for u in users:
+        result.append({
+            **u,
+            "company_name": company_names.get(u.get("company_id"), ""),
+        })
+
+    return result
+
+
+@router.put("/companies/{company_id}/toggle")
+async def toggle_company_status(company_id: str, authorization: Optional[str] = Header(None)):
+    """Toggle company active/suspended status"""
+    await verify_admin(authorization)
+
+    company = await db.companies.find_one({"id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    new_status = not company.get("is_active", True)
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {"is_active": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"success": True, "is_active": new_status}
+
 @router.get("/audit-logs")
 async def get_all_audit_logs(
     authorization: Optional[str] = Header(None),
