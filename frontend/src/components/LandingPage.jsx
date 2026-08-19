@@ -20,14 +20,21 @@ import FreeTrialModal from './FreeTrialModal';
 import CompanyLogo from './CompanyLogo';
 
 /* ── AdSense Banner Component ── */
-const AdBanner = ({ className = '' }) => (
-  <div className={`w-full flex justify-center py-4 ${className}`} data-testid="adsense-banner">
-    <ins className="adsbygoogle"
-      style={{ display: 'block', width: '100%', maxWidth: 728, height: 90 }}
-      data-ad-client="ca-pub-5928973437129941"
-      data-ad-slot="auto"
-      data-ad-format="horizontal"
-      data-full-width-responsive="true" />
+const AdBanner = ({ className = '', slot = '1234567890', label = '' }) => (
+  <div className={`w-full ${className}`} data-testid="adsense-banner">
+    {label && (
+      <div className="text-center text-xs text-gray-400 mb-1 tracking-widest uppercase">{label}</div>
+    )}
+    <div className="flex justify-center py-3 px-4">
+      <div className="w-full max-w-3xl bg-gray-100 border border-dashed border-gray-300 rounded-xl flex items-center justify-center" style={{minHeight:90}}>
+        <ins className="adsbygoogle"
+          style={{ display: 'block', width: '100%', maxWidth: 728, height: 90 }}
+          data-ad-client="ca-pub-5928973437129941"
+          data-ad-slot={slot}
+          data-ad-format="horizontal"
+          data-full-width-responsive="true" />
+      </div>
+    </div>
   </div>
 );
 
@@ -177,23 +184,23 @@ const LandingPage = () => {
 
           {/* Main headline */}
           <div className="text-center max-w-4xl mx-auto mb-8">
+            {/* Logo in hero */}
+            <div className="flex justify-center mb-6">
+              <div className="bg-white rounded-2xl px-8 py-4 shadow-2xl inline-flex items-center gap-4">
+                <DataLifeLogo size="medium" style={{height:64}} />
+              </div>
+            </div>
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.1] mb-6">
               {ar ? (
-                <>
-                  <span className="text-white">داتا لايف</span>
-                  <br/>
-                  <span style={{background:'linear-gradient(90deg,#60a5fa,#34d399)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>
-                    أكونت
-                  </span>
-                </>
+                <span>
+                  <span className="text-white">داتا لايف </span>
+                  <span style={{background:'linear-gradient(90deg,#60a5fa,#34d399)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>أكونت</span>
+                </span>
               ) : (
-                <>
-                  <span className="text-white">DataLife</span>
-                  <br/>
-                  <span style={{background:'linear-gradient(90deg,#60a5fa,#34d399)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>
-                    Account
-                  </span>
-                </>
+                <span>
+                  <span className="text-white">DataLife </span>
+                  <span style={{background:'linear-gradient(90deg,#60a5fa,#34d399)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Account</span>
+                </span>
               )}
             </h1>
             <p className="text-xl sm:text-2xl text-blue-100 font-medium mb-3">
@@ -245,7 +252,7 @@ const LandingPage = () => {
       </section>
 
       {/* ══════════ AD BANNER 1 ══════════ */}
-      <AdBanner className="bg-gray-50" />
+      <AdBanner className="bg-gray-50" label={ar ? "إعلان" : "Advertisement"} slot="1111111111" />
 
       {/* ══════════ SERVICES (Bento Grid) ══════════ */}
       <section id="services" className="py-20 md:py-28 px-4 md:px-8" data-testid="services-section">
@@ -290,7 +297,7 @@ const LandingPage = () => {
       </section>
 
       {/* ══════════ AD BANNER 2 ══════════ */}
-      <AdBanner className="bg-white" />
+      <AdBanner className="bg-white" label={ar ? "إعلان" : "Advertisement"} slot="2222222222" />
 
       {/* ══════════ BENEFITS ══════════ */}
       <section id="features" className="py-20 md:py-28 px-4 md:px-8 bg-slate-50" data-testid="features-section">
@@ -349,7 +356,7 @@ const LandingPage = () => {
       </section>
 
       {/* ══════════ AD BANNER 3 ══════════ */}
-      <AdBanner className="bg-slate-50" />
+      <AdBanner className="bg-slate-50" label={ar ? "إعلان" : "Advertisement"} slot="3333333333" />
 
       {/* ══════════ PRICING ══════════ */}
       <section id="pricing" className="py-20 md:py-28 px-4 md:px-8" data-testid="pricing-section">
@@ -444,7 +451,7 @@ const LandingPage = () => {
       </section>
 
       {/* ══════════ AD BANNER 4 ══════════ */}
-      <AdBanner className="bg-white" />
+      <AdBanner className="bg-white" label={ar ? "إعلان" : "Advertisement"} slot="2222222222" />
 
       {/* ══════════ CTA ══════════ */}
       <section className="py-20 px-4 md:px-8 bg-[#28376B]" data-testid="cta-section">
@@ -491,7 +498,7 @@ const LandingPage = () => {
                 {navLinks.map(l => (
                   <li key={l.href}><a href={l.href} className="hover:text-white transition-colors">{l.label}</a></li>
                 ))}
-                <li><a href="/ads" className="hover:text-white transition-colors">{ar ? 'أعلن معنا' : 'Advertise'}</a></li>
+                <li><a href="mailto:ads@datalifeai.com" className="hover:text-white transition-colors">{ar ? 'أعلن معنا' : 'Advertise'}</a></li>
               </ul>
             </div>
 
@@ -501,10 +508,8 @@ const LandingPage = () => {
               <ul className="space-y-2 text-sm">
                 <li><a href="/terms" className="hover:text-white transition-colors">{ar ? 'شروط الاستخدام' : 'Terms of Use'}</a></li>
                 <li><a href="/privacy" className="hover:text-white transition-colors">{ar ? 'سياسة الخصوصية' : 'Privacy Policy'}</a></li>
-                <li><a href="/terms#subscription" className="hover:text-white transition-colors">{ar ? 'شروط الاشتراك' : 'Subscription Terms'}</a></li>
-                <li><a href="/terms#payment" className="hover:text-white transition-colors">{ar ? 'سياسة الدفع' : 'Payment Policy'}</a></li>
-                <li><a href="/terms#refund" className="hover:text-white transition-colors">{ar ? 'سياسة الاسترداد' : 'Refund Policy'}</a></li>
-                <li><a href="/terms#security" className="hover:text-white transition-colors">{ar ? 'سياسة الأمان' : 'Security Policy'}</a></li>
+                <li><a href="/terms#subscription" className="hover:text-white transition-colors">{ar ? 'شروط الاشتراك' : 'Subscription'}</a></li>
+                <li><a href="/terms#payment" className="hover:text-white transition-colors">{ar ? 'سياسة الدفع' : 'Payment'}</a></li>
               </ul>
             </div>
 
@@ -513,11 +518,12 @@ const LandingPage = () => {
               <h4 className="font-semibold text-white mb-4 text-sm">{ar ? 'المساعدة' : 'Help'}</h4>
               <ul className="space-y-2 text-sm">
                 <li><a href="/guide" className="hover:text-white transition-colors">{ar ? 'دليل الاستخدام' : 'User Guide'}</a></li>
-                <li><a href="/about" className="hover:text-white transition-colors">{ar ? 'من نحن' : 'About Us'}</a></li>
-                <li><a href="/contact" className="hover:text-white transition-colors">{ar ? 'تواصل معنا' : 'Contact Us'}</a></li>
-                <li><a href="/partners" className="hover:text-white transition-colors">{ar ? 'الشركاء' : 'Partners'}</a></li>
+              <ul className="space-y-2 text-sm">
+                <li><a href="/guide" className="hover:text-white transition-colors">{ar ? 'دليل الاستخدام' : 'User Guide'}</a></li>
                 <li><a href="#faq" className="hover:text-white transition-colors">{ar ? 'الأسئلة الشائعة' : 'FAQ'}</a></li>
-                <li><a href="/ads" className="hover:text-white transition-colors">{ar ? 'الإعلانات' : 'Advertising'}</a></li>
+                <li><a href="#contact" className="hover:text-white transition-colors">{ar ? 'تواصل معنا' : 'Contact Us'}</a></li>
+                <li><a href="mailto:info@datalifeai.com" className="hover:text-white transition-colors">{ar ? 'البريد الإلكتروني' : 'Email Us'}</a></li>
+                <li><a href="mailto:ads@datalifeai.com" className="hover:text-white transition-colors">{ar ? 'أعلن معنا' : 'Advertise'}</a></li>
               </ul>
             </div>
           </div>
