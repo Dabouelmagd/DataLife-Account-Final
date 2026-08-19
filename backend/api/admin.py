@@ -463,6 +463,119 @@ async def toggle_company_status(company_id: str, authorization: Optional[str] = 
     )
     return {"success": True, "is_active": new_status}
 
+
+
+# ─── Subscriptions Management ─────────────────────────────────────────────────
+
+@router.get("/subscriptions")
+async def get_all_subscriptions_admin(authorization: Optional[str] = Header(None)):
+    """List all subscriptions with company names for SuperAdmin panel"""
+    await verify_admin(authorization)
+
+    subscriptions = await db.subscriptions.find({}, {"_id": 0}).to_list(length=None)
+    companies = await db.companies.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(length=None)
+    company_names = {c["id"]: c.get("name", "") for c in companies}
+
+    result = []
+    for sub in subscriptions:
+        result.append({
+            **sub,
+            "company_name": company_names.get(sub.get("company_id"), ""),
+        })
+
+    # Sort by created_at descending
+    result.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    return result
+
+
+@router.post("/subscriptions/assign")
+async def assign_subscription_admin(
+    data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Assign or update subscription for a company"""
+    await verify_admin(authorization)
+
+    company_id = data.get("company_id")
+    plan       = data.get("plan", "professional")
+    duration   = data.get("duration", "monthly")
+
+    company = await db.companies.find_one({"id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    # Duration in days
+    duration_map = {"monthly": 30, "3_months": 90, "6_months": 180, "12_months": 365, "lifetime": 36500}
+    days = duration_map.get(duration, 30)
+
+    now      = datetime.now(timezone.utc)
+    end_date = now + __import__("datetime").timedelta(days=days)
+
+    # Deactivate existing active subscription
+    await db.subscriptions.update_many(
+        {"company_id": company_id, "status": "active"},
+        {"$set": {"status": "cancelled", "updated_at": now.isoformat()}}
+    )
+
+    # Create new subscription
+    sub_id = str(__import__("uuid").uuid4())
+    new_sub = {
+        "id":         sub_id,
+        "company_id": company_id,
+        "plan":       plan,
+        "duration":   duration,
+        "status":     "active",
+        "start_date": now.isoformat(),
+        "end_date":   end_date.isoformat(),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "granted_by": "superadmin",
+    }
+    await db.subscriptions.insert_one(new_sub)
+
+    return {
+        "success":      True,
+        "company_name": company.get("name", ""),
+        "plan":         plan,
+        "end_date":     end_date.isoformat(),
+    }
+
+
+@router.put("/subscriptions/{company_id}/extend")
+async def extend_subscription_admin(
+    company_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Extend an existing subscription by N days"""
+    await verify_admin(authorization)
+
+    extension_days = data.get("extension_days", 30)
+
+    sub = await db.subscriptions.find_one(
+        {"company_id": company_id, "status": "active"},
+        {"_id": 0}
+    )
+    if not sub:
+        raise HTTPException(status_code=404, detail="No active subscription found")
+
+    import datetime as dt
+    old_end = sub.get("end_date")
+    if isinstance(old_end, str):
+        old_end = datetime.fromisoformat(old_end.replace("Z", "+00:00"))
+    elif not old_end:
+        old_end = datetime.now(timezone.utc)
+
+    new_end = old_end + dt.timedelta(days=extension_days)
+
+    await db.subscriptions.update_one(
+        {"company_id": company_id, "status": "active"},
+        {"$set": {"end_date": new_end.isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+
+    return {"success": True, "new_end_date": new_end.isoformat()}
+
+
 @router.get("/audit-logs")
 async def get_all_audit_logs(
     authorization: Optional[str] = Header(None),
