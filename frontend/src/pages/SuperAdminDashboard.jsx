@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import PublishUpdatePanel from '../components/PublishUpdatePanel';
 import AssistantsPanel from '../components/AssistantsPanel';
 import SubscriptionsPanel from '../components/SubscriptionsPanel';
+import AdminReferralsPanel from '../components/AdminReferralsPanel';
 import PaymentsAdminPanel from '../components/PaymentsAdminPanel';
 import ActivationCodesPanel from '../components/ActivationCodesPanel';
 import MessagesAdminPanel from '../components/MessagesAdminPanel';
@@ -430,6 +431,14 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
           {language === 'ar' ? 'أكواد التفعيل' : 'Activation Codes'}
         </Button>
         <Button
+          variant={activeTab === 'referrals' ? 'default' : 'ghost'}
+          className={activeTab === 'referrals' ? 'bg-violet-700 hover:bg-violet-800' : ''}
+          onClick={() => setActiveTab('referrals')}
+        >
+          <span>🎁</span>
+          {language === 'ar' ? 'الإحالات' : 'Referrals'}
+        </Button>
+        <Button
           variant={activeTab === 'messages' ? 'default' : 'ghost'}
           className={activeTab === 'messages' ? 'bg-sky-700 hover:bg-sky-800' : ''}
           onClick={() => setActiveTab('messages')}
@@ -821,6 +830,10 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
 
       {activeTab === 'codes' && (
         <ActivationCodesPanel />
+      )}
+
+      {activeTab === 'referrals' && (
+        <AdminReferralsPanel />
       )}
 
       {activeTab === 'assistants' && (

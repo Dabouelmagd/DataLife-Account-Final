@@ -50,6 +50,7 @@ import AdminDashboardPage from '../pages/AdminDashboardPage';
 import SuperAdminDashboard from '../pages/SuperAdminDashboard';
 import NotificationSettingsPage from '../pages/NotificationSettingsPage';
 import UserGuidePage from '../pages/UserGuidePage';
+import ReferralPanel from './ReferralPanel';
 import ReportManagementPage from '../pages/ReportManagementPage';
 import AssetsModule from '../components/AssetsModule';
 
@@ -303,7 +304,12 @@ const ModuleRenderer = ({
     'admin-dashboard': <AdminDashboardPage language={language} />,
     'super-admin': <SuperAdminDashboard language={language} />,
     'notification-settings': <NotificationSettingsPage language={language} />,
-    'user-guide': <UserGuidePage language={language} />
+    'user-guide': <UserGuidePage language={language} />,
+    'referral': (
+      <div className="p-6">
+        <ReferralPanel />
+      </div>
+    )
   };
 
   if (simpleModuleMap[activeModule]) {

@@ -6,7 +6,7 @@
 import { 
   Shield, Home, Users, Calculator, FileText, FolderKanban, 
   BarChart, Settings, Upload, Book, Building2, Bell, ShoppingCart,
-  TrendingUp
+  TrendingUp, Gift
 } from 'lucide-react';
 
 // Role categories
@@ -169,6 +169,12 @@ export const getAvailableModules = (user, language) => {
     id: 'user-guide',
     name: isArabic ? 'دليل الاستخدام' : 'User Guide',
     icon: <Book />
+  });
+
+  modules.push({
+    id: 'referral',
+    name: isArabic ? 'نظام الإحالة' : 'Referral Program',
+    icon: <Gift />
   });
 
   return modules;

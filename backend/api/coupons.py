@@ -1037,3 +1037,122 @@ async def track_referral(data: dict):
         return {"tracked": True, "reward_unlocked": True, "coupon_code": coupon_code}
     
     return {"tracked": True, "invited_count": new_count, "remaining": 5 - new_count}
+
+
+@router.get("/referral/my-invites")
+async def get_my_referral_invites(authorization: Optional[str] = Header(None)):
+    """Get list of companies invited by this user + reward status"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    from services.auth_service import verify_token
+    user = verify_token(authorization.split(" ")[1])
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user.get("user_id")
+    referral = await db.referrals.find_one({"user_id": user_id}, {"_id": 0})
+    if not referral:
+        return {"referral_code": None, "invites": [], "total": 0, "rewarded": False, "reward_coupon": None}
+
+    invites = await db.referral_invites.find(
+        {"referrer_user_id": user_id}, {"_id": 0}
+    ).sort("created_at", -1).to_list(length=None)
+
+    # Enrich with subscription status
+    for inv in invites:
+        email = inv.get("invited_email", "")
+        invited_user = await db.users.find_one({"email": email}, {"_id": 0, "company_id": 1})
+        if invited_user:
+            cid = invited_user.get("company_id")
+            sub = await db.subscriptions.find_one(
+                {"company_id": cid, "status": "active"}, {"_id": 0, "plan": 1, "end_date": 1}
+            )
+            inv["subscribed"] = bool(sub)
+            inv["plan"] = sub.get("plan") if sub else None
+        else:
+            inv["subscribed"] = False
+            inv["plan"] = None
+
+    return {
+        "referral_code":  referral["referral_code"],
+        "referral_link":  f"{FRONTEND_URL}/register?ref={referral['referral_code']}",
+        "invited_count":  referral.get("invited_count", 0),
+        "target":         5,
+        "rewarded":       referral.get("rewarded", False),
+        "reward_coupon":  referral.get("reward_coupon"),
+        "invites":        invites,
+        "total":          len(invites),
+    }
+
+
+@router.get("/referral/admin/all")
+async def admin_get_all_referrals(authorization: Optional[str] = Header(None)):
+    """SuperAdmin: get all referrals with stats"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    from services.auth_service import verify_token
+    user = verify_token(authorization.split(" ")[1])
+    if not user or user.get("role") not in ["superadmin", "admin"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    referrals = await db.referrals.find({}, {"_id": 0}).to_list(length=None)
+    invites   = await db.referral_invites.find({}, {"_id": 0}).to_list(length=None)
+
+    # Enrich referrals with user/company info
+    for ref in referrals:
+        user_doc = await db.users.find_one({"id": ref.get("user_id")}, {"_id": 0, "name": 1, "email": 1})
+        company  = await db.companies.find_one({"id": ref.get("company_id")}, {"_id": 0, "name": 1})
+        ref["user_name"]    = user_doc.get("name", "") if user_doc else ""
+        ref["company_name"] = company.get("name", "") if company else ""
+        ref["invites"] = [i for i in invites if i.get("referrer_user_id") == ref.get("user_id")]
+
+    referrals.sort(key=lambda x: x.get("invited_count", 0), reverse=True)
+
+    return {
+        "referrals":    referrals,
+        "total":        len(referrals),
+        "total_invites": len(invites),
+        "rewarded":     sum(1 for r in referrals if r.get("rewarded")),
+    }
+
+
+@router.post("/referral/admin/reward/{user_id}")
+async def admin_grant_referral_reward(user_id: str, authorization: Optional[str] = Header(None)):
+    """SuperAdmin: manually grant referral reward (free month)"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    from services.auth_service import verify_token
+    admin = verify_token(authorization.split(" ")[1])
+    if not admin or admin.get("role") not in ["superadmin", "admin"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    referral = await db.referrals.find_one({"user_id": user_id})
+    if not referral:
+        raise HTTPException(status_code=404, detail="Referral record not found")
+
+    # Extend subscription by 30 days
+    company_id = referral.get("company_id")
+    sub = await db.subscriptions.find_one({"company_id": company_id, "status": "active"})
+
+    import datetime as dt
+    if sub:
+        old_end = sub.get("end_date")
+        if isinstance(old_end, str):
+            old_end = datetime.fromisoformat(old_end.replace("Z", "+00:00"))
+        elif not old_end:
+            old_end = datetime.now(timezone.utc)
+        new_end = old_end + dt.timedelta(days=30)
+        await db.subscriptions.update_one(
+            {"company_id": company_id, "status": "active"},
+            {"$set": {"end_date": new_end.isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        reward_detail = f"Extended to {new_end.date()}"
+    else:
+        reward_detail = "No active subscription to extend"
+
+    await db.referrals.update_one(
+        {"user_id": user_id},
+        {"$set": {"rewarded": True, "rewarded_at": datetime.now(timezone.utc).isoformat(), "rewarded_by": "admin"}}
+    )
+
+    return {"success": True, "detail": reward_detail}
