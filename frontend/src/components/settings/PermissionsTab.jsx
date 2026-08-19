@@ -8,7 +8,7 @@ import { Checkbox } from '../ui/checkbox';
 import { 
   Shield, Search, Save, RotateCcw, CheckCircle, X, ChevronDown, ChevronUp,
   Users, Home, Building2, FileText, Package, FolderKanban, BarChart3, 
-  Settings, Layers, FileBarChart, UserCog, Check, Square, CheckSquare
+  Settings, Layers, FileBarChart, UserCog, Check, Square, CheckSquare, TrendingUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 

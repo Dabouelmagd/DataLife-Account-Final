@@ -4,7 +4,7 @@ import {
   Bell, CreditCard, ChevronDown, ChevronUp, Search,
   Shield, Building2, Sparkles, BookOpen, Layers,
   BarChart3, ClipboardList, Banknote, Package, FolderOpen,
-  Scale, AlertTriangle, RefreshCw, Globe
+  Scale, AlertTriangle, RefreshCw, Globe, TrendingUp
 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
