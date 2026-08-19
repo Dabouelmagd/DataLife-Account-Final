@@ -174,22 +174,27 @@ const LandingPage = () => {
 
         <div className="relative container mx-auto max-w-6xl">
 
-          {/* Top badge */}
-          <div className="text-center mb-6">
-            <span className="inline-flex items-center gap-2 bg-white/10 text-white border border-white/20 rounded-full px-4 py-1.5 text-sm font-medium backdrop-blur-sm">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-              {ar ? '🇪🇬 النظام المحاسبي المصري الأول على السحابة' : '🇪🇬 Egypt First Cloud ERP Platform'}
-            </span>
+          {/* Hero top: logo positioned right(AR)/left(EN) + badge centered */}
+          <div className="relative flex items-start justify-between mb-6">
+
+            {/* Badge - centered */}
+            <div className="flex-1 flex justify-center pt-2">
+              <span className="inline-flex items-center gap-2 bg-white/10 text-white border border-white/20 rounded-full px-4 py-2 text-sm font-medium">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                {ar ? '🇪🇬 النظام المحاسبي المصري الأول على السحابة' : '🇪🇬 Egypt\'s First Cloud ERP Platform'}
+              </span>
+            </div>
+
+            {/* Logo — top right in AR, top left in EN */}
+            <div className={`absolute top-0 ${ar ? "right-0" : "left-0"}`}>
+              <div className="bg-white rounded-2xl px-5 py-3 shadow-xl">
+                <DataLifeLogo height={56} />
+              </div>
+            </div>
           </div>
 
           {/* Main headline */}
           <div className="text-center max-w-4xl mx-auto mb-8">
-            {/* Logo in hero */}
-            <div className="flex justify-center mb-6">
-              <div className="bg-white rounded-2xl px-8 py-4 shadow-2xl inline-flex items-center gap-4">
-                <DataLifeLogo size="medium" style={{height:64}} />
-              </div>
-            </div>
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.1] mb-6">
               {ar ? (
                 <span>
