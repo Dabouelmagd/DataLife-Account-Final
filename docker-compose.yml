@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   mongo_dl:
     image: mongo:7
@@ -13,7 +12,9 @@ services:
       - datalife_net
 
   backend:
-    image: datalife-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: datalife_backend
     restart: always
     depends_on:
@@ -27,7 +28,12 @@ services:
       - datalife_net
 
   frontend:
-    image: datalife-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_BACKEND_URL: https://datalifeaccount.com
+        CACHE_BUST: ${CACHE_BUST:-1}
     container_name: datalife_frontend
     restart: always
     depends_on:
