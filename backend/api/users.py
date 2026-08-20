@@ -214,7 +214,13 @@ async def resend_invitation(
     current_user: dict = Depends(get_current_user)
 ):
     """Resend invitation email to a user"""
-    check_user_permission(current_user.get("role"), "edit")
+    # Allow managers and admins to resend invites
+    allowed_roles = [
+        'رئيس مجلس الإدارة', 'مدير عام', 'Board Chairman', 'CEO', 'General Manager',
+        'مدير موارد بشرية', 'HR Manager', 'مدير', 'Manager', 'superadmin', 'Super Admin'
+    ]
+    if current_user.get('role') not in allowed_roles and not current_user.get('is_admin'):
+        raise HTTPException(status_code=403, detail="Permission denied")
     
     # Get user
     user = await db.users.find_one({"id": user_id, "company_id": current_user.get("company_id")})

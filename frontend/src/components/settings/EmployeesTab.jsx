@@ -151,7 +151,8 @@ const EmployeesTab = ({
                                   {ar ? 'متصل الآن' : 'Online now'}
                                 </span>
                               )}
-                              {!emp.has_logged_in && emp.is_active !== false && (
+                              {!emp.has_logged_in && emp.is_active !== false && 
+                               !['رئيس مجلس الإدارة', 'مدير عام', 'Board Chairman', 'CEO', 'General Manager', 'المدير التنفيذي'].includes(emp.role) && (
                                 <span className="text-xs text-amber-600 font-medium">
                                   {ar ? '⚠️ لم يدخل بعد' : '⚠️ Never logged in'}
                                 </span>
@@ -249,8 +250,9 @@ const EmployeesTab = ({
                                   <Edit2 className="h-3 w-3 mr-1" />{ar ? 'تعديل' : 'Edit'}
                                 </Button>
 
-                                {/* Resend invite — show if never logged in */}
-                                {!emp.has_logged_in && (
+                                {/* Resend invite — show if never logged in AND not a founder */}
+                                {!emp.has_logged_in && 
+                                 !['رئيس مجلس الإدارة', 'مدير عام', 'Board Chairman', 'CEO', 'General Manager', 'المدير التنفيذي'].includes(emp.role) && (
                                   <Button variant="outline" size="sm"
                                     onClick={() => handleResendInvite(emp)}
                                     disabled={resendingId === emp.id}
