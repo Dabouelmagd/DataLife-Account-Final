@@ -3,6 +3,9 @@ import PublishUpdatePanel from '../components/PublishUpdatePanel';
 import AssistantsPanel from '../components/AssistantsPanel';
 import SubscriptionsPanel from '../components/SubscriptionsPanel';
 import AdminReferralsPanel from '../components/AdminReferralsPanel';
+import PaymentMethodsPanel from '../components/PaymentMethodsPanel';
+import SystemGuidePanel from '../components/SystemGuidePanel';
+import OutreachPanel from '../components/OutreachPanel';
 import PaymentsAdminPanel from '../components/PaymentsAdminPanel';
 import ActivationCodesPanel from '../components/ActivationCodesPanel';
 import MessagesAdminPanel from '../components/MessagesAdminPanel';
@@ -439,6 +442,30 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
           {language === 'ar' ? 'الإحالات' : 'Referrals'}
         </Button>
         <Button
+          variant={activeTab === 'payment-methods' ? 'default' : 'ghost'}
+          className={activeTab === 'payment-methods' ? 'bg-emerald-700 hover:bg-emerald-800' : ''}
+          onClick={() => setActiveTab('payment-methods')}
+        >
+          <span>💳</span>
+          {language === 'ar' ? 'طرق الدفع' : 'Payment Methods'}
+        </Button>
+        <Button
+          variant={activeTab === 'system-guide' ? 'default' : 'ghost'}
+          className={activeTab === 'system-guide' ? 'bg-blue-700 hover:bg-blue-800' : ''}
+          onClick={() => setActiveTab('system-guide')}
+        >
+          <span>📘</span>
+          {language === 'ar' ? 'الدليل الشامل' : 'System Guide'}
+        </Button>
+        <Button
+          variant={activeTab === 'outreach' ? 'default' : 'ghost'}
+          className={activeTab === 'outreach' ? 'bg-pink-700 hover:bg-pink-800' : ''}
+          onClick={() => setActiveTab('outreach')}
+        >
+          <span>📨</span>
+          {language === 'ar' ? 'مراسلات العملاء' : 'Client Outreach'}
+        </Button>
+        <Button
           variant={activeTab === 'messages' ? 'default' : 'ghost'}
           className={activeTab === 'messages' ? 'bg-sky-700 hover:bg-sky-800' : ''}
           onClick={() => setActiveTab('messages')}
@@ -834,6 +861,18 @@ const SuperAdminDashboard = ({ language = 'ar' }) => {
 
       {activeTab === 'referrals' && (
         <AdminReferralsPanel />
+      )}
+
+      {activeTab === 'payment-methods' && (
+        <PaymentMethodsPanel />
+      )}
+
+      {activeTab === 'system-guide' && (
+        <SystemGuidePanel />
+      )}
+
+      {activeTab === 'outreach' && (
+        <OutreachPanel />
       )}
 
       {activeTab === 'assistants' && (

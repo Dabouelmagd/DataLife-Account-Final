@@ -576,6 +576,174 @@ async def extend_subscription_admin(
     return {"success": True, "new_end_date": new_end.isoformat()}
 
 
+
+
+# ─── Payment Methods Settings ──────────────────────────────────────────────────
+
+@router.get("/payment-settings")
+async def get_payment_settings(authorization: Optional[str] = Header(None)):
+    """Get configured payment methods (instapay number, vodafone, bank, etc.)"""
+    await verify_admin(authorization)
+    settings = await db.system_settings.find_one({"key": "payment_methods"}, {"_id": 0})
+    if not settings:
+        return {
+            "key": "payment_methods",
+            "methods": [
+                {"id": "instapay",      "label_ar": "InstaPay",        "label_en": "InstaPay",      "icon": "📱", "account": "00201006008552",     "active": True },
+                {"id": "vodafone_cash", "label_ar": "فودافون كاش",     "label_en": "Vodafone Cash", "icon": "📲", "account": "00201012625529",     "active": True },
+                {"id": "bank_transfer", "label_ar": "تحويل بنكي",      "label_en": "Bank Transfer", "icon": "🏦", "account": "بنك القاهرة — 12345678", "active": True },
+                {"id": "credit_card",   "label_ar": "بطاقة ائتمانية",  "label_en": "Credit Card",   "icon": "💳", "account": "Visa / Mastercard", "active": False},
+                {"id": "cash",          "label_ar": "نقدي",             "label_en": "Cash",          "icon": "💵", "account": "",                  "active": True },
+            ]
+        }
+    return settings
+
+
+@router.put("/payment-settings")
+async def update_payment_settings(data: dict, authorization: Optional[str] = Header(None)):
+    """Update payment methods configuration"""
+    await verify_admin(authorization)
+    await db.system_settings.update_one(
+        {"key": "payment_methods"},
+        {"$set": {**data, "key": "payment_methods", "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    return {"success": True}
+
+
+# ─── System Guide / Manual ─────────────────────────────────────────────────────
+
+@router.get("/system-guide")
+async def get_system_guide(authorization: Optional[str] = Header(None)):
+    """Get the editable system guide/manual for superadmin"""
+    await verify_admin(authorization)
+    guide = await db.system_settings.find_one({"key": "system_guide"}, {"_id": 0})
+    if not guide:
+        return {
+            "key": "system_guide",
+            "sections": [
+                {"id": "getting-started", "title_ar": "البداية السريعة",    "title_en": "Getting Started",   "content_ar": "سجّل شركتك واختر خطتك المناسبة.", "content_en": "Register your company and choose a plan.", "order": 1},
+                {"id": "hr",              "title_ar": "الموارد البشرية",     "title_en": "Human Resources",   "content_ar": "إدارة الموظفين والرواتب والحضور.", "content_en": "Manage employees, payroll and attendance.", "order": 2},
+                {"id": "financial",       "title_ar": "المحاسبة المالية",    "title_en": "Financial",         "content_ar": "108 حساب وفق الدليل المصري.", "content_en": "108 accounts per Egyptian standard.", "order": 3},
+            ],
+            "updated_at": None
+        }
+    return guide
+
+
+@router.put("/system-guide")
+async def update_system_guide(data: dict, authorization: Optional[str] = Header(None)):
+    """Update system guide content"""
+    await verify_admin(authorization)
+    await db.system_settings.update_one(
+        {"key": "system_guide"},
+        {"$set": {**data, "key": "system_guide", "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    return {"success": True}
+
+
+# ─── Outreach Messages to Clients ──────────────────────────────────────────────
+
+@router.post("/outreach/send")
+async def send_outreach_message(data: dict, authorization: Optional[str] = Header(None)):
+    """Send outreach emails to companies — partial or all"""
+    await verify_admin(authorization)
+
+    scope        = data.get("scope", "all")          # "all" | "partial" | "plan" | "trial"
+    company_ids  = data.get("company_ids", [])        # used when scope="partial"
+    plan_filter  = data.get("plan_filter")             # used when scope="plan"
+    subject_ar   = data.get("subject_ar", "")
+    subject_en   = data.get("subject_en", "")
+    body_ar      = data.get("body_ar", "")
+    body_en      = data.get("body_en", "")
+    reason       = data.get("reason", "general")      # general|update|warning|offer|maintenance
+    send_ar      = data.get("send_ar", True)
+    send_en      = data.get("send_en", True)
+
+    # Determine target companies
+    if scope == "all":
+        query = {"is_active": {"$ne": False}}
+    elif scope == "partial":
+        query = {"id": {"$in": company_ids}}
+    elif scope == "trial":
+        subs = await db.subscriptions.find({"plan": "trial", "status": "active"}, {"_id": 0, "company_id": 1}).to_list(None)
+        cids = [s["company_id"] for s in subs]
+        query = {"id": {"$in": cids}}
+    elif scope == "plan" and plan_filter:
+        subs = await db.subscriptions.find({"plan": plan_filter, "status": "active"}, {"_id": 0, "company_id": 1}).to_list(None)
+        cids = [s["company_id"] for s in subs]
+        query = {"id": {"$in": cids}}
+    else:
+        query = {"is_active": {"$ne": False}}
+
+    companies = await db.companies.find(query, {"_id": 0}).to_list(length=None)
+
+    import resend, os
+    resend.api_key = os.environ.get("RESEND_API_KEY", "")
+    sender_email = os.environ.get("SENDER_EMAIL", "noreply@datalifeaccount.com")
+
+    sent_count  = 0
+    failed_list = []
+
+    for company in companies:
+        email = company.get("contact_email") or company.get("email")
+        if not email:
+            continue
+        try:
+            # Build HTML email
+            subject = subject_ar if send_ar else subject_en
+            body    = body_ar    if send_ar else body_en
+            if send_ar and send_en:
+                body = f"{body_ar}\n\n---\n\n{body_en}"
+
+            html = f"""
+            <div dir="rtl" style="font-family:Cairo,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+              <div style="background:linear-gradient(135deg,#0f1729,#28376B);padding:20px;border-radius:12px;margin-bottom:20px">
+                <h1 style="color:#fff;margin:0;font-size:22px">داتا لايف أكونت</h1>
+              </div>
+              <div style="background:#f8fafc;border-radius:12px;padding:24px;white-space:pre-wrap;line-height:1.8;color:#1e293b">
+                {body}
+              </div>
+              <p style="color:#94a3b8;font-size:12px;margin-top:20px;text-align:center">
+                datalifeaccount.com | info@datalifeai.com
+              </p>
+            </div>"""
+
+            if resend.api_key:
+                resend.Emails.send({
+                    "from":    f"DataLife Account <{sender_email}>",
+                    "to":      [email],
+                    "subject": subject_ar if send_ar else subject_en,
+                    "html":    html,
+                })
+            sent_count += 1
+        except Exception as ex:
+            failed_list.append({"email": email, "error": str(ex)})
+
+    # Log outreach
+    await db.outreach_logs.insert_one({
+        "scope":     scope,
+        "reason":    reason,
+        "subject_ar": subject_ar,
+        "subject_en": subject_en,
+        "sent_count": sent_count,
+        "failed":     len(failed_list),
+        "target_count": len(companies),
+        "created_at":  datetime.now(timezone.utc).isoformat(),
+    })
+
+    return {"success": True, "sent": sent_count, "failed": len(failed_list), "failed_list": failed_list[:10]}
+
+
+@router.get("/outreach/logs")
+async def get_outreach_logs(authorization: Optional[str] = Header(None)):
+    """Get history of outreach messages sent"""
+    await verify_admin(authorization)
+    logs = await db.outreach_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return logs
+
+
 @router.get("/audit-logs")
 async def get_all_audit_logs(
     authorization: Optional[str] = Header(None),

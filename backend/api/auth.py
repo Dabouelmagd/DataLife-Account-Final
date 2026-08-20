@@ -91,6 +91,48 @@ async def register_company(
         pass  # Never block registration due to email failure
     # ────────────────────────────────────────────────────────
 
+    # ── Track referral if code provided ─────────────────────
+    referral_code = getattr(company_data, 'referral_code', None)
+    if referral_code:
+        try:
+            referral = await db.referrals.find_one({"referral_code": referral_code})
+            if referral:
+                already = await db.referral_invites.find_one({
+                    "referral_code": referral_code, "invited_email": user_email
+                })
+                if not already:
+                    await db.referral_invites.insert_one({
+                        "referral_code": referral_code,
+                        "referrer_user_id": referral["user_id"],
+                        "invited_email": user_email,
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    })
+                    new_count = referral.get("invited_count", 0) + 1
+                    await db.referrals.update_one(
+                        {"referral_code": referral_code},
+                        {"$set": {"invited_count": new_count}}
+                    )
+                    # Auto-reward at 5 referrals
+                    if new_count >= 5 and not referral.get("rewarded"):
+                        import secrets, string
+                        from datetime import timedelta
+                        coupon_code = f"FREE-{''.join(secrets.choice(string.ascii_uppercase+string.digits) for _ in range(8))}"
+                        await db.coupons.insert_one({
+                            "code": coupon_code, "type": "referral_reward",
+                            "discount_type": "free_month", "discount_value": 100,
+                            "max_uses": 1, "current_uses": 0, "is_active": True,
+                            "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
+                            "created_for": referral["user_id"],
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                        })
+                        await db.referrals.update_one(
+                            {"referral_code": referral_code},
+                            {"$set": {"rewarded": True, "reward_coupon": coupon_code}}
+                        )
+        except Exception:
+            pass  # Never block registration due to referral tracking error
+    # ────────────────────────────────────────────────────────
+
     return Token(
         access_token=access_token,
         token_type="bearer",

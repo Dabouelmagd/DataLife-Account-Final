@@ -27,6 +27,7 @@ class CompanyCreate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     trial_id: Optional[str] = None
+    referral_code: Optional[str] = None  # Referral code used during registration
 
 class CompanyResponse(BaseModel):
     id: str
