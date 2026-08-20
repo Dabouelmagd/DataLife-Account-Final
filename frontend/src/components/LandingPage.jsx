@@ -523,8 +523,6 @@ const LandingPage = () => {
               <h4 className="font-semibold text-white mb-4 text-sm">{ar ? 'المساعدة' : 'Help'}</h4>
               <ul className="space-y-2 text-sm">
                 <li><a href="/guide" className="hover:text-white transition-colors">{ar ? 'دليل الاستخدام' : 'User Guide'}</a></li>
-              <ul className="space-y-2 text-sm">
-                <li><a href="/guide" className="hover:text-white transition-colors">{ar ? 'دليل الاستخدام' : 'User Guide'}</a></li>
                 <li><a href="#faq" className="hover:text-white transition-colors">{ar ? 'الأسئلة الشائعة' : 'FAQ'}</a></li>
                 <li><a href="#contact" className="hover:text-white transition-colors">{ar ? 'تواصل معنا' : 'Contact Us'}</a></li>
                 <li><a href="mailto:info@datalifeai.com" className="hover:text-white transition-colors">{ar ? 'البريد الإلكتروني' : 'Email Us'}</a></li>
