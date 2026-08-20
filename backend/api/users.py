@@ -188,20 +188,20 @@ async def add_user(
                 if not email_sent and resend.api_key:
                     # Fallback to Resend
                     params = {
-                        "from": SENDER_EMAIL,
+                        "from": f"DataLife Account <{SENDER_EMAIL}>",
                         "to": [user_data.email],
                         "subject": subject,
                         "html": html_content
                     }
-                    await asyncio.to_thread(resend.Emails.send, params)
+                    resend.Emails.send(params)
             elif resend.api_key:
                 params = {
-                    "from": SENDER_EMAIL,
+                    "from": f"DataLife Account <{SENDER_EMAIL}>",
                     "to": [user_data.email],
                     "subject": subject,
                     "html": html_content
                 }
-                await asyncio.to_thread(resend.Emails.send, params)
+                resend.Emails.send(params)
         except Exception as e:
             # Log error but don't fail the user creation
             print(f"Failed to send invitation email: {e}")
@@ -308,12 +308,12 @@ async def resend_invitation(
         
         if not email_sent and resend.api_key:
             params = {
-                "from": SENDER_EMAIL,
+                "from": f"DataLife Account <{SENDER_EMAIL}>",
                 "to": [user.get('email')],
                 "subject": subject,
                 "html": html_content
             }
-            await asyncio.to_thread(resend.Emails.send, params)
+            resend.Emails.send(params)
             email_sent = True
         
         if not email_sent:
@@ -450,13 +450,13 @@ async def invite_employee(
         
         if resend.api_key:
             params = {
-                "from": SENDER_EMAIL,
+                "from": f"DataLife Account <{SENDER_EMAIL}>",
                 "to": [invite_data.email],
                 "subject": f"🎉 دعوة للانضمام إلى {company_name}",
                 "html": html_content
             }
             
-            await asyncio.to_thread(resend.Emails.send, params)
+            resend.Emails.send(params)
     except Exception as e:
         # User created but email failed - still return success
         pass
