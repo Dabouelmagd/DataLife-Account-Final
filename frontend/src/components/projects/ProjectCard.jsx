@@ -85,7 +85,7 @@ const ProjectCard = ({
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => onViewFinancials(project)} 
+            onClick={onViewFinancials} 
             title={t.viewFinancials}
             className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
           >
@@ -94,7 +94,7 @@ const ProjectCard = ({
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => onPrint(project)} 
+            onClick={onPrint} 
             title={isRTL ? 'طباعة' : 'Print'}
           >
             <Printer className="h-4 w-4" />
@@ -102,20 +102,20 @@ const ProjectCard = ({
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => onExportPDF(project)} 
+            onClick={onExportPDF} 
             title={isRTL ? 'تصدير PDF' : 'Export PDF'} 
             className="text-red-600"
           >
             <File className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => onEdit(project)}>
+          <Button variant="ghost" size="sm" onClick={onEdit}>
             <Edit className="h-4 w-4" />
           </Button>
           <Button 
             variant="ghost" 
             size="sm" 
             className="text-red-500 hover:text-red-600" 
-            onClick={() => onDelete(project.id)}
+            onClick={onDelete}
           >
             <Trash2 className="h-4 w-4" />
           </Button>

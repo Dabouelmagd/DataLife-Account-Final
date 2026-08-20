@@ -256,31 +256,31 @@ const ProjectsModule = () => {
   };
 
   // Export projects to CSV
-  const handleExportProjectsCSV = () => {
+  const handleExportProjectsCSV = async () => {
+    const tkn = localStorage.getItem('token');
+    const authH = { Authorization: `Bearer ${tkn}` };
+    const rows = [];
+    for (const p of projects) {
+      try {
+        const res = await fetch(`${API_URL}/api/tasks/projects/${p.id}/export`, { headers: authH });
+        const data = res.ok ? await res.json() : {};
+        const proj = data.project || p;
+        const taskList = data.tasks || [];
+        const expenses = data.expenses || [];
+        const revenues = data.revenues || [];
+        const sum = data.summary || {};
+        rows.push([proj.name, proj.status, `${proj.progress||0}%`, proj.budget||0,
+          sum.total_expenses||0, sum.total_revenues||0, sum.net_profit||0, taskList.length,
+          data.task_stats?.completed||0, proj.start_date||'-', proj.end_date||'-']);
+      } catch { rows.push([p.name, p.status, `${p.progress||0}%`, p.budget||0, 0,0,0,0,0, p.start_date||'-', p.end_date||'-']); }
+    }
     const headers = [
-      isRTL ? 'المشروع' : 'Project',
-      isRTL ? 'الوصف' : 'Description',
-      isRTL ? 'الحالة' : 'Status',
-      isRTL ? 'التقدم' : 'Progress',
-      isRTL ? 'عدد المهام' : 'Tasks',
-      isRTL ? 'تاريخ البدء' : 'Start Date',
-      isRTL ? 'تاريخ الانتهاء' : 'End Date'
+      isRTL?'المشروع':'Project', isRTL?'الحالة':'Status', isRTL?'التقدم':'Progress',
+      isRTL?'الميزانية':'Budget', isRTL?'المصروفات':'Expenses', isRTL?'الإيرادات':'Revenues',
+      isRTL?'صافي الربح':'Net Profit', isRTL?'المهام':'Tasks', isRTL?'مكتملة':'Done',
+      isRTL?'البدء':'Start', isRTL?'الانتهاء':'End'
     ];
-    
-    const rows = projects.map(p => [
-      p.name,
-      p.description || '',
-      p.status,
-      `${p.progress || 0}%`,
-      p.task_count || 0,
-      p.start_date || '-',
-      p.end_date || '-'
-    ]);
-    
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
-    
+    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -288,7 +288,7 @@ const ProjectsModule = () => {
     link.download = `projects_${new Date().toISOString().slice(0,10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(isRTL ? 'تم تصدير المشاريع' : 'Projects exported');
+    toast.success(isRTL ? 'تم تصدير المشاريع بكل البيانات' : 'Projects exported with all data');
   };
 
   // Export tasks to CSV

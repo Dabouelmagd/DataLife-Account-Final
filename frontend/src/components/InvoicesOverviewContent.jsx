@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -29,14 +29,31 @@ const InvoicesOverviewContent = ({
     light: 'bg-amber-50 dark:bg-amber-950/50'
   };
 
-  // Mock stats for invoices (replace with real data)
-  const invoiceStats = {
-    totalInvoices: stats?.activeProjects || 24,
-    pendingInvoices: 8,
-    sentInvoices: 12,
-    approvedInvoices: 4,
-    totalValue: stats?.monthlyRevenue || 125000
-  };
+  const API = process.env.REACT_APP_BACKEND_URL || '';
+  const [invoiceStats, setInvoiceStats] = useState({
+    totalInvoices: 0, pendingInvoices: 0, sentInvoices: 0, approvedInvoices: 0, totalValue: 0
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const r = await fetch(`${API}/api/invoice/`, { headers: { Authorization: `Bearer ${token}` } });
+        if (r.ok) {
+          const data = await r.json();
+          const invoices = Array.isArray(data) ? data : data.invoices || [];
+          setInvoiceStats({
+            totalInvoices: invoices.length,
+            pendingInvoices: invoices.filter(i => i.status === 'pending' || i.status === 'draft').length,
+            sentInvoices: invoices.filter(i => i.status === 'sent' || i.status === 'submitted').length,
+            approvedInvoices: invoices.filter(i => i.status === 'approved' || i.status === 'accepted').length,
+            totalValue: invoices.reduce((s, i) => s + (i.total_amount || i.total || 0), 0),
+          });
+        }
+      } catch {}
+    };
+    fetchStats();
+  }, []);
 
   const statsCards = [
     {

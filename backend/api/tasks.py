@@ -477,6 +477,78 @@ async def get_task_stats(authorization: Optional[str] = Header(None)):
 
 # ============ TASK NOTIFICATIONS ============
 
+@router.get("/stats")
+async def get_task_stats_alias(authorization: Optional[str] = Header(None)):
+    """Alias for /dashboard/stats — frontend compatibility"""
+    return await get_task_stats(authorization)
+
+
+@router.get("/projects/{project_id}/export")
+async def export_project(
+    project_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Export full project data: info + tasks + financials + expenses + revenues"""
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+
+    project = await db.projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    tasks = await db.tasks.find({"project_id": project_id, "company_id": company_id}, {"_id": 0}).to_list(None)
+    
+    # Financial entries linked to project
+    financials = await db.journal_entries.find(
+        {"company_id": company_id, "project_id": project_id}, {"_id": 0}
+    ).to_list(None)
+    
+    # Expenses
+    expenses = await db.project_expenses.find(
+        {"project_id": project_id, "company_id": company_id}, {"_id": 0}
+    ).to_list(None)
+    
+    # Revenues / progress claims
+    revenues = await db.project_revenues.find(
+        {"project_id": project_id, "company_id": company_id}, {"_id": 0}
+    ).to_list(None)
+
+    # Progress claims (مستخلصات)
+    claims = await db.project_claims.find(
+        {"project_id": project_id, "company_id": company_id}, {"_id": 0}
+    ).to_list(None)
+
+    # Summary calculations
+    total_expenses = sum(e.get("amount", 0) for e in expenses)
+    total_revenues = sum(r.get("amount", 0) for r in revenues)
+    total_claims   = sum(c.get("amount", 0) for c in claims)
+    task_stats = {
+        "total": len(tasks),
+        "completed": sum(1 for t in tasks if t.get("status") == "completed"),
+        "in_progress": sum(1 for t in tasks if t.get("status") == "in_progress"),
+        "overdue": sum(1 for t in tasks if t.get("due_date") and t.get("due_date") < datetime.now(timezone.utc).date().isoformat() and t.get("status") != "completed"),
+    }
+
+    return {
+        "project":       project,
+        "tasks":         tasks,
+        "task_stats":    task_stats,
+        "financials":    financials,
+        "expenses":      expenses,
+        "revenues":      revenues,
+        "claims":        claims,
+        "summary": {
+            "total_expenses": total_expenses,
+            "total_revenues": total_revenues,
+            "total_claims":   total_claims,
+            "net_profit":     total_revenues - total_expenses,
+            "budget":         project.get("budget", 0),
+            "budget_used_pct": round((total_expenses / project.get("budget", 1)) * 100, 1) if project.get("budget") else 0,
+        },
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @router.get("/notifications/due-soon")
 async def get_due_soon_tasks(authorization: Optional[str] = Header(None)):
     """Get tasks due soon (within 3 days) for notifications"""
