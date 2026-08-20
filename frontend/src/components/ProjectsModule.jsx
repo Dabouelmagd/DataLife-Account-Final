@@ -559,10 +559,19 @@ const ProjectsModule = () => {
       </body>
       </html>`;
 
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      toast.error(isRTL ? 'يرجى السماح بالنوافذ المنبثقة للطباعة' : 'Please allow popups to print');
+      return;
+    }
     printWindow.document.write(printContent);
     printWindow.document.close();
-    printWindow.onload = () => printWindow.print();
+    // Use setTimeout for cross-browser compatibility
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 500);
+    toast.success(isRTL ? 'جاري فتح نافذة الطباعة...' : 'Opening print dialog...');
   };
 
   // Export project to PDF
