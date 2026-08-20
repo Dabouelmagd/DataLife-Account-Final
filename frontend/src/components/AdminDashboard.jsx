@@ -764,6 +764,20 @@ const AdminDashboard = () => {
     );
   }
 
+
+  // ── New panels ──────────────────────────────────────────────
+  if (activeTab === 'referrals') return (
+    <div className="p-6 max-w-5xl mx-auto"><AdminReferralsPanel /></div>
+  );
+  if (activeTab === 'payment-config') return (
+    <div className="p-6 max-w-5xl mx-auto"><PaymentMethodsPanel /></div>
+  );
+  if (activeTab === 'system-guide') return (
+    <div className="p-6 max-w-5xl mx-auto"><SystemGuidePanel /></div>
+  );
+  if (activeTab === 'outreach') return (
+    <div className="p-6 max-w-5xl mx-auto"><OutreachPanel /></div>
+  );
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Toast Notification */}
@@ -2952,19 +2966,6 @@ const HealthCheckPanel = ({ isRTL }) => {
     </div>
   );
 
-  // ── New panels ──────────────────────────────────────────────
-  if (activeTab === 'referrals') return (
-    <div className="p-6 max-w-5xl mx-auto"><AdminReferralsPanel /></div>
-  );
-  if (activeTab === 'payment-config') return (
-    <div className="p-6 max-w-5xl mx-auto"><PaymentMethodsPanel /></div>
-  );
-  if (activeTab === 'system-guide') return (
-    <div className="p-6 max-w-5xl mx-auto"><SystemGuidePanel /></div>
-  );
-  if (activeTab === 'outreach') return (
-    <div className="p-6 max-w-5xl mx-auto"><OutreachPanel /></div>
-  );
 };
 
 
