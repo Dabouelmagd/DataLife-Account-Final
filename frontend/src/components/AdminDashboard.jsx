@@ -13,8 +13,8 @@ import {
   RefreshCw, Plus, Trash2, Copy, AlertCircle, Loader2,
   Calendar, BarChart3, Settings, ChevronDown, Power, Mail, 
   Send, Eye, UserX, UserCheck, Bell, Shield, Save, MessageSquare, Briefcase,
-  LogOut, Globe, LayoutDashboard, History, Crown, Sparkles, Zap, Star, HeartPulse
-} from 'lucide-react';
+  LogOut, Globe, LayoutDashboard, History, Crown, Sparkles, Zap, Star, HeartPulse,
+  BookOpen} from 'lucide-react';
 import axios from 'axios';
 import CompanyLogo from './CompanyLogo';
 import AuditLogPage from '../pages/AuditLogPage';
@@ -740,7 +740,11 @@ const AdminDashboard = () => {
     { id: 'users', label: isRTL ? 'جميع المستخدمين' : 'All Users', icon: Users },
     { id: 'audit', label: isRTL ? 'سجل التدقيق' : 'Audit Log', icon: History },
     { id: 'messages', label: isRTL ? 'الرسائل' : 'Messages', icon: Mail, badge: newMessagesCount },
-    { id: 'health', label: isRTL ? 'صحة النظام' : 'System Health', icon: HeartPulse }
+    { id: 'health', label: isRTL ? 'صحة النظام' : 'System Health', icon: HeartPulse },
+    { id: 'referrals', label: isRTL ? 'الإحالات' : 'Referrals', icon: Gift },
+    { id: 'payment-config', label: isRTL ? 'طرق الدفع' : 'Payment Methods', icon: CreditCard },
+    { id: 'system-guide', label: isRTL ? 'الدليل الشامل' : 'System Guide', icon: BookOpen },
+    { id: 'outreach', label: isRTL ? 'مراسلات العملاء' : 'Client Outreach', icon: Mail },
   ];
 
   const formatDate = (dateStr) => {
@@ -2946,6 +2950,20 @@ const HealthCheckPanel = ({ isRTL }) => {
         </Card>
       )}
     </div>
+  );
+
+  // ── New panels ──────────────────────────────────────────────
+  if (activeTab === 'referrals') return (
+    <div className="p-6 max-w-5xl mx-auto"><AdminReferralsPanel /></div>
+  );
+  if (activeTab === 'payment-config') return (
+    <div className="p-6 max-w-5xl mx-auto"><PaymentMethodsPanel /></div>
+  );
+  if (activeTab === 'system-guide') return (
+    <div className="p-6 max-w-5xl mx-auto"><SystemGuidePanel /></div>
+  );
+  if (activeTab === 'outreach') return (
+    <div className="p-6 max-w-5xl mx-auto"><OutreachPanel /></div>
   );
 };
 
