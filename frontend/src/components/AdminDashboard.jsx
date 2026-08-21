@@ -2089,61 +2089,46 @@ const AdminDashboard = () => {
                         <TableCell>
                           {company.subscription ? formatDate(company.subscription.end_date) : '-'}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewCompanyUsers(company)}
-                              title={t.viewUsers}
-                            >
-                              <Eye className="h-4 w-4 text-blue-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openAssignSubscription(company)}
-                              title={isRTL ? 'تعيين اشتراك' : 'Assign Subscription'}
-                              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                            >
-                              <Crown className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openSubscriptionEdit(company)}
-                              title={isRTL ? 'تعديل الاشتراك' : 'Edit Subscription'}
-                            >
-                              <CreditCard className="h-4 w-4 text-green-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleCompanyStatus(company.id, company.is_active)}
-                              className={company.is_active !== false ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
-                              title={company.is_active !== false ? t.suspend : t.activate}
-                            >
-                              <Power className="h-4 w-4" />
-                             <Button
-                               variant="ghost"
-                               size="sm"
+                         <TableCell>
+                           <div className="flex gap-1 flex-wrap">
+                             <Button variant="ghost" size="sm"
+                               onClick={() => handleViewCompanyUsers(company)}
+                               title={t.viewUsers}>
+                               <Eye className="h-4 w-4 text-blue-600" />
+                             </Button>
+                             <Button variant="ghost" size="sm"
+                               onClick={() => openAssignSubscription(company)}
+                               title={isRTL ? 'تعيين اشتراك' : 'Assign Subscription'}
+                               className="text-purple-600 hover:bg-purple-50">
+                               <Crown className="h-4 w-4" />
+                             </Button>
+                             <Button variant="ghost" size="sm"
+                               onClick={() => openSubscriptionEdit(company)}
+                               title={isRTL ? 'تعديل الاشتراك' : 'Edit Subscription'}>
+                               <CreditCard className="h-4 w-4 text-green-600" />
+                             </Button>
+                             <Button variant="ghost" size="sm"
+                               onClick={() => toggleCompanyStatus(company.id, company.is_active)}
+                               className={company.is_active !== false ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}
+                               title={company.is_active !== false ? t.suspend : t.activate}>
+                               <Power className="h-4 w-4" />
+                             </Button>
+                             <Button variant="ghost" size="sm"
                                onClick={() => {
                                  const newCode = window.prompt(
-                                   isRTL ? `تغيير كود الشركة "${company.name}"\nالكود الحالي: ${company.company_code || '-'}`
+                                   isRTL ? `تغيير كود "${company.name}"\nالحالي: ${company.company_code || '-'}`
                                          : `Change code for "${company.name}"\nCurrent: ${company.company_code || '-'}`,
                                    company.company_code || ""
                                  );
-                                 if (newCode !== null && newCode.trim()) {
+                                 if (newCode !== null && newCode.trim())
                                    handleChangeCompanyCode(company.id, newCode.trim().toUpperCase());
-                                 }
                                }}
                                className="text-indigo-600 hover:bg-indigo-50"
-                               title={isRTL ? 'تغيير كود الشركة' : 'Change Company Code'}
-                             >
+                               title={isRTL ? 'تغيير الكود' : 'Change Code'}>
                                <Key className="h-4 w-4" />
                              </Button>
-                            </Button>
-                          </div>
+                           </div>
+                         </TableCell>
                         </TableCell>
                       </TableRow>
                     ))}
