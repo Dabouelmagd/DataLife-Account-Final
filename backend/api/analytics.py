@@ -738,3 +738,284 @@ def _start_date(period):
     elif period == "yearly":  return now - timedelta(days=365)
     elif period == "quarterly": return now - timedelta(days=90)
     return now - timedelta(days=30)
+
+
+# ─── ADDITIONAL COMPREHENSIVE ANALYTICS ────────────────────────────────────────
+
+@router.get("/purchases")
+async def get_purchases_analytics(period: str = "monthly", authorization: Optional[str] = Header(None)):
+    user_data = _get_user(authorization); company_id = user_data.get("company_id"); sd = _start_date(period)
+    q = {"company_id": company_id, "created_at": {"$gte": sd.isoformat()}}
+
+    purchases  = await db.purchases.find(q, {"_id": 0}).to_list(None)
+    pos        = await db.purchase_orders.find(q, {"_id": 0}).to_list(None)
+    suppliers  = await db.suppliers.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+
+    total_purch  = sum(p.get("total", p.get("total_amount", 0)) for p in purchases)
+    total_pos    = sum(po.get("total", 0) for po in pos)
+    paid_purch   = sum(p.get("amount_paid", p.get("total", 0)) for p in purchases if p.get("status") in ("paid","received"))
+    pending_purch = total_purch - paid_purch
+
+    monthly = {}
+    for p in purchases:
+        m = (p.get("created_at") or "")[:7]
+        if m: monthly[m] = monthly.get(m, 0) + p.get("total", 0)
+    monthly_trend = [{"month": k, "amount": v} for k, v in sorted(monthly.items())]
+
+    by_supplier = {}
+    for p in purchases:
+        s = p.get("supplier_name", p.get("supplier_id", "أخرى"))
+        by_supplier[s] = by_supplier.get(s, 0) + p.get("total", 0)
+    top_suppliers = sorted([{"name": k, "amount": v} for k, v in by_supplier.items()], key=lambda x: -x["amount"])[:10]
+
+    status_count = {}
+    for p in purchases:
+        st = p.get("status", "draft")
+        status_count[st] = status_count.get(st, 0) + 1
+
+    return {
+        "total_suppliers": len(suppliers), "total_purchases": len(purchases),
+        "total_pos": len(pos), "total_amount": total_purch, "total_pos_amount": total_pos,
+        "paid": paid_purch, "pending": pending_purch,
+        "monthly_trend": monthly_trend, "top_suppliers": top_suppliers,
+        "status_distribution": [{"status": k, "count": v} for k, v in status_count.items()]
+    }
+
+
+@router.get("/treasury")
+async def get_treasury_analytics(period: str = "monthly", authorization: Optional[str] = Header(None)):
+    user_data = _get_user(authorization); company_id = user_data.get("company_id"); sd = _start_date(period)
+    q = {"company_id": company_id, "date": {"$gte": sd.date().isoformat()}}
+
+    treasury_txs = await db.treasury_transactions.find(q, {"_id": 0}).to_list(None)
+    bank_txs     = await db.bank_transactions.find(q, {"_id": 0}).to_list(None)
+    treasury     = await db.treasury.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+    bank_accs    = await db.bank_accounts.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+
+    treas_balance = sum(t.get("balance", t.get("current_balance", 0)) for t in treasury)
+    bank_balance  = sum(b.get("balance", b.get("current_balance", 0)) for b in bank_accs)
+
+    treas_in  = sum(t.get("amount", 0) for t in treasury_txs if t.get("type") in ("in", "receipt", "deposit"))
+    treas_out = sum(t.get("amount", 0) for t in treasury_txs if t.get("type") in ("out", "payment", "withdrawal"))
+    bank_in   = sum(t.get("amount", 0) for t in bank_txs if t.get("transaction_type") in ("credit", "deposit", "in"))
+    bank_out  = sum(t.get("amount", 0) for t in bank_txs if t.get("transaction_type") in ("debit", "withdrawal", "out"))
+
+    daily = {}
+    for t in treasury_txs + bank_txs:
+        d = (t.get("date") or "")[:10]
+        if d:
+            if d not in daily: daily[d] = {"in": 0, "out": 0}
+            if t.get("type") in ("in","receipt","deposit","credit"): daily[d]["in"] += t.get("amount", 0)
+            else: daily[d]["out"] += t.get("amount", 0)
+    daily_trend = [{"date": k, **v} for k, v in sorted(daily.items())]
+
+    return {
+        "treasury_balance": treas_balance, "bank_balance": bank_balance,
+        "total_balance": treas_balance + bank_balance,
+        "treasury_in": treas_in, "treasury_out": treas_out,
+        "bank_in": bank_in, "bank_out": bank_out,
+        "total_in": treas_in + bank_in, "total_out": treas_out + bank_out,
+        "daily_trend": daily_trend[-30:],
+        "bank_accounts": [{"name": b.get("bank_name", b.get("name","")), "balance": b.get("balance", 0)} for b in bank_accs],
+    }
+
+
+@router.get("/assets")
+async def get_assets_analytics(period: str = "monthly", authorization: Optional[str] = Header(None)):
+    user_data = _get_user(authorization); company_id = user_data.get("company_id")
+    assets = await db.fixed_assets.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+
+    total_cost = sum(a.get("cost", a.get("purchase_price", 0)) for a in assets)
+    total_dep  = sum(a.get("accumulated_depreciation", a.get("total_depreciation", 0)) for a in assets)
+    net_value  = total_cost - total_dep
+
+    by_type = {}
+    for a in assets:
+        t = a.get("asset_type", a.get("type", "other"))
+        if t not in by_type: by_type[t] = {"cost": 0, "count": 0, "depreciation": 0}
+        by_type[t]["cost"] += a.get("cost", a.get("purchase_price", 0))
+        by_type[t]["depreciation"] += a.get("accumulated_depreciation", 0)
+        by_type[t]["count"] += 1
+    by_type_data = [{"type": k, **v, "net_value": v["cost"]-v["depreciation"]} for k, v in by_type.items()]
+
+    status_count = {}
+    for a in assets:
+        s = a.get("status", "active")
+        status_count[s] = status_count.get(s, 0) + 1
+
+    return {
+        "total_assets": len(assets), "total_cost": total_cost,
+        "total_depreciation": total_dep, "net_value": net_value,
+        "depreciation_rate": round(total_dep/total_cost*100,1) if total_cost else 0,
+        "by_type": by_type_data,
+        "status_distribution": [{"status": k, "count": v} for k, v in status_count.items()],
+        "assets": sorted(assets, key=lambda x: -x.get("cost", 0))[:10]
+    }
+
+
+@router.get("/eta")
+async def get_eta_analytics(period: str = "monthly", authorization: Optional[str] = Header(None)):
+    user_data = _get_user(authorization); company_id = user_data.get("company_id"); sd = _start_date(period)
+    q = {"company_id": company_id, "created_at": {"$gte": sd.isoformat()}}
+
+    invoices   = await db.invoices.find(q, {"_id": 0}).to_list(None)
+    subs_q = {"company_id": company_id, "submitted_at": {"$gte": sd.isoformat()}}
+    eta_subs   = await db.eta_submissions.find(subs_q, {"_id": 0}).to_list(None)
+
+    total_val  = sum(i.get("total_amount", i.get("total", 0)) for i in invoices)
+    submitted  = [s for s in eta_subs if s.get("status") in ("submitted","accepted","valid")]
+    rejected   = [s for s in eta_subs if s.get("status") in ("rejected","invalid")]
+
+    by_status = {}
+    for i in invoices:
+        s = i.get("status","draft")
+        by_status[s] = by_status.get(s, 0) + 1
+
+    by_type = {}
+    for i in invoices:
+        t = i.get("document_type", i.get("type","invoice"))
+        by_type[t] = by_type.get(t, 0) + 1
+
+    monthly = {}
+    for i in invoices:
+        m = (i.get("created_at") or "")[:7]
+        if m: monthly[m] = monthly.get(m, 0) + i.get("total_amount", i.get("total", 0))
+    monthly_trend = [{"month": k, "amount": v} for k, v in sorted(monthly.items())]
+
+    return {
+        "total_invoices": len(invoices), "total_value": total_val,
+        "eta_submitted": len(eta_subs), "eta_accepted": len(submitted), "eta_rejected": len(rejected),
+        "acceptance_rate": round(len(submitted)/len(eta_subs)*100,1) if eta_subs else 0,
+        "status_distribution": [{"status": k, "count": v} for k, v in by_status.items()],
+        "type_distribution": [{"type": k, "count": v} for k, v in by_type.items()],
+        "monthly_trend": monthly_trend,
+    }
+
+
+@router.get("/stock")
+async def get_stock_analytics(period: str = "monthly", authorization: Optional[str] = Header(None)):
+    user_data = _get_user(authorization); company_id = user_data.get("company_id"); sd = _start_date(period)
+    q_date = {"company_id": company_id, "created_at": {"$gte": sd.isoformat()}}
+
+    movements  = await db.stock_movements.find(q_date, {"_id": 0}).to_list(None)
+    items      = await db.inventory_items.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+    warehouses = await db.warehouses.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+
+    total_in  = sum(m.get("quantity", 0) for m in movements if m.get("type") in ("in","purchase","transfer_in","adjustment_in"))
+    total_out = sum(m.get("quantity", 0) for m in movements if m.get("type") in ("out","sale","transfer_out","adjustment_out"))
+
+    by_type = {}
+    for m in movements:
+        t = m.get("type","other")
+        by_type[t] = by_type.get(t, 0) + m.get("quantity", 0)
+
+    monthly = {}
+    for m in movements:
+        mo = (m.get("created_at") or "")[:7]
+        if mo:
+            if mo not in monthly: monthly[mo] = {"in": 0, "out": 0}
+            key = "in" if m.get("type") in ("in","purchase","transfer_in") else "out"
+            monthly[mo][key] += m.get("quantity", 0)
+    monthly_trend = [{"month": k, **v} for k, v in sorted(monthly.items())]
+
+    wh_data = []
+    for wh in warehouses:
+        wh_items = [i for i in items if i.get("warehouse_id") == wh.get("id")]
+        wh_data.append({"name": wh.get("name",""), "items": len(wh_items), "value": sum(i.get("total_value",0) for i in wh_items)})
+
+    low_stock = [i for i in items if i.get("quantity",0) <= i.get("min_quantity",0)]
+    return {
+        "total_items": len(items), "total_movements": len(movements),
+        "total_in": total_in, "total_out": total_out,
+        "total_value": sum(i.get("total_value",0) for i in items),
+        "low_stock_count": len(low_stock),
+        "movement_types": [{"type": k, "qty": v} for k, v in by_type.items()],
+        "monthly_trend": monthly_trend,
+        "warehouses": wh_data,
+        "low_stock_items": low_stock[:10],
+    }
+
+
+@router.get("/loans")
+async def get_loans_analytics(period: str = "monthly", authorization: Optional[str] = Header(None)):
+    user_data = _get_user(authorization); company_id = user_data.get("company_id"); sd = _start_date(period)
+
+    loans    = await db.employee_loans.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+    eos      = await db.end_of_service.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+    overtime = await db.overtime_records.find(
+        {"company_id": company_id, "created_at": {"$gte": sd.isoformat()}}, {"_id": 0}
+    ).to_list(None)
+
+    total_loans    = sum(l.get("amount", 0) for l in loans)
+    paid_loans     = sum(l.get("paid_amount", 0) for l in loans)
+    remaining_loans = total_loans - paid_loans
+    active_loans   = [l for l in loans if l.get("status") == "active"]
+
+    total_ot_hours = sum(o.get("hours", 0) for o in overtime)
+    total_ot_amount = sum(o.get("amount", 0) for o in overtime)
+
+    total_eos = sum(e.get("total_amount", e.get("gratuity", 0)) for e in eos)
+
+    loan_status = {}
+    for l in loans:
+        s = l.get("status", "active")
+        loan_status[s] = loan_status.get(s, 0) + 1
+
+    return {
+        "total_loans": len(loans), "total_loan_amount": total_loans,
+        "paid_amount": paid_loans, "remaining_amount": remaining_loans,
+        "active_loans": len(active_loans),
+        "total_overtime_hours": total_ot_hours, "total_overtime_amount": total_ot_amount,
+        "total_eos_cases": len(eos), "total_eos_amount": total_eos,
+        "loan_status": [{"status": k, "count": v} for k, v in loan_status.items()],
+        "recent_loans": sorted(loans, key=lambda x: x.get("created_at",""), reverse=True)[:10],
+    }
+
+
+@router.get("/leaves")
+async def get_leaves_analytics(period: str = "monthly", authorization: Optional[str] = Header(None)):
+    user_data = _get_user(authorization); company_id = user_data.get("company_id"); sd = _start_date(period)
+    q = {"company_id": company_id, "created_at": {"$gte": sd.isoformat()}}
+
+    leaves    = await db.leaves.find(q, {"_id": 0}).to_list(None)
+    employees = await db.employees.find({"company_id": company_id}, {"_id": 0, "id":1, "name":1, "department":1}).to_list(None)
+    emp_map   = {e["id"]: e for e in employees}
+
+    total_days = sum(l.get("days", l.get("duration", 1)) for l in leaves)
+
+    by_type = {}
+    for l in leaves:
+        t = l.get("type", l.get("leave_type", "other"))
+        if t not in by_type: by_type[t] = {"count": 0, "days": 0}
+        by_type[t]["count"] += 1
+        by_type[t]["days"] += l.get("days", 1)
+
+    by_status = {}
+    for l in leaves:
+        s = l.get("status", "pending")
+        by_status[s] = by_status.get(s, 0) + 1
+
+    by_dept = {}
+    for l in leaves:
+        emp = emp_map.get(l.get("employee_id", ""), {})
+        dept = emp.get("department", "other")
+        if dept not in by_dept: by_dept[dept] = {"count": 0, "days": 0}
+        by_dept[dept]["count"] += 1
+        by_dept[dept]["days"] += l.get("days", 1)
+
+    monthly = {}
+    for l in leaves:
+        m = (l.get("created_at") or "")[:7]
+        if m: monthly[m] = monthly.get(m, 0) + l.get("days", 1)
+    monthly_trend = [{"month": k, "days": v} for k, v in sorted(monthly.items())]
+
+    return {
+        "total_requests": len(leaves), "total_days": total_days,
+        "approved": sum(1 for l in leaves if l.get("status") == "approved"),
+        "pending": sum(1 for l in leaves if l.get("status") == "pending"),
+        "rejected": sum(1 for l in leaves if l.get("status") == "rejected"),
+        "by_type": [{"type": k, **v} for k, v in by_type.items()],
+        "by_status": [{"status": k, "count": v} for k, v in by_status.items()],
+        "by_department": [{"department": k, **v} for k, v in by_dept.items()],
+        "monthly_trend": monthly_trend,
+    }
