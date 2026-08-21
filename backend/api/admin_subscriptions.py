@@ -358,7 +358,9 @@ async def bulk_generate_codes(
     
     codes = []
     for _ in range(min(count, 100)):  # Max 100 codes at once
-        code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(12))
+        prefix = bulk_data.get("prefix", "DL").upper()[:4]
+        suffix = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+        code = f"{prefix}-{suffix}"
         
         activation_code = {
             "code": code,
@@ -367,6 +369,10 @@ async def bulk_generate_codes(
             "max_uses": 1,
             "used_count": 0,
             "is_active": True,
+            "company_name": bulk_data.get("company_name", ""),
+            "contract_start": bulk_data.get("contract_start", ""),
+            "contract_end": bulk_data.get("contract_end", ""),
+            "discount_percent": bulk_data.get("discount_percent", 0),
             "created_at": get_current_timestamp(),
             "created_by": user.get("email")
         }
