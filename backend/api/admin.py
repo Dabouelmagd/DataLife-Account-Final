@@ -676,6 +676,32 @@ async def get_outreach_logs(authorization: Optional[str] = Header(None)):
     return logs
 
 
+
+
+@router.put("/companies/{company_id}/code")
+async def change_company_code(
+    company_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Change a company's identifying code"""
+    await verify_admin(authorization)
+
+    new_code = data.get("company_code", "").strip().upper()
+    if not new_code:
+        raise HTTPException(status_code=400, detail="Code cannot be empty")
+
+    # Check if code already taken by another company
+    existing = await db.companies.find_one({"company_code": new_code, "id": {"$ne": company_id}})
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Code '{new_code}' already used by another company")
+
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {"company_code": new_code, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"success": True, "company_code": new_code}
+
 @router.get("/audit-logs")
 async def get_all_audit_logs(
     authorization: Optional[str] = Header(None),

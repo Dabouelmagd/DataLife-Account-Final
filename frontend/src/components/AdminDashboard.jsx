@@ -15,7 +15,8 @@ import {
   Send, Eye, UserX, UserCheck, Bell, Shield, Save, MessageSquare, Briefcase,
   LogOut, Globe, LayoutDashboard, History, Crown, Sparkles, Zap, Star, HeartPulse,
   BookOpen,
-  Search, SortAsc, SortDesc, Filter} from 'lucide-react';
+  Search, SortAsc, SortDesc, Filter, Key
+} from 'lucide-react';
 import axios from 'axios';
 import CompanyLogo from './CompanyLogo';
 import AuditLogPage from '../pages/AuditLogPage';
@@ -2123,6 +2124,24 @@ const AdminDashboard = () => {
                               title={company.is_active !== false ? t.suspend : t.activate}
                             >
                               <Power className="h-4 w-4" />
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => {
+                                 const newCode = window.prompt(
+                                   isRTL ? `تغيير كود الشركة "${company.name}"\nالكود الحالي: ${company.company_code || '-'}`
+                                         : `Change code for "${company.name}"\nCurrent: ${company.company_code || '-'}`,
+                                   company.company_code || ""
+                                 );
+                                 if (newCode !== null && newCode.trim()) {
+                                   handleChangeCompanyCode(company.id, newCode.trim().toUpperCase());
+                                 }
+                               }}
+                               className="text-indigo-600 hover:bg-indigo-50"
+                               title={isRTL ? 'تغيير كود الشركة' : 'Change Company Code'}
+                             >
+                               <Key className="h-4 w-4" />
+                             </Button>
                             </Button>
                           </div>
                         </TableCell>
