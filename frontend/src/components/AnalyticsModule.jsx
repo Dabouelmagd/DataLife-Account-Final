@@ -512,49 +512,40 @@ export const AnalyticsModule = ({ language, userRole }) => {
       )}
 
       {activeTab === 'financial' && financial && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{language === 'ar' ? 'الإيرادات مقابل المصروفات' : 'Revenue vs Expenses'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={financial.revenue_by_month.map((item, idx) => ({
-                month: item.month,
-                revenue: item.amount,
-                expenses: financial.expenses_by_month[idx]?.amount || 0
-              }))}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Area type="monotone" dataKey="revenue" stackId="1" stroke="#10b981" fill="#10b981" name={language === 'ar' ? 'الإيرادات' : 'Revenue'} />
-                <Area type="monotone" dataKey="expenses" stackId="2" stroke="#ef4444" fill="#ef4444" name={language === 'ar' ? 'المصروفات' : 'Expenses'} />
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: language==='ar'?'إجمالي الإيرادات':'Total Revenue', val: financial.total_revenue, color:'text-green-600', bg:'bg-green-50' },
+              { label: language==='ar'?'إجمالي المصروفات':'Total Expenses', val: financial.total_expenses, color:'text-red-600', bg:'bg-red-50' },
+              { label: language==='ar'?'صافي الربح':'Net Profit', val: financial.net_profit, color:'text-blue-600', bg:'bg-blue-50' },
+              { label: language==='ar'?'العملاء':'Customers', val: financial.total_customers, color:'text-purple-600', bg:'bg-purple-50' },
+            ].map((k,i)=>(
+              <Card key={i} className={k.bg}><CardContent className="p-4 text-center">
+                <p className="text-xs text-gray-500 mb-1">{k.label}</p>
+                <p className={`text-xl font-bold ${k.color}`}>{typeof k.val==='number'?k.val.toLocaleString()+' ج.م':k.val}</p>
+              </CardContent></Card>
+            ))}
+          </div>
+          <Card><CardHeader><CardTitle>{language==='ar'?'الإيرادات مقابل المصروفات':'Revenue vs Expenses'}</CardTitle></CardHeader>
+            <CardContent><ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={financial.revenue_by_month.map((item,idx)=>({ month:item.month, revenue:item.amount, expenses:financial.expenses_by_month[idx]?.amount||0 }))}>
+                <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis /><Tooltip /><Legend />
+                <Area type="monotone" dataKey="revenue" stroke="#10b981" fill="#d1fae5" name={language==='ar'?'إيرادات':'Revenue'} />
+                <Area type="monotone" dataKey="expenses" stroke="#ef4444" fill="#fee2e2" name={language==='ar'?'مصروفات':'Expenses'} />
               </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'hr' && hr && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{language === 'ar' ? 'توزيع الموظفين' : 'Employee Distribution'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={hr.department_distribution} cx="50%" cy="50%" labelLine={false}
-                  label={(entry) => `${entry.department}: ${entry.count}`} outerRadius={80} dataKey="count">
-                  {hr.department_distribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+            </ResponsiveContainer></CardContent>
+          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card><CardHeader><CardTitle>{language==='ar'?'أعلى العملاء':'Top Customers'}</CardTitle></CardHeader><CardContent>
+              {(financial.customer_balances||[]).slice(0,5).map((c,i)=>(
+                <div key={i} className="flex justify-between py-2 border-b last:border-0"><span className="text-sm">{c.name}</span><span className="text-sm font-bold text-blue-600">{(c.balance||0).toLocaleString()} ج.م</span></div>
+              ))}</CardContent></Card>
+            <Card><CardHeader><CardTitle>{language==='ar'?'أعلى الموردين':'Top Suppliers'}</CardTitle></CardHeader><CardContent>
+              {(financial.supplier_balances||[]).slice(0,5).map((s,i)=>(
+                <div key={i} className="flex justify-between py-2 border-b last:border-0"><span className="text-sm">{s.name}</span><span className="text-sm font-bold text-red-600">{(s.balance||0).toLocaleString()} ج.م</span></div>
+              ))}</CardContent></Card>
+          </div>
+        </div>
       )}
 
       {activeTab === 'inventory' && inventory && (
