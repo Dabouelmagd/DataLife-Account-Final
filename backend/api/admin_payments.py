@@ -52,9 +52,40 @@ async def get_all_subscriptions_with_payment_status(
     """Get all subscriptions with payment status"""
     await verify_admin(authorization)
     
-    # Get all subscriptions
+    # Get paid subscriptions
     subscriptions = await db.subscriptions.find({}, {"_id": 0}).to_list(length=None)
-    
+    covered_ids = {s.get("company_id") for s in subscriptions}
+
+    # Add trial companies not in subscriptions collection
+    all_companies = await db.companies.find({}, {"_id": 0, "id": 1, "name": 1, "email": 1,
+        "company_code": 1, "phone": 1, "created_at": 1,
+        "subscription_status": 1, "subscription_plan": 1,
+        "trial_ends_at": 1, "subscription_expires_at": 1}).to_list(length=None)
+
+    from datetime import timedelta
+    for c in all_companies:
+        if c.get("id") in covered_ids:
+            continue
+        created = c.get("created_at", "")
+        end_date = c.get("subscription_expires_at") or c.get("trial_ends_at")
+        if not end_date and created:
+            try:
+                from dateutil import parser as dparser
+                created_dt = dparser.parse(created) if isinstance(created, str) else created
+                end_date = (created_dt + timedelta(days=14)).isoformat()
+            except: pass
+        subscriptions.append({
+            "id": f"syn_{c.get('id')}",
+            "company_id": c.get("id"),
+            "plan": c.get("subscription_plan", "trial"),
+            "duration": "trial",
+            "status": c.get("subscription_status", "trial"),
+            "start_date": created[:10] if created else None,
+            "end_date": end_date,
+            "created_at": created,
+            "is_synthetic": True,
+        })
+
     result = []
     for sub in subscriptions:
         company_id = sub.get("company_id")
