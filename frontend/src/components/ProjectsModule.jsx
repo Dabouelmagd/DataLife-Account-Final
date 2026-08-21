@@ -1012,7 +1012,10 @@ const ProjectsModule = () => {
 
       {/* Project Financials Dialog */}
       <Dialog open={showFinancialsDialog} onOpenChange={setShowFinancialsDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0" dir={isRTL ? 'rtl' : 'ltr'}>
+          <DialogHeader className="sr-only">
+            <DialogTitle>{financialsProject?.name} — {isRTL ? 'المصروفات والإيرادات' : 'Expenses & Revenues'}</DialogTitle>
+          </DialogHeader>
           {financialsProject && (
             <ProjectFinancialsModule 
               projectId={financialsProject.id} 
