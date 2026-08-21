@@ -1,619 +1,476 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
-import { Button } from './ui/button';
-import { 
-  TrendingUp, TrendingDown, Users, DollarSign, Package, 
-  Download, FileText, Calendar, BarChart3, PieChart as PieChartIcon, Printer, File
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import { printContent, exportToPDF, generateTableHTML, generateStatsHTML } from '../utils/printExport';
+import {
+  TrendingUp, TrendingDown, Users, DollarSign, Package, BarChart3,
+  RefreshCw, Calendar, CheckCircle, Clock, AlertCircle, Briefcase,
+  FolderKanban, ShoppingCart, UserCheck, Activity
+} from 'lucide-react';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+const API = process.env.REACT_APP_BACKEND_URL;
+const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316'];
 
-export const AnalyticsModule = ({ language, userRole }) => {
+export const AnalyticsModule = ({ language }) => {
+  const ar = language === 'ar';
   const [activeTab, setActiveTab] = useState('overview');
-  const [period, setPeriod] = useState('monthly');
-  const [loading, setLoading] = useState(true);
-  const [analyticsData, setAnalyticsData] = useState({
-    overview: null,
-    financial: null,
-    hr: null,
-    inventory: null
-  });
+  const [period, setPeriod]       = useState('monthly');
+  const [loading, setLoading]     = useState(false);
+  const [data, setData]           = useState({});
 
-  const isRTL = language === 'ar';
+  const token   = localStorage.getItem('token');
+  const headers = { Authorization: `Bearer ${token}` };
 
-  useEffect(() => {
-    fetchAnalyticsData();
-  }, [period]);
-
-  const fetchAnalyticsData = async () => {
+  const fetchTab = useCallback(async (tab, p) => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      
-      const [overviewRes, financialRes, hrRes, inventoryRes] = await Promise.all([
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/analytics/overview?period=${period}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/analytics/financial?period=${period}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/analytics/hr?period=${period}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/analytics/inventory?period=${period}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-      ]);
-
-      const overview = await overviewRes.json();
-      const financial = await financialRes.json();
-      const hr = await hrRes.json();
-      const inventory = await inventoryRes.json();
-
-      setAnalyticsData({ overview, financial, hr, inventory });
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const exportToPDF = () => {
-    const { overview, financial, hr, inventory } = analyticsData;
-    if (!overview) {
-      alert(language === 'ar' ? 'لا توجد بيانات للتصدير' : 'No data to export');
-      return;
-    }
-    
-    try {
-      const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
-    let yPosition = 20;
-
-    // Title
-    doc.setFontSize(18);
-    doc.setFont(undefined, 'bold');
-    doc.text(language === 'ar' ? 'تقرير التحليلات' : 'Analytics Report', pageWidth / 2, yPosition, { align: 'center' });
-    
-    yPosition += 10;
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.text(`${language === 'ar' ? 'التاريخ' : 'Date'}: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
-    doc.text(`${language === 'ar' ? 'الفترة' : 'Period'}: ${period}`, pageWidth / 2, yPosition + 5, { align: 'center' });
-
-    yPosition += 20;
-
-    // Overview Section
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text(language === 'ar' ? 'نظرة عامة' : 'Overview', 14, yPosition);
-    yPosition += 10;
-
-    // Financial Metrics
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text(language === 'ar' ? 'المؤشرات المالية:' : 'Financial Metrics:', 14, yPosition);
-    yPosition += 8;
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.text(`${language === 'ar' ? 'صافي الربح' : 'Net Profit'}: ${overview.financial_analytics.net_profit.toLocaleString()}`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'هامش الربح' : 'Profit Margin'}: ${overview.financial_analytics.profit_margin.toFixed(1)}%`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue'}: ${overview.financial_analytics.total_revenue.toLocaleString()}`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'إجمالي المصروفات' : 'Total Expenses'}: ${overview.financial_analytics.total_expenses.toLocaleString()}`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'العملاء' : 'Customers'}: ${overview.financial_analytics.total_customers}`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'الموردين' : 'Suppliers'}: ${overview.financial_analytics.total_suppliers}`, 20, yPosition);
-
-    yPosition += 12;
-
-    // HR Metrics
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text(language === 'ar' ? 'مؤشرات الموارد البشرية:' : 'HR Metrics:', 14, yPosition);
-    yPosition += 8;
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.text(`${language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees'}: ${overview.hr_analytics.total_employees}`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'البدلات' : 'Allowances'}: ${overview.hr_analytics.total_allowances}`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'الخصومات' : 'Deductions'}: ${overview.hr_analytics.total_deductions}`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'الإجازات' : 'Leaves'}: ${overview.hr_analytics.total_leaves}`, 20, yPosition);
-
-    yPosition += 12;
-
-    // Inventory Metrics
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text(language === 'ar' ? 'مؤشرات المخزون:' : 'Inventory Metrics:', 14, yPosition);
-    yPosition += 8;
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.text(`${language === 'ar' ? 'إجمالي الأصناف' : 'Total Items'}: ${overview.inventory_analytics.total_items}`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'متوفر' : 'In Stock'}: ${overview.inventory_analytics.in_stock_items}`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'مخزون منخفض' : 'Low Stock'}: ${overview.inventory_analytics.low_stock_items}`, 20, yPosition);
-    yPosition += 6;
-    doc.text(`${language === 'ar' ? 'القيمة الكلية' : 'Total Value'}: ${overview.inventory_analytics.total_value.toLocaleString()}`, 20, yPosition);
-
-    // Add new page for detailed data if available
-    if (financial && financial.revenue_by_month && financial.revenue_by_month.length > 0) {
-      doc.addPage();
-      yPosition = 20;
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      doc.text(language === 'ar' ? 'الإيرادات والمصروفات حسب الشهر' : 'Revenue & Expenses by Month', 14, yPosition);
-      yPosition += 10;
-      
-      doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
-      financial.revenue_by_month.slice(0, 12).forEach((item, idx) => {
-        if (yPosition > 270) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        const expense = financial.expenses_by_month[idx]?.amount || 0;
-        doc.text(`${item.month}: ${language === 'ar' ? 'إيرادات' : 'Revenue'} ${item.amount.toLocaleString()}, ${language === 'ar' ? 'مصروفات' : 'Expenses'} ${expense.toLocaleString()}`, 20, yPosition);
-        yPosition += 6;
-      });
-    }
-
-    // Save PDF
-    const filename = `analytics_report_${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(filename);
-    alert(language === 'ar' ? 'تم تصدير التقرير بنجاح! تحقق من مجلد التنزيلات.' : 'Report exported successfully! Check your downloads folder.');
-  } catch (error) {
-    console.error('PDF export error:', error);
-    alert(language === 'ar' ? 'حدث خطأ أثناء التصدير: ' + error.message : 'Export error: ' + error.message);
-  }
-  };
-
-  // Print Analytics Report
-  const handlePrint = () => {
-    const { overview } = analyticsData;
-    if (!overview) {
-      alert(language === 'ar' ? 'لا توجد بيانات للطباعة' : 'No data to print');
-      return;
-    }
-    
-    const title = isRTL ? 'تقرير التحليلات المتقدمة' : 'Advanced Analytics Report';
-    
-    const stats = [
-      { value: overview.financial_analytics.total_revenue.toLocaleString() + ' EGP', label: isRTL ? 'إجمالي الإيرادات' : 'Total Revenue' },
-      { value: overview.financial_analytics.net_profit.toLocaleString() + ' EGP', label: isRTL ? 'صافي الربح' : 'Net Profit' },
-      { value: overview.financial_analytics.profit_margin.toFixed(1) + '%', label: isRTL ? 'هامش الربح' : 'Profit Margin' },
-      { value: overview.hr_analytics.total_employees, label: isRTL ? 'عدد الموظفين' : 'Employees' }
-    ];
-    
-    const headers = isRTL 
-      ? ['المؤشر', 'القيمة', 'التغير']
-      : ['Metric', 'Value', 'Change'];
-    
-    const rows = [
-      [isRTL ? 'إجمالي الإيرادات' : 'Total Revenue', overview.financial_analytics.total_revenue.toLocaleString() + ' EGP', '+12%'],
-      [isRTL ? 'صافي الربح' : 'Net Profit', overview.financial_analytics.net_profit.toLocaleString() + ' EGP', '+8%'],
-      [isRTL ? 'إجمالي المصروفات' : 'Total Expenses', overview.financial_analytics.total_expenses.toLocaleString() + ' EGP', '-3%'],
-      [isRTL ? 'عدد العملاء' : 'Customers', overview.financial_analytics.total_customers, '+15%'],
-      [isRTL ? 'عدد الموظفين' : 'Employees', overview.hr_analytics.total_employees, '+5%'],
-    ];
-    
-    const content = `
-      <div class="header">
-        <h1>${title}</h1>
-        <p>${isRTL ? 'الفترة:' : 'Period:'} ${period} | ${new Date().toLocaleDateString()}</p>
-      </div>
-      ${generateStatsHTML(stats, isRTL)}
-      ${generateTableHTML(headers, rows, isRTL)}
-    `;
-    
-    printContent(content, title, isRTL);
-  };
-
-  const exportToExcel = () => {
-    const { overview, financial, hr, inventory } = analyticsData;
-    if (!overview) {
-      alert(language === 'ar' ? 'لا توجد بيانات للتصدير' : 'No data to export');
-      return;
-    }
-
-    try {
-      // Create workbook
-      const wb = XLSX.utils.book_new();
-
-    // Overview Sheet
-    const overviewData = [
-      [language === 'ar' ? 'تقرير التحليلات - نظرة عامة' : 'Analytics Report - Overview'],
-      [language === 'ar' ? 'التاريخ' : 'Date', new Date().toLocaleDateString()],
-      [language === 'ar' ? 'الفترة' : 'Period', period],
-      [],
-      [language === 'ar' ? 'المؤشرات المالية' : 'Financial Metrics'],
-      [language === 'ar' ? 'صافي الربح' : 'Net Profit', overview.financial_analytics.net_profit],
-      [language === 'ar' ? 'هامش الربح' : 'Profit Margin', `${overview.financial_analytics.profit_margin.toFixed(1)}%`],
-      [language === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue', overview.financial_analytics.total_revenue],
-      [language === 'ar' ? 'إجمالي المصروفات' : 'Total Expenses', overview.financial_analytics.total_expenses],
-      [language === 'ar' ? 'إجمالي العملاء' : 'Total Customers', overview.financial_analytics.total_customers],
-      [language === 'ar' ? 'إجمالي الموردين' : 'Total Suppliers', overview.financial_analytics.total_suppliers],
-      [],
-      [language === 'ar' ? 'مؤشرات الموارد البشرية' : 'HR Metrics'],
-      [language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees', overview.hr_analytics.total_employees],
-      [language === 'ar' ? 'البدلات' : 'Allowances', overview.hr_analytics.total_allowances],
-      [language === 'ar' ? 'الخصومات' : 'Deductions', overview.hr_analytics.total_deductions],
-      [language === 'ar' ? 'الإجازات' : 'Leaves', overview.hr_analytics.total_leaves],
-      [],
-      [language === 'ar' ? 'مؤشرات المخزون' : 'Inventory Metrics'],
-      [language === 'ar' ? 'إجمالي الأصناف' : 'Total Items', overview.inventory_analytics.total_items],
-      [language === 'ar' ? 'متوفر' : 'In Stock', overview.inventory_analytics.in_stock_items],
-      [language === 'ar' ? 'مخزون منخفض' : 'Low Stock', overview.inventory_analytics.low_stock_items],
-      [language === 'ar' ? 'القيمة الكلية' : 'Total Value', overview.inventory_analytics.total_value]
-    ];
-    const overviewSheet = XLSX.utils.aoa_to_sheet(overviewData);
-    XLSX.utils.book_append_sheet(wb, overviewSheet, language === 'ar' ? 'نظرة عامة' : 'Overview');
-
-    // Financial Sheet
-    if (financial && financial.revenue_by_month) {
-      const financialData = [
-        [language === 'ar' ? 'التحليلات المالية' : 'Financial Analytics'],
-        [],
-        [language === 'ar' ? 'الإيرادات والمصروفات حسب الشهر' : 'Revenue and Expenses by Month'],
-        [language === 'ar' ? 'الشهر' : 'Month', language === 'ar' ? 'الإيرادات' : 'Revenue', language === 'ar' ? 'المصروفات' : 'Expenses']
-      ];
-      
-      financial.revenue_by_month.forEach((item, idx) => {
-        financialData.push([
-          item.month,
-          item.amount,
-          financial.expenses_by_month[idx]?.amount || 0
-        ]);
-      });
-
-      financialData.push([]);
-      financialData.push([language === 'ar' ? 'أرصدة العملاء' : 'Customer Balances']);
-      financialData.push([language === 'ar' ? 'الاسم' : 'Name', language === 'ar' ? 'الرصيد' : 'Balance']);
-      financial.customer_balances.forEach(customer => {
-        financialData.push([customer.name, customer.balance]);
-      });
-
-      const financialSheet = XLSX.utils.aoa_to_sheet(financialData);
-      XLSX.utils.book_append_sheet(wb, financialSheet, language === 'ar' ? 'المالية' : 'Financial');
-    }
-
-    // HR Sheet
-    if (hr && hr.department_distribution) {
-      const hrData = [
-        [language === 'ar' ? 'تحليلات الموارد البشرية' : 'HR Analytics'],
-        [],
-        [language === 'ar' ? 'توزيع الموظفين حسب القسم' : 'Employee Distribution by Department'],
-        [language === 'ar' ? 'القسم' : 'Department', language === 'ar' ? 'العدد' : 'Count']
-      ];
-      
-      hr.department_distribution.forEach(dept => {
-        hrData.push([dept.department, dept.count]);
-      });
-
-      hrData.push([]);
-      hrData.push([language === 'ar' ? 'توزيع الرواتب' : 'Salary Distribution']);
-      hrData.push([language === 'ar' ? 'النطاق' : 'Range', language === 'ar' ? 'العدد' : 'Count']);
-      hr.salary_distribution.forEach(salary => {
-        hrData.push([salary.range, salary.count]);
-      });
-
-      const hrSheet = XLSX.utils.aoa_to_sheet(hrData);
-      XLSX.utils.book_append_sheet(wb, hrSheet, language === 'ar' ? 'الموارد البشرية' : 'HR');
-    }
-
-    // Inventory Sheet
-    if (inventory && inventory.category_distribution) {
-      const inventoryData = [
-        [language === 'ar' ? 'تحليلات المخزون' : 'Inventory Analytics'],
-        [],
-        [language === 'ar' ? 'توزيع الأصناف حسب الفئة' : 'Items by Category'],
-        [language === 'ar' ? 'الفئة' : 'Category', language === 'ar' ? 'العدد' : 'Count', language === 'ar' ? 'القيمة' : 'Value']
-      ];
-      
-      inventory.category_distribution.forEach(cat => {
-        inventoryData.push([cat.category, cat.count, cat.value]);
-      });
-
-      inventoryData.push([]);
-      inventoryData.push([language === 'ar' ? 'تنبيهات المخزون المنخفض' : 'Low Stock Alerts']);
-      if (inventory.low_stock_alerts.length > 0) {
-        inventoryData.push([language === 'ar' ? 'الصنف' : 'Item', language === 'ar' ? 'الكمية' : 'Quantity', language === 'ar' ? 'الحد الأدنى' : 'Min Stock']);
-        inventory.low_stock_alerts.forEach(item => {
-          inventoryData.push([item.name, item.quantity, item.min_stock]);
-        });
-      } else {
-        inventoryData.push([language === 'ar' ? 'لا توجد تنبيهات' : 'No alerts']);
+      const res = await fetch(`${API}/api/analytics/${tab}?period=${p}`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        setData(prev => ({ ...prev, [tab]: json }));
       }
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  }, [token]);
 
-      const inventorySheet = XLSX.utils.aoa_to_sheet(inventoryData);
-      XLSX.utils.book_append_sheet(wb, inventorySheet, language === 'ar' ? 'المخزون' : 'Inventory');
-    }
+  useEffect(() => { fetchTab(activeTab, period); }, [activeTab, period]);
 
-    // Save Excel file
-    const filename = `analytics_report_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    alert(language === 'ar' ? 'تم تصدير التقرير بنجاح! تحقق من مجلد التنزيلات.' : 'Report exported successfully! Check your downloads folder.');
-    } catch (error) {
-      console.error('Excel export error:', error);
-      alert(language === 'ar' ? 'حدث خطأ أثناء التصدير: ' + error.message : 'Export error: ' + error.message);
-    }
-  };
+  const TABS = [
+    { id:'overview',   label: ar?'نظرة عامة':'Overview',       icon: BarChart3   },
+    { id:'financial',  label: ar?'المالية':'Financial',         icon: DollarSign  },
+    { id:'hr',         label: ar?'الموارد البشرية':'HR',        icon: Users       },
+    { id:'payroll',    label: ar?'الرواتب':'Payroll',           icon: Briefcase   },
+    { id:'inventory',  label: ar?'المخزون':'Inventory',         icon: Package     },
+    { id:'projects',   label: ar?'المشاريع':'Projects',         icon: FolderKanban},
+    { id:'sales',      label: ar?'المبيعات':'Sales',            icon: ShoppingCart},
+    { id:'attendance', label: ar?'الحضور':'Attendance',         icon: UserCheck   },
+  ];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-600">
-          {language === 'ar' ? 'جاري التحميل...' : 'Loading...'}
+  const d = data[activeTab];
+
+  const kpiCard = (label, val, color, bg, icon, sub) => (
+    <Card className={`${bg} border-0`}>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500 mb-1">{label}</p>
+            <p className={`text-2xl font-black ${color}`}>{val}</p>
+            {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+          </div>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bg.replace('50','100')}`}>
+            {React.createElement(icon, { className: `h-5 w-5 ${color}` })}
+          </div>
         </div>
-      </div>
-    );
-  }
+      </CardContent>
+    </Card>
+  );
 
-  const { overview, financial, hr, inventory } = analyticsData;
+  const chart = (title, children) => (
+    <Card><CardHeader><CardTitle className="text-sm font-semibold">{title}</CardTitle></CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+
+  const fmt = n => (typeof n === 'number' ? n.toLocaleString() + ' ج.م' : '-');
 
   return (
-    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'} data-testid="analytics-module">
+    <div className="space-y-5 p-5" dir={ar ? 'rtl' : 'ltr'}>
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 p-6 text-white">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        
-        <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <BarChart3 className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold mb-1">
-                {language === 'ar' ? 'التحليلات المتقدمة' : 'Advanced Analytics'}
-              </h1>
-              <p className="text-indigo-100 text-sm">
-                {language === 'ar' ? 'رؤى شاملة لأداء مؤسستك' : 'Comprehensive insights for your organization'}
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {/* Period Selector */}
-            <div className="flex gap-1 bg-white/10 backdrop-blur-sm rounded-lg p-1">
-              <button onClick={() => setPeriod('daily')} className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                  period === 'daily' ? 'bg-white text-indigo-700 shadow' : 'text-white/80 hover:text-white'
-                }`}>
-                {language === 'ar' ? 'يومي' : 'Daily'}
-              </button>
-              <button onClick={() => setPeriod('monthly')} className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                  period === 'monthly' ? 'bg-white text-indigo-700 shadow' : 'text-white/80 hover:text-white'
-                }`}>
-                {language === 'ar' ? 'شهري' : 'Monthly'}
-              </button>
-              <button onClick={() => setPeriod('yearly')} className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                  period === 'yearly' ? 'bg-white text-indigo-700 shadow' : 'text-white/80 hover:text-white'
-                }`}>
-                {language === 'ar' ? 'سنوي' : 'Yearly'}
-              </button>
-            </div>
-            {/* Export Buttons */}
-            <Button variant="outline" onClick={handlePrint} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
-              <Printer className="h-4 w-4 me-2" />
-              {language === 'ar' ? 'طباعة' : 'Print'}
-            </Button>
-            <Button variant="outline" onClick={exportToExcel} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
-              <File className="h-4 w-4 me-2" />
-              Excel
-            </Button>
-            <Button onClick={exportToPDF} className="bg-white text-indigo-700 hover:bg-indigo-50">
-              <Download className="h-4 w-4 me-2" />
-              PDF
-            </Button>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900">{ar ? 'التحليلات المتقدمة' : 'Advanced Analytics'}</h1>
+          <p className="text-sm text-gray-500">{ar ? 'تقارير شاملة لكل أقسام النظام' : 'Comprehensive reports across all modules'}</p>
+        </div>
+        <div className="flex gap-2 items-center">
+          <select value={period} onChange={e => setPeriod(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none">
+            <option value="daily">{ar?'اليوم':'Today'}</option>
+            <option value="monthly">{ar?'آخر 30 يوم':'Last 30 days'}</option>
+            <option value="quarterly">{ar?'آخر 90 يوم':'Last 90 days'}</option>
+            <option value="yearly">{ar?'آخر سنة':'Last year'}</option>
+          </select>
+          <button onClick={() => fetchTab(activeTab, period)}
+            className="p-2 border border-gray-200 rounded-xl hover:bg-gray-50">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin text-blue-500' : 'text-gray-500'}`} />
+          </button>
         </div>
       </div>
+
       {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <div className="flex gap-4 overflow-x-auto">
-          {[
-            { id: 'overview', label: language === 'ar' ? 'نظرة عامة' : 'Overview', icon: BarChart3 },
-            { id: 'financial', label: language === 'ar' ? 'المالية' : 'Financial', icon: DollarSign },
-            { id: 'hr', label: language === 'ar' ? 'الموارد البشرية' : 'HR', icon: Users },
-            { id: 'inventory', label: language === 'ar' ? 'المخزون' : 'Inventory', icon: Package }
-          ].map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition whitespace-nowrap ${
-                  activeTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                }`}>
-                <Icon className="h-5 w-5" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex gap-1 overflow-x-auto bg-gray-100 p-1 rounded-2xl">
+        {TABS.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                activeTab === tab.id ? 'bg-white text-[#28376B] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              <Icon className="h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {activeTab === 'overview' && overview && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-l-4 border-l-blue-500">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{language === 'ar' ? 'صافي الربح' : 'Net Profit'}</p>
-                    <h3 className="text-2xl font-bold text-gray-900">{overview.financial_analytics.net_profit.toLocaleString()}</h3>
-                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3" />
-                      {overview.financial_analytics.profit_margin.toFixed(1)}%
-                    </p>
-                  </div>
-                  <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <DollarSign className="h-6 w-6 text-blue-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      {/* Loading */}
+      {loading && (
+        <div className="flex justify-center py-12">
+          <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
+        </div>
+      )}
 
-            <Card className="border-l-4 border-l-green-500">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees'}</p>
-                    <h3 className="text-2xl font-bold text-gray-900">{overview.hr_analytics.total_employees}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{language === 'ar' ? 'موظف نشط' : 'Active'}</p>
-                  </div>
-                  <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Users className="h-6 w-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-purple-500">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{language === 'ar' ? 'قيمة المخزون' : 'Inventory Value'}</p>
-                    <h3 className="text-2xl font-bold text-gray-900">{overview.inventory_analytics.total_value.toLocaleString()}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{overview.inventory_analytics.total_items} {language === 'ar' ? 'صنف' : 'items'}</p>
-                  </div>
-                  <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Package className="h-6 w-6 text-purple-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-orange-500">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{language === 'ar' ? 'إجمالي العملاء' : 'Total Customers'}</p>
-                    <h3 className="text-2xl font-bold text-gray-900">{overview.financial_analytics.total_customers}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{overview.financial_analytics.total_suppliers} {language === 'ar' ? 'موردين' : 'suppliers'}</p>
-                  </div>
-                  <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <BarChart3 className="h-6 w-6 text-orange-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      {/* ── OVERVIEW ── */}
+      {!loading && activeTab === 'overview' && d && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {kpiCard(ar?'صافي الربح':'Net Profit',          fmt(d.financial_analytics?.net_profit),      'text-blue-600',   'bg-blue-50',   DollarSign, ar?'إجمالي':'Total')}
+            {kpiCard(ar?'الإيرادات':'Revenue',              fmt(d.financial_analytics?.total_revenue),   'text-green-600',  'bg-green-50',  TrendingUp)}
+            {kpiCard(ar?'المصروفات':'Expenses',             fmt(d.financial_analytics?.total_expenses),  'text-red-600',    'bg-red-50',    TrendingDown)}
+            {kpiCard(ar?'الموظفين':'Employees',             d.hr_analytics?.total_employees || 0,        'text-purple-600', 'bg-purple-50', Users)}
+            {kpiCard(ar?'قيمة المخزون':'Inventory Value',  fmt(d.inventory_analytics?.total_value),     'text-amber-600',  'bg-amber-50',  Package)}
+            {kpiCard(ar?'العملاء':'Customers',              d.financial_analytics?.total_customers || 0, 'text-cyan-600',   'bg-cyan-50',   ShoppingCart)}
+            {kpiCard(ar?'الموردين':'Suppliers',             d.financial_analytics?.total_suppliers || 0, 'text-indigo-600', 'bg-indigo-50', Users)}
+            {kpiCard(ar?'هامش الربح':'Profit Margin',       `${(d.financial_analytics?.profit_margin||0).toFixed(1)}%`, 'text-rose-600', 'bg-rose-50', Activity)}
           </div>
         </div>
       )}
 
-      {activeTab === 'financial' && financial && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: language==='ar'?'إجمالي الإيرادات':'Total Revenue', val: financial.total_revenue, color:'text-green-600', bg:'bg-green-50' },
-              { label: language==='ar'?'إجمالي المصروفات':'Total Expenses', val: financial.total_expenses, color:'text-red-600', bg:'bg-red-50' },
-              { label: language==='ar'?'صافي الربح':'Net Profit', val: financial.net_profit, color:'text-blue-600', bg:'bg-blue-50' },
-              { label: language==='ar'?'العملاء':'Customers', val: financial.total_customers, color:'text-purple-600', bg:'bg-purple-50' },
-            ].map((k,i)=>(
-              <Card key={i} className={k.bg}><CardContent className="p-4 text-center">
-                <p className="text-xs text-gray-500 mb-1">{k.label}</p>
-                <p className={`text-xl font-bold ${k.color}`}>{typeof k.val==='number'?k.val.toLocaleString()+' ج.م':k.val}</p>
-              </CardContent></Card>
-            ))}
+      {/* ── FINANCIAL ── */}
+      {!loading && activeTab === 'financial' && d && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {kpiCard(ar?'إجمالي الإيرادات':'Total Revenue',  fmt(d.total_revenue),  'text-green-600',  'bg-green-50',  TrendingUp)}
+            {kpiCard(ar?'إجمالي المصروفات':'Total Expenses', fmt(d.total_expenses), 'text-red-600',    'bg-red-50',    TrendingDown)}
+            {kpiCard(ar?'صافي الربح':'Net Profit',           fmt(d.net_profit),     'text-blue-600',   'bg-blue-50',   DollarSign)}
+            {kpiCard(ar?'هامش الربح':'Profit Margin',        `${(d.profit_margin||0).toFixed(1)}%`, 'text-purple-600','bg-purple-50', Activity)}
           </div>
-          <Card><CardHeader><CardTitle>{language==='ar'?'الإيرادات مقابل المصروفات':'Revenue vs Expenses'}</CardTitle></CardHeader>
-            <CardContent><ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={financial.revenue_by_month.map((item,idx)=>({ month:item.month, revenue:item.amount, expenses:financial.expenses_by_month[idx]?.amount||0 }))}>
-                <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis /><Tooltip /><Legend />
-                <Area type="monotone" dataKey="revenue" stroke="#10b981" fill="#d1fae5" name={language==='ar'?'إيرادات':'Revenue'} />
-                <Area type="monotone" dataKey="expenses" stroke="#ef4444" fill="#fee2e2" name={language==='ar'?'مصروفات':'Expenses'} />
-              </AreaChart>
-            </ResponsiveContainer></CardContent>
-          </Card>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card><CardHeader><CardTitle>{language==='ar'?'أعلى العملاء':'Top Customers'}</CardTitle></CardHeader><CardContent>
-              {(financial.customer_balances||[]).slice(0,5).map((c,i)=>(
-                <div key={i} className="flex justify-between py-2 border-b last:border-0"><span className="text-sm">{c.name}</span><span className="text-sm font-bold text-blue-600">{(c.balance||0).toLocaleString()} ج.م</span></div>
-              ))}</CardContent></Card>
-            <Card><CardHeader><CardTitle>{language==='ar'?'أعلى الموردين':'Top Suppliers'}</CardTitle></CardHeader><CardContent>
-              {(financial.supplier_balances||[]).slice(0,5).map((s,i)=>(
-                <div key={i} className="flex justify-between py-2 border-b last:border-0"><span className="text-sm">{s.name}</span><span className="text-sm font-bold text-red-600">{(s.balance||0).toLocaleString()} ج.م</span></div>
-              ))}</CardContent></Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {chart(ar?'الإيرادات مقابل المصروفات':'Revenue vs Expenses',
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={(d.revenue_by_month||[]).map((item,i) => ({ month:item.month, revenue:item.amount, expenses:(d.expenses_by_month||[])[i]?.amount||0 }))}>
+                  <CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip/><Legend/>
+                  <Area type="monotone" dataKey="revenue" stroke="#10b981" fill="#d1fae5" name={ar?'إيرادات':'Revenue'}/>
+                  <Area type="monotone" dataKey="expenses" stroke="#ef4444" fill="#fee2e2" name={ar?'مصروفات':'Expenses'}/>
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+            {chart(ar?'أعلى العملاء':'Top Customers',
+              <div className="space-y-2">
+                {(d.customer_balances||[]).slice(0,8).map((c,i)=>(
+                  <div key={i} className="flex items-center justify-between py-1.5 border-b last:border-0">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full text-xs flex items-center justify-center font-bold">{i+1}</span>
+                      <span className="text-sm text-gray-700">{c.name}</span>
+                    </div>
+                    <span className="text-sm font-bold text-blue-600">{(c.balance||0).toLocaleString()} ج.م</span>
+                  </div>
+                ))}
+                {!(d.customer_balances?.length) && <p className="text-center text-gray-400 text-sm py-4">{ar?'لا توجد بيانات':'No data'}</p>}
+              </div>
+            )}
+            {chart(ar?'أعلى الموردين':'Top Suppliers',
+              <div className="space-y-2">
+                {(d.supplier_balances||[]).slice(0,8).map((s,i)=>(
+                  <div key={i} className="flex items-center justify-between py-1.5 border-b last:border-0">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 bg-red-100 text-red-600 rounded-full text-xs flex items-center justify-center font-bold">{i+1}</span>
+                      <span className="text-sm text-gray-700">{s.name}</span>
+                    </div>
+                    <span className="text-sm font-bold text-red-600">{(s.balance||0).toLocaleString()} ج.م</span>
+                  </div>
+                ))}
+                {!(d.supplier_balances?.length) && <p className="text-center text-gray-400 text-sm py-4">{ar?'لا توجد بيانات':'No data'}</p>}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {activeTab === 'inventory' && inventory && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{language === 'ar' ? 'توزيع الفئات' : 'Category Distribution'}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={inventory.category_distribution} cx="50%" cy="50%" labelLine={false}
-                      label={(entry) => `${entry.category}: ${entry.count}`} outerRadius={80} dataKey="count">
-                      {inventory.category_distribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{language === 'ar' ? 'حالة المخزون' : 'Stock Status'}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={inventory.status_distribution} cx="50%" cy="50%" labelLine={false}
-                      label={(entry) => `${entry.status === 'in-stock' ? (language === 'ar' ? 'متوفر' : 'In Stock') : (language === 'ar' ? 'منخفض' : 'Low')}: ${entry.count}`}
-                      outerRadius={80} dataKey="count">
-                      {inventory.status_distribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.status === 'in-stock' ? '#10b981' : '#ef4444'} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+      {/* ── HR ── */}
+      {!loading && activeTab === 'hr' && d && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {kpiCard(ar?'الموظفين':'Employees',           d.total_employees||0,                       'text-blue-600','bg-blue-50',  Users)}
+            {kpiCard(ar?'إجمالي الإجازات':'Total Leaves', d.total_leaves||0,                          'text-amber-600','bg-amber-50',Calendar)}
+            {kpiCard(ar?'إجمالي البدلات':'Allowances',   fmt(d.total_allowances),                    'text-green-600','bg-green-50',TrendingUp)}
+            {kpiCard(ar?'إجمالي الخصومات':'Deductions',  fmt(d.total_deductions),                    'text-red-600','bg-red-50',   TrendingDown)}
           </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {chart(ar?'توزيع الأقسام':'Department Distribution',
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={d.department_distribution||[]} dataKey="count" nameKey="department" cx="50%" cy="50%" outerRadius={90}
+                    label={e=>`${e.department}: ${e.count}`} labelLine={false}>
+                    {(d.department_distribution||[]).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  </Pie>
+                  <Tooltip/>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+            {chart(ar?'توزيع الرواتب':'Salary Distribution',
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={d.salary_distribution||[]}>
+                  <CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="range" tick={{fontSize:11}}/><YAxis/><Tooltip/>
+                  <Bar dataKey="count" fill="#6366f1" name={ar?'الموظفون':'Employees'} radius={[4,4,0,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+            {chart(ar?'الحضور الشهري':'Monthly Attendance',
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={d.attendance_data||[]}>
+                  <CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month" tick={{fontSize:11}}/><YAxis/><Tooltip/><Legend/>
+                  <Line type="monotone" dataKey="present" stroke="#10b981" name={ar?'حاضر':'Present'} strokeWidth={2}/>
+                  <Line type="monotone" dataKey="absent"  stroke="#ef4444" name={ar?'غائب':'Absent'}  strokeWidth={2}/>
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      )}
 
-          {inventory.low_stock_alerts.length > 0 && (
+      {/* ── PAYROLL ── */}
+      {!loading && activeTab === 'payroll' && d && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {kpiCard(ar?'إجمالي المرتبات':'Total Gross',      fmt(d.total_gross),       'text-blue-600','bg-blue-50',   DollarSign)}
+            {kpiCard(ar?'صافي المرتبات':'Total Net',           fmt(d.total_net),         'text-green-600','bg-green-50', TrendingUp)}
+            {kpiCard(ar?'إجمالي الضرائب':'Total Tax',          fmt(d.total_tax),         'text-red-600','bg-red-50',    TrendingDown)}
+            {kpiCard(ar?'التأمينات':'Insurance',               fmt(d.total_insurance),   'text-amber-600','bg-amber-50', Users)}
+            {kpiCard(ar?'عدد الموظفين':'Employees',            d.total_employees||0,     'text-purple-600','bg-purple-50',Users)}
+            {kpiCard(ar?'دورات الرواتب':'Payroll Runs',        d.runs_count||0,          'text-cyan-600','bg-cyan-50',  Activity)}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {chart(ar?'تكلفة الرواتب الشهرية':'Monthly Payroll Cost',
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={d.monthly_trend||[]}>
+                  <CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month" tick={{fontSize:11}}/><YAxis/><Tooltip/>
+                  <Bar dataKey="amount" fill="#3b82f6" name={ar?'المبلغ':'Amount'} radius={[4,4,0,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+            {chart(ar?'تكلفة كل قسم':'Department Salary Cost',
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={d.department_costs||[]} dataKey="salary" nameKey="department" cx="50%" cy="50%" outerRadius={90}
+                    label={e=>`${e.department}`} labelLine={false}>
+                    {(d.department_costs||[]).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  </Pie>
+                  <Tooltip formatter={(v)=>`${v.toLocaleString()} ج.م`}/>
+                  <Legend/>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── INVENTORY ── */}
+      {!loading && activeTab === 'inventory' && d && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {kpiCard(ar?'إجمالي الأصناف':'Total Items',    d.total_items||0,          'text-blue-600','bg-blue-50',  Package)}
+            {kpiCard(ar?'قيمة المخزون':'Stock Value',       fmt(d.total_value),        'text-green-600','bg-green-50',DollarSign)}
+            {kpiCard(ar?'تنبيهات':'Low Stock Alerts',       d.low_stock_alerts?.length||0,'text-red-600','bg-red-50', AlertCircle)}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {chart(ar?'توزيع الفئات':'Category Distribution',
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={d.category_distribution||[]} dataKey="count" nameKey="category" cx="50%" cy="50%" outerRadius={90}
+                    label={e=>`${e.category}: ${e.count}`} labelLine={false}>
+                    {(d.category_distribution||[]).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  </Pie>
+                  <Tooltip/><Legend/>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+            {chart(ar?'حالة المخزون':'Stock Status',
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={d.status_distribution||[]} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={90}>
+                    {(d.status_distribution||[]).map((e,i)=><Cell key={i} fill={e.status==='in-stock'?'#10b981':e.status==='low-stock'?'#f59e0b':'#ef4444'}/>)}
+                  </Pie>
+                  <Tooltip/><Legend/>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          {d.low_stock_alerts?.length > 0 && (
             <Card className="border-red-200 bg-red-50">
-              <CardHeader>
-                <CardTitle className="text-red-600">
-                  {language === 'ar' ? '⚠️ تنبيهات المخزون' : '⚠️ Low Stock Alerts'}
-                </CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-red-600 text-sm">⚠️ {ar?'تنبيهات المخزون المنخفض':'Low Stock Alerts'}</CardTitle></CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {inventory.low_stock_alerts.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 bg-white rounded-lg">
-                      <span className="font-medium">{item.name}</span>
-                      <span className="text-sm text-gray-600">
-                        {language === 'ar' ? 'الكمية' : 'Qty'}: {item.quantity} / {item.min_stock}
-                      </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {d.low_stock_alerts.map((item,i)=>(
+                    <div key={i} className="flex justify-between items-center p-2 bg-white rounded-lg border border-red-100">
+                      <span className="text-sm font-medium text-gray-700">{item.name}</span>
+                      <span className="text-xs text-red-600 font-semibold">{ar?'الكمية':'Qty'}: {item.quantity}/{item.min_quantity}</span>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
           )}
+          {d.top_items_by_value?.length > 0 && chart(ar?'أعلى الأصناف قيمةً':'Top Items by Value',
+            <div className="space-y-2">
+              {d.top_items_by_value.slice(0,8).map((item,i)=>(
+                <div key={i} className="flex items-center justify-between py-1.5 border-b last:border-0">
+                  <span className="text-sm text-gray-700">{item.name}</span>
+                  <span className="text-sm font-bold text-blue-600">{(item.total_value||0).toLocaleString()} ج.م</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── PROJECTS ── */}
+      {!loading && activeTab === 'projects' && d && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {kpiCard(ar?'إجمالي المشاريع':'Total Projects',   d.total_projects||0,         'text-blue-600','bg-blue-50',  FolderKanban)}
+            {kpiCard(ar?'إجمالي المهام':'Total Tasks',         d.total_tasks||0,            'text-purple-600','bg-purple-50',CheckCircle)}
+            {kpiCard(ar?'مهام مكتملة':'Completed Tasks',      d.completed_tasks||0,        'text-green-600','bg-green-50', CheckCircle)}
+            {kpiCard(ar?'مهام متأخرة':'Overdue Tasks',        d.overdue_tasks||0,          'text-red-600','bg-red-50',    AlertCircle)}
+            {kpiCard(ar?'معدل الإنجاز':'Completion Rate',     `${d.completion_rate||0}%`,  'text-cyan-600','bg-cyan-50',  Activity)}
+            {kpiCard(ar?'إجمالي الإيرادات':'Revenues',        fmt(d.total_revenues),       'text-green-600','bg-green-50', TrendingUp)}
+            {kpiCard(ar?'إجمالي المصروفات':'Expenses',        fmt(d.total_expenses),       'text-red-600','bg-red-50',    TrendingDown)}
+            {kpiCard(ar?'صافي الربح':'Net Profit',            fmt(d.net_profit),           'text-blue-600','bg-blue-50',  DollarSign)}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {chart(ar?'توزيع حالة المشاريع':'Project Status',
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={d.status_distribution||[]} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={90}
+                    label={e=>`${e.status}: ${e.count}`} labelLine={false}>
+                    {(d.status_distribution||[]).map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  </Pie>
+                  <Tooltip/><Legend/>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+            {chart(ar?'الميزانية مقابل الإنفاق':'Budget vs Spent',
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={(d.budget_usage||[]).slice(0,8)} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" tick={{fontSize:10}} width={80}/><Tooltip/><Legend/>
+                  <Bar dataKey="budget" fill="#6366f1" name={ar?'الميزانية':'Budget'} radius={[0,4,4,0]}/>
+                  <Bar dataKey="spent"  fill="#ef4444" name={ar?'المنفق':'Spent'}    radius={[0,4,4,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── SALES ── */}
+      {!loading && activeTab === 'sales' && d && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {kpiCard(ar?'العملاء':'Customers',            d.total_customers||0,         'text-blue-600','bg-blue-50',  ShoppingCart)}
+            {kpiCard(ar?'الفواتير':'Invoices',             d.total_invoices||0,          'text-purple-600','bg-purple-50',Activity)}
+            {kpiCard(ar?'إجمالي الفواتير':'Invoiced',      fmt(d.total_invoiced),        'text-green-600','bg-green-50', DollarSign)}
+            {kpiCard(ar?'تم التحصيل':'Collected',          fmt(d.total_paid),            'text-cyan-600','bg-cyan-50',  CheckCircle)}
+            {kpiCard(ar?'مستحق التحصيل':'Pending',         fmt(d.total_pending),         'text-amber-600','bg-amber-50', Clock)}
+            {kpiCard(ar?'معدل التحصيل':'Collection Rate',  `${d.collection_rate||0}%`,   'text-indigo-600','bg-indigo-50',TrendingUp)}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {chart(ar?'الإيرادات الشهرية':'Monthly Revenue',
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={d.monthly_trend||[]}>
+                  <CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month" tick={{fontSize:11}}/><YAxis/><Tooltip/>
+                  <Area type="monotone" dataKey="revenue" stroke="#10b981" fill="#d1fae5" name={ar?'الإيرادات':'Revenue'}/>
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+            {chart(ar?'حالة الفواتير':'Invoice Status',
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={d.status_distribution||[]} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={90}
+                    label={e=>`${e.status}: ${e.count}`} labelLine={false}>
+                    {(d.status_distribution||[]).map((e,i)=><Cell key={i} fill={
+                      e.status==='paid'||e.status==='accepted'?'#10b981':
+                      e.status==='pending'||e.status==='sent'?'#f59e0b':
+                      e.status==='cancelled'?'#ef4444':'#6366f1'}/>)}
+                  </Pie>
+                  <Tooltip/><Legend/>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── ATTENDANCE ── */}
+      {!loading && activeTab === 'attendance' && d && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {kpiCard(ar?'إجمالي السجلات':'Total Records', d.total_records||0,       'text-blue-600','bg-blue-50',  Activity)}
+            {kpiCard(ar?'حاضر':'Present',                  d.present||0,             'text-green-600','bg-green-50', CheckCircle)}
+            {kpiCard(ar?'غائب':'Absent',                   d.absent||0,              'text-red-600','bg-red-50',    AlertCircle)}
+            {kpiCard(ar?'متأخر':'Late',                    d.late||0,                'text-amber-600','bg-amber-50', Clock)}
+            {kpiCard(ar?'معدل الحضور':'Attendance Rate',  `${d.attendance_rate||0}%`,'text-cyan-600','bg-cyan-50',  TrendingUp)}
+          </div>
+          {chart(ar?'الحضور اليومي (آخر 30 يوم)':'Daily Attendance (Last 30 days)',
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={(d.daily_trend||[]).slice(-30)}>
+                <CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:9}}/><YAxis/><Tooltip/><Legend/>
+                <Bar dataKey="present" fill="#10b981" name={ar?'حاضر':'Present'} stackId="a" radius={[0,0,0,0]}/>
+                <Bar dataKey="absent"  fill="#ef4444" name={ar?'غائب':'Absent'}  stackId="a"/>
+                <Bar dataKey="late"    fill="#f59e0b" name={ar?'متأخر':'Late'}   stackId="a"/>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {chart(ar?'أعلى معدل حضور':'Best Attendance',
+              <div className="space-y-2">
+                {(d.employee_rates||[]).slice(-5).reverse().map((e,i)=>(
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500 w-4">{i+1}</span>
+                    <div className="flex-1">
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="font-medium">{e.name}</span>
+                        <span className="text-green-600 font-bold">{e.rate}%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full">
+                        <div className="h-1.5 bg-green-500 rounded-full" style={{width:`${e.rate}%`}}/>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {chart(ar?'أدنى معدل حضور':'Worst Attendance',
+              <div className="space-y-2">
+                {(d.worst_attendance||[]).slice(0,5).map((e,i)=>(
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500 w-4">{i+1}</span>
+                    <div className="flex-1">
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="font-medium">{e.name}</span>
+                        <span className="text-red-600 font-bold">{e.rate}%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full">
+                        <div className="h-1.5 bg-red-500 rounded-full" style={{width:`${e.rate}%`}}/>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && !d && (
+        <div className="text-center py-16 text-gray-400">
+          <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-30"/>
+          <p className="text-sm">{ar?'لا توجد بيانات للفترة المحددة':'No data for selected period'}</p>
         </div>
       )}
     </div>
   );
 };
+
+export default AnalyticsModule;
