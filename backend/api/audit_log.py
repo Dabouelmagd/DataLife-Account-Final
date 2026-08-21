@@ -152,8 +152,13 @@ async def get_audit_logs(
     query = {}
     
     # Super Admin sees all, others see only their company
-    super_admin_roles = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي']
-    if user.get('role') not in super_admin_roles:
+    super_admin_roles = [
+        'Super Admin', 'superadmin', 'super_admin', 'admin',
+        'مدير النظام', 'General Manager', 'مدير عام', 'CEO',
+        'المدير التنفيذي', 'رئيس مجلس الإدارة'
+    ]
+    is_super = user.get('role') in super_admin_roles or user.get('is_super_admin') or user.get('is_admin')
+    if not is_super:
         query["company_id"] = user.get('company_id')
     
     if action:
@@ -187,8 +192,7 @@ async def get_audit_logs(
     ).sort("timestamp", -1).skip(skip).limit(limit).to_list(length=limit)
     
     # Enrich logs with company names if Super Admin
-    super_admin_roles = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'رئيس مجلس الإدارة']
-    if user.get('role') in super_admin_roles:
+    if is_super:
         for log in logs:
             if log.get("company_id") and not log.get("company_name"):
                 company = await db.companies.find_one({"id": log["company_id"]}, {"_id": 0, "name": 1})
@@ -246,8 +250,13 @@ async def get_audit_statistics(
     # Build query
     query = {"timestamp": {"$gte": start_date.isoformat()}}
     
-    super_admin_roles = ['Super Admin', 'مدير النظام', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي']
-    if user.get('role') not in super_admin_roles:
+    super_admin_roles = [
+        'Super Admin', 'superadmin', 'super_admin', 'admin',
+        'مدير النظام', 'General Manager', 'مدير عام', 'CEO',
+        'المدير التنفيذي', 'رئيس مجلس الإدارة'
+    ]
+    is_super = user.get('role') in super_admin_roles or user.get('is_super_admin') or user.get('is_admin')
+    if not is_super:
         query["company_id"] = user.get('company_id')
     
     # Get total count
