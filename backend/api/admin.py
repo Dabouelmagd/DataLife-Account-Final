@@ -248,12 +248,57 @@ async def get_admin_dashboard(authorization: Optional[str] = Header(None)):
 
 @router.get("/transactions")
 async def get_all_transactions(status: Optional[str] = None, authorization: Optional[str] = Header(None)):
-    """Get all payment transactions"""
+    """Get all payment transactions — from multiple collections"""
     await verify_admin(authorization)
+
+    results = []
+
+    # 1. From payment_transactions collection
     query = {}
     if status:
         query["payment_status"] = status
-    return await db.payment_transactions.find(query, {"_id": 0}).sort("created_at", -1).to_list(length=None)
+    tx = await db.payment_transactions.find(query, {"_id": 0}).sort("created_at", -1).to_list(None)
+    results.extend(tx)
+
+    # 2. From subscription_payments collection
+    sp_query = {}
+    if status == "paid":
+        sp_query["is_paid"] = True
+    elif status == "pending":
+        sp_query["is_paid"] = False
+    sp = await db.subscription_payments.find(sp_query, {"_id": 0}).sort("created_at", -1).to_list(None)
+    for p in sp:
+        results.append({
+            "id": p.get("id"),
+            "user_email": p.get("company_email") or p.get("user_email"),
+            "plan": p.get("plan", ""),
+            "amount_egp": p.get("amount", 0),
+            "payment_status": "paid" if p.get("is_paid") else "pending",
+            "payment_method": p.get("payment_method"),
+            "created_at": p.get("created_at") or p.get("payment_date"),
+        })
+
+    # 3. From subscriptions collection (as transactions)
+    if not results:
+        subs = await db.subscriptions.find({}, {"_id": 0}).sort("created_at", -1).to_list(None)
+        companies = await db.companies.find({}, {"_id": 0, "id": 1, "email": 1, "contact_email": 1}).to_list(None)
+        company_email = {c["id"]: c.get("email") or c.get("contact_email", "") for c in companies}
+        for s in subs:
+            pstatus = "paid" if s.get("status") == "active" and s.get("amount_paid", 0) > 0 else "pending"
+            if status and status != pstatus:
+                continue
+            results.append({
+                "id": s.get("id"),
+                "user_email": company_email.get(s.get("company_id"), ""),
+                "plan": s.get("plan", ""),
+                "amount_egp": s.get("amount_paid", 0),
+                "payment_status": pstatus,
+                "payment_method": s.get("payment_method", ""),
+                "created_at": s.get("created_at"),
+            })
+
+    results.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+    return results
 
 
 # ===========================================
