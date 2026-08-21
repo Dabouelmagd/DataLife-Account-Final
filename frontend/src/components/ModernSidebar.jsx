@@ -4,7 +4,7 @@ import {
   ChartBar, ShieldCheck, Bell, Clock, Folders, Package, CreditCard, 
   UserCheck, FileCheck, Buildings, PieChart, Globe, ClipboardText,
   Cube, CheckCircle, Moon, Sun, Lock, Copy, CaretUp, Tag,
-  UploadSimple, Book, Gift
+  UploadSimple, Book, Gift, Scales
 } from '@phosphor-icons/react';
 import { Badge } from './ui/badge';
 import NotificationCenter from './NotificationCenter';
@@ -149,6 +149,13 @@ const ModernSidebar = ({
         text: 'text-violet-600 dark:text-violet-400',
         icon: 'bg-violet-500 dark:bg-violet-600'
       },
+      // Taxes - Orange  
+      'taxes': { 
+        bg: 'bg-orange-500/10 dark:bg-orange-500/15', 
+        border: 'border-orange-500',
+        text: 'text-orange-600 dark:text-orange-400',
+        icon: 'bg-orange-500 dark:bg-orange-600'
+      },
       // Import - Slate
       'import': { 
         bg: 'bg-slate-500/10 dark:bg-slate-500/15', 
@@ -207,6 +214,7 @@ const ModernSidebar = ({
       'import':      <UploadSimple weight={weight} />,
       'user-guide':  <Book weight={weight} />,
       'referral':    <Gift weight={weight} />,
+      'taxes':       <Scales weight={weight} />,
       'super-admin': <ShieldCheck weight={weight} />,
     };
     return iconMap[moduleId] || <House weight={weight} />;
@@ -525,12 +533,12 @@ const ModernSidebar = ({
               })}
 
               {/* Section label: Tools */}
-              {otherModules.some(m => ['import','user-guide','super-admin','referral'].includes(m.id)) && (
+              {otherModules.some(m => ['import','user-guide','super-admin','referral','taxes'].includes(m.id)) && (
                 <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600 px-2.5 mt-3 mb-1">
                   {language === 'ar' ? 'أدوات' : 'TOOLS'}
                 </p>
               )}
-              {otherModules.filter(m => ['import','user-guide','super-admin','referral'].includes(m.id)).map((module) => {
+              {otherModules.filter(m => ['import','user-guide','super-admin','referral','taxes'].includes(m.id)).map((module) => {
                 const isActive = activeModule === module.id;
                 const colors = getModuleColor(module.id);
                 return (

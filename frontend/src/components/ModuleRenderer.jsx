@@ -51,6 +51,7 @@ import SuperAdminDashboard from '../pages/SuperAdminDashboard';
 import NotificationSettingsPage from '../pages/NotificationSettingsPage';
 import UserGuidePage from '../pages/UserGuidePage';
 import ReferralPanel from './ReferralPanel';
+import TaxesModule from './TaxesModule';
 import ReportManagementPage from '../pages/ReportManagementPage';
 import AssetsModule from '../components/AssetsModule';
 
@@ -290,6 +291,7 @@ const ModuleRenderer = ({
   const simpleModuleMap = {
     'sales': <SalesModule language={language} />,
     'assets': <AssetsModule />,
+    'taxes': <TaxesModule />,
     'analytics': <AnalyticsModule language={language} />,
     'system-reports': <SystemReportsPage language={language} />,
     'report-management': <ReportManagementPage language={language} />,

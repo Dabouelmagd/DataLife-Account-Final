@@ -19,7 +19,7 @@ export default function AssetsModule() {
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
-  const [tab, setTab] = useState('assets');
+  const [tab, setTab] = useState(defaultTab);
   const [assets, setAssets] = useState([]);
   const [rates, setRates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,8 +98,8 @@ export default function AssetsModule() {
     <div className="space-y-6 p-6" dir={isRTL?'rtl':'ltr'}>
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('الأصول الثابتة والضرائب','Fixed Assets & Taxes')}</h1>
-          <p className="text-sm text-gray-500 mt-1">{t('إهلاك · ضريبة دخل · تأمينات · VAT — وفق القانون المصري','Depreciation · Tax · Insurance · VAT — Egyptian Law')}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{defaultTab === 'assets' ? t('الأصول الثابتة','Fixed Assets') : t('الضرائب والرسوم','Taxes & Duties')}</h1>
+          <p className="text-sm text-gray-500 mt-1">{defaultTab === 'assets' ? t('إدارة الأصول والإهلاك — وفق القانون المصري','Asset management & depreciation — Egyptian Law') : t('ضريبة دخل · VAT · خصم تحت الحساب','Income Tax · VAT · Withholding Tax')}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={runDepreciation} className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">🔄 {t('تشغيل الإهلاك','Run Depreciation')}</button>

@@ -6,7 +6,7 @@
 import { 
   Shield, Home, Users, Calculator, FileText, FolderKanban, 
   BarChart, Settings, Upload, Book, Building2, Bell, ShoppingCart,
-  TrendingUp, Gift
+  TrendingUp, Gift, Scale, Landmark
 } from 'lucide-react';
 
 // Role categories
@@ -123,8 +123,13 @@ export const getAvailableModules = (user, language) => {
   if (hasFullAccess || permissions.includes('financial')) {
     modules.push({
       id: 'assets',
-      name: isArabic ? 'الأصول والضرائب' : 'Assets & Taxes',
+      name: isArabic ? 'الأصول الثابتة' : 'Fixed Assets',
       icon: <Building2 />
+    });
+    modules.push({
+      id: 'taxes',
+      name: isArabic ? 'الضرائب' : 'Taxes',
+      icon: <Scale />
     });
   }
 
