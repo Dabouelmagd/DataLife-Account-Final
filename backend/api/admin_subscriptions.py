@@ -54,6 +54,19 @@ async def get_all_subscriptions(
         sub_status = c.get("subscription_status", "trial")
         sub_plan   = c.get("subscription_plan", "trial")
         end_date   = c.get("subscription_expires_at") or c.get("trial_ends_at")
+        # Calculate trial end date if missing (14 days from company creation)
+        if not end_date and sub_plan in ("trial", "free"):
+            created = c.get("created_at")
+            if created:
+                try:
+                    if isinstance(created, str):
+                        from dateutil import parser as dparser
+                        created_dt = dparser.parse(created)
+                    else:
+                        created_dt = created
+                    end_date = (created_dt + timedelta(days=14)).isoformat()
+                except Exception:
+                    pass
         synthetic_subs.append({
             "id": f"syn_{c.get('id', '')}",
             "company_id":    c.get("id"),
