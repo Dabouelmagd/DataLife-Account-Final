@@ -14,7 +14,8 @@ import {
   Calendar, BarChart3, Settings, ChevronDown, Power, Mail, 
   Send, Eye, UserX, UserCheck, Bell, Shield, Save, MessageSquare, Briefcase,
   LogOut, Globe, LayoutDashboard, History, Crown, Sparkles, Zap, Star, HeartPulse,
-  BookOpen} from 'lucide-react';
+  BookOpen,
+  Search, SortAsc, SortDesc, Filter} from 'lucide-react';
 import axios from 'axios';
 import CompanyLogo from './CompanyLogo';
 import AuditLogPage from '../pages/AuditLogPage';
@@ -863,15 +864,24 @@ const AdminDashboard = () => {
                 {isRTL ? 'إدارة النظام والمستخدمين' : 'System and user management'}
               </p>
             </div>
-            <Button
-              variant="outline"
-              onClick={fetchData}
-              disabled={loading}
-              className="gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              {isRTL ? 'تحديث' : 'Refresh'}
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Global Search */}
+              <div className="relative">
+                <Search className="absolute top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+                  style={{[isRTL ? 'right' : 'left']: '10px'}} />
+                <input
+                  value={globalSearch}
+                  onChange={e => setGlobalSearch(e.target.value)}
+                  placeholder={isRTL ? 'بحث...' : 'Search...'}
+                  className="border border-gray-200 rounded-xl py-2 text-sm focus:outline-none focus:border-blue-400 bg-white"
+                  style={{[isRTL ? 'paddingRight' : 'paddingLeft']: '34px', [isRTL ? 'paddingLeft' : 'paddingRight']: '12px', width: '200px'}}
+                />
+              </div>
+              <Button variant="outline" onClick={fetchData} disabled={loading} className="gap-2">
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                {isRTL ? 'تحديث' : 'Refresh'}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -1437,7 +1447,25 @@ const AdminDashboard = () => {
         {activeTab === 'transactions' && (
           <Card>
             <CardHeader>
-              <CardTitle>{t.transactions}</CardTitle>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <CardTitle>{t.transactions}</CardTitle>
+                <div className="flex gap-2 items-center flex-wrap">
+                  <select onChange={e => setSortConfig({field: e.target.value, dir: sortConfig.dir})}
+                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none">
+                    <option value="created_at">{isRTL ? 'التاريخ' : 'Date'}</option>
+                    <option value="amount_egp">{isRTL ? 'المبلغ' : 'Amount'}</option>
+                    <option value="payment_status">{isRTL ? 'الحالة' : 'Status'}</option>
+                    <option value="plan">{isRTL ? 'الخطة' : 'Plan'}</option>
+                  </select>
+                  <button onClick={() => setSortConfig(s => ({...s, dir: s.dir==='asc'?'desc':'asc'}))}
+                    className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-50">
+                    {sortConfig.dir === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                  </button>
+                  <input value={globalSearch} onChange={e => setGlobalSearch(e.target.value)}
+                    placeholder={isRTL ? 'بحث...' : 'Search...'}
+                    className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 w-36 focus:outline-none" />
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -1451,7 +1479,15 @@ const AdminDashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transactions.map((tx, idx) => (
+                  {[...transactions]
+                    .filter(tx => !globalSearch || 
+                      (tx.user_email||'').toLowerCase().includes(globalSearch.toLowerCase()) ||
+                      (tx.plan||'').toLowerCase().includes(globalSearch.toLowerCase()))
+                    .sort((a,b) => {
+                      const av = a[sortConfig.field]||'', bv = b[sortConfig.field]||'';
+                      return sortConfig.dir==='asc' ? (av>bv?1:-1) : (av<bv?1:-1);
+                    })
+                    .map((tx, idx) => (
                     <TableRow key={idx}>
                       <TableCell>{tx.user_email || '-'}</TableCell>
                       <TableCell>{planNames[tx.plan] || tx.plan}</TableCell>
@@ -1686,12 +1722,27 @@ const AdminDashboard = () => {
         {/* Companies Tab */}
         {activeTab === 'companies' && (
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-3">
               <h2 className="text-xl font-semibold">{t.companies}</h2>
-              <Button onClick={() => setShowNotificationForm(true)}>
-                <Bell className="h-4 w-4 mr-2" />
-                {t.sendNotification}
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input value={globalSearch} onChange={e => setGlobalSearch(e.target.value)}
+                  placeholder={isRTL ? 'بحث...' : 'Search...'}
+                  className="border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400 w-40" />
+                <select onChange={e => setSortConfig(s => ({...s, field: e.target.value}))}
+                  className="text-sm border border-gray-200 rounded-xl px-2 py-1.5 focus:outline-none">
+                  <option value="created_at">{isRTL ? 'تاريخ التسجيل' : 'Date'}</option>
+                  <option value="name">{isRTL ? 'الاسم' : 'Name'}</option>
+                  <option value="subscription_plan">{isRTL ? 'الخطة' : 'Plan'}</option>
+                </select>
+                <button onClick={() => setSortConfig(s => ({...s, dir: s.dir==='asc'?'desc':'asc'}))}
+                  className="p-1.5 border border-gray-200 rounded-xl hover:bg-gray-50">
+                  {sortConfig.dir === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                </button>
+                <Button onClick={() => setShowNotificationForm(true)}>
+                  <Bell className="h-4 w-4 mr-2" />
+                  {t.sendNotification}
+                </Button>
+              </div>
             </div>
 
             {/* Notification Form Modal */}
@@ -1969,7 +2020,16 @@ const AdminDashboard = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {companies.map((company, idx) => (
+                    {[...companies]
+                    .filter(c => !globalSearch || 
+                      (c.name||'').toLowerCase().includes(globalSearch.toLowerCase()) ||
+                      (c.email||'').toLowerCase().includes(globalSearch.toLowerCase()) ||
+                      (c.company_code||'').toLowerCase().includes(globalSearch.toLowerCase()))
+                    .sort((a,b) => {
+                      const av = a['created_at']||'', bv = b['created_at']||'';
+                      return sortConfig.dir==='asc' ? (av>bv?1:-1) : (av<bv?1:-1);
+                    })
+                    .map((company, idx) => (
                       <TableRow key={idx} className={!company.is_active && company.is_active !== undefined ? 'bg-red-50' : ''}>
                         <TableCell>
                           <div>
@@ -2164,6 +2224,22 @@ const AdminDashboard = () => {
         {/* All Users Tab */}
         {activeTab === 'users' && (
           <div className="space-y-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <input value={globalSearch} onChange={e => setGlobalSearch(e.target.value)}
+                placeholder={isRTL ? 'بحث بالاسم أو البريد أو الشركة...' : 'Search by name, email or company...'}
+                className="flex-1 min-w-[200px] border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-400" />
+              <select onChange={e => setSortConfig({field: e.target.value, dir: sortConfig.dir})}
+                className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none">
+                <option value="created_at">{isRTL ? 'تاريخ التسجيل' : 'Registration Date'}</option>
+                <option value="full_name">{isRTL ? 'الاسم' : 'Name'}</option>
+                <option value="company_name">{isRTL ? 'الشركة' : 'Company'}</option>
+                <option value="role">{isRTL ? 'الدور' : 'Role'}</option>
+              </select>
+              <button onClick={() => setSortConfig(s => ({...s, dir: s.dir==='asc'?'desc':'asc'}))}
+                className="p-2 border border-gray-200 rounded-xl hover:bg-gray-50">
+                {sortConfig.dir === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+              </button>
+            </div>
             {/* Search and Filter */}
             <Card>
               <CardContent className="p-4">
@@ -2202,7 +2278,13 @@ const AdminDashboard = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.map((usr, idx) => (
+                    {[...filteredUsers]
+                    .sort((a,b) => {
+                      const f = sortConfig.field === 'created_at' ? 'created_at' : sortConfig.field;
+                      const av = a[f]||'', bv = b[f]||'';
+                      return sortConfig.dir==='asc' ? (av>bv?1:-1) : (av<bv?1:-1);
+                    })
+                    .map((usr, idx) => (
                       <TableRow key={idx} className={!usr.is_active ? 'bg-red-50' : ''}>
                         <TableCell className="font-medium">{usr.full_name || '-'}</TableCell>
                         <TableCell>{usr.email}</TableCell>
