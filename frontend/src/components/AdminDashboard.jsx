@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import PaymentMethodsPanel from './PaymentMethodsPanel';
+import SystemGuidePanel from './SystemGuidePanel';
+import OutreachPanel from './OutreachPanel';
+import AdminReferralsPanel from './AdminReferralsPanel';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
