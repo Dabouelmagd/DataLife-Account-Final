@@ -2129,7 +2129,6 @@ const AdminDashboard = () => {
                              </Button>
                            </div>
                          </TableCell>
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

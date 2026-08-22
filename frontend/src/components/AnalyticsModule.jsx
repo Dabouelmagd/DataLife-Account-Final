@@ -434,7 +434,7 @@ export const AnalyticsModule = ({ language }) => {
             </ResponsiveContainer>
           </Ch>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Ch title={ar?'أعلى معدل حضور':'Best Attendance'>
+            <Ch title={ar?'أعلى معدل حضور':'Best Attendance'}>
               {progBar([...(d.employee_rates||[])].reverse().slice(0,8), e=>e.name, e=>`${e.rate}%`, e=>e.rate>90?'bg-green-500':e.rate>75?'bg-amber-400':'bg-red-400')}
             </Ch>
             <Ch title={ar?'أدنى معدل حضور':'Worst Attendance'}>
