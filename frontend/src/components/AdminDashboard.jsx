@@ -113,6 +113,10 @@ const AdminDashboard = () => {
   // Toast notification
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
+  // Global search + sort
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [sortConfig, setSortConfig] = useState({ field: 'created_at', dir: 'desc' });
+
   const API_URL = process.env.REACT_APP_BACKEND_URL;
 
   const t = {
