@@ -1032,7 +1032,7 @@ const AdminDashboard = () => {
                     {dashboardData.expiring_soon.map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between p-2 bg-amber-50 rounded-lg">
                         <div>
-                          <p className="font-medium">{item.company_id}</p>
+                          <p className="font-medium">{item.company_name || item.company_id}</p>
                           <p className="text-sm text-gray-500">{planNames[item.plan]}</p>
                         </div>
                         <Badge variant="outline" className="text-amber-600 border-amber-300">

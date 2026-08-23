@@ -189,58 +189,100 @@ async def run_diagnostic(secret_key: str = None):
 @router.get("/dashboard")
 async def get_admin_dashboard(authorization: Optional[str] = Header(None)):
     """Get admin dashboard statistics"""
-    user_data = await verify_admin(authorization)
-    
-    companies = await db.companies.find({}, {"_id": 0}).to_list(length=None)
-    users = await db.users.find({}, {"_id": 0}).to_list(length=None)
-    subscriptions = await db.subscriptions.find({}, {"_id": 0}).to_list(length=None)
-    transactions = await db.payment_transactions.find({}, {"_id": 0}).to_list(length=None)
-    activation_codes = await db.activation_codes.find({}, {"_id": 0}).to_list(length=None)
-    
-    total_revenue = sum(t.get('amount_egp', 0) for t in transactions if t.get('payment_status') == 'paid')
+    await verify_admin(authorization)
+
+    companies    = await db.companies.find({}, {"_id": 0}).to_list(None)
+    users        = await db.users.find({}, {"_id": 0, "password": 0}).to_list(None)
+    subscriptions= await db.subscriptions.find({}, {"_id": 0}).to_list(None)
+    activation_codes = await db.activation_codes.find({}, {"_id": 0}).to_list(None)
+
+    # Revenue from multiple sources
+    pay_tx  = await db.payment_transactions.find({}, {"_id": 0}).to_list(None)
+    sub_pay = await db.subscription_payments.find({}, {"_id": 0}).to_list(None)
+
+    this_month = datetime.now(timezone.utc).strftime('%Y-%m')
+    total_revenue   = sum(t.get('amount_egp', t.get('amount', 0)) for t in pay_tx + sub_pay if t.get('payment_status', t.get('is_paid')) in ('paid', True))
     monthly_revenue = sum(
-        t.get('amount_egp', 0) for t in transactions 
-        if t.get('payment_status') == 'paid' and t.get('created_at', '').startswith(datetime.now().strftime('%Y-%m'))
+        t.get('amount_egp', t.get('amount', 0)) for t in pay_tx + sub_pay
+        if t.get('payment_status', t.get('is_paid')) in ('paid', True)
+        and str(t.get('created_at', '') or '')[:7] == this_month
     )
-    
+
+    # If still 0, sum from subscriptions
+    if total_revenue == 0:
+        total_revenue = sum(s.get('amount_paid', 0) for s in subscriptions)
+        monthly_revenue = sum(
+            s.get('amount_paid', 0) for s in subscriptions
+            if str(s.get('created_at', '') or '')[:7] == this_month
+        )
+
+    # Active subscriptions: paid subs + trial companies
+    active_paid  = len([s for s in subscriptions if s.get('status') == 'active'])
+    trial_active = len([c for c in companies if c.get('subscription_plan', 'trial') == 'trial' and c.get('subscription_status', 'active') == 'active'])
+    active_subs  = active_paid + trial_active
+
+    # Plan breakdown across both sources
     plan_breakdown = defaultdict(int)
-    for sub in subscriptions:
-        if sub.get('status') == 'active':
-            plan_breakdown[sub.get('plan', 'unknown')] += 1
-    
-    recent_transactions = sorted(
-        [t for t in transactions if t.get('payment_status') == 'paid'],
-        key=lambda x: x.get('created_at', ''), reverse=True
-    )[:10]
-    
+    for s in subscriptions:
+        if s.get('status') == 'active':
+            plan_breakdown[s.get('plan', 'unknown')] += 1
+    for c in companies:
+        if c.get('subscription_status', 'active') == 'active' and c.get('id') not in {s.get('company_id') for s in subscriptions}:
+            plan_breakdown[c.get('subscription_plan', 'trial')] += 1
+
+    # Recent transactions from multiple sources
+    company_names = {c['id']: c.get('name', '') for c in companies}
+    all_tx = []
+    for t in pay_tx:
+        all_tx.append({**t, "user_email": t.get('user_email', ''), "amount_egp": t.get('amount_egp', 0)})
+    for t in sub_pay:
+        all_tx.append({"user_email": t.get('company_email', ''), "plan": t.get('plan', ''), "amount_egp": t.get('amount', 0), "payment_status": "paid" if t.get('is_paid') else "pending", "created_at": t.get('created_at', t.get('payment_date', ''))})
+    for s in subscriptions:
+        if s.get('amount_paid', 0) > 0:
+            all_tx.append({"user_email": company_names.get(s.get('company_id'), ''), "plan": s.get('plan', ''), "amount_egp": s.get('amount_paid', 0), "payment_status": "paid", "created_at": s.get('created_at', '')})
+
+    recent_transactions = sorted(all_tx, key=lambda x: x.get('created_at', ''), reverse=True)[:10]
+
+    # Expiring soon — include trial companies + paid subs
     now = datetime.now(timezone.utc)
     expiring_soon = []
+    from dateutil import parser as dparser
+
     for sub in subscriptions:
         if sub.get('status') == 'active' and sub.get('end_date'):
             try:
-                end_date = datetime.fromisoformat(sub['end_date'].replace('Z', '+00:00'))
-                days_left = (end_date - now).days
+                end_dt = dparser.parse(str(sub['end_date']))
+                if end_dt.tzinfo is None: end_dt = end_dt.replace(tzinfo=timezone.utc)
+                days_left = (end_dt - now).days
                 if 0 < days_left <= 30:
-                    expiring_soon.append({
-                        "company_id": sub.get('company_id'), "plan": sub.get('plan'),
-                        "days_left": days_left, "end_date": sub.get('end_date')
-                    })
-            except:
-                pass
-    
+                    cid = sub.get('company_id', '')
+                    expiring_soon.append({"company_id": cid, "company_name": company_names.get(cid, cid), "plan": sub.get('plan', ''), "days_left": days_left, "end_date": sub.get('end_date')})
+            except: pass
+
+    for c in companies:
+        trial_end = c.get('trial_ends_at') or c.get('subscription_expires_at')
+        if trial_end and c.get('id') not in {s.get('company_id') for s in subscriptions}:
+            try:
+                end_dt = dparser.parse(str(trial_end))
+                if end_dt.tzinfo is None: end_dt = end_dt.replace(tzinfo=timezone.utc)
+                days_left = (end_dt - now).days
+                if 0 < days_left <= 30:
+                    expiring_soon.append({"company_id": c['id'], "company_name": c.get('name', ''), "plan": c.get('subscription_plan', 'trial'), "days_left": days_left, "end_date": trial_end})
+            except: pass
+
     return {
         "statistics": {
-            "total_companies": len(companies), "total_users": len(users),
-            "active_subscriptions": len([s for s in subscriptions if s.get('status') == 'active']),
-            "total_revenue": total_revenue, "monthly_revenue": monthly_revenue,
-            "activation_codes_count": len(activation_codes),
+            "total_companies": len(companies),
+            "total_users": len(users),
+            "active_subscriptions": active_subs,
+            "total_revenue": total_revenue,
+            "monthly_revenue": monthly_revenue,
             "active_codes": len([c for c in activation_codes if c.get('is_active', False)])
         },
-        "plan_breakdown": [{"plan": plan, "count": count} for plan, count in plan_breakdown.items()],
+        "plan_breakdown": [{"plan": p, "count": cnt} for p, cnt in plan_breakdown.items()],
         "recent_transactions": recent_transactions,
         "expiring_soon": sorted(expiring_soon, key=lambda x: x['days_left'])[:10]
     }
-
 
 # ===========================================
 # Transactions
