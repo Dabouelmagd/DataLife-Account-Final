@@ -794,17 +794,18 @@ const AdminDashboard = () => {
 
       {/* Admin Sidebar */}
       <aside className="w-64 bg-gradient-to-b from-slate-800 to-slate-900 text-white flex flex-col print:hidden sticky top-0 h-screen overflow-y-auto flex-shrink-0">
-        {/* Logo */}
-        <div className="p-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-              <Shield className="h-6 w-6 text-blue-400" />
-            </div>
-            <div>
-              <h1 className="font-bold text-lg">DataLife</h1>
-              <p className="text-xs text-gray-400">{isRTL ? 'لوحة الإدارة' : 'Admin Panel'}</p>
-            </div>
-          </div>
+                {/* Logo */}
+        <div className="py-5 px-4 border-b border-white/10 flex flex-col items-center justify-center">
+          <img
+            src={isRTL ? '/datalife-logo-arabic.svg' : '/datalife-logo-english.svg'}
+            alt="DataLife Account"
+            className="h-12 object-contain"
+            onError={e => {
+              e.target.onerror = null;
+              e.target.src = isRTL ? '/datalife-account-ar.jpg' : '/datalife-account-en.jpg';
+            }}
+          />
+          <p className="text-xs text-gray-400 mt-1.5 tracking-wide">{isRTL ? 'لوحة الإدارة' : 'Admin Panel'}</p>
         </div>
 
         {/* User Info */}
