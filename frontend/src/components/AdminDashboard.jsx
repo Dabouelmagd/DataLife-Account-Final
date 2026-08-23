@@ -781,7 +781,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex overflow-hidden" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Toast Notification */}
       {toast.show && (
         <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center gap-3 ${
@@ -793,7 +793,7 @@ const AdminDashboard = () => {
       )}
 
       {/* Admin Sidebar */}
-      <aside className="w-64 bg-gradient-to-b from-slate-800 to-slate-900 text-white min-h-screen flex flex-col print:hidden">
+      <aside className="w-64 bg-gradient-to-b from-slate-800 to-slate-900 text-white flex flex-col print:hidden sticky top-0 h-screen overflow-y-auto flex-shrink-0">
         {/* Logo */}
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
@@ -826,7 +826,14 @@ const AdminDashboard = () => {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                // Scroll main content to top
+                setTimeout(() => {
+                  const main = document.getElementById('admin-main-content');
+                  if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 50);
+              }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative ${
                 activeTab === tab.id
                   ? 'bg-white/10 text-white'
@@ -867,7 +874,7 @@ const AdminDashboard = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto" id="admin-main-content">
         {/* Header */}
         <div className="bg-white border-b px-6 py-4 sticky top-0 z-10">
           <div className="flex items-center justify-between">
