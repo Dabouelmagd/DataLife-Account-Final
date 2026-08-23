@@ -192,9 +192,14 @@ const AdminDashboard = () => {
   };
 
   const planNames = {
+    trial: isRTL ? 'تجريبي' : 'Trial',
     starter: isRTL ? 'المبتدئ' : 'Starter',
+    basic: isRTL ? 'الأساسي' : 'Basic',
     professional: isRTL ? 'المحترف' : 'Professional',
-    enterprise: isRTL ? 'المؤسسي' : 'Enterprise'
+    pro: isRTL ? 'المحترف' : 'Professional',
+    enterprise: isRTL ? 'المؤسسي' : 'Enterprise',
+    free: isRTL ? 'مجاني' : 'Free',
+    lifetime: isRTL ? 'مدى الحياة' : 'Lifetime'
   };
 
   // Subscription prices
@@ -1100,6 +1105,21 @@ const AdminDashboard = () => {
               )}
             </CardHeader>
             <CardContent>
+              {/* Sort controls */}
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <select onChange={e => setSortConfig(s => ({...s, field: e.target.value}))}
+                  className="text-sm border border-gray-200 rounded-xl px-3 py-1.5 focus:outline-none">
+                  <option value="created_at">{isRTL ? 'تاريخ الإنشاء' : 'Date'}</option>
+                  <option value="company_name">{isRTL ? 'الشركة' : 'Company'}</option>
+                  <option value="plan">{isRTL ? 'الخطة' : 'Plan'}</option>
+                  <option value="status">{isRTL ? 'الحالة' : 'Status'}</option>
+                  <option value="end_date">{isRTL ? 'تاريخ الانتهاء' : 'End Date'}</option>
+                </select>
+                <button onClick={() => setSortConfig(s => ({...s, dir: s.dir==='asc'?'desc':'asc'}))}
+                  className="p-1.5 border border-gray-200 rounded-xl hover:bg-gray-50">
+                  {sortConfig.dir==='asc' ? <SortAsc className="h-4 w-4"/> : <SortDesc className="h-4 w-4"/>}
+                </button>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1109,10 +1129,16 @@ const AdminDashboard = () => {
                     <TableHead>{t.duration}</TableHead>
                     <TableHead>{t.status}</TableHead>
                     <TableHead>{t.endDate}</TableHead>
+                    <TableHead>{isRTL ? 'الإجراءات' : 'Actions'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSubscriptions.map((sub, idx) => (
+                  {[...filteredSubscriptions]
+                    .sort((a,b) => {
+                      const av = a[sortConfig.field]||'', bv = b[sortConfig.field]||'';
+                      return sortConfig.dir==='asc' ? (av>bv?1:-1) : (av<bv?1:-1);
+                    })
+                    .map((sub, idx) => (
                     <TableRow key={idx} data-testid={`subscription-row-${idx}`}>
                       <TableCell>
                         <div>
@@ -1148,7 +1174,31 @@ const AdminDashboard = () => {
                           {sub.status === 'active' ? t.active : t.inactive}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(sub.end_date)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <span>{formatDate(sub.end_date)}</span>
+                          {sub.end_date && new Date(sub.end_date) > new Date() && (
+                            <span className={`text-xs font-medium ${
+                              Math.ceil((new Date(sub.end_date)-new Date())/(1000*60*60*24)) <= 7
+                                ? 'text-red-500' : 'text-gray-400'
+                            }`}>
+                              ({Math.ceil((new Date(sub.end_date)-new Date())/(1000*60*60*24))} {isRTL?'يوم':'days'})
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <button onClick={() => openAssignSubscription({id: sub.company_id, name: sub.company_name})}
+                            className="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 whitespace-nowrap">
+                            {isRTL ? 'تعديل' : 'Edit'}
+                          </button>
+                          <button onClick={() => openSubscriptionEdit({id: sub.company_id, name: sub.company_name})}
+                            className="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 whitespace-nowrap">
+                            {isRTL ? 'تمديد' : 'Extend'}
+                          </button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {filteredSubscriptions.length === 0 && (
