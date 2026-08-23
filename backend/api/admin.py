@@ -521,14 +521,86 @@ async def get_payment_settings(authorization: Optional[str] = Header(None)):
         return {
             "key": "payment_methods",
             "methods": [
-                {"id": "instapay",      "label_ar": "InstaPay",        "label_en": "InstaPay",      "icon": "📱", "account": "00201006008552",     "active": True },
-                {"id": "vodafone_cash", "label_ar": "فودافون كاش",     "label_en": "Vodafone Cash", "icon": "📲", "account": "00201012625529",     "active": True },
-                {"id": "bank_transfer", "label_ar": "تحويل بنكي",      "label_en": "Bank Transfer", "icon": "🏦", "account": "بنك القاهرة — 12345678", "active": True },
-                {"id": "credit_card",   "label_ar": "بطاقة ائتمانية",  "label_en": "Credit Card",   "icon": "💳", "account": "Visa / Mastercard", "active": False},
-                {"id": "cash",          "label_ar": "نقدي",             "label_en": "Cash",          "icon": "💵", "account": "",                  "active": True },
+                {
+                    "id": "instapay",
+                    "label_ar": "InstaPay",
+                    "label_en": "InstaPay",
+                    "icon": "⚡",
+                    "account": "00201006008552",
+                    "description_ar": "حوّل المبلغ عبر InstaPay إلى الرقم",
+                    "description_en": "Transfer via InstaPay to",
+                    "active": True
+                },
+                {
+                    "id": "vodafone_cash",
+                    "label_ar": "فودافون كاش",
+                    "label_en": "Vodafone Cash",
+                    "icon": "📲",
+                    "account": "00201012625529",
+                    "description_ar": "حوّل المبلغ عبر فودافون كاش إلى الرقم",
+                    "description_en": "Transfer via Vodafone Cash to",
+                    "active": True
+                },
+                {
+                    "id": "bank_transfer",
+                    "label_ar": "تحويل بنكي",
+                    "label_en": "Bank Transfer",
+                    "icon": "🏦",
+                    "account": "تواصل معنا للحصول على بيانات الحساب البنكي | info@datalifeai.com",
+                    "description_ar": "تحويل إلى الحساب البنكي",
+                    "description_en": "Bank transfer — contact us for details",
+                    "active": True
+                },
+                {
+                    "id": "credit_card",
+                    "label_ar": "بطاقة ائتمانية (Stripe)",
+                    "label_en": "Credit Card (Stripe)",
+                    "icon": "💳",
+                    "account": "Visa / Mastercard / Mada",
+                    "description_ar": "ادفع بأمان عبر Stripe",
+                    "description_en": "Pay securely via Stripe",
+                    "active": False
+                },
+                {
+                    "id": "paypal",
+                    "label_ar": "PayPal",
+                    "label_en": "PayPal",
+                    "icon": "🌐",
+                    "account": "info@datalifeai.com",
+                    "description_ar": "ادفع عبر PayPal",
+                    "description_en": "Pay via PayPal",
+                    "active": False
+                },
+                {
+                    "id": "activation_code",
+                    "label_ar": "كود تفعيل مجاني",
+                    "label_en": "Free Activation Code",
+                    "icon": "🎁",
+                    "account": "تواصل مع فريق المبيعات للحصول على كود | info@datalifeai.com",
+                    "description_ar": "أدخل كود التفعيل المقدم من فريقنا",
+                    "description_en": "Enter activation code from our team",
+                    "active": True
+                },
             ]
         }
     return settings
+
+
+@router.post("/payment-settings/seed")
+async def seed_payment_settings(authorization: Optional[str] = Header(None)):
+    """Seed payment methods with defaults if empty"""
+    await verify_admin(authorization)
+    existing = await db.system_settings.find_one({"key": "payment_methods"})
+    if existing and existing.get("methods"):
+        return {"success": True, "message": "Already configured", "count": len(existing["methods"])}
+    # Trigger the GET to return defaults, then save them
+    defaults = await get_payment_settings(authorization)
+    await db.system_settings.update_one(
+        {"key": "payment_methods"},
+        {"$set": {**defaults, "key": "payment_methods", "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    return {"success": True, "count": len(defaults.get("methods", [])), "message": "Payment methods seeded"}
 
 
 @router.put("/payment-settings")

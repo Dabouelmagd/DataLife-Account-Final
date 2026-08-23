@@ -22,7 +22,13 @@ export default function PaymentMethodsPanel() {
       const r = await fetch(`${API}/api/admin/payment-settings`, { headers });
       if (r.ok) {
         const d = await r.json();
-        setMethods(d.methods || []);
+        if (!d.methods || d.methods.length === 0) {
+          await fetch(`${API}/api/admin/payment-settings/seed`, { method: 'POST', headers });
+          const r2 = await fetch(`${API}/api/admin/payment-settings`, { headers });
+          if (r2.ok) { const d2 = await r2.json(); setMethods(d2.methods || []); }
+        } else {
+          setMethods(d.methods);
+        }
       }
     } catch {}
     setLoading(false);
@@ -109,6 +115,9 @@ export default function PaymentMethodsPanel() {
                 <input value={m.account} onChange={e => update(i, 'account', e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-blue-400"
                   placeholder={ar ? 'رقم المحفظة أو الحساب البنكي' : 'Wallet or bank account number'} />
+              <input value={m.description_ar||''} onChange={e => update(i, 'description_ar', e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 mt-1"
+                  placeholder={ar ? 'وصف (اختياري) — مثال: حوّل المبلغ عبر InstaPay' : 'Description (optional)'} />
               </div>
 
               {/* Actions */}
@@ -135,7 +144,8 @@ export default function PaymentMethodsPanel() {
             <div key={i} className="bg-white border border-gray-200 rounded-xl p-3 text-center min-w-[120px] shadow-sm">
               <div className="text-2xl mb-1">{m.icon}</div>
               <div className="text-xs font-bold text-gray-700">{ar ? m.label_ar : m.label_en}</div>
-              {m.account && <div className="text-xs text-gray-400 mt-1 font-mono">{m.account}</div>}
+              {m.description_ar && <div className="text-xs text-gray-500 mt-0.5">{ar ? m.description_ar : m.description_en}</div>}
+              {m.account && <div className="text-xs text-gray-400 mt-1 font-mono break-all">{m.account}</div>}
             </div>
           ))}
         </div>
