@@ -243,14 +243,17 @@ async def get_available_roles(authorization: Optional[str] = Header(None)):
     await verify_admin(authorization)
     
     roles = [
-        {"id": "Super Admin", "name_ar": "مدير النظام", "level": 1},
-        {"id": "General Manager", "name_ar": "مدير عام", "level": 2},
-        {"id": "CEO", "name_ar": "المدير التنفيذي", "level": 2},
-        {"id": "Financial Manager", "name_ar": "المدير المالي", "level": 3},
-        {"id": "HR Manager", "name_ar": "مدير الموارد البشرية", "level": 3},
-        {"id": "Department Manager", "name_ar": "مدير قسم", "level": 4},
-        {"id": "Accountant", "name_ar": "محاسب", "level": 5},
-        {"id": "Employee", "name_ar": "موظف", "level": 6},
+        {"id": "Super Admin",       "name_ar": "مدير النظام",              "level": 1, "description": "صلاحيات كاملة"},
+        {"id": "رئيس مجلس الإدارة","name_ar": "رئيس مجلس الإدارة",        "level": 2, "description": "مؤسس الشركة"},
+        {"id": "General Manager",   "name_ar": "مدير عام",                 "level": 2, "description": ""},
+        {"id": "CEO",               "name_ar": "المدير التنفيذي",           "level": 2, "description": ""},
+        {"id": "Assistant",         "name_ar": "مساعد المدير",              "level": 3, "description": "مساعد الأونر"},
+        {"id": "Financial Manager", "name_ar": "المدير المالي",             "level": 3, "description": ""},
+        {"id": "HR Manager",        "name_ar": "مدير الموارد البشرية",      "level": 3, "description": ""},
+        {"id": "Department Manager","name_ar": "مدير قسم",                  "level": 4, "description": ""},
+        {"id": "Accountant",        "name_ar": "محاسب",                     "level": 5, "description": ""},
+        {"id": "Employee",          "name_ar": "موظف",                      "level": 6, "description": ""},
+        {"id": "Viewer",            "name_ar": "مشاهد فقط",                 "level": 7, "description": "قراءة فقط"},
     ]
     return roles
 
