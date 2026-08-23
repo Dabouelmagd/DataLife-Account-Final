@@ -257,30 +257,35 @@ async def get_available_roles(authorization: Optional[str] = Header(None)):
 
 @router.get("/permissions")
 async def get_all_permissions(authorization: Optional[str] = Header(None)):
-    """Get all available permissions"""
+    """Get all available permissions organized by category"""
     await verify_admin(authorization)
     
     permissions = [
-        {"id": "dashboard", "name": "Dashboard", "name_en": "Dashboard", "name_ar": "لوحة التحكم"},
-        {"id": "hr", "name": "Human Resources", "name_en": "Human Resources", "name_ar": "الموارد البشرية"},
-        {"id": "hr_admin", "name": "HR Administration", "name_en": "HR Administration", "name_ar": "إدارة الموارد البشرية"},
-        {"id": "hr_financial", "name": "HR Financial", "name_en": "HR Financial", "name_ar": "مالية الموارد البشرية"},
-        {"id": "financial", "name": "Financial", "name_en": "Financial", "name_ar": "الإدارة المالية"},
-        {"id": "invoices", "name": "Invoices", "name_en": "Invoices", "name_ar": "الفواتير"},
-        {"id": "purchases", "name": "Purchases", "name_en": "Purchases", "name_ar": "المشتريات"},
-        {"id": "projects", "name": "Projects", "name_en": "Projects", "name_ar": "المشاريع"},
-        {"id": "analytics", "name": "Analytics", "name_en": "Analytics", "name_ar": "التحليلات"},
-        {"id": "settings", "name": "Settings", "name_en": "Settings", "name_ar": "الإعدادات"},
-        {"id": "users", "name": "User Management", "name_en": "User Management", "name_ar": "إدارة المستخدمين"},
-        {"id": "approvals", "name": "Approvals", "name_en": "Approvals", "name_ar": "الموافقات"},
-        {"id": "reports", "name": "Reports", "name_en": "Reports", "name_ar": "التقارير"},
-        {"id": "inventory", "name": "Inventory", "name_en": "Inventory", "name_ar": "المخزون"},
-        {"id": "admin", "name": "Administration", "name_en": "Administration", "name_ar": "الإدارة"},
-        {"id": "subscriptions", "name": "Subscriptions", "name_en": "Subscriptions", "name_ar": "الاشتراكات"},
-        {"id": "companies", "name": "Companies", "name_en": "Companies", "name_ar": "الشركات"},
-        {"id": "audit_logs", "name": "Audit Logs", "name_en": "Audit Logs", "name_ar": "سجل التدقيق"},
-        {"id": "system_settings", "name": "System Settings", "name_en": "System Settings", "name_ar": "إعدادات النظام"},
-        {"id": "billing", "name": "Billing", "name_en": "Billing", "name_ar": "الفوترة"},
-        {"id": "support", "name": "Support", "name_en": "Support", "name_ar": "الدعم الفني"},
+        # ── الأساسيات ─────────────────────────────────────────
+        {"id": "dashboard",       "name_en": "Dashboard",           "name_ar": "لوحة التحكم",         "category": "basics",    "category_ar": "الأساسيات"},
+        {"id": "reports",         "name_en": "Reports & Export",    "name_ar": "التقارير والتصدير",    "category": "basics",    "category_ar": "الأساسيات"},
+        {"id": "analytics",       "name_en": "Analytics",           "name_ar": "التحليلات",            "category": "basics",    "category_ar": "الأساسيات"},
+        {"id": "approvals",       "name_en": "Approvals",           "name_ar": "الموافقات",            "category": "basics",    "category_ar": "الأساسيات"},
+        # ── الموارد البشرية ────────────────────────────────────
+        {"id": "hr",              "name_en": "HR (View)",           "name_ar": "الموارد البشرية",      "category": "hr",        "category_ar": "الموارد البشرية"},
+        {"id": "hr_admin",        "name_en": "HR (Admin)",          "name_ar": "إدارة الموارد البشرية","category": "hr",        "category_ar": "الموارد البشرية"},
+        {"id": "hr_financial",    "name_en": "HR Financial",        "name_ar": "المالية والرواتب",     "category": "hr",        "category_ar": "الموارد البشرية"},
+        # ── المالية والمحاسبة ──────────────────────────────────
+        {"id": "financial",       "name_en": "Financial",           "name_ar": "المالية والمحاسبة",    "category": "financial", "category_ar": "المالية والمحاسبة"},
+        {"id": "invoices",        "name_en": "Invoices & ETA",      "name_ar": "الفواتير وـ ETA",      "category": "financial", "category_ar": "المالية والمحاسبة"},
+        {"id": "purchases",       "name_en": "Purchases",           "name_ar": "المشتريات",            "category": "financial", "category_ar": "المالية والمحاسبة"},
+        {"id": "billing",         "name_en": "Billing",             "name_ar": "الفوترة والدفع",       "category": "financial", "category_ar": "المالية والمحاسبة"},
+        # ── المخزون والمبيعات ──────────────────────────────────
+        {"id": "inventory",       "name_en": "Inventory",           "name_ar": "المخزون",              "category": "operations","category_ar": "المخزون والمبيعات"},
+        {"id": "projects",        "name_en": "Projects",            "name_ar": "المشاريع",             "category": "operations","category_ar": "المخزون والمبيعات"},
+        # ── الإدارة والإعدادات ─────────────────────────────────
+        {"id": "users",           "name_en": "User Management",     "name_ar": "إدارة المستخدمين",    "category": "admin",     "category_ar": "الإدارة"},
+        {"id": "settings",        "name_en": "Settings",            "name_ar": "الإعدادات",            "category": "admin",     "category_ar": "الإدارة"},
+        {"id": "companies",       "name_en": "Companies",           "name_ar": "الشركات",              "category": "admin",     "category_ar": "الإدارة"},
+        {"id": "subscriptions",   "name_en": "Subscriptions",       "name_ar": "الاشتراكات",           "category": "admin",     "category_ar": "الإدارة"},
+        {"id": "audit_logs",      "name_en": "Audit Logs",          "name_ar": "سجل التدقيق",          "category": "admin",     "category_ar": "الإدارة"},
+        {"id": "system_settings", "name_en": "System Settings",     "name_ar": "إعدادات النظام",       "category": "admin",     "category_ar": "الإدارة"},
+        {"id": "admin",           "name_en": "Full Admin",          "name_ar": "صلاحيات كاملة",       "category": "admin",     "category_ar": "الإدارة"},
+        {"id": "support",         "name_en": "Support",             "name_ar": "الدعم الفني",          "category": "admin",     "category_ar": "الإدارة"},
     ]
     return permissions

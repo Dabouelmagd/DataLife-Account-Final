@@ -1999,30 +1999,39 @@ const AdminDashboard = () => {
 
                     {/* Permissions Grid */}
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                      {availablePermissions.map((perm) => (
-                        <div
-                          key={perm.id}
-                          onClick={() => togglePermission(perm.id)}
-                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                            userPermissions.includes(perm.id)
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-gray-200 bg-white hover:border-gray-300'
-                          }`}
-                          data-testid={`permission-${perm.id}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                              userPermissions.includes(perm.id)
-                                ? 'border-blue-500 bg-blue-500'
-                                : 'border-gray-300'
-                            }`}>
-                              {userPermissions.includes(perm.id) && (
-                                <CheckCircle className="h-3 w-3 text-white" />
-                              )}
-                            </div>
-                            <span className="text-sm font-medium">
-                              {isRTL ? perm.name_ar : perm.name_en}
-                            </span>
+                                            {/* Group permissions by category */}
+                      {Object.entries(
+                        availablePermissions.reduce((acc, p) => {
+                          const cat = p.category_ar || p.category || 'other';
+                          if (!acc[cat]) acc[cat] = [];
+                          acc[cat].push(p);
+                          return acc;
+                        }, {})
+                      ).map(([category, perms]) => (
+                        <div key={category} className="mb-3">
+                          <p className="text-xs font-bold text-gray-500 uppercase mb-2 border-b pb-1">
+                            {isRTL ? category : perms[0]?.category || category}
+                          </p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {perms.map((perm) => (
+                              <div
+                                key={perm.id}
+                                onClick={() => togglePermission(perm.id)}
+                                className={`p-2 rounded-lg border cursor-pointer transition-all flex items-center gap-2 ${
+                                  userPermissions.includes(perm.id)
+                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                    : 'border-gray-200 bg-white hover:border-gray-300'
+                                }`}
+                                data-testid={`permission-${perm.id}`}
+                              >
+                                <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                  userPermissions.includes(perm.id) ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                                }`}>
+                                  {userPermissions.includes(perm.id) && <CheckCircle className="h-2.5 w-2.5 text-white"/>}
+                                </div>
+                                <span className="text-xs font-medium">{isRTL ? perm.name_ar : perm.name_en}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       ))}
@@ -2349,7 +2358,12 @@ const AdminDashboard = () => {
                       <TableRow key={idx} className={!usr.is_active ? 'bg-red-50' : ''}>
                         <TableCell className="font-medium">{usr.full_name || '-'}</TableCell>
                         <TableCell>{usr.email}</TableCell>
-                        <TableCell>{usr.company_name || '-'}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-sm">{usr.company_name || '-'}</p>
+                            {usr.company_code && <p className="text-xs text-gray-400 font-mono">{usr.company_code}</p>}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">{usr.role || '-'}</Badge>
                         </TableCell>

@@ -291,11 +291,38 @@ async def extend_subscription(
 
 @router.get("/activation-codes")
 async def get_activation_codes(authorization: Optional[str] = Header(None)):
-    """Get all activation codes"""
+    """Get all activation codes with company info"""
     await verify_admin(authorization)
     
     codes = await db.activation_codes.find({}, {"_id": 0}).to_list(length=None)
-    return codes
+    
+    # Enrich with company info if code was used
+    companies = await db.companies.find({}, {"_id": 0, "id": 1, "name": 1, "company_code": 1}).to_list(None)
+    
+    # Map code -> company
+    code_company = {}
+    for c in companies:
+        used_code = c.get("activation_code_used") or c.get("subscription_code")
+        if used_code:
+            code_company[used_code] = c.get("name", "")
+    
+    # Also check subscriptions collection
+    subs = await db.subscriptions.find({}, {"_id": 0, "activation_code_used": 1, "company_id": 1}).to_list(None)
+    company_map = {c["id"]: c.get("name", "") for c in companies}
+    for s in subs:
+        used = s.get("activation_code_used")
+        if used:
+            code_company[used] = company_map.get(s.get("company_id", ""), "")
+    
+    result = []
+    for code in codes:
+        enriched = dict(code)
+        # Fill company_name if missing but code was used
+        if not enriched.get("company_name") and code.get("code") in code_company:
+            enriched["company_name"] = code_company[code["code"]]
+        result.append(enriched)
+    
+    return result
 
 
 @router.post("/activation-codes/generate")

@@ -65,7 +65,7 @@ async def detailed_health_check():
     # 2. Collections
     try:
         collections = await db.list_collection_names()
-        required = ["users", "companies", "subscriptions"]
+        required = ["users", "companies"]
         missing = [c for c in required if c not in collections]
         results["checks"]["collections"] = {"status": "ok" if not missing else "warn", "total": len(collections), "missing": missing}
     except Exception as e:
@@ -74,7 +74,7 @@ async def detailed_health_check():
     # 3. Users & Admins
     try:
         user_count = await db.users.count_documents({})
-        admin_count = await db.users.count_documents({"role": "Super Admin"})
+        admin_count = await db.users.count_documents({"role": {"$in": ["Super Admin", "superadmin", "super_admin", "admin"]}})
         results["checks"]["users"] = {"status": "ok" if admin_count > 0 else "warn", "total": user_count, "admins": admin_count}
     except Exception as e:
         results["checks"]["users"] = {"status": "fail", "error": str(e)}

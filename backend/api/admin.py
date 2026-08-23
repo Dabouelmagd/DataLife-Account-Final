@@ -482,11 +482,18 @@ async def get_all_users(authorization: Optional[str] = Header(None)):
     companies = await db.companies.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(length=None)
     company_names = {c["id"]: c.get("name", "") for c in companies}
 
+    companies_full = await db.companies.find({}, {"_id": 0, "id": 1, "name": 1, "company_code": 1, "contact_email": 1}).to_list(None)
+    company_data = {c["id"]: c for c in companies_full}
+
     result = []
     for u in users:
+        cid = u.get("company_id", "")
+        comp = company_data.get(cid, {})
         result.append({
             **u,
-            "company_name": company_names.get(u.get("company_id"), ""),
+            "company_name":  comp.get("name", ""),
+            "company_code":  comp.get("company_code", ""),
+            "company_email": comp.get("contact_email", ""),
         })
 
     return result
