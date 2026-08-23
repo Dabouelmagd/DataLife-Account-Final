@@ -566,10 +566,10 @@ async def get_payment_settings(authorization: Optional[str] = Header(None)):
                     "label_ar": "PayPal",
                     "label_en": "PayPal",
                     "icon": "🌐",
-                    "account": "info@datalifeai.com",
+                    "account": "dalia_abouelmagd@hotmail.com",
                     "description_ar": "ادفع عبر PayPal",
                     "description_en": "Pay via PayPal",
-                    "active": False
+                    "active": True
                 },
                 {
                     "id": "activation_code",
