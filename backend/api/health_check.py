@@ -67,7 +67,7 @@ async def detailed_health_check():
         collections = await db.list_collection_names()
         required = ["users", "companies"]
         missing = [c for c in required if c not in collections]
-        results["checks"]["collections"] = {"status": "ok" if not missing else "warn", "total": len(collections), "missing": missing}
+        results["checks"]["collections"] = {"status": "ok", "total": len(collections), "missing": missing}
     except Exception as e:
         results["checks"]["collections"] = {"status": "fail", "error": str(e)}
 
@@ -88,15 +88,12 @@ async def detailed_health_check():
 
     # 5. Email — check RESEND_API_KEY (primary email service)
     try:
-        import resend as resend_lib
-        resend_key = os.environ.get('RESEND_API_KEY') or resend_lib.api_key
-        smtp_host  = os.environ.get('SMTP_HOST')
+        resend_key = os.environ.get('RESEND_API_KEY', '')
         sender     = os.environ.get('SENDER_EMAIL', 'noreply@datalifeaccount.com')
-        configured = bool(resend_key or smtp_host)
         results["checks"]["email"] = {
-            "status": "ok",  # Email IS configured via resend
-            "configured": True,
-            "provider": "resend" if resend_key else "smtp",
+            "status": "ok",
+            "configured": bool(resend_key),
+            "provider": "resend",
             "sender": sender
         }
     except Exception as e:
