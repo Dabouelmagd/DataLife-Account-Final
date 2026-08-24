@@ -800,3 +800,45 @@ async def update_user_permissions_endpoint(
     }
 
 
+@router.get("/me")
+async def get_my_profile(authorization: Optional[str] = Header(None)):
+    """Get current user's profile"""
+    from services.auth_service import verify_token as vt
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    payload = vt(authorization.replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user = await db.users.find_one({"id": payload.get("user_id")}, {"_id": 0, "password": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.put("/me")
+async def update_my_profile(data: dict, authorization: Optional[str] = Header(None)):
+    """Update current user's profile"""
+    from services.auth_service import verify_token as vt
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    payload = vt(authorization.replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    allowed = ["full_name", "phone", "position", "department", "bio"]
+    update_data = {k: v for k, v in data.items() if k in allowed}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields")
+    
+    from datetime import datetime, timezone
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.users.update_one(
+        {"id": payload.get("user_id")},
+        {"$set": update_data}
+    )
+    user = await db.users.find_one({"id": payload.get("user_id")}, {"_id": 0, "password": 0})
+    return user
+
+
+

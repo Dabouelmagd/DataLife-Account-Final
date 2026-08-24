@@ -119,3 +119,60 @@ async def upload_logo(
     )
     
     return {"message": "Logo uploaded successfully", "logo_url": logo_data_url}
+
+@router.get("/{company_id}")
+async def get_company(
+    company_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get company details — user must belong to this company"""
+    if current_user.get("company_id") != company_id:
+        # SuperAdmin can view any company
+        user_role = current_user.get("role", "")
+        if user_role not in ["Super Admin", "superadmin", "admin"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return company
+
+
+@router.put("/{company_id}")
+async def update_company(
+    company_id: str,
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update company details"""
+    if current_user.get("company_id") != company_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    allowed_roles = [
+        "General Manager", "CEO", "Board Chairman", "Super Admin",
+        "مدير عام", "المدير التنفيذي", "رئيس مجلس الإدارة", "superadmin"
+    ]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    # Fields allowed to update
+    allowed_fields = [
+        "name", "contact_email", "phone", "address", "city", "country",
+        "tax_number", "commercial_register", "website", "description",
+        "industry", "employee_count", "fiscal_year_start"
+    ]
+    update_data = {k: v for k, v in data.items() if k in allowed_fields}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    
+    from datetime import datetime, timezone
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": update_data}
+    )
+    
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    return company
