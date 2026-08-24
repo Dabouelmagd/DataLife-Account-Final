@@ -338,7 +338,9 @@ async def generate_activation_code(
     max_uses = code_data.get("max_uses", 1)
     notes = code_data.get("notes", "")
     
-    code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(12))
+    prefix = code_data.get("prefix", "DL").upper()[:4]
+    suffix = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+    code = f"{prefix}-{suffix}"
     
     activation_code = {
         "code": code,
@@ -348,6 +350,11 @@ async def generate_activation_code(
         "used_count": 0,
         "is_active": True,
         "notes": notes,
+        "company_name":    code_data.get("company_name", ""),
+        "company_code":    code_data.get("company_code", ""),
+        "contract_start":  code_data.get("contract_start", ""),
+        "contract_end":    code_data.get("contract_end", ""),
+        "discount_percent": code_data.get("discount_percent", 0),
         "created_at": get_current_timestamp(),
         "created_by": user.get("email")
     }
