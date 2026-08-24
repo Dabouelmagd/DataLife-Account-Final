@@ -22,6 +22,28 @@ const ProfileTab = ({
   const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
 
   const API_URL = process.env.REACT_APP_BACKEND_URL;
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ full_name: user?.full_name || '', phone: user?.phone || '', position: user?.position || '' });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileMsg, setProfileMsg] = useState('');
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/users/me`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(profileForm)
+      });
+      setProfileMsg(language === 'ar' ? '✅ تم الحفظ' : '✅ Saved');
+      setEditingProfile(false);
+      setTimeout(() => setProfileMsg(''), 3000);
+    } catch {
+      setProfileMsg(language === 'ar' ? '❌ فشل الحفظ' : '❌ Failed');
+    }
+    setSavingProfile(false);
+  };
 
   const handleChangePassword = async () => {
     setPasswordMessage({ type: '', text: '' });
