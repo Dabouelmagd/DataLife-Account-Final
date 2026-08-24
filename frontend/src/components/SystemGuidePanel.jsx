@@ -23,7 +23,9 @@ export default function SystemGuidePanel() {
         const d = await r.json();
         if (!d.sections || d.sections.length === 0) {
           // Auto-seed from UserGuidePage content
-          await fetch(`${API}/api/admin/system-guide/seed`, { method: 'POST', headers });
+          try {
+            await fetch(`${API}/api/admin/system-guide/seed`, { method: 'POST', headers });
+          } catch {}
           const r2 = await fetch(`${API}/api/admin/system-guide`, { headers });
           if (r2.ok) { const d2 = await r2.json(); setSections(d2.sections || []); }
         } else {
