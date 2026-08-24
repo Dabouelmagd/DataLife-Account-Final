@@ -4,15 +4,18 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies first (cached layer)
+# Force cache bust BEFORE everything so all layers rebuild
+ARG CACHE_BUST=1
+RUN echo "Cache bust: $CACHE_BUST"
+
+# Copy and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Force bcrypt correct version always
+# Force bcrypt correct version
 RUN pip install --no-cache-dir bcrypt==4.0.1 passlib==1.7.4
 
-# Copy app code — cache busted by adding build arg
-ARG CACHE_BUST=1
+# Copy app code
 COPY . .
 
 EXPOSE 8000
