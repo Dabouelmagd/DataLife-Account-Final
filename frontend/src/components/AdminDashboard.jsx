@@ -1428,6 +1428,7 @@ const AdminDashboard = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t.code}</TableHead>
+                      <TableHead>{isRTL ? 'كود الشركة' : 'Co. Code'}</TableHead>
                       <TableHead>{isRTL ? 'اسم الشركة' : 'Company'}</TableHead>
                       <TableHead>{t.plan}</TableHead>
                       <TableHead>{isRTL ? 'بداية التعاقد' : 'Start'}</TableHead>
@@ -1453,6 +1454,11 @@ const AdminDashboard = () => {
                               <Copy className="h-4 w-4" />
                             </Button>
                           </div>
+                         <TableCell>
+                           <code className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-mono">
+                             {code.company_code || '-'}
+                           </code>
+                         </TableCell>
                         </TableCell>
                         <TableCell>
                           <span className={code.company_name ? 'font-medium' : 'text-gray-400'}>
