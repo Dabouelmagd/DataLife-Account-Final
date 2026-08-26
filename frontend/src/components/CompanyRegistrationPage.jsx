@@ -22,6 +22,12 @@ const CompanyRegistrationPage = () => {
     contact_email: trialEmail,
     phone: '',
     address: '',
+    city: '',
+    country: 'Egypt',
+    website: '',
+    tax_number: '',
+    commercial_register: '',
+    description: '',
     trial_id: trialId
   });
   
@@ -293,6 +299,75 @@ const CompanyRegistrationPage = () => {
                     className={`w-full ${isRTL ? 'pr-10 text-right' : 'pl-10'} py-3 border border-gray-300 rounded-lg`}
                   />
                 </div>
+              </div>
+
+              {/* City + Country */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'المدينة' : 'City'}
+                  </label>
+                  <input type="text" name="city" value={companyData.city}
+                    onChange={handleCompanyChange}
+                    placeholder={language === 'ar' ? 'القاهرة' : 'Cairo'}
+                    className={`w-full py-3 px-4 border border-gray-300 rounded-lg ${isRTL ? 'text-right' : ''} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الدولة' : 'Country'}
+                  </label>
+                  <input type="text" name="country" value={companyData.country}
+                    onChange={handleCompanyChange}
+                    className={`w-full py-3 px-4 border border-gray-300 rounded-lg ${isRTL ? 'text-right' : ''} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                  />
+                </div>
+              </div>
+
+              {/* Website + Tax Number */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الموقع الإلكتروني' : 'Website'} <span className="text-gray-400 text-xs">({language === 'ar' ? 'اختياري' : 'optional'})</span>
+                  </label>
+                  <input type="url" name="website" value={companyData.website}
+                    onChange={handleCompanyChange}
+                    placeholder="https://..."
+                    className={`w-full py-3 px-4 border border-gray-300 rounded-lg ${isRTL ? 'text-right' : ''} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {language === 'ar' ? 'الرقم الضريبي' : 'Tax Number'} <span className="text-gray-400 text-xs">({language === 'ar' ? 'اختياري' : 'optional'})</span>
+                  </label>
+                  <input type="text" name="tax_number" value={companyData.tax_number}
+                    onChange={handleCompanyChange}
+                    className={`w-full py-3 px-4 border border-gray-300 rounded-lg ${isRTL ? 'text-right' : ''} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                  />
+                </div>
+              </div>
+
+              {/* Commercial Register */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'السجل التجاري' : 'Commercial Register'} <span className="text-gray-400 text-xs">({language === 'ar' ? 'اختياري' : 'optional'})</span>
+                </label>
+                <input type="text" name="commercial_register" value={companyData.commercial_register}
+                  onChange={handleCompanyChange}
+                  className={`w-full py-3 px-4 border border-gray-300 rounded-lg ${isRTL ? 'text-right' : ''} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {language === 'ar' ? 'وصف الشركة / المجمع' : 'Company / Compound Description'} <span className="text-gray-400 text-xs">({language === 'ar' ? 'اختياري' : 'optional'})</span>
+                </label>
+                <textarea name="description" value={companyData.description}
+                  onChange={handleCompanyChange} rows={2}
+                  placeholder={language === 'ar' ? 'اكتب وصفاً مختصراً عن شركتك أو مجمعك...' : 'Brief description of your company or compound...'}
+                  className={`w-full py-3 px-4 border border-gray-300 rounded-lg ${isRTL ? 'text-right' : ''} focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none`}
+                />
               </div>
 
               {/* Logo Upload */}

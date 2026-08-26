@@ -12,6 +12,12 @@ class Company(BaseModel):
     contact_email: Optional[str] = None  # Made optional
     phone: Optional[str] = None  # Made optional
     address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    website: Optional[str] = None
+    tax_number: Optional[str] = None
+    commercial_register: Optional[str] = None
+    description: Optional[str] = None
     logo_url: Optional[str] = None  # Company logo URL
     trial_id: Optional[str] = None  # Link to trial if converted from trial
     subscription_status: str = "active"  # trial, active, expired
@@ -26,6 +32,12 @@ class CompanyCreate(BaseModel):
     contact_email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    website: Optional[str] = None
+    tax_number: Optional[str] = None
+    commercial_register: Optional[str] = None
+    description: Optional[str] = None
     trial_id: Optional[str] = None
     referral_code: Optional[str] = None  # Referral code used during registration
 
@@ -38,6 +50,18 @@ class CompanyResponse(BaseModel):
     contact_email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    website: Optional[str] = None
+    tax_number: Optional[str] = None
+    commercial_register: Optional[str] = None
+    description: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    website: Optional[str] = None
+    tax_number: Optional[str] = None
+    commercial_register: Optional[str] = None
+    description: Optional[str] = None
     logo_url: Optional[str] = None
     subscription_status: str = "active"
     subscription_code: Optional[str] = None
