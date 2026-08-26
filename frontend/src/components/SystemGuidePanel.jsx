@@ -121,23 +121,40 @@ export default function SystemGuidePanel() {
               </div>
             </div>
 
-            {/* Content */}
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1.5 block">{ar ? 'المحتوى بالعربي' : 'Arabic Content'}</label>
-                <textarea value={s.content_ar} onChange={e => update(i,'content_ar',e.target.value)}
-                  rows={5} dir="rtl"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-none font-[Cairo]"
-                  placeholder="اكتب محتوى القسم بالعربي..." />
+                        {/* Content */}
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 mb-1.5 block">
+                    🇸🇦 {ar ? 'المحتوى بالعربي' : 'Arabic Content'}
+                  </label>
+                  <textarea value={s.content_ar} onChange={e => update(i,'content_ar',e.target.value)}
+                    rows={5} dir="rtl"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#28376B] resize-none"
+                    placeholder="اكتب محتوى القسم بالعربي..." />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 mb-1.5 block">
+                    🇬🇧 {ar ? 'المحتوى بالإنجليزي' : 'English Content'}
+                  </label>
+                  <textarea value={s.content_en} onChange={e => update(i,'content_en',e.target.value)}
+                    rows={5} dir="ltr"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#28376B] resize-none"
+                    placeholder="Write section content in English..." />
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1.5 block">{ar ? 'المحتوى بالإنجليزي' : 'English Content'}</label>
-                <textarea value={s.content_en} onChange={e => update(i,'content_en',e.target.value)}
-                  rows={5} dir="ltr"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-none"
-                  placeholder="Write section content in English..." />
-              </div>
-            </div>
+              {/* Preview */}
+              {(s.content_ar || s.content_en) && (
+                <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
+                  <p className="text-xs font-semibold text-blue-600 mb-1">
+                    👁 {ar ? 'معاينة' : 'Preview'} ({ar ? 'عربي' : 'English'})
+                  </p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap" dir={ar ? 'rtl' : 'ltr'}>
+                    {ar ? s.content_ar : (s.content_en || s.content_ar)}
+                  </p>
+                </div>
+              )}
+            </div></div>
           </div>
         ))}
       </div>
