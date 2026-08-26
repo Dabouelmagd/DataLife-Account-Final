@@ -264,11 +264,19 @@ const ModernSidebar = ({
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       {/* Background */}
-      <div className="absolute inset-0 bg-[#FAFAFA] dark:bg-[#0F0F0F] border-e border-gray-200 dark:border-gray-800" />
+      <div className="absolute inset-0 bg-white dark:bg-[#0F0F0F] border-e border-gray-200 dark:border-gray-800" />
 
       {/* Content */}
       <div className="relative h-full flex flex-col z-10">
         
+        {/* DataLife Account Logo */}
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-center">
+          <img src="/datalife-logo-arabic.svg" alt="DataLife Account"
+            className="h-8 object-contain"
+            onError={e => { e.target.onerror=null; e.target.style.display='none'; }}
+          />
+        </div>
+
         {/* Company Logo + User Section */}
         <div className="p-3 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2.5">
