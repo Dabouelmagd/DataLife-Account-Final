@@ -10,7 +10,7 @@ import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { 
   FolderKanban, Flag, CalendarDays, Edit, Trash2, Calculator, 
-  Printer, File, Circle, PlayCircle, PauseCircle, CheckCircle 
+  Printer, File, Circle, PlayCircle, PauseCircle, CheckCircle, Eye 
 } from 'lucide-react';
 import { STATUS_COLORS, PRIORITY_COLORS } from '../../config/projectsConfig';
 
@@ -82,6 +82,15 @@ const ProjectCard = ({
         </div>
 
         <div className="mt-4 pt-3 border-t dark:border-gray-700 flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onView(project.id)}
+            title={isRTL ? 'عرض التفاصيل' : 'View Details'}
+            className="text-blue-600 hover:bg-blue-50"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
           <Button 
             variant="ghost" 
             size="sm" 
