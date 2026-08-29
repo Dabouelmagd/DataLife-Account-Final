@@ -4,6 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
 import { Building2, User, Key, Globe, Users, ClipboardList, Shield } from 'lucide-react';
 import axios from 'axios';
+import { Toaster, toast } from 'sonner';
 import ImageCropper from './ImageCropper';
 
 // Import refactored components
@@ -196,6 +197,7 @@ const CompanySettings = () => {
 
       setMessage(language === 'ar' ? 'تم إرسال الدعوة بنجاح! سيتلقى الموظف بريد إلكتروني ببيانات الدخول.' : 'Invitation sent successfully!');
       setMessageType('success');
+      toast.success(language === 'ar' ? '✅ تم إرسال الدعوة بنجاح!' : '✅ Invitation sent successfully!');
       setShowInviteModal(false);
       setInviteData({ full_name: '', email: '', role: 'موظف', permissions: ['dashboard'] });
       fetchEmployees();
@@ -358,6 +360,8 @@ const CompanySettings = () => {
   ];
 
   return (
+    <>
+    <Toaster position="top-center" richColors />
     <div className="min-h-screen bg-gray-50" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Image Cropper Modal */}
       {cropImageSrc && (
@@ -489,6 +493,7 @@ const CompanySettings = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 
