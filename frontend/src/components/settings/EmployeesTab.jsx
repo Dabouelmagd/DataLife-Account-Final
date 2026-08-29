@@ -16,6 +16,7 @@ const EmployeesTab = ({
   const [reactivatingId, setReactivatingId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [resendingId,    setResendingId]    = useState(null);
+  const [sentSuccessId,  setSentSuccessId]  = useState(null); // shows ✅ after resend
   const [expandedSession, setExpandedSession] = useState(null);
 
   // Only managers/admins see session data
@@ -49,7 +50,7 @@ const EmployeesTab = ({
       const r = await fetch(`${API_URL}/api/users/${emp.id}/resend-invite`, {
         method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (r.ok) toast.success(ar ? `✅ تم إعادة إرسال الدعوة إلى ${emp.email}` : `✅ Invite resent to ${emp.email}`);
+      if (r.ok) { setSentSuccessId(emp.id); setTimeout(() => setSentSuccessId(null), 4000); toast.success(ar ? `✅ تم إعادة إرسال الدعوة إلى ${emp.email}` : `✅ Invite resent to ${emp.email}`);}
       else      toast.error(ar ? 'فشل الإرسال' : 'Failed to resend');
     } catch { toast.error(ar ? 'حدث خطأ' : 'Error'); }
     finally { setResendingId(null); }
@@ -262,6 +263,11 @@ const EmployeesTab = ({
                                       : <><Mail className="h-3 w-3 mr-1" />{ar ? 'إعادة إرسال' : 'Resend'}</>
                                     }
                                   </Button>
+                                )}
+                                {sentSuccessId === emp.id && (
+                                  <span className="text-green-600 text-xs font-semibold flex items-center gap-1">
+                                    ✅ {ar ? 'تم الإرسال!' : 'Sent!'}
+                                  </span>
                                 )}
 
                                 {emp.id !== currentUserId && (

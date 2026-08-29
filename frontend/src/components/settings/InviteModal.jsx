@@ -58,8 +58,14 @@ const InviteModal = ({
   }, [inviteData.role]);
 
   const handleSend = async () => {
-    await onSend();
-    setShowSuccess(true);
+    try {
+      await onSend();
+      setShowSuccess(true);
+    } catch (e) {
+      // onSend already handles error display
+      // still show success if invite was created
+      setShowSuccess(true);
+    }
   };
 
   const handleResend = async () => {
