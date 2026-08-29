@@ -13,7 +13,7 @@ const DEP_LABELS = {
 const DEP_RATES = {buildings:5,machinery:10,vehicles:25,computers:50,furniture:10,software:33,land:0,leasehold:10,goodwill:10,other:10};
 const DEP_METHODS = {buildings:'straight_line',machinery:'straight_line',vehicles:'declining',computers:'declining',furniture:'straight_line',software:'straight_line',land:'none',leasehold:'straight_line',goodwill:'straight_line',other:'straight_line'};
 
-export default function AssetsModule() {
+export default function AssetsModule({ defaultTab = 'assets' } = {}) {
   const { language, isRTL } = useLanguage();
   const t = (ar, en) => language === 'ar' ? ar : en;
   const token = localStorage.getItem('token');
