@@ -523,3 +523,83 @@ async def send_renewal_reminders(authorization: Optional[str] = Header(None)):
             continue
 
     return {"message": f"تم إرسال {sent} تذكير", "sent": sent, "total": len(subs)}
+
+
+@router.post("/activation-codes/redeem")
+async def redeem_activation_code(
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Redeem an activation code to activate company subscription"""
+    code = data.get("code", "").strip().upper()
+    if not code:
+        raise HTTPException(status_code=400, detail="Code is required")
+    
+    company_id = current_user.get("company_id")
+    
+    # Find the activation code
+    activation = await db.activation_codes.find_one({"code": code})
+    if not activation:
+        raise HTTPException(status_code=404, detail="كود غير موجود" if True else "Code not found")
+    
+    if not activation.get("is_active", True):
+        raise HTTPException(status_code=400, detail="هذا الكود غير نشط")
+    
+    max_uses = activation.get("max_uses", 1)
+    used_count = activation.get("used_count", 0)
+    if max_uses > 0 and used_count >= max_uses:
+        raise HTTPException(status_code=400, detail="تم استخدام هذا الكود بالفعل")
+    
+    # Get plan and duration from code
+    plan = activation.get("plan", "professional")
+    duration = activation.get("duration", "monthly")
+    
+    # Calculate end date
+    from datetime import datetime, timezone, timedelta
+    duration_days = {"monthly": 30, "quarterly": 90, "yearly": 365, "lifetime": 36500}.get(duration, 30)
+    now = datetime.now(timezone.utc)
+    end_date = (now + timedelta(days=duration_days)).isoformat()
+    
+    # Update company subscription
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {
+            "subscription_plan": plan,
+            "subscription_status": "active",
+            "subscription_expires_at": end_date,
+            "trial_ends_at": None,
+            "activation_code_used": code,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    # Update code usage
+    await db.activation_codes.update_one(
+        {"code": code},
+        {"$inc": {"used_count": 1},
+         "$push": {"used_by": {"company_id": company_id, "used_at": now.isoformat()}}}
+    )
+    
+    # Create subscription record
+    await db.subscriptions.update_one(
+        {"company_id": company_id},
+        {"$set": {
+            "company_id": company_id,
+            "plan": plan,
+            "status": "active",
+            "start_date": now.isoformat(),
+            "end_date": end_date,
+            "activation_code": code,
+            "amount_paid": 0,
+            "created_at": now.isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {
+        "success": True,
+        "message": f"تم تفعيل الاشتراك بنجاح! خطة {plan} لمدة {duration_days} يوم",
+        "plan": plan,
+        "end_date": end_date,
+        "days": duration_days
+    }

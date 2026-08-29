@@ -135,6 +135,37 @@ async def get_company(
     company = await db.companies.find_one({"id": company_id}, {"_id": 0})
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Enrich with subscription data
+    sub = await db.subscriptions.find_one(
+        {"company_id": company_id, "status": "active"},
+        {"_id": 0}
+    )
+    if sub:
+        company["active_subscription"] = {
+            "plan": sub.get("plan"),
+            "end_date": sub.get("end_date"),
+            "amount_paid": sub.get("amount_paid"),
+        }
+        company["subscription_plan"] = sub.get("plan", company.get("subscription_plan", "trial"))
+        company["subscription_status"] = "active"
+        company["subscription_expires_at"] = sub.get("end_date")
+    
+    # Calculate trial days remaining
+    from datetime import datetime, timezone
+    trial_end = company.get("trial_ends_at") or company.get("subscription_expires_at")
+    if trial_end:
+        try:
+            from dateutil import parser as dparser
+            end_dt = dparser.parse(str(trial_end))
+            if end_dt.tzinfo is None:
+                end_dt = end_dt.replace(tzinfo=timezone.utc)
+            days_left = (end_dt - datetime.now(timezone.utc)).days
+            company["trial_days_remaining"] = max(0, days_left)
+            company["trial_expired"] = days_left < 0
+        except:
+            pass
+    
     return company
 
 

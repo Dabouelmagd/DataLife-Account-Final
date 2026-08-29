@@ -28,20 +28,24 @@ const SubscriptionTab = ({
     setApplying(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/coupons/use/${codeInput.trim()}`, {
+      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/admin/activation-codes/redeem`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: codeInput.trim().toUpperCase() })
       });
       const data = await res.json();
       if (res.ok) {
-        setCodeMsg(ar ? '✅ تم تفعيل الكود بنجاح! سيتم تحديث الاشتراك.' : '✅ Code activated! Subscription updated.');
+        setCodeMsg(ar 
+          ? `✅ ${data.message || 'تم تفعيل الاشتراك بنجاح!'}` 
+          : `✅ ${data.message || 'Subscription activated successfully!'}`
+        );
         setCodeInput('');
-        setTimeout(() => window.location.reload(), 2000);
+        setTimeout(() => window.location.reload(), 2500);
       } else {
         setCodeMsg(ar ? `❌ ${data.detail || 'كود غير صحيح'}` : `❌ ${data.detail || 'Invalid code'}`);
       }
     } catch {
-      setCodeMsg(ar ? '❌ حدث خطأ' : '❌ Error occurred');
+      setCodeMsg(ar ? '❌ حدث خطأ في الاتصال' : '❌ Connection error');
     }
     setApplying(false);
   };
