@@ -138,7 +138,12 @@ const ROLE_TEMPLATES = {
 const PermissionsTab = ({ language = 'ar', currentUserId }) => {
   const isRTL = language === 'ar';
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-  const isOwner = currentUser?.is_platform_admin || currentUser?.role === 'Super Admin';
+  const isOwner = currentUser?.is_platform_admin || 
+    ['Super Admin', 'superadmin', 'رئيس مجلس الإدارة', 'General Manager', 'CEO', 'مدير عام', 'المدير التنفيذي'].includes(currentUser?.role);
+  
+  // Top management roles — get ALL company permissions automatically
+  const TOP_MGMT_ROLES = ['رئيس مجلس الإدارة', 'General Manager', 'CEO', 'مدير عام', 'المدير التنفيذي', 'Board Chairman'];
+  const PLATFORM_ROLES = ['Super Admin', 'superadmin'];
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -369,6 +374,64 @@ const PermissionsTab = ({ language = 'ar', currentUserId }) => {
         </CardContent>
       </Card>
 
+      {/* Role Hierarchy Legend */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">👑</span>
+            <span className="font-bold text-purple-800 text-sm">
+              {language === 'ar' ? 'مالك المنصة' : 'Platform Owner'}
+            </span>
+          </div>
+          <p className="text-xs text-purple-600">
+            {language === 'ar' 
+              ? 'Super Admin — صلاحيات كل الشركات والنظام'
+              : 'Super Admin — All companies & platform'}
+          </p>
+          <div className="flex flex-wrap gap-1 mt-2">
+            {['Super Admin', 'superadmin'].map(r => (
+              <span key={r} className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">{r}</span>
+            ))}
+          </div>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">🏢</span>
+            <span className="font-bold text-emerald-800 text-sm">
+              {language === 'ar' ? 'الإدارة العليا' : 'Top Management'}
+            </span>
+          </div>
+          <p className="text-xs text-emerald-600">
+            {language === 'ar' 
+              ? 'كل صلاحيات الشركة — لا يمكن تقييدها'
+              : 'All company permissions — Cannot be restricted'}
+          </p>
+          <div className="flex flex-wrap gap-1 mt-2">
+            {['رئيس مجلس الإدارة', 'مدير عام', 'CEO'].map(r => (
+              <span key={r} className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">{r}</span>
+            ))}
+          </div>
+        </div>
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">👤</span>
+            <span className="font-bold text-blue-800 text-sm">
+              {language === 'ar' ? 'الموظفون' : 'Employees'}
+            </span>
+          </div>
+          <p className="text-xs text-blue-600">
+            {language === 'ar' 
+              ? 'صلاحيات مخصصة حسب الوظيفة'
+              : 'Custom permissions based on role'}
+          </p>
+          <div className="flex flex-wrap gap-1 mt-2">
+            {['مدير HR', 'محاسب', 'موظف', 'مشاهد'].map(r => (
+              <span key={r} className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{r}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Employees List */}
       {loading ? (
         <Card>
@@ -432,9 +495,23 @@ const PermissionsTab = ({ language = 'ar', currentUserId }) => {
                         </div>
                         <p className="text-sm text-gray-500">{emp.email}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className={`text-xs ${
+                            TOP_MGMT_ROLES.includes(emp.role) ? 'border-emerald-400 text-emerald-700 bg-emerald-50' :
+                            PLATFORM_ROLES.includes(emp.role) ? 'border-purple-400 text-purple-700 bg-purple-50' :
+                            'text-gray-600'
+                          }`}>
                             {emp.role}
                           </Badge>
+                          {TOP_MGMT_ROLES.includes(emp.role) && (
+                            <Badge className="bg-emerald-100 text-emerald-700 text-xs border-0">
+                              {language === 'ar' ? '✅ كل الصلاحيات' : '✅ All Permissions'}
+                            </Badge>
+                          )}
+                          {PLATFORM_ROLES.includes(emp.role) && (
+                            <Badge className="bg-purple-100 text-purple-700 text-xs border-0">
+                              {language === 'ar' ? '👑 مالك المنصة' : '👑 Platform Owner'}
+                            </Badge>
+                          )}
                           <span className="text-xs text-gray-400">
                             {enabledCount}/{PERMISSIONS_CONFIG.length} {language === 'ar' ? 'صلاحية' : 'permissions'}
                           </span>
@@ -466,6 +543,38 @@ const PermissionsTab = ({ language = 'ar', currentUserId }) => {
                   {/* Expanded Permissions */}
                   {isExpanded && (
                     <div className="border-t bg-gray-50/50 dark:bg-gray-900/50 p-4 space-y-4">
+                      {/* Top Management Notice */}
+                      {TOP_MGMT_ROLES.includes(emp.role) && (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3 flex items-center gap-2">
+                          <span className="text-lg">✅</span>
+                          <div>
+                            <p className="text-sm font-semibold text-emerald-800">
+                              {language === 'ar' ? 'الإدارة العليا — لديهم كل صلاحيات الشركة' : 'Top Management — Has all company permissions'}
+                            </p>
+                            <p className="text-xs text-emerald-600">
+                              {language === 'ar' 
+                                ? 'المدير العام والمدير التنفيذي ورئيس مجلس الإدارة يملكون وصول كامل لكل وحدات النظام'
+                                : 'General Manager, CEO, and Board Chairman have full access to all system modules'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {/* Platform Admin Notice */}
+                      {PLATFORM_ROLES.includes(emp.role) && (
+                        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 mb-3 flex items-center gap-2">
+                          <span className="text-lg">👑</span>
+                          <div>
+                            <p className="text-sm font-semibold text-purple-800">
+                              {language === 'ar' ? 'مالك المنصة — صلاحيات كاملة' : 'Platform Owner — Full Platform Access'}
+                            </p>
+                            <p className="text-xs text-purple-600">
+                              {language === 'ar' 
+                                ? 'يملك صلاحيات جميع الشركات والإعدادات والاشتراكات'
+                                : 'Has access to all companies, system settings, and subscriptions'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       {/* Quick Actions */}
                       <div className="flex flex-wrap items-center gap-2 pb-4 border-b">
                         {/* Select All / Deselect All */}
