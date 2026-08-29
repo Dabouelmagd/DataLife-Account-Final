@@ -58,7 +58,12 @@ const RealDashboard = () => {
     totalSuppliers: 0,
     monthlyRevenue: 0,
     monthlyExpenses: 0,
-    activeProjects: 0
+    activeProjects: 0,
+    invoiceCount: 0,
+    inventoryCount: 0,
+    totalPayroll: 0,
+    pendingApprovals: 0,
+    lowStockCount: 0,
   });
   
   const isRTL = language === 'ar';
@@ -111,7 +116,10 @@ const RealDashboard = () => {
       const customersData = safeArray(customers);
       const suppliersData = safeArray(suppliers);
       const entriesData = safeArray(journalEntries);
-      const projectsData = safeArray(projectsRes);
+      const projectsData   = safeArray(projectsRes);
+      const invoicesData   = safeArray(invoicesRes);
+      const inventoryData  = safeArray(inventoryRes);
+      const approvalsData  = safeArray(approvalsRes);
 
       setEmployees(employeesData);
       
@@ -149,7 +157,11 @@ const RealDashboard = () => {
         totalSuppliers: suppliersData.length,
         monthlyRevenue: revenue,
         monthlyExpenses: expenses,
-        activeProjects: projectsData.filter(p => p.status === 'active' || p.status === 'in_progress').length || projectsData.length
+        invoiceCount:   invoicesData.length,
+        inventoryCount: inventoryData.length,
+        totalPayroll:   employeesData.reduce((s, e) => s + (e.basic_salary || 0), 0),
+        pendingApprovals: approvalsData.length,
+        lowStockCount:  inventoryData.filter(i => (i.quantity || 0) <= (i.min_quantity || 0)).length,_progress').length || projectsData.length
       });
     } catch (error) {
       console.error('Error fetching stats:', error);

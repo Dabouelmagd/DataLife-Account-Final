@@ -77,20 +77,28 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
     },
     {
       id: 'revenue',
-      title: language === 'ar' ? 'الإيرادات' : 'Revenue',
+      title: language === 'ar' ? 'إيرادات الشهر' : 'Monthly Revenue',
       value: `${stats.monthlyRevenue?.toLocaleString() || 0}`,
       suffix: language === 'ar' ? 'ج.م' : 'EGP',
-      change: '+23%',
-      trend: 'up',
+      trend: stats.monthlyRevenue > 0 ? 'up' : 'neutral',
       icon: ChartLineUp,
       color: moduleColors.financial,
       module: 'financial'
     },
     {
+      id: 'expenses',
+      title: language === 'ar' ? 'مصروفات الشهر' : 'Monthly Expenses',
+      value: `${stats.monthlyExpenses?.toLocaleString() || 0}`,
+      suffix: language === 'ar' ? 'ج.م' : 'EGP',
+      trend: stats.monthlyExpenses > 0 ? 'down' : 'neutral',
+      icon: Receipt,
+      color: '#ef4444',
+      module: 'financial'
+    },
+    {
       id: 'invoices',
       title: language === 'ar' ? 'الفواتير' : 'Invoices',
-      value: stats.activeProjects || 0,
-      change: '+8%',
+      value: stats.invoiceCount || 0,
       trend: 'up',
       icon: Receipt,
       color: moduleColors.invoices,
@@ -98,10 +106,9 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
     },
     {
       id: 'inventory',
-      title: language === 'ar' ? 'المنتجات' : 'Products',
-      value: stats.totalCustomers + stats.totalSuppliers || 0,
-      change: '+5%',
-      trend: 'up',
+      title: language === 'ar' ? 'أصناف المخزون' : 'Inventory Items',
+      value: stats.inventoryCount || 0,
+      trend: stats.lowStockCount > 0 ? 'down' : 'up',
       icon: Cube,
       color: moduleColors.inventory,
       module: 'inventory'
@@ -136,53 +143,75 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
     }
   ];
 
-  // Recent activities
+  // Recent activities — real data from stats
   const recentActivities = [
     {
-      title: language === 'ar' ? `${stats.totalEmployees} موظف في النظام` : `${stats.totalEmployees} employees in system`,
-      time: language === 'ar' ? 'اليوم' : 'Today',
+      title: language === 'ar' ? `${stats.totalEmployees} موظف في النظام` : `${stats.totalEmployees} employees`,
+      time: language === 'ar' ? 'HR' : 'HR',
       type: 'hr',
       icon: Users
     },
     {
-      title: language === 'ar' ? `إجمالي البدلات: ${stats.totalAllowances?.toLocaleString() || 0}` : `Total Allowances: ${stats.totalAllowances?.toLocaleString() || 0}`,
-      time: language === 'ar' ? 'اليوم' : 'Today',
-      type: 'hr',
+      title: language === 'ar' 
+        ? `الإيرادات: ${stats.monthlyRevenue?.toLocaleString() || 0} ج.م` 
+        : `Revenue: ${stats.monthlyRevenue?.toLocaleString() || 0} EGP`,
+      time: language === 'ar' ? 'هذا الشهر' : 'This month',
+      type: 'financial',
       icon: DollarSign
     },
     {
-      title: language === 'ar' ? `العملاء: ${stats.totalCustomers}` : `Customers: ${stats.totalCustomers}`,
-      time: language === 'ar' ? 'اليوم' : 'Today',
+      title: language === 'ar' 
+        ? `المصروفات: ${stats.monthlyExpenses?.toLocaleString() || 0} ج.م` 
+        : `Expenses: ${stats.monthlyExpenses?.toLocaleString() || 0} EGP`,
+      time: language === 'ar' ? 'هذا الشهر' : 'This month',
       type: 'financial',
+      icon: DollarSign
+    },
+    {
+      title: language === 'ar' ? `${stats.activeProjects} مشاريع نشطة` : `${stats.activeProjects} active projects`,
+      time: language === 'ar' ? 'المشاريع' : 'Projects',
+      type: 'projects',
       icon: Building2
     },
     {
-      title: language === 'ar' ? `الموردين: ${stats.totalSuppliers}` : `Suppliers: ${stats.totalSuppliers}`,
-      time: language === 'ar' ? 'اليوم' : 'Today',
+      title: language === 'ar' ? `${stats.totalCustomers} عميل | ${stats.totalSuppliers} مورد` : `${stats.totalCustomers} customers | ${stats.totalSuppliers} suppliers`,
+      time: language === 'ar' ? 'المالية' : 'Financial',
       type: 'financial',
       icon: Package
-    }
+    },
+    {
+      title: language === 'ar' ? `${stats.invoiceCount} فاتورة` : `${stats.invoiceCount} invoices`,
+      time: language === 'ar' ? 'الفواتير' : 'Invoices',
+      type: 'invoices',
+      icon: Package
+    },
   ];
 
-  // Upcoming tasks
+  // Upcoming tasks — dynamic based on real data
   const upcomingTasks = [
-    {
-      title: language === 'ar' ? 'معالجة كشوف المرتبات' : 'Process payroll',
-      dueDate: language === 'ar' ? 'غداً' : 'Tomorrow',
+    ...(stats.pendingApprovals > 0 ? [{
+      title: language === 'ar' ? `${stats.pendingApprovals} طلب موافقة معلق` : `${stats.pendingApprovals} pending approvals`,
+      dueDate: language === 'ar' ? 'عاجل' : 'Urgent',
       priority: 'high',
-      progress: 75
-    },
-    {
-      title: language === 'ar' ? 'مراجعة فواتير الموردين' : 'Review supplier invoices',
-      dueDate: language === 'ar' ? 'خلال يومين' : 'In 2 days',
+      progress: 0
+    }] : []),
+    ...(stats.lowStockCount > 0 ? [{
+      title: language === 'ar' ? `${stats.lowStockCount} صنف مخزون منخفض` : `${stats.lowStockCount} low stock items`,
+      dueDate: language === 'ar' ? 'تنبيه' : 'Alert',
       priority: 'medium',
-      progress: 45
+      progress: 0
+    }] : []),
+    {
+      title: language === 'ar' ? 'مراجعة التقارير الشهرية' : 'Review monthly reports',
+      dueDate: language === 'ar' ? 'نهاية الشهر' : 'End of month',
+      priority: 'medium',
+      progress: 50
     },
     {
-      title: language === 'ar' ? 'تحديث المخزون' : 'Update inventory',
-      dueDate: language === 'ar' ? 'خلال 3 أيام' : 'In 3 days',
+      title: language === 'ar' ? 'تحديث بيانات الموظفين' : 'Update employee data',
+      dueDate: language === 'ar' ? 'أسبوعياً' : 'Weekly',
       priority: 'low',
-      progress: 20
+      progress: 70
     }
   ];
 
