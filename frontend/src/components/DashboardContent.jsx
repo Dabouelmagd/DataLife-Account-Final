@@ -7,7 +7,7 @@ import {
   Users, DollarSign, FileText, Calendar, TrendingUp, Building2,
   ArrowUp, ArrowDown, AlertCircle, Clock, Target, Wallet,
   BarChart3, PieChart, Activity, Zap, CheckCircle, Package,
-  ChevronRight
+  ChevronRight, ShoppingCart, FolderKanban, Scale
 } from 'lucide-react';
 import { 
   UsersThree, ChartLineUp, Money, CalendarCheck, 
@@ -115,32 +115,14 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
     }
   ];
 
-  // Quick actions matching sidebar modules
+  // Quick actions — all main entry points
   const quickActions = [
-    {
-      title: language === 'ar' ? 'إضافة موظف' : 'Add Employee',
-      icon: Users,
-      color: moduleColors.hr,
-      action: () => onNavigate?.('hr', 'employees')
-    },
-    {
-      title: language === 'ar' ? 'قيد جديد' : 'New Entry',
-      icon: FileText,
-      color: moduleColors.financial,
-      action: () => onNavigate?.('financial', 'journal-entries')
-    },
-    {
-      title: language === 'ar' ? 'فاتورة جديدة' : 'New Invoice',
-      icon: Receipt,
-      color: moduleColors.invoices,
-      action: () => onNavigate?.('invoices', 'invoices')
-    },
-    {
-      title: language === 'ar' ? 'تقارير' : 'Reports',
-      icon: BarChart3,
-      color: moduleColors.projects,
-      action: () => onNavigate?.('reports')
-    }
+    { title: language === 'ar' ? 'إضافة موظف' : 'Add Employee',    icon: Users,        color: moduleColors.hr,        action: () => onNavigate?.('hr', 'employees') },
+    { title: language === 'ar' ? 'قيد جديد' : 'New Journal Entry', icon: FileText,     color: moduleColors.financial,  action: () => onNavigate?.('financial', 'journal-entries') },
+    { title: language === 'ar' ? 'فاتورة جديدة' : 'New Invoice',   icon: Receipt,      color: moduleColors.invoices,   action: () => onNavigate?.('invoices', 'invoices') },
+    { title: language === 'ar' ? 'مشروع جديد' : 'New Project',     icon: FolderKanban, color: moduleColors.projects,   action: () => onNavigate?.('projects') },
+    { title: language === 'ar' ? 'عميل جديد' : 'New Customer',     icon: Users,        color: moduleColors.hr,        action: () => onNavigate?.('sales') },
+    { title: language === 'ar' ? 'التحليلات' : 'Analytics',         icon: BarChart3,    color: moduleColors.financial,  action: () => onNavigate?.('analytics') },
   ];
 
   // Recent activities — real data from stats
@@ -458,82 +440,52 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
         </div>
       </div>
 
-      {/* Module Navigation Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* HR Module */}
-        <Card 
-          className="group relative overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
-          onClick={() => onNavigate?.('hr', 'hr-overview')}
-          data-testid="module-card-hr"
-        >
-          <div className={`absolute inset-0 bg-gradient-to-br ${moduleColors.hr.gradient} opacity-5 group-hover:opacity-10 transition-opacity`}></div>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 rounded-xl ${moduleColors.hr.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                <UsersThree weight="fill" className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">
-                  {language === 'ar' ? 'الموارد البشرية' : 'Human Resources'}
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {language === 'ar' ? 'إدارة الموظفين والرواتب' : 'Manage employees & payroll'}
-                </p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400 ms-auto group-hover:translate-x-1 transition-transform" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Financial Module */}
-        <Card 
-          className="group relative overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
-          onClick={() => onNavigate?.('financial', 'financial-overview')}
-          data-testid="module-card-financial"
-        >
-          <div className={`absolute inset-0 bg-gradient-to-br ${moduleColors.financial.gradient} opacity-5 group-hover:opacity-10 transition-opacity`}></div>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 rounded-xl ${moduleColors.financial.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                <Money weight="fill" className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">
-                  {language === 'ar' ? 'المالية والعمليات' : 'Finance & Operations'}
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {language === 'ar' ? 'إدارة الحسابات والمعاملات' : 'Manage accounts & transactions'}
-                </p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400 ms-auto group-hover:translate-x-1 transition-transform" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Invoices Module */}
-        <Card 
-          className="group relative overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
-          onClick={() => onNavigate?.('invoices', 'invoices')}
-          data-testid="module-card-invoices"
-        >
-          <div className={`absolute inset-0 bg-gradient-to-br ${moduleColors.invoices.gradient} opacity-5 group-hover:opacity-10 transition-opacity`}></div>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 rounded-xl ${moduleColors.invoices.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                <Receipt weight="fill" className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">
-                  {language === 'ar' ? 'الفواتير الإلكترونية' : 'E-Invoices'}
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {language === 'ar' ? 'إدارة الفواتير والضرائب' : 'Manage invoices & taxes'}
-                </p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400 ms-auto group-hover:translate-x-1 transition-transform" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Module Navigation Cards — All Modules */}
+      <div>
+        <h2 className="text-base font-bold text-slate-700 dark:text-slate-300 mb-3">
+          {language === 'ar' ? '🗂️ وحدات النظام' : '🗂️ System Modules'}
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {[
+            { id:'hr',        label_ar:'الموارد البشرية',       label_en:'Human Resources',     icon:<UsersThree weight="fill" className="w-6 h-6 text-white"/>,  color:moduleColors.hr,        nav:['hr','hr-overview'],          desc_ar:'موظفون · رواتب · حضور',         desc_en:'Employees · Payroll · HR' },
+            { id:'financial', label_ar:'الإدارة المالية',        label_en:'Financial',           icon:<Money weight="fill" className="w-6 h-6 text-white"/>,      color:moduleColors.financial,  nav:['financial','journal-entries'],desc_ar:'محاسبة · قيود · تقارير',        desc_en:'Accounting · Ledger' },
+            { id:'sales',     label_ar:'المبيعات CRM',           label_en:'Sales & CRM',         icon:<TrendingUp className="w-6 h-6 text-white"/>,               color:moduleColors.projects,   nav:['sales'],                      desc_ar:'عملاء · عروض · فواتير',          desc_en:'Customers · Quotations' },
+            { id:'invoices',  label_ar:'الفواتير الإلكترونية',   label_en:'E-Invoicing',         icon:<Receipt weight="fill" className="w-6 h-6 text-white"/>,    color:moduleColors.invoices,   nav:['invoices','invoices'],        desc_ar:'ETA · ضرائب · فواتير',           desc_en:'ETA · Taxes · Invoices' },
+            { id:'purchases', label_ar:'المشتريات',              label_en:'Purchases',           icon:<ShoppingCart className="w-6 h-6 text-white"/>,             color:moduleColors.inventory,  nav:['purchases'],                  desc_ar:'موردون · أوامر شراء',            desc_en:'Suppliers · Orders' },
+            { id:'projects',  label_ar:'المشاريع والمهام',        label_en:'Projects',            icon:<FolderKanban className="w-6 h-6 text-white"/>,             color:moduleColors.projects,   nav:['projects'],                   desc_ar:'مشاريع · مهام · تقدم',           desc_en:'Projects · Tasks · Progress' },
+            { id:'assets',    label_ar:'الأصول الثابتة',          label_en:'Fixed Assets',        icon:<Building2 className="w-6 h-6 text-white"/>,                color:moduleColors.financial,  nav:['assets'],                     desc_ar:'أصول · إهلاك · تقييم',           desc_en:'Assets · Depreciation' },
+            { id:'taxes',     label_ar:'الضرائب',                label_en:'Taxes',               icon:<Scale className="w-6 h-6 text-white"/>,                    color:moduleColors.invoices,   nav:['taxes'],                      desc_ar:'ضريبة قيمة مضافة · استقطاعات',  desc_en:'VAT · Withholding' },
+            { id:'analytics', label_ar:'التقارير والتحليلات',     label_en:'Analytics',           icon:<BarChart3 className="w-6 h-6 text-white"/>,                color:moduleColors.hr,         nav:['analytics'],                  desc_ar:'15 تقرير شامل',                   desc_en:'15 comprehensive reports' },
+            { id:'approvals', label_ar:'الموافقات',              label_en:'Approvals',           icon:<CheckCircle className="w-6 h-6 text-white"/>,              color:moduleColors.projects,   nav:['approvals'],                  desc_ar:'طلبات · موافقة · رفض',           desc_en:'Requests · Approve · Reject' },
+          ].map((mod) => (
+            <Card
+              key={mod.id}
+              className="group cursor-pointer border-0 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+              onClick={() => onNavigate?.(mod.nav[0], mod.nav[1])}
+              data-testid={`module-card-${mod.id}`}
+            >
+              <div className={`absolute inset-0 bg-gradient-to-br ${mod.color.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
+              <CardContent className="p-4 relative">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`w-10 h-10 rounded-xl ${mod.color.iconBg} flex items-center justify-center flex-shrink-0`}>
+                    {mod.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                      {language === 'ar' ? mod.label_ar : mod.label_en}
+                    </h3>
+                    <p className="text-xs text-slate-400 truncate">
+                      {language === 'ar' ? mod.desc_ar : mod.desc_en}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end">
+                  <ChevronRight className={`w-4 h-4 ${mod.color.text} group-hover:translate-x-1 transition-transform`} />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       {/* Charts Section */}
