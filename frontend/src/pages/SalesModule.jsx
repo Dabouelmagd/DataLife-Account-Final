@@ -87,7 +87,10 @@ export default function SalesModule({ language: propLang }) {
   const [msg, setMsg]     = useState(null);
 
   const token = localStorage.getItem('token');
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const headers = React.useMemo(() => (
+    { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+  ), []); // token doesn't change during session;
 
   const showMsg = (type, text) => { setMsg({ type, text }); setTimeout(() => setMsg(null), 5000); };
 
