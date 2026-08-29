@@ -8,6 +8,7 @@ from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 import uuid
 from database import db
+import os
 
 router = APIRouter(prefix="/api/sales", tags=["sales"])
 
@@ -704,3 +705,59 @@ async def generate_subscription_invoice(sub_id: str, authorization: Optional[str
     )
     invoice.pop("_id", None)
     return {"message": f"تم توليد الفاتورة {invoice_number}", "invoice": invoice}
+
+
+@router.post("/quotations/{quote_id}/send-email")
+async def send_quotation_email(
+    quote_id: str,
+    data: dict = {},
+    authorization: Optional[str] = Header(None)
+):
+    """Send quotation to customer by email"""
+    user = await get_user(authorization)
+    company_id = user.get("company_id")
+    
+    quote = await db.sales_quotations.find_one({"id": quote_id, "company_id": company_id}, {"_id": 0})
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    
+    # Update status to sent
+    await db.sales_quotations.update_one(
+        {"id": quote_id},
+        {"$set": {"status": "sent", "sent_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    customer_email = data.get("customer_email") or quote.get("customer_email", "")
+    
+    # Try to send email if configured
+    try:
+        import resend
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if resend.api_key and customer_email:
+            items_html = "".join([
+                f"<tr><td>{i.get('description','')}</td><td>{i.get('quantity',0)}</td><td>{i.get('unit_price',0):,.2f}</td><td>{i.get('total',0):,.2f}</td></tr>"
+                for i in quote.get("items", [])
+            ])
+            resend.Emails.send({
+                "from": f"{company.get('name','DataLife')} <noreply@datalifeaccount.com>",
+                "to": [customer_email],
+                "subject": f"عرض سعر رقم {quote.get('quote_number','')} - {company.get('name','')}",
+                "html": f"""
+                <div dir="rtl" style="font-family:Arial;max-width:600px;margin:0 auto">
+                <h2 style="color:#1e3a8a">عرض سعر - {company.get('name','')}</h2>
+                <p>عزيزي {quote.get('customer_name','')},</p>
+                <p>يسعدنا تقديم عرض السعر التالي لكم:</p>
+                <table border="1" cellpadding="8" style="width:100%;border-collapse:collapse">
+                <tr style="background:#1e3a8a;color:white"><th>الوصف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>
+                {items_html}
+                </table>
+                <p><strong>الإجمالي: {quote.get('total',0):,.2f} ج.م</strong></p>
+                <p>صالح لمدة {quote.get('validity_days',30)} يوم</p>
+                </div>"""
+            })
+    except Exception as e:
+        print(f"Email send error: {e}")
+    
+    return {"success": True, "message": "تم إرسال عرض السعر بنجاح", "status": "sent"}

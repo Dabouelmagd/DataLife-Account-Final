@@ -1052,7 +1052,20 @@ async def get_my_referral_invites(authorization: Optional[str] = Header(None)):
     user_id = user.get("user_id")
     referral = await db.referrals.find_one({"user_id": user_id}, {"_id": 0})
     if not referral:
-        return {"referral_code": None, "invites": [], "total": 0, "rewarded": False, "reward_coupon": None}
+        # Auto-create referral record
+        import random, string
+        from datetime import datetime, timezone
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        referral = {
+            "user_id": user_id,
+            "referral_code": code,
+            "invited_count": 0,
+            "target": 5,
+            "rewarded": False,
+            "reward_coupon": None,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.referrals.insert_one({**referral})
 
     invites = await db.referral_invites.find(
         {"referrer_user_id": user_id}, {"_id": 0}

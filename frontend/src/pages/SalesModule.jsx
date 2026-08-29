@@ -485,6 +485,60 @@ function QuotationsTab({ headers, ar, showMsg, setTab, fetchStats }) {
     fetchQuotes();
   };
 
+  const sendQuotationEmail = async (q) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API}/api/sales/quotations/${q.id}/send-email`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_email: q.customer_email || '' })
+      });
+      const d = await res.json();
+      if (res.ok) showMsg('success', ar ? '✅ تم إرسال عرض السعر بالبريد' : '✅ Quotation sent by email');
+      else showMsg('error', d.detail || 'Error sending');
+    } catch { showMsg('error', ar ? 'خطأ في الإرسال' : 'Send error'); }
+  };
+
+  const printQuotation = (q) => {
+    const printContent = `
+      <html dir="rtl"><head><meta charset="UTF-8">
+      <style>
+        body { font-family: Arial; margin: 20px; direction: rtl; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 15px; margin-bottom: 20px; }
+        .logo { max-height: 70px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th { background: #1e3a8a; color: white; padding: 8px; text-align: right; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        .total-row { font-weight: bold; background: #f0f4ff; }
+        .footer { border-top: 2px solid #1e3a8a; margin-top: 20px; padding-top: 10px; font-size: 12px; color: #666; }
+      </style></head><body>
+      <div class="header">
+        <div><h1 style="color:#1e3a8a;margin:0">عرض سعر</h1><p style="margin:4px 0;color:#666">رقم: ${q.quote_number}</p></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:15px">
+        <div><strong>مقدم إلى:</strong><br/>${q.customer_name}<br/>${q.customer_address||''}</div>
+        <div style="text-align:left"><strong>التاريخ:</strong> ${new Date(q.date).toLocaleDateString('ar-EG')}<br/>
+        <strong>الصلاحية:</strong> ${q.validity_days} يوم</div>
+      </div>
+      <table>
+        <tr><th>الوصف</th><th>الكمية</th><th>الوحدة</th><th>سعر الوحدة</th><th>الإجمالي</th></tr>
+        ${(q.items||[]).map(item => `<tr><td>${item.description}</td><td>${item.quantity}</td><td>${item.unit||'-'}</td><td>${Number(item.unit_price).toLocaleString()}</td><td>${Number(item.total).toLocaleString()}</td></tr>`).join('')}
+        <tr class="total-row"><td colspan="4">المجموع</td><td>${Number(q.subtotal||0).toLocaleString()}</td></tr>
+        ${q.discount_amount > 0 ? `<tr><td colspan="4">الخصم (${q.discount_percent}%)</td><td>- ${Number(q.discount_amount||0).toLocaleString()}</td></tr>` : ''}
+        <tr><td colspan="4">ضريبة القيمة المضافة (${q.vat_percent||14}%)</td><td>${Number(q.vat_amount||0).toLocaleString()}</td></tr>
+        <tr class="total-row"><td colspan="4">الإجمالي النهائي</td><td>${Number(q.total||0).toLocaleString()} ج.م</td></tr>
+      </table>
+      ${q.terms ? `<p><strong>الشروط والأحكام:</strong> ${q.terms}</p>` : ''}
+      ${q.notes ? `<p><strong>ملاحظات:</strong> ${q.notes}</p>` : ''}
+      <div class="footer">شكراً لتعاملكم معنا • صالح لمدة ${q.validity_days} يوم من تاريخ الإصدار</div>
+      </body></html>
+    `;
+    const w = window.open('', '_blank');
+    w.document.write(printContent);
+    w.document.close();
+    w.print();
+  };
+
   const convertToInvoice = async (id, qnum) => {
     if (!window.confirm(ar?`تحويل ${qnum} لفاتورة مبيعات؟`:`Convert ${qnum} to invoice?`)) return;
     try {
