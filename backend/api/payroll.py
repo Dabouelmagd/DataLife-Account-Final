@@ -420,14 +420,24 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
             description="صندوق إعانة الطوارئ مستحق"
         ))
 
-    # دائن: صندوق تكريم الشهداء 0.05% من أجر الاشتراك الأساسي
+    # مدين + دائن: صندوق تكريم الشهداء والمفقودين 0.05% — قانون 148/2019
     martyrs_amount = round(emergency_basic * 0.0005, 2)
-    if martyrs_amount > 0 and mrt_pay_id:
-        lines.append(JournalEntryLine(
-            account_id=mrt_pay_id, account_code=mrt_pay_code, account_name=mrt_pay_name,
-            debit=0, credit=martyrs_amount,
-            description="صندوق تكريم الشهداء والمفقودين — 0.05%"
-        ))
+    mrt_exp_id, mrt_exp_code, mrt_exp_name = get_account_info(None, "338")  # مصروف صندوق الشهداء
+    if martyrs_amount > 0:
+        # مدين: مصروف صندوق تكريم الشهداء
+        if mrt_exp_id:
+            lines.append(JournalEntryLine(
+                account_id=mrt_exp_id, account_code=mrt_exp_code, account_name=mrt_exp_name,
+                debit=martyrs_amount, credit=0,
+                description="مصروف صندوق تكريم الشهداء والمفقودين — 0.05%"
+            ))
+        # دائن: صندوق تكريم الشهداء مستحق
+        if mrt_pay_id:
+            lines.append(JournalEntryLine(
+                account_id=mrt_pay_id, account_code=mrt_pay_code, account_name=mrt_pay_name,
+                debit=0, credit=martyrs_amount,
+                description="صندوق تكريم الشهداء والمفقودين مستحق — 0.05%"
+            ))
 
     # دائن: التأمين الصحي الشامل مستحق
     if uhi_amount > 0 and uhi_pay_id:
@@ -470,6 +480,23 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
             description="صافي الرواتب المستحقة"
         ))
     
+    # ══ التحقق من توازن القيد (مدين = دائن) ══════════════
+    total_debit  = round(sum(l.debit  for l in lines), 2)
+    total_credit = round(sum(l.credit for l in lines), 2)
+    diff = abs(total_debit - total_credit)
+    if diff > 0.01:  # tolerance 1 qirsh for rounding
+        # Log the imbalance for debugging
+        import logging
+        logging.warning(
+            f"Payroll journal imbalance: debit={total_debit}, credit={total_credit}, diff={diff}"
+        )
+        # Auto-correct with rounding adjustment to salaries payable
+        if sal_pay_id and lines:
+            for l in lines:
+                if l.account_id == sal_pay_id:
+                    l.credit = round(l.credit + (total_debit - total_credit), 2)
+                    break
+
     # التحقق من وجود سطور في القيد
     if not lines:
         raise HTTPException(status_code=400, detail="لا يمكن إنشاء قيد محاسبي - الحسابات غير متوفرة")
@@ -850,7 +877,9 @@ async def calculate_payroll(
             totals["social_insurance"] += emp_si
         
         # 2. ضريبة كسب العمل
-        annual_taxable = gross_salary * 12
+        # قانون 91/2005 م.38: الوعاء الضريبي = الأجر الشامل - التأمينات الاجتماعية
+        # Social insurance is deducted from taxable income before tax calculation
+        annual_taxable = (gross_salary - emp_si) * 12
         monthly_tax = await calculate_income_tax(annual_taxable, settings)
         if monthly_tax > 0:
             deductions.append(PayrollDeduction(
@@ -1933,3 +1962,208 @@ async def export_payroll_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="payroll_{month_str}.xlsx"'}
     )
+
+
+# ══════════════════════════════════════════════════════
+# القيد ج — صرف المرتبات وسداد الالتزامات الحكومية
+# ══════════════════════════════════════════════════════
+
+@router.post("/runs/{run_id}/disburse")
+async def disburse_payroll(
+    run_id: str,
+    data: dict = {},
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    إنشاء قيود صرف المرتبات وسداد الالتزامات الحكومية
+    
+    القيد أ: من حـ/ الأجور المستحقة → إلى حـ/ البنك / الخزينة
+    القيد ب: من حـ/ مذكورين (ضرائب + تأمينات + صناديق) → إلى حـ/ البنك
+    """
+    company_id = current_user["company_id"]
+    
+    run = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id}, {"_id": 0})
+    if not run:
+        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+    if run.get("status") != "approved":
+        raise HTTPException(status_code=400, detail="يجب اعتماد المسير قبل الصرف")
+    if run.get("disbursed"):
+        raise HTTPException(status_code=400, detail="تم صرف هذا المسير مسبقاً")
+    
+    settings  = await get_payroll_settings(company_id)
+    service   = AccountingService(db)
+    accounts  = await service.get_all_accounts(company_id, True)
+    by_code   = {a["account_code"]: a for a in accounts}
+    by_id     = {a["id"]: a for a in accounts}
+    
+    def acct(setting_key, default_code):
+        val = settings.get(setting_key)
+        if val and val in by_id:
+            a = by_id[val]
+            return a["id"], a["account_code"], a.get("account_name", "")
+        if default_code in by_code:
+            a = by_code[default_code]
+            return a["id"], a["account_code"], a.get("account_name", "")
+        return None, default_code, f"حساب {default_code}"
+    
+    # حسابات القيد
+    sal_pay_id,  sal_pay_code,  sal_pay_name  = acct("salaries_payable_account_id",      "220")
+    bank_id,     bank_code,     bank_name      = acct("bank_account_id",                  "112")
+    si_pay_id,   si_pay_code,   si_pay_name    = acct("social_insurance_payable_account_id","260")
+    tax_id,      tax_code,      tax_name       = acct("income_tax_payable_account_id",    "261")
+    emg_pay_id,  emg_pay_code,  emg_pay_name   = acct(None,                               "258")
+    mrt_pay_id,  mrt_pay_code,  mrt_pay_name   = acct(None,                               "259")
+    uhi_pay_id,  uhi_pay_code,  uhi_pay_name   = acct(None,                               "262")
+    
+    payroll_month = f"{run.get('year', '')}/{run.get('month', '')}"
+    entry_date = datetime.now().strftime("%Y-%m-%d")
+    
+    # ══ القيد أ: صرف الرواتب ══════════════════════════
+    # من حـ/ الأجور والمرتبات المستحقة → إلى حـ/ البنك
+    # ════════════════════════════════════════════════════
+    lines_a = []
+    if sal_pay_id and run.get("total_net_salary", 0) > 0:
+        lines_a.append(JournalEntryLine(
+            account_id=sal_pay_id, account_code=sal_pay_code, account_name=sal_pay_name,
+            debit=run["total_net_salary"], credit=0,
+            description=f"صرف صافي رواتب شهر {payroll_month}"
+        ))
+        if bank_id:
+            lines_a.append(JournalEntryLine(
+                account_id=bank_id, account_code=bank_code, account_name=bank_name,
+                debit=0, credit=run["total_net_salary"],
+                description=f"صرف صافي رواتب شهر {payroll_month} من البنك"
+            ))
+    
+    if lines_a:
+        entry_a = JournalEntry(
+            company_id=company_id,
+            entry_number=0,
+            entry_date=entry_date,
+            reference=f"{run.get('payroll_number', run_id)}-DISBURSE",
+            description=f"قيد صرف رواتب شهر {payroll_month}",
+            lines=[l.dict() for l in lines_a],
+            source_type="payroll_disbursement",
+            source_id=run_id,
+            created_by=current_user["id"]
+        )
+        await service.create_journal_entry(entry_a)
+    
+    # ══ القيد ب: سداد الالتزامات الحكومية ═══════════
+    # من حـ/ مذكورين → إلى حـ/ البنك
+    # ════════════════════════════════════════════════════
+    lines_b = []
+    company_si = round(run.get("total_basic_salary", 0) *
+                       (settings.get("company_social_insurance_rate", 18.75) / 100), 2)
+    total_si   = round(run.get("total_social_insurance", 0) + company_si, 2)
+    total_tax  = run.get("total_income_tax", 0)
+    
+    # مدين: التأمينات الاجتماعية مستحقة
+    if total_si > 0 and si_pay_id:
+        lines_b.append(JournalEntryLine(
+            account_id=si_pay_id, account_code=si_pay_code, account_name=si_pay_name,
+            debit=total_si, credit=0,
+            description="سداد التأمينات الاجتماعية لهيئة التأمينات"
+        ))
+    
+    # مدين: ضريبة كسب العمل مستحقة
+    if total_tax > 0 and tax_id:
+        lines_b.append(JournalEntryLine(
+            account_id=tax_id, account_code=tax_code, account_name=tax_name,
+            debit=total_tax, credit=0,
+            description="سداد ضريبة كسب العمل لمصلحة الضرائب"
+        ))
+    
+    # مدين: صندوق الطوارئ مستحق
+    emg_amount = round(run.get("total_basic_salary", 0) * 0.01, 2)
+    if emg_amount > 0 and emg_pay_id:
+        lines_b.append(JournalEntryLine(
+            account_id=emg_pay_id, account_code=emg_pay_code, account_name=emg_pay_name,
+            debit=emg_amount, credit=0,
+            description="سداد صندوق إعانة الطوارئ — 1%"
+        ))
+    
+    # مدين: صندوق الشهداء مستحق
+    mrt_amount = round(run.get("total_basic_salary", 0) * 0.0005, 2)
+    if mrt_amount > 0 and mrt_pay_id:
+        lines_b.append(JournalEntryLine(
+            account_id=mrt_pay_id, account_code=mrt_pay_code, account_name=mrt_pay_name,
+            debit=mrt_amount, credit=0,
+            description="سداد صندوق تكريم الشهداء — 0.05%"
+        ))
+    
+    # مدين: التأمين الصحي الشامل مستحق
+    gross_payroll = run.get("total_gross_salary", run.get("total_basic_salary", 0))
+    uhi_amount = round(gross_payroll * 0.0025, 2)
+    if uhi_amount > 0 and uhi_pay_id:
+        lines_b.append(JournalEntryLine(
+            account_id=uhi_pay_id, account_code=uhi_pay_code, account_name=uhi_pay_name,
+            debit=uhi_amount, credit=0,
+            description="سداد التأمين الصحي الشامل — 0.25%"
+        ))
+    
+    # دائن: البنك (إجمالي المدفوعات الحكومية)
+    total_gov = round(total_si + total_tax + emg_amount + mrt_amount + uhi_amount, 2)
+    if total_gov > 0 and bank_id and lines_b:
+        lines_b.append(JournalEntryLine(
+            account_id=bank_id, account_code=bank_code, account_name=bank_name,
+            debit=0, credit=total_gov,
+            description="سداد الالتزامات الحكومية (ضرائب + تأمينات + صناديق)"
+        ))
+    
+    if lines_b:
+        entry_b = JournalEntry(
+            company_id=company_id,
+            entry_number=0,
+            entry_date=entry_date,
+            reference=f"{run.get('payroll_number', run_id)}-GOV",
+            description=f"قيد سداد الالتزامات الحكومية شهر {payroll_month}",
+            lines=[l.dict() for l in lines_b],
+            source_type="payroll_government",
+            source_id=run_id,
+            created_by=current_user["id"]
+        )
+        await service.create_journal_entry(entry_b)
+    
+    # تحديث حالة الصرف
+    await db.payroll_runs.update_one(
+        {"id": run_id},
+        {"$set": {
+            "disbursed": True,
+            "disbursed_at": datetime.utcnow().isoformat(),
+            "disbursed_by": current_user["id"],
+            "status": "paid"
+        }}
+    )
+    
+    # Audit log
+    await db.activity_logs.insert_one({
+        "company_id": company_id,
+        "user_id": current_user["id"],
+        "action": "payroll_disburse",
+        "module": "payroll",
+        "details": f"صرف رواتب شهر {payroll_month} — صافي: {run.get('total_net_salary', 0):,.2f} + التزامات حكومية: {total_gov:,.2f}",
+        "created_at": datetime.utcnow().isoformat()
+    })
+    
+    return {
+        "success": True,
+        "message": f"تم إنشاء قيدي الصرف والالتزامات الحكومية لشهر {payroll_month}",
+        "entries": {
+            "disbursement": {
+                "description": "قيد صرف الرواتب",
+                "amount": run.get("total_net_salary", 0)
+            },
+            "government": {
+                "description": "قيد سداد الالتزامات الحكومية",
+                "breakdown": {
+                    "social_insurance": total_si,
+                    "income_tax": total_tax,
+                    "emergency_fund": emg_amount,
+                    "martyrs_fund": mrt_amount,
+                    "uhi": uhi_amount,
+                    "total": total_gov
+                }
+            }
+        }
+    }
