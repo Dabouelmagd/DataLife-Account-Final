@@ -187,6 +187,7 @@ UNIQUE_INDEXES = {
     "users":                       [("email", 1)],
     "journal_counters":            [("company_id", 1)],
     "asset_counters":              [("company_id", 1), ("asset_type", 1)],
+    "cheque_counters":             [("company_id", 1), ("direction", 1)],
 }
 
 
