@@ -82,11 +82,65 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  // ── Session Security ─────────────────────────────────
+  const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+  const idleTimerRef = React.useRef(null);
+
+  const resetIdleTimer = React.useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      if (localStorage.getItem('token')) {
+        // Token still in storage = still "logged in" → force logout
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login?reason=idle';
+      }
+    }, IDLE_TIMEOUT_MS);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const events = ['mousedown','mousemove','keypress','touchstart','scroll','click'];
+    events.forEach(e => window.addEventListener(e, resetIdleTimer, { passive: true }));
+    resetIdleTimer(); // start timer on login
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetIdleTimer));
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [user, resetIdleTimer]);
+
+  // ── Check JWT expiry on tab focus ────────────────────
+  useEffect(() => {
+    const checkExpiry = () => {
+      const t = localStorage.getItem('token');
+      if (!t) return;
+      try {
+        const payload = JSON.parse(atob(t.split('.')[1]));
+        if (payload.exp && Date.now() / 1000 > payload.exp) {
+          logout();
+          window.location.href = '/login?reason=expired';
+        }
+      } catch {}
+    };
+    window.addEventListener('focus', checkExpiry);
+    return () => window.removeEventListener('focus', checkExpiry);
+  }, []);
+
+  const logout = React.useCallback(() => {
+    // Call backend to revoke token
+    const t = localStorage.getItem('token');
+    if (t) {
+      fetch(`${API_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${t}` }
+      }).catch(() => {});
+    }
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
-  };
+    localStorage.removeItem('user');
+  }, [API_URL]);
 
   const hasModule = (moduleName) => {
     if (!user) return false;

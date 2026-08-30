@@ -1,3 +1,4 @@
+from services.audit_helper import log_financial_action
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field
 from typing import Optional, List

@@ -121,7 +121,7 @@ async def register_company(
                             "code": coupon_code, "type": "referral_reward",
                             "discount_type": "free_month", "discount_value": 100,
                             "max_uses": 1, "current_uses": 0, "is_active": True,
-                            "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
+                            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=8)).isoformat(),
                             "created_for": referral["user_id"],
                             "created_at": datetime.now(timezone.utc).isoformat(),
                         })
@@ -202,7 +202,11 @@ async def logout(authorization: str = Header(None)):
     from datetime import datetime, timezone
     from services.auth_service import verify_token
     try:
-        token_data = verify_token(authorization.replace("Bearer ", "") if authorization else "")
+        raw_token = authorization.replace("Bearer ", "") if authorization else ""
+        from services.auth_service import revoke_token as _revoke
+        if raw_token:
+            _revoke(raw_token)
+        token_data = verify_token(raw_token)
         if token_data:
             logout_time = datetime.now(timezone.utc)
             user = await db.users.find_one({"id": token_data.get("user_id")})

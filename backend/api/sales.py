@@ -7,6 +7,8 @@ from fastapi import APIRouter, HTTPException, Header, Query
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 import uuid
+from services.audit_helper import log_financial_action
+
 from database import db
 import os
 

@@ -1,6 +1,18 @@
 import bcrypt
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
+
+# ── In-memory token blacklist (revoked tokens) ──────
+# For production with multiple workers, use Redis
+_revoked_tokens: set = set()
+
+def revoke_token(token: str) -> None:
+    """Add token to blacklist on logout"""
+    _revoked_tokens.add(token)
+
+def is_token_revoked(token: str) -> bool:
+    """Check if token has been revoked"""
+    return token in _revoked_tokens
 from typing import Optional
 import os
 

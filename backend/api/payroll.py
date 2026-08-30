@@ -9,6 +9,8 @@ from datetime import datetime
 from pydantic import BaseModel
 import uuid
 
+from services.audit_helper import log_financial_action
+
 from database import db
 from api.users import get_current_user
 from models.payroll import (

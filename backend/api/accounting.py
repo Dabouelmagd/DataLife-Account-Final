@@ -14,6 +14,8 @@ from models.accounting import (
 )
 from services.accounting_service import AccountingService
 from api.users import get_current_user
+from services.audit_helper import log_financial_action
+
 from database import db
 
 router = APIRouter(prefix="/api/accounting", tags=["accounting"])
