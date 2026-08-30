@@ -202,12 +202,16 @@ class ProgressClaim(BaseModel):
     advance_payment_deducted: float = 0.0  # خصم الدفعة المقدمة
     previous_retention_released: float = 0.0  # تأمين محرر من مستخلصات سابقة
     # ضرائب
-    vat_rate: float = 0.14               # ضريبة القيمة المضافة (5% جدول أو 14% عام)
+    vat_rate: float = 0.05               # ضريبة القيمة المضافة (5% جدول مقاولات — قانون VAT م.54)
     vat_amount: float = 0.0
     withholding_tax_rate: float = 0.01   # ضريبة الخصم والتحصيل (1% توريدات)
     withholding_tax_amount: float = 0.0
     # الصافي
-    net_payable: float = 0.0             # الصافي المستحق
+    # تفاصيل تنفيذ المستخلص
+    ar_amount: float = 0.0               # إجمالي المطلوب من العميل (net + VAT)
+    boq_items_executed: Optional[list] = []  # [{boq_item_id, executed_qty, amount}]
+    completed_percentage: float = 0.0   # نسبة الإنجاز الإجمالية
+    net_payable: float = 0.0            # الصافي المستحق
     # حالة المستخلص
     status: str = "draft"                # draft | submitted | approved | paid
     journal_entry_id: Optional[str] = None  # القيد المحاسبي المرتبط
@@ -233,6 +237,15 @@ class BOQItem(BaseModel):
     executed_amount: float = 0.0    # المبلغ المنفذ
     cost_center_id: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: Optional[str] = None
+
+    @property
+    def remaining_qty(self) -> float:
+        return max(self.planned_qty - self.executed_qty, 0)
+
+    @property
+    def completion_pct(self) -> float:
+        return round((self.executed_qty / self.planned_qty * 100), 1) if self.planned_qty > 0 else 0
 
 
 # ══════════════════════════════════════════════

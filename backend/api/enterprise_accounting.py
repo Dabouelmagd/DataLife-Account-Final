@@ -480,6 +480,217 @@ async def get_subcontractor_claims(project_id: str, current_user: dict = Depends
     }
 
 # ════════════════════════════════════════════════════════════════
+# BOQ — بنود المقايسة (Bill of Quantities)
+# project_boq table: CRUD + executed qty update
+# ════════════════════════════════════════════════════════════════
+
+@router.post("/boq")
+async def create_boq_item(data: dict, current_user: dict = Depends(get_user)):
+    """إضافة بند مقايسة جديد لمشروع"""
+    from models.enterprise_accounting import BOQItem
+    company_id = current_user.get("company_id")
+    if not data.get("project_id"):
+        raise HTTPException(status_code=400, detail="project_id مطلوب")
+    item = BOQItem(**{**data, "company_id": company_id})
+    item.planned_amount = round(item.planned_qty * item.unit_price, 2)
+    d = item.dict(); d.pop("_id", None)
+    await db.project_boq.insert_one(d)
+    return {"message": "تم إضافة بند المقايسة", "item": d}
+
+
+@router.get("/boq/{project_id}")
+async def get_boq(
+    project_id: str,
+    page: int = 1, limit: int = 50,
+    current_user: dict = Depends(get_user)
+):
+    """قائمة بنود المقايسة لمشروع مع إجماليات"""
+    company_id = current_user.get("company_id")
+    q = {"project_id": project_id, "company_id": company_id}
+    total = await db.project_boq.count_documents(q)
+    items = await db.project_boq.find(q, {"_id": 0}).sort(
+        "item_number", 1
+    ).skip((page-1)*limit).limit(limit).to_list(None)
+    
+    total_planned   = sum(i.get("planned_amount",   0) for i in items)
+    total_executed  = sum(i.get("executed_amount",  0) for i in items)
+    completion_pct  = round(total_executed / total_planned * 100, 1) if total_planned else 0
+    
+    return {
+        "items": items, "total": total, "page": page, "limit": limit,
+        "summary": {
+            "total_planned_amount":  round(total_planned,  2),
+            "total_executed_amount": round(total_executed, 2),
+            "completion_percentage": completion_pct,
+            "remaining_amount": round(total_planned - total_executed, 2),
+        }
+    }
+
+
+@router.put("/boq/{boq_item_id}")
+async def update_boq_item(boq_item_id: str, data: dict, current_user: dict = Depends(get_user)):
+    """تعديل بند مقايسة — سعر أو كمية"""
+    from datetime import datetime, timezone
+    if "unit_price" in data or "planned_qty" in data:
+        item = await db.project_boq.find_one({"id": boq_item_id}, {"_id": 0})
+        if item:
+            up  = data.get("unit_price",  item.get("unit_price",  0))
+            qty = data.get("planned_qty", item.get("planned_qty", 0))
+            data["planned_amount"] = round(up * qty, 2)
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.project_boq.update_one({"id": boq_item_id}, {"$set": data})
+    return {"message": "تم تعديل بند المقايسة"}
+
+
+@router.put("/boq/{boq_item_id}/executed-qty")
+async def update_executed_qty(
+    boq_item_id: str,
+    data: dict,
+    current_user: dict = Depends(get_user)
+):
+    """تحديث الكمية المنفذة لبند المقايسة عند إعداد المستخلص"""
+    item = await db.project_boq.find_one({"id": boq_item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="البند غير موجود")
+    new_exec_qty = float(data.get("executed_qty", 0))
+    if new_exec_qty < 0:
+        raise HTTPException(status_code=400, detail="الكمية المنفذة لا يمكن أن تكون سالبة")
+    planned = float(item.get("planned_qty", 0))
+    if new_exec_qty > planned * 1.1:  # allow 10% tolerance
+        raise HTTPException(status_code=400,
+            detail=f"الكمية المنفذة ({new_exec_qty}) تتجاوز المخططة ({planned}) بأكثر من 10%")
+    exec_amount = round(new_exec_qty * float(item.get("unit_price", 0)), 2)
+    from datetime import datetime, timezone
+    await db.project_boq.update_one(
+        {"id": boq_item_id},
+        {"$set": {
+            "executed_qty":    new_exec_qty,
+            "executed_amount": exec_amount,
+            "updated_at":      datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    return {
+        "message": "تم تحديث الكمية المنفذة",
+        "executed_qty": new_exec_qty,
+        "executed_amount": exec_amount,
+        "completion_pct": round(new_exec_qty / planned * 100, 1) if planned else 0
+    }
+
+
+@router.delete("/boq/{boq_item_id}")
+async def delete_boq_item(boq_item_id: str, current_user: dict = Depends(get_user)):
+    """حذف بند مقايسة (قبل البدء في التنفيذ فقط)"""
+    item = await db.project_boq.find_one({"id": boq_item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="البند غير موجود")
+    if float(item.get("executed_qty", 0)) > 0:
+        raise HTTPException(status_code=400,
+            detail="لا يمكن حذف بند تم تنفيذ جزء منه")
+    await db.project_boq.delete_one({"id": boq_item_id})
+    return {"message": "تم حذف البند"}
+
+
+# ════════════════════════════════════════════════════════════════
+# PROGRESS CLAIMS STATUS WORKFLOW
+# draft → submitted → approved → paid
+# ════════════════════════════════════════════════════════════════
+
+@router.put("/progress-claims/{claim_id}/status")
+async def update_claim_status(
+    claim_id: str,
+    data: dict,
+    current_user: dict = Depends(get_user)
+):
+    """تحديث حالة المستخلص: draft → submitted → approved → paid"""
+    VALID_TRANSITIONS = {
+        "draft":     ["submitted"],
+        "submitted": ["approved", "draft"],  # can return to draft for correction
+        "approved":  ["paid"],
+        "paid":      [],  # terminal state
+    }
+    claim = await db.progress_claims.find_one(
+        {"id": claim_id, "company_id": current_user.get("company_id")}, {"_id": 0}
+    )
+    if not claim:
+        raise HTTPException(status_code=404, detail="المستخلص غير موجود")
+    
+    current_status = claim.get("status", "draft")
+    new_status     = data.get("status")
+    
+    if new_status not in VALID_TRANSITIONS.get(current_status, []):
+        raise HTTPException(status_code=400,
+            detail=f"لا يمكن الانتقال من '{current_status}' إلى '{new_status}'")
+    
+    from datetime import datetime, timezone
+    update = {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}
+    if new_status == "submitted":
+        update["submitted_by"] = current_user["user_id"]
+        update["submitted_at"] = datetime.now(timezone.utc).isoformat()
+    elif new_status == "approved":
+        update["approved_by"] = current_user["user_id"]
+        update["approved_at"] = datetime.now(timezone.utc).isoformat()
+    elif new_status == "paid":
+        update["paid_by"] = current_user["user_id"]
+        update["paid_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.progress_claims.update_one({"id": claim_id}, {"$set": update})
+    
+    # Update BOQ executed quantities when claim is approved
+    if new_status == "approved":
+        for boq_exec in claim.get("boq_items_executed", []):
+            boq_id   = boq_exec.get("boq_item_id")
+            exec_qty = float(boq_exec.get("executed_qty", 0))
+            if boq_id and exec_qty > 0:
+                item = await db.project_boq.find_one({"id": boq_id}, {"_id": 0})
+                if item:
+                    new_qty    = float(item.get("executed_qty", 0)) + exec_qty
+                    exec_amount = round(new_qty * float(item.get("unit_price", 0)), 2)
+                    await db.project_boq.update_one(
+                        {"id": boq_id},
+                        {"$set": {"executed_qty": new_qty, "executed_amount": exec_amount}}
+                    )
+    
+    return {"message": f"تم تحديث حالة المستخلص إلى '{new_status}'", "status": new_status}
+
+
+@router.get("/progress-claims-list")
+async def list_progress_claims(
+    project_id: str = None,
+    claim_type: str = None,
+    status: str = None,
+    page: int = 1,
+    limit: int = 20,
+    current_user: dict = Depends(get_user)
+):
+    """قائمة المستخلصات مع pagination وفلترة"""
+    q = {"company_id": current_user.get("company_id")}
+    if project_id: q["project_id"] = project_id
+    if claim_type: q["claim_type"]  = claim_type
+    if status:     q["status"]      = status
+    total  = await db.progress_claims.count_documents(q)
+    claims = await db.progress_claims.find(q, {"_id": 0}).sort(
+        "claim_date", -1
+    ).skip((page-1)*limit).limit(limit).to_list(None)
+    
+    total_gross    = sum(c.get("gross_amount",  0) for c in claims)
+    total_vat      = sum(c.get("vat_amount",    0) for c in claims)
+    total_ret      = sum(c.get("retention_amount",        0) for c in claims)
+    total_wht      = sum(c.get("withholding_tax_amount",  0) for c in claims)
+    total_net      = sum(c.get("net_payable",   0) for c in claims)
+    
+    return {
+        "claims": claims, "total": total, "page": page, "limit": limit,
+        "summary": {
+            "total_gross":     round(total_gross, 2),
+            "total_vat":       round(total_vat,   2),
+            "total_retention": round(total_ret,   2),
+            "total_wht":       round(total_wht,   2),
+            "total_net":       round(total_net,   2),
+        }
+    }
+
+
+# ════════════════════════════════════════════════════════════════
 # MEDICAL SERVICES — القطاع الطبي والمستشفيات
 # القيد أ: تقديم خدمة طبية (نقدي + تأمين)
 # القيد ب: سداد أتعاب الأطباء

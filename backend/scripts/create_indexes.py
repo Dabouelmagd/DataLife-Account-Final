@@ -63,8 +63,16 @@ INDEXES = {
         [("is_active", 1)],
         [("subscription_type", 1)],
     ],
-    "progress_claims": [
+        "progress_claims": [
         [("company_id", 1), ("project_id", 1), ("claim_number", 1)],
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("claim_type", 1)],
+        [("project_id", 1), ("claim_number", 1), ("claim_type", 1)],
+        [("company_id", 1), ("partner_id", 1)],
+    ],
+    "project_boq": [
+        [("company_id", 1), ("project_id", 1)],
+        [("project_id", 1), ("item_number", 1)],
     ],
     "payroll_tax_brackets": [
         [("tax_year", 1), ("bracket_order", 1)],
