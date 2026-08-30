@@ -1,14 +1,22 @@
 User-agent: *
 Allow: /
-Allow: /about
+Allow: /guide
+Allow: /login
+Allow: /register
+Allow: /contact
 Allow: /privacy
 Allow: /terms
-Allow: /contact
 Allow: /partners
 
-# Disallow private areas
+# Disallow private/app areas
 Disallow: /dashboard
-Disallow: /api/
 Disallow: /admin/
+Disallow: /api/
+Disallow: /settings
+Disallow: /admin-login
+Disallow: /admin-dashboard
+
+# Crawl delay for bots
+Crawl-delay: 1
 
 Sitemap: https://datalifeaccount.com/sitemap.xml

@@ -1,0 +1,43 @@
+{
+  "short_name": "DataLife",
+  "name": "DataLife Account — نظام ERP متكامل",
+  "description": "نظام ERP سحابي متكامل للشركات المصرية والعربية — محاسبة، HR، فواتير ETA، مبيعات CRM",
+  "icons": [
+    {
+      "src": "/datalife-logo-arabic.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/og-image.jpg",
+      "type": "image/jpeg",
+      "sizes": "1200x630"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#1e3a8a",
+  "background_color": "#0f1729",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": [
+    "business",
+    "finance",
+    "productivity"
+  ],
+  "shortcuts": [
+    {
+      "name": "تسجيل الدخول",
+      "short_name": "دخول",
+      "url": "/login",
+      "description": "تسجيل الدخول لحسابك"
+    },
+    {
+      "name": "تجربة مجانية",
+      "short_name": "جرب",
+      "url": "/register",
+      "description": "ابدأ تجربة مجانية 14 يوم"
+    }
+  ]
+}

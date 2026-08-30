@@ -135,7 +135,7 @@ const LandingPage = () => {
       <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white/90 backdrop-blur-xl shadow-sm border-b border-gray-100' : 'bg-white/50 backdrop-blur-sm'}`} data-testid="navbar">
         <div className="container mx-auto px-4 md:px-8 flex items-center justify-between h-16">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({top:0,behavior:'smooth'})}>
-            <DataLifeLogo size="small" className="h-10" />
+            <DataLifeLogo size="small" className="h-10" aria-label="DataLife Account Logo" />
           </div>
 
           <div className="hidden md:flex items-center gap-6">
@@ -196,7 +196,7 @@ const LandingPage = () => {
             {/* Logo — top right in AR, top left in EN */}
             <div className={`absolute top-0 ${ar ? "right-0" : "left-0"}`}>
               <div className="bg-white rounded-2xl px-5 py-3 shadow-xl">
-                <DataLifeLogo height={56} />
+                <DataLifeLogo height={56} aria-label="DataLife Account" />
               </div>
             </div>
           </div>
@@ -221,7 +221,7 @@ const LandingPage = () => {
             </p>
             <p className="text-base text-blue-200/80 max-w-2xl mx-auto leading-relaxed">
               {ar
-                ? '12 وحدة متكاملة — موارد بشرية، محاسبة، فواتير ETA، مبيعات CRM، ضرائب، مشاريع، أصول ثابتة، تحليلاتريع، تقارير — بالكامل للشركات المصرية'
+                ? '12 وحدة متكاملة — موارد بشرية، محاسبة، فواتير إلكترونية ETA، مبيعات CRM، ضرائب، مشاريع، أصول ثابتة، 15 تقريراً تحليلياً — متوافق مع قانون 148/2019 والفاتورة الإلكترونية المصريةريع، تقارير — بالكامل للشركات المصرية'
                 : '12 modules — HR, Accounting, ETA Invoicing, Sales CRM, Taxes, Projects, Fixed Assets, Analytics Projects, Reports — built for Egyptian businesses'}
             </p>
           </div>
