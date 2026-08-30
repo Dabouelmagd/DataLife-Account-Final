@@ -375,40 +375,82 @@ class InvoiceService:
                 ))
         
         elif doc_type == DocumentType.PURCHASE_INVOICE.value:
-            # فاتورة شراء: المشتريات (مدين) - ضريبة (مدين) - الموردين (دائن)
-            suppliers_acc = find_account("251")   # الموردون
-            purchases_acc = find_account("311")   # تكلفة الخامات والمواد
-            tax_acc = find_account("254")   # الضرائب المستحقة
+            # فاتورة شراء — الدورة المستندية المصرية (مبيعات ومشتريات)
+            # قانون 91/2005 م.59: خصم وتحصيل = 1% توريدات | 3% خدمات
             
+            # حسابات المشتريات
+            suppliers_acc = find_account("251")   # الموردون — دائن
+            purchases_acc = find_account("311")   # مخزون بضاعة / مواد خام — مدين
+            # ✅ VAT مدخلات = أصل (قابل للخصم من VAT مخرجات)
+            vat_in_acc   = find_account("153")    # ضريبة القيمة المضافة مدخلات
+            if not vat_in_acc:
+                vat_in_acc = find_account("254")  # fallback
+            # WHT نستقطعه من المورد ونودعه لمصلحة الضرائب
+            wht_pay_acc  = find_account("261")    # مصلحة الضرائب — خصم وتحصيل مستحق
+            
+            # WHT rate: 1% توريدات بضائع | 3% خدمات
+            p_inv_type   = invoice_extra.get("invoice_type", "goods")
+            p_wht_rate   = 0.03 if p_inv_type in {"services","engineering","consulting"} else 0.01
+            # تطبيق WHT فقط إذا كانت قيمة الشراء > 300 ج.م (حد الإعفاء الضريبي)
+            purchase_base = invoice["total_after_discount"]
+            p_wht_amount  = round(purchase_base * p_wht_rate, 2) if purchase_base > 300 else 0
+            # صافي المستحق للمورد = grand_total - WHT
+            supplier_net  = round(invoice["grand_total"] - p_wht_amount, 2)
+            
+            # ── مدين 1: المخزون / المصروفات ──────────────────────────
             if purchases_acc:
                 lines.append(JournalEntryLine(
                     account_id=purchases_acc["id"],
                     account_code=purchases_acc["account_code"],
                     account_name=purchases_acc["account_name"],
-                    debit=invoice["total_after_discount"],
+                    debit=purchase_base,
                     credit=0,
-                    description=f"مشتريات"
+                    description=f"مشتريات — {invoice['party_name']}"
                 ))
             
-            if tax_acc and invoice["total_tax"] > 0:
+            # ── مدين 2: VAT مدخلات 14% (قابل للخصم) ─────────────────
+            if vat_in_acc and invoice["total_tax"] > 0:
                 lines.append(JournalEntryLine(
-                    account_id=tax_acc["id"],
-                    account_code=tax_acc["account_code"],
-                    account_name=tax_acc["account_name"],
+                    account_id=vat_in_acc["id"],
+                    account_code=vat_in_acc["account_code"],
+                    account_name=vat_in_acc["account_name"],
                     debit=invoice["total_tax"],
                     credit=0,
-                    description=f"ضريبة مدخلات"
+                    description=f"ضريبة القيمة المضافة مدخلات 14% — {invoice['party_name']}"
                 ))
             
+            # ── دائن 1: الموردون (صافي المستحق = grand_total - WHT) ──
             if suppliers_acc:
                 lines.append(JournalEntryLine(
                     account_id=suppliers_acc["id"],
                     account_code=suppliers_acc["account_code"],
                     account_name=suppliers_acc["account_name"],
                     debit=0,
-                    credit=invoice["grand_total"],
-                    description=f"فاتورة شراء {invoice['document_number']} - {invoice['party_name']}"
+                    credit=supplier_net,
+                    description=f"فاتورة شراء {invoice['document_number']} — {invoice['party_name']} (صافي بعد خصم وتحصيل)"
                 ))
+            
+            # ── دائن 2: ضريبة الخصم والتحصيل مستحقة لمصلحة الضرائب ──
+            if wht_pay_acc and p_wht_amount > 0:
+                wht_type_label = "3% خدمات" if p_inv_type in {"services","engineering","consulting"} else "1% توريدات"
+                lines.append(JournalEntryLine(
+                    account_id=wht_pay_acc["id"],
+                    account_code=wht_pay_acc["account_code"],
+                    account_name=wht_pay_acc["account_name"],
+                    debit=0,
+                    credit=p_wht_amount,
+                    description=f"ضريبة خصم وتحصيل {wht_type_label} — {invoice['party_name']}"
+                ))
+        
+        # ── التحقق من توازن القيد (مدين = دائن) ──────────────────
+        total_dr = round(sum(l.debit  for l in lines), 2)
+        total_cr = round(sum(l.credit for l in lines), 2)
+        if abs(total_dr - total_cr) > 0.01:
+            import logging
+            logging.warning(
+                f"Invoice journal imbalance: doc={invoice.get('document_number')} "
+                f"debit={total_dr} credit={total_cr} diff={abs(total_dr-total_cr)}"
+            )
         
         # إنشاء القيد
         entry = JournalEntry(
@@ -426,7 +468,71 @@ class InvoiceService:
         # ترحيل القيد
         await self.accounting.post_journal_entry(result["id"], user_id)
         
+        # ── قيد تكلفة البضاعة المباعة (COGS) — للمبيعات فقط ──────────
+        # من حـ/ تكلفة البضاعة المباعة (م/321) ← إلى حـ/ المخزون (م/131)
+        if doc_type == DocumentType.SALES_INVOICE.value:
+            await self._create_cogs_entry(invoice, user_id)
+        
         return result["id"]
+    
+    async def _create_cogs_entry(self, invoice: dict, user_id: str) -> None:
+        """إنشاء قيد تكلفة البضاعة المباعة عند إصدار فاتورة البيع"""
+        try:
+            accounts = await self.accounting.get_all_accounts(invoice["company_id"])
+            def find_account(code):
+                return next((a for a in accounts if a["account_code"] == code), None)
+            
+            cogs_acc  = find_account("321")   # تكلفة البضاعة المباعة
+            stock_acc = find_account("131")   # المخزون / بضاعة
+            if not stock_acc:
+                stock_acc = find_account("311")  # fallback خامات
+            
+            if not cogs_acc or not stock_acc:
+                return  # Accounts not in chart — skip COGS entry
+            
+            # حساب إجمالي التكلفة من بنود الفاتورة
+            total_cost = 0.0
+            for line in invoice.get("lines", []):
+                qty      = float(line.get("quantity", 0))
+                cost     = float(line.get("unit_cost", 0) or line.get("unit_price", 0) * 0.7)
+                total_cost += qty * cost
+            
+            total_cost = round(total_cost, 2)
+            if total_cost <= 0:
+                return  # No cost to record
+            
+            cogs_lines = [
+                JournalEntryLine(
+                    account_id=cogs_acc["id"],
+                    account_code=cogs_acc["account_code"],
+                    account_name=cogs_acc["account_name"],
+                    debit=total_cost,
+                    credit=0,
+                    description=f"تكلفة البضاعة المباعة — فاتورة {invoice['document_number']}"
+                ),
+                JournalEntryLine(
+                    account_id=stock_acc["id"],
+                    account_code=stock_acc["account_code"],
+                    account_name=stock_acc["account_name"],
+                    debit=0,
+                    credit=total_cost,
+                    description=f"إقفال بضاعة مباعة — فاتورة {invoice['document_number']}"
+                ),
+            ]
+            
+            cogs_entry = JournalEntry(
+                company_id=invoice["company_id"],
+                entry_number=0,
+                entry_date=invoice["document_date"],
+                reference=f"COGS-{invoice['document_number']}",
+                description=f"تكلفة البضاعة المباعة — {invoice['party_name']}",
+                lines=cogs_lines,
+                created_by=user_id
+            )
+            cogs_result = await self.accounting.create_journal_entry(cogs_entry)
+            await self.accounting.post_journal_entry(cogs_result["id"], user_id)
+        except Exception:
+            pass  # COGS is supplementary — never block invoice creation
     
     # ==========================================
     # Payment Operations

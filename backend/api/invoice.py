@@ -93,13 +93,17 @@ class CreateInvoiceRequest(BaseModel):
     adjustments: Optional[List[InvoiceAdjustmentRequest]] = []
     notes: Optional[str] = None
     reference: Optional[str] = None
-    # ── Professional Services / Engineering Fields ──────────
-    # invoice_type: goods | services | engineering | medical | construction
+    # ── Invoice Type + WHT Fields ──────────────────────────
+    # invoice_type: goods | services | engineering | consulting | medical | construction
+    # - goods:       WHT 1% (توريدات) — buyer deducts from payment to supplier
+    # - services:    WHT 3% (خدمات)  — buyer deducts from payment to supplier
+    # - engineering: WHT 5% (مهن حرة) — client deducts from what they pay us
     invoice_type: Optional[str] = "goods"
-    # WHT deducted BY CLIENT (5% خدمات مهنية حرة — قانون 91/2005 م.59)
-    # client_wht_rate: نسبة الخصم والتحصيل المستقطعة من العميل
-    client_wht_rate: Optional[float] = 0.0   # 0.05 for professional services
-    client_wht_amount: Optional[float] = 0.0  # calculated or manual
+    # client_wht_rate: WHT deducted BY CLIENT from sales invoice (مهن حرة)
+    client_wht_rate: Optional[float] = None   # None = auto-detect by invoice_type
+    client_wht_amount: Optional[float] = 0.0
+    # supplier_wht_rate: WHT we deduct FROM SUPPLIER on purchase (توريدات/خدمات)
+    supplier_wht_rate: Optional[float] = None  # None = auto-detect by invoice_type
 
 
 class RecordPaymentRequest(BaseModel):
