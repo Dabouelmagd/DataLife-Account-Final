@@ -222,6 +222,10 @@ class AccountingService:
         if entry.source_document_type not in VALID_SOURCE_TYPES:
             entry.source_document_type = "manual"
         
+        # Populate entry_id on each line (FK equivalent)
+        for line in entry.lines:
+            line.entry_id = entry.id
+        
         entry_dict = entry.dict()
         await self.db.journal_entries.insert_one(entry_dict)
         entry_dict.pop("_id", None)

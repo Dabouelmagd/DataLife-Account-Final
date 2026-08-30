@@ -823,6 +823,24 @@ async def calculate_payroll(
     for emp in employees:
         basic_salary = emp.get("basic_salary", 0)
         
+        # ══ جلب ملف التأمين الضريبي (إن وجد) ══════════════════
+        # employee_tax_insurance_profiles — قانون 148/2019 + 91/2005
+        insurance_profile = await db.employee_insurance_profiles.find_one(
+            {"employee_id": emp["id"], "company_id": company_id}, {"_id": 0}
+        )
+        # أجر الاشتراك التأميني — من الملف أو من الراتب الأساسي
+        insured_salary = (
+            insurance_profile.get("insured_basic_salary") or
+            insurance_profile.get("insured_salary") or
+            basic_salary
+        ) if insurance_profile else basic_salary
+        
+        # البدلات المعفاة + التأمين الطبي الخاص (يُخصمان من الوعاء الضريبي)
+        allowances_exempt   = float(insurance_profile.get("allowances_tax_exempt",   0)) if insurance_profile else 0.0
+        medical_deduction   = float(insurance_profile.get("medical_insurance_deduction", 0)) if insurance_profile else 0.0
+        pension_deduction   = float(insurance_profile.get("pension_deduction",        0)) if insurance_profile else 0.0
+        bank_iban           = insurance_profile.get("bank_account_iban")               if insurance_profile else None
+        
         # ==========================================
         # حساب تأثير الحضور على الراتب
         # ==========================================
@@ -866,7 +884,9 @@ async def calculate_payroll(
         deductions = []
         
         # 1. التأمينات الاجتماعية
-        emp_si, company_si = await calculate_social_insurance(basic_salary, settings)
+        # قانون 148/2019: التأمين على أجر الاشتراك (وليس الراتب الأساسي مباشرة)
+        # استخدام insured_salary من الملف التأميني إن وجد
+        emp_si, company_si = await calculate_social_insurance(insured_salary, settings)
         if emp_si > 0:
             deductions.append(PayrollDeduction(
                 deduction_type=DeductionType.SOCIAL_INSURANCE,
@@ -877,9 +897,15 @@ async def calculate_payroll(
             totals["social_insurance"] += emp_si
         
         # 2. ضريبة كسب العمل
-        # قانون 91/2005 م.38: الوعاء الضريبي = الأجر الشامل - التأمينات الاجتماعية
-        # Social insurance is deducted from taxable income before tax calculation
-        annual_taxable = (gross_salary - emp_si) * 12
+        # قانون 91/2005 م.38: الوعاء الضريبي =
+        #   الأجر الشامل - التأمينات الاجتماعية
+        #                 - البدلات المعفاة ضريبياً
+        #                 - اشتراكات التأمين الطبي الخاص
+        #                 - اشتراكات صندوق المعاشات الخاص
+        annual_taxable = max(
+            (gross_salary - emp_si - allowances_exempt - medical_deduction - pension_deduction) * 12,
+            0
+        )
         monthly_tax = await calculate_income_tax(annual_taxable, settings)
         if monthly_tax > 0:
             deductions.append(PayrollDeduction(
@@ -953,6 +979,10 @@ async def calculate_payroll(
             "deductions": [d.dict() for d in deductions],
             "total_deductions": total_deductions,
             "gross_salary": gross_salary,
+        "insured_salary": insured_salary,          # أجر الاشتراك التأميني
+        "allowances_exempt": allowances_exempt,     # بدلات معفاة ضريبياً
+        "medical_deduction": medical_deduction,    # تأمين طبي خاص
+        "bank_iban": bank_iban,                    # IBAN للصرف
             "net_salary": net_salary,
             # بيانات الحضور
             "attendance_summary": {

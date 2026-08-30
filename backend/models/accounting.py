@@ -103,22 +103,44 @@ class ChartOfAccount(BaseModel):
 
 
 class JournalEntryLine(BaseModel):
-    """سطر في القيد اليومي — Enterprise Double-Entry Ledger"""
-    account_id: str                          # معرف الحساب
-    account_code: str                        # رقم الحساب
-    account_name: str                        # اسم الحساب
-    debit: float = 0.0                       # مدين (DECIMAL 18,4)
-    credit: float = 0.0                      # دائن (DECIMAL 18,4)
-    description: Optional[str] = None        # وصف السطر
-    # ── Enterprise Fields ──
+    """سطر في القيد اليومي — Equivalent to SQL journal_lines table
+    
+    SQL:
+        line_id     BIGINT PK AUTO_INCREMENT  → line_id (uuid)
+        entry_id    FK → journal_entries       → entry_id (set when entry is created)
+        account_id  FK → chart_of_accounts     → account_id
+        debit       DECIMAL(18,4)              → debit: float
+        credit      DECIMAL(18,4)              → credit: float
+        cost_center_id BIGINT NULL             → cost_center_id
+        project_id  BIGINT NULL                → project_id
+        partner_type ENUM(customer/vendor/employee/doctor) → partner_type
+        partner_id  BIGINT NULL                → partner_id
+        line_description VARCHAR(500)          → description
+    """
+    # ── PK equivalent ─────────────────────────────────────────
+    line_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # ── FK: entry_id (set by journal header when saving) ──────
+    entry_id: Optional[str] = None    # populated after JournalEntry.id is assigned
+    # ── Required: account reference ───────────────────────────
+    account_id: str                          # FK → chart_of_accounts.id
+    account_code: str                        # denormalized for performance
+    account_name: str                        # denormalized for display
+    # ── Amounts: DECIMAL(18,4) ────────────────────────────────
+    debit: float = 0.0                       # مدين
+    credit: float = 0.0                      # دائن
+    # ── line_description VARCHAR(500) ─────────────────────────
+    description: Optional[str] = None
+    # ── Enterprise Fields (beyond SQL schema) ─────────────────
     cost_center_id: Optional[str] = None     # مركز التكلفة
-    project_id: Optional[str] = None         # المشروع (للمقاولات والهندسة)
+    project_id: Optional[str] = None         # المشروع
+    # ── partner_type ENUM(customer/vendor/employee/doctor) ────
     partner_type: Optional[str] = None       # customer | vendor | employee | doctor
-    partner_id: Optional[str] = None         # معرف الطرف الخارجي
-    currency_id: Optional[str] = "EGP"      # رمز العملة
-    exchange_rate: float = 1.0               # سعر الصرف مقابل العملة الأساسية
-    debit_foreign: float = 0.0               # المدين بالعملة الأجنبية
-    credit_foreign: float = 0.0             # الدائن بالعملة الأجنبية
+    partner_id: Optional[str] = None         # معرف الطرف
+    # ── Multi-currency ────────────────────────────────────────
+    currency_id: Optional[str] = "EGP"
+    exchange_rate: float = 1.0
+    debit_foreign: float = 0.0
+    credit_foreign: float = 0.0
 
 
 class JournalEntryStatus(str, Enum):

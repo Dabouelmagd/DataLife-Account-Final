@@ -43,28 +43,78 @@ DEFAULT_TAX_BRACKETS_2024 = [
 # 2. Employee Insurance Profile
 # ══════════════════════════════════════════════
 class EmployeeInsuranceProfile(BaseModel):
-    """ملف التأمين الضريبي للموظف — قانون 148/2019"""
+    """ملف التأمين الضريبي للموظف
+    
+    Equivalent to SQL: employee_tax_insurance_profiles
+        employee_id        BIGINT PK          → employee_id
+        national_id        VARCHAR(14) UNIQUE → national_id (validated: 14 digits)
+        is_insured         BOOLEAN            → is_insured
+        insured_salary     DECIMAL(12,2)      → insured_basic_salary (= أجر الاشتراك)
+        gross_salary       DECIMAL(12,2)      → gross_salary
+        allowances_tax_exempt DECIMAL(12,2)  → allowances_tax_exempt
+        medical_insurance_deduction DECIMAL  → medical_insurance_deduction
+        bank_account_iban  VARCHAR(34)        → bank_account_iban (IBAN format)
+    
+    Laws:
+        قانون التأمينات الاجتماعية 148/2019
+        قانون الضريبة على الدخل 91/2005 م.38 (الوعاء الضريبي)
+    """
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    employee_id: str
+    employee_id: str                            # PK (FK → employees)
     company_id: str
-    national_id: str                           # الرقم القومي 14 خانة
-    # أجور التأمين
-    insured_basic_salary: float                # أجر الاشتراك الأساسي (أجر الاشتراك)
-    insured_variable_salary: float = 0.0       # الأجر المتغير للاشتراك
-    gross_salary: float                        # الأجر الشامل الفعلي
-    # إعفاءات ضريبية
-    allowances_tax_exempt: float = 0.0         # البدلات المعفاة ضريبياً
-    medical_insurance_deduction: float = 0.0   # اشتراكات التأمين الطبي الخاص (تُخصم من الوعاء)
-    pension_deduction: float = 0.0             # اشتراكات صندوق المعاشات الخاص
-    # بيانات التحصيل
-    bank_account_iban: Optional[str] = None    # IBAN للتحويل البنكي
+    # ── SQL: national_id VARCHAR(14) UNIQUE ──────────────────
+    national_id: str                            # الرقم القومي — 14 رقم (يُفرض تفرده في DB)
+    # ── SQL: is_insured BOOLEAN ──────────────────────────────
+    is_insured: bool = True                     # هل الموظف مؤمن عليه؟
+    # ── SQL: insured_salary DECIMAL(12,2) ────────────────────
+    # = أجر الاشتراك التأميني (بين الحد الأدنى 1400 والحد الأقصى 12600 ج.م)
+    insured_basic_salary: float = 0.0           # SQL field: insured_salary
+    insured_salary: float = 0.0                 # alias for SQL compatibility
+    insured_variable_salary: float = 0.0        # الأجر المتغير للاشتراك
+    # ── SQL: gross_salary DECIMAL(12,2) ──────────────────────
+    gross_salary: float = 0.0                   # الأجر الشامل الفعلي (للوعاء الضريبي)
+    # ── SQL: allowances_tax_exempt DECIMAL(12,2) ─────────────
+    # بدلات معفاة من الضريبة (مثل: بدل طبيعة العمل، السفر، التمثيل)
+    allowances_tax_exempt: float = 0.0
+    # ── SQL: medical_insurance_deduction DECIMAL(12,2) ───────
+    # اشتراكات التأمين الطبي الخاص — تُخصم من الوعاء الضريبي (م.38 قانون 91/2005)
+    medical_insurance_deduction: float = 0.0
+    # ── Extensions (beyond SQL schema) ───────────────────────
+    pension_deduction: float = 0.0              # اشتراكات صندوق المعاشات الخاص
+    # ── SQL: bank_account_iban VARCHAR(34) ───────────────────
+    # IBAN مصري يبدأ بـ EG ويتكون من 29 رقماً
+    bank_account_iban: Optional[str] = None     # مثال: EG380019000500000000263180002
     bank_name: Optional[str] = None
-    # حالة التأمين
-    is_insured: bool = True                    # هل الموظف مؤمن عليه؟
     insurance_start_date: Optional[str] = None
-    insurance_number: Optional[str] = None     # رقم التأمين الاجتماعي
+    insurance_number: Optional[str] = None      # رقم التأمين الاجتماعي
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: Optional[str] = None
+    
+    def get_taxable_base_monthly(self) -> float:
+        """
+        حساب الوعاء الضريبي الشهري
+        قانون 91/2005 م.38:
+        الوعاء = الأجر الشامل - التأمينات الاجتماعية - البدلات المعفاة - التأمين الطبي الخاص
+        """
+        insured = self.insured_basic_salary or self.insured_salary or self.gross_salary
+        from math import floor
+        si_min, si_max = 1400, 12600
+        insurable = min(max(insured, si_min), si_max)
+        emp_si = round(insurable * 0.11, 2)  # 11% حصة الموظف
+        
+        taxable = (
+            self.gross_salary
+            - emp_si
+            - self.allowances_tax_exempt
+            - self.medical_insurance_deduction
+            - self.pension_deduction
+        )
+        return max(taxable, 0)
+    
+    def get_insurable_salary(self) -> float:
+        """أجر الاشتراك الفعلي (بين الحد الأدنى والأقصى)"""
+        base = self.insured_basic_salary or self.insured_salary or self.gross_salary
+        return min(max(base, 1400), 12600)
 
 
 # ══════════════════════════════════════════════
