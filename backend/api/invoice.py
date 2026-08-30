@@ -90,9 +90,16 @@ class CreateInvoiceRequest(BaseModel):
     currency: str = "EGP"
     payment_terms: str = "cash"
     lines: List[InvoiceLineRequest]
-    adjustments: Optional[List[InvoiceAdjustmentRequest]] = []  # خصومات وإضافات الفاتورة
+    adjustments: Optional[List[InvoiceAdjustmentRequest]] = []
     notes: Optional[str] = None
     reference: Optional[str] = None
+    # ── Professional Services / Engineering Fields ──────────
+    # invoice_type: goods | services | engineering | medical | construction
+    invoice_type: Optional[str] = "goods"
+    # WHT deducted BY CLIENT (5% خدمات مهنية حرة — قانون 91/2005 م.59)
+    # client_wht_rate: نسبة الخصم والتحصيل المستقطعة من العميل
+    client_wht_rate: Optional[float] = 0.0   # 0.05 for professional services
+    client_wht_amount: Optional[float] = 0.0  # calculated or manual
 
 
 class RecordPaymentRequest(BaseModel):
@@ -375,7 +382,13 @@ async def create_invoice(
     company = await db.companies.find_one({"id": current_user["company_id"]})
     company_name = company.get("name", "") if company else ""
     
-    result = await service.create_invoice(invoice, company_name)
+    # Pass WHT and invoice_type to service
+    invoice_extra = {
+        "invoice_type": request.invoice_type or "goods",
+        "client_wht_rate":   request.client_wht_rate or 0.0,
+        "client_wht_amount": request.client_wht_amount or 0.0,
+    }
+    result = await service.create_invoice(invoice, company_name, invoice_extra=invoice_extra)
     return {"message": "تم إنشاء الفاتورة بنجاح", "invoice": result}
 
 

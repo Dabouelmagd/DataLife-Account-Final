@@ -292,23 +292,67 @@ class InvoiceService:
         lines = []
         
         if doc_type == DocumentType.SALES_INVOICE.value:
-            # فاتورة بيع: العملاء (مدين) - المبيعات (دائن) - ضريبة (دائن)
-            customers_acc  = find_account("131")   # العملاء
-            sales_acc      = find_account("411")   # إيراد مبيعات بضائع
-            vat_out_acc    = find_account("260")   # ضريبة القيمة المضافة مخرجات
-            wht_asset_acc  = find_account("138")   # ضريبة الخصم والتحصيل المحتجزة (1%)
-            tax_acc        = find_account("260")   # VAT output (default)
+            # فاتورة بيع — يحدد نوع الخدمة القيد المناسب
+            inv_type    = invoice_extra.get("invoice_type", "goods")
+            wht_rate    = float(invoice_extra.get("client_wht_rate", 0.0))
+            wht_amount  = float(invoice_extra.get("client_wht_amount", 0.0))
             
+            # حساب WHT إن لم يُحدَّد يدوياً
+            if wht_rate > 0 and wht_amount == 0:
+                wht_amount = round(invoice["total_after_discount"] * wht_rate, 2)
+            
+            customers_acc  = find_account("131")   # العملاء — مدينون
+            vat_out_acc    = find_account("260")   # ضريبة القيمة المضافة مخرجات
+            wht_asset_acc  = find_account("138")   # ضريبة الخصم والتحصيل لدى العملاء
+            tax_acc        = vat_out_acc
+            
+            # حساب الإيراد حسب نوع الفاتورة
+            # قانون 91/2005 م.59: المهن الحرة والاستشارات — 5% خصم وتحصيل
+            PROFESSIONAL_TYPES = {"engineering", "consulting", "medical_professional",
+                                   "legal", "accounting", "services"}
+            
+            if inv_type in PROFESSIONAL_TYPES:
+                # ── فاتورة خدمات مهنية / استشارات هندسية ──────────────
+                # م/416 إيرادات استشارات هندسية ومهنية (دليل الحسابات المصري)
+                sales_acc = find_account("416")
+                if not sales_acc:
+                    # م/412 إيراد تقديم خدمات / تشغيل للغير (fallback)
+                    sales_acc = find_account("412")
+                    if not sales_acc:
+                        sales_acc = find_account("411")
+                rev_desc = "إيرادات استشارات هندسية ومهنية — خدمات مهن حرة"
+            else:
+                # ── فاتورة بضائع عادية ─────────────────────────────────
+                # م/411 إيراد مبيعات بضائع
+                sales_acc = find_account("411")
+                rev_desc = "إيرادات مبيعات"
+            
+            # ── مدين 1: العملاء (صافي المطلوب = grand_total - WHT) ────
+            # العميل يدفع: قيمة الفاتورة + VAT - WHT المستقطع
+            net_ar = round(invoice["grand_total"] - wht_amount, 2)
             if customers_acc:
                 lines.append(JournalEntryLine(
                     account_id=customers_acc["id"],
                     account_code=customers_acc["account_code"],
                     account_name=customers_acc["account_name"],
-                    debit=invoice["grand_total"],
+                    debit=net_ar,
                     credit=0,
-                    description=f"فاتورة بيع {invoice['document_number']} - {invoice['party_name']}"
+                    description=f"فاتورة {invoice['document_number']} — {invoice['party_name']} (صافي بعد خصم وتحصيل)"
                 ))
             
+            # ── مدين 2: ضريبة الخصم والتحصيل لدى العملاء (WHT asset) ──
+            # العميل استقطعها — تُعتبر أصلاً ضريبياً قابلاً للخصم لاحقاً
+            if wht_amount > 0 and wht_asset_acc:
+                lines.append(JournalEntryLine(
+                    account_id=wht_asset_acc["id"],
+                    account_code=wht_asset_acc["account_code"],
+                    account_name=wht_asset_acc["account_name"],
+                    debit=wht_amount,
+                    credit=0,
+                    description=f"ضريبة خصم وتحصيل {round(wht_rate*100)}% محتجزة لدى {invoice['party_name']}"
+                ))
+            
+            # ── دائن 1: إيرادات (م/421 خدمات أو م/411 بضائع) ──────────
             if sales_acc:
                 lines.append(JournalEntryLine(
                     account_id=sales_acc["id"],
@@ -316,9 +360,10 @@ class InvoiceService:
                     account_name=sales_acc["account_name"],
                     debit=0,
                     credit=invoice["total_after_discount"],
-                    description=f"إيرادات مبيعات"
+                    description=rev_desc
                 ))
             
+            # ── دائن 2: ضريبة القيمة المضافة 14% مخرجات ───────────────
             if tax_acc and invoice["total_tax"] > 0:
                 lines.append(JournalEntryLine(
                     account_id=tax_acc["id"],
@@ -326,7 +371,7 @@ class InvoiceService:
                     account_name=tax_acc["account_name"],
                     debit=0,
                     credit=invoice["total_tax"],
-                    description=f"ضريبة القيمة المضافة"
+                    description=f"ضريبة القيمة المضافة 14% مخرجات"
                 ))
         
         elif doc_type == DocumentType.PURCHASE_INVOICE.value:
