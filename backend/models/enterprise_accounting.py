@@ -23,20 +23,58 @@ class TaxBracket(BaseModel):
     range_min: float                    # الحد الأدنى للشريحة السنوية
     range_max: Optional[float] = None   # الحد الأقصى (None = لا نهاية)
     rate: float                         # النسبة % (مثال: 0.10 = 10%)
-    bracket_discount: float = 0.0       # الخصم الثابت للشريحة
+    bracket_discount: float = 0.0       # الخصم التراكمي: tax = income*rate - discount
+    description: Optional[str] = None   # وصف الشريحة
     is_active: bool = True
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
-# Default Egyptian brackets per Law 91/2005 + amendments 2023
+# ══════════════════════════════════════════════════════════════════
+# الشرائح الضريبية المصرية — قانون 91/2005 وتعديلاته 2023
+# قابلة للتعديل عبر API دون تغيير الكود (No Hardcoding)
+#
+# طريقة حساب الخصم (bracket_discount):
+#   الضريبة = الدخل السنوي × النسبة − الخصم
+#   مثال: دخل 50,000 → ضريبة = 50,000 × 15% − 5,025 = 2,475
+#
+# Column: bracket_discount = (الحد الأقصى × النسبة) - الضريبة التراكمية
+# This avoids iterating all brackets — O(1) lookup after finding the right bracket
+# ══════════════════════════════════════════════════════════════════
 DEFAULT_TAX_BRACKETS_2024 = [
-    TaxBracket(tax_year=2024, bracket_order=1,  range_min=0,       range_max=21000,   rate=0.0,   bracket_discount=0),
-    TaxBracket(tax_year=2024, bracket_order=2,  range_min=21001,   range_max=30000,   rate=0.025, bracket_discount=0),
-    TaxBracket(tax_year=2024, bracket_order=3,  range_min=30001,   range_max=45000,   rate=0.10,  bracket_discount=0),
-    TaxBracket(tax_year=2024, bracket_order=4,  range_min=45001,   range_max=60000,   rate=0.15,  bracket_discount=0),
-    TaxBracket(tax_year=2024, bracket_order=5,  range_min=60001,   range_max=200000,  rate=0.20,  bracket_discount=0),
-    TaxBracket(tax_year=2024, bracket_order=6,  range_min=200001,  range_max=400000,  rate=0.225, bracket_discount=0),
-    TaxBracket(tax_year=2024, bracket_order=7,  range_min=400001,  range_max=None,    rate=0.275, bracket_discount=0),
+    # order  range_min   range_max   rate    bracket_discount  description
+    TaxBracket(tax_year=2024, bracket_order=1,
+        range_min=0,       range_max=21000,
+        rate=0.000, bracket_discount=0,
+        description="معفاة — ما دون الإعفاء الضريبي الشخصي (21,000 ج.م)"),
+    TaxBracket(tax_year=2024, bracket_order=2,
+        range_min=21001,   range_max=30000,
+        rate=0.025, bracket_discount=525,
+        description="2.5% — الشريحة الأولى (21,001 – 30,000)"),
+    TaxBracket(tax_year=2024, bracket_order=3,
+        range_min=30001,   range_max=45000,
+        rate=0.100, bracket_discount=2775,
+        description="10% — الشريحة الثانية (30,001 – 45,000)"),
+    TaxBracket(tax_year=2024, bracket_order=4,
+        range_min=45001,   range_max=60000,
+        rate=0.150, bracket_discount=5025,
+        description="15% — الشريحة الثالثة (45,001 – 60,000)"),
+    TaxBracket(tax_year=2024, bracket_order=5,
+        range_min=60001,   range_max=200000,
+        rate=0.200, bracket_discount=8025,
+        description="20% — الشريحة الرابعة (60,001 – 200,000)"),
+    TaxBracket(tax_year=2024, bracket_order=6,
+        range_min=200001,  range_max=400000,
+        rate=0.225, bracket_discount=13025,
+        description="22.5% — الشريحة الخامسة (200,001 – 400,000)"),
+    TaxBracket(tax_year=2024, bracket_order=7,
+        range_min=400001,  range_max=None,
+        rate=0.275, bracket_discount=33025,
+        description="27.5% — الشريحة السادسة (>400,000) — تعديل 2023"),
 ]
+
+# السنة الضريبية الحالية
+CURRENT_TAX_YEAR = 2024
+# الإعفاء الشخصي السنوي (ج.م)
+PERSONAL_EXEMPTION = 21000
 
 
 # ══════════════════════════════════════════════

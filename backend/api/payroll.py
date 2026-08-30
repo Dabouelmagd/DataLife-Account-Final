@@ -99,41 +99,92 @@ async def calculate_social_insurance(basic_salary: float, settings: dict) -> tup
     return round(employee_share, 2), round(company_share, 2)
 
 
-async def calculate_income_tax(annual_taxable_income: float, settings: dict) -> float:
-    """حساب ضريبة كسب العمل"""
-    # خصم الإعفاء الشخصي
-    taxable = annual_taxable_income - settings.get("personal_exemption", 15000)
+async def calculate_income_tax(annual_taxable_income: float, settings: dict,
+                               company_id: str = None, tax_year: int = None) -> float:
+    """
+    حساب ضريبة كسب العمل — قانون 91/2005 وتعديلاته
+    
+    الأولوية في قراءة الشرائح:
+    1. DB collection: payroll_tax_brackets (قابل للتعديل بدون كود)
+    2. settings["income_tax_brackets"] (إعدادات الشركة)
+    3. DEFAULT_TAX_BRACKETS_2024 (الافتراضي)
+    
+    الحساب: tax = annual_income × rate - bracket_discount
+    (O(1) بعد إيجاد الشريحة الصحيحة)
+    """
+    if tax_year is None:
+        tax_year = settings.get("tax_year", 2024)
+    
+    # ── 1. الإعفاء الشخصي (21,000 ج.م بعد تعديل 2023) ──────────
+    personal_exemption = settings.get("personal_exemption", 21000)
+    taxable = annual_taxable_income - personal_exemption
     if taxable <= 0:
-        return 0
+        return 0.0
     
-    brackets = settings.get("income_tax_brackets", [
-        {"from": 0, "to": 15000, "rate": 0},
-        {"from": 15000, "to": 30000, "rate": 2.5},
-        {"from": 30000, "to": 45000, "rate": 10},
-        {"from": 45000, "to": 60000, "rate": 15},
-        {"from": 60000, "to": 200000, "rate": 20},
-        {"from": 200000, "to": 400000, "rate": 22.5},
-        {"from": 400000, "to": float('inf'), "rate": 25}
-    ])
+    # ── 2. جلب الشرائح من DB أولاً ──────────────────────────────
+    db_brackets = None
+    if company_id:
+        try:
+            db_brackets = await db.payroll_tax_brackets.find(
+                {"tax_year": tax_year, "is_active": True,
+                 "$or": [{"company_id": company_id}, {"company_id": None}]},
+                {"_id": 0}
+            ).sort("bracket_order", 1).to_list(length=10)
+        except Exception:
+            db_brackets = None
     
-    total_tax = 0
-    remaining = taxable
+    if not db_brackets:
+        # ── 3. Fallback: settings → DEFAULT ──────────────────────
+        settings_brackets = settings.get("income_tax_brackets")
+        if settings_brackets:
+            db_brackets = [{"range_min": b.get("from", 0),
+                            "range_max": b.get("to"),
+                            "rate":      b.get("rate", 0) / 100,  # convert % to decimal
+                            "bracket_discount": 0}
+                           for b in settings_brackets]
+        else:
+            from models.enterprise_accounting import DEFAULT_TAX_BRACKETS_2024
+            db_brackets = [b.dict() for b in DEFAULT_TAX_BRACKETS_2024]
     
-    for bracket in brackets:
-        if remaining <= 0:
+    # ── 4. Seed DB if empty (first run) ──────────────────────────
+    if company_id and not await db.payroll_tax_brackets.count_documents(
+            {"tax_year": tax_year, "company_id": None}):
+        from models.enterprise_accounting import DEFAULT_TAX_BRACKETS_2024
+        import uuid as _uuid
+        for b in DEFAULT_TAX_BRACKETS_2024:
+            d = b.dict(); d["id"] = str(_uuid.uuid4())
+            await db.payroll_tax_brackets.insert_one(d)
+    
+    # ── 5. Find the correct bracket and compute tax ───────────────
+    annual_tax = 0.0
+    remaining  = taxable
+    
+    for b in db_brackets:
+        b_min  = float(b.get("range_min", 0))
+        b_max  = b.get("range_max")
+        b_max  = float(b_max) if b_max is not None else float("inf")
+        rate   = float(b.get("rate", 0))  # already decimal (0.025 not 2.5)
+        disc   = float(b.get("bracket_discount", 0))
+        
+        if taxable < b_min:
+            break  # income below this bracket
+        
+        if b_max == float("inf") or taxable <= b_max:
+            # ── O(1) calculation using bracket_discount ──────────
+            if disc > 0:
+                annual_tax = taxable * rate - disc
+            else:
+                # Standard iterative for zero-discount brackets
+                bracket_amt = min(remaining, b_max - b_min)
+                annual_tax += bracket_amt * rate
+                remaining  -= bracket_amt
             break
-        
-        bracket_start = bracket.get("from", 0)
-        bracket_end = bracket.get("to", float('inf'))
-        rate = bracket.get("rate", 0) / 100
-        
-        bracket_amount = min(remaining, bracket_end - bracket_start)
-        if bracket_amount > 0:
-            total_tax += bracket_amount * rate
-            remaining -= bracket_amount
+        else:
+            bracket_amt = b_max - b_min
+            annual_tax += bracket_amt * rate
+            remaining  -= bracket_amt
     
-    # الضريبة الشهرية
-    monthly_tax = total_tax / 12
+    monthly_tax = max(annual_tax, 0) / 12
     return round(monthly_tax, 2)
 
 
@@ -906,7 +957,11 @@ async def calculate_payroll(
             (gross_salary - emp_si - allowances_exempt - medical_deduction - pension_deduction) * 12,
             0
         )
-        monthly_tax = await calculate_income_tax(annual_taxable, settings)
+        monthly_tax = await calculate_income_tax(
+            annual_taxable, settings,
+            company_id=company_id,
+            tax_year=settings.get("tax_year", 2024)
+        )
         if monthly_tax > 0:
             deductions.append(PayrollDeduction(
                 deduction_type=DeductionType.INCOME_TAX,
