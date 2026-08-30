@@ -19,6 +19,7 @@ class Company(BaseModel):
     commercial_register: Optional[str] = None
     description: Optional[str] = None
     logo_url: Optional[str] = None  # Company logo URL
+    industry_addons: Optional[List[dict]] = []  # Paid industry specializations [{key, name, name_ar, price, activated_at}]
     trial_id: Optional[str] = None  # Link to trial if converted from trial
     subscription_status: str = "active"  # trial, active, expired
     subscription_code: Optional[str] = None  # Subscription code

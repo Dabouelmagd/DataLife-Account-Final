@@ -450,6 +450,15 @@ const CompanySettings = () => {
           />
         )}
 
+        {activeTab === 'industry' && (
+          <IndustryAddonsTab
+            language={language}
+            company={company}
+            user={user}
+            onRefresh={fetchCompanyData}
+          />
+        )}
+
         {activeTab === 'language' && (
           <LanguageTab
             language={language}
@@ -496,5 +505,158 @@ const CompanySettings = () => {
     </>
   );
 };
+
+
+// ── INDUSTRY ADDONS TAB ─────────────────────────────────────────────────
+const API = process.env.REACT_APP_BACKEND_URL || '';
+
+const ADDON_CATALOG = [
+  { key: 'ads',           name: 'شركات الإعلانات',       name_en: 'Advertising',     icon: '📢', price: 299, tags: ['إدارة الحملات', 'شراء الوسائط', 'المؤثرون'] },
+  { key: 'construction',  name: 'المقاولات والإنشاءات',  name_en: 'Construction',    icon: '🏗️', price: 399, tags: ['BOQ', 'إدارة المواقع', 'المعدات'] },
+  { key: 'manufacturing', name: 'المصانع والإنتاج',      name_en: 'Manufacturing',   icon: '🏭', price: 599, tags: ['أوامر إنتاج', 'BOM', 'مراقبة الجودة'] },
+  { key: 'medical',       name: 'الطبية والصيدليات',     name_en: 'Medical',         icon: '🏥', price: 349, tags: ['المرضى', 'الوصفات', 'مخزون أدوية'] },
+  { key: 'real_estate',   name: 'العقارات',              name_en: 'Real Estate',     icon: '🏠', price: 299, tags: ['إدارة وحدات', 'إيجار', 'حجوزات'] },
+  { key: 'restaurants',   name: 'المطاعم والضيافة',     name_en: 'Restaurants',     icon: '🍽️', price: 249, tags: ['إدارة طاولات', 'KDS مطبخ', 'توصيل'] },
+  { key: 'education',     name: 'التعليم والمدارس',     name_en: 'Education',       icon: '🎓', price: 199, tags: ['الطلاب', 'الرسوم', 'جداول'] },
+  { key: 'retail',        name: 'التجزئة والمتاجر',     name_en: 'Retail',          icon: '🛒', price: 249, tags: ['POS', 'باركود', 'نقاط ولاء'] },
+  { key: 'logistics',     name: 'اللوجستيات والشحن',    name_en: 'Logistics',       icon: '🚚', price: 399, tags: ['أسطول', 'شحنات', 'جمارك'] },
+];
+
+function IndustryAddonsTab({ language, company, user, onRefresh }) {
+  const ar = language === 'ar';
+  const [loading, setLoading] = React.useState(false);
+  const [msg, setMsg] = React.useState(null);
+  const active = company?.industry_addons || [];
+  const activeKeys = active.map(a => a.key);
+  const token = localStorage.getItem('token');
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+  const addAddon = async (addonKey, addonName) => {
+    if (!window.confirm(ar
+      ? `هل تريد إضافة تخصص "${addonName}"؟ سيُضاف سعره على فاتورتك الشهرية.`
+      : `Add "${addonName}" industry addon? Its price will be added to your monthly invoice.`
+    )) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/api/companies/${company.id}/addons`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ addon_key: addonKey })
+      });
+      const d = await res.json();
+      if (res.ok) { setMsg({ type: 'success', text: d.message || '✅ تم إضافة التخصص' }); onRefresh?.(); }
+      else setMsg({ type: 'error', text: d.detail || 'خطأ' });
+    } catch { setMsg({ type: 'error', text: 'خطأ في الاتصال' }); }
+    setLoading(false);
+    setTimeout(() => setMsg(null), 3000);
+  };
+
+  const removeAddon = async (addonKey, addonName) => {
+    if (!window.confirm(ar ? `إزالة تخصص "${addonName}"؟` : `Remove "${addonName}"?`)) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/api/companies/${company.id}/addons/${addonKey}`, { method: 'DELETE', headers });
+      if (res.ok) { setMsg({ type: 'success', text: '✅ تم إزالة التخصص' }); onRefresh?.(); }
+    } catch {}
+    setLoading(false);
+    setTimeout(() => setMsg(null), 3000);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5">
+        <h2 className="text-lg font-bold text-amber-900 mb-1">{ar ? '🏭 التخصصات القطاعية' : '🏭 Industry Add-ons'}</h2>
+        <p className="text-sm text-amber-700">
+          {ar
+            ? 'أضف تخصصات قطاعية لتوسيع النظام — تظهر في الشريط الجانبي فور الإضافة وتُحتسب على الفاتورة الشهرية'
+            : 'Add industry modules to extend the system — appears in sidebar immediately and billed monthly'}
+        </p>
+      </div>
+
+      {msg && (
+        <div className={`p-3 rounded-xl text-sm border ${msg.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          {msg.text}
+        </div>
+      )}
+
+      {/* Active Addons */}
+      {active.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-gray-800 mb-3">{ar ? 'التخصصات المفعّلة' : 'Active Add-ons'}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {active.map(a => {
+              const info = ADDON_CATALOG.find(c => c.key === a.key);
+              return (
+                <div key={a.key} className="flex items-center gap-3 p-4 bg-white border-2 border-amber-200 rounded-xl shadow-sm">
+                  <span className="text-2xl">{info?.icon || '🔷'}</span>
+                  <div className="flex-1">
+                    <div className="font-bold text-gray-900">{ar ? a.name_ar : a.name}</div>
+                    <div className="text-xs text-amber-600 font-semibold">+ {a.price} {ar ? 'ج.م / شهر' : 'EGP/mo'}</div>
+                    <div className="text-xs text-gray-400">{ar ? 'مفعّل منذ' : 'Since'}: {new Date(a.activated_at).toLocaleDateString('ar-EG')}</div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">{ar ? 'مفعّل ✓' : 'Active ✓'}</span>
+                    <button onClick={() => removeAddon(a.key, ar ? a.name_ar : a.name)}
+                      className="text-xs text-red-500 hover:text-red-700 mt-1">
+                      {ar ? 'إزالة' : 'Remove'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Available Addons */}
+      <div>
+        <h3 className="font-semibold text-gray-800 mb-3">{ar ? 'التخصصات المتاحة' : 'Available Add-ons'}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {ADDON_CATALOG.map(addon => {
+            const isActive = activeKeys.includes(addon.key);
+            return (
+              <div key={addon.key}
+                className={`p-4 rounded-xl border-2 transition-all ${isActive ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:border-amber-200'}`}>
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-2xl">{addon.icon}</span>
+                  {isActive && <span className="bg-amber-200 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">{ar ? 'مفعّل' : 'Active'}</span>}
+                </div>
+                <div className="font-bold text-gray-900 mb-1">{ar ? addon.name : addon.name_en}</div>
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {addon.tags.map(t => (
+                    <span key={t} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{t}</span>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="font-black text-amber-600">+ {addon.price} <span className="text-xs font-normal text-gray-500">{ar ? 'ج.م/شهر' : 'EGP/mo'}</span></div>
+                  {!isActive ? (
+                    <button onClick={() => addAddon(addon.key, ar ? addon.name : addon.name_en)}
+                      disabled={loading}
+                      className="px-3 py-1.5 bg-[#1e3a8a] text-white rounded-lg text-xs font-bold hover:bg-[#1e40af] disabled:opacity-50">
+                      {ar ? '+ إضافة' : '+ Add'}
+                    </button>
+                  ) : (
+                    <button onClick={() => removeAddon(addon.key, ar ? addon.name : addon.name_en)}
+                      disabled={loading}
+                      className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100">
+                      {ar ? 'إزالة' : 'Remove'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Pricing note */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+        <strong>{ar ? '💡 كيف يعمل؟' : '💡 How it works?'}</strong><br/>
+        {ar
+          ? 'تُضاف التخصصات فوراً للشريط الجانبي · سعرها يُضاف على فاتورتك الشهرية · يمكن إضافة أكثر من تخصص'
+          : 'Add-ons appear in the sidebar immediately · Price is added to your monthly invoice · Multiple add-ons supported'}
+      </div>
+    </div>
+  );
+}
 
 export default CompanySettings;

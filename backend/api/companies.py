@@ -207,3 +207,94 @@ async def update_company(
     
     company = await db.companies.find_one({"id": company_id}, {"_id": 0})
     return company
+
+
+# ── INDUSTRY ADDONS ─────────────────────────────────────────────────────
+
+INDUSTRY_ADDONS_CATALOG = {
+    "ads":           {"name": "Advertising",      "name_ar": "الإعلانات",          "price": 299},
+    "construction":  {"name": "Construction",      "name_ar": "المقاولات",           "price": 399},
+    "manufacturing": {"name": "Manufacturing",     "name_ar": "المصانع والإنتاج",    "price": 599},
+    "medical":       {"name": "Medical",           "name_ar": "الطبية والصيدليات",  "price": 349},
+    "real_estate":   {"name": "Real Estate",       "name_ar": "العقارات",            "price": 299},
+    "restaurants":   {"name": "Restaurants",       "name_ar": "المطاعم والضيافة",   "price": 249},
+    "education":     {"name": "Education",         "name_ar": "التعليم والمدارس",   "price": 199},
+    "retail":        {"name": "Retail",            "name_ar": "التجزئة والمتاجر",   "price": 249},
+    "logistics":     {"name": "Logistics",         "name_ar": "اللوجستيات والشحن",  "price": 399},
+}
+
+@router.get("/addons/catalog")
+async def get_addons_catalog():
+    """List all available industry addons"""
+    return {"addons": [{"key": k, **v} for k, v in INDUSTRY_ADDONS_CATALOG.items()]}
+
+@router.get("/{company_id}/addons")
+async def get_company_addons(company_id: str, authorization: Optional[str] = Header(None)):
+    """Get active industry addons for a company"""
+    user = await get_current_user(authorization)
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return {"addons": company.get("industry_addons", [])}
+
+@router.post("/{company_id}/addons")
+async def add_industry_addon(
+    company_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Add an industry specialization addon to a company"""
+    user = await get_current_user(authorization)
+    addon_key = data.get("addon_key")
+    if not addon_key or addon_key not in INDUSTRY_ADDONS_CATALOG:
+        raise HTTPException(status_code=400, detail="Invalid addon key")
+    
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Check not already added
+    existing = company.get("industry_addons", [])
+    if any(a["key"] == addon_key for a in existing):
+        raise HTTPException(status_code=400, detail="Addon already active")
+    
+    addon_info = INDUSTRY_ADDONS_CATALOG[addon_key]
+    new_addon = {
+        "key": addon_key,
+        "name": addon_info["name"],
+        "name_ar": addon_info["name_ar"],
+        "price": addon_info["price"],
+        "activated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$push": {"industry_addons": new_addon},
+         "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # Log the addon
+    await db.activity_logs.insert_one({
+        "company_id": company_id,
+        "user_id": user.get("user_id"),
+        "action": "add_industry_addon",
+        "details": f"Added industry addon: {addon_info['name_ar']}",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"success": True, "addon": new_addon, "message": f"تم إضافة تخصص {addon_info['name_ar']} بنجاح"}
+
+@router.delete("/{company_id}/addons/{addon_key}")
+async def remove_industry_addon(
+    company_id: str,
+    addon_key: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Remove an industry specialization addon"""
+    user = await get_current_user(authorization)
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$pull": {"industry_addons": {"key": addon_key}},
+         "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"success": True, "message": "تم إزالة التخصص"}
