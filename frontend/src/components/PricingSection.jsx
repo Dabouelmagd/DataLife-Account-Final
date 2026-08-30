@@ -334,7 +334,7 @@ const PricingSection = () => {
 
       {/* ── Tabs ── */}
       <div style={{ display:'flex', justifyContent:'center', gap:4, marginBottom:32, background:'#f1f5f9', borderRadius:12, padding:4, width:'fit-content', margin:'0 auto 32px' }}>
-        {[['plans', ar?'خطط التسعير':'Pricing Plans'], ['compare', ar?'مقارنة تفصيلية':'Feature Comparison'], ['faq', ar?'الأسئلة الشائعة':'FAQ']].map(([id, label]) => (
+        {[['plans', ar?'خطط التسعير':'Pricing Plans'], ['compare', ar?'مقارنة تفصيلية':'Feature Comparison'], ['industry', ar?'🏭 التخصصات':'🏭 Industry Add-ons'], ['faq', ar?'الأسئلة الشائعة':'FAQ']].map(([id, label]) => (
           <button key={id} className={`tab-btn ${activeTab===id?'tab-active':'tab-inactive'}`} onClick={() => setActiveTab(id)}>{label}</button>
         ))}
       </div>
@@ -468,6 +468,84 @@ const PricingSection = () => {
             </button>
           </div>
         </>
+      )}
+
+
+      {/* ══════════════════ INDUSTRY TAB ══════════════════ */}
+      {activeTab === 'industry' && (
+        <div style={{ maxWidth:860, margin:'0 auto' }}>
+          {/* Header */}
+          <div style={{ textAlign:'center', marginBottom:28, padding:'20px 24px', background:'linear-gradient(135deg,#fef3c7,#fde68a)', borderRadius:16, border:'1px solid #f59e0b' }}>
+            <div style={{ fontSize:28, marginBottom:8 }}>🏭</div>
+            <h3 style={{ fontSize:20, fontWeight:800, color:'#92400e', margin:'0 0 6px' }}>{ar?'إضافات قطاعية — يُضاف على خطتك':'Industry Add-ons — Stacked on Your Plan'}</h3>
+            <p style={{ fontSize:13, color:'#78350f', margin:0 }}>{ar?'النظام الأساسي يشمل كل الوحدات · التخصصات القطاعية إضافات اختيارية تُضاف على فاتورتك الشهرية · يمكن اختيار أكثر من تخصص':'Base system includes all modules · Industry add-ons are optional · Billed monthly on top of your plan'}</p>
+          </div>
+
+          {/* Addons grid */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:16, marginBottom:28 }}>
+            {[
+              { key:'ads',          icon:'📢', name:ar?'شركات الإعلانات':'Advertising',       price:299, tags:ar?['إدارة الحملات','شراء الوسائط','المؤثرون']:['Campaigns','Media Buying','Influencers'] },
+              { key:'construction', icon:'🏗️', name:ar?'المقاولات والإنشاءات':'Construction', price:399, tags:ar?['BOQ','إدارة المواقع','المعدات']:['BOQ','Site Mgmt','Equipment'] },
+              { key:'manufacturing',icon:'🏭', name:ar?'المصانع والإنتاج':'Manufacturing',    price:599, tags:ar?['أوامر إنتاج','BOM','مراقبة الجودة']:['Production Orders','BOM','QC'] },
+              { key:'medical',      icon:'🏥', name:ar?'الطبية والصيدليات':'Medical',         price:349, tags:ar?['المرضى','الوصفات','مخزون أدوية']:['Patients','Prescriptions','Drug Stock'] },
+              { key:'real_estate',  icon:'🏠', name:ar?'العقارات':'Real Estate',              price:299, tags:ar?['إدارة وحدات','إيجار','حجوزات']:['Units','Rental','Bookings'] },
+              { key:'restaurants',  icon:'🍽️', name:ar?'المطاعم والضيافة':'Restaurants',     price:249, tags:ar?['إدارة طاولات','KDS مطبخ','توصيل']:['Tables','KDS','Delivery'] },
+              { key:'education',    icon:'🎓', name:ar?'التعليم والمدارس':'Education',        price:199, tags:ar?['الطلاب','الرسوم','جداول']:['Students','Fees','Schedules'] },
+              { key:'retail',       icon:'🛒', name:ar?'التجزئة والمتاجر':'Retail',           price:249, tags:ar?['POS','باركود','نقاط ولاء']:['POS','Barcode','Loyalty'] },
+              { key:'logistics',    icon:'🚚', name:ar?'اللوجستيات والشحن':'Logistics',       price:399, tags:ar?['أسطول','شحنات','جمارك']:['Fleet','Shipments','Customs'] },
+            ].map(addon => (
+              <div key={addon.key} style={{ border:'2px solid #e2e8f0', borderRadius:14, padding:'16px', background:'#fff', position:'relative', overflow:'hidden' }}>
+                <div style={{ position:'absolute', top:10, left:ar?'auto':10, right:ar?10:'auto', background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:8, padding:'2px 8px', fontSize:10, color:'#92400e', fontWeight:700 }}>+ {ar?'إضافة':'Add-on'}</div>
+                <div style={{ fontSize:28, marginBottom:8 }}>{addon.icon}</div>
+                <div style={{ fontWeight:800, fontSize:14, color:'#0f1729', marginBottom:6 }}>{addon.name}</div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginBottom:10 }}>
+                  {addon.tags.map(t => <span key={t} style={{ background:'#f1f5f9', color:'#475569', borderRadius:20, padding:'2px 8px', fontSize:10 }}>{t}</span>)}
+                </div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span style={{ fontSize:20, fontWeight:900, color:'#f59e0b' }}>+{addon.price} <span style={{ fontSize:11, fontWeight:400, color:'#94a3b8' }}>{ar?'ج.م/شهر':'EGP/mo'}</span></span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Price calculator */}
+          <div style={{ background:'linear-gradient(135deg,#0f1729,#1e3a8a)', borderRadius:20, padding:'28px 24px', color:'#fff' }}>
+            <h4 style={{ textAlign:'center', fontWeight:800, fontSize:17, marginBottom:20 }}>🧮 {ar?'احسب سعرك':'Build Your Price'}</h4>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+              <div>
+                <div style={{ fontSize:12, color:'#94a3b8', marginBottom:10, fontWeight:600 }}>{ar?'اختر خطتك:':'Base Plan:'}</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {[
+                    { id:'starter', name:ar?'⚡ الأساسية':'⚡ Starter', price:299 },
+                    { id:'professional', name:ar?'⭐ الاحترافية':'⭐ Professional', price:799 },
+                    { id:'enterprise', name:ar?'👑 المؤسسية':'👑 Enterprise', price:1499 },
+                  ].map(p => (
+                    <button key={p.id} onClick={() => setActiveTab('plans')}
+                      style={{ padding:'10px 14px', borderRadius:10, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.05)', color:'#fff', textAlign:'start', cursor:'pointer', display:'flex', justifyContent:'space-between' }}>
+                      <span style={{ fontWeight:700, fontSize:13 }}>{p.name}</span>
+                      <span style={{ color:'#94a3b8', fontSize:12 }}>{p.price} {ar?'ج.م':'EGP'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize:12, color:'#94a3b8', marginBottom:10, fontWeight:600 }}>{ar?'مثال — الاحترافية + مقاولات + طبية:':'Example — Pro + Construction + Medical:'}</div>
+                <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:12, padding:'16px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8, fontSize:13 }}><span>⭐ {ar?'الاحترافية':'Professional'}</span><span>799</span></div>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8, fontSize:13 }}><span>🏗️ {ar?'مقاولات':'Construction'}</span><span>+ 399</span></div>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12, fontSize:13 }}><span>🏥 {ar?'طبية':'Medical'}</span><span>+ 349</span></div>
+                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.15)', paddingTop:10, display:'flex', justifyContent:'space-between' }}>
+                    <span style={{ fontWeight:700 }}>{ar?'الإجمالي':'Total'}</span>
+                    <span style={{ fontSize:22, fontWeight:900, color:'#f59e0b' }}>1,547 <span style={{ fontSize:12, color:'#94a3b8' }}>{ar?'ج.م/شهر':'EGP/mo'}</span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p style={{ textAlign:'center', fontSize:11, color:'#64748b', marginTop:16 }}>
+              💡 {ar?'تظهر التخصصات في الشريط الجانبي فور التفعيل · يمكن إضافة أكثر من تخصص · تُضاف على الفاتورة الشهرية':'Add-ons appear in sidebar immediately · Multiple add-ons supported · Billed monthly'}
+            </p>
+          </div>
+        </div>
       )}
 
       {/* ══════════════════ COMPARE TAB ══════════════════ */}

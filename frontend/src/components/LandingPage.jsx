@@ -92,6 +92,14 @@ const LandingPage = () => {
     { icon: Upload, color: 'bg-sky-500', title: ar ? 'استيراد البيانات' : 'Data Import',
       desc: ar ? 'استيراد بيانات الموظفين والعملاء والمنتجات من ملفات Excel' : 'Import employees, customers & products from Excel files',
       features: ar ? ['استيراد الموظفين','استيراد العملاء','استيراد المنتجات'] : ['Import Employees','Import Customers','Import Products'] },
+    { icon: Zap, color: 'bg-amber-500', title: ar ? 'الضرائب والاستقطاعات' : 'Tax Calculators',
+      desc: ar ? 'حاسبات ضريبية متوافقة مع القانون المصري — ضريبة المرتبات + VAT 14% + خصم وإضافة' : 'Egyptian tax calculators — Payroll tax, VAT 14%, Withholding tax per Law 91/2005',
+      features: ar ? ['ضريبة المرتبات — شرائح 2024','VAT 14% (شامل/غير شامل)','الخصم والإضافة 7 أنواع','تكلفة صاحب العمل'] : ['Payroll Tax 2024 Brackets','VAT 14% incl/excl','Withholding 7 types','Employer cost calc'],
+    },
+    { icon: Building2, color: 'bg-slate-500', title: ar ? 'الأصول الثابتة' : 'Fixed Assets',
+      desc: ar ? 'تسجيل وإدارة الأصول الثابتة مع احتساب الإهلاك التلقائي وجداول الإهلاك السنوية' : 'Register and manage fixed assets with automatic depreciation schedules',
+      features: ar ? ['تسجيل الأصول','إهلاك تلقائي','جدول إهلاك سنوي','معدلات قابلة للضبط'] : ['Asset Registration','Auto Depreciation','Annual Schedule','Adjustable Rates'],
+    },
     { icon: TrendingUp, color: 'bg-orange-500', title: ar ? 'المبيعات وإدارة العملاء CRM' : 'Sales & CRM',
       desc: ar ? 'نظام مبيعات شامل — عروض أسعار، فواتير مبيعات، إدارة العملاء CRM، اشتراكات العملاء، تحويل عرض سعر لفاتورة بنقرة، وقيود محاسبية تلقائية' : 'Complete sales system — quotations, sales invoices, customer CRM, subscriptions, convert quote to invoice, auto accounting entries',
       features: ar ? ['إدارة العملاء CRM (Lead→VIP)','عروض الأسعار + صلاحية','فواتير المبيعات','تسجيل الدفعات الجزئية','تحويل عرض → فاتورة','اشتراكات دورية تلقائية','قيود محاسبية تلقائية','تتبع الرصيد المستحق','تقارير المبيعات'] : ['Customer CRM (Lead→VIP)','Quotations + Validity','Sales Invoices','Partial Payment Tracking','Convert Quote → Invoice','Auto Recurring Subscriptions','Auto Accounting Entries','Outstanding Balance Tracking','Sales Reports'] },
@@ -213,8 +221,8 @@ const LandingPage = () => {
             </p>
             <p className="text-base text-blue-200/80 max-w-2xl mx-auto leading-relaxed">
               {ar
-                ? '9 وحدات متكاملة — موارد بشرية، محاسبة، فواتير، مشتريات، مبيعات CRM، مشاريع، تقارير — بالكامل للشركات المصرية'
-                : '9 integrated modules — HR, Accounting, Invoicing, Purchases, Sales CRM, Projects, Reports — built for Egyptian businesses'}
+                ? '12 وحدة متكاملة — موارد بشرية، محاسبة، فواتير ETA، مبيعات CRM، ضرائب، مشاريع، أصول ثابتة، تحليلاتريع، تقارير — بالكامل للشركات المصرية'
+                : '12 modules — HR, Accounting, ETA Invoicing, Sales CRM, Taxes, Projects, Fixed Assets, Analytics Projects, Reports — built for Egyptian businesses'}
             </p>
           </div>
 
@@ -234,10 +242,10 @@ const LandingPage = () => {
           {/* Stats bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/10 rounded-2xl overflow-hidden mb-0">
             {[
-              { value: '9',          label: ar ? 'وحدات متكاملة' : 'Modules' },
-              { value: '108',        label: ar ? 'حساب محاسبي' : 'Chart Accounts' },
+              { value: '12+',         label: ar ? 'وحدة متكاملة' : 'Modules' },
+              { value: '15+',         label: ar ? 'تقريراً تحليلياً' : 'Analytics Reports' },
               { value: ar?'14 يوم':'14 Days', label: ar ? 'تجربة مجانية' : 'Free Trial' },
-              { value: ar?'مصري':'Egyptian', label: ar ? 'قانون 148/2019' : 'Law 148/2019' },
+              { value: '400+',        label: ar ? 'مسار API' : 'API Routes' },
             ].map((s, i) => (
               <div key={i} className="bg-white/5 backdrop-blur-sm text-center py-5 px-4">
                 <div className="text-2xl font-black text-white">{s.value}</div>
