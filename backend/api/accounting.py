@@ -34,6 +34,9 @@ class CreateAccountRequest(BaseModel):
     parent_account_id: Optional[str] = None
     opening_balance: float = 0.0
     description: Optional[str] = None
+    is_reconciliation: bool = False   # يحتاج تسوية (بنوك/عملاء/موردون)
+    currency_id: str = "EGP"          # العملة
+    allow_posting: bool = True         # يقبل قيوداً (False للحسابات التجميعية)
 
 
 class UpdateAccountRequest(BaseModel):
@@ -70,17 +73,92 @@ class CreateFiscalYearRequest(BaseModel):
 @router.get("/accounts")
 async def get_accounts(
     active_only: bool = Query(True, description="Only active accounts"),
+    account_type: Optional[str] = Query(None, description="Filter by type"),
+    is_reconciliation: Optional[bool] = Query(None),
+    allow_posting: Optional[bool] = Query(None),
     current_user: dict = Depends(get_current_user),
-    
 ):
-    """الحصول على جميع الحسابات"""
+    """الحصول على جميع الحسابات مع فلترة متقدمة"""
     service = AccountingService(db)
-    
-    # تهيئة دليل الحسابات إذا لم يكن موجوداً
     await service.initialize_chart_of_accounts(current_user["company_id"])
-    
     accounts = await service.get_all_accounts(current_user["company_id"], active_only)
+    
+    # Apply filters
+    if account_type:
+        accounts = [a for a in accounts if a.get("account_type") == account_type]
+    if is_reconciliation is not None:
+        accounts = [a for a in accounts if a.get("is_reconciliation") == is_reconciliation]
+    if allow_posting is not None:
+        accounts = [a for a in accounts if a.get("allow_posting", True) == allow_posting]
+    
     return {"accounts": accounts, "total": len(accounts)}
+
+
+@router.get("/accounts/tree")
+async def get_accounts_tree(
+    active_only: bool = Query(True),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    الحصول على دليل الحسابات كشجرة هرمية (Self-Referencing Tree)
+    كل حساب يحمل: account_code, name, type, level, children[]
+    """
+    service = AccountingService(db)
+    await service.initialize_chart_of_accounts(current_user["company_id"])
+    accounts = await service.get_all_accounts(current_user["company_id"], active_only)
+    
+    # ── Build tree from flat list ─────────────────────────────────
+    # Map by id for O(1) lookup
+    acc_map = {a["id"]: {**a, "children": [], "level": 0} for a in accounts}
+    roots   = []
+    
+    for a in acc_map.values():
+        parent_id = a.get("parent_account_id")
+        if parent_id and parent_id in acc_map:
+            acc_map[parent_id]["children"].append(a)
+        else:
+            roots.append(a)  # root account (no parent)
+    
+    # ── Assign levels recursively ──────────────────────────────────
+    def assign_levels(node, level=1):
+        node["level"] = level
+        # طبيعة الحساب (مدين/دائن) حسب النوع
+        from models.accounting import AccountType, get_account_nature
+        try:
+            at = AccountType(node.get("account_type", "asset"))
+            node["normal_balance"] = node.get("normal_balance") or get_account_nature(at)
+        except Exception:
+            node["normal_balance"] = "debit"
+        # is_posting = no children means it accepts postings
+        node["allow_posting"] = node.get("allow_posting", True)
+        for child in node["children"]:
+            assign_levels(child, level + 1)
+    
+    for root in roots:
+        assign_levels(root, 1)
+    
+    # Sort by account_code at each level
+    def sort_tree(nodes):
+        nodes.sort(key=lambda x: x.get("account_code", ""))
+        for node in nodes:
+            sort_tree(node["children"])
+    
+    sort_tree(roots)
+    
+    total_leaf   = sum(1 for a in accounts if not any(
+        b.get("parent_account_id") == a["id"] for b in accounts))
+    reconcil_acc = [a for a in accounts if a.get("is_reconciliation")]
+    
+    return {
+        "tree": roots,
+        "summary": {
+            "total_accounts": len(accounts),
+            "root_accounts": len(roots),
+            "leaf_accounts": total_leaf,
+            "reconciliation_accounts": len(reconcil_acc),
+            "reconciliation_codes": [a["account_code"] for a in reconcil_acc]
+        }
+    }
 
 
 @router.get("/accounts/{account_id}")

@@ -19,9 +19,12 @@ INDEXES = {
         [("source_document_type", 1), ("source_document_id", 1)],
     ],
     "chart_of_accounts": [
-        [("company_id", 1), ("account_code", 1)],
+        [("company_id", 1), ("account_code", 1)],   # UNIQUE per company
         [("company_id", 1), ("account_type", 1)],
         [("company_id", 1), ("is_active", 1)],
+        [("company_id", 1), ("parent_account_id", 1)],   # tree traversal
+        [("company_id", 1), ("is_reconciliation", 1)],   # filter reconciliation accounts
+        [("company_id", 1), ("allow_posting", 1)],        # filter postable accounts
     ],
     "general_ledger": [
         [("company_id", 1), ("account_id", 1), ("entry_date", -1)],

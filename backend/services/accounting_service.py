@@ -35,16 +35,39 @@ class AccountingService:
                 return True
             
             # إنشاء الحسابات الافتراضية
+            # حسابات تحتاج تسوية دورية (بنوك / عملاء / موردون / ضرائب)
+            RECONCILIATION_CODES = {
+                "112","113","114",          # بنوك
+                "131","132","133","134",    # ذمم مدينة
+                "161",                      # الخزينة
+                "212","251","252","253",    # موردون وأرصدة دائنة
+                "220","221",               # أجور مستحقة
+                "260","261","262",         # ضرائب مستحقة
+                "264",                     # أمانات
+            }
+            # حسابات تجميعية لا تقبل قيوداً مباشرة
+            HEADER_CODES = {"1","11","12","13","14","15","2","21","22","3","4","41","42","5","51","52"}
+            
             accounts = []
             for acc in DEFAULT_ACCOUNTS:
+                code = acc["code"]
+                acc_type = acc["type"]
+                # طبيعة الحساب (مدين/دائن)
+                debit_types = {AccountType.ASSET, AccountType.EXPENSE,
+                               AccountType.CONTRA_LIABILITY, AccountType.CONTRA_EQUITY}
+                normal_bal = "debit" if acc_type in debit_types else "credit"
+                
                 account = ChartOfAccount(
                     company_id=company_id,
-                    account_code=acc["code"],
+                    account_code=code,
                     account_name=acc["name"],
                     account_name_en=acc.get("name_en"),
-                    account_type=acc["type"],
+                    account_type=acc_type,
                     account_category=acc["category"],
                     is_system=acc.get("is_system", False),
+                    is_reconciliation=code in RECONCILIATION_CODES,
+                    allow_posting=code not in HEADER_CODES,
+                    normal_balance=normal_bal,
                     description=f"{'حساب رئيسي تجميعي' if acc.get('is_header') else 'حساب فرعي يقبل حركات'}"
                 )
                 account_dict = account.dict()

@@ -64,17 +64,37 @@ class AccountCategory(str, Enum):
 
 
 class ChartOfAccount(BaseModel):
-    """دليل الحسابات - Chart of Accounts"""
+    """دليل الحسابات - Chart of Accounts (Egyptian Standard)
+    
+    Equivalent to SQL:
+    CREATE TABLE chart_of_accounts (
+        account_id     PK (uuid),
+        account_code   UNIQUE NOT NULL,
+        account_name   NOT NULL,        -- account_name (ar)
+        account_name_en,
+        parent_id      SELF-REF FK,    -- parent_account_id
+        account_type   ENUM(5),
+        is_reconciliation BOOLEAN,     -- يحتاج تسوية (بنوك، عملاء، موردون)
+        is_active      BOOLEAN,
+        currency_id    INT              -- دعم متعدد العملات
+    )
+    """
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     company_id: str
-    account_code: str               # رقم الحساب (مثل 1001)
-    account_name: str               # اسم الحساب
-    account_name_en: Optional[str] = None  # الاسم بالإنجليزية
-    account_type: AccountType       # نوع الحساب
-    account_category: AccountCategory  # تصنيف الحساب
-    parent_account_id: Optional[str] = None  # الحساب الأب (للحسابات الفرعية)
+    account_code: str               # رقم الحساب (مثل 1001) — UNIQUE per company
+    account_name: str               # اسم الحساب بالعربية
+    account_name_en: Optional[str] = None  # اسم الحساب بالإنجليزية
+    account_type: AccountType       # نوع الحساب (asset/liability/equity/revenue/expense)
+    account_category: AccountCategory  # تصنيف تفصيلي
+    parent_account_id: Optional[str] = None  # الحساب الأب — Self-Referencing FK
+    # ── الحقول المطلوبة لاكتمال المعيار ──────────────────────────
+    is_reconciliation: bool = False  # يحتاج تسوية دورية (بنوك/عملاء/موردون/خزينة)
+    currency_id: str = "EGP"         # العملة الافتراضية — لدعم متعدد العملات
+    # ──────────────────────────────────────────────────────────────
     is_active: bool = True
     is_system: bool = False         # حساب نظام لا يمكن حذفه
+    allow_posting: bool = True      # يقبل قيوداً مباشرة (False للحسابات التجميعية)
+    normal_balance: Optional[str] = None  # "debit" أو "credit" — طبيعة الحساب
     opening_balance: float = 0.0    # الرصيد الافتتاحي
     current_balance: float = 0.0    # الرصيد الحالي
     description: Optional[str] = None
