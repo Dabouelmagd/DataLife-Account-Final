@@ -63,6 +63,72 @@ INDEXES = {
     "app_updates": [
         [("is_active", 1), ("created_at", -1)],
     ],
+    # ── HR & Finance collections ───────────────────────
+    "attendance": [
+        [("company_id", 1), ("date", -1)],
+        [("company_id", 1), ("employee_id", 1), ("date", -1)],
+        [("company_id", 1), ("status", 1)],
+    ],
+    "leaves": [
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("employee_id", 1)],
+        [("company_id", 1), ("start_date", -1)],
+    ],
+    "allowances": [
+        [("company_id", 1), ("employee_id", 1)],
+        [("company_id", 1), ("is_active", 1)],
+    ],
+    "deductions": [
+        [("company_id", 1), ("employee_id", 1)],
+        [("company_id", 1), ("is_active", 1)],
+    ],
+    "treasury": [
+        [("company_id", 1), ("transaction_date", -1)],
+        [("company_id", 1), ("type", 1)],
+    ],
+    "bank": [
+        [("company_id", 1), ("transaction_date", -1)],
+        [("company_id", 1), ("account_id", 1), ("transaction_date", -1)],
+    ],
+    # ── Sales & CRM ───────────────────────────────────
+    "sales_quotations": [
+        [("company_id", 1), ("date", -1)],
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("customer_name", 1)],
+    ],
+    "sales_subscriptions": [
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("customer_id", 1)],
+        [("company_id", 1), ("next_billing_date", 1)],
+    ],
+    "sales_invoices": [
+        [("company_id", 1), ("invoice_date", -1)],
+        [("company_id", 1), ("status", 1)],
+    ],
+    # ── Audit & Activity ──────────────────────────────
+    "activity_logs": [
+        [("company_id", 1), ("created_at", -1)],
+        [("user_id", 1), ("created_at", -1)],
+        [("action", 1), ("created_at", -1)],
+    ],
+    "admin_audit_logs": [
+        [("created_at", -1)],
+        [("user_id", 1), ("created_at", -1)],
+    ],
+    # ── Projects & Assets ─────────────────────────────
+    "projects": [
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("created_at", -1)],
+    ],
+    "fixed_assets": [
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("asset_type", 1)],
+    ],
+    "purchases": [
+        [("company_id", 1), ("order_date", -1)],
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("supplier_id", 1)],
+    ],
 }
 
 async def create_indexes():

@@ -1,9 +1,20 @@
+from fastapi.responses import JSONResponse
 from fastapi import APIRouter, HTTPException, Header
 from typing import Optional
 from services.auth_service import verify_token
 from database import db
 from datetime import datetime, timedelta
+import asyncio
 from collections import defaultdict
+
+
+# ── Cache helper for analytics responses ───────────────
+def cached_response(data: dict, max_age: int = 300) -> JSONResponse:
+    """Return analytics data with 5-minute browser cache (300s default)"""
+    return JSONResponse(
+        content=data,
+        headers={"Cache-Control": f"private, max-age={max_age}, stale-while-revalidate=60"}
+    )
 
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
@@ -108,11 +119,13 @@ async def get_financial_analytics(
     company_id = user_data.get("company_id")
     
     # Get all financial data
-    journal_entries = await db.journal_entries.find({"company_id": company_id}).to_list(length=None)
-    treasury_transactions = await db.treasury.find({"company_id": company_id}).to_list(length=None)
-    bank_transactions = await db.bank.find({"company_id": company_id}).to_list(length=None)
-    customers = await db.customers.find({"company_id": company_id}).to_list(length=None)
-    suppliers = await db.suppliers.find({"company_id": company_id}).to_list(length=None)
+    journal_entries, treasury_transactions, bank_transactions, customers, suppliers = await asyncio.gather(
+        db.journal_entries.find({"company_id": company_id}).to_list(length=None),
+        db.treasury.find({"company_id": company_id}).to_list(length=None),
+        db.bank.find({"company_id": company_id}).to_list(length=None),
+        db.customers.find({"company_id": company_id}).to_list(length=None),
+        db.suppliers.find({"company_id": company_id}).to_list(length=None),
+    )
     
     # Calculate revenue by month
     revenue_by_month = defaultdict(float)
@@ -187,12 +200,14 @@ async def get_hr_analytics(
     
     company_id = user_data.get("company_id")
     
-    # Get all HR data
-    employees = await db.employees.find({"company_id": company_id}).to_list(length=None)
-    allowances = await db.allowances.find({"company_id": company_id}).to_list(length=None)
-    deductions = await db.deductions.find({"company_id": company_id}).to_list(length=None)
-    leaves = await db.leaves.find({"company_id": company_id}).to_list(length=None)
-    attendance = await db.attendance.find({"company_id": company_id}).to_list(length=None)
+    # Get all HR data in PARALLEL
+    employees, allowances, deductions, leaves, attendance = await asyncio.gather(
+        db.employees.find({"company_id": company_id}).to_list(length=None),
+        db.allowances.find({"company_id": company_id}).to_list(length=None),
+        db.deductions.find({"company_id": company_id}).to_list(length=None),
+        db.leaves.find({"company_id": company_id}).to_list(length=None),
+        db.attendance.find({"company_id": company_id}).to_list(length=None),
+    )
     
     # Employees by department
     department_count = defaultdict(int)

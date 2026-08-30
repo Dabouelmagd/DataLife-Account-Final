@@ -226,12 +226,30 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup_event():
-    """Start scheduler on application startup"""
+    """Start scheduler + ensure DB indexes on startup"""
+    # ── 1. Start job scheduler ────────────────────────
     try:
         start_scheduler()
         logger.info("Scheduler started successfully")
     except Exception as e:
         logger.error(f"Failed to start scheduler: {e}")
+    
+    # ── 2. Ensure DB indexes exist (background, non-blocking) ──
+    try:
+        from scripts.create_indexes import INDEXES
+        import asyncio
+        async def _ensure_indexes():
+            for collection, indexes in INDEXES.items():
+                col = db[collection]
+                for idx in indexes:
+                    try:
+                        await col.create_index(idx, background=True)
+                    except Exception:
+                        pass
+        asyncio.create_task(_ensure_indexes())
+        logger.info("Database index creation scheduled")
+    except Exception as e:
+        logger.warning(f"Index creation skipped: {e}")
 
 
 @app.get("/api/scheduler/status")

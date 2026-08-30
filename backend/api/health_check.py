@@ -54,11 +54,19 @@ async def detailed_health_check():
     """Detailed system health check"""
     results = {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat(), "checks": {}, "summary": {"total": 0, "passed": 0, "failed": 0, "warn": 0}}
 
-    # 1. Database
+    # 1. Database + connection pool
     try:
         start = time.time()
         await db.command("ping")
-        results["checks"]["database"] = {"status": "ok", "latency_ms": round((time.time() - start) * 1000, 1)}
+        # Get pool stats
+        from database import client as mongo_client
+        pool_info = {}
+        try:
+            server_info = await mongo_client.server_info()
+            pool_info = {"server_version": server_info.get("version", "unknown")}
+        except Exception:
+            pass
+        results["checks"]["database"] = {"status": "ok", "pool": pool_info, "latency_ms": round((time.time() - start) * 1000, 1)}
     except Exception as e:
         results["checks"]["database"] = {"status": "fail", "error": str(e)}
 
