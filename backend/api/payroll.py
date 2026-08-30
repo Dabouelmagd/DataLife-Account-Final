@@ -3,7 +3,7 @@ Payroll API with Accounting Integration
 واجهة الرواتب المتكاملة مع المحاسبة
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Response
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
@@ -694,7 +694,7 @@ async def get_payroll_runs(
         "month", -1
     ).to_list(length=None)
     
-    return {"payroll_runs": runs}
+    return {"payroll_runs": runs, "total": total, "page": page, "limit": limit, "pages": -(-total // limit)}
 
 
 @router.get("/runs/{run_id}")
@@ -1821,3 +1821,115 @@ async def pay_with_method(
     # Now trigger normal pay flow
     from fastapi import BackgroundTasks
     return await pay_payroll(run_id, default_method, current_user)
+
+
+@router.get("/runs/{run_id}/export/csv")
+async def export_payroll_csv(
+    run_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """تصدير كشف الرواتب بصيغة CSV متوافق مع Excel"""
+    run = await db.payroll_runs.find_one(
+        {"id": run_id, "company_id": current_user["company_id"]}, {"_id": 0}
+    )
+    if not run:
+        raise HTTPException(status_code=404, detail="Payroll run not found")
+
+    import csv, io
+    output = io.StringIO()
+    output.write("\ufeff")  # UTF-8 BOM for Arabic in Excel
+    fieldnames = [
+        "اسم الموظف", "الوظيفة", "القسم", "الراتب الأساسي",
+        "البدلات", "الخصومات", "التأمينات", "ضريبة الدخل", "صافي الراتب", "طريقة الصرف"
+    ]
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    for emp in run.get("employees", []):
+        writer.writerow({
+            "اسم الموظف": emp.get("employee_name", ""),
+            "الوظيفة": emp.get("job_title", ""),
+            "القسم": emp.get("department", ""),
+            "الراتب الأساسي": emp.get("basic_salary", 0),
+            "البدلات": emp.get("total_allowances", 0),
+            "الخصومات": emp.get("total_deductions", 0),
+            "التأمينات": emp.get("social_insurance", 0),
+            "ضريبة الدخل": emp.get("income_tax", 0),
+            "صافي الراتب": emp.get("net_salary", 0),
+            "طريقة الصرف": emp.get("payment_method", "بنك"),
+        })
+    month_str = f"{run.get('year', '')}-{run.get('month', '')}"
+    return Response(
+        content=output.getvalue().encode("utf-8-sig"),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="payroll_{month_str}.csv"'}
+    )
+
+
+@router.get("/runs/{run_id}/export/excel")
+async def export_payroll_excel(
+    run_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """تصدير كشف الرواتب بصيغة Excel (.xlsx) مع تنسيق عربي"""
+    run = await db.payroll_runs.find_one(
+        {"id": run_id, "company_id": current_user["company_id"]}, {"_id": 0}
+    )
+    if not run:
+        raise HTTPException(status_code=404, detail="Payroll run not found")
+
+    import io, xlsxwriter
+    output = io.BytesIO()
+    wb = xlsxwriter.Workbook(output, {"in_memory": True})
+    ws = wb.add_worksheet("كشف الرواتب")
+    ws.right_to_left()
+
+    hdr = wb.add_format({"bold": True, "bg_color": "#1e3a8a", "font_color": "white",
+                          "align": "center", "border": 1, "font_name": "Arial"})
+    num = wb.add_format({"num_format": "#,##0.00", "border": 1, "font_name": "Arial"})
+    txt = wb.add_format({"border": 1, "font_name": "Arial"})
+    tot = wb.add_format({"bold": True, "bg_color": "#dbeafe", "num_format": "#,##0.00",
+                          "border": 1, "font_name": "Arial"})
+
+    headers = ["#", "اسم الموظف", "الوظيفة", "القسم", "الراتب الأساسي",
+               "البدلات", "الخصومات", "التأمينات", "ضريبة الدخل", "صافي الراتب"]
+    widths   = [5,    25,           18,         15,       15,
+                12,       12,          12,          12,            15]
+    for c, (h, w) in enumerate(zip(headers, widths)):
+        ws.write(0, c, h, hdr)
+        ws.set_column(c, c, w)
+
+    keys = ["basic_salary","total_allowances","total_deductions","social_insurance","income_tax","net_salary"]
+    totals = {k: 0 for k in keys}
+    for row, emp in enumerate(run.get("employees", []), 1):
+        ws.write(row, 0, row, txt)
+        ws.write(row, 1, emp.get("employee_name", ""), txt)
+        ws.write(row, 2, emp.get("job_title", ""), txt)
+        ws.write(row, 3, emp.get("department", ""), txt)
+        ws.write(row, 4, emp.get("basic_salary", 0), num)
+        ws.write(row, 5, emp.get("total_allowances", 0), num)
+        ws.write(row, 6, emp.get("total_deductions", 0), num)
+        ws.write(row, 7, emp.get("social_insurance", 0), num)
+        ws.write(row, 8, emp.get("income_tax", 0), num)
+        ws.write(row, 9, emp.get("net_salary", 0), num)
+        for k in keys:
+            totals[k] += emp.get(k, 0)
+
+    last = len(run.get("employees", [])) + 1
+    ws.write(last, 0, "الإجمالي", tot)
+    ws.write(last, 1, run.get("total_employees", ""), tot)
+    ws.write(last, 2, "", tot)
+    ws.write(last, 3, "", tot)
+    ws.write(last, 4, totals["basic_salary"], tot)
+    ws.write(last, 5, totals["total_allowances"], tot)
+    ws.write(last, 6, totals["total_deductions"], tot)
+    ws.write(last, 7, totals["social_insurance"], tot)
+    ws.write(last, 8, totals["income_tax"], tot)
+    ws.write(last, 9, totals["net_salary"], tot)
+    wb.close()
+
+    month_str = f"{run.get('year', '')}-{run.get('month', '')}"
+    return Response(
+        content=output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="payroll_{month_str}.xlsx"'}
+    )

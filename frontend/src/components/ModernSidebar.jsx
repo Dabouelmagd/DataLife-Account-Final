@@ -25,7 +25,9 @@ const ModernSidebar = ({
   setActiveInvoiceSubModule,
   onLogout,
   navigate,
-  company
+  company,
+  sidebarOpen = false,
+  setSidebarOpen
 }) => {
   const isRTL = language === 'ar';
   const [expandedMenus, setExpandedMenus] = useState({});
@@ -260,7 +262,8 @@ const ModernSidebar = ({
 
   return (
     <aside 
-      className={`fixed top-0 ${isRTL ? 'right-0' : 'left-0'} h-screen w-[260px] z-50 transition-colors duration-300`}
+      className={`fixed top-0 ${isRTL ? 'right-0' : 'left-0'} h-screen w-[260px] z-50 tran
+        ${sidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full lg:translate-x-0' : '-translate-x-full lg:translate-x-0')}sition-colors duration-300`}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       {/* Background */}
@@ -269,12 +272,20 @@ const ModernSidebar = ({
       {/* Content */}
       <div className="relative h-full flex flex-col z-10">
         
-        {/* DataLife Account Logo */}
+        {/* DataLife Account Logo + Mobile Close */}
         <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-center">
           <img src="/datalife-logo-arabic.svg" alt="DataLife Account"
             className="h-8 object-contain"
             onError={e => { e.target.onerror=null; e.target.style.display='none'; }}
           />
+          {setSidebarOpen && (
+            <button onClick={() => setSidebarOpen(false)}
+              className="lg:hidden ml-auto p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Company Logo + User Section */}
@@ -416,6 +427,7 @@ const ModernSidebar = ({
                   <button
                     onClick={() => {
                       setActiveModule(module.id);
+                      setSidebarOpen?.(false); // close on mobile
                       if (hasSubModules) toggleMenu(module.id);
                       if (module.id === 'hr') { setActiveHRSubModule?.(null); setActiveFinancialSubModule?.(null); setActiveInvoiceSubModule?.(null); }
                       else if (module.id === 'financial') { setActiveFinancialSubModule?.(null); setActiveHRSubModule?.(null); setActiveInvoiceSubModule?.(null); }

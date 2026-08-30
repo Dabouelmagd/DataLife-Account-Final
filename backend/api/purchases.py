@@ -106,6 +106,8 @@ async def create_purchase_order(
 async def get_purchase_orders(
     status: Optional[str] = None,
     supplier_id: Optional[str] = None,
+    page: int = 1,
+    limit: int = 25,
     authorization: Optional[str] = Header(None)
 ):
     """Get all purchase orders"""
@@ -118,7 +120,7 @@ async def get_purchase_orders(
     if supplier_id:
         query["supplier_id"] = supplier_id
     
-    orders = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(length=None)
+    orders = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).skip((page-1)*limit).limit(limit).to_list(length=None)
     
     return orders
 

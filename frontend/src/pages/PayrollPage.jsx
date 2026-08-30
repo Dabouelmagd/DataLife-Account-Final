@@ -1106,7 +1106,7 @@ export default function PayrollPage() {
                       ⬇️ {language === 'ar' ? 'تحميل CSV للبنك' : 'Download CSV'}
                     </button>
                   </div>
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto -mx-2 px-2"><table className="w-full text-sm min-w-[600px]">
                     <thead className="bg-gray-50 text-xs text-gray-600">
                       <tr>
                         <th className="text-start px-3 py-2">{language === 'ar' ? 'الموظف' : 'Employee'}</th>
@@ -1148,7 +1148,7 @@ export default function PayrollPage() {
                         <td className="px-3 py-2 text-end font-bold text-emerald-700">{bankReport.summary?.total_net?.toLocaleString()} ج</td>
                       </tr>
                     </tfoot>
-                  </table>
+                  </table></div>
                 </div>
 
                 {/* Footer actions */}

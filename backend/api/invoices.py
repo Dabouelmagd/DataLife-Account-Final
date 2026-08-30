@@ -172,6 +172,8 @@ async def get_invoices(
     customer_id: Optional[str] = None,
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
+    page: int = 1,
+    limit: int = 25,
     authorization: Optional[str] = Header(None)
 ):
     """Get all invoices with filters"""
@@ -195,7 +197,7 @@ async def get_invoices(
     invoices = await db.invoices.find(
         query, 
         {"_id": 0}
-    ).sort("created_at", -1).to_list(length=None)
+    ).sort("created_at", -1).skip((page-1)*limit).limit(limit).to_list(length=None)
     
     return invoices
 

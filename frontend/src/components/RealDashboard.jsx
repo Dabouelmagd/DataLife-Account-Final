@@ -31,6 +31,7 @@ const RealDashboard = () => {
   
   // Module states
   const [activeModule, setActiveModule] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sidebar toggle
   const [idleWarning, setIdleWarning] = useState(false);
 
   // Auto logout after 30 min idle — financial data protection
@@ -195,11 +196,29 @@ const RealDashboard = () => {
         onLogout={handleLogout}
         navigate={navigate}
         company={company}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
       />
 
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col overflow-y-auto ${isRTL ? 'mr-72' : 'ml-72'}`}>
-        <div className="flex-1 p-6">
+      <div className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300
+        ${isRTL ? 'lg:mr-[260px]' : 'lg:ml-[260px]'}`}>
+        {/* Mobile header with hamburger */}
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <img src="/datalife-logo-arabic.svg" alt="DataLife" className="h-7 object-contain" />
+        </div>
+        <div className="flex-1 p-4 md:p-6">
           {/* Back Button */}
           {activeModule !== 'dashboard' && (
             <button
