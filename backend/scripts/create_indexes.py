@@ -143,6 +143,19 @@ INDEXES = {
     "fixed_assets": [
         [("company_id", 1), ("status", 1)],
         [("company_id", 1), ("asset_type", 1)],
+        [("company_id", 1), ("asset_code", 1)],
+        [("company_id", 1), ("commissioning_date", -1)],
+    ],
+    "depreciation_entries": [
+        [("company_id", 1), ("period", -1)],
+        [("company_id", 1), ("asset_id", 1), ("period", 1)],
+    ],
+    "asset_disposals": [
+        [("company_id", 1), ("disposal_date", -1)],
+        [("company_id", 1), ("asset_id", 1)],
+    ],
+    "asset_counters": [
+        [("company_id", 1), ("asset_type", 1)],
     ],
     "purchases": [
         [("company_id", 1), ("order_date", -1)],
@@ -173,6 +186,7 @@ UNIQUE_INDEXES = {
     "employee_insurance_profiles": [("national_id", 1)],
     "users":                       [("email", 1)],
     "journal_counters":            [("company_id", 1)],
+    "asset_counters":              [("company_id", 1), ("asset_type", 1)],
 }
 
 

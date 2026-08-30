@@ -37,6 +37,7 @@ from api.contact import router as contact_router
 from api.permissions import router as permissions_router
 from api.import_data import router as import_data_router
 from api.accounting import router as accounting_router
+from api.fixed_assets import router as fixed_assets_router
 from api.invoice import router as invoice_router
 from api.inventory_pro import router as inventory_pro_router
 from api.payroll import router as payroll_router
@@ -147,6 +148,7 @@ app.include_router(contact_router)
 app.include_router(permissions_router)
 app.include_router(import_data_router)
 app.include_router(accounting_router)
+app.include_router(fixed_assets_router)
 app.include_router(invoice_router)
 app.include_router(inventory_pro_router)
 app.include_router(payroll_router)
