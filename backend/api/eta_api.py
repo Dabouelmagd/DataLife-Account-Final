@@ -452,9 +452,13 @@ async def submit_invoice_to_eta(
                         {"id": request.invoice_id},
                         {"$set": {
                             "eta_submission_uuid": response_data.get("submissionUUID"),
-                            "eta_document_uuid": doc.get("uuid"),
-                            "eta_long_id": doc.get("longId"),
-                            "eta_status": "submitted"
+                            "eta_submission_id":   response_data.get("submissionUUID"),  # SQL field alias
+                            "eta_uuid":            doc.get("uuid"),   # SQL: eta_uuid (document UUID)
+                            "eta_document_uuid":   doc.get("uuid"),
+                            "eta_long_id":         doc.get("longId"),
+                            "eta_hash_key":        doc.get("hashKey"),
+                            "eta_status":          "Submitted",       # SQL: eta_status (TitleCase)
+                            "eta_submission_date": datetime.now(timezone.utc).isoformat(),
                         }}
                     )
                 elif rejected_docs:
@@ -702,6 +706,127 @@ async def get_eta_submissions(
         "limit": limit,
         "total_pages": (total + limit - 1) // limit
     }
+
+
+@router.put("/cancel/{invoice_id}")
+async def cancel_invoice_on_eta(
+    invoice_id: str,
+    reason: str = "إلغاء الفاتورة",
+    current_user: dict = Depends(get_current_user)
+):
+    """إلغاء فاتورة على منظومة ETA — SQL: eta_status = 'Cancelled'"""
+    company_id = current_user["company_id"]
+    invoice = await db.invoices.find_one({"id": invoice_id, "company_id": company_id}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+    
+    doc_uuid = invoice.get("eta_uuid") or invoice.get("eta_document_uuid")
+    if not doc_uuid:
+        raise HTTPException(status_code=400, detail="الفاتورة لم تُرسل إلى ETA بعد")
+    
+    current_eta_status = invoice.get("eta_status", "")
+    if current_eta_status in ("Cancelled", "cancelled"):
+        raise HTTPException(status_code=400, detail="الفاتورة ملغاة بالفعل")
+    if current_eta_status not in ("Valid", "Submitted", "submitted", "valid"):
+        raise HTTPException(status_code=400,
+            detail=f"لا يمكن إلغاء فاتورة بحالة '{current_eta_status}'")
+    
+    settings = await db.company_eta_settings.find_one({"company_id": company_id}, {"_id": 0})
+    if not settings:
+        raise HTTPException(status_code=400, detail="إعدادات ETA غير مكتملة")
+    
+    try:
+        token = await get_eta_token(company_id, settings)
+        base_url = get_eta_base_url(settings.get("environment", "preproduction"))
+        
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.put(
+                f"{base_url}/documents/state/{doc_uuid}/state",
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json"},
+                json={"status": "cancelled", "reason": reason}
+            )
+        
+        if response.status_code in (200, 202):
+            await db.invoices.update_one(
+                {"id": invoice_id},
+                {"$set": {
+                    "eta_status":         "Cancelled",   # SQL: eta_status = 'Cancelled'
+                    "eta_cancelled_date": datetime.now(timezone.utc).isoformat(),
+                    "status":             "cancelled",
+                }}
+            )
+            return {"message": "تم إلغاء الفاتورة على منظومة ETA", "eta_status": "Cancelled"}
+        else:
+            raise HTTPException(status_code=response.status_code,
+                detail=f"خطأ من ETA: {response.text[:200]}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"خطأ في الاتصال بـ ETA: {str(e)}")
+
+
+@router.post("/sync-status/{invoice_id}")
+async def sync_eta_status(
+    invoice_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """مزامنة حالة الفاتورة من ETA — يُحدِّث eta_status في قاعدة البيانات"""
+    company_id = current_user["company_id"]
+    invoice = await db.invoices.find_one({"id": invoice_id, "company_id": company_id}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+    
+    doc_uuid = invoice.get("eta_uuid") or invoice.get("eta_document_uuid")
+    if not doc_uuid:
+        return {"message": "الفاتورة لم تُرسل إلى ETA", "eta_status": "Pending"}
+    
+    settings = await db.company_eta_settings.find_one({"company_id": company_id}, {"_id": 0})
+    
+    try:
+        token = await get_eta_token(company_id, settings)
+        base_url = get_eta_base_url(settings.get("environment", "preproduction"))
+        
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(
+                f"{base_url}/documents/{doc_uuid}/details",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+        
+        if response.status_code == 200:
+            data = response.json()
+            # Map ETA status to SQL ENUM values
+            eta_raw    = data.get("status", "").lower()
+            STATUS_MAP = {
+                "valid":     "Valid",
+                "invalid":   "Invalid",
+                "cancelled": "Cancelled",
+                "submitted": "Submitted",
+                "rejected":  "Invalid",  # map rejected→Invalid for SQL compat
+            }
+            new_status = STATUS_MAP.get(eta_raw, invoice.get("eta_status", "Pending"))
+            
+            await db.invoices.update_one(
+                {"id": invoice_id},
+                {"$set": {
+                    "eta_status":    new_status,
+                    "eta_long_id":   data.get("longId", invoice.get("eta_long_id")),
+                    "eta_hash_key":  data.get("hashKey", invoice.get("eta_hash_key")),
+                }}
+            )
+            return {
+                "message":    "تم تحديث حالة الفاتورة",
+                "eta_status": new_status,
+                "eta_uuid":   doc_uuid,
+                "raw_status": eta_raw,
+            }
+        else:
+            raise HTTPException(status_code=response.status_code,
+                detail=f"لم يتمكن من جلب حالة الفاتورة من ETA")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"خطأ: {str(e)}")
 
 
 @router.get("/document/{document_uuid}")

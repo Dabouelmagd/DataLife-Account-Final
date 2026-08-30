@@ -107,6 +107,10 @@ class Product(BaseModel):
     unit: str = "unit"                     # الوحدة (قطعة، كيلو، متر، ساعة)
     unit_price: float = 0.0
     cost_price: float = 0.0
+    # ── ETA Item Code (SQL: eta_item_code_type ENUM(GS1/EGS)) ──────
+    item_code: Optional[str] = None          # كود السلعة/الخدمة (GS1 barcode أو EGS code)
+    item_code_type: Optional[str] = "EGS"   # GS1 (دولي) | EGS (مصري محلي) — مطلوب من ETA
+    unit_type: Optional[str] = "EA"         # وحدة القياس بكود ETA (EA=عدد, KGM=كيلو, MTR=متر)
     tax_type: TaxType = TaxType.VAT
     tax_rate: float = 14.0                 # نسبة الضريبة (14% في مصر)
     eta_code: Optional[str] = None         # كود ETA للفاتورة الإلكترونية
@@ -238,10 +242,27 @@ class Invoice(BaseModel):
     converted_from_id: Optional[str] = None  # محول من (عرض سعر)
     journal_entry_id: Optional[str] = None   # قيد اليومية
     
-    # ETA (Egyptian Tax Authority)
-    eta_uuid: Optional[str] = None         # UUID من هيئة الضرائب
-    eta_status: Optional[str] = None       # حالة الفاتورة في ETA
-    eta_submission_date: Optional[str] = None
+    # ══ ETA E-Invoicing — Egyptian Tax Authority (مصلحة الضرائب) ══════
+    # SQL: ALTER TABLE sales_invoices ADD COLUMN:
+    #   eta_uuid VARCHAR(100)          — المعرف الفريد من مصلحة الضرائب
+    #   eta_submission_id VARCHAR(100) — معرف الإرسال (submissionId / UUID)
+    #   eta_status ENUM(Pending/Valid/Invalid/Cancelled)
+    #   eta_item_code_type ENUM(GS1/EGS)
+    
+    # SQL: eta_uuid VARCHAR(100) NULL
+    eta_uuid: Optional[str] = None              # UUID المستند من ETA (documentUUID)
+    # SQL: eta_submission_id VARCHAR(100) NULL
+    eta_submission_id: Optional[str] = None     # معرف الإرسال (submissionUUID)
+    # SQL: eta_status ENUM('Pending','Valid','Invalid','Cancelled') DEFAULT 'Pending'
+    eta_status: Optional[str] = "Pending"       # Pending|Valid|Invalid|Cancelled|Submitted|Rejected
+    # SQL: eta_item_code_type ENUM('GS1','EGS') NOT NULL
+    eta_item_code_type: Optional[str] = "EGS"  # GS1 (دولي) | EGS (مصري محلي)
+    # Extended ETA fields (beyond SQL schema)
+    eta_long_id: Optional[str] = None           # المعرف الطويل من ETA
+    eta_hash_key: Optional[str] = None          # Hash للتحقق من سلامة المستند
+    eta_submission_date: Optional[str] = None   # تاريخ الإرسال
+    eta_cancelled_date: Optional[str] = None    # تاريخ الإلغاء
+    eta_rejection_reason: Optional[str] = None  # سبب الرفض
     
     # QR Code
     qr_code: Optional[str] = None

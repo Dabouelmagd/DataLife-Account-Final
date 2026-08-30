@@ -46,6 +46,9 @@ INDEXES = {
         [("company_id", 1), ("status", 1)],
         [("company_id", 1), ("customer_id", 1)],
         [("eta_uuid", 1)],
+        [("eta_submission_id", 1)],              # SQL: eta_submission_id
+        [("company_id", 1), ("eta_status", 1)],  # SQL: eta_status filter
+        [("eta_item_code_type", 1)],              # SQL: eta_item_code_type (GS1/EGS)
     ],
     "payroll_runs": [
         [("company_id", 1), ("month", -1)],
