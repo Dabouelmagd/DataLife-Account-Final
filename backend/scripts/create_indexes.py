@@ -146,6 +146,20 @@ INDEXES = {
         [("company_id", 1), ("status", 1)],
         [("company_id", 1), ("supplier_id", 1)],
     ],
+    # ── Medical Module ────────────────────────────────
+    "medical_services": [
+        [("company_id", 1), ("service_date", -1)],
+        [("company_id", 1), ("patient_id", 1)],
+        [("company_id", 1), ("doctor_id", 1)],
+        [("company_id", 1), ("insurance_company_id", 1)],
+        [("company_id", 1), ("status", 1)],
+        [("company_id", 1), ("service_type", 1)],
+    ],
+    "doctor_payments": [
+        [("company_id", 1), ("payment_date", -1)],
+        [("company_id", 1), ("doctor_id", 1)],
+        [("company_id", 1), ("service_id", 1)],
+    ],
 }
 
 async def create_indexes():

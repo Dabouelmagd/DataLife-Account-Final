@@ -252,33 +252,77 @@ class BOQItem(BaseModel):
 # 6. Medical Services Log — القطاع الطبي
 # ══════════════════════════════════════════════
 class MedicalService(BaseModel):
-    """سجل الخدمة الطبية — فصل حصة المستشفى عن أتعاب الأطباء"""
+    """سجل الخدمة الطبية — Equivalent to SQL: medical_services_log
+    
+    SQL fields:
+        service_id BIGINT PK            → id (UUID)
+        patient_id BIGINT NOT NULL      → patient_id
+        doctor_id BIGINT NOT NULL       → doctor_id (primary) OR doctors[] (multiple)
+        insurance_company_id BIGINT     → insurance_company_id
+        hospital_share DECIMAL(12,2)    → hospital_share
+        doctor_share DECIMAL(12,2)      → doctor_share (total of all doctors)
+        patient_copay DECIMAL(12,2)     → patient_copay
+        insurance_claim_amount          → insurance_claim_amount
+    
+    Extended: multiple doctors, service types, journal integration
+    """
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str                      # معرف المستشفى/المركز الطبي
+    company_id: str                         # معرف المستشفى/المركز الطبي
+    # ── SQL: patient_id BIGINT NOT NULL ─────────────────────
     patient_id: str
     patient_name: str
-    doctor_id: str
-    doctor_name: str
+    payment_method: str = "cash"            # cash | bank | insurance
+    # ── SQL: doctor_id BIGINT NOT NULL ──────────────────────
+    # Primary doctor (single-doctor backward compat)
+    doctor_id: Optional[str] = None
+    doctor_name: Optional[str] = None
+    # Multiple doctors support — takes precedence if provided
+    # Each: {doctor_id, doctor_name, share, wht_rate, wht_amount, net_payment, status}
+    doctors: Optional[List[dict]] = []
+    # ── SQL: doctor_share DECIMAL(12,2) — إجمالي حصة الأطباء ─
+    doctor_share: float = 0.0               # single doctor (backward compat)
+    total_doctor_share: float = 0.0         # sum of all doctors' shares
     service_date: str
-    service_type: str                    # consultation | surgery | lab | radiology | inpatient
-    service_description: str
-    # تفاصيل التسعير
-    total_amount: float                  # إجمالي الفاتورة
-    hospital_share: float               # حصة المستشفى
-    doctor_share: float                 # أمانة الطبيب الاستشاري
-    # مصادر الدفع
-    patient_copay: float = 0.0          # المدفوع نقداً من المريض
+    service_type: str = "other"             # inpatient|outpatient|surgery|lab|radiology|pharmacy|other
+    service_description: str = ""
+    # ── SQL: hospital_share DECIMAL(12,2) ───────────────────
+    total_amount: float = 0.0               # إجمالي الفاتورة
+    hospital_share: float = 0.0            # حصة المستشفى (revenue)
+    # ── SQL: patient_copay DECIMAL(12,2) ────────────────────
+    patient_copay: float = 0.0             # المدفوع نقداً من المريض
+    # ── SQL: insurance_company_id BIGINT NULL ───────────────
     insurance_company_id: Optional[str] = None
     insurance_company_name: Optional[str] = None
-    insurance_claim_amount: float = 0.0  # المطالبة لشركة التأمين
+    # ── SQL: insurance_claim_amount DECIMAL(12,2) ───────────
+    insurance_claim_amount: float = 0.0    # المطالبة لشركة التأمين (م/134)
     insurance_approval_number: Optional[str] = None
-    # ضريبة الأطباء
-    doctor_withholding_tax: float = 0.0  # ضريبة خصم 5% على أتعاب الأطباء
-    doctor_net_payment: float = 0.0      # صافي المسدد للطبيب
-    # القيد المحاسبي
+    # ── Extended: doctor WHT (calculated at payment, not service) ──
+    doctor_withholding_tax: float = 0.0    # legacy single-doctor
+    doctor_net_payment: float = 0.0        # legacy single-doctor
+    # ── Journal + Status ─────────────────────────────────────
     journal_entry_id: Optional[str] = None
-    status: str = "pending"             # pending | billed | paid | cancelled
+    je_balanced: Optional[bool] = None
+    status: str = "pending"                # pending | billed | paid | cancelled
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: Optional[str] = None
+    
+    def get_primary_doctor_id(self) -> Optional[str]:
+        """أول طبيب في القائمة أو doctor_id (backward compat)"""
+        if self.doctors:
+            return self.doctors[0].get("doctor_id")
+        return self.doctor_id
+    
+    def get_total_doctor_share(self) -> float:
+        """إجمالي حصة الأطباء من القائمة أو doctor_share"""
+        if self.doctors:
+            return sum(float(d.get("share", 0)) for d in self.doctors)
+        return self.doctor_share
+    
+    def validate_totals(self) -> bool:
+        """تحقق: patient_copay + insurance_claim = hospital_share + total_doctor_share"""
+        dr_side = round(self.patient_copay + self.insurance_claim_amount, 2)
+        cr_side = round(self.hospital_share + self.get_total_doctor_share(), 2)
+        return abs(dr_side - cr_side) <= 0.01
 
 
 # ══════════════════════════════════════════════

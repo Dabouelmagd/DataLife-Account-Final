@@ -847,15 +847,35 @@ async def create_medical_service(data: dict, current_user: dict = Depends(get_us
             {"$set": {"journal_entry_id": je["id"], "je_balanced": diff <= 0.01}}
         )
     
+    # ── Validate totals match (patient_copay + insurance = hospital + doctors) ──
+    debit_total  = round(copay + ins_amt, 2)
+    credit_total = round(hosp_share + total_doc_share, 2)
+    totals_match = abs(debit_total - credit_total) <= 0.01
+    if not totals_match:
+        import logging
+        logging.warning(
+            f"Medical service financial mismatch: "
+            f"Dr(copay+ins)={debit_total} ≠ Cr(hosp+doc)={credit_total}"
+        )
+    
     return {
         "message": "تم تسجيل الخدمة الطبية بنجاح",
         "service": data,
+        "financial_summary": {
+            "total_amount":      round(copay + ins_amt, 2),
+            "hospital_share":    hosp_share,
+            "total_doctor_share": total_doc_share,
+            "doctors_count":     len(doctors_computed),
+            "patient_copay":     copay,
+            "insurance_amount":  ins_amt,
+            "totals_match":      totals_match,
+        },
         "journal_summary": {
-            "debit_cash_or_bank": copay if payment_method != "insurance" else 0,
-            "debit_insurance_ar": ins_amt,
+            "debit_cash_or_bank":     copay if payment_method != "insurance" else 0,
+            "debit_insurance_ar":     ins_amt,
             "credit_hospital_revenue": hosp_share,
-            "credit_doctor_trust": total_doc_share,
-            "balanced": diff <= 0.01,
+            "credit_doctor_trust":    total_doc_share,
+            "je_balanced":            diff <= 0.01,
             "note": "ضريبة الخصم 5% تُحجز عند سداد الأتعاب — استخدم POST /doctor-payment"
         }
     }
@@ -1042,6 +1062,79 @@ async def pay_doctor(data: dict, current_user: dict = Depends(get_user)):
             "doctor_type": doctor_type,
             "balanced": diff <= 0.01
         }
+    }
+
+
+@router.put("/medical-services/{service_id}/status")
+async def update_medical_service_status(
+    service_id: str,
+    data: dict,
+    current_user: dict = Depends(get_user)
+):
+    """تحديث حالة الخدمة الطبية: pending → billed → paid → cancelled"""
+    VALID_TRANSITIONS = {
+        "pending":   ["billed", "cancelled"],
+        "billed":    ["paid", "pending"],
+        "paid":      [],
+        "cancelled": [],
+    }
+    svc = await db.medical_services.find_one(
+        {"id": service_id, "company_id": current_user.get("company_id")}, {"_id": 0}
+    )
+    if not svc:
+        raise HTTPException(status_code=404, detail="الخدمة غير موجودة")
+    current_status = svc.get("status", "pending")
+    new_status = data.get("status")
+    if new_status not in VALID_TRANSITIONS.get(current_status, []):
+        raise HTTPException(status_code=400,
+            detail=f"لا يمكن الانتقال من '{current_status}' إلى '{new_status}'")
+    from datetime import datetime, timezone
+    await db.medical_services.update_one(
+        {"id": service_id},
+        {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": f"تم تحديث حالة الخدمة إلى '{new_status}'"}
+
+
+@router.get("/medical-services/pending-doctors")
+async def get_pending_doctor_payments(
+    doctor_id: str = None,
+    current_user: dict = Depends(get_user)
+):
+    """قائمة الأطباء الذين لم تُسدَّد أتعابهم بعد"""
+    q = {"company_id": current_user.get("company_id")}
+    if doctor_id:
+        q["$or"] = [{"doctor_id": doctor_id},
+                    {"doctors.doctor_id": doctor_id}]
+    else:
+        q["$or"] = [
+            {"doctors.status": "pending"},
+            {"status": {"$in": ["pending","billed"]}, "doctor_net_payment": {"$gt": 0}}
+        ]
+    
+    services = await db.medical_services.find(q, {"_id": 0}).sort("service_date", -1).to_list(200)
+    
+    pending_by_doctor = {}
+    for svc in services:
+        for doc in (svc.get("doctors") or []):
+            if doc.get("status") == "pending":
+                did = doc.get("doctor_id", "unknown")
+                if did not in pending_by_doctor:
+                    pending_by_doctor[did] = {"doctor_id": did, "doctor_name": doc.get("doctor_name",""),
+                                               "total_pending": 0, "services": []}
+                share = float(doc.get("share", 0))
+                wht   = round(share * float(doc.get("wht_rate", 0.05)), 2)
+                pending_by_doctor[did]["total_pending"] += (share - wht)
+                pending_by_doctor[did]["services"].append({
+                    "service_id": svc["id"],
+                    "service_date": svc.get("service_date"),
+                    "gross": share, "wht": wht, "net": share - wht
+                })
+    
+    return {
+        "pending_doctors": list(pending_by_doctor.values()),
+        "total_doctors": len(pending_by_doctor),
+        "total_amount": round(sum(d["total_pending"] for d in pending_by_doctor.values()), 2)
     }
 
 
