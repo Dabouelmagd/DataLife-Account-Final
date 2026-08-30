@@ -479,60 +479,381 @@ async def get_subcontractor_claims(project_id: str, current_user: dict = Depends
         }
     }
 
-# ══════════════════════════════════════════
-# MEDICAL SERVICES — القطاع الطبي
-# ══════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════
+# MEDICAL SERVICES — القطاع الطبي والمستشفيات
+# القيد أ: تقديم خدمة طبية (نقدي + تأمين)
+# القيد ب: سداد أتعاب الأطباء
+# ════════════════════════════════════════════════════════════════
+
+SERVICE_REVENUE_ACCOUNTS = {
+    "inpatient":    ("415", "إيرادات إقامة — المرضى الداخليين"),
+    "outpatient":   ("416", "إيرادات عيادات خارجية"),
+    "surgery":      ("417", "إيرادات غرف العمليات والجراحة"),
+    "lab":          ("418", "إيرادات مختبر وتحاليل"),
+    "radiology":    ("419", "إيرادات أشعة وتصوير"),
+    "pharmacy":     ("420", "إيرادات صيدلية"),
+    "other":        ("415", "إيرادات خدمات طبية أخرى"),
+}
+
 @router.post("/medical-services")
 async def create_medical_service(data: dict, current_user: dict = Depends(get_user)):
+    """
+    القيد أ — تقديم الخدمة الطبية (نقدي وتأمين طبي)
+    
+    من مذكورين:
+       حـ/ الخزينة / البنك          (الدفعة النقدية من المريض)
+       حـ/ مدينو شركات التأمين       (الحصة المغطاة تأمينياً)
+    إلى مذكورين:
+       حـ/ إيرادات الخدمات الطبية   (حصة المستشفى — بحسب نوع الخدمة)
+       حـ/ أمانات أطباء استشاريين   (إجمالي حصة الأطباء — قبل خصم الضريبة)
+    
+    ملاحظة: ضريبة الخصم 5% تُحجز عند سداد الأتعاب (القيد ب) وليس هنا
+    """
     company_id = current_user.get("company_id")
     data["company_id"] = company_id
     data["id"] = str(uuid.uuid4())
     data["created_at"] = datetime.now(timezone.utc).isoformat()
 
-    # Auto-calculate doctor withholding tax 5%
-    doc_share = float(data.get("doctor_share", 0))
-    wht = round(doc_share * 0.05, 2)
-    data["doctor_withholding_tax"] = wht
-    data["doctor_net_payment"] = round(doc_share - wht, 2)
-
+    # ── المبالغ الأساسية ──────────────────────────────
+    total_amount = float(data.get("total_amount", 0))
+    copay        = float(data.get("patient_copay", 0))        # دفعة المريض النقدية
+    ins_amt      = float(data.get("insurance_claim_amount", 0)) # تغطية التأمين
+    hosp_share   = float(data.get("hospital_share", 0))       # حصة المستشفى
+    
+    # متعدد الأطباء — يقبل قائمة [{doctor_id, doctor_name, share, wht_rate}]
+    doctors = data.get("doctors", [])
+    if not doctors and data.get("doctor_share", 0):
+        # backward-compat: single doctor
+        wht_rate_single = float(data.get("doctor_wht_rate", 0.05))
+        doctors = [{
+            "doctor_id":   data.get("doctor_id", ""),
+            "doctor_name": data.get("doctor_name", ""),
+            "share":       float(data.get("doctor_share", 0)),
+            "wht_rate":    wht_rate_single,  # 5% أتعاب / 10% غير مقيم
+        }]
+    
+    total_doc_share = sum(float(d.get("share", 0)) for d in doctors)
+    
+    # تخزين بيانات الأطباء المحسوبة
+    doctors_computed = []
+    for doc in doctors:
+        share    = float(doc.get("share", 0))
+        wht_rate = float(doc.get("wht_rate", 0.05))
+        wht_amt  = round(share * wht_rate, 2)
+        net_pay  = round(share - wht_amt, 2)
+        doctors_computed.append({**doc,
+            "wht_amount": wht_amt,
+            "net_payment": net_pay,
+            "status": "pending"  # لم يُسدَّد بعد
+        })
+    
+    data["doctors"] = doctors_computed
+    data["total_doctor_share"] = round(total_doc_share, 2)
+    
     await db.medical_services.insert_one(data)
     data.pop("_id", None)
-
-    # Auto-post journal entry
+    
+    # ── القيد المحاسبي (أ) ──────────────────────────────────────
     from services.accounting_service import AccountingService
-    svc = AccountingService(db)
+    svc      = AccountingService(db)
     accounts = await svc.get_all_accounts(company_id, True)
-    acc_map = {a["account_code"]: a for a in accounts}
-    def acc(code): return acc_map.get(code, {})
-
-    cash_acc = acc("161"); recv_acc = acc("131"); rev_acc = acc("415")
-    doc_pay_acc = acc("264"); wht_pay_acc = acc("261")
-
-    total   = float(data.get("total_amount", 0))
-    hosp    = float(data.get("hospital_share", 0))
-    copay   = float(data.get("patient_copay", 0))
-    ins_amt = float(data.get("insurance_claim_amount", 0))
-
-    lines = []
-    if cash_acc and copay > 0: lines.append({"account_id":cash_acc["id"],"account_code":"161","account_name":"الخزينة","debit":copay,"credit":0,"description":"مدفوع نقداً من المريض","partner_type":"customer","partner_id":data.get("patient_id")})
-    if recv_acc and ins_amt > 0: lines.append({"account_id":recv_acc["id"],"account_code":"131","account_name":"مدينو التأمين","debit":ins_amt,"credit":0,"description":"مطالبة شركة التأمين","partner_type":"customer","partner_id":data.get("insurance_company_id")})
-    if rev_acc: lines.append({"account_id":rev_acc["id"],"account_code":"415","account_name":"إيرادات طبية","debit":0,"credit":hosp,"description":"حصة المستشفى من الخدمة الطبية"})
-    if doc_pay_acc and doc_share > 0: lines.append({"account_id":doc_pay_acc["id"],"account_code":"264","account_name":"أمانات أطباء","debit":0,"credit":doc_share,"description":f"أتعاب د. {data.get('doctor_name','')} مستحقة","partner_type":"doctor","partner_id":data.get("doctor_id")})
-    if wht_pay_acc and wht > 0: lines.append({"account_id":wht_pay_acc["id"],"account_code":"261","account_name":"خصم وتحصيل مستحق","debit":0,"credit":wht,"description":"ضريبة خصم 5% على أتعاب الطبيب"})
-
-    if lines:
+    by_code  = {a["account_code"]: a for a in accounts}
+    
+    def acct(code, name_default):
+        a = by_code.get(code, {})
+        return a.get("id"), code, a.get("account_name", name_default)
+    
+    svc_type     = data.get("service_type", "other")
+    rev_code, rev_name_default = SERVICE_REVENUE_ACCOUNTS.get(svc_type, SERVICE_REVENUE_ACCOUNTS["other"])
+    
+    cash_id,   cash_code,   cash_name    = acct("161", "الخزينة / الصندوق النقدي")
+    bank_id,   bank_code,   bank_name    = acct("112", "البنك")
+    ins_id,    ins_code,    ins_name     = acct("134", "مدينو شركات التأمين الطبي")
+    rev_id,    rev_code2,   rev_name     = acct(rev_code, rev_name_default)
+    trust_id,  trust_code,  trust_name   = acct("264", "أمانات أطباء استشاريين")
+    
+    payment_method = data.get("payment_method", "cash")  # cash | bank | insurance
+    
+    lines_je = []
+    
+    # ── مدين ─────────────────────────────────────────────────────
+    # مدين 1: الخزينة / البنك (دفعة المريض النقدية أو المباشرة)
+    if copay > 0:
+        if payment_method == "bank" and bank_id:
+            lines_je.append({"account_id": bank_id, "account_code": bank_code,
+                "account_name": bank_name, "debit": copay, "credit": 0,
+                "description": f"دفعة المريض {data.get('patient_name','')} عبر البنك",
+                "partner_type": "patient", "partner_id": data.get("patient_id")})
+        elif cash_id:
+            lines_je.append({"account_id": cash_id, "account_code": cash_code,
+                "account_name": cash_name, "debit": copay, "credit": 0,
+                "description": f"دفعة المريض {data.get('patient_name','')} نقداً",
+                "partner_type": "patient", "partner_id": data.get("patient_id")})
+    
+    # مدين 2: مدينو شركات التأمين الطبي (الحصة المغطاة)
+    if ins_amt > 0 and ins_id:
+        lines_je.append({"account_id": ins_id, "account_code": ins_code,
+            "account_name": ins_name, "debit": ins_amt, "credit": 0,
+            "description": f"مطالبة تأمين — {data.get('insurance_company_name','')}",
+            "partner_type": "insurance", "partner_id": data.get("insurance_company_id")})
+    
+    # ── دائن ─────────────────────────────────────────────────────
+    # دائن 1: إيرادات الخدمات الطبية (حصة المستشفى)
+    if hosp_share > 0 and rev_id:
+        lines_je.append({"account_id": rev_id, "account_code": rev_code2,
+            "account_name": rev_name, "debit": 0, "credit": hosp_share,
+            "description": f"إيراد خدمة {data.get('service_description','')} — حصة المستشفى"})
+    
+    # دائن 2: أمانات أطباء استشاريين (إجمالي حصة الأطباء — GROSS, before WHT)
+    # ⚠️ WHT لا يُحجز هنا — يُحجز عند سداد الأتعاب (القيد ب)
+    if total_doc_share > 0 and trust_id:
+        doc_names = ", ".join(d.get("doctor_name","") for d in doctors_computed)
+        lines_je.append({"account_id": trust_id, "account_code": trust_code,
+            "account_name": trust_name, "debit": 0, "credit": total_doc_share,
+            "description": f"أتعاب أطباء مستحقة — {doc_names} (إجمالي قبل الضريبة)"})
+    
+    # ── التحقق من التوازن ──────────────────────────────────────
+    total_d = round(sum(l["debit"]  for l in lines_je), 2)
+    total_c = round(sum(l["credit"] for l in lines_je), 2)
+    diff    = abs(total_d - total_c)
+    
+    if lines_je:
         je = {
             "id": str(uuid.uuid4()), "company_id": company_id,
-            "entry_date": data.get("service_date"), "entry_number": 0,
-            "description": f"خدمة طبية — {data.get('service_description','')}",
-            "lines": lines, "total_debit": copay+ins_amt, "total_credit": hosp+doc_share,
-            "status": "draft", "source_document_type": "medical_service", "source_document_id": data["id"],
-            "created_by": current_user.get("user_id","system"),
+            "entry_date": data.get("service_date", datetime.now().strftime("%Y-%m-%d")),
+            "entry_number": 0,
+            "description": f"خدمة طبية — {data.get('service_description','')} — مريض: {data.get('patient_name','')}",
+            "lines": lines_je,
+            "total_debit": total_d, "total_credit": total_c,
+            "status": "draft",
+            "source_document_type": "medical_service",
+            "source_document_id": data["id"],
+            "created_by": current_user.get("user_id", "system"),
         }
         await db.journal_entries.insert_one(je)
-        await db.medical_services.update_one({"id": data["id"]}, {"$set": {"journal_entry_id": je["id"]}})
+        await db.medical_services.update_one(
+            {"id": data["id"]},
+            {"$set": {"journal_entry_id": je["id"], "je_balanced": diff <= 0.01}}
+        )
+    
+    return {
+        "message": "تم تسجيل الخدمة الطبية بنجاح",
+        "service": data,
+        "journal_summary": {
+            "debit_cash_or_bank": copay if payment_method != "insurance" else 0,
+            "debit_insurance_ar": ins_amt,
+            "credit_hospital_revenue": hosp_share,
+            "credit_doctor_trust": total_doc_share,
+            "balanced": diff <= 0.01,
+            "note": "ضريبة الخصم 5% تُحجز عند سداد الأتعاب — استخدم POST /doctor-payment"
+        }
+    }
 
-    return {"message": "Medical service recorded", "service": data}
+
+@router.get("/medical-services")
+async def get_medical_services(
+    patient_id: str = None,
+    insurance_company_id: str = None,
+    service_type: str = None,
+    date_from: str = None,
+    date_to: str = None,
+    page: int = 1,
+    limit: int = 25,
+    current_user: dict = Depends(get_user)
+):
+    """قائمة الخدمات الطبية مع pagination"""
+    q = {"company_id": current_user.get("company_id")}
+    if patient_id:         q["patient_id"]          = patient_id
+    if insurance_company_id: q["insurance_company_id"] = insurance_company_id
+    if service_type:       q["service_type"]         = service_type
+    if date_from:          q.setdefault("service_date", {})["$gte"] = date_from
+    if date_to:            q.setdefault("service_date", {})["$lte"] = date_to
+    
+    total    = await db.medical_services.count_documents(q)
+    services = await db.medical_services.find(q, {"_id": 0}).sort(
+        "service_date", -1
+    ).skip((page-1)*limit).limit(limit).to_list(length=None)
+    
+    return {"services": services, "total": total, "page": page, "limit": limit}
+
+
+@router.get("/medical-services/{service_id}")
+async def get_medical_service(service_id: str, current_user: dict = Depends(get_user)):
+    svc = await db.medical_services.find_one(
+        {"id": service_id, "company_id": current_user.get("company_id")}, {"_id": 0}
+    )
+    if not svc:
+        raise HTTPException(status_code=404, detail="الخدمة غير موجودة")
+    return svc
+
+
+@router.post("/doctor-payment")
+async def pay_doctor(data: dict, current_user: dict = Depends(get_user)):
+    """
+    القيد ب — سداد أتعاب الأطباء الخارجيين / الاستشاريين
+    
+    من حـ/ أمانات أطباء استشاريين (264)
+       إلى حـ/ مصلحة الضرائب — خصم وتحصيل (261)  [5% أو 10% حسب الإقامة]
+       إلى حـ/ البنك / الخزينة                      [صافي المسدد للطبيب]
+    
+    يمكن سداد طبيب واحد أو عدة أطباء من خدمة واحدة أو متعددة
+    """
+    company_id = current_user.get("company_id")
+    
+    # تحديد مصدر الدفع
+    service_id  = data.get("service_id")
+    doctor_id   = data.get("doctor_id")
+    doctor_name = data.get("doctor_name", "")
+    gross_amt   = float(data.get("gross_amount", 0))  # إجمالي أتعاب الطبيب
+    
+    # نوع الطبيب يحدد نسبة الخصم
+    # قانون 91/2005 م.59: 5% استشاري مقيم | 10% غير مقيم
+    doctor_type = data.get("doctor_type", "resident")  # resident | non_resident
+    wht_rate    = 0.10 if doctor_type == "non_resident" else float(data.get("wht_rate", 0.05))
+    wht_amt     = round(gross_amt * wht_rate, 2)
+    net_pay     = round(gross_amt - wht_amt, 2)
+    payment_method = data.get("payment_method", "bank")  # bank | cash
+    
+    # تسجيل الدفعة
+    payment_record = {
+        "id": str(uuid.uuid4()), "company_id": company_id,
+        "service_id":   service_id,
+        "doctor_id":    doctor_id, "doctor_name": doctor_name,
+        "gross_amount": gross_amt, "wht_rate":    wht_rate,
+        "wht_amount":   wht_amt,   "net_payment": net_pay,
+        "doctor_type":  doctor_type,
+        "payment_method": payment_method,
+        "payment_date": data.get("payment_date", datetime.now().strftime("%Y-%m-%d")),
+        "created_at":   datetime.now(timezone.utc).isoformat(),
+        "created_by":   current_user.get("user_id", "system"),
+    }
+    await db.doctor_payments.insert_one(payment_record)
+    payment_record.pop("_id", None)
+    
+    # تحديث حالة الطبيب في الخدمة الأصلية
+    if service_id and doctor_id:
+        svc = await db.medical_services.find_one(
+            {"id": service_id, "company_id": company_id}, {"_id": 0}
+        )
+        if svc:
+            docs = svc.get("doctors", [])
+            for doc in docs:
+                if doc.get("doctor_id") == doctor_id:
+                    doc["status"]       = "paid"
+                    doc["paid_at"]      = payment_record["payment_date"]
+                    doc["wht_deducted"] = wht_amt
+            await db.medical_services.update_one(
+                {"id": service_id}, {"$set": {"doctors": docs}}
+            )
+    
+    # ── القيد المحاسبي (ب) ──────────────────────────────────────
+    from services.accounting_service import AccountingService
+    svc_acc  = AccountingService(db)
+    accounts = await svc_acc.get_all_accounts(company_id, True)
+    by_code  = {a["account_code"]: a for a in accounts}
+    
+    def acct(code, name_default):
+        a = by_code.get(code, {})
+        return a.get("id"), code, a.get("account_name", name_default)
+    
+    trust_id,  trust_code,  trust_name   = acct("264", "أمانات أطباء استشاريين")
+    wht_id,    wht_code,    wht_name     = acct("261", "مصلحة الضرائب — خصم وتحصيل")
+    bank_id,   bank_code,   bank_name    = acct("112", "البنك")
+    cash_id,   cash_code,   cash_name    = acct("161", "الخزينة / الصندوق النقدي")
+    
+    lines_je = []
+    
+    # مدين: أمانات أطباء استشاريين (إقفال الأمانة)
+    if trust_id and gross_amt > 0:
+        lines_je.append({
+            "account_id": trust_id, "account_code": trust_code, "account_name": trust_name,
+            "debit": gross_amt, "credit": 0,
+            "description": f"إقفال أمانة د. {doctor_name} — سداد الأتعاب",
+            "partner_type": "doctor", "partner_id": doctor_id
+        })
+    
+    # دائن 1: مصلحة الضرائب — ضريبة خصم مهن حرة
+    if wht_id and wht_amt > 0:
+        wht_label = "غير مقيم 10%" if doctor_type == "non_resident" else "مقيم 5%"
+        lines_je.append({
+            "account_id": wht_id, "account_code": wht_code, "account_name": wht_name,
+            "debit": 0, "credit": wht_amt,
+            "description": f"ضريبة خصم مهن حرة {wht_label} — د. {doctor_name}"
+        })
+    
+    # دائن 2: البنك / الخزينة (الصافي المسدد للطبيب)
+    if net_pay > 0:
+        if payment_method == "cash" and cash_id:
+            lines_je.append({
+                "account_id": cash_id, "account_code": cash_code, "account_name": cash_name,
+                "debit": 0, "credit": net_pay,
+                "description": f"صافي أتعاب د. {doctor_name} — نقداً"
+            })
+        elif bank_id:
+            lines_je.append({
+                "account_id": bank_id, "account_code": bank_code, "account_name": bank_name,
+                "debit": 0, "credit": net_pay,
+                "description": f"صافي أتعاب د. {doctor_name} — تحويل بنكي"
+            })
+    
+    # ── التحقق من التوازن ──────────────────────────────────────
+    total_d = round(sum(l["debit"]  for l in lines_je), 2)
+    total_c = round(sum(l["credit"] for l in lines_je), 2)
+    diff    = abs(total_d - total_c)
+    
+    if lines_je:
+        je = {
+            "id": str(uuid.uuid4()), "company_id": company_id,
+            "entry_date": payment_record["payment_date"],
+            "entry_number": 0,
+            "description": f"سداد أتعاب د. {doctor_name} — ضريبة {round(wht_rate*100)}%",
+            "lines": lines_je,
+            "total_debit": total_d, "total_credit": total_c,
+            "status": "draft",
+            "source_document_type": "doctor_payment",
+            "source_document_id": payment_record["id"],
+            "created_by": current_user.get("user_id", "system"),
+        }
+        await db.journal_entries.insert_one(je)
+        await db.doctor_payments.update_one(
+            {"id": payment_record["id"]},
+            {"$set": {"journal_entry_id": je["id"], "je_balanced": diff <= 0.01}}
+        )
+    
+    return {
+        "message": f"تم سداد أتعاب د. {doctor_name} بنجاح",
+        "payment": payment_record,
+        "journal_summary": {
+            "debit_trust_closed": gross_amt,
+            "credit_wht_payable": wht_amt,
+            "credit_bank_or_cash": net_pay,
+            "wht_rate_pct": round(wht_rate * 100, 1),
+            "doctor_type": doctor_type,
+            "balanced": diff <= 0.01
+        }
+    }
+
+
+@router.get("/doctor-payments")
+async def get_doctor_payments(
+    doctor_id: str = None,
+    service_id: str = None,
+    status: str = None,
+    page: int = 1,
+    limit: int = 25,
+    current_user: dict = Depends(get_user)
+):
+    """سجل مدفوعات الأطباء"""
+    q = {"company_id": current_user.get("company_id")}
+    if doctor_id:  q["doctor_id"]  = doctor_id
+    if service_id: q["service_id"] = service_id
+    
+    total    = await db.doctor_payments.count_documents(q)
+    payments = await db.doctor_payments.find(q, {"_id": 0}).sort(
+        "payment_date", -1
+    ).skip((page-1)*limit).limit(limit).to_list(length=None)
+    
+    return {"payments": payments, "total": total, "page": page, "limit": limit}
 
 
 # ══════════════════════════════════════════
