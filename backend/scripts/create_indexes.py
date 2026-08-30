@@ -165,6 +165,17 @@ INDEXES = {
     ],
 }
 
+# ══════════════════════════════════════════════════════
+# UNIQUE indexes — enforce data integrity at DB level
+# ══════════════════════════════════════════════════════
+UNIQUE_INDEXES = {
+    "chart_of_accounts":           [("company_id", 1), ("account_code", 1)],
+    "employee_insurance_profiles": [("national_id", 1)],
+    "users":                       [("email", 1)],
+    "journal_counters":            [("company_id", 1)],
+}
+
+
 async def create_indexes():
     print("=" * 55)
     print("DataLife — Creating Database Indexes")
@@ -172,6 +183,19 @@ async def create_indexes():
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
     total = 0
+    
+    # ── 1. Unique indexes first (data integrity) ──────────────
+    print("\n── Unique Indexes ─────────────────────────────────")
+    for collection, idx in UNIQUE_INDEXES.items():
+        try:
+            await db[collection].create_index(idx, unique=True, background=True)
+            print(f"  ✅ [UNIQUE] {collection}: {idx}")
+            total += 1
+        except Exception as e:
+            print(f"  ⚠️  [UNIQUE] {collection}: {e}")
+    
+    # ── 2. Performance indexes ────────────────────────────────
+    print("\n── Performance Indexes ────────────────────────────")
     for collection, indexes in INDEXES.items():
         col = db[collection]
         for idx in indexes:
@@ -181,7 +205,8 @@ async def create_indexes():
                 total += 1
             except Exception as e:
                 print(f"  ⚠️  {collection}: {e}")
-    print(f"\n✅ Done — {total} indexes created")
+    
+    print(f"\n✅ Done — {total} indexes created ({len(UNIQUE_INDEXES)} unique + {total-len(UNIQUE_INDEXES)} performance)")
     client.close()
 
 if __name__ == "__main__":

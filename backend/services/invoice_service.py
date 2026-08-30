@@ -460,6 +460,8 @@ class InvoiceService:
             reference=invoice["document_number"],
             description=f"{'فاتورة بيع' if doc_type == DocumentType.SALES_INVOICE.value else 'فاتورة شراء'} - {invoice['party_name']}",
             lines=lines,
+            source_document_type="invoice",
+            source_document_id=invoice.get("id"),
             created_by=user_id
         )
         

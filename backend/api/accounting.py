@@ -508,38 +508,76 @@ async def get_ledger_entries(
 @router.get("/ledger/account-statement/{account_id}")
 async def get_account_statement(
     account_id: str,
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None, alias="start_date"),
+    date_to: Optional[str] = Query(None, alias="end_date"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=500),
     current_user: dict = Depends(get_current_user),
-    
 ):
-    """كشف حساب"""
+    """كشف حساب مع pagination — Account Statement"""
     service = AccountingService(db)
-    
     try:
         statement = await service.get_account_statement(
-            current_user["company_id"],
-            account_id, start_date, end_date
+            current_user["company_id"], account_id, date_from, date_to
         )
+        transactions = statement.get("transactions", [])
+        total = len(transactions)
+        start = (page - 1) * limit
+        statement["transactions"] = transactions[start:start + limit]
+        statement["pagination"] = {
+            "page": page, "limit": limit, "total": total,
+            "pages": -(-total // limit)
+        }
         return statement
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-# ==========================================
-# التقارير المالية - Financial Reports
-# ==========================================
-
-@router.get("/reports/trial-balance")
-async def get_trial_balance(
-    as_of_date: Optional[str] = Query(None, description="As of date (YYYY-MM-DD)"),
+@router.get("/financials/summary")
+async def get_financial_summary(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user),
-    
 ):
-    """ميزان المراجعة"""
-    service = AccountingService(db)
-    report = await service.get_trial_balance(current_user["company_id"], as_of_date)
-    return report
+    """ملخص القوائم المالية — بشكل متوازٍ (asyncio.gather)"""
+    import asyncio
+    company_id = current_user["company_id"]
+    match_base = {"company_id": company_id, "status": "posted"}
+
+    async def agg(pattern, side):
+        result = await db.journal_entries.aggregate([
+            {"$match": match_base}, {"$unwind": "$lines"},
+            {"$match": {"lines.account_code": {"$regex": f"^{pattern}"}}},
+            {"$group": {"_id": None, "d": {"$sum": "$lines.debit"}, "c": {"$sum": "$lines.credit"}}}
+        ]).to_list(1)
+        if not result: return 0
+        return result[0]["c"] if side == "credit" else result[0]["d"]
+
+    async def net(pattern):
+        result = await db.journal_entries.aggregate([
+            {"$match": match_base}, {"$unwind": "$lines"},
+            {"$match": {"lines.account_code": {"$regex": f"^{pattern}"}}},
+            {"$group": {"_id": None, "d": {"$sum": "$lines.debit"}, "c": {"$sum": "$lines.credit"}}}
+        ]).to_list(1)
+        if not result: return 0
+        return result[0]["d"] - result[0]["c"]
+
+    # 4 queries in parallel
+    revenue, expenses, ar, ap = await asyncio.gather(
+        agg("4", "credit"),   # إيرادات
+        agg("5", "debit"),    # مصروفات
+        net("131"),           # عملاء (debit - credit)
+        net("251"),           # موردون reversed
+    )
+
+    return {
+        "revenue":             round(revenue, 2),
+        "expenses":            round(expenses, 2),
+        "net_income":          round(revenue - expenses, 2),
+        "accounts_receivable": round(ar, 2),
+        "accounts_payable":    round(-ap, 2),  # AP is credit-nature
+        "period":              {"from": date_from, "to": date_to},
+    }
 
 
 @router.get("/reports/income-statement")

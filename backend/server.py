@@ -236,9 +236,16 @@ async def startup_event():
     
     # ── 2. Ensure DB indexes exist (background, non-blocking) ──
     try:
-        from scripts.create_indexes import INDEXES
+        from scripts.create_indexes import INDEXES, UNIQUE_INDEXES
         import asyncio
         async def _ensure_indexes():
+            # 1. Unique indexes — enforce data integrity
+            for collection, idx in UNIQUE_INDEXES.items():
+                try:
+                    await db[collection].create_index(idx, unique=True, background=True)
+                except Exception:
+                    pass  # index may already exist
+            # 2. Performance indexes
             for collection, indexes in INDEXES.items():
                 col = db[collection]
                 for idx in indexes:
@@ -247,7 +254,7 @@ async def startup_event():
                     except Exception:
                         pass
         asyncio.create_task(_ensure_indexes())
-        logger.info("Database index creation scheduled")
+        logger.info("Database index creation scheduled (unique + performance)")
     except Exception as e:
         logger.warning(f"Index creation skipped: {e}")
 
