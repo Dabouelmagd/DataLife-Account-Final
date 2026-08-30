@@ -362,6 +362,111 @@ async def post_journal_entry(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.put("/journal-entries/{entry_id}/approve")
+async def approve_journal_entry(
+    entry_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """اعتماد القيد من المسؤول المالي قبل الترحيل"""
+    entry = await db.journal_entries.find_one(
+        {"id": entry_id, "company_id": current_user["company_id"]}, {"_id": 0}
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail="القيد غير موجود")
+    if entry.get("status") == "posted":
+        raise HTTPException(status_code=400, detail="القيد مرحّل — لا يمكن تعديل الاعتماد")
+    if entry.get("status") == "canceled":
+        raise HTTPException(status_code=400, detail="القيد ملغي")
+    role = current_user.get("role", "")
+    if role not in {"owner", "ceo", "general_manager", "accountant", "financial_manager"}:
+        raise HTTPException(status_code=403, detail="ليس لديك صلاحية اعتماد القيود")
+    from datetime import datetime as _dt, timezone as _tz
+    await db.journal_entries.update_one(
+        {"id": entry_id},
+        {"$set": {
+            "approved_by": current_user["user_id"],
+            "approved_at": _dt.now(_tz.utc).isoformat(),
+        }}
+    )
+    return {"message": "تم اعتماد القيد بنجاح", "approved_by": current_user.get("name")}
+
+
+@router.put("/journal-entries/{entry_id}/cancel")
+async def cancel_journal_entry(
+    entry_id: str,
+    reason: str = "إلغاء القيد",
+    current_user: dict = Depends(get_current_user),
+):
+    """إلغاء قيد مسودة فقط — SQL: status='canceled'"""
+    entry = await db.journal_entries.find_one(
+        {"id": entry_id, "company_id": current_user["company_id"]}, {"_id": 0}
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail="القيد غير موجود")
+    if entry.get("status") == "posted":
+        raise HTTPException(
+            status_code=400,
+            detail="لا يمكن إلغاء قيد مرحّل — أنشئ قيداً عكسياً بدلاً من ذلك"
+        )
+    if entry.get("status") == "canceled":
+        raise HTTPException(status_code=400, detail="القيد ملغي بالفعل")
+    from datetime import datetime as _dt, timezone as _tz
+    await db.journal_entries.update_one(
+        {"id": entry_id},
+        {"$set": {
+            "status":       "canceled",
+            "cancel_reason": reason,
+            "canceled_by":  current_user["user_id"],
+            "canceled_at":  _dt.now(_tz.utc).isoformat(),
+        }}
+    )
+    await db.audit_logs.insert_one({
+        "company_id": current_user["company_id"],
+        "user_id":    current_user["user_id"],
+        "action":     "journal_entry.canceled",
+        "entity_id":  entry_id,
+        "details":    f"إلغاء القيد {entry.get('entry_number_str', entry_id)} — {reason}",
+        "timestamp":  _dt.now(_tz.utc).isoformat(),
+    })
+    return {"message": "تم إلغاء القيد بنجاح"}
+
+
+@router.put("/journal-entries/{entry_id}")
+async def update_journal_entry(
+    entry_id: str,
+    data: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """تعديل قيد مسودة فقط — IMMUTABLE بعد الترحيل"""
+    entry = await db.journal_entries.find_one(
+        {"id": entry_id, "company_id": current_user["company_id"]}, {"_id": 0}
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail="القيد غير موجود")
+    if entry.get("status") == "posted":
+        raise HTTPException(
+            status_code=400,
+            detail="IMMUTABILITY VIOLATION: القيد مرحّل — استخدم القيد العكسي لتصحيح الخطأ"
+        )
+    if entry.get("status") == "canceled":
+        raise HTTPException(status_code=400, detail="القيد ملغي ولا يمكن تعديله")
+    EDITABLE = {"description", "narration", "reference", "lines", "entry_date"}
+    update = {k: v for k, v in data.items() if k in EDITABLE}
+    if not update:
+        raise HTTPException(status_code=400, detail="لا توجد حقول قابلة للتعديل")
+    if "lines" in update:
+        td = sum(float(l.get("debit",  0)) for l in update["lines"])
+        tc = sum(float(l.get("credit", 0)) for l in update["lines"])
+        if abs(td - tc) > 0.01:
+            raise HTTPException(status_code=400,
+                detail=f"القيد غير متوازن: مدين {td:.2f} ≠ دائن {tc:.2f}")
+        update["total_debit"]  = round(td, 2)
+        update["total_credit"] = round(tc, 2)
+    from datetime import datetime as _dt, timezone as _tz
+    update["updated_at"] = _dt.now(_tz.utc).isoformat()
+    await db.journal_entries.update_one({"id": entry_id}, {"$set": update})
+    return {"message": "تم تعديل القيد بنجاح"}
+
 
 @router.post("/journal-entries/{entry_id}/reverse")
 async def reverse_journal_entry(

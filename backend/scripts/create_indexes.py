@@ -17,6 +17,12 @@ INDEXES = {
         [("company_id", 1), ("status", 1)],
         [("company_id", 1), ("fiscal_year", 1), ("period", 1)],
         [("source_document_type", 1), ("source_document_id", 1)],
+        [("company_id", 1), ("entry_number", -1)],
+        [("entry_number_str", 1)],
+        [("company_id", 1), ("approved_by", 1)],
+    ],
+    "journal_counters": [
+        [("company_id", 1)],
     ],
     "chart_of_accounts": [
         [("company_id", 1), ("account_code", 1)],   # UNIQUE per company

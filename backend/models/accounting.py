@@ -122,17 +122,19 @@ class JournalEntryLine(BaseModel):
 
 
 class JournalEntryStatus(str, Enum):
-    """حالة القيد"""
-    DRAFT = "draft"           # مسودة
-    POSTED = "posted"         # مرحّل
-    REVERSED = "reversed"     # معكوس
+    """حالة القيد — matches SQL ENUM('draft','posted','canceled')"""
+    DRAFT    = "draft"      # مسودة — قابل للتعديل
+    POSTED   = "posted"     # مرحّل — لا يمكن تعديله (يستوجب قيد عكسي)
+    CANCELED = "canceled"   # ملغي  — بعد الإلغاء قبل الترحيل
+    REVERSED = "reversed"   # معكوس — بعد إنشاء قيد عكسي
 
 
 class JournalEntry(BaseModel):
     """القيد اليومي — Immutable Double-Entry Ledger (Enterprise Grade)"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     company_id: str
-    entry_number: int               # رقم القيد التسلسلي (AUTO-INCREMENT per company)
+    entry_number: int = 0           # رقم القيد التسلسلي (AUTO-INCREMENT per company)
+    entry_number_str: Optional[str] = None  # نص: "JE-2026-000001" (VARCHAR format)
     entry_date: str                 # تاريخ القيد (accounting date)
     posting_date: Optional[str] = None  # تاريخ الترحيل الفعلي
     reference: Optional[str] = None     # مرجع المستند (رقم فاتورة، إيصال)
@@ -142,7 +144,8 @@ class JournalEntry(BaseModel):
     total_credit: float = 0.0           # إجمالي الدائن (محسوب تلقائياً)
     status: JournalEntryStatus = JournalEntryStatus.DRAFT
     # ── Source Document Linking ──
-    source_document_type: Optional[str] = "manual"   # manual|payroll|invoice|claim|medical_service
+    # SQL: ENUM('manual','payroll','invoice','claim','medical_service','subcontractor_claim','doctor_payment','construction','disbursement','government')
+    source_document_type: Optional[str] = "manual"
     source_document_id: Optional[str] = None          # ID المستند المصدر
     # ── Immutability & Reversal ──
     is_reversal: bool = False            # هل هذا قيد عكسي؟

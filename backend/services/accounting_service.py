@@ -171,12 +171,18 @@ class AccountingService:
     # ==========================================
     
     async def get_next_entry_number(self, company_id: str) -> int:
-        """الحصول على رقم القيد التالي"""
-        last_entry = await self.db.journal_entries.find_one(
+        """
+        الحصول على رقم القيد التالي — ATOMIC (no race condition)
+        Uses MongoDB findOneAndUpdate with $inc for thread-safe auto-increment
+        equivalent to SQL AUTO_INCREMENT
+        """
+        counter = await self.db.journal_counters.find_one_and_update(
             {"company_id": company_id},
-            sort=[("entry_number", -1)]
+            {"$inc": {"last_number": 1}},
+            upsert=True,
+            return_document=True  # return AFTER update
         )
-        return (last_entry["entry_number"] + 1) if last_entry else 1
+        return counter["last_number"]
     
     async def create_journal_entry(self, entry: JournalEntry) -> Dict:
         """إنشاء قيد يومي جديد"""
@@ -198,14 +204,23 @@ class AccountingService:
         entry.total_debit = total_debit
         entry.total_credit = total_credit
         
-        # الحصول على رقم القيد
+        # الحصول على رقم القيد — ATOMIC (thread-safe)
         entry.entry_number = await self.get_next_entry_number(entry.company_id)
-        
-        # Set fiscal year + period + posting date automatically
+        # VARCHAR format: JE-2026-000001
         from datetime import datetime as _dt2
         entry_date = entry.entry_date or _dt2.utcnow().strftime("%Y-%m-%d")
+        entry.entry_number_str = f"JE-{entry_date[:4]}-{entry.entry_number:06d}"
         entry.fiscal_year = entry_date[:4]
         entry.period = entry_date[:7]
+        
+        # Validate source_document_type
+        VALID_SOURCE_TYPES = {
+            "manual","payroll","invoice","claim","medical_service",
+            "subcontractor_claim","doctor_payment","construction",
+            "payroll_disbursement","payroll_government","cogs_entry"
+        }
+        if entry.source_document_type not in VALID_SOURCE_TYPES:
+            entry.source_document_type = "manual"
         
         entry_dict = entry.dict()
         await self.db.journal_entries.insert_one(entry_dict)
