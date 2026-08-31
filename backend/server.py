@@ -44,6 +44,7 @@ from api.tax_reports import router as tax_reports_router
 from api.inventory_engine import router as inventory_engine_router
 from api.financial_engine import router as financial_engine_router
 from api.manufacturing import router as manufacturing_router
+from api.real_estate import router as real_estate_router
 from api.invoice import router as invoice_router
 from api.inventory_pro import router as inventory_pro_router
 from api.payroll import router as payroll_router
@@ -161,6 +162,7 @@ app.include_router(tax_reports_router)
 app.include_router(inventory_engine_router)
 app.include_router(financial_engine_router)
 app.include_router(manufacturing_router)
+app.include_router(real_estate_router)
 app.include_router(invoice_router)
 app.include_router(inventory_pro_router)
 app.include_router(payroll_router)
