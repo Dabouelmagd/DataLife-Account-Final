@@ -508,6 +508,382 @@ async def list_approval_requests(
     return {"requests": requests, "total": total}
 
 
+
+
+# ══════════════════════════════════════════════════════════════
+# APPROVAL RULES — PER-COMPANY CONFIGURATION
+# إدارة قواعد الاعتماد لكل شركة بشكل مستقل
+# ══════════════════════════════════════════════════════════════
+
+# جميع أنواع المستندات المدعومة
+SUPPORTED_DOC_TYPES = [
+    "purchase_invoice",    # فواتير الشراء
+    "expense_claim",       # مطالبات المصروفات
+    "asset_purchase",      # شراء الأصول الثابتة
+    "payroll_run",         # كشف الرواتب
+    "journal_entry",       # قيود يومية يدوية
+    "credit_note",         # إشعارات دائنة
+    "bank_transfer",       # تحويلات بنكية
+    "inventory_write_off", # شطب مخزون
+    "employee_loan",       # سلف الموظفين
+    "contract_signing",    # توقيع العقود
+]
+
+
+@router.get("/approval-rules/templates")
+async def get_rule_templates(current_user: dict = Depends(get_current_user)):
+    """
+    قوالب قواعد الاعتماد الجاهزة — يمكن تطبيقها ثم تعديل القيم
+
+    يُسرِّع إعداد الشركات الجديدة
+    """
+    return {
+        "templates": [
+            {
+                "name":          "شركة صغيرة (مستوى واحد)",
+                "description":   "مناسبة للشركات < 50 موظف",
+                "document_type": "purchase_invoice",
+                "levels": [
+                    {"role": "manager", "role_name_ar": "المدير العام",
+                     "min_amount": 0, "max_amount": None,
+                     "approver_user_id": None},
+                ],
+            },
+            {
+                "name":          "شركة متوسطة (مستويان)",
+                "description":   "مناسبة للشركات 50–200 موظف",
+                "document_type": "purchase_invoice",
+                "levels": [
+                    {"role": "dept_manager", "role_name_ar": "مدير القسم",
+                     "min_amount": 0, "max_amount": 100_000,
+                     "approver_user_id": None},
+                    {"role": "cfo", "role_name_ar": "المدير المالي",
+                     "min_amount": 100_000, "max_amount": None,
+                     "approver_user_id": None},
+                ],
+            },
+            {
+                "name":          "شركة كبيرة (ثلاثة مستويات)",
+                "description":   "مناسبة للشركات > 200 موظف",
+                "document_type": "purchase_invoice",
+                "levels": [
+                    {"role": "dept_manager", "role_name_ar": "مدير القسم",
+                     "min_amount": 0, "max_amount": 50_000,
+                     "approver_user_id": None},
+                    {"role": "cfo", "role_name_ar": "المدير المالي",
+                     "min_amount": 50_000, "max_amount": 500_000,
+                     "approver_user_id": None},
+                    {"role": "ceo", "role_name_ar": "المدير العام",
+                     "min_amount": 500_000, "max_amount": None,
+                     "approver_user_id": None},
+                ],
+            },
+        ],
+        "supported_document_types": SUPPORTED_DOC_TYPES,
+        "note": "طبِّق أي قالب ثم عدِّل القيم حسب احتياج شركتك",
+    }
+
+
+@router.get("/approval-rules/{doc_type}")
+async def get_rule_by_doc_type(
+    doc_type: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    عرض قاعدة الاعتماد لنوع مستند محدد مع شرح تفصيلي لكل مستوى
+
+    يُظهر: الأدوار + نطاقات المبالغ + المعتمد المعيَّن (إن وجد)
+    """
+    company_id = current_user["company_id"]
+    rule = await db.approval_rules.find_one(
+        {"company_id": company_id, "document_type": doc_type}, {"_id": 0})
+
+    if not rule:
+        return {
+            "exists":        False,
+            "document_type": doc_type,
+            "message":       f"لا توجد قاعدة اعتماد لـ '{doc_type}' — سيُطبَّق مستوى واحد افتراضي",
+            "default_behavior": "مستوى واحد — مدير مباشر",
+        }
+
+    # Enrich levels with simulated examples
+    enriched_levels = []
+    for lvl in rule.get("levels", []):
+        min_a = lvl.get("min_amount", 0)
+        max_a = lvl.get("max_amount")
+        enriched_levels.append({
+            **lvl,
+            "range_label": (
+                f"من {min_a:,.0f} إلى {max_a:,.0f} ج.م"
+                if max_a else f"من {min_a:,.0f} ج.م فأكثر"
+            ),
+        })
+
+    return {
+        "exists":        True,
+        "document_type": doc_type,
+        "name":          rule.get("name",""),
+        "levels":        enriched_levels,
+        "total_levels":  len(enriched_levels),
+        "active":        rule.get("active", True),
+        "created_at":    rule.get("created_at",""),
+        "updated_at":    rule.get("updated_at",""),
+    }
+
+
+@router.put("/approval-rules/{doc_type}/thresholds")
+async def update_thresholds(
+    doc_type: str, data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    تعديل قيم عتبات المبالغ فقط — بدون إعادة تعريف الأدوار
+
+    الأبسط لتعديل الأرقام: أرسل فقط القيم الجديدة
+    {
+      "thresholds": [
+        {"level": 1, "min_amount": 0,       "max_amount": 75000},
+        {"level": 2, "min_amount": 75000,   "max_amount": 400000},
+        {"level": 3, "min_amount": 400000,  "max_amount": null}
+      ]
+    }
+    """
+    company_id = current_user["company_id"]
+    thresholds = data.get("thresholds", [])
+
+    if not thresholds:
+        raise HTTPException(400, "thresholds مطلوبة")
+
+    rule = await db.approval_rules.find_one(
+        {"company_id": company_id, "document_type": doc_type}, {"_id": 0})
+    if not rule:
+        raise HTTPException(404, f"لا توجد قاعدة اعتماد لـ '{doc_type}' — أنشئها أولاً")
+
+    levels = rule.get("levels", [])
+
+    # Validate thresholds count matches levels
+    if len(thresholds) != len(levels):
+        raise HTTPException(400,
+            f"عدد العتبات ({len(thresholds)}) لا يطابق عدد المستويات ({len(levels)})")
+
+    # Apply thresholds
+    old_thresholds = [{"level": i+1,
+                       "min_amount": l.get("min_amount"),
+                       "max_amount": l.get("max_amount")}
+                      for i, l in enumerate(levels)]
+
+    for t in thresholds:
+        lvl_idx = int(t.get("level", 1)) - 1
+        if 0 <= lvl_idx < len(levels):
+            levels[lvl_idx]["min_amount"] = float(t.get("min_amount", 0))
+            levels[lvl_idx]["max_amount"] = float(t["max_amount"]) if t.get("max_amount") is not None else None
+
+    # Validate: min of each level = max of previous
+    for i in range(1, len(levels)):
+        prev_max = levels[i-1].get("max_amount")
+        curr_min = levels[i].get("min_amount", 0)
+        if prev_max is not None and abs(float(prev_max) - float(curr_min)) > 0.01:
+            raise HTTPException(400,
+                f"الحد الأقصى للمستوى {i} ({prev_max}) يجب أن يساوي الحد الأدنى للمستوى {i+1} ({curr_min})")
+
+    updated_at = datetime.now(timezone.utc).isoformat()
+    await db.approval_rules.update_one(
+        {"company_id": company_id, "document_type": doc_type},
+        {"$set": {"levels": levels, "updated_at": updated_at,
+                  "updated_by": current_user["user_id"]}}
+    )
+
+    return {
+        "message":   f"✅ تم تحديث عتبات المبالغ لـ '{doc_type}'",
+        "doc_type":  doc_type,
+        "old_thresholds": old_thresholds,
+        "new_levels": [
+            {"level":     i+1,
+             "role":      l.get("role"),
+             "role_name_ar": l.get("role_name_ar",""),
+             "min_amount": l.get("min_amount"),
+             "max_amount": l.get("max_amount"),
+             "range_label": (
+                 f"{l.get('min_amount',0):,.0f} – {l['max_amount']:,.0f} ج.م"
+                 if l.get("max_amount") else f"{l.get('min_amount',0):,.0f} ج.م فأكثر"
+             )}
+            for i, l in enumerate(levels)
+        ],
+        "updated_at": updated_at,
+    }
+
+
+@router.put("/approval-rules/{doc_type}/level/{level_num}/approver")
+async def assign_approver(
+    doc_type: str, level_num: int, data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    تعيين مستخدم محدد كمعتمد لمستوى معين
+
+    يمكن ترك approver_user_id فارغاً → أي مستخدم بالدور يمكنه الاعتماد
+    """
+    company_id = current_user["company_id"]
+    approver_id = data.get("approver_user_id")
+    approver_name = data.get("approver_name", "")
+
+    rule = await db.approval_rules.find_one(
+        {"company_id": company_id, "document_type": doc_type}, {"_id": 0})
+    if not rule:
+        raise HTTPException(404, f"لا توجد قاعدة لـ '{doc_type}'")
+
+    levels = rule.get("levels", [])
+    idx = level_num - 1
+    if idx < 0 or idx >= len(levels):
+        raise HTTPException(400, f"المستوى {level_num} غير موجود (المجال 1–{len(levels)})")
+
+    old_approver = levels[idx].get("approver_user_id")
+    levels[idx]["approver_user_id"] = approver_id
+    levels[idx]["approver_name"]    = approver_name
+
+    await db.approval_rules.update_one(
+        {"company_id": company_id, "document_type": doc_type},
+        {"$set": {"levels": levels,
+                  "updated_at": datetime.now(timezone.utc).isoformat(),
+                  "updated_by": current_user["user_id"]}}
+    )
+    return {
+        "message":      f"✅ تم تعيين المعتمد للمستوى {level_num}",
+        "doc_type":     doc_type,
+        "level":        level_num,
+        "old_approver": old_approver,
+        "new_approver": approver_id,
+        "approver_name": approver_name,
+    }
+
+
+@router.patch("/approval-rules/{doc_type}/toggle")
+async def toggle_rule(
+    doc_type: str, data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """تفعيل / تعطيل قاعدة اعتماد"""
+    company_id = current_user["company_id"]
+    active = data.get("active", True)
+
+    result = await db.approval_rules.update_one(
+        {"company_id": company_id, "document_type": doc_type},
+        {"$set": {"active": active,
+                  "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, f"لا توجد قاعدة لـ '{doc_type}'")
+
+    return {
+        "message": f"{'✅ تم تفعيل' if active else '⏸ تم تعطيل'} قاعدة الاعتماد لـ '{doc_type}'",
+        "doc_type": doc_type,
+        "active":   active,
+    }
+
+
+@router.post("/approval-rules/copy-from")
+async def copy_rules_from_company(
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    استيراد قواعد الاعتماد من شركة أخرى
+
+    مفيد لإعداد شركات جديدة بنفس هيكل اعتماد شركة قائمة
+    """
+    company_id      = current_user["company_id"]
+    source_company  = data.get("source_company_id")
+    doc_types       = data.get("document_types", [])  # empty = all
+
+    if not source_company:
+        raise HTTPException(400, "source_company_id مطلوب")
+    if source_company == company_id:
+        raise HTTPException(400, "لا يمكن النسخ من نفس الشركة")
+
+    q = {"company_id": source_company, "active": True}
+    if doc_types:
+        q["document_type"] = {"$in": doc_types}
+
+    source_rules = await db.approval_rules.find(q, {"_id": 0}).to_list(None)
+    if not source_rules:
+        raise HTTPException(404, "لا توجد قواعد في الشركة المصدر")
+
+    copied = []
+    for rule in source_rules:
+        import uuid as _uuid
+        new_rule = {
+            **rule,
+            "id":          str(_uuid.uuid4()),
+            "company_id":  company_id,
+            "copied_from": source_company,
+            "created_by":  current_user["user_id"],
+            "created_at":  datetime.now(timezone.utc).isoformat(),
+            "updated_at":  None,
+        }
+        # Clear company-specific approver IDs (roles stay, user IDs cleared)
+        for level in new_rule.get("levels", []):
+            level["approver_user_id"] = None
+            level["approver_name"]    = ""
+
+        await db.approval_rules.replace_one(
+            {"company_id": company_id, "document_type": rule["document_type"]},
+            new_rule, upsert=True
+        )
+        copied.append(rule["document_type"])
+
+    return {
+        "message":       f"✅ تم نسخ {len(copied)} قاعدة اعتماد",
+        "source_company": source_company,
+        "copied_rules":   copied,
+        "note": "تم مسح معرِّفات المعتمدين — يجب تعيين المعتمدين للشركة الجديدة",
+    }
+
+
+@router.get("/approval-rules/summary/all")
+async def get_all_rules_summary(current_user: dict = Depends(get_current_user)):
+    """
+    ملخص شامل لجميع قواعد الاعتماد المُعرَّفة للشركة
+
+    يُظهر بوضوح: كل نوع مستند + مستوياته + قيم العتبات
+    """
+    company_id = current_user["company_id"]
+    rules = await db.approval_rules.find(
+        {"company_id": company_id}, {"_id": 0}
+    ).sort("document_type", 1).to_list(None)
+
+    configured_types = {r["document_type"] for r in rules}
+    missing_types = [t for t in SUPPORTED_DOC_TYPES if t not in configured_types]
+
+    summary = []
+    for rule in rules:
+        levels = rule.get("levels", [])
+        summary.append({
+            "document_type":  rule["document_type"],
+            "name":           rule.get("name",""),
+            "active":         rule.get("active", True),
+            "levels_count":   len(levels),
+            "thresholds": [
+                {
+                    "level": i+1,
+                    "role":  l.get("role",""),
+                    "role_name_ar": l.get("role_name_ar",""),
+                    "min_amount":   l.get("min_amount",0),
+                    "max_amount":   l.get("max_amount"),
+                    "approver_assigned": bool(l.get("approver_user_id")),
+                }
+                for i, l in enumerate(levels)
+            ],
+            "updated_at": rule.get("updated_at",""),
+        })
+
+    return {
+        "company_id":       company_id,
+        "configured_count": len(rules),
+        "rules":            summary,
+        "missing_config":   missing_types,
+        "missing_note":     "هذه الأنواع ستستخدم مستوى اعتماد واحد افتراضياً",
+    }
+
 # ══════════════════════════════════════════════════════════════
 # 3. TAMPER-PROOF AUDIT TRAIL — سجل التدقيق الرقمي
 # ══════════════════════════════════════════════════════════════
