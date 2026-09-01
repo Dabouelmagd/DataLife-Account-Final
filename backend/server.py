@@ -58,6 +58,7 @@ from api.deferred_tax import router as deferred_tax_router
 from api.eta_signing import router as eta_signing_router
 from api.performance_engine import router as performance_router
 from api.fraud_detection import router as fraud_router
+from api.petty_cash import router as petty_cash_router
 from api.invoice import router as invoice_router
 from api.inventory_pro import router as inventory_pro_router
 from api.payroll import router as payroll_router
@@ -189,6 +190,7 @@ app.include_router(deferred_tax_router)
 app.include_router(eta_signing_router)
 app.include_router(performance_router)
 app.include_router(fraud_router)
+app.include_router(petty_cash_router)
 app.include_router(invoice_router)
 app.include_router(inventory_pro_router)
 app.include_router(payroll_router)
