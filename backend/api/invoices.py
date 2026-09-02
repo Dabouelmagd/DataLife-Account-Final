@@ -706,3 +706,182 @@ async def get_etax_stats(authorization: Optional[str] = Header(None)):
         "submitted_amount": submitted_amount,
         "currency": "EGP"
     }
+
+
+# ══════════════════════════════════════════════════════════════
+# DOCUMENT LIFECYCLE — دورة حياة المستند (TC-UI-01 → TC-UI-05)
+# ══════════════════════════════════════════════════════════════
+
+INVOICE_TRANSITIONS = {
+    # current_status: [allowed_actions]
+    "draft":    ["approve", "void", "edit", "delete"],
+    "approved": ["post", "void"],
+    "posted":   ["reverse", "print", "export"],
+    "voided":   ["print", "export"],
+    "cancelled":["print", "export"],
+}
+
+def get_allowed_actions(status: str) -> dict:
+    """
+    Document Lifecycle State Machine
+    TC-UI-01: draft    → حفظ✅ اعتماد✅ ترحيل❌ إلغاء❌
+    TC-UI-02: approved → اعتماد❌ ترحيل✅ إلغاء✅ حذف❌
+    TC-UI-03: posted   → تعديل❌ حذف❌ عكس✅ طباعة✅
+    TC-UI-04: voided   → جميع الأزرار❌ إلا طباعة✅
+    TC-UI-05: posted   → زر الإلغاء لا يظهر
+    """
+    return {
+        "can_edit":    status in ("draft",),
+        "can_approve": status in ("draft",),
+        "can_post":    status in ("approved",),
+        "can_void":    status in ("draft", "approved"),
+        "can_delete":  status in ("draft",),
+        "can_reverse": status in ("posted",),
+        "can_print":   True,   # always allowed
+        "can_export":  True,
+        "show_cancel": status not in ("posted", "voided"),
+    }
+
+
+@router.patch("/{invoice_number}/approve")
+async def approve_invoice(
+    invoice_number: str,
+    data: dict = {},
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    اعتماد الفاتورة Draft → Approved
+    TC-UI-02: يُفعِّل زر الترحيل ويُعطِّل زر الاعتماد
+    """
+    company_id = current_user["company_id"]
+    inv = await db.invoices.find_one(
+        {"invoice_number": invoice_number, "company_id": company_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "الفاتورة غير موجودة")
+    if inv.get("status") != "draft":
+        raise HTTPException(400,
+            f"لا يمكن اعتماد فاتورة بحالة '{inv.get('status')}' — يجب أن تكون Draft")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.invoices.update_one(
+        {"invoice_number": invoice_number, "company_id": company_id},
+        {"$set": {"status": "approved", "approved_by": current_user["user_id"],
+                  "approved_at": now}}
+    )
+    return {
+        "message":         "✅ تم اعتماد الفاتورة",
+        "invoice_number":  invoice_number,
+        "status":          "approved",
+        "allowed_actions": get_allowed_actions("approved"),
+        "ui_note":         "اعتماد❌ ترحيل✅ إلغاء✅ حذف❌",
+    }
+
+
+@router.patch("/{invoice_number}/post-invoice")
+async def post_invoice_to_ledger(
+    invoice_number: str,
+    data: dict = {},
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    ترحيل الفاتورة Approved → Posted (يُنشئ قيد محاسبي)
+    TC-UI-03: يُعطِّل التعديل والحذف — يُفعِّل العكس والطباعة
+    """
+    from services.accounting_service import AccountingService
+    from models.accounting import JournalEntry
+
+    company_id = current_user["company_id"]
+    inv = await db.invoices.find_one(
+        {"invoice_number": invoice_number, "company_id": company_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "الفاتورة غير موجودة")
+    if inv.get("status") != "approved":
+        raise HTTPException(400,
+            f"لا يمكن ترحيل فاتورة بحالة '{inv.get('status')}' — يجب أن تكون Approved")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.invoices.update_one(
+        {"invoice_number": invoice_number, "company_id": company_id},
+        {"$set": {"status": "posted", "gl_posted": True,
+                  "posted_by": current_user["user_id"], "posted_at": now}}
+    )
+    return {
+        "message":         "✅ تم ترحيل الفاتورة إلى دفتر الأستاذ",
+        "invoice_number":  invoice_number,
+        "status":          "posted",
+        "allowed_actions": get_allowed_actions("posted"),
+        "ui_note":         "تعديل❌ حذف❌ عكس✅ طباعة✅",
+    }
+
+
+@router.patch("/{invoice_number}/void")
+async def void_invoice(
+    invoice_number: str,
+    data: dict = {},
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    إلغاء الفاتورة Draft/Approved → Voided
+    TC-UI-04: جميع الأزرار معطَّلة ما عدا الطباعة
+    TC-UI-05: لا يظهر زر الإلغاء إن كانت Posted
+    """
+    company_id = current_user["company_id"]
+    inv = await db.invoices.find_one(
+        {"invoice_number": invoice_number, "company_id": company_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "الفاتورة غير موجودة")
+
+    current_status = inv.get("status","")
+    if current_status not in ("draft", "approved"):
+        raise HTTPException(400,
+            f"لا يمكن إلغاء فاتورة بحالة '{current_status}'. "
+            "الإلغاء مسموح فقط لـ Draft أو Approved. "
+            "للفواتير المرحَّلة (Posted) استخدم العكس (Reversal).")
+
+    reason = data.get("reason","إلغاء يدوي")
+    now    = datetime.now(timezone.utc).isoformat()
+    await db.invoices.update_one(
+        {"invoice_number": invoice_number, "company_id": company_id},
+        {"$set": {"status": "voided", "voided_by": current_user["user_id"],
+                  "voided_at": now, "void_reason": reason}}
+    )
+    return {
+        "message":         "✅ تم إلغاء الفاتورة",
+        "invoice_number":  invoice_number,
+        "prev_status":     current_status,
+        "status":          "voided",
+        "allowed_actions": get_allowed_actions("voided"),
+        "ui_note":         "جميع الأزرار معطَّلة ما عدا الطباعة والتصدير",
+    }
+
+
+@router.get("/{invoice_number}/allowed-actions")
+async def get_invoice_allowed_actions(
+    invoice_number: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    API للـ Frontend: ما الأزرار المسموح تفعيلها؟
+    يُستدعى عند فتح تفاصيل الفاتورة لضبط حالة الأزرار
+    """
+    company_id = current_user["company_id"]
+    inv = await db.invoices.find_one(
+        {"invoice_number": invoice_number, "company_id": company_id},
+        {"_id": 0, "status":1, "invoice_number":1})
+    if not inv:
+        raise HTTPException(404, "الفاتورة غير موجودة")
+
+    status  = inv.get("status","draft")
+    actions = get_allowed_actions(status)
+    return {
+        "invoice_number":  invoice_number,
+        "current_status":  status,
+        "allowed_actions": actions,
+        "lifecycle": {
+            "draft":    "Draft → [اعتماد] → Approved → [ترحيل] → Posted",
+            "current":  status,
+            "next":     "approved" if status=="draft" else
+                        "posted"   if status=="approved" else
+                        "—" if status in ("posted","voided") else "—",
+        },
+    }
