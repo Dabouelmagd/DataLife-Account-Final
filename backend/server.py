@@ -62,6 +62,7 @@ from api.petty_cash import router as petty_cash_router
 from api.letter_of_credit import router as lc_router
 from api.equity_dividends import router as equity_router
 from api.performance_kpi import router as perf_kpi_router
+from api.data_protection import router as data_protection_router
 from api.invoice import router as invoice_router
 from api.inventory_pro import router as inventory_pro_router
 from api.payroll import router as payroll_router
@@ -197,6 +198,7 @@ app.include_router(petty_cash_router)
 app.include_router(lc_router)
 app.include_router(equity_router)
 app.include_router(perf_kpi_router)
+app.include_router(data_protection_router)
 app.include_router(invoice_router)
 app.include_router(inventory_pro_router)
 app.include_router(payroll_router)
