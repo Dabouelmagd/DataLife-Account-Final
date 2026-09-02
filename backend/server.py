@@ -60,6 +60,7 @@ from api.performance_engine import router as performance_router
 from api.fraud_detection import router as fraud_router
 from api.petty_cash import router as petty_cash_router
 from api.letter_of_credit import router as lc_router
+from api.equity_dividends import router as equity_router
 from api.invoice import router as invoice_router
 from api.inventory_pro import router as inventory_pro_router
 from api.payroll import router as payroll_router
@@ -193,6 +194,7 @@ app.include_router(performance_router)
 app.include_router(fraud_router)
 app.include_router(petty_cash_router)
 app.include_router(lc_router)
+app.include_router(equity_router)
 app.include_router(invoice_router)
 app.include_router(inventory_pro_router)
 app.include_router(payroll_router)
