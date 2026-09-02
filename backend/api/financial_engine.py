@@ -690,3 +690,118 @@ async def inter_company_balance(current_user: dict = Depends(get_current_user)):
         "net_position":  round(receivable - payable, 2),
         "transactions":  txns,
     }
+
+
+# ══════════════════════════════════════════════════════════════
+# FISCAL PERIOD MANAGEMENT — إدارة الفترات المالية
+# TC-JE-07: منع الترحيل في فترات مغلقة
+# ══════════════════════════════════════════════════════════════
+
+@router.post("/periods/close")
+async def close_fiscal_period(
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    إغلاق فترة مالية — يمنع أي ترحيل بتاريخ داخلها
+
+    بعد الإغلاق: أي قيد بتاريخ في هذه الفترة يُرفَض بـ:
+    "الفترة المالية YYYY-MM مغلقة — لا يمكن الترحيل إليها"
+    """
+    company_id = current_user["company_id"]
+    year  = int(data.get("year",  date.today().year))
+    month = int(data.get("month", date.today().month))
+    period = f"{year}-{month:02d}"
+    reason = data.get("reason", "إغلاق شهري روتيني")
+
+    # Check not already closed
+    existing = await db.financial_periods.find_one(
+        {"company_id": company_id, "year": year, "month": month}, {"_id": 0})
+    if existing and existing.get("status") == "closed":
+        return {
+            "message": f"الفترة {period} مغلقة بالفعل منذ {existing.get('closed_at','')}",
+            "period": existing
+        }
+
+    now = datetime.now(timezone.utc).isoformat()
+    fp = {
+        "company_id":  company_id,
+        "year":        year,
+        "month":       month,
+        "period":      period,
+        "status":      "closed",
+        "reason":      reason,
+        "closed_by":   current_user["user_id"],
+        "closed_at":   now,
+        "reopened_by": None,
+        "reopened_at": None,
+    }
+    await db.financial_periods.replace_one(
+        {"company_id": company_id, "year": year, "month": month},
+        fp, upsert=True
+    )
+    return {
+        "message":   f"✅ تم إغلاق الفترة المالية {period}",
+        "period":    period,
+        "effect":    "أي قيد بتاريخ في هذه الفترة سيُرفَض عند الترحيل",
+        "test_case": "TC-JE-07: POST /journal-entries/post بتاريخ 2024-06-15 → 400 مغلقة",
+    }
+
+
+@router.post("/periods/reopen")
+async def reopen_fiscal_period(
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    إعادة فتح فترة مالية مغلقة — يتطلب صلاحية محاسب أول / مدير مالي
+    يُسجَّل في سجل التدقيق
+    """
+    company_id = current_user["company_id"]
+    year  = int(data.get("year"))
+    month = int(data.get("month"))
+    period = f"{year}-{month:02d}"
+    justification = data.get("justification","")
+
+    if not justification:
+        raise HTTPException(400, "يجب ذكر مبرر إعادة الفتح")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.financial_periods.update_one(
+        {"company_id": company_id, "year": year, "month": month},
+        {"$set": {"status": "open", "reopened_by": current_user["user_id"],
+                  "reopened_at": now, "reopen_justification": justification}},
+        upsert=True
+    )
+    # Audit log
+    await db.audit_trail.insert_one({
+        "company_id":  company_id, "action": "period.reopened",
+        "period":      period, "user_id": current_user["user_id"],
+        "justification": justification, "timestamp": now,
+    })
+    return {
+        "message":      f"⚠️ تم إعادة فتح الفترة {period} — مُسجَّل في سجل التدقيق",
+        "period":       period,
+        "reopened_by":  current_user["user_id"],
+        "justification": justification,
+    }
+
+
+@router.get("/periods")
+async def list_fiscal_periods(
+    year: Optional[int] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """قائمة الفترات المالية وحالتها"""
+    q = {"company_id": current_user["company_id"]}
+    if year: q["year"] = year
+    periods = await db.financial_periods.find(
+        q, {"_id": 0}
+    ).sort([("year",-1),("month",-1)]).to_list(None)
+
+    return {
+        "periods": periods,
+        "total":   len(periods),
+        "closed":  sum(1 for p in periods if p.get("status")=="closed"),
+        "open":    sum(1 for p in periods if p.get("status")!="closed"),
+    }

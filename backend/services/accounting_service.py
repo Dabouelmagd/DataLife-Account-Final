@@ -324,7 +324,25 @@ class AccountingService:
         
         if entry["status"] == JournalEntryStatus.CANCELLED.value:
             raise ValueError("Cannot post a cancelled entry")
-        
+
+        # ── فحص الفترة المالية: هل مفتوحة؟ ──────────────────────
+        entry_date   = entry.get("entry_date", "")
+        if entry_date:
+            entry_period = entry_date[:7]   # YYYY-MM
+            entry_year   = entry_date[:4]   # YYYY
+            fp = await self.db.financial_periods.find_one({
+                "company_id": entry["company_id"],
+                "$or": [
+                    {"year": int(entry_year), "month": int(entry_date[5:7])},
+                    {"period": entry_period},
+                ]
+            }, {"_id": 0})
+            if fp and fp.get("status") == "closed":
+                raise ValueError(
+                    f"الفترة المالية {entry_period} مغلقة — "
+                    "لا يمكن الترحيل إليها. يتطلب صلاحية إعادة الفتح."
+                )
+
         # Set fiscal year and period automatically
         from datetime import datetime as _dt
         entry_date = entry.get("entry_date", _dt.utcnow().strftime("%Y-%m-%d"))
