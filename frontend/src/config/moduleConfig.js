@@ -170,6 +170,13 @@ export const getAvailableModules = (user, language) => {
   }
 
   // ── 14. User Guide (always shown) ─────────────────────────
+  // ── Subscription ───────────────────────────────────────────
+  modules.push({
+    id: 'subscription',
+    name: isArabic ? '💳 الاشتراك والفواتير' : '💳 Subscription & Billing',
+    icon: <Scale />
+  });
+
   modules.push({
     id: 'user-guide',
     name: isArabic ? 'دليل الاستخدام' : 'User Guide',
@@ -181,6 +188,15 @@ export const getAvailableModules = (user, language) => {
     name: isArabic ? 'نظام الإحالة' : 'Referral Program',
     icon: <Gift />
   });
+
+  // ── Admin Dashboard (owners / super admins only) ────────────
+  if (hasAnyRole(role, ['TOP_MANAGEMENT', 'SUPER_ADMIN'])) {
+    modules.push({
+      id: 'admin-dashboard',
+      name: isArabic ? '🛡️ لوحة الأدمن' : '🛡️ Admin Dashboard',
+      icon: <Landmark />
+    });
+  }
 
   return modules;
 };

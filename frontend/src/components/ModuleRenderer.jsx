@@ -52,6 +52,7 @@ import NotificationSettingsPage from '../pages/NotificationSettingsPage';
 import UserGuidePage from '../pages/UserGuidePage';
 import ReferralPanel from './ReferralPanel';
 import TaxesModule from './TaxesModule';
+import SubscriptionPage from './SubscriptionPage';
 import ReportManagementPage from '../pages/ReportManagementPage';
 import AssetsModule from '../components/AssetsModule';
 
@@ -230,7 +231,8 @@ const ModuleRenderer = ({
   setActiveHRSubModule,
   setActiveFinancialSubModule,
   setActiveInvoiceSubModule,
-  navigate
+  navigate,
+  userRole
 }) => {
   // Dashboard Module
   if (activeModule === 'dashboard') {
@@ -263,7 +265,9 @@ const ModuleRenderer = ({
       stats,
       selectedEmployeeId,
       setSelectedEmployeeId,
-      setActiveHRSubModule
+      setActiveHRSubModule,
+      setActiveModule,
+      userRole
     });
   }
 
@@ -303,6 +307,7 @@ const ModuleRenderer = ({
     'documents': <DocumentsModule language={language} />,
     'settings': <CompanySettings language={language} />,
     'import': <ImportDataPage language={language} />,
+    'subscription': <SubscriptionPage />,
     'admin-dashboard': <AdminDashboardPage language={language} />,
     'super-admin': <SuperAdminDashboard language={language} />,
     'notification-settings': <NotificationSettingsPage language={language} />,

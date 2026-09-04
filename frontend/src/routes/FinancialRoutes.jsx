@@ -44,6 +44,7 @@ export const renderFinancialContent = ({
     case 'balance-sheet':
       return <BalanceSheetPage language={language} />;
     case 'financial-reports':
+    case 'reports':              // moduleConfig submodule id alias
       return <FinancialReportsPage />;
     case 'treasury':
       return <TreasuryModule language={language} userRole={userRole} />;
@@ -70,7 +71,11 @@ export const renderFinancialContent = ({
     case 'tasks':
       return <ProjectsPage language={language} />;
     default:
-      return <div>{language === 'ar' ? 'اختر وحدة فرعية' : 'Select a sub-module'}</div>;
+      return (
+        <div className="flex items-center justify-center h-64 text-gray-400">
+          {language === 'ar' ? 'اختر وحدة فرعية من القائمة الجانبية' : 'Select a sub-module from the sidebar'}
+        </div>
+      );
   }
 };
 

@@ -247,6 +247,7 @@ const RealDashboard = () => {
             setActiveFinancialSubModule={setActiveFinancialSubModule}
             setActiveInvoiceSubModule={setActiveInvoiceSubModule}
             navigate={navigate}
+            userRole={user?.role}
           />
         </div>
         
