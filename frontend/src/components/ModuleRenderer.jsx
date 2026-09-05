@@ -53,6 +53,7 @@ import UserGuidePage from '../pages/UserGuidePage';
 import ReferralPanel from './ReferralPanel';
 import TaxesModule from './TaxesModule';
 import SubscriptionPage from './SubscriptionPage';
+import AppUpdatesPage from '../pages/AppUpdatesPage';
 import ReportManagementPage from '../pages/ReportManagementPage';
 import AssetsModule from '../components/AssetsModule';
 
@@ -308,6 +309,7 @@ const ModuleRenderer = ({
     'settings': <CompanySettings language={language} />,
     'import': <ImportDataPage language={language} />,
     'subscription': <SubscriptionPage />,
+    'app-updates': <AppUpdatesPage />,
     'admin-dashboard': <AdminDashboardPage language={language} />,
     'super-admin': <SuperAdminDashboard language={language} />,
     'notification-settings': <NotificationSettingsPage language={language} />,

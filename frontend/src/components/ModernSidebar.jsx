@@ -1,4 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+
+/* ── Sidebar item for app-updates with live pending badge ── */
+const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+function AppUpdatesSidebarItem({ isActive, onClick, language, token }) {
+  const [count, setCount] = useState(0);
+  const isAr = language === 'ar';
+
+  const fetchCount = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/updates/pending`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setCount((data.updates || []).length);
+    } catch { /* silent */ }
+  }, [token]);
+
+  useEffect(() => {
+    fetchCount();
+    const iv = setInterval(fetchCount, 5 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, [fetchCount]);
+
+  return (
+    <button
+      onClick={onClick}
+      data-testid="nav-app-updates-module"
+      className={`w-full flex items-center gap-2 py-1.5 px-2.5 rounded-lg mb-0.5 transition-all
+        ${isActive
+          ? 'bg-blue-50 dark:bg-blue-900/20 border-s-2 border-blue-500 text-blue-700 dark:text-blue-300'
+          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+        }`}
+    >
+      <span className={`w-6 h-6 flex items-center justify-center rounded-md text-sm
+        ${isActive ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600'}`}>
+        🔄
+      </span>
+      <span className="text-sm flex-1 text-start">
+        {isAr ? 'تحديثات النظام' : 'System Updates'}
+      </span>
+      {count > 0 && (
+        <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
 import { 
   House, Users, Wallet, FileText, Gear, SignOut, CaretDown, CaretRight,
   ChartBar, ShieldCheck, Bell, Clock, Folders, Package, CreditCard, 
@@ -12,7 +62,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
 const ModernSidebar = ({ 
-  user, 
+  user,
+  token,
   language, 
   modules, 
   activeModule, 
@@ -551,6 +602,16 @@ const ModernSidebar = ({
                   </button>
                 );
               })}
+
+              {/* ── App Updates — with pending badge ── */}
+              {otherModules.some(m => m.id === 'app-updates') && (
+                <AppUpdatesSidebarItem
+                  isActive={activeModule === 'app-updates'}
+                  onClick={() => setActiveModule('app-updates')}
+                  language={language}
+                  token={token}
+                />
+              )}
 
               {/* Section label: Tools */}
               {otherModules.some(m => ['import','user-guide','super-admin','referral','taxes'].includes(m.id)) && (

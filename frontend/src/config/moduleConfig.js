@@ -186,6 +186,12 @@ export const getAvailableModules = (user, language) => {
   });
 
   modules.push({
+    id: 'app-updates',
+    name: isArabic ? '🔄 تحديثات النظام' : '🔄 System Updates',
+    icon: <Scale />
+  });
+
+  modules.push({
     id: 'user-guide',
     name: isArabic ? 'دليل الاستخدام' : 'User Guide',
     icon: <Book />

@@ -194,6 +194,7 @@ const RealDashboard = () => {
       {/* Sidebar */}
       <ModernSidebar
         user={user}
+        token={token}
         language={language}
         modules={modules}
         activeModule={activeModule}
@@ -266,7 +267,7 @@ const RealDashboard = () => {
         <AppFooter />
       </div>
     </div>
-    <AppUpdateNotification />
+    <AppUpdateNotification onNavigateToUpdates={() => setActiveModule('app-updates')} />
 
     {/* Idle Warning Banner */}
     {idleWarning && (
