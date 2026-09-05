@@ -89,6 +89,8 @@ from api.ads import router as ads_router
 from api.newsletter import router as newsletter_router
 from api.sales import router as sales_router
 from api.enterprise_accounting import router as enterprise_router
+from api.super_admin import router as super_admin_router
+from api.compat_routes import router as compat_router
 from scheduler import start_scheduler, get_scheduler_status
 
 
@@ -221,6 +223,8 @@ app.include_router(ads_router)
 app.include_router(newsletter_router)
 app.include_router(sales_router)
 app.include_router(enterprise_router)
+app.include_router(super_admin_router)
+app.include_router(compat_router)
 
 # ── Simple Rate Limiting Middleware ──────────────────
 from collections import defaultdict
