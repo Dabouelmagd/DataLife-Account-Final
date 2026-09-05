@@ -81,30 +81,73 @@ def _build_update_email(update: dict, lang: str = "ar") -> tuple[str, str]:
 
 
 async def _send_update_emails(update: dict):
-    """إرسال إيميلات لكل الشركات النشطة"""
+    """
+    إرسال إيميلات لكل الشركات النشطة.
+    المصدر الأول: contact_email في companies
+    المصدر الثاني: email أول مستخدم (General Manager / CEO) في users
+    """
     try:
         from api.email_notifications import send_email_async
-        # جلب كل الشركات النشطة مع الإيميل
+
+        # ── جلب كل الشركات النشطة ──────────────────────
         companies = await db.companies.find(
-            {"is_active": {"$ne": False}},
-            {"email": 1, "owner_email": 1, "name": 1, "_id": 0}
+            {"subscription_status": {"$nin": ["deleted", "banned"]}},
+            {"id": 1, "contact_email": 1, "name": 1, "_id": 0}
         ).to_list(length=5000)
 
+        # ── بناء map: company_id → contact_email ────────
+        company_email_map = {}
+        for c in companies:
+            cid = c.get("id")
+            email = c.get("contact_email")
+            if cid and email:
+                company_email_map[cid] = email
+
+        # ── للشركات بدون contact_email: نجيب من users ──
+        missing_ids = [c.get("id") for c in companies if not c.get("contact_email") and c.get("id")]
+        if missing_ids:
+            TOP_ROLES = [
+                "General Manager", "CEO", "Chief Executive Officer",
+                "Board Chairman", "مدير عام", "رئيس مجلس الإدارة"
+            ]
+            owner_users = await db.users.find(
+                {
+                    "company_id": {"$in": missing_ids},
+                    "role": {"$in": TOP_ROLES},
+                    "is_active": {"$ne": False}
+                },
+                {"company_id": 1, "email": 1, "_id": 0}
+            ).to_list(length=5000)
+
+            for u in owner_users:
+                cid = u.get("company_id")
+                email = u.get("email")
+                if cid and email and cid not in company_email_map:
+                    company_email_map[cid] = email
+
+        # ── إرسال إيميل لكل شركة ───────────────────────
+        subject, _ = _build_update_email(update, lang="ar")
         emails_sent = 0
-        for company in companies:
-            email = company.get("owner_email") or company.get("email")
-            if not email:
+        seen_emails = set()  # no duplicates
+
+        for cid, email in company_email_map.items():
+            if email in seen_emails:
                 continue
-            subject, body = _build_update_email(update, lang="ar")
+            seen_emails.add(email)
+            _, body = _build_update_email(update, lang="ar")
             try:
-                await send_email_async(email, subject, body)
-                emails_sent += 1
-                await asyncio.sleep(0.05)  # throttle
+                result = await send_email_async(email, subject, body)
+                if result.get("status") == "success":
+                    emails_sent += 1
+                else:
+                    logger.warning(f"Email skipped/failed for {email}: {result}")
+                await asyncio.sleep(0.05)  # throttle Resend API
             except Exception as e:
                 logger.error(f"Failed to send update email to {email}: {e}")
 
-        logger.info(f"Update emails sent: {emails_sent}")
+        logger.info(f"Update emails sent: {emails_sent} / {len(company_email_map)}")
         return emails_sent
+
     except Exception as e:
         logger.error(f"_send_update_emails error: {e}")
         return 0
