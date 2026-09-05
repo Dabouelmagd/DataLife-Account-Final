@@ -45,7 +45,15 @@ const PermissionsManager = () => {
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
   // Admin roles that can manage permissions
-  const adminRoles = ['General Manager', 'CEO', 'Board Chairman', 'رئيس مجلس الإدارة', 'المدير التنفيذي', 'مدير عام'];
+  // Roles that can manage permissions for others
+  const adminRoles = [
+    'General Manager', 'CEO', 'Board Chairman',
+    'رئيس مجلس الإدارة', 'المدير التنفيذي', 'مدير عام',
+    'HR Manager', 'مدير الموارد البشرية',
+    'Financial Manager', 'المدير المالي',
+    'Chief Accountant', 'رئيس الحسابات',
+    'Super Admin', 'مدير النظام'
+  ];
   const canManagePermissions = adminRoles.includes(user?.role);
 
   // Show toast notification

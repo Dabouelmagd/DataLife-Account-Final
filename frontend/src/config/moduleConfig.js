@@ -16,6 +16,7 @@ export const ROLE_CATEGORIES = {
   HR_ONLY: ['HR Manager', 'مدير الموارد البشرية'],
   FINANCIAL_MANAGER: ['Financial Manager', 'Chief Accountant', 'المدير المالي', 'رئيس الحسابات'],
   EXECUTIVE: ['Employee', 'موظف', 'Accountant', 'محاسب'],
+  EMPLOYEE_ONLY: ['Employee', 'موظف'],
   PROJECT_ONLY: ['Project Manager', 'مدير المشاريع']
 };
 
@@ -37,6 +38,13 @@ export const getAvailableModules = (user, language) => {
   const permissions = user?.permissions || [];
   const modules = [];
   const isArabic = language === 'ar';
+
+  // Employee role → redirect to /my-portal (ESS), no company modules
+  if (hasRole(role, 'EMPLOYEE_ONLY') && !permissions.includes('financial') &&
+      !permissions.includes('hr') && !permissions.includes('invoices') &&
+      !permissions.includes('reports') && !permissions.includes('analytics')) {
+    return []; // Empty → RealDashboard will redirect to /my-portal
+  }
 
   const hasFullAccess = hasAnyRole(role, ['TOP_MANAGEMENT', 'SUPER_ADMIN']);
 

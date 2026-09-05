@@ -84,12 +84,17 @@ const LoginPage = () => {
     const result = await login(formData.email, formData.password);
     
     if (result.success) {
-      // Check if user is Super Admin
-      const isSuperAdmin = result.user?.role === 'Super Admin' || result.user?.role === 'مدير النظام';
+      const role = result.user?.role;
+      // Super Admin → admin dashboard
+      const isSuperAdmin = role === 'Super Admin' || role === 'مدير النظام';
+      // Employee / موظف → ESS portal (only sees own data)
+      const isEmployee = role === 'Employee' || role === 'موظف';
       
       if (isSuperAdmin) {
-        // Redirect Super Admin directly to Admin Dashboard
         navigate('/admin');
+      } else if (isEmployee) {
+        // Employees go directly to their personal portal — no access to company data
+        navigate('/my-portal');
       } else {
         // Show subscription code for regular users
         const code = result.user?.subscription_code || result.user?.company_id?.slice(0, 8).toUpperCase() || '';

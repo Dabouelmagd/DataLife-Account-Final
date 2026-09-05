@@ -722,3 +722,56 @@ async def get_tenant_architecture(current_user: dict = Depends(get_current_user)
         "compliance": "ISO 27001 | SOC 2 — Data Isolation Controls",
         "audit_endpoint": "GET /api/ess/admin/tenant-isolation/audit",
     }
+
+
+# ══════════════════════════════════════════════════════════════
+# ESS PROFILE — ملف الموظف الخاص (read-only for employee)
+# ══════════════════════════════════════════════════════════════
+
+@router.get("/profile")
+async def get_my_profile(current_user: dict = Depends(get_current_user)):
+    """
+    يُعيد بيانات الموظف الخاصة بالمستخدم الحالي فقط
+    مع إخفاء البيانات الحساسة (IBAN مخفية جزئياً، رقم قومي مخفي)
+    """
+    company_id = current_user["company_id"]
+    emp = await get_employee_by_user(current_user["user_id"], company_id)
+
+    # Mask sensitive fields
+    safe = dict(emp)
+    if safe.get("national_id"):
+        safe["national_id"] = "•••••••••••" + safe["national_id"][-3:]
+    if safe.get("iban"):
+        safe["iban"] = safe["iban"][:4] + "••••" + safe["iban"][-4:]
+    if safe.get("bank_account_number"):
+        n = safe["bank_account_number"]
+        safe["bank_account_number"] = "•••••" + n[-4:]
+
+    return {"employee": safe, "company_id": company_id}
+
+
+@router.get("/leave/balances")
+async def get_leave_balances(current_user: dict = Depends(get_current_user)):
+    """أرصدة الإجازات الخاصة بالموظف المسجل"""
+    company_id = current_user["company_id"]
+    emp = await get_employee_by_user(current_user["user_id"], company_id)
+
+    # Try leave_balances collection first
+    bal = await db.leave_balances.find_one(
+        {"employee_id": emp["id"], "company_id": company_id}, {"_id": 0}
+    )
+    if bal:
+        return {
+            "annual": bal.get("annual_balance", 21),
+            "casual": bal.get("casual_balance", 6),
+            "sick":   bal.get("sick_balance",   15),
+            "employee_id": emp["id"],
+        }
+
+    # Fallback to employee record
+    return {
+        "annual": emp.get("annual_leave_balance", 21),
+        "casual": emp.get("casual_leave_balance", 6),
+        "sick":   emp.get("sick_leave_balance",   15),
+        "employee_id": emp["id"],
+    }

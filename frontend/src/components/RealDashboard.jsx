@@ -69,6 +69,17 @@ const RealDashboard = () => {
   
   const isRTL = language === 'ar';
 
+  // Redirect Employee role to their own portal
+  useEffect(() => {
+    const role = user?.role;
+    const perms = user?.permissions || [];
+    const isEmployee = role === 'Employee' || role === 'موظف';
+    const hasExtraPerms = perms.some(p => ['financial','hr','invoices','reports','analytics'].includes(p));
+    if (isEmployee && !hasExtraPerms) {
+      navigate('/my-portal');
+    }
+  }, [user, navigate]);
+
   // Fetch initial data
   useEffect(() => {
     fetchCompanyData();

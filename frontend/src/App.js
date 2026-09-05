@@ -41,6 +41,7 @@ import ContactPage from "./components/ContactPage";
 import PartnersPage from "./components/PartnersPage";
 import AssetsModule from "./components/AssetsModule";
 import GuideWebPage from "./pages/GuideWebPage";
+import EmployeeSelfService from "./pages/EmployeeSelfService";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -228,6 +229,11 @@ function App() {
           <Route path="/guide" element={<GuideWebPage />} />
         <Route path="/contact" element={<ContactPage />} />
           <Route path="/partners" element={<PartnersPage />} />
+          <Route path="/my-portal" element={
+                <ProtectedRoute>
+                  <EmployeeSelfService />
+                </ProtectedRoute>
+              } />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
             {/* Support Chatbot - appears on all pages */}
