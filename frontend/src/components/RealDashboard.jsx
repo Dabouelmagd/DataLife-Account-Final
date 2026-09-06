@@ -173,7 +173,8 @@ const RealDashboard = () => {
         inventoryCount: inventoryData.length,
         totalPayroll:   employeesData.reduce((s, e) => s + (e.basic_salary || 0), 0),
         pendingApprovals: approvalsData.length,
-        lowStockCount:  inventoryData.filter(i => (i.quantity || 0) <= (i.min_quantity || 0)).length,_progress').length || projectsData.length
+        lowStockCount:  inventoryData.filter(i => (i.quantity || 0) <= (i.min_quantity || 0)).length,
+        activeProjects: projectsData.filter(p => p.status === 'in_progress').length || projectsData.length,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);

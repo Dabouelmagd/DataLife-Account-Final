@@ -156,7 +156,6 @@ export default function SystemGuidePanel() {
               )}
             </div>
           </div>
-        </div>
         ))}
       </div>
 
