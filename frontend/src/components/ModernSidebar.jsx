@@ -638,7 +638,6 @@ const ModernSidebar = ({
                   </button>
                 );
               })}
-            </div>
 
               {/* ── INDUSTRY ADDONS SECTION ── */}
               {company?.industry_addons?.length > 0 && (
