@@ -154,8 +154,9 @@ export default function SystemGuidePanel() {
                   </p>
                 </div>
               )}
-            </div></div>
+            </div>
           </div>
+        </div>
         ))}
       </div>
 
