@@ -3,7 +3,7 @@ Admin Subscriptions API
 إدارة الاشتراكات
 """
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Depends
 from typing import Optional
 import os
 import secrets
