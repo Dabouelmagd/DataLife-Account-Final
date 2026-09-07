@@ -11,8 +11,8 @@ import uuid
 
 from database import db
 from api.users import get_current_user
-from models.inventory import (
 from dependencies import get_current_user
+from models.inventory import (
     Warehouse, Category, UnitOfMeasure, Product, ProductUnit,
     Stock, StockMovement, StockTransfer, TransferLine, TransferStatus,
     StockAdjustment, AdjustmentLine, AdjustmentReason,

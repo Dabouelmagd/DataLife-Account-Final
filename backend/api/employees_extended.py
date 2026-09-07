@@ -13,8 +13,8 @@ import aiofiles
 
 from database import db
 from api.users import get_current_user
-from models.employee_extended import (
 from dependencies import get_current_user
+from models.employee_extended import (
     ExtendedEmployee, EmployeeDocument, EmployeeAllowance, EmployeeDeduction,
     WorkShift, EmployeeShiftAssignment, OvertimeRecord,
     DocumentType, AllowanceCategory, DeductionCategory, ShiftType

@@ -10,9 +10,9 @@ import secrets
 import string
 from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
+from dependencies import get_current_user
 
 from .admin_common import (
-from dependencies import get_current_user
     db, verify_admin, log_admin_audit, 
     get_current_timestamp, generate_company_code
 )
