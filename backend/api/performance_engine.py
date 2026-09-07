@@ -24,6 +24,7 @@ from pydantic import BaseModel
 
 from database import db
 from api.users import get_current_user
+from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/performance", tags=["Performance & HA"])
 

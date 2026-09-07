@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from database import db
 from api.users import get_current_user
+from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/gov", tags=["Government Integration"])
 

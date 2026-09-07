@@ -13,6 +13,7 @@ import io
 from database import db
 from api.users import get_current_user
 from models.attendance import (
+from dependencies import get_current_user
     AttendanceRecord, AttendanceStatus, AttendanceSettings,
     FingerprintLog, FingerprintDevice, Holiday,
     DailyAttendanceSummary, MonthlyAttendanceSummary

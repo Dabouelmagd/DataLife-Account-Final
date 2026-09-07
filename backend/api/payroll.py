@@ -27,6 +27,7 @@ import logging
 logger = logging.getLogger(__name__)
 from services.accounting_service import AccountingService
 from services.email_service import send_bulk_payslip_notifications, send_payroll_approved_notification
+from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/payroll", tags=["Payroll"])
 

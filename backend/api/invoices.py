@@ -7,8 +7,10 @@ from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 import secrets
 import string
+from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
+
 
 # Configuration from environment
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://datalifeaccount.com")

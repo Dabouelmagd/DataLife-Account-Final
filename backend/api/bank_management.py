@@ -14,6 +14,7 @@ from api.users import get_current_user
 from database import db
 from services.accounting_service import AccountingService
 from models.accounting import JournalEntry, JournalEntryLine, JournalEntryStatus
+from dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")

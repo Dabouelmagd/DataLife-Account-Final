@@ -16,6 +16,7 @@ from models.fixed_assets import (
 )
 from models.accounting import JournalEntry, JournalEntryLine
 from services.accounting_service import AccountingService
+from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/fixed-assets", tags=["Fixed Assets"])
 

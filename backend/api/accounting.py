@@ -759,6 +759,7 @@ async def create_payment_entry(
 from fastapi.responses import StreamingResponse
 import io
 import xlsxwriter
+from dependencies import get_current_user
 
 @router.get("/reports/trial-balance/export")
 async def export_trial_balance(

@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from api.users import get_current_user
 from database import db
+from dependencies import get_current_user
 
 load_dotenv()
 

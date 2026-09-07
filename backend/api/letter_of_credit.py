@@ -18,6 +18,7 @@ from database import db
 from api.users import get_current_user
 from models.accounting import JournalEntry
 from services.accounting_service import AccountingService
+from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/lc", tags=["Letter of Credit"])
 

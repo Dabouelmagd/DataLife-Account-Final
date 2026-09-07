@@ -11,6 +11,7 @@ import os
 from datetime import datetime, timedelta
 import secrets
 import string
+from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/subscriptions", tags=["Subscriptions"])
 

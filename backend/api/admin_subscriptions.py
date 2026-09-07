@@ -12,11 +12,13 @@ from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from .admin_common import (
+from dependencies import get_current_user
     db, verify_admin, log_admin_audit, 
     get_current_timestamp, generate_company_code
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin-subscriptions"])
+
 
 
 @router.get("/subscriptions")

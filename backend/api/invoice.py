@@ -20,6 +20,7 @@ from api.users import get_current_user
 from database import db
 import io
 import base64
+from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/invoice", tags=["invoice"])
 
