@@ -61,6 +61,7 @@ const LandingPage = () => {
   const navLinks = [
     { label: ar ? 'الخدمات' : 'Services', href: '#services' },
     { label: ar ? 'المميزات' : 'Features', href: '#features' },
+    { label: ar ? 'بوابة الموظف' : 'ESS Portal', href: '#ess' },
     { label: ar ? 'الأسعار' : 'Pricing', href: '#pricing' },
     { label: ar ? 'الأسئلة' : 'FAQ', href: '#faq' },
     { label: ar ? 'تواصل' : 'Contact', href: '#contact' },
@@ -370,6 +371,98 @@ const LandingPage = () => {
 
       {/* ══════════ AD BANNER 3 ══════════ */}
       <AdBanner className="bg-slate-50" label={ar ? "إعلان" : "Advertisement"} slot="3333333333" />
+
+      {/* ══════════ ESS SECTION ══════════ */}
+      <section id="ess" className="py-20 md:py-28 px-4 md:px-8 bg-gradient-to-br from-purple-50 to-indigo-50" data-testid="ess-section">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-14">
+            <span className="inline-block bg-purple-100 text-purple-700 text-xs font-bold px-4 py-1.5 rounded-full mb-4 uppercase tracking-wider">
+              {ar ? 'جديد — بوابة الموظف' : 'New — Employee Portal'}
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#0f172a] tracking-tight mb-4">
+              {ar ? 'كل موظف يرى بياناته فقط' : 'Every Employee Sees Their Own Data Only'}
+            </h2>
+            <p className="text-gray-500 text-lg max-w-2xl mx-auto">
+              {ar
+                ? 'عند تسجيل الدخول يُوجَّه الموظف تلقائياً لبوابته الخاصة — عزل كامل وأمان تام'
+                : 'Employees are automatically directed to their personal portal — complete isolation and full security'}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+            <div className="space-y-4">
+              <div className="bg-purple-100 border border-purple-200 rounded-2xl p-6">
+                <h3 className="font-bold text-purple-900 mb-4 flex items-center gap-2">
+                  <span className="text-xl">📱</span>
+                  {ar ? 'ما يراه الموظف' : 'What the Employee Sees'}
+                </h3>
+                <ul className="space-y-2.5">
+                  {[
+                    ar ? 'بياناته الشخصية + صورة قابلة للتحديث' : 'Personal data + updatable photo',
+                    ar ? 'راتبه الأساسي + البدلات + الخصومات + الصافي' : 'Base salary + allowances + deductions + net',
+                    ar ? 'سجل مسيرات الرواتب + تحميل قسيمة PDF' : 'Payroll history + PDF payslip download',
+                    ar ? 'أرصدة الإجازات: سنوية / عارضة / مرضية' : 'Leave balances: annual / casual / sick',
+                    ar ? 'تسجيل حضور وانصراف بالموقع الجغرافي GPS' : 'GPS check-in/check-out attendance',
+                    ar ? 'رفع مستندات + عرض وثائقه الشخصية' : 'Upload documents + view personal files',
+                    ar ? 'تقديم طلبات: إجازة · سلفة · وقت إضافي' : 'Submit requests: leave · advance · overtime',
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-purple-800">
+                      <span className="text-teal-600 mt-0.5 font-bold flex-shrink-0">✓</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+                <h3 className="font-bold text-red-700 mb-3 text-sm flex items-center gap-2">
+                  <span>🔒</span>
+                  {ar ? 'ما لا يستطيع رؤيته' : 'What They Cannot See'}
+                </h3>
+                <ul className="space-y-1.5">
+                  {[
+                    ar ? 'رواتب أو بيانات أي موظف آخر' : 'Salaries or data of other employees',
+                    ar ? 'الحسابات المالية أو الفواتير' : 'Financial accounts or invoices',
+                    ar ? 'بيانات العملاء أو الموردين' : 'Customer or supplier data',
+                    ar ? 'لوحة التحكم الرئيسية بأي حال' : 'Main dashboard under any circumstance',
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-red-700">
+                      <span className="text-red-500 mt-0.5 font-bold flex-shrink-0">✗</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <div className="bg-white border border-purple-200 rounded-2xl p-6 shadow-sm">
+              <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
+                <span className="text-xl">🛡️</span>
+                {ar ? 'منظومة الصلاحيات' : 'Permissions System'}
+              </h3>
+              <div className="space-y-4">
+                {[
+                  { icon: '👑', role: ar ? 'المدير العام / CEO' : 'General Manager / CEO', desc: ar ? 'وصول كامل + منح/سحب صلاحيات أي مستخدم' : 'Full access + grant/revoke any user permissions', color: 'bg-amber-50 border-amber-200' },
+                  { icon: '🧑‍💼', role: ar ? 'مدير HR / المالي' : 'HR / Financial Manager', desc: ar ? 'يمنح صلاحيات إضافية للموظفين من لوحة المستخدمين' : 'Grants additional permissions to employees', color: 'bg-teal-50 border-teal-200' },
+                  { icon: '👤', role: ar ? 'الموظف العادي' : 'Regular Employee', desc: ar ? 'ESS فقط — بوابته الذاتية. منح صلاحية يفتح الوحدة' : 'ESS only — personal portal. Permission opens module', color: 'bg-blue-50 border-blue-200' },
+                ].map((item, i) => (
+                  <div key={i} className={`flex gap-3 p-3 rounded-xl border ${item.color}`}>
+                    <div className="text-2xl flex-shrink-0">{item.icon}</div>
+                    <div>
+                      <div className="font-bold text-gray-800 text-sm">{item.role}</div>
+                      <div className="text-gray-500 text-xs mt-1">{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3 mt-2">
+                  <p className="text-green-700 text-xs font-semibold">
+                    ✅ {ar
+                      ? 'الموظف يرى وحدة إضافية فقط لو منحه المدير صلاحيتها — إلغاء الصلاحية يُعيده لـ ESS فوراً'
+                      : 'Employee sees extra module only if granted by manager — revoking returns them to ESS instantly'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ══════════ PRICING ══════════ */}
       <section id="pricing" className="py-20 md:py-28 px-4 md:px-8" data-testid="pricing-section">
