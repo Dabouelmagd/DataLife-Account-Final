@@ -243,7 +243,7 @@ class RateLimitMiddleware:
             ip = headers.get(b"x-real-ip", b"").decode() or                  headers.get(b"x-forwarded-for", b"").decode().split(",")[0].strip() or                  (scope.get("client") or ["unknown"])[0]
 
             # Auth endpoints: same limit as general
-            path = scope.get(\"path\", \"\")
+            path = scope.get("path", "")
             limit = self.limit
 
             now = time()
