@@ -313,8 +313,8 @@ const ModernSidebar = ({
 
   return (
     <aside 
-      className={`fixed top-0 ${isRTL ? 'right-0' : 'left-0'} h-screen w-[260px] z-50 tran
-        ${sidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full lg:translate-x-0' : '-translate-x-full lg:translate-x-0')}sition-colors duration-300`}
+      className={`fixed top-0 ${isRTL ? 'right-0' : 'left-0'} h-screen w-[260px] z-50 transition-all duration-300
+        ${sidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full lg:translate-x-0' : '-translate-x-full lg:translate-x-0')}`}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       {/* Background */}
