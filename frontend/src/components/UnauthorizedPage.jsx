@@ -16,7 +16,7 @@ export default function UnauthorizedPage({ moduleName }) {
     >
       {/* Logo */}
       <div className="mb-8">
-        <DataLifeLogo height={80} />
+        <DataLifeLogo height={120} />
       </div>
 
       {/* Icon */}

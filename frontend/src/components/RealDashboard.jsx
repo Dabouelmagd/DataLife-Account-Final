@@ -230,7 +230,7 @@ const RealDashboard = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <img src="/logos/logo_ar.png" alt="DataLife" className="h-7 object-contain" />
+          <img src="/logos/logo_icon.png" alt="DataLife" className="h-10 object-contain" />
         </div>
         <div className="flex-1 p-4 md:p-6">
           {/* Back Button */}

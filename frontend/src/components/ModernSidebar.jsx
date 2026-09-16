@@ -326,7 +326,7 @@ const ModernSidebar = ({
         {/* DataLife Account Logo + Mobile Close */}
         <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-center">
           <img src="/logos/logo_icon.png" alt="DataLife Account"
-            className="h-10 object-contain"
+            className="h-14 object-contain"
             onError={e => { e.target.onerror=null; e.target.style.display='none'; }}
           />
           {setSidebarOpen && (

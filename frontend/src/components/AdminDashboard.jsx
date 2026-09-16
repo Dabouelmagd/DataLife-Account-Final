@@ -799,7 +799,7 @@ const AdminDashboard = () => {
           <img
             src={isRTL ? '/logos/logo_ar.png' : '/logos/logo_en.png'}
             alt="DataLife Account"
-            className="h-12 object-contain"
+            className="h-16 object-contain"
             onError={e => {
               e.target.onerror = null;
               e.target.src = isRTL ? '/datalife-account-ar.jpg' : '/datalife-account-en.jpg';
