@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import UnauthorizedPage from './UnauthorizedPage';
 
 // Page imports
 import InvoicesModule from '../components/InvoicesModule';
@@ -233,8 +234,51 @@ const ModuleRenderer = ({
   setActiveFinancialSubModule,
   setActiveInvoiceSubModule,
   navigate,
-  userRole
+  userRole,
+  user
 }) => {
+  // Permission check helper
+  const userPermissions = user?.permissions || [];
+  const isSuperAdmin = user?.role === 'Super Admin';
+
+  const hasPermission = (requiredPermission) => {
+    if (isSuperAdmin) return true;
+    if (!requiredPermission) return true;
+    return userPermissions.includes(requiredPermission);
+  };
+
+  // Module → required permission map
+  const modulePermissions = {
+    'financial': 'financial',
+    'journal-entries': 'financial',
+    'general-ledger': 'financial',
+    'financial-reports': 'financial',
+    'currencies': 'financial',
+    'invoices': 'invoices',
+    'invoice-reports': 'invoices',
+    'purchases': 'purchases',
+    'parties': 'financial',
+    'products': 'inventory',
+    'inventory': 'inventory',
+    'hr': 'hr',
+    'payroll': 'hr',
+    'employees': 'hr',
+    'attendance': 'hr',
+    'shifts': 'hr',
+    'hr-settings': 'hr_admin',
+    'projects': 'projects',
+    'analytics': 'analytics',
+    'approvals': 'approvals',
+    'users': 'users',
+    'settings': 'settings',
+    'reports': 'reports',
+  };
+
+  // Check permission for current module
+  const requiredPerm = modulePermissions[activeModule];
+  if (requiredPerm && !hasPermission(requiredPerm)) {
+    return <UnauthorizedPage moduleName={activeModule} />;
+  }
   // Dashboard Module
   if (activeModule === 'dashboard') {
     // Create onNavigate handler for dashboard quick actions

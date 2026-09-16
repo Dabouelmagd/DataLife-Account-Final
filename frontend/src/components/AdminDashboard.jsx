@@ -797,7 +797,7 @@ const AdminDashboard = () => {
                 {/* Logo */}
         <div className="py-5 px-4 border-b border-white/10 flex flex-col items-center justify-center">
           <img
-            src={isRTL ? '/datalife-logo-arabic.svg' : '/datalife-logo-english.svg'}
+            src={isRTL ? '/logos/logo_ar.png' : '/logos/logo_en.png'}
             alt="DataLife Account"
             className="h-12 object-contain"
             onError={e => {

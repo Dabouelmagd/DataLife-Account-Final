@@ -26,7 +26,7 @@ const FeaturesPage = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Logo source based on language
-  const logoSrc = pageLang === 'ar' ? '/datalife-logo-arabic.svg' : '/datalife-logo-english.svg';
+  const logoSrc = pageLang === 'ar' ? '/logos/logo_ar.png' : '/logos/logo_en.png';
   const logoAlt = pageLang === 'ar' ? 'داتا لايف أكونت' : 'DataLife Account';
 
   const toggleLanguage = () => {
