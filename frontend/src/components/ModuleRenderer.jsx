@@ -238,8 +238,11 @@ const ModuleRenderer = ({
   user
 }) => {
   // Permission check helper
-  const userPermissions = user?.permissions || [];
-  const isSuperAdmin = user?.role === 'Super Admin';
+  // Get user permissions from prop OR from localStorage (in case prop is stale)
+  const storedUser = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+  const userPermissions = user?.permissions || storedUser?.permissions || [];
+  const userRole = user?.role || storedUser?.role || '';
+  const isSuperAdmin = userRole === 'Super Admin' || userRole === 'رئيس مجلس الإدارة';
 
   const hasPermission = (requiredPermission) => {
     if (isSuperAdmin) return true;
