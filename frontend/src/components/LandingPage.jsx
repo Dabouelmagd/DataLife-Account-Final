@@ -150,6 +150,11 @@ export default function LandingPage() {
         <div className="absolute inset-0 opacity-20"
           style={{backgroundImage:'linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px)',backgroundSize:'52px 52px'}}/>
         <div className="max-w-4xl mx-auto relative z-10">
+          {/* ── Big Logo ── */}
+          <div className="flex justify-center mb-8">
+            <DataLifeLogo className="h-40 md:h-52 drop-shadow-2xl" />
+          </div>
+
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400 text-sm font-semibold mb-8">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"/>
             {ar ? 'مُطابق لهيئة الضرائب المصرية ETA 2024' : 'Certified — Egyptian Tax Authority ETA 2024'}
