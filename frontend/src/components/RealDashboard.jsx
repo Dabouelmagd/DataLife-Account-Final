@@ -28,6 +28,7 @@ const RealDashboard = () => {
   const { user, logout } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const token = localStorage.getItem('token');
   
   // Module states
   const [activeModule, setActiveModule] = useState('dashboard');
