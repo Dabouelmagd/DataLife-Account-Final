@@ -242,9 +242,9 @@ class RateLimitMiddleware:
             headers = dict(scope.get("headers", []))
             ip = headers.get(b"x-real-ip", b"").decode() or                  headers.get(b"x-forwarded-for", b"").decode().split(",")[0].strip() or                  (scope.get("client") or ["unknown"])[0]
 
-            # Auth endpoints: stricter limit (20/min)
-            path = scope.get("path", "")
-            limit = 20 if "/api/auth/login" in path else self.limit
+            # Auth endpoints: same limit as general
+            path = scope.get(\"path\", \"\")
+            limit = self.limit
 
             now = time()
             self.calls[ip] = [t for t in self.calls[ip] if now - t < 60]
@@ -262,7 +262,7 @@ class RateLimitMiddleware:
             self.calls[ip].append(now)
         await self.app(scope, receive, send)
 
-app.add_middleware(RateLimitMiddleware, calls_per_minute=120)
+app.add_middleware(RateLimitMiddleware, calls_per_minute=300)
 
 app.add_middleware(
     CORSMiddleware,
