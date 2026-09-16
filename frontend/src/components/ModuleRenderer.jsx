@@ -114,7 +114,7 @@ export const renderHRContent = ({
   }
 
   // HR Overview
-  if (activeHRSubModule === 'overview' || !activeHRSubModule) {
+  if (activeHRSubModule === 'overview' || activeHRSubModule === 'hr-overview' || !activeHRSubModule) {
     return (
       <HROverviewContent
         language={language}
