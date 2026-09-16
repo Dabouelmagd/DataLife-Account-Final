@@ -108,7 +108,7 @@ export default function LandingPage() {
       {/* ── NAV ── */}
       <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#060c1a]/95 backdrop-blur shadow-lg border-b border-white/5' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <DataLifeLogo className="h-14" />
+          <DataLifeLogo className="h-28" />
           <div className="hidden md:flex items-center gap-6">
             {navLinks.map(l => (
               <button key={l.href} onClick={() => scrollTo(l.href)}
@@ -427,7 +427,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 pb-10 border-b border-white/5">
             <div className="col-span-2 md:col-span-1">
-              <DataLifeLogo className="h-16 mb-4"/>
+              <DataLifeLogo className="h-32 mb-4"/>
               <p className="text-xs text-gray-600 leading-relaxed mb-4">{ar?'نظام ERP المحاسبي المصري المتكامل — فاتورة ETA · رواتب · ESS · AI · تنبيهات ذكية':'Egyptian integrated accounting ERP — ETA · Payroll · ESS · AI · Smart alerts'}</p>
               <div className="flex flex-wrap gap-2">
                 {['InstaPay','Vodafone Cash','PayPal',ar?'تحويل بنكي':'Bank Transfer'].map((p,i)=>(
