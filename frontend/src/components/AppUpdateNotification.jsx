@@ -14,7 +14,7 @@ import {
   ArrowLeft, ArrowRight, Shield, Zap
 } from 'lucide-react';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 export default function AppUpdateNotification({ onNavigateToUpdates }) {
   const { language } = useLanguage();

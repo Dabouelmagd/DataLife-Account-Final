@@ -10,7 +10,7 @@ import {
   Navigation, LogIn, LogOut, AlertTriangle, Wifi
 } from 'lucide-react';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 export default function GPSAttendance({ employeeId, employeeName }) {
   const { language, isRTL } = useLanguage();

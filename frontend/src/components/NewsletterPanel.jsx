@@ -13,7 +13,7 @@ import {
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 const TARGETS = [
   { id: 'all',                label_ar: 'كل الشركات',            label_en: 'All Companies',      icon: '🏢' },

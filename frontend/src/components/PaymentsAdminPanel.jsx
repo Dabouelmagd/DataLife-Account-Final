@@ -13,7 +13,7 @@ import {
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 const METHOD_ICONS = {
   instapay: '📱', vodafone_cash: '📲', bank_transfer: '🏦',

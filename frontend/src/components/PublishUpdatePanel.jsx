@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Sparkles, Plus, X, Send, CheckCircle, Trash2, AlertTriangle } from 'lucide-react';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 export default function PublishUpdatePanel() {
   const { language } = useLanguage();

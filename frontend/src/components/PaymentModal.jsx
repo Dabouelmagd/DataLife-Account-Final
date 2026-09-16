@@ -85,7 +85,7 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
     e.preventDefault();
     setPaymentStep('processing');
     
-    const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+    const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
     const token = localStorage.getItem('token');
     
     try {

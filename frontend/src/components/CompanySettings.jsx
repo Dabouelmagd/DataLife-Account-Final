@@ -508,7 +508,7 @@ const CompanySettings = () => {
 
 
 // ── INDUSTRY ADDONS TAB ─────────────────────────────────────────────────
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 const ADDON_CATALOG = [
   { key: 'ads',           name: 'شركات الإعلانات',       name_en: 'Advertising',     icon: '📢', price: 299, tags: ['إدارة الحملات', 'شراء الوسائط', 'المؤثرون'] },

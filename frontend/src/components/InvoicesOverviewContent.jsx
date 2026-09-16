@@ -29,7 +29,7 @@ const InvoicesOverviewContent = ({
     light: 'bg-amber-50 dark:bg-amber-950/50'
   };
 
-  const API = process.env.REACT_APP_BACKEND_URL || '';
+  const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
   const [invoiceStats, setInvoiceStats] = useState({
     totalInvoices: 0, pendingInvoices: 0, sentInvoices: 0, approvedInvoices: 0, totalValue: 0
   });

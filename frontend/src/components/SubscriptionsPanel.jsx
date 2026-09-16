@@ -10,7 +10,7 @@ import {
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 const PLANS = [
   { id: 'trial',        name_ar: 'تجريبي',     name_en: 'Trial',        color: 'bg-gray-500',   icon: '🔍', days: 14,  price_ar: 'مجاني',    price_en: 'Free' },

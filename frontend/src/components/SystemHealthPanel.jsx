@@ -12,7 +12,7 @@ import {
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 const STATUS_CONFIG = {
   ok:       { color: 'text-green-600',  bg: 'bg-green-50',  border: 'border-green-200', icon: CheckCircle,    label_ar: 'يعمل',      label_en: 'OK' },

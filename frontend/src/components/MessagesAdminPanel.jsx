@@ -12,7 +12,7 @@ import {
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 export default function MessagesAdminPanel() {
   const { language, isRTL } = useLanguage();

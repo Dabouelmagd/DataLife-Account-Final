@@ -13,7 +13,7 @@ import {
   Clock, ChevronDown, ChevronUp, Shield, ArrowRight
 } from 'lucide-react';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 export default function AppUpdatesPage() {
   const { token } = useAuth();

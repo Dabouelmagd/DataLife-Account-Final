@@ -14,7 +14,7 @@ import {
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 // ── Helpers ──────────────────────────────────────────────────
 const fmt = (n) => Number(n || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 });

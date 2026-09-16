@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /* ── Sidebar item for app-updates with live pending badge ── */
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 function AppUpdatesSidebarItem({ isActive, onClick, language, token }) {
   const [count, setCount] = useState(0);
   const isAr = language === 'ar';

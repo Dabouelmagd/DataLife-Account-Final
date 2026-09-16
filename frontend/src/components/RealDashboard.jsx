@@ -22,7 +22,7 @@ import { useIdleTimeout } from '../hooks/useIdleTimeout';
 // Config
 import { getAvailableModules } from '../config/moduleConfig';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+const API_URL = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
 
 const RealDashboard = () => {
   const { user, logout } = useAuth();

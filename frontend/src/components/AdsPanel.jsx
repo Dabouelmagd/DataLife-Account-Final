@@ -12,7 +12,7 @@ import {
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 const SPACE_ICONS = { hero_banner: Monitor, sidebar_right: Smartphone, pricing_banner: DollarSign, blog_inline: Globe, footer_banner: Megaphone, popup_ad: Zap };
 const PAYMENT_METHODS = [

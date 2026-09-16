@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MapPin, Save, Navigation, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 
-const API = process.env.REACT_APP_BACKEND_URL || '';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 export default function GPSSettings() {
   const { language, isRTL } = useLanguage();
