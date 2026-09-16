@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }) => {
             }
           });
           setUser(response.data);
+          localStorage.setItem('user', JSON.stringify(response.data));
         } catch (error) {
           console.error('Token verification failed:', error);
           localStorage.removeItem('token');
@@ -44,6 +45,7 @@ export const AuthProvider = ({ children }) => {
       setToken(access_token);
       setUser(userData);
       localStorage.setItem('token', access_token);
+      localStorage.setItem('user', JSON.stringify(userData));
       
       return { success: true, user: userData };
     } catch (error) {
