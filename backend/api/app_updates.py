@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/updates", tags=["app-updates"])
 async def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return await verify_token(authorization)
+    return verify_token(authorization)
 
 
 def _build_update_email(update: dict, lang: str = "ar") -> tuple[str, str]:
