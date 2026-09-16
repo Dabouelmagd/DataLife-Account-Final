@@ -105,14 +105,17 @@ const RealDashboard = () => {
       const token = localStorage.getItem('token');
       const config = { headers: { Authorization: `Bearer ${token}` } };
       
-      const [employeesRes, allowances, deductions, customers, suppliers, journalEntries, projectsRes] = await Promise.all([
+      const [employeesRes, allowances, deductions, customers, suppliers, journalEntries, projectsRes, invoicesRes, inventoryRes, approvalsRes] = await Promise.all([
         axios.get(`${API_URL}/api/hr/employees`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/hr/allowances`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/hr/deductions`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/financial/customers`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/financial/suppliers`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/financial/journal-entries`, config).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/projects`, config).catch(() => ({ data: [] }))
+        axios.get(`${API_URL}/api/projects`, config).catch(() => ({ data: [] })),
+        axios.get(`${API_URL}/api/invoices`, config).catch(() => ({ data: [] })),
+        axios.get(`${API_URL}/api/inventory`, config).catch(() => ({ data: [] })),
+        axios.get(`${API_URL}/api/approvals`, config).catch(() => ({ data: [] }))
       ]);
       
       // Helper to safely extract array data from API responses
