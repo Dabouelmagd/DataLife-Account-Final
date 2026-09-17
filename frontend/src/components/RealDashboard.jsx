@@ -225,28 +225,30 @@ const RealDashboard = () => {
       {/* Main Content */}
       <div className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300
         ${isRTL ? 'lg:mr-[260px]' : 'lg:ml-[260px]'}`}>
-        {/* Mobile header with hamburger */}
-        <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
+        {/* Top bar — visible on all screens */}
+        <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
+          {/* Hamburger — mobile only */}
           <button onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600">
+            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <img src="/logos/logo_icon.png" alt="DataLife" className="h-10 object-contain" />
+          <img src="/logos/logo_icon.png" alt="DataLife" className="lg:hidden h-10 object-contain" />
           <div className="flex-1" />
           {(user?.role === 'Super Admin' || user?.is_platform_admin) && (
             <button
               onClick={() => navigate('/admin')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold border border-red-100"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs font-bold border border-red-100 dark:border-red-800 hover:bg-red-100 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-              {language === 'ar' ? 'الإدارة' : 'Admin'}
+              {language === 'ar' ? 'لوحة الإدارة' : 'Admin Panel'}
             </button>
           )}
         </div>
+        {/* Mobile header removed — merged into topbar above */}
         <div className="flex-1 p-4 md:p-6">
           {/* Back Button */}
           {activeModule !== 'dashboard' && (
