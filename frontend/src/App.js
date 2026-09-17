@@ -3,6 +3,7 @@ import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import NotFoundPage from "./components/NotFoundPage";
+import AutoUpdater from "./components/AutoUpdater";
 import axios from "axios";
 import LandingPage from "./components/LandingPage";
 import DemoPage from "./components/DemoPage";
@@ -83,6 +84,7 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <PermissionsProvider>
+          <AutoUpdater />
           <div className="App">
             <BrowserRouter>
             <Routes>
