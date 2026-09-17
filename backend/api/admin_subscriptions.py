@@ -1,3 +1,4 @@
+import logging
 """
 Admin Subscriptions API
 إدارة الاشتراكات
@@ -153,6 +154,7 @@ async def assign_subscription_to_company(
     company_id = subscription_data.get("company_id")
     plan = subscription_data.get("plan", "basic")
     duration = subscription_data.get("duration", "monthly")
+    send_email = subscription_data.get("send_email", False)
     
     # Find company
     company = await db.companies.find_one({"id": company_id})
@@ -160,21 +162,26 @@ async def assign_subscription_to_company(
         raise HTTPException(status_code=404, detail="Company not found")
     
     company_name = company.get("name", "Unknown")
-    company_email = company.get("email", "")
+    company_email = company.get("contact_email") or company.get("email", "")
     
     # Calculate end date based on duration
     now = datetime.now(timezone.utc)
     
+    duration_days = {
+        "monthly": 30,
+        "3_months": 90,
+        "6_months": 180,
+        "12_months": 365,
+        "yearly": 365,
+        "gift": 365,
+        "lifetime": None,
+    }
+    
     if duration == "lifetime":
         end_date = datetime(2099, 12, 31, tzinfo=timezone.utc)
-    elif duration == "yearly":
-        end_date = now + timedelta(days=365)
-    elif duration == "6months":
-        end_date = now + timedelta(days=180)
-    elif duration == "3months":
-        end_date = now + timedelta(days=90)
-    else:  # monthly
-        end_date = now + timedelta(days=30)
+    else:
+        days = duration_days.get(duration, 30)
+        end_date = now + timedelta(days=days)
     
     subscription_id = f"sub_{secrets.token_hex(8)}"
     
@@ -230,7 +237,7 @@ async def assign_subscription_to_company(
         end_date=end_date.isoformat()
     )
     
-    return {
+    return_data = {
         "success": True,
         "subscription_id": subscription_id,
         "company_id": company_id,
@@ -238,8 +245,47 @@ async def assign_subscription_to_company(
         "plan": plan,
         "duration": duration,
         "end_date": end_date.isoformat(),
-        "message": f"Subscription assigned to {company_name}"
+        "message": f"Subscription assigned to {company_name}",
+        "email_sent": False
     }
+
+    # Send email notification if requested
+    if send_email and company_email:
+        try:
+            from services.professional_email_service import send_email_with_resend
+            duration_ar = {
+                'monthly': 'شهر', '3_months': '3 أشهر', '6_months': '6 أشهر',
+                '12_months': 'سنة', 'yearly': 'سنة', 'lifetime': 'مدى الحياة', 'gift': 'هدية'
+            }.get(duration, duration)
+            plan_ar = {'basic': 'أساسي', 'professional': 'احترافي', 'enterprise': 'مؤسسي'}.get(plan, plan)
+            
+            subject = f"تم تفعيل اشتراكك في داتا لايف اكونت 🎉"
+            html_body = f"""
+            <div dir="rtl" style="font-family:Cairo,sans-serif;max-width:600px;margin:0 auto">
+                <div style="background:#1e3a8a;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+                    <h1 style="color:#fff;margin:0;font-size:22px">🎉 تم تفعيل اشتراكك</h1>
+                </div>
+                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:0 0 12px 12px;padding:24px">
+                    <p style="color:#374151;font-size:16px">عزيزي عميل <strong>{company_name}</strong>،</p>
+                    <p style="color:#374151">يسعدنا إخبارك بأنه تم تفعيل اشتراكك في <strong>داتا لايف اكونت</strong> بنجاح.</p>
+                    <div style="background:#f0f9ff;border-radius:8px;padding:16px;margin:16px 0;border-right:4px solid #1e3a8a">
+                        <p style="margin:4px 0;color:#1e3a8a"><strong>الخطة:</strong> {plan_ar}</p>
+                        <p style="margin:4px 0;color:#1e3a8a"><strong>المدة:</strong> {duration_ar}</p>
+                        <p style="margin:4px 0;color:#1e3a8a"><strong>تاريخ الانتهاء:</strong> {end_date.strftime('%Y-%m-%d')}</p>
+                    </div>
+                    <p style="color:#374151">يمكنك الآن الدخول على حسابك والاستمتاع بجميع المميزات.</p>
+                    <div style="text-align:center;margin-top:20px">
+                        <a href="https://datalifeaccount.com" style="background:#1e3a8a;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold">
+                            دخول على الحساب
+                        </a>
+                    </div>
+                </div>
+            </div>"""
+            await send_email_with_resend(company_email, subject, html_body)
+            return_data["email_sent"] = True
+        except Exception as e:
+            logger.error(f"Email send error: {e}")
+    return return_data
 
 
 @router.put("/subscriptions/{company_id}/extend")
@@ -623,3 +669,5 @@ async def redeem_activation_code(
         "end_date": end_date,
         "days": duration_days
     }
+
+logger = logging.getLogger(__name__)

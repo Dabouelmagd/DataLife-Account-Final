@@ -211,7 +211,7 @@ const AdminDashboard = () => {
   };
 
   const durationNames = {
-    monthly: isRTL ? 'شهري' : 'Monthly',
+    monthly: isRTL ? 'شهر' : '1 Month',
     quarterly: isRTL ? 'ربع سنوي' : 'Quarterly',
     yearly: isRTL ? 'سنوي' : 'Yearly',
     lifetime: isRTL ? 'مدى الحياة' : 'Lifetime',
@@ -219,7 +219,7 @@ const AdminDashboard = () => {
     '6_months': isRTL ? '6 أشهر' : '6 Months',
     '9_months': isRTL ? '9 أشهر' : '9 Months',
     '12_months': isRTL ? 'سنة' : '1 Year',
-    'lifetime': isRTL ? 'مدى الحياة' : 'Lifetime'
+    gift: isRTL ? '🎁 هدية' : '🎁 Gift',
   };
 
   useEffect(() => {
@@ -442,13 +442,14 @@ const AdminDashboard = () => {
       const response = await axios.post(`${API_URL}/api/admin/subscriptions/assign`, {
         company_id: assigningSubscription.id,
         plan: subscriptionPlan,
-        duration: subscriptionDuration
+        duration: subscriptionDuration,
+        send_email: true  // trigger email notification
       }, config);
       
       // Check if response indicates success
       if (response.data && response.data.success) {
         showToastMessage(
-          isRTL ? `تم تعيين اشتراك ${planNames[subscriptionPlan]} بنجاح` : `${planNames[subscriptionPlan]} subscription assigned successfully`, 
+          isRTL ? `تم تعيين اشتراك ${planNames[subscriptionPlan]} بنجاح وتم إرسال إيميل للعميل` : `${planNames[subscriptionPlan]} subscription assigned & email sent`, 
           'success'
         );
         
@@ -1338,11 +1339,12 @@ const AdminDashboard = () => {
                         onChange={(e) => setGenerateForm({...generateForm, duration: e.target.value})}
                         className="w-full mt-1 p-2 border rounded-lg"
                       >
-                        <option value="3_months">3 Months</option>
-                        <option value="6_months">6 Months</option>
-                        <option value="9_months">9 Months</option>
-                        <option value="12_months">1 Year</option>
-                        <option value="lifetime">Lifetime</option>
+                        <option value="monthly">{isRTL ? 'شهر' : '1 Month'}</option>
+                        <option value="3_months">{isRTL ? '3 أشهر' : '3 Months'}</option>
+                        <option value="6_months">{isRTL ? '6 أشهر' : '6 Months'}</option>
+                        <option value="12_months">{isRTL ? 'سنة' : '1 Year'}</option>
+                        <option value="lifetime">{isRTL ? 'مدى الحياة' : 'Lifetime'}</option>
+                        <option value="gift">{isRTL ? '🎁 هدية' : '🎁 Gift'}</option>
                       </select>
                     </div>
                     <div>
