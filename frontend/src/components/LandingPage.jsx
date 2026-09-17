@@ -123,7 +123,7 @@ export default function LandingPage() {
             {(() => {
               const token = localStorage.getItem('token');
               const role = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}').role; } catch { return ''; } })();
-              const allowed = ['Super Admin', 'رئيس مجلس الإدارة', 'مدير عام', 'CEO'];
+              const allowed = ['Super Admin'];
               if (!token || !allowed.includes(role)) return null;
               return (
                 <button onClick={() => navigate('/dashboard')}
