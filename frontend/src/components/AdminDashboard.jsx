@@ -1199,7 +1199,7 @@ const AdminDashboard = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <button onClick={() => openAssignSubscription({id: sub.company_id, name: sub.company_name})}
+                          <button onClick={() => openAssignSubscription({id: sub.company_id, name: sub.company_name, email: sub.company_email, users: sub.users || []})}
                             className="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 whitespace-nowrap">
                             {isRTL ? 'تعديل' : 'Edit'}
                           </button>
@@ -1339,12 +1339,12 @@ const AdminDashboard = () => {
                         onChange={(e) => setGenerateForm({...generateForm, duration: e.target.value})}
                         className="w-full mt-1 p-2 border rounded-lg"
                       >
-                        <option value="monthly">{isRTL ? 'شهر' : '1 Month'}</option>
-                        <option value="3_months">{isRTL ? '3 أشهر' : '3 Months'}</option>
-                        <option value="6_months">{isRTL ? '6 أشهر' : '6 Months'}</option>
-                        <option value="12_months">{isRTL ? 'سنة' : '1 Year'}</option>
-                        <option value="lifetime">{isRTL ? 'مدى الحياة' : 'Lifetime'}</option>
-                        <option value="gift">{isRTL ? '🎁 هدية' : '🎁 Gift'}</option>
+                        <option value="monthly">شهر / 1 Month</option>
+                        <option value="3_months">3 أشهر / 3 Months</option>
+                        <option value="6_months">6 أشهر / 6 Months</option>
+                        <option value="12_months">سنة / 1 Year</option>
+                        <option value="lifetime">مدى الحياة / Lifetime</option>
+                        <option value="gift">🎁 هدية / Gift</option>
                       </select>
                     </div>
                     <div>
@@ -2609,8 +2609,8 @@ const AdminDashboard = () => {
                   <label className={`block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 ${isRTL ? 'text-right' : ''}`}>
                     {isRTL ? 'مدة الاشتراك' : 'Subscription Duration'}
                   </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {['monthly', 'quarterly', 'yearly', 'lifetime'].map((dur) => (
+                  <div className="grid grid-cols-3 gap-2">
+                    {['monthly', '3_months', '6_months', '12_months', 'lifetime', 'gift'].map((dur) => (
                       <button
                         key={dur}
                         onClick={() => setSubscriptionDuration(dur)}
@@ -2648,6 +2648,38 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Company Info + Users */}
+              {assigningSubscription && (
+                <div className="px-6 pb-4 space-y-3">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {isRTL ? 'بيانات الشركة' : 'Company Info'}
+                  </label>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{isRTL ? 'الاسم' : 'Name'}</span>
+                      <span className="font-medium">{assigningSubscription.name}</span>
+                    </div>
+                    {assigningSubscription.email && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{isRTL ? 'البريد' : 'Email'}</span>
+                        <span className="font-medium text-blue-600">{assigningSubscription.email}</span>
+                      </div>
+                    )}
+                    {assigningSubscription.users && assigningSubscription.users.length > 0 && (
+                      <div>
+                        <p className="text-gray-500 mb-1">{isRTL ? 'المستخدمون' : 'Users'} ({assigningSubscription.users.length})</p>
+                        {assigningSubscription.users.slice(0, 5).map((u, i) => (
+                          <div key={i} className="flex justify-between text-xs py-0.5">
+                            <span>{u.name || u.email}</span>
+                            <span className="text-gray-400">{u.role}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Footer */}
               <div className="p-6 pt-0 flex gap-3">
