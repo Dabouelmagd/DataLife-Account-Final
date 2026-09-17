@@ -125,7 +125,7 @@ const AdminDashboard = () => {
   const API_URL = process.env.REACT_APP_BACKEND_URL;
 
   const t = {
-    title: isRTL ? 'لوحة تحكم الإدارة' : 'Admin Dashboard',
+    title: isRTL ? 'داتا لايف — إدارة المنصة' : 'DataLife — Platform Admin',
     back: isRTL ? 'رجوع' : 'Back',
     overview: isRTL ? 'نظرة عامة' : 'Overview',
     subscriptions: isRTL ? 'الاشتراكات' : 'Subscriptions',
@@ -806,7 +806,7 @@ const AdminDashboard = () => {
               e.target.src = isRTL ? '/datalife-account-ar.jpg' : '/datalife-account-en.jpg';
             }}
           />
-          <p className="text-xs text-gray-400 mt-1.5 tracking-wide">{isRTL ? 'لوحة الإدارة' : 'Admin Panel'}</p>
+          <p className="text-xs text-gray-400 mt-1.5 tracking-wide">{isRTL ? 'داتا لايف' : 'DataLife Admin'}</p>
         </div>
 
         {/* User Info */}
