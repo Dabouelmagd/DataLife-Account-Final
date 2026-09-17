@@ -2322,9 +2322,11 @@ const AdminDashboard = () => {
                     </Button>
                   </div>
 
-                  {/* Permissions Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    {availablePermissions.map((perm) => (
+                  {/* Permissions Grid — separated by scope */}
+                  {(() => {
+                    const clientPerms = availablePermissions.filter(p => p.scope === 'client' || !p.scope);
+                    const platformPerms = availablePermissions.filter(p => p.scope === 'platform');
+                    const renderPerm = (perm) => (
                       <div
                         key={perm.id}
                         onClick={() => togglePermission(perm.id)}
@@ -2333,25 +2335,66 @@ const AdminDashboard = () => {
                             ? 'border-blue-500 bg-blue-50 text-blue-700'
                             : 'border-gray-200 bg-white hover:border-gray-300'
                         }`}
-                        data-testid={`modal-permission-${perm.id}`}
                       >
                         <div className="flex items-center gap-2">
                           <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                            userPermissions.includes(perm.id)
-                              ? 'border-blue-500 bg-blue-500'
-                              : 'border-gray-300'
+                            userPermissions.includes(perm.id) ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
                           }`}>
-                            {userPermissions.includes(perm.id) && (
-                              <CheckCircle className="h-3 w-3 text-white" />
-                            )}
+                            {userPermissions.includes(perm.id) && <CheckCircle className="h-3 w-3 text-white" />}
                           </div>
-                          <span className="text-sm font-medium">
-                            {isRTL ? perm.name_ar : perm.name_en}
-                          </span>
+                          <span className="text-sm font-medium">{isRTL ? perm.name_ar : perm.name_en}</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                    return (
+                      <div className="space-y-4">
+                        {/* Client Permissions */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-3 h-3 rounded-full bg-blue-500" />
+                            <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">
+                              {isRTL ? 'صلاحيات العميل' : 'Client Permissions'}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                            {clientPerms.map(renderPerm)}
+                          </div>
+                        </div>
+                        {/* Platform Permissions — only show if editing Super Admin or platform user */}
+                        {platformPerms.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-3 h-3 rounded-full bg-red-500" />
+                              <p className="text-xs font-bold text-red-700 uppercase tracking-wide">
+                                {isRTL ? 'صلاحيات المنصة — داتا لايف فقط' : 'Platform Permissions — DataLife Only'}
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                              {platformPerms.map(p => (
+                                <div key={p.id}
+                                  onClick={() => togglePermission(p.id)}
+                                  className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                    userPermissions.includes(p.id)
+                                      ? 'border-red-500 bg-red-50 text-red-700'
+                                      : 'border-gray-200 bg-white hover:border-red-200'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                                      userPermissions.includes(p.id) ? 'border-red-500 bg-red-500' : 'border-gray-300'
+                                    }`}>
+                                      {userPermissions.includes(p.id) && <CheckCircle className="h-3 w-3 text-white" />}
+                                    </div>
+                                    <span className="text-sm font-medium">{isRTL ? p.name_ar : p.name_en}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Current Permissions Count */}
                   <div className="text-sm text-gray-500 text-center">

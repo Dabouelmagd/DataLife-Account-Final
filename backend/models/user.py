@@ -30,20 +30,34 @@ DEFAULT_PERMISSIONS = {
 
 # All available modules/permissions
 ALL_PERMISSIONS = [
-    {'id': 'dashboard',       'name_en': 'Dashboard',          'name_ar': 'لوحة التحكم',          'category': 'core'},
-    {'id': 'hr',              'name_en': 'Human Resources',    'name_ar': 'الموارد البشرية',       'category': 'departments'},
-    {'id': 'financial',       'name_en': 'Financial',          'name_ar': 'الإدارة المالية',       'category': 'departments'},
-    {'id': 'invoices',        'name_en': 'Invoices',           'name_ar': 'الفواتير',              'category': 'departments'},
-    {'id': 'purchases',       'name_en': 'Purchases',          'name_ar': 'المشتريات',             'category': 'departments'},
-    {'id': 'projects',        'name_en': 'Projects',           'name_ar': 'المشاريع',              'category': 'departments'},
-    {'id': 'analytics',       'name_en': 'Analytics',          'name_ar': 'التحليلات',             'category': 'reports'},
-    {'id': 'settings',        'name_en': 'Settings',           'name_ar': 'الإعدادات',             'category': 'admin'},
-    {'id': 'users',           'name_en': 'User Management',    'name_ar': 'إدارة المستخدمين',     'category': 'admin'},
-    {'id': 'approvals',       'name_en': 'Approvals',          'name_ar': 'الموافقات',             'category': 'core'},
-    {'id': 'subscription',    'name_en': 'Subscription',       'name_ar': 'الاشتراك والفواتير',    'category': 'admin'},
-    {'id': 'admin-dashboard', 'name_en': 'Admin Dashboard',    'name_ar': 'لوحة الأدمن',          'category': 'admin'},
-    # ESS — Employee Self-Service only (no company data)
-    {'id': 'ess',             'name_en': 'Self-Service Portal','name_ar': 'بوابة الخدمة الذاتية', 'category': 'employee'},
+    # ── صلاحيات العملاء (Company Users) ───────────────────────────
+    {'id': 'dashboard',       'name_en': 'Dashboard',          'name_ar': 'لوحة التحكم',          'category': 'client_core',    'scope': 'client'},
+    {'id': 'hr',              'name_en': 'Human Resources',    'name_ar': 'الموارد البشرية',       'category': 'client_dept',    'scope': 'client'},
+    {'id': 'hr_admin',        'name_en': 'HR Admin',           'name_ar': 'HR إداري',              'category': 'client_dept',    'scope': 'client'},
+    {'id': 'hr_financial',    'name_en': 'HR Financial',       'name_ar': 'HR مالي',               'category': 'client_dept',    'scope': 'client'},
+    {'id': 'financial',       'name_en': 'Financial',          'name_ar': 'الإدارة المالية',       'category': 'client_dept',    'scope': 'client'},
+    {'id': 'invoices',        'name_en': 'Invoices',           'name_ar': 'الفواتير الإلكترونية',  'category': 'client_dept',    'scope': 'client'},
+    {'id': 'purchases',       'name_en': 'Purchases',          'name_ar': 'المشتريات',             'category': 'client_dept',    'scope': 'client'},
+    {'id': 'projects',        'name_en': 'Projects',           'name_ar': 'المشاريع',              'category': 'client_dept',    'scope': 'client'},
+    {'id': 'inventory',       'name_en': 'Inventory',          'name_ar': 'المخزون',               'category': 'client_dept',    'scope': 'client'},
+    {'id': 'analytics',       'name_en': 'Analytics',          'name_ar': 'التحليلات',             'category': 'client_reports', 'scope': 'client'},
+    {'id': 'reports',         'name_en': 'Reports',            'name_ar': 'التقارير',              'category': 'client_reports', 'scope': 'client'},
+    {'id': 'approvals',       'name_en': 'Approvals',          'name_ar': 'الموافقات',             'category': 'client_core',    'scope': 'client'},
+    {'id': 'settings',        'name_en': 'Settings',           'name_ar': 'الإعدادات',             'category': 'client_admin',   'scope': 'client'},
+    {'id': 'users',           'name_en': 'User Management',    'name_ar': 'إدارة المستخدمين',     'category': 'client_admin',   'scope': 'client'},
+    {'id': 'billing',         'name_en': 'Billing',            'name_ar': 'الفواتير والمدفوعات',   'category': 'client_admin',   'scope': 'client'},
+    {'id': 'ess',             'name_en': 'Self-Service Portal','name_ar': 'بوابة الخدمة الذاتية', 'category': 'client_ess',     'scope': 'client'},
+
+    # ── صلاحيات المنصة (Super Admin / DataLife) ────────────────────
+    {'id': 'platform_companies',   'name_en': 'Manage Companies',  'name_ar': 'إدارة الشركات',        'category': 'platform_mgmt', 'scope': 'platform'},
+    {'id': 'platform_users',       'name_en': 'Manage All Users',  'name_ar': 'إدارة كل المستخدمين',  'category': 'platform_mgmt', 'scope': 'platform'},
+    {'id': 'platform_subscriptions','name_en': 'Subscriptions',    'name_ar': 'إدارة الاشتراكات',     'category': 'platform_mgmt', 'scope': 'platform'},
+    {'id': 'platform_payments',    'name_en': 'Payments',          'name_ar': 'المدفوعات والمعاملات',  'category': 'platform_mgmt', 'scope': 'platform'},
+    {'id': 'platform_codes',       'name_en': 'Activation Codes',  'name_ar': 'أكواد التفعيل',        'category': 'platform_mgmt', 'scope': 'platform'},
+    {'id': 'platform_monitor',     'name_en': 'System Monitor',    'name_ar': 'مراقبة النظام',        'category': 'platform_sys',  'scope': 'platform'},
+    {'id': 'platform_audit',       'name_en': 'Audit Log',         'name_ar': 'سجل التدقيق',          'category': 'platform_sys',  'scope': 'platform'},
+    {'id': 'platform_messages',    'name_en': 'Messages',          'name_ar': 'الرسائل والإشعارات',   'category': 'platform_sys',  'scope': 'platform'},
+    {'id': 'admin-dashboard',      'name_en': 'Platform Dashboard','name_ar': 'لوحة إدارة المنصة',   'category': 'platform_sys',  'scope': 'platform'},
 ]
 
 class User(BaseModel):
