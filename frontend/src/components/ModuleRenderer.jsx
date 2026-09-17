@@ -49,6 +49,7 @@ import BankManagementPage from '../pages/BankManagementPage';
 import BankSettingsPage from '../pages/BankSettingsPage';
 import AdminDashboardPage from '../pages/AdminDashboardPage';
 import SuperAdminDashboard from '../pages/SuperAdminDashboard';
+import SystemMonitorPage from '../pages/SystemMonitorPage';
 import NotificationSettingsPage from '../pages/NotificationSettingsPage';
 import UserGuidePage from '../pages/UserGuidePage';
 import ReferralPanel from './ReferralPanel';
@@ -369,6 +370,7 @@ const ModuleRenderer = ({
     'app-updates': <AppUpdatesPage />,
     'admin-dashboard': <AdminDashboardPage language={language} />,
     'super-admin': <SuperAdminDashboard language={language} />,
+    'system-monitor': <SystemMonitorPage />,
     'notification-settings': <NotificationSettingsPage language={language} />,
     'user-guide': <UserGuidePage language={language} />,
     'referral': (

@@ -402,6 +402,28 @@ async def send_payroll_notifications(company_id: str = None):
         return 0
 
 
+
+async def run_auto_monitor():
+    """Auto-scan system health every 5 minutes and alert if issues found"""
+    try:
+        from api.error_monitor import get_system_stats, detect_issues, auto_fix, send_alert
+        stats = await get_system_stats()
+        issues = await detect_issues(stats)
+        
+        # Auto-fix what we can
+        for issue in issues:
+            if issue.get('auto_fix'):
+                await auto_fix(issue['id'])
+        
+        # Send alert if critical issues
+        critical = [i for i in issues if i['severity'] == 'critical']
+        if critical:
+            await send_alert(critical, stats)
+            
+        print(f"[Monitor] {len(issues)} issues, {len(critical)} critical")
+    except Exception as e:
+        print(f"[Monitor] Error: {e}")
+
 def start_scheduler():
     """Start the scheduler with all jobs"""
     
@@ -477,6 +499,16 @@ def start_scheduler():
         replace_existing=True
     )
     
+    # System monitor — every 5 minutes
+    scheduler.add_job(
+        run_auto_monitor,
+        'interval',
+        minutes=5,
+        id='system_monitor',
+        name='System Health Monitor',
+        replace_existing=True
+    )
+
     scheduler.start()
     print(f"[{datetime.now()}] Scheduler started with {len(scheduler.get_jobs())} jobs")
     for job in scheduler.get_jobs():
