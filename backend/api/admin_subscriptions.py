@@ -96,6 +96,24 @@ async def get_all_subscriptions(
                 sub["company_email"] = company.get("email")
                 sub["company_code"]  = company.get("company_code")
 
+    # 3b. Enrich all records with users
+    all_company_ids = list({s.get("company_id") for s in paid_subs + synthetic_subs if s.get("company_id")})
+    users_by_company = {}
+    for cid in all_company_ids:
+        company_users = await db.users.find(
+            {"company_id": cid},
+            {"_id": 0, "id": 1, "full_name": 1, "email": 1, "role": 1, "is_active": 1}
+        ).to_list(length=None)
+        users_by_company[cid] = [
+            {"name": u.get("full_name", ""), "email": u.get("email", ""), "role": u.get("role", ""), "active": u.get("is_active", True)}
+            for u in company_users
+        ]
+
+    for sub in paid_subs + synthetic_subs:
+        cid = sub.get("company_id")
+        sub["users"] = users_by_company.get(cid, [])
+        sub["user_count"] = len(sub["users"])
+
     # 4. Merge and filter
     subscriptions = paid_subs + synthetic_subs
 
