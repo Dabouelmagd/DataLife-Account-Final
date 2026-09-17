@@ -130,7 +130,10 @@ const ProfileTab = ({
             <div className="relative group">
               {user?.profile_photo_url || user?.profile_photo ? (
                 <img
-                  src={user.profile_photo_url || user.profile_photo}
+                  src={(() => {
+                    const p = user.profile_photo_url || user.profile_photo;
+                    return p && p.startsWith('/') ? (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com') + p : p;
+                  })()}
                   alt={user.full_name}
                   className="w-24 h-24 rounded-full object-cover border-4 border-[#28376B]/20"
                 />

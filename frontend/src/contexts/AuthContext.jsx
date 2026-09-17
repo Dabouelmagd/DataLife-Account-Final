@@ -34,6 +34,18 @@ export const AuthProvider = ({ children }) => {
     verifyToken();
   }, [token, API_URL]);
 
+  // Sync user state when localStorage 'user' changes (e.g. after photo upload)
+  useEffect(() => {
+    const onStorage = () => {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        try { setUser(JSON.parse(stored)); } catch {}
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const login = async (email, password) => {
     try {
       const response = await axios.post(`${API_URL}/api/auth/login`, {
