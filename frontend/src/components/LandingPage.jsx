@@ -119,16 +119,22 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
-            {/* Quick dashboard access if already logged in */}
-            {localStorage.getItem('token') && (
-              <button onClick={() => navigate('/dashboard')}
-                title={ar ? 'لوحة التحكم' : 'Dashboard'}
-                className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 transition-all">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                </svg>
-              </button>
-            )}
+            {/* Quick dashboard access — Super Admin + رئيس مجلس الإدارة only */}
+            {(() => {
+              const token = localStorage.getItem('token');
+              const role = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}').role; } catch { return ''; } })();
+              const allowed = ['Super Admin', 'رئيس مجلس الإدارة', 'مدير عام', 'CEO'];
+              if (!token || !allowed.includes(role)) return null;
+              return (
+                <button onClick={() => navigate('/dashboard')}
+                  title={ar ? 'لوحة التحكم' : 'Dashboard'}
+                  className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 transition-all">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                </button>
+              );
+            })()}
             <button onClick={() => navigate('/login')}
               className="hidden sm:block text-sm font-semibold text-gray-300 hover:text-white px-4 py-2 rounded-lg border border-white/10 hover:border-white/20 transition-all">
               {ar ? 'تسجيل الدخول' : 'Login'}
