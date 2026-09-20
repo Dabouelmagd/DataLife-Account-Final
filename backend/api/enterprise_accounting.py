@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/enterprise", tags=["enterprise-accounting"])
 async def get_user(authorization: Optional[str] = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return await verify_token(authorization)
+    return verify_token((authorization or '').replace('Bearer ',''))
 
 
 # ══════════════════════════════════════════

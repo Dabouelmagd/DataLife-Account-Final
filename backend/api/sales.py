@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/sales", tags=["sales"])
 # ══════════════════════════════════════════
 async def get_user(authorization: str):
     from services.auth_service import verify_token
-    return await verify_token(authorization)
+    return verify_token((authorization or '').replace('Bearer ',''))
 
 
 def gen_id(prefix=""):

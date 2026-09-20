@@ -360,7 +360,8 @@ const ModernSidebar = ({
                       return (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com') + photo;
                     }
                     return photo;
-                  })()} alt={user.full_name} className="w-full h-full object-cover" />
+                  })()} alt={user.full_name} className="w-full h-full object-cover"
+                  onError={e => { e.target.onerror = null; e.target.style.display = 'none'; if (e.target.parentElement) { e.target.parentElement.innerHTML = '<div class=\'w-full h-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm\'>' + ((user?.full_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)) + '</div>'; } }} />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
                   {user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}

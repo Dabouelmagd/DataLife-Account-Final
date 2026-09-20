@@ -115,7 +115,7 @@ async def submit_payment_request(
 ):
     """العميل يرسل طلب دفع لتأكيده يدوياً من السوبر ادمن"""
     from services.auth_service import verify_token
-    user = await verify_token(authorization)
+    user = verify_token((authorization or '').replace('Bearer ',''))
     company_id = user.get("company_id")
 
     request = {
@@ -142,7 +142,7 @@ async def submit_payment_request(
 async def get_my_transactions(authorization: Optional[str] = Header(None)):
     """معاملات الشركة الحالية"""
     from services.auth_service import verify_token
-    user = await verify_token(authorization)
+    user = verify_token((authorization or '').replace('Bearer ',''))
     company_id = user.get("company_id")
 
     transactions = await db.subscription_payments.find(
