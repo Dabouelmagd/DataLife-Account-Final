@@ -390,7 +390,8 @@ const ModuleRenderer = ({
     return null;
   }
 
-  return null;
+  // Unknown module — never render a blank page
+  return <UnauthorizedPage moduleName={activeModule} notFound />;
 };
 
 export default ModuleRenderer;

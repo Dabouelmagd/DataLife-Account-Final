@@ -111,7 +111,8 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
       trend: stats.lowStockCount > 0 ? 'down' : 'up',
       icon: Cube,
       color: moduleColors.inventory,
-      module: 'inventory'
+      module: 'financial',
+      subModule: 'inventory'
     }
   ];
 
@@ -258,7 +259,7 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
             <Card 
               key={card.id}
               className={`group relative overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer ${card.color.light}`}
-              onClick={() => onNavigate?.(card.module)}
+              onClick={() => onNavigate?.(card.module, card.subModule)}
               data-testid={`stat-card-${card.id}`}
             >
               {/* Gradient accent line */}

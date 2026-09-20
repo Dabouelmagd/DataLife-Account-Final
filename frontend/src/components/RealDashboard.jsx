@@ -112,10 +112,10 @@ const RealDashboard = () => {
         axios.get(`${API_URL}/api/financial/customers`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/financial/suppliers`, config).catch(() => ({ data: [] })),
         axios.get(`${API_URL}/api/financial/journal-entries`, config).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/projects`, config).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/invoices`, config).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/inventory`, config).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/approvals`, config).catch(() => ({ data: [] }))
+        axios.get(`${API_URL}/api/tasks/projects`, config).catch(() => ({ data: [] })),
+        axios.get(`${API_URL}/api/invoices/`, config).catch(() => ({ data: [] })),
+        axios.get(`${API_URL}/api/inventory/items`, config).catch(() => ({ data: [] })),
+        axios.get(`${API_URL}/api/approvals/pending`, config).catch(() => ({ data: [] }))
       ]);
       
       // Helper to safely extract array data from API responses

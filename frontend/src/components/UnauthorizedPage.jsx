@@ -4,7 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import DataLifeLogo from './DataLifeLogo';
 import { ShieldOff, ArrowRight, ArrowLeft } from 'lucide-react';
 
-export default function UnauthorizedPage({ moduleName }) {
+export default function UnauthorizedPage({ moduleName, notFound = false }) {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const ar = language === 'ar';
@@ -26,7 +26,9 @@ export default function UnauthorizedPage({ moduleName }) {
 
       {/* Message */}
       <h1 className="text-2xl font-black text-gray-800 dark:text-gray-100 mb-3">
-        {ar ? 'ليس لك صلاحيات لمشاهدة هذه الصفحة' : 'You do not have permission to view this page'}
+        {notFound
+          ? (ar ? 'هذه الصفحة غير متاحة' : 'This page is not available')
+          : (ar ? 'ليس لك صلاحيات لمشاهدة هذه الصفحة' : 'You do not have permission to view this page')}
       </h1>
 
       <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm mb-8 leading-relaxed">
