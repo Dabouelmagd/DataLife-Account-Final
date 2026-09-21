@@ -1,0 +1,33 @@
+# Routes that write money amounts without creating a journal entry, each
+# reviewed and found correct. validate_build Mode 10 warns about any route
+# of that kind NOT listed here. Format: file:route  # reason
+
+admin_payments.py:/subscriptions/{subscription_id}/payment  # platform billing (DataLife's revenue, not the client ledger)
+approvals.py:/request  # request, not a financial event
+companies.py:/{company_id}/addons  # platform billing
+enterprise_accounting.py:/medical-services  # creates a draft entry; posted after approval
+erp_core.py:/approval-requests  # request
+ess_portal.py:/requests/loan  # loan request; approve_loan posts
+eta_signing.py:/sign/{invoice_id}  # e-invoice signing, no money movement
+gov_integration.py:/gps/electronic-cheque  # generates the GPS cheque document; payment recorded separately
+hr_engine.py:/penalties/apply  # payroll component, posted with the payroll run
+hr_management.py:/allowances  # payroll component
+hr_management.py:/deductions  # payroll component
+import_data.py:/customers  # master data
+import_data.py:/employees  # master data
+import_data.py:/financial  # import history only
+import_data.py:/inventory  # item master
+import_data.py:/invoices  # imported as drafts; approval posts
+import_data.py:/purchases  # imported records, no posting path
+import_data.py:/suppliers  # master data
+invoices.py:/  # no live UI writes to /api/invoices
+payroll.py:/end-of-service  # settlement draft; approve_end_of_service posts
+payroll.py:/runs/{run_id}/calculate  # calculation; approve_payroll posts
+payroll.py:/runs/{run_id}/send-payslips  # notification
+performance_kpi.py:/idp/{idp_id}/goal/{goal_idx}/complete  # not financial
+pos_retail.py:/shifts/{shift_id}/sale  # posted in aggregate at shift close
+purchases.py:/orders  # purchase order = commitment, no entry until receipt/invoice
+purchases.py:/suppliers  # master data
+sales.py:/customers  # master data
+sales.py:/subscriptions  # contract; generate-invoice posts
+subscriptions.py:/redeem-code  # platform subscription

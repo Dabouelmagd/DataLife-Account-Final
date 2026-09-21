@@ -308,6 +308,49 @@ def check_account_maps():
                     errors.append(f"❌ backend/{folder}/{f.name}:{n}: {m.group(1)} → {m.group(2)} "
                                   f"is not in the default chart of accounts")
 
+# ── Mode 10: Money written without a journal entry (warning) ─
+# The blind spot behind the sales-module gap: a route that stores a money
+# amount and creates NO entry is invisible to checks that look for entries
+# created-but-not-posted. Reviewed routes live in
+# backend/scripts/reviewed_unposted_writes.txt; anything new is reported.
+def check_unposted_money_writes():
+    import ast, re
+    api = ROOT / "backend" / "api"
+    listed = ROOT / "backend" / "scripts" / "reviewed_unposted_writes.txt"
+    if not api.exists():
+        return
+    reviewed = {l.split("#")[0].strip() for l in listed.read_text(encoding="utf-8").splitlines()
+                if l.strip() and not l.startswith("#")} if listed.exists() else set()
+    money = re.compile(r'"(amount|total|grand_total|paid_amount|net_salary|total_amount|price|cost|value|balance)"\s*:')
+    posts = re.compile(r'post_journal_entry\(|post_simple_journal_entry\(|post_je\(|_post_entry\(|post_sales_invoice\(|'
+                       r'post_customer_payment\(|record_payment\(|create_journal_entry\(|general_ledger\.insert|approve_invoice\(')
+    write = re.compile(r'db\.(\w+)\.(insert_one|insert_many|update_one|update_many)\(')
+    skip = re.compile(r'log|audit|notification|setting|session|counter|cache|token|otp|template|draft|quot|'
+                      r'subscription_plan|plans|coupon|stats|report|config|pref', re.I)
+    for f in sorted(api.glob("*.py")):
+        src = f.read_text(encoding="utf-8", errors="ignore")
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.AsyncFunctionDef):
+                continue
+            deco = next((ast.get_source_segment(src, d) for d in node.decorator_list
+                         if "router." in (ast.get_source_segment(src, d) or "")), None)
+            if not deco or ".get(" in deco:
+                continue
+            body = ast.get_source_segment(src, node) or ""
+            if posts.search(body) or not money.search(body):
+                continue
+            if not any(not skip.search(m.group(1)) for m in write.finditer(body)):
+                continue
+            route = re.search(r'\("([^"]*)"', deco)
+            key = f"{f.name}:{route.group(1) if route else node.name}"
+            if key not in reviewed:
+                warnings.append(f"⚠️  {key} writes a money amount but creates no journal entry — "
+                                f"post it, or review and add to reviewed_unposted_writes.txt")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -323,6 +366,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 10: Unposted money-write check...")
+check_unposted_money_writes()
 
 print(f"Mode 9: Account map check...")
 check_account_maps()
@@ -347,7 +393,7 @@ print(f"\nScanned {len(files)} frontend files\n")
 
 if warnings:
     print("-" * 60)
-    print(f"⚠️  {len(warnings)} dead API route(s) — pages will render empty:")
+    print(f"⚠️  {len(warnings)} warning(s) — not blocking, but review each:")
     print("-" * 60)
     for w in sorted(warnings):
         print(f"  {w}")
