@@ -391,7 +391,7 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
     allow_id,  allow_code,  allow_name  = get_account_info(settings.get("allowances_expense_account"),       "331")  # بدلات (نفس حساب الرواتب)
     si_exp_id, si_exp_code, si_exp_name = get_account_info(settings.get("social_insurance_expense_account"),"331")  # تأمينات حصة الشركة 18.75%
     si_pay_id, si_pay_code, si_pay_name = get_account_info(settings.get("social_insurance_payable_account"),"255")  # التأمينات الاجتماعية المستحقة
-    tax_id,    tax_code,    tax_name    = get_account_info(settings.get("income_tax_payable_account"),       "254")  # ضريبة كسب العمل
+    tax_id,    tax_code,    tax_name    = get_account_info(settings.get("income_tax_payable_account"),       "266")  # ضريبة كسب العمل
     sal_pay_id,sal_pay_code,sal_pay_name= get_account_info(settings.get("salaries_payable_account"),        "253")  # صافي الرواتب المستحقة
     loan_id,   loan_code,   loan_name   = get_account_info(settings.get("loans_receivable_account"),        "134")  # سلف الموظفين
     # صناديق إجبارية — قانون 148/2019
@@ -1485,7 +1485,7 @@ async def approve_end_of_service(
             return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
         return None, default_code, f"حساب {default_code}"
     
-    eos_id, eos_code, eos_name = get_acc(settings.get("eos_provision_account"), "2600")  # القروض طويلة الأجل
+    eos_id, eos_code, eos_name = get_acc(settings.get("eos_provision_account"), "223")  # مخصص مكافأة نهاية الخدمة
     loan_id, loan_code, loan_name = get_acc(settings.get("loans_receivable_account"), "134")  # سلف الموظفين
     bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "162")  # النقدية بالبنوك الجارية
     
@@ -2093,10 +2093,10 @@ async def disburse_payroll(
         return None, default_code, f"حساب {default_code}"
     
     # حسابات القيد
-    sal_pay_id,  sal_pay_code,  sal_pay_name  = acct("salaries_payable_account_id",      "220")
+    sal_pay_id,  sal_pay_code,  sal_pay_name  = acct("salaries_payable_account_id",      "253")
     bank_id,     bank_code,     bank_name      = acct("bank_account_id",                  "112")
     si_pay_id,   si_pay_code,   si_pay_name    = acct("social_insurance_payable_account_id","260")
-    tax_id,      tax_code,      tax_name       = acct("income_tax_payable_account_id",    "261")
+    tax_id,      tax_code,      tax_name       = acct("income_tax_payable_account_id",    "266")
     emg_pay_id,  emg_pay_code,  emg_pay_name   = acct(None,                               "258")
     mrt_pay_id,  mrt_pay_code,  mrt_pay_name   = acct(None,                               "259")
     uhi_pay_id,  uhi_pay_code,  uhi_pay_name   = acct(None,                               "262")

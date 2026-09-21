@@ -48,7 +48,7 @@ DIRECT_CLASSIFICATION = {
     "261": ("operating", "ضريبة كسب عمل مدفوعة",           "outflow"),
     "260": ("operating", "ضريبة قيمة مضافة مدفوعة",        "outflow"),
     "134": ("operating", "سلف موظفين مصروفة",              "outflow"),
-    "1341":("operating", "قروض موظفين مصروفة",             "outflow"),
+    "134":("operating", "قروض موظفين مصروفة",             "outflow"),
     "341": ("operating", "مصروفات تسويق مدفوعة",           "outflow"),
     "342": ("operating", "عمولات بيع مدفوعة",              "outflow"),
     "334": ("operating", "عمولات بنكية مدفوعة",            "outflow"),
@@ -63,7 +63,7 @@ DIRECT_CLASSIFICATION = {
     "115": ("investing", "شراء أثاث ومعدات مكتبية",       "outflow"),
     "116": ("investing", "شراء حواسب وبرمجيات",           "outflow"),
     "1561":("investing", "دفع قسط إيجار تمويلي",          "outflow"),
-    "1611":("investing", "تطوير مشروعات عقارية",          "outflow"),
+    "142":("investing", "تطوير مشروعات عقارية",          "outflow"),
     "421": ("investing", "حصيلة بيع أصول ثابتة",          "inflow"),
     "422": ("investing", "فوائد دائنة مقبوضة",            "inflow"),
     "14":  ("investing", "مشروعات تحت التنفيذ",           "outflow"),
@@ -110,7 +110,7 @@ WORKING_CAPITAL = {
     "252":   ("notes_pay", "liability", "التغير في أوراق الدفع"),
     "253":   ("accrued",   "liability", "التغير في مصروفات مستحقة"),
     "254":   ("tax_pay",   "liability", "التغير في الضرائب المستحقة"),
-    "147":   ("deferred",  "liability", "التغير في إيرادات مؤجلة"),
+    "257":   ("deferred",  "liability", "التغير في إيرادات مؤجلة"),
     "1471":  ("booking",   "liability", "التغير في حجوزات عقارية"),
 }
 
@@ -459,7 +459,7 @@ async def cash_flow_indirect(
         "111": "شراء أراضٍ ومباني", "113": "شراء سيارات",
         "114": "شراء آلات ومعدات", "115": "شراء أثاث",
         "116": "شراء حواسب", "1561": "دفعات إيجار تمويلي",
-        "1611": "تطوير عقاري",
+        "142": "تطوير عقاري",
     }
     tasks_inv = [get_account_balance(company_id, code, date_from, date_to, "net")
                  for code in invest_accounts]

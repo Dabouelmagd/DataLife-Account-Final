@@ -382,7 +382,7 @@ class InvoiceService:
             suppliers_acc = find_account("251")   # الموردون — دائن
             purchases_acc = find_account("311")   # مخزون بضاعة / مواد خام — مدين
             # ✅ VAT مدخلات = أصل (قابل للخصم من VAT مخرجات)
-            vat_in_acc   = find_account("153")    # ضريبة القيمة المضافة مدخلات
+            vat_in_acc   = find_account("137")    # ضريبة القيمة المضافة مدخلات
             if not vat_in_acc:
                 vat_in_acc = find_account("254")  # fallback
             # WHT نستقطعه من المورد ونودعه لمصلحة الضرائب

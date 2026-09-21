@@ -457,7 +457,7 @@ async def create_sales_invoice(data: dict, authorization: Optional[str] = Header
         # DR: Receivables (131) / CR: Revenue (411)
         recv_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "131"})
         rev_acc  = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "411"})
-        vat_acc  = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "237"})
+        vat_acc  = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "260"})
         lines = []
         if recv_acc:
             lines.append(JournalEntryLine(account_id=recv_acc["id"], account_code="131",
@@ -468,7 +468,7 @@ async def create_sales_invoice(data: dict, authorization: Optional[str] = Header
                 account_name=rev_acc.get("account_name","إيرادات المبيعات"),
                 debit=0, credit=round(after_discount,2), description=f"فاتورة {invoice_number}"))
         if vat_acc and vat_amount > 0:
-            lines.append(JournalEntryLine(account_id=vat_acc["id"], account_code="237",
+            lines.append(JournalEntryLine(account_id=vat_acc["id"], account_code="260",
                 account_name=vat_acc.get("account_name","ضريبة القيمة المضافة"),
                 debit=0, credit=round(vat_amount,2), description=f"ضريبة فاتورة {invoice_number}"))
         if lines:

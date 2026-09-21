@@ -29,14 +29,14 @@ router = APIRouter(prefix="/api/pos", tags=["POS & Retail"])
 # ACCOUNT CODES
 # ══════════════════════════════════════════════════════════════
 ACC = {
-    "cash_drawer":      "1631",  # نقدية الخزينة — وردية POS
+    "cash_drawer":      "164",  # نقدية الخزينة — وردية POS
     "shortage_ar":      "1632",  # عجز النقدية (ذمة الكاشير)
     "shortage_exp":     "3351",  # مصروف عجز مسموح به
     "surplus_rev":      "4231",  # إيراد زيادة النقدية
     "pos_sales":        "4121",  # إيرادات مبيعات POS
     "vat_output":       "260",   # VAT مخرجات
     "service_charge":   "412",   # رسوم خدمة (مطاعم)
-    "fnb_inventory":    "1241",  # مخزون الأغذية والمشروبات
+    "fnb_inventory":    "125",  # مخزون الأغذية والمشروبات
     "waste_exp":        "3361",  # مصروف تالف وهدر
     "cogs":             "311",   # تكلفة المبيعات
     "bank":             "112",
@@ -379,7 +379,7 @@ class SpoilageRequest(BaseModel):
     items: List[dict]  # [{product_id, product_name, qty, unit_cost, reason}]
     approved_by:   Optional[str] = None
     notes:         Optional[str] = None
-    inventory_account: str = "1241"  # F&B inventory default
+    inventory_account: str = "125"  # F&B inventory default
 
 
 @router.post("/spoilage")

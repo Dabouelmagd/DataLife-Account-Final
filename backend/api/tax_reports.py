@@ -192,7 +192,7 @@ async def generate_form_10(
     vat_output = await aggregate_je_lines(company_id, "260", date_from, date_to, "credit")
 
     # ── ضريبة المدخلات (المشتريات) — م/153 مدين ─────────────
-    vat_input  = await aggregate_je_lines(company_id, "153", date_from, date_to, "debit")
+    vat_input  = await aggregate_je_lines(company_id, "137", date_from, date_to, "debit")
 
     # ── ضريبة الجدول (خدمات وسلع جدولية) ────────────────────
     # يمكن إضافة حساب منفصل م/260-J للجدول إذا كان موجوداً
@@ -320,7 +320,7 @@ async def generate_form_4(
 
     # Fallback: aggregate from journal entries م/261 on payroll entries
     if not employees_summary:
-        payroll_tax = await aggregate_je_lines(company_id, "261", date_from, date_to, "credit")
+        payroll_tax = await aggregate_je_lines(company_id, "266", date_from, date_to, "credit")
         total_tax = payroll_tax
 
     # Group by employee for the form

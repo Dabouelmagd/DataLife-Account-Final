@@ -81,7 +81,7 @@ DEFAULT_POSTING_MATRIX = {
     "purchase_invoice": {
         "debit":  [
             {"account": "121", "name": "مخزون",        "allocation": "net"},
-            {"account": "153", "name": "VAT مدخلات",  "allocation": "tax"},
+            {"account": "137", "name": "VAT مدخلات",  "allocation": "tax"},
             {"account": "138", "name": "خصم وتحصيل",  "allocation": "wht"},
         ],
         "credit": {"account": "251", "name": "الموردون"},
@@ -97,7 +97,7 @@ DEFAULT_POSTING_MATRIX = {
         "credit": [
             {"account": "253", "name": "أجور مستحقة",   "allocation": "net"},
             {"account": "261", "name": "ضريبة كسب عمل", "allocation": "tax"},
-            {"account": "220", "name": "تأمينات اجتماعية","allocation": "si"},
+            {"account": "255", "name": "تأمينات اجتماعية","allocation": "si"},
         ],
         "auto_post": True,
     },

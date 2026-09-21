@@ -32,8 +32,8 @@ router = APIRouter(prefix="/api/petty-cash", tags=["Petty Cash"])
 
 # ── Account codes ─────────────────────────────────────────────
 ACC = {
-    "imprest":   "1331",  # عهد نقدية مستديمة
-    "temporary": "1332",  # عهد نقدية مؤقتة
+    "imprest":   "133",  # عهد نقدية مستديمة
+    "temporary": "133",  # عهد نقدية مؤقتة
     "petty_exp": "336",   # مصروفات نثرية عامة
     "buffet":    "3361",  # بوفيه وضيافة
     "fuel":      "3362",  # وقود ومواصلات

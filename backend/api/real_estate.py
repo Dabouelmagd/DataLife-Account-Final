@@ -28,7 +28,7 @@ router = APIRouter(prefix="/api/real-estate", tags=["Real Estate"])
 # ACCOUNT CODES
 # ══════════════════════════════════════════════════════════════
 ACC = {
-    "re_wip":           "1611",  # مشروعات عقارية تحت التنفيذ
+    "re_wip":           "142",  # مشروعات عقارية تحت التنفيذ
     "booking_liability":"1471",  # عملاء حجز وتعاقد — دفعات مقدمة
     "installments_ar":  "1472",  # عملاء أقساط مؤجلة
     "checks_collection":"1473",  # شيكات تحت التحصيل — أقساط عقارية

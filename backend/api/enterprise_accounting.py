@@ -189,7 +189,7 @@ async def create_progress_claim(data: dict, current_user: dict = Depends(get_use
         # ══ القيد المحاسبي — المعيار المصري رقم 8 ══════════════════
         # مدين: ح/العملاء (صافي + VAT) | ح/ضمان محتجز | ح/خصم وتحصيل
         # دائن: ح/إيرادات مقاولات (القيمة قبل الضرائب) | ح/VAT مخرجات
-        adv_pay_acc = acc_map.get("147")  # ح/مقبوضات مقدمة (استرداد الدفعة المقدمة)
+        adv_pay_acc = acc_map.get("257")  # ح/مقبوضات مقدمة (استرداد الدفعة المقدمة)
         
         lines = []
         # مدين 1: ح/العملاء - مستخلصات جارية (صافي + VAT)
@@ -216,7 +216,7 @@ async def create_progress_claim(data: dict, current_user: dict = Depends(get_use
                 "project_id":data.get("project_id")})
         # مدين 4: ح/مقبوضات مقدمة (استرداد دفعة مقدمة إن وجدت)
         if adv_ded > 0 and adv_pay_acc:
-            lines.append({"account_id":adv_pay_acc["id"],"account_code":"147",
+            lines.append({"account_id":adv_pay_acc["id"],"account_code":"257",
                 "account_name":"مقبوضات مقدمة — استرداد",
                 "debit":0,"credit":adv_ded,
                 "description":"استرداد دفعة مقدمة من المستخلص",
@@ -336,11 +336,11 @@ async def create_subcontractor_claim(data: dict, current_user: dict = Depends(ge
         return a.get("id"), code, a.get("account_name", name_default)
     
     cost_id,  cost_code,  cost_name  = acc("521", "تكاليف مقاولات — مقاولي الباطن")
-    vat_in_id,vatin_code, vatin_name = acc("153", "ضريبة القيمة المضافة — مدخلات")
+    vat_in_id,vatin_code, vatin_name = acc("137", "ضريبة القيمة المضافة — مدخلات")
     pay_id,   pay_code,   pay_name   = acc("212", "أرصدة دائنة — مقاولو الباطن")
     wht_id,   wht_code,   wht_name   = acc("261", "مصلحة الضرائب — خصم وتحصيل")
     ret_id,   ret_code,   ret_name   = acc("259", "خصومات دائنة — ضمان حسن التنفيذ")
-    adv_id,   adv_code,   adv_name   = acc("147", "مقبوضات مقدمة — استرداد")
+    adv_id,   adv_code,   adv_name   = acc("257", "مقبوضات مقدمة — استرداد")
     
     lines_je = []
     

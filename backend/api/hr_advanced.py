@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/hr-advanced", tags=["HR Advanced"])
 # ACCOUNT CODES
 # ══════════════════════════════════════════════════════════════
 ACC = {
-    "loans_ar":       "1341",  # سلف وقروض الموظفين
+    "loans_ar":       "134",  # سلف وقروض الموظفين
     "custody_ar":     "1342",  # عهد الموظفين العينية
     "commission_exp": "3421",  # عمولات مندوبي المبيعات
     "commission_pay": "2201",  # مستحقات عمولات مستحقة
@@ -443,7 +443,7 @@ async def assign_custody(req: CustodyRequest,
         lines = await asyncio.gather(
             je_line(company_id, ACC["custody_ar"], debit=req.value,
                     desc=f"عهدة {req.asset_name} — {emp.get('name','')}"),
-            je_line(company_id, "155", credit=req.value,
+            je_line(company_id, "124", credit=req.value,
                     desc=f"تحويل {req.asset_name} لعهدة {emp.get('name','')}"),
         )
         je_id = await post_je(company_id, current_user["user_id"], req.hand_over_date,
@@ -499,7 +499,7 @@ async def return_custody(custody_id: str, data: dict,
         if condition == "lost":
             # خسارة → Dr مصروف خسارة | Cr عهدة
             lines = await asyncio.gather(
-                je_line(company_id, "422", debit=value,
+                je_line(company_id, "3365", debit=value,
                         desc=f"خسارة عهدة مفقودة — {custody['asset_name']}"),
                 je_line(company_id, ACC["custody_ar"], credit=value,
                         desc=f"إقفال عهدة مفقودة — {custody['asset_name']}"),
@@ -507,7 +507,7 @@ async def return_custody(custody_id: str, data: dict,
         else:
             # استرجاع عادي
             lines = await asyncio.gather(
-                je_line(company_id, "155", debit=value,
+                je_line(company_id, "124", debit=value,
                         desc=f"استرجاع عهدة — {custody['asset_name']}"),
                 je_line(company_id, ACC["custody_ar"], credit=value,
                         desc=f"إقفال عهدة — {custody['asset_name']} — {condition}"),

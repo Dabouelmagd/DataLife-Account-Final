@@ -462,7 +462,10 @@ async def dispose_asset(
     nbv            = round(cost - accum_dep, 2)
     gain_loss      = round(sale_proceeds - nbv, 2)
 
-    asset_acc_code = asset.get("asset_account_code", "152")
+    asset_acc_code = asset.get("asset_account_code")
+    if not asset_acc_code:
+        # the old fallback code did not exist in the chart, so disposal failed or misposted
+        raise HTTPException(status_code=400, detail="الأصل ليس له حساب أصول مسجل — حدده قبل الاستبعاد")
     accum_dep_code = asset.get("accum_dep_acc_code", "22202")
     asset_name     = asset.get("asset_name", "الأصل")
 
@@ -483,7 +486,7 @@ async def dispose_asset(
     # مدين: خسارة رأسمالية (إن وجدت)
     if gain_loss < 0:
         lines.append(await make_je_line(
-            company_id, "422", "خسائر بيع أصول ثابتة",
+            company_id, "3364", "خسائر بيع أصول ثابتة",
             debit=abs(gain_loss), desc=f"خسارة بيع {asset_name}"))
 
     # دائن: الأصل الثابت (إقفال القيمة الأصلية)
