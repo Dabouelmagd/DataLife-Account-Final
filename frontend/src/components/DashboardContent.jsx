@@ -461,11 +461,11 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
           ].map((mod) => (
             <Card
               key={mod.id}
-              className="group cursor-pointer border-0 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+              className="group relative cursor-pointer border-0 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
               onClick={() => onNavigate?.(mod.nav[0], mod.nav[1])}
               data-testid={`module-card-${mod.id}`}
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${mod.color.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
+              <div className={`absolute inset-0 pointer-events-none bg-gradient-to-br ${mod.color.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
               <CardContent className="p-4 relative">
                 <div className="flex items-center gap-3 mb-2">
                   <div className={`w-10 h-10 rounded-xl ${mod.color.iconBg} flex items-center justify-center flex-shrink-0`}>
