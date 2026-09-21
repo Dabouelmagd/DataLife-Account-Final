@@ -39,7 +39,6 @@ import TerminationPage from '../pages/TerminationPage';
 import DeductionsPage from '../pages/DeductionsPage';
 import AllowancesPage from '../pages/AllowancesPage';
 import ShiftsManagementPage from '../pages/ShiftsManagementPage';
-import SalariesPage from '../pages/SalariesPage';
 import SalesModule from '../pages/SalesModule';
 import HRComprehensiveReportsPage from '../pages/HRComprehensiveReportsPage';
 import SystemReportsPage from '../pages/SystemReportsPage';
@@ -133,7 +132,7 @@ export const renderHRContent = ({
   const hrSubModuleMap = {
     'employees': <EmployeesPage language={language} />,
     'payroll': <PayrollPage language={language} />,
-    'salaries': <SalariesPage language={language} onNavigateToEmployees={() => setActiveHRSubModule('employees')} />,
+    'salaries': <PayrollPage language={language} />,  // legacy alias -> real payroll
     'allowances': <AllowancesPage language={language} />,
     'deductions': <DeductionsPage language={language} />,
     'attendance': <AttendancePage language={language} />,

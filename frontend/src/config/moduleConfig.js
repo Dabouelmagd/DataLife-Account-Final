@@ -221,8 +221,7 @@ export const getAvailableModules = (user, language) => {
 export const getHRSubModules = (isArabic) => [
   { id: 'overview',      name: isArabic ? '🏠 نظرة عامة'         : '🏠 Overview' },
   { id: 'employees',     name: isArabic ? '👥 الموظفون'           : '👥 Employees' },
-  { id: 'salaries',      name: isArabic ? '💵 الرواتب'            : '💵 Salaries' },
-  { id: 'payroll',       name: isArabic ? '📋 كشف المرتبات'       : '📋 Payroll' },
+  { id: 'payroll',       name: isArabic ? '💵 الرواتب'            : '💵 Payroll' },
   { id: 'allowances',    name: isArabic ? '➕ البدلات'            : '➕ Allowances' },
   { id: 'deductions',    name: isArabic ? '➖ الخصومات'           : '➖ Deductions' },
   { id: 'attendance',    name: isArabic ? '⏰ الحضور والانصراف'   : '⏰ Attendance' },

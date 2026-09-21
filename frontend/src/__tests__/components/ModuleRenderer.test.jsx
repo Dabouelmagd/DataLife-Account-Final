@@ -47,7 +47,6 @@ jest.mock('../../pages/TerminationPage', () => () => <div data-testid="terminati
 jest.mock('../../pages/DeductionsPage', () => () => <div data-testid="deductions">Deductions</div>);
 jest.mock('../../pages/AllowancesPage', () => () => <div data-testid="allowances">Allowances</div>);
 jest.mock('../../pages/ShiftsManagementPage', () => () => <div data-testid="shifts-management">Shifts Management</div>);
-jest.mock('../../pages/SalariesPage', () => () => <div data-testid="salaries">Salaries</div>);
 jest.mock('../../pages/HRComprehensiveReportsPage', () => () => <div data-testid="hr-comprehensive-reports">HR Comprehensive Reports</div>);
 jest.mock('../../pages/SystemReportsPage', () => () => <div data-testid="system-reports">System Reports</div>);
 jest.mock('../../pages/TrialBalancePage', () => () => <div data-testid="trial-balance">Trial Balance</div>);
@@ -174,7 +173,7 @@ describe('ModuleRenderer Component', () => {
           activeHRSubModule="salaries" 
         />
       );
-      expect(screen.getByTestId('salaries')).toBeInTheDocument();
+      expect(screen.getByTestId('payroll-page')).toBeInTheDocument();
     });
 
     it('should render attendance page for attendance sub-module', () => {
