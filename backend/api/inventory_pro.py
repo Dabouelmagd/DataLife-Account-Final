@@ -1410,7 +1410,7 @@ async def get_low_stock_report(
 @router.get("/reports/valuation")
 async def get_stock_valuation_report(
     warehouse_id: Optional[str] = Query(None),
-    method: str = Query("average", enum=["average", "fifo", "lifo"]),
+    method: str = Query("average", enum=["average", "fifo"]),   # LIFO is not permitted under EAS 2
     current_user: dict = Depends(get_current_user)
 ):
     """تقرير تقييم المخزون"""
@@ -1532,3 +1532,171 @@ async def get_expiry_report(
         "expired_count": len([r for r in report_data if r["status"] == "expired"]),
         "expiring_soon_count": len([r for r in report_data if r["status"] == "expiring_soon"])
     }
+
+
+# ══════════════════════════════════════════════════════════════
+# PERIODIC INVENTORY COUNT & CLOSE (جرد دوري)
+# ══════════════════════════════════════════════════════════════
+# Purchases are expensed to 311 when a purchase invoice is approved and sales
+# post no cost of goods: the periodic method. Its missing step was the
+# closing-stock entry — without it the balance sheet showed no inventory and
+# every purchase, sold or not, hit profit.
+#
+# Closing a period posts only the DIFFERENCE between the counted valuation and
+# the inventory account's ledger balance at period end:
+#     valuation > ledger:  من ح/ المخزون        ← إلى ح/ تكلفة البضاعة (311)
+#     valuation < ledger:  من ح/ تكلفة البضاعة  ← إلى ح/ المخزون
+# That replaces "reverse opening + record closing" in one entry, works for any
+# frequency, and stays right if a period is skipped.
+
+from datetime import timedelta
+import calendar
+
+COUNT_FREQUENCIES = {
+    "daily": "يومي", "weekly": "أسبوعي", "monthly": "شهري",
+    "quarterly": "ربع سنوي", "semi_annual": "نصف سنوي", "annual": "سنوي",
+}
+SUGGESTED_BY_ACTIVITY = {           # shown as hints in the UI
+    "restaurant": "daily", "cafe": "daily", "bakery": "daily",
+    "retail": "weekly", "supermarket": "weekly", "pharmacy": "weekly",
+    "trading": "monthly", "distribution": "monthly", "manufacturing": "monthly",
+    "construction": "semi_annual", "services": "annual",
+}
+DEFAULT_COUNT_SETTINGS = {"frequency": "monthly", "inventory_account": "125",
+                          "cost_account": "311", "valuation_method": "average"}
+
+
+def _period_of(d: date, freq: str):
+    """(start, end) of the period that contains d."""
+    if freq == "daily":
+        return d, d
+    if freq == "weekly":                      # Saturday -> Friday
+        start = d - timedelta(days=(d.weekday() - 5) % 7)
+        return start, start + timedelta(days=6)
+    if freq == "monthly":
+        return d.replace(day=1), d.replace(day=calendar.monthrange(d.year, d.month)[1])
+    if freq in ("quarterly", "semi_annual"):
+        span = 3 if freq == "quarterly" else 6
+        m0 = (d.month - 1) // span * span + 1
+        m1 = m0 + span - 1
+        return date(d.year, m0, 1), date(d.year, m1, calendar.monthrange(d.year, m1)[1])
+    return date(d.year, 1, 1), date(d.year, 12, 31)          # annual
+
+
+async def _count_settings(company_id: str):
+    doc = await db.inventory_count_settings.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    return {**DEFAULT_COUNT_SETTINGS, **{k: v for k, v in doc.items() if k in DEFAULT_COUNT_SETTINGS}}
+
+
+async def _next_period(company_id: str, freq: str):
+    last = await db.inventory_closes.find_one({"company_id": company_id}, {"_id": 0}, sort=[("period_end", -1)])
+    today = date.today()
+    if last:
+        start, end = _period_of(date.fromisoformat(last["period_end"]) + timedelta(days=1), freq)
+    else:
+        start, end = _period_of(today, freq)
+        if end > today:                                    # current period not finished: offer the last complete one
+            start, end = _period_of(start - timedelta(days=1), freq)
+    return start, end, last
+
+
+async def _valuation_total(company_id: str, method: str) -> float:
+    rep = await get_stock_valuation_report(warehouse_id=None, method=method,
+                                           current_user={"company_id": company_id})
+    return round(float(rep.get("total_value") or rep.get("summary", {}).get("total_value") or 0), 2)
+
+
+async def _ledger_balance(company_id: str, code: str, as_of: str):
+    acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": code}, {"_id": 0})
+    if not acc:
+        raise HTTPException(400, f"الحساب {code} غير موجود في شجرة الحسابات")
+    from services.accounting_service import AccountingService
+    st = await AccountingService(db).get_account_statement(company_id, acc["id"], None, as_of)
+    return acc, round(float(st["closing_balance"]), 2)
+
+
+@router.get("/inventory-count/settings")
+async def get_count_settings(current_user: dict = Depends(get_current_user)):
+    return {**await _count_settings(current_user["company_id"]),
+            "frequencies": COUNT_FREQUENCIES, "suggested_by_activity": SUGGESTED_BY_ACTIVITY}
+
+
+@router.put("/inventory-count/settings")
+async def update_count_settings(data: dict, current_user: dict = Depends(get_current_user)):
+    upd = {k: v for k, v in data.items() if k in DEFAULT_COUNT_SETTINGS}
+    if "frequency" in upd and upd["frequency"] not in COUNT_FREQUENCIES:
+        raise HTTPException(400, "دورية الجرد غير صحيحة")
+    if upd.get("valuation_method") not in (None, "average", "fifo"):
+        raise HTTPException(400, "طريقة التقييم المسموحة: المتوسط المرجح أو الوارد أولاً يصرف أولاً (معيار 2)")
+    await db.inventory_count_settings.update_one(
+        {"company_id": current_user["company_id"]},
+        {"$set": {**upd, "company_id": current_user["company_id"], "updated_at": datetime.utcnow().isoformat()}},
+        upsert=True)
+    return await get_count_settings(current_user)
+
+
+@router.get("/inventory-count/status")
+async def get_count_status(current_user: dict = Depends(get_current_user)):
+    """Next period to close and a preview of the entry it would post."""
+    cid = current_user["company_id"]
+    cfg = await _count_settings(cid)
+    start, end, last = await _next_period(cid, cfg["frequency"])
+    today = date.today()
+    valuation = await _valuation_total(cid, cfg["valuation_method"])
+    _, ledger = await _ledger_balance(cid, cfg["inventory_account"], end.isoformat())
+    return {
+        "settings": cfg, "frequency_label": COUNT_FREQUENCIES[cfg["frequency"]],
+        "last_close": last,
+        "next_period": {"start": start.isoformat(), "end": end.isoformat()},
+        "due": end <= today,
+        "late_days": max(0, (today - end).days),
+        "preview": {"valuation": valuation, "ledger_balance": ledger,
+                    "adjustment": round(valuation - ledger, 2)},
+        "history": await db.inventory_closes.find({"company_id": cid}, {"_id": 0}).sort("period_end", -1).to_list(12),
+    }
+
+
+@router.post("/inventory-count/close")
+async def close_inventory_period(data: dict = {}, current_user: dict = Depends(get_current_user)):
+    cid = current_user["company_id"]
+    uid = current_user.get("user_id", "system")
+    cfg = await _count_settings(cid)
+    start, end, _ = await _next_period(cid, cfg["frequency"])
+    if end > date.today():
+        raise HTTPException(400, f"الفترة لم تنتهِ بعد — تنتهي في {end.isoformat()}")
+    if await db.inventory_closes.find_one({"company_id": cid, "period_end": end.isoformat()}):
+        raise HTTPException(400, "تم إقفال هذه الفترة من قبل")
+
+    valuation = await _valuation_total(cid, cfg["valuation_method"])
+    inv_acc, ledger = await _ledger_balance(cid, cfg["inventory_account"], end.isoformat())
+    cost_acc = await db.chart_of_accounts.find_one({"company_id": cid, "account_code": cfg["cost_account"]}, {"_id": 0})
+    if not cost_acc:
+        raise HTTPException(400, f"الحساب {cfg['cost_account']} غير موجود في شجرة الحسابات")
+    adj = round(valuation - ledger, 2)
+
+    je_id = None
+    if adj != 0:
+        from services.accounting_service import AccountingService
+        from models.accounting import JournalEntry, JournalEntryLine
+        svc = AccountingService(db)
+        desc = f"مخزون آخر الفترة {start.isoformat()} — {end.isoformat()} ({COUNT_FREQUENCIES[cfg['frequency']]})"
+        up, down = (inv_acc, cost_acc) if adj > 0 else (cost_acc, inv_acc)
+        amt = abs(adj)
+        je = await svc.create_journal_entry(JournalEntry(
+            company_id=cid, entry_date=end.isoformat(), description=desc, created_by=uid,
+            source_document_type="inventory_count", source_document_id=f"{cid}:{end.isoformat()}",
+            lines=[JournalEntryLine(account_id=up["id"], account_code=up["account_code"], account_name=up["account_name"],
+                                    debit=amt, credit=0, description=desc),
+                   JournalEntryLine(account_id=down["id"], account_code=down["account_code"], account_name=down["account_name"],
+                                    debit=0, credit=amt, description=desc)]))
+        await svc.post_journal_entry(je["id"], uid)
+        je_id = je["id"]
+
+    close = {"id": str(uuid.uuid4()), "company_id": cid, "frequency": cfg["frequency"],
+             "period_start": start.isoformat(), "period_end": end.isoformat(),
+             "valuation_method": cfg["valuation_method"], "valuation": valuation,
+             "ledger_before": ledger, "adjustment": adj, "journal_entry_id": je_id,
+             "closed_on": date.today().isoformat(), "closed_by": uid,
+             "created_at": datetime.utcnow().isoformat()}
+    await db.inventory_closes.insert_one(dict(close))
+    return close

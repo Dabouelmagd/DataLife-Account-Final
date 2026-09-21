@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import InventoryCountPanel from '../components/InventoryCountPanel';
 import { 
   Package, Warehouse, Tags, Ruler, Plus, Search, Filter,
   ArrowRightLeft, ClipboardCheck, AlertTriangle, TrendingDown,
@@ -47,6 +48,7 @@ export default function InventoryPage() {
       movements: 'الحركات',
       transfers: 'التحويلات',
       adjustments: 'التسويات',
+      count: 'الجرد والإقفال',
       reports: 'التقارير',
       search: 'بحث...',
       add: 'إضافة',
@@ -120,6 +122,7 @@ export default function InventoryPage() {
       movements: 'Movements',
       transfers: 'Transfers',
       adjustments: 'Adjustments',
+      count: 'Count & close',
       reports: 'Reports',
       search: 'Search...',
       add: 'Add',
@@ -490,6 +493,7 @@ export default function InventoryPage() {
     { id: 'movements', icon: ArrowRightLeft, label: text.movements },
     { id: 'transfers', icon: ArrowRightLeft, label: text.transfers },
     { id: 'adjustments', icon: ClipboardCheck, label: text.adjustments },
+    { id: 'count', icon: ClipboardCheck, label: text.count },
     { id: 'reports', icon: BarChart3, label: text.reports }
   ];
 
@@ -860,6 +864,8 @@ export default function InventoryPage() {
         )}
 
         {/* Adjustments Tab */}
+        {activeTab === 'count' && <InventoryCountPanel language={language} />}
+
         {activeTab === 'adjustments' && (
           <div className="overflow-x-auto">
             <table className="w-full">
