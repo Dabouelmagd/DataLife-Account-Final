@@ -32,9 +32,9 @@ ACC = {
     "ar":               "131",  # العملاء
     "ap":               "251",  # الموردون
     "notes_receivable": "132",  # أوراق القبض (شيكات واردة)
-    "under_collection": "233",  # شيكات برسم التحصيل
-    "returned_checks":  "234",  # شيكات مرتجعة
-    "bounce_fees_exp":  "235",  # مصاريف ارتداد الشيكات
+    "under_collection": "163",  # شيكات برسم التحصيل
+    "returned_checks":  "1311",  # شيكات مرتجعة
+    "bounce_fees_exp":  "334",  # مصاريف ارتداد الشيكات
     "notes_payable":    "252",  # أوراق الدفع (شيكات صادرة)
     "bank_charges_exp": "334",  # مصروفات وعمولات بنكية (332 is utilities)
 }

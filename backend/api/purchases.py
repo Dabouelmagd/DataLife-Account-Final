@@ -361,6 +361,17 @@ async def _supplier_movements(company_id: str, supplier_id: str):
         rows.append({"date": pay["date"], "type": "payment", "reference": pay.get("reference") or pay["id"],
                      "description": pay.get("notes") or ("سداد نقدي" if pay["method"] == "cash" else "سداد بنكي"),
                      "credit": 0.0, "debit": pay["amount"], "journal_entry_id": pay.get("journal_entry_id")})
+    # Cheques issued to the supplier: issuing posts Dr 251 / Cr 252 (notes
+    # payable), so the supplier is paid from the ledger's point of view on
+    # the issue date — whether or not the cheque has cleared the bank yet.
+    async for chq in db.cheques.find(
+            {"company_id": company_id, "supplier_id": supplier_id, "direction": "outgoing",
+             "status": {"$in": ["issued", "cleared"]}}, {"_id": 0}):
+        rows.append({"date": chq.get("issue_date"), "type": "cheque",
+                     "reference": chq.get("cheque_number"),
+                     "description": f"شيك صادر رقم {chq.get('cheque_number', '')}"
+                                    + (" — تم صرفه" if chq.get("status") == "cleared" else " — لم يُصرف بعد"),
+                     "credit": 0.0, "debit": float(chq.get("amount", 0)), "journal_entry_id": chq.get("issue_je_id")})
     rows.sort(key=lambda r: (r["date"] or "", 0 if r["type"] == "invoice" else 1))
     return rows
 

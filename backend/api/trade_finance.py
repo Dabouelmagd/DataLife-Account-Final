@@ -31,7 +31,7 @@ router = APIRouter(prefix="/api/trade-finance", tags=["Trade Finance"])
 ACC = {
     # خطابات الضمان
     "lg_margin":       "1361",  # غطاء خطاب الضمان المحتجز
-    "lg_fees_prepaid": "2311",  # مصاريف إصدار مدفوعة مقدماً
+    "lg_fees_prepaid": "135",  # مصاريف إصدار مدفوعة مقدماً
     "lg_fees_exp":     "3321",  # مصروف عمولات إصدار
     "lg_memo_dr":      "9111",  # التزام خطاب ضمان صادر (نظامي)
     "lg_memo_cr":      "9112",  # التزام البنك (نظامي مقابل)

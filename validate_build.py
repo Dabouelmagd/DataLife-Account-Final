@@ -287,6 +287,27 @@ def check_account_roles():
                         errors.append(f"❌ backend/{folder}/{f.name}:{n}: {role}={code} "
                                       f"but {code} is «{names[code]}»")
 
+# ── Mode 9: Account maps point at accounts that exist ────────
+# Modules keep maps like  "under_collection": "233". 46 entries pointed at
+# codes the default chart did not have, so every posting in those modules
+# (cheques, real estate, leasing, LCs, POS, dividends...) failed.
+def check_account_maps():
+    import re
+    chart = ROOT / "backend" / "models" / "accounting.py"
+    if not chart.exists():
+        return
+    codes = set(re.findall(r'"code":\s*"(\d+)"', chart.read_text(encoding="utf-8")))
+    entry = re.compile(r'^\s*["\'](\w+)["\']\s*:\s*\(?\s*["\']([1-4]\d{1,4})["\']')
+    for folder in ("api", "services"):
+        for f in sorted((ROOT / "backend" / folder).glob("*.py")):
+            if f.name == "cash_flow.py":      # report-only: a missing account reads as 0
+                continue
+            for n, line in enumerate(f.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                m = entry.match(line)
+                if m and m.group(2) not in codes:
+                    errors.append(f"❌ backend/{folder}/{f.name}:{n}: {m.group(1)} → {m.group(2)} "
+                                  f"is not in the default chart of accounts")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -302,6 +323,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 9: Account map check...")
+check_account_maps()
 
 print(f"Mode 8: Account role check...")
 check_account_roles()

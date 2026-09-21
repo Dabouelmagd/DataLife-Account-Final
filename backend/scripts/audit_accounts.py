@@ -27,6 +27,7 @@ from pymongo import MongoClient
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 # report-only modules: a missing account there yields 0, it cannot fail a posting
 READ_ONLY = {"cash_flow.py"}
+MAP_ENTRY = re.compile(r'^\s*["\'](\w+)["\']\s*:\s*\(?\s*["\']([1-4]\d{1,4})["\']')
 DEBIT_NATURE = {"asset", "expense", "contra_liability", "contra_equity"}
 
 # (label, legal basis, name patterns — any match counts)
@@ -91,6 +92,11 @@ def codes_used_by_backend():
                 continue
             for c in re.findall(r"[\"']([1-4]\d{1,3})[\"']", line):
                 found[c].add(f"{f.name}:{i + 1}")
+        # account maps: "under_collection": "233" — missed by the context scan above
+        for i, line in enumerate(lines):
+            m = MAP_ENTRY.match(line)
+            if m:
+                found[m.group(2)].add(f"{f.name}:{i + 1}")
     return found
 
 
