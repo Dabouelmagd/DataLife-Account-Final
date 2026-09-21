@@ -181,6 +181,10 @@ async def receive_cheque(req: ReceiveChequeRequest,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.cheques.insert_one(cheque); cheque.pop("_id", None)
+    # apply it to the customer's open sales invoices (no extra entry — the
+    # receipt entry above is what settled the receivable)
+    from api.sales import allocate_cheque_to_invoices
+    cheque["allocations"], cheque["unallocated"] = await allocate_cheque_to_invoices(company_id, cheque)
 
     return {
         "message": f"تم تسجيل الشيك {ref} — مستحق في {req.cheque_date}",
@@ -338,6 +342,9 @@ async def bounce_cheque(cheque_id: str, req: BounceRequest,
         "bounce_reason": req.bounce_reason, "bounce_fees": req.bounce_fees,
         "bounce_je_id": je_a_id, "bounce_fees_je_id": je_b_id,
     }})
+    # the receivable is back (Dr 131 above), so the invoices are unpaid again
+    from api.sales import unallocate_cheque
+    await unallocate_cheque(company_id, cheque_id)
 
     return {
         "message": f"تم تسجيل ارتداد الشيك — {req.bounce_reason}",

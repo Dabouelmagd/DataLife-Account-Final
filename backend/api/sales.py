@@ -596,6 +596,53 @@ async def post_customer_payment(inv: dict, payment: dict, user_id: str) -> str:
     return await _post_entry(inv["company_id"], user_id, payment["date"], desc, lines, payment["id"], "sales_invoice")
 
 
+
+# ══════════════════════════════════════════
+# INCOMING CHEQUES → INVOICES
+# ══════════════════════════════════════════
+# Receiving a customer cheque posts Dr 132 / Cr 131: the ledger considers the
+# customer paid from that moment. So the cheque is applied to the customer's
+# open invoices (oldest first) on receipt — with NO further entry — and the
+# application is undone if the cheque bounces (bouncing posts Dr 131 back).
+
+def _invoice_totals(inv, payments):
+    paid = round(sum(float(p.get("amount") or 0) for p in payments), 2)
+    bal = round(float(inv.get("total") or 0) - paid, 2)
+    return {"payments": payments, "paid_amount": paid, "balance": bal,
+            "payment_status": "paid" if bal <= 0 else ("partial" if paid > 0 else "unpaid"),
+            "updated_at": now_iso()}
+
+
+async def allocate_cheque_to_invoices(company_id: str, cheque: dict):
+    left = round(float(cheque.get("amount") or 0), 2)
+    applied = []
+    invs = await db.sales_invoices.find(
+        {"company_id": company_id, "customer_id": cheque.get("customer_id"),
+         "journal_entry_id": {"$exists": True, "$ne": None},
+         "status": {"$nin": ["cancelled", "void", "voided"]}, "balance": {"$gt": 0.004}},
+        {"_id": 0}).sort("date", 1).to_list(None)
+    for inv in invs:
+        if left <= 0.004:
+            break
+        part = round(min(left, float(inv.get("balance") or 0)), 2)
+        pay = {"id": str(uuid.uuid4()), "date": cheque.get("receive_date"), "amount": part, "method": "cheque",
+               "reference": cheque.get("cheque_number", ""), "source": "cheque", "cheque_id": cheque["id"],
+               "journal_entry_id": cheque.get("receive_je_id")}   # the receipt entry already settled it
+        await db.sales_invoices.update_one({"id": inv["id"]},
+                                           {"$set": _invoice_totals(inv, (inv.get("payments") or []) + [pay])})
+        applied.append({"invoice_id": inv["id"], "invoice_number": inv.get("invoice_number"), "amount": part})
+        left = round(left - part, 2)
+    await db.cheques.update_one({"id": cheque["id"]},
+                                {"$set": {"allocations": applied, "unallocated": left}})
+    return applied, left
+
+
+async def unallocate_cheque(company_id: str, cheque_id: str):
+    async for inv in db.sales_invoices.find({"company_id": company_id, "payments.cheque_id": cheque_id}, {"_id": 0}):
+        kept = [p for p in inv.get("payments") or [] if p.get("cheque_id") != cheque_id]
+        await db.sales_invoices.update_one({"id": inv["id"]}, {"$set": _invoice_totals(inv, kept)})
+    await db.cheques.update_one({"id": cheque_id}, {"$set": {"allocations": [], "unallocated": 0}})
+
 # ══════════════════════════════════════════
 # CUSTOMER BALANCES, STATEMENT & RECEIPTS
 # ══════════════════════════════════════════
@@ -617,6 +664,8 @@ async def _customer_movements(company_id: str, customer_id: str):
                      "description": "فاتورة مبيعات", "debit": round(float(inv.get("total") or 0), 2), "credit": 0.0,
                      "due_date": inv.get("due_date"), "invoice_id": inv["id"]})
         for pay in inv.get("payments") or []:
+            if pay.get("source") == "cheque":
+                continue            # represented by the cheque row below; counting it again would double it
             if pay.get("journal_entry_id"):
                 rows.append({"date": pay.get("date"), "type": "payment", "reference": inv.get("invoice_number"),
                              "description": "تحصيل نقدي" if pay.get("method") == "cash" else "تحصيل بنكي",
