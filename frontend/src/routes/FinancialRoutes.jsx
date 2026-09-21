@@ -12,6 +12,7 @@ import BankManagementPage from '../pages/BankManagementPage';
 import SuppliersPage from '../pages/SuppliersPage';
 import CustodyPage from '../pages/CustodyPage';
 import TreasuryPage from '../pages/TreasuryPage';
+import CustomersPage from '../pages/CustomersPage';
 
 // Financial Modules
 import PurchasesModule from '../components/PurchasesModule';
@@ -20,7 +21,6 @@ import {
   GeneralLedgerPage,
   FinancialReportsPage,
   AccountsModule,
-  CustomersModule,
 } from '../components/FinancialSubModules';
 
 /**
@@ -58,7 +58,8 @@ export const renderFinancialContent = ({
       // was BankModule: hard-coded sample rows, nothing saved
       return <BankManagementPage language={language} />;
     case 'customers':
-      return <CustomersModule language={language} userRole={userRole} />;
+      // was CustomersModule: showed a stored balance nothing ever updated
+      return <CustomersPage />;
     case 'suppliers':
       // was SuppliersModule: hard-coded sample rows, nothing saved
       return <SuppliersPage />;

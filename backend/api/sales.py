@@ -595,6 +595,127 @@ async def post_customer_payment(inv: dict, payment: dict, user_id: str) -> str:
               "debit": 0, "credit": amt, "description": desc}]
     return await _post_entry(inv["company_id"], user_id, payment["date"], desc, lines, payment["id"], "sales_invoice")
 
+
+# ══════════════════════════════════════════
+# CUSTOMER BALANCES, STATEMENT & RECEIPTS
+# ══════════════════════════════════════════
+# Mirrors what the ledger put on 131 العملاء for this customer:
+#   + each posted sales invoice (its total)
+#   - each posted payment against those invoices
+#   - each incoming cheque when received (Dr 132 / Cr 131)
+#   + the same cheque again if it bounced  (Dr 131)
+# The `balance` stored on the customer record was never updated; it is not used.
+
+async def _customer_movements(company_id: str, customer_id: str):
+    rows = []
+    invs = await db.sales_invoices.find(
+        {"company_id": company_id, "customer_id": customer_id,
+         "status": {"$nin": ["cancelled", "void", "voided"]}, "journal_entry_id": {"$exists": True, "$ne": None}},
+        {"_id": 0}).to_list(length=None)
+    for inv in invs:
+        rows.append({"date": inv.get("date"), "type": "invoice", "reference": inv.get("invoice_number"),
+                     "description": "فاتورة مبيعات", "debit": round(float(inv.get("total") or 0), 2), "credit": 0.0,
+                     "due_date": inv.get("due_date"), "invoice_id": inv["id"]})
+        for pay in inv.get("payments") or []:
+            if pay.get("journal_entry_id"):
+                rows.append({"date": pay.get("date"), "type": "payment", "reference": inv.get("invoice_number"),
+                             "description": "تحصيل نقدي" if pay.get("method") == "cash" else "تحصيل بنكي",
+                             "debit": 0.0, "credit": round(float(pay.get("amount") or 0), 2)})
+    async for chq in db.cheques.find({"company_id": company_id, "customer_id": customer_id,
+                                      "direction": "incoming"}, {"_id": 0}):
+        amt = round(float(chq.get("amount") or 0), 2)
+        rows.append({"date": chq.get("receive_date"), "type": "cheque", "reference": chq.get("cheque_number"),
+                     "description": f"شيك وارد رقم {chq.get('cheque_number', '')}", "debit": 0.0, "credit": amt})
+        if chq.get("status") == "bounced":
+            rows.append({"date": chq.get("bounce_date"), "type": "bounce", "reference": chq.get("cheque_number"),
+                         "description": f"ارتداد الشيك رقم {chq.get('cheque_number', '')}", "debit": amt, "credit": 0.0})
+    rows.sort(key=lambda r: (r["date"] or "", {"invoice": 0, "bounce": 1}.get(r["type"], 2)))
+    return rows
+
+
+def _overdue(rows, today):
+    """Invoice amount still open past its due date, oldest invoices settled first."""
+    paid = sum(r["credit"] - (r["debit"] if r["type"] == "bounce" else 0) for r in rows)
+    overdue = 0.0
+    for r in (x for x in rows if x["type"] == "invoice"):
+        open_amt = max(0.0, r["debit"] - max(0.0, paid))
+        paid -= r["debit"]
+        if open_amt > 0 and r.get("due_date") and r["due_date"] < today:
+            overdue += open_amt
+    return round(overdue, 2)
+
+
+@router.get("/customers-balances")
+async def customers_with_balances(authorization: Optional[str] = Header(None)):
+    user = await get_user(authorization)
+    company_id = user.get("company_id")
+    today = datetime.now().strftime("%Y-%m-%d")
+    customers = await db.sales_customers.find({"company_id": company_id}, {"_id": 0}).sort("name", 1).to_list(length=None)
+    for c in customers:
+        rows = await _customer_movements(company_id, c["id"])
+        c["balance"] = round(sum(r["debit"] - r["credit"] for r in rows), 2)
+        c["overdue"] = _overdue(rows, today)
+        c["invoice_count"] = sum(1 for r in rows if r["type"] == "invoice")
+        limit = float(c.get("credit_limit") or 0)
+        c["over_limit"] = bool(limit and c["balance"] > limit)
+    return {"customers": customers,
+            "total_receivable": round(sum(c["balance"] for c in customers), 2),
+            "total_overdue": round(sum(c["overdue"] for c in customers), 2)}
+
+
+@router.get("/customers/{customer_id}/statement")
+async def customer_statement(customer_id: str, authorization: Optional[str] = Header(None)):
+    user = await get_user(authorization)
+    company_id = user.get("company_id")
+    cust = await db.sales_customers.find_one({"id": customer_id, "company_id": company_id}, {"_id": 0})
+    if not cust:
+        raise HTTPException(404, "Customer not found")
+    rows = await _customer_movements(company_id, customer_id)
+    running = 0.0
+    for r in rows:
+        running = round(running + r["debit"] - r["credit"], 2)
+        r["balance"] = running
+    open_invoices = await db.sales_invoices.find(
+        {"company_id": company_id, "customer_id": customer_id, "journal_entry_id": {"$exists": True, "$ne": None},
+         "status": {"$nin": ["cancelled", "void", "voided"]}, "balance": {"$gt": 0.004}},
+        {"_id": 0, "id": 1, "invoice_number": 1, "date": 1, "due_date": 1, "total": 1, "balance": 1}).sort("date", 1).to_list(None)
+    return {"customer": cust, "entries": rows, "balance": running,
+            "overdue": _overdue(rows, datetime.now().strftime("%Y-%m-%d")), "open_invoices": open_invoices}
+
+
+@router.post("/customers/{customer_id}/receipts")
+async def receive_from_customer(customer_id: str, data: dict, authorization: Optional[str] = Header(None)):
+    """Collect from a customer: the amount is applied to the oldest open
+    invoices first, each part through record_payment, so every invoice's
+    payment status is right and every part posts its own entry."""
+    user = await get_user(authorization)
+    company_id = user.get("company_id")
+    cust = await db.sales_customers.find_one({"id": customer_id, "company_id": company_id}, {"_id": 0})
+    if not cust:
+        raise HTTPException(404, "Customer not found")
+    amount = round(float(data.get("amount") or 0), 2)
+    if amount <= 0:
+        raise HTTPException(400, "المبلغ يجب أن يكون أكبر من صفر")
+    open_invs = await db.sales_invoices.find(
+        {"company_id": company_id, "customer_id": customer_id, "journal_entry_id": {"$exists": True, "$ne": None},
+         "status": {"$nin": ["cancelled", "void", "voided"]}, "balance": {"$gt": 0.004}},
+        {"_id": 0}).sort("date", 1).to_list(None)
+    outstanding = round(sum(float(i.get("balance") or 0) for i in open_invs), 2)
+    if amount > outstanding + 0.005:
+        raise HTTPException(400, f"المبلغ ({amount:,.2f}) أكبر من المستحق على فواتير العميل ({outstanding:,.2f})")
+    left, applied = amount, []
+    for inv in open_invs:
+        if left <= 0.004:
+            break
+        part = round(min(left, float(inv.get("balance") or 0)), 2)
+        await record_payment(inv["id"], {"amount": part, "method": data.get("method", "bank"),
+                                         "date": data.get("date") or datetime.now().strftime("%Y-%m-%d"),
+                                         "reference": data.get("reference", ""), "notes": data.get("notes", "")},
+                             authorization)
+        applied.append({"invoice_number": inv.get("invoice_number"), "amount": part})
+        left = round(left - part, 2)
+    return {"applied": applied, "balance": round(outstanding - amount, 2)}
+
 # ══════════════════════════════════════════
 # SALES STATS
 # ══════════════════════════════════════════
