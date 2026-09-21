@@ -369,6 +369,12 @@ async def _supplier_movements(company_id: str, supplier_id: str):
         rows.append({"date": inv.get("document_date") or je.get("entry_date"), "type": "invoice",
                      "reference": inv.get("document_number"), "description": "فاتورة شراء",
                      "credit": round(owed, 2), "debit": 0.0, "journal_entry_id": je["id"]})
+    # payments recorded on the invoice page (they post Dr 251 / Cr 161)
+    inv_ids = [i["id"] for i in invoices]
+    async for pay in db.payments.find({"invoice_id": {"$in": inv_ids}, "journal_entry_id": {"$ne": None}}, {"_id": 0}):
+        rows.append({"date": (pay.get("payment_date") or "")[:10], "type": "payment",
+                     "reference": pay.get("reference") or pay.get("id"), "description": "سداد من صفحة الفواتير",
+                     "credit": 0.0, "debit": float(pay.get("amount", 0)), "journal_entry_id": pay.get("journal_entry_id")})
     async for pay in db.supplier_payments.find(
             {"company_id": company_id, "supplier_id": supplier_id, "status": "posted"}, {"_id": 0}):
         rows.append({"date": pay["date"], "type": "payment", "reference": pay.get("reference") or pay["id"],
@@ -486,6 +492,12 @@ async def pay_supplier(supplier_id: str, data: SupplierPaymentIn,
                "journal_entry_id": je["id"], "status": "posted", "created_by": user_id,
                "created_at": datetime.now(timezone.utc).isoformat()}
     await db.supplier_payments.insert_one(dict(payment))
+    # mark the supplier's purchase invoices paid, oldest first (no further entry)
+    from services.invoice_service import InvoiceService
+    applied, _ = await InvoiceService(db).apply_external_payment(
+        company_id, supplier_id, "purchase_invoice", amount, "supplier_payment", payment_id, data.date)
+    await db.supplier_payments.update_one({"id": payment_id}, {"$set": {"allocations": applied}})
+    payment["allocations"] = applied
     return {"payment": payment, "balance": round(balance - amount, 2)}
 
 

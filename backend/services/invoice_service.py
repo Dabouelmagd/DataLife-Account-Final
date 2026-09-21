@@ -261,6 +261,7 @@ class InvoiceService:
         
         # إنشاء القيد المحاسبي
         journal_entry_id = await self._create_invoice_journal_entry(invoice, user_id)
+        settle = await self._settle_amount(journal_entry_id, invoice["document_type"], invoice["grand_total"])
         
         # تحديث حالة الفاتورة
         updates = {
@@ -268,6 +269,11 @@ class InvoiceService:
             "approved_by": user_id,
             "approved_at": datetime.utcnow().isoformat(),
             "journal_entry_id": journal_entry_id,
+            # what is actually owed, net of withholding (1,140 invoice -> 1,130 to
+            # the supplier). amount_due used to be the gross total, so a fully
+            # settled invoice stayed "partially paid" with a phantom 10.
+            "settle_amount": settle,
+            "amount_due": settle,
             "updated_at": datetime.utcnow().isoformat()
         }
         
@@ -567,7 +573,7 @@ class InvoiceService:
         
         # تحديث الفاتورة
         new_amount_paid = invoice["amount_paid"] + payment.amount
-        new_amount_due = invoice["grand_total"] - new_amount_paid
+        new_amount_due = round((invoice.get("settle_amount") or invoice["grand_total"]) - new_amount_paid, 2)
         new_status = DocumentStatus.PAID.value if new_amount_due <= 0 else DocumentStatus.PARTIALLY_PAID.value
         
         await self.db.invoices.update_one(
@@ -582,6 +588,43 @@ class InvoiceService:
         
         return payment_dict
     
+    async def _settle_amount(self, je_id: str, doc_type: str, fallback: float) -> float:
+        je = await self.db.journal_entries.find_one({"id": je_id}, {"_id": 0, "lines": 1}) or {}
+        code = "131" if doc_type == DocumentType.SALES_INVOICE.value else "251"
+        net = sum((l.get("debit", 0) - l.get("credit", 0)) if code == "131" else (l.get("credit", 0) - l.get("debit", 0))
+                  for l in je.get("lines", []) if l.get("account_code") == code)
+        return round(net, 2) if net > 0 else round(float(fallback), 2)
+
+    async def apply_external_payment(self, company_id: str, party_id: str, doc_type: str, amount: float,
+                                     source: str, ref_id: str, date: str):
+        """Apply a payment that was posted ELSEWHERE (a supplier payment, an issued
+        cheque) to the party's open invoices, oldest first. No journal entry here —
+        the caller already posted one. Returns (applied, unapplied)."""
+        left = round(float(amount), 2)
+        applied = []
+        invs = await self.db.invoices.find(
+            {"company_id": company_id, "party_id": party_id, "document_type": doc_type,
+             "status": {"$in": [DocumentStatus.APPROVED.value, DocumentStatus.PARTIALLY_PAID.value]}},
+            {"_id": 0}).sort("document_date", 1).to_list(None)
+        for inv in invs:
+            if left <= 0.004:
+                break
+            base = inv.get("settle_amount") or inv["grand_total"]
+            open_amt = round(base - (inv.get("amount_paid") or 0), 2)
+            if open_amt <= 0.004:
+                continue
+            part = round(min(left, open_amt), 2)
+            paid = round((inv.get("amount_paid") or 0) + part, 2)
+            due = round(base - paid, 2)
+            await self.db.invoices.update_one({"id": inv["id"]}, {
+                "$set": {"amount_paid": paid, "amount_due": max(due, 0),
+                         "status": DocumentStatus.PAID.value if due <= 0.004 else DocumentStatus.PARTIALLY_PAID.value,
+                         "updated_at": datetime.utcnow().isoformat()},
+                "$push": {"allocations": {"source": source, "ref_id": ref_id, "amount": part, "date": date}}})
+            applied.append({"invoice_id": inv["id"], "document_number": inv.get("document_number"), "amount": part})
+            left = round(left - part, 2)
+        return applied, left
+
     async def _create_payment_journal_entry(self, invoice: Dict, payment: Payment, user_id: str) -> str:
         """إنشاء القيد المحاسبي للسداد"""
         accounts = await self.accounting.get_all_accounts(invoice["company_id"])

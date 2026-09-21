@@ -397,6 +397,10 @@ async def issue_cheque(req: IssueChequeRequest,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.cheques.insert_one(cheque); cheque.pop("_id", None)
+    from services.invoice_service import InvoiceService
+    cheque["allocations"], _ = await InvoiceService(db).apply_external_payment(
+        company_id, req.supplier_id, "purchase_invoice", req.amount, "cheque", cheque["id"], req.issue_date)
+    await db.cheques.update_one({"id": cheque["id"]}, {"$set": {"allocations": cheque["allocations"]}})
 
     return {
         "message": f"تم تسجيل الشيك الصادر {ref} — مستحق في {req.cheque_date}",
