@@ -11,6 +11,7 @@ import ProjectsModule from '../components/ProjectsModule';
 import BankManagementPage from '../pages/BankManagementPage';
 import SuppliersPage from '../pages/SuppliersPage';
 import CustodyPage from '../pages/CustodyPage';
+import TreasuryPage from '../pages/TreasuryPage';
 
 // Financial Modules
 import PurchasesModule from '../components/PurchasesModule';
@@ -18,7 +19,6 @@ import {
   JournalEntriesPage,
   GeneralLedgerPage,
   FinancialReportsPage,
-  TreasuryModule,
   AccountsModule,
   CustomersModule,
 } from '../components/FinancialSubModules';
@@ -47,7 +47,8 @@ export const renderFinancialContent = ({
     case 'reports':              // moduleConfig submodule id alias
       return <FinancialReportsPage />;
     case 'treasury':
-      return <TreasuryModule language={language} userRole={userRole} />;
+      // was TreasuryModule: hard-coded sample rows, nothing saved
+      return <TreasuryPage />;
     case 'custody':
       // was CustodyModule: hard-coded sample rows, nothing saved
       return <CustodyPage />;
