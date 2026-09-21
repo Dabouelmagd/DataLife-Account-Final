@@ -62,6 +62,10 @@ def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
+# Roles that own/administer a company. A company must always keep one active.
+OWNER_ROLES = ["رئيس مجلس الإدارة", "General Manager", "مدير عام", "CEO",
+               "المدير التنفيذي", "Board Chairman"]
+
 # Get database instance
 from database import get_database
 db = get_database()
@@ -570,12 +574,28 @@ async def remove_user(
     # Cannot delete yourself
     if user_id == current_user.get("user_id"):
         raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
-    
-    # Deactivate user
-    success = await deactivate_user(db, user_id)
-    if not success:
+
+    # Only users of the caller's own company. The lookup used to match on id
+    # alone, so a manager could deactivate another company's users by id.
+    company_id = current_user.get("company_id")
+    target = await db.users.find_one({"id": user_id, "company_id": company_id}, {"_id": 0})
+    if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
+    # Never leave a company without an active owner
+    if target.get("role") in OWNER_ROLES and target.get("is_active", True):
+        others = await db.users.count_documents({
+            "company_id": company_id, "id": {"$ne": user_id},
+            "role": {"$in": OWNER_ROLES}, "is_active": {"$ne": False}})
+        if others == 0:
+            raise HTTPException(status_code=409,
+                detail="لا يمكن تعطيل آخر مدير للشركة — عيّن مديراً آخر أولاً")
+
+    await db.users.update_one(
+        {"id": user_id, "company_id": company_id},
+        {"$set": {"is_active": False,
+                  "deactivated_at": datetime.now(timezone.utc).isoformat(),
+                  "deactivated_by": current_user.get("user_id")}})
     return {"message": "User deactivated successfully"}
 
 
@@ -645,6 +665,9 @@ async def upload_user_photo(
     is_manager = current_user.get("role") in ['General Manager', 'CEO', 'Board Chairman']
     if user_id != current_user.get("user_id") and not is_manager:
         raise HTTPException(status_code=403, detail="Cannot upload photo for other users")
+    if user_id != current_user.get("user_id") and not await db.users.find_one(
+            {"id": user_id, "company_id": current_user.get("company_id")}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="User not found")   # other company
     
     # Validate file type
     if not file.content_type.startswith('image/'):

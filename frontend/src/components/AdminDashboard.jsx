@@ -498,13 +498,27 @@ const AdminDashboard = () => {
   };
 
   const deleteUser = async (userId, userName) => {
-    if (!window.confirm(isRTL ? `هل أنت متأكد من حذف المستخدم "${userName}"؟` : `Are you sure you want to delete "${userName}"?`)) {
+    if (!window.confirm(isRTL
+        ? `تعطيل المستخدم "${userName}"؟\nيمكن استرجاعه لاحقاً، ولن تُحذف أي بيانات.`
+        : `Deactivate "${userName}"?\nThis can be undone and no data is deleted.`)) {
       return;
     }
-    
+
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    const remove = (extra = '') => axios.delete(`${API_URL}/api/admin/users/${userId}${extra}`, config);
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      await axios.delete(`${API_URL}/api/admin/users/${userId}`, config);
+      try {
+        await remove();
+      } catch (err) {
+        // The last active owner of a company: removing them orphans the company.
+        if (err.response?.status !== 409) throw err;
+        if (!window.confirm(isRTL
+            ? `${err.response.data.detail}\n\nتعطيل الشركة وكل مستخدميها؟ (البيانات المحاسبية تبقى محفوظة)`
+            : `${err.response.data.detail}\n\nSuspend the company and all its users? (accounting data is kept)`)) {
+          return;
+        }
+        await remove('?deactivate_company=true');
+      }
       
       // Refresh lists
       if (selectedCompany) {
@@ -514,7 +528,7 @@ const AdminDashboard = () => {
       setAllUsers(prev => prev.filter(u => u.id !== userId));
       setFilteredUsers(prev => prev.filter(u => u.id !== userId));
       
-      showToastMessage(isRTL ? 'تم حذف المستخدم بنجاح' : 'User deleted successfully', 'success');
+      showToastMessage(isRTL ? 'تم تعطيل المستخدم' : 'User deactivated', 'success');
     } catch (error) {
       const errorMsg = error.response?.data?.detail || (isRTL ? 'حدث خطأ في الحذف' : 'Error deleting user');
       showToastMessage(errorMsg, 'error');

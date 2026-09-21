@@ -169,6 +169,14 @@ async def toggle_user_status(
     
     current_status = user.get("is_active", True)
     new_status = not current_status
+
+    if not new_status and user.get("company_id") and user.get("role") in OWNER_ROLES:
+        others = await db.users.count_documents({
+            "company_id": user["company_id"], "id": {"$ne": user_id},
+            "role": {"$in": OWNER_ROLES}, "is_active": {"$ne": False}})
+        if others == 0:
+            raise HTTPException(status_code=409,
+                detail="لا يمكن تعطيل آخر مدير نشط للشركة — عيّن مديراً آخر أولاً")
     
     await db.users.update_one(
         {"id": user_id},
@@ -195,12 +203,25 @@ async def toggle_user_status(
     }
 
 
+OWNER_ROLES = ["رئيس مجلس الإدارة", "General Manager", "مدير عام", "CEO",
+               "المدير التنفيذي", "Board Chairman"]
+
+
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: str,
+    permanent: bool = False,
+    deactivate_company: bool = False,
     authorization: Optional[str] = Header(None)
 ):
-    """Delete a user"""
+    """Remove a user — safely.
+
+    Default is a reversible deactivation. Hard deletion needs ?permanent=true.
+    Removing a company's last active owner would orphan the company (its data
+    stays but nobody can sign in), so that is refused unless
+    ?deactivate_company=true, which suspends the company and all its users.
+    Accounting data is never deleted here — it may be legally required.
+    """
     admin_user = await verify_admin(authorization)
     
     user = await db.users.find_one({"id": user_id})
@@ -218,8 +239,30 @@ async def delete_user(
     user_email = user.get("email")
     user_name = user.get("name")
     company_id = user.get("company_id")
-    
-    await db.users.delete_one({"id": user_id})
+    now = datetime.now(timezone.utc).isoformat()
+
+    company_suspended = False
+    if company_id and user.get("role") in OWNER_ROLES:
+        other_owners = await db.users.count_documents({
+            "company_id": company_id, "id": {"$ne": user_id},
+            "role": {"$in": OWNER_ROLES}, "is_active": {"$ne": False}})
+        if other_owners == 0:
+            if not deactivate_company:
+                raise HTTPException(status_code=409, detail=(
+                    "هذا آخر مدير نشط للشركة — حذفه يترك الشركة بلا مدير. "
+                    "عيّن مديراً آخر، أو أعد الطلب مع تعطيل الشركة."))
+            await db.companies.update_one({"id": company_id}, {"$set": {
+                "is_active": False, "subscription_status": "suspended",
+                "suspended_at": now, "suspended_by": admin_user.get("email")}})
+            await db.users.update_many({"company_id": company_id},
+                                       {"$set": {"is_active": False, "deactivated_at": now}})
+            company_suspended = True
+
+    if permanent:
+        await db.users.delete_one({"id": user_id})
+    else:
+        await db.users.update_one({"id": user_id}, {"$set": {
+            "is_active": False, "deleted_at": now, "deleted_by": admin_user.get("email")}})
     
     await log_admin_audit(
         action="user_deleted",
@@ -233,7 +276,10 @@ async def delete_user(
     
     return {
         "success": True,
-        "message": f"User {user_email} deleted successfully"
+        "permanent": permanent,
+        "company_suspended": company_suspended,
+        "message": (f"User {user_email} deleted permanently" if permanent
+                    else f"User {user_email} deactivated (reversible)")
     }
 
 
