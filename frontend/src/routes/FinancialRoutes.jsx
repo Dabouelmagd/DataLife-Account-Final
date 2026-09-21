@@ -7,7 +7,8 @@ import BalanceSheetPage from '../pages/BalanceSheetPage';
 import ProductsPage from '../pages/ProductsPage';
 import CurrenciesPage from '../pages/CurrenciesPage';
 import InventoryPage from '../pages/InventoryPage';
-import ProjectsPage from '../pages/ProjectsPage';
+import ProjectsModule from '../components/ProjectsModule';
+import BankManagementPage from '../pages/BankManagementPage';
 
 // Financial Modules
 import PurchasesModule from '../components/PurchasesModule';
@@ -18,7 +19,6 @@ import {
   TreasuryModule,
   CustodyModule,
   AccountsModule,
-  BankModule,
   CustomersModule,
   SuppliersModule,
 } from '../components/FinancialSubModules';
@@ -53,7 +53,8 @@ export const renderFinancialContent = ({
     case 'accounts':
       return <AccountsModule language={language} userRole={userRole} />;
     case 'bank':
-      return <BankModule language={language} userRole={userRole} />;
+      // was BankModule: hard-coded sample rows, nothing saved
+      return <BankManagementPage language={language} />;
     case 'customers':
       return <CustomersModule language={language} userRole={userRole} />;
     case 'suppliers':
@@ -69,7 +70,8 @@ export const renderFinancialContent = ({
       return <InventoryPage />;
     case 'projects':
     case 'tasks':
-      return <ProjectsPage language={language} />;
+      // was ProjectsPage: hard-coded sample rows; ProjectsModule reads /api/tasks
+      return <ProjectsModule language={language} />;
     default:
       return (
         <div className="flex items-center justify-center h-64 text-gray-400">

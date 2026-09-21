@@ -1,454 +1,367 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * دفتر الأستاذ العام
+ *
+ * Right pane: the chart of accounts, searchable by code or name (Arabic
+ * spelling variants are normalised, so "اهلاك" finds "إهلاك"), filterable
+ * by type. Header accounts are group titles, not selectable.
+ * Left pane: the account statement read like a paper ledger — opening
+ * balance, each posting with its running balance, closing balance. Balances
+ * are labelled debit/credit instead of green/red, since a credit balance on
+ * a liability is normal, not bad.
+ */
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import axios from 'axios';
-import { 
-  BookOpen, Search, Filter, Calendar, Download, ChevronDown,
-  Loader2, ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown,
-  Scale, Building2, DollarSign, FileText, BarChart3, ChevronRight,
-  RefreshCw, Eye, Shield
-} from 'lucide-react';
+import { BookOpen, Search, Download, Printer, Loader2, X, ChevronRight, ChevronLeft } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+const API_URL = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
+const PAGE_SIZE = 200;
+const DEBIT_NATURE = ['asset', 'expense', 'contra_liability', 'contra_equity'];
 
-const GeneralLedgerPage = () => {
+// Arabic-aware search: ignore diacritics, hamza forms, ta marbuta and alif maqsura
+const normalize = (s = '') => String(s).toLowerCase()
+  .replace(/[\u064B-\u0652\u0640]/g, '')
+  .replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
+  .replace(/ؤ/g, 'و').replace(/ئ/g, 'ي').trim();
+
+const T = {
+  ar: {
+    title: 'دفتر الأستاذ العام', accounts: 'الحسابات', search: 'ابحث بالكود أو الاسم',
+    all: 'الكل', asset: 'أصول', liability: 'خصوم', equity: 'حقوق ملكية', revenue: 'إيرادات', expense: 'مصروفات',
+    pick: 'اختر حساباً من القائمة لعرض كشفه', noMatch: 'لا توجد حسابات مطابقة',
+    from: 'من', to: 'إلى', clear: 'كل الفترات', export: 'تصدير', print: 'طباعة',
+    date: 'التاريخ', entry: 'رقم القيد', desc: 'البيان', debit: 'مدين', credit: 'دائن', balance: 'الرصيد',
+    opening: 'رصيد أول المدة', closing: 'رصيد آخر المدة', totals: 'إجمالي الحركة',
+    noEntries: 'لا توجد حركات على هذا الحساب في الفترة المختارة', dr: 'مدين', cr: 'دائن',
+    loadError: 'تعذّر تحميل البيانات — تحقق من الاتصال ثم أعد المحاولة', retry: 'إعادة المحاولة',
+    page: 'صفحة', of: 'من', count: 'حساب', movements: 'حركة',
+  },
+  en: {
+    title: 'General Ledger', accounts: 'Accounts', search: 'Search by code or name',
+    all: 'All', asset: 'Assets', liability: 'Liabilities', equity: 'Equity', revenue: 'Revenue', expense: 'Expenses',
+    pick: 'Choose an account to see its statement', noMatch: 'No matching accounts',
+    from: 'From', to: 'To', clear: 'All periods', export: 'Export', print: 'Print',
+    date: 'Date', entry: 'Entry', desc: 'Description', debit: 'Debit', credit: 'Credit', balance: 'Balance',
+    opening: 'Opening balance', closing: 'Closing balance', totals: 'Period movement',
+    noEntries: 'No postings on this account in the selected period', dr: 'Dr', cr: 'Cr',
+    loadError: 'Could not load data — check your connection and try again', retry: 'Retry',
+    page: 'Page', of: 'of', count: 'accounts', movements: 'postings',
+  },
+};
+
+const TYPE_GROUPS = { asset: ['asset', 'contra_asset'], liability: ['liability', 'contra_liability'],
+  equity: ['equity', 'contra_equity'], revenue: ['revenue'], expense: ['expense'] };
+
+const isHeader = (a) => a.is_header || a.account_category === 'header' || a.allow_posting === false;
+
+export default function GeneralLedgerPage() {
   const { language } = useLanguage();
   const isRTL = language === 'ar';
+  const t = T[isRTL ? 'ar' : 'en'];
+  const fmt = (n) => Math.abs(Number(n) || 0).toLocaleString(isRTL ? 'ar-EG' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const [accounts, setAccounts] = useState([]);
-  const [selectedAccount, setSelectedAccount] = useState(null);
-  const [ledgerEntries, setLedgerEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingEntries, setLoadingEntries] = useState(false);
-  const [filters, setFilters] = useState({
-    startDate: '',
-    endDate: ''
-  });
-  const [accountStatement, setAccountStatement] = useState(null);
+  const [accountsError, setAccountsError] = useState(false);
+  const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [selected, setSelected] = useState(null);
+  const [range, setRange] = useState({ from: '', to: '' });
+  const [statement, setStatement] = useState(null);
+  const [page, setPage] = useState(1);
+  const [loadingStatement, setLoadingStatement] = useState(false);
+  const [statementError, setStatementError] = useState(false);
 
-  const translations = {
-    ar: {
-      title: 'دفتر الأستاذ العام',
-      subtitle: 'عرض حركات الحسابات وأرصدتها',
-      selectAccount: 'اختر الحساب',
-      allAccounts: 'جميع الحسابات',
-      accountCode: 'رقم الحساب',
-      accountName: 'اسم الحساب',
-      accountType: 'نوع الحساب',
-      balance: 'الرصيد',
-      date: 'التاريخ',
-      description: 'البيان',
-      reference: 'المرجع',
-      debit: 'مدين',
-      credit: 'دائن',
-      runningBalance: 'الرصيد',
-      fromDate: 'من تاريخ',
-      toDate: 'إلى تاريخ',
-      export: 'تصدير',
-      noEntries: 'لا توجد حركات',
-      totalDebit: 'إجمالي المدين',
-      totalCredit: 'إجمالي الدائن',
-      closingBalance: 'الرصيد الختامي',
-      accountStatement: 'كشف حساب',
-      asset: 'أصول',
-      liability: 'خصوم',
-      equity: 'حقوق ملكية',
-      revenue: 'إيرادات',
-      expense: 'مصروفات',
-      contra_asset: 'أصول مقابلة',
-      currentAssets: 'الأصول المتداولة',
-      fixedAssets: 'الأصول الثابتة',
-      currentLiabilities: 'الخصوم المتداولة',
-      search: 'بحث في الحسابات...'
-    },
-    en: {
-      title: 'General Ledger',
-      subtitle: 'View account transactions and balances',
-      selectAccount: 'Select Account',
-      allAccounts: 'All Accounts',
-      accountCode: 'Account Code',
-      accountName: 'Account Name',
-      accountType: 'Account Type',
-      balance: 'Balance',
-      date: 'Date',
-      description: 'Description',
-      reference: 'Reference',
-      debit: 'Debit',
-      credit: 'Credit',
-      runningBalance: 'Balance',
-      fromDate: 'From Date',
-      toDate: 'To Date',
-      export: 'Export',
-      noEntries: 'No entries found',
-      totalDebit: 'Total Debit',
-      totalCredit: 'Total Credit',
-      closingBalance: 'Closing Balance',
-      accountStatement: 'Account Statement',
-      asset: 'Asset',
-      liability: 'Liability',
-      equity: 'Equity',
-      revenue: 'Revenue',
-      expense: 'Expense',
-      contra_asset: 'Contra Asset',
-      currentAssets: 'Current Assets',
-      fixedAssets: 'Fixed Assets',
-      currentLiabilities: 'Current Liabilities',
-      search: 'Search accounts...'
-    }
-  };
+  const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
-  const t = translations[language] || translations.en;
-
-  useEffect(() => {
-    fetchAccounts();
+  const fetchAccounts = useCallback(async () => {
+    setLoading(true); setAccountsError(false);
+    try {
+      const res = await axios.get(`${API_URL}/api/accounting/accounts`, auth());
+      const list = res.data.accounts || res.data || [];
+      setAccounts([...list].sort((a, b) => String(a.account_code).localeCompare(String(b.account_code))));
+    } catch { setAccountsError(true); } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    if (selectedAccount) {
-      fetchAccountStatement();
-    }
-  }, [selectedAccount, filters]);
+  useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
-  const fetchAccounts = async () => {
+  const fetchStatement = useCallback(async () => {
+    if (!selected) return;
+    setLoadingStatement(true); setStatementError(false);
     try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `${API_URL}/api/accounting/accounts`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setAccounts(response.data.accounts || []);
-    } catch (error) {
-      console.error('Error fetching accounts:', error);
-    } finally {
-      setLoading(false);
+      const p = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      if (range.from) p.append('start_date', range.from);
+      if (range.to) p.append('end_date', range.to);
+      const res = await axios.get(`${API_URL}/api/accounting/ledger/account-statement/${selected.id}?${p}`, auth());
+      setStatement(res.data);
+    } catch { setStatementError(true); setStatement(null); } finally { setLoadingStatement(false); }
+  }, [selected, range, page]);
+
+  useEffect(() => { fetchStatement(); }, [fetchStatement]);
+  useEffect(() => { setPage(1); }, [selected, range]);
+
+  const visible = useMemo(() => {
+    const q = normalize(query);
+    const typeOk = (a) => typeFilter === 'all' || TYPE_GROUPS[typeFilter].includes(a.account_type);
+    if (q) {
+      return accounts.filter((a) => !isHeader(a) && typeOk(a) &&
+        (normalize(a.account_code).startsWith(q) || normalize(a.account_name).includes(q) ||
+         normalize(a.account_name_en).includes(q)));
     }
+    return accounts.filter(typeOk);
+  }, [accounts, query, typeFilter]);
+
+  const side = (balance, type) => {
+    const debitNature = DEBIT_NATURE.includes(type);
+    if (!balance) return '';
+    return (balance > 0) === debitNature ? t.dr : t.cr;
   };
 
-  const fetchAccountStatement = async () => {
-    if (!selectedAccount) return;
-    
-    try {
-      setLoadingEntries(true);
-      const token = localStorage.getItem('token');
-      const params = new URLSearchParams();
-      if (filters.startDate) params.append('start_date', filters.startDate);
-      if (filters.endDate) params.append('end_date', filters.endDate);
+  const entries = statement?.entries || [];
+  const pages = statement?.pagination?.pages || 1;
+  const total = statement?.pagination?.total ?? entries.length;
+  const nature = statement?.nature || (DEBIT_NATURE.includes(selected?.account_type) ? 'debit' : 'credit');
+  const balType = nature === 'debit' ? 'asset' : 'liability';
 
-      const response = await axios.get(
-        `${API_URL}/api/accounting/ledger/account-statement/${selectedAccount.id}?${params.toString()}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setAccountStatement(response.data);
-      setLedgerEntries(response.data.entries || []);
-    } catch (error) {
-      console.error('Error fetching account statement:', error);
-    } finally {
-      setLoadingEntries(false);
-    }
+  const exportCsv = () => {
+    if (!statement) return;
+    const rows = [[t.date, t.entry, t.desc, t.debit, t.credit, t.balance]];
+    rows.push(['', '', t.opening, '', '', `${fmt(statement.opening_balance)} ${side(statement.opening_balance, balType)}`]);
+    entries.forEach((e) => rows.push([e.entry_date?.slice(0, 10), e.entry_number ?? '', e.description ?? '',
+      e.debit || '', e.credit || '', `${fmt(e.balance)} ${side(e.balance, balType)}`]));
+    rows.push(['', '', t.closing, statement.total_debit, statement.total_credit,
+      `${fmt(statement.closing_balance)} ${side(statement.closing_balance, balType)}`]);
+    const csv = '\uFEFF' + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: `ledger_${selected.account_code}.csv` });
+    a.click(); URL.revokeObjectURL(url);
   };
 
-  const getAccountTypeBadge = (type) => {
-    const styles = {
-      asset: 'bg-blue-100 text-blue-800',
-      liability: 'bg-purple-100 text-purple-800',
-      equity: 'bg-indigo-100 text-indigo-800',
-      revenue: 'bg-green-100 text-green-800',
-      expense: 'bg-red-100 text-red-800',
-      contra_asset: 'bg-gray-100 text-gray-800'
-    };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[type] || styles.asset}`}>
-        {t[type] || type}
-      </span>
-    );
-  };
-
-  const formatBalance = (balance, type) => {
-    const isDebitNature = ['asset', 'expense', 'contra_liability', 'contra_equity'].includes(type);
-    const color = balance >= 0 
-      ? (isDebitNature ? 'text-green-600' : 'text-red-600')
-      : (isDebitNature ? 'text-red-600' : 'text-green-600');
-    
-    return <span className={`font-medium ${color}`}>{Math.abs(balance).toLocaleString()}</span>;
-  };
-
-  // Group accounts by type
-  const groupedAccounts = accounts.reduce((groups, account) => {
-    const type = account.account_type;
-    if (!groups[type]) groups[type] = [];
-    groups[type].push(account);
-    return groups;
-  }, {});
-
-  const accountTypeOrder = ['asset', 'contra_asset', 'liability', 'equity', 'revenue', 'expense'];
+  const num = 'tabular-nums whitespace-nowrap text-end';
+  const PrevIcon = isRTL ? ChevronRight : ChevronLeft;
+  const NextIcon = isRTL ? ChevronLeft : ChevronRight;
 
   return (
-    <div className="min-h-screen bg-gray-50" dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Enterprise Header */}
-        <div className="bg-gradient-to-r from-[#0F1729] to-[#1e3a8a] rounded-2xl p-6 mb-6 text-white">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center">
-                <BookOpen className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-black">{t.title}</h1>
-                <p className="text-blue-200 text-sm mt-0.5">{t.subtitle}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 bg-white/10 rounded-lg px-3 py-1.5 text-xs">
-                <Shield className="w-3.5 h-3.5 text-green-400" />
-                <span className="text-green-300">{isRTL ? 'Immutable Ledger' : 'Immutable Ledger'}</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-white/10 rounded-lg px-3 py-1.5 text-xs">
-                <Scale className="w-3.5 h-3.5 text-yellow-400" />
-                <span className="text-yellow-300">{isRTL ? '108 حساب' : '108 Accounts'}</span>
-              </div>
-            </div>
-          </div>
+    <div dir={isRTL ? 'rtl' : 'ltr'} className="gl-page min-h-full bg-slate-50 text-slate-800">
+      <style>{`@media print {
+        body * { visibility: hidden; } .gl-print, .gl-print * { visibility: visible; }
+        .gl-print { position: absolute; inset: 0; } .gl-noprint { display: none !important; } }`}</style>
 
-          {/* Quick stats */}
-          {accountStatement && (
-            <div className="grid grid-cols-3 gap-4 mt-5 pt-5 border-t border-white/10">
-              <div className="text-center">
-                <p className="text-white/60 text-xs">{isRTL ? 'إجمالي المدين' : 'Total Debit'}</p>
-                <p className="text-white font-bold text-lg mt-0.5">
-                  {(accountStatement.total_debit || 0).toLocaleString()} {isRTL ? 'ج.م' : 'EGP'}
-                </p>
-              </div>
-              <div className="text-center border-x border-white/10">
-                <p className="text-white/60 text-xs">{isRTL ? 'إجمالي الدائن' : 'Total Credit'}</p>
-                <p className="text-white font-bold text-lg mt-0.5">
-                  {(accountStatement.total_credit || 0).toLocaleString()} {isRTL ? 'ج.م' : 'EGP'}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-white/60 text-xs">{isRTL ? 'الرصيد الختامي' : 'Closing Balance'}</p>
-                <p className={`font-bold text-lg mt-0.5 ${(accountStatement.closing_balance || 0) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-                  {Math.abs(accountStatement.closing_balance || 0).toLocaleString()} {isRTL ? 'ج.م' : 'EGP'}
-                </p>
-              </div>
-            </div>
-          )}
+      <header className="gl-noprint flex flex-wrap items-center justify-between gap-3 px-4 md:px-6 py-4 border-b border-slate-200 bg-white">
+        <div className="flex items-center gap-3">
+          <BookOpen className="w-6 h-6 text-[#1e3a8a]" aria-hidden />
+          <h1 className="text-xl font-extrabold text-slate-900">{t.title}</h1>
         </div>
+        {!loading && !accountsError && (
+          <span className="text-sm text-slate-500">
+            {accounts.filter((a) => !isHeader(a)).length.toLocaleString(isRTL ? 'ar-EG' : 'en-US')} {t.count}
+          </span>
+        )}
+      </header>
 
-        <div className="grid grid-cols-12 gap-6">
-          {/* Accounts List */}
-          <div className="col-span-4">
-            <div className="bg-white rounded-xl shadow-sm sticky top-6">
-              <div className="p-4 border-b">
-                <h2 className="font-semibold text-gray-800">{t.allAccounts}</h2>
-                <div className="relative mt-2">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder={t.search}
-                    className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm"
-                  />
-                </div>
-              </div>
-              
-              {loading ? (
-                <div className="flex justify-center py-10">
-                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                </div>
-              ) : (
-                <div className="max-h-[600px] overflow-y-auto">
-                  {accountTypeOrder.map((type) => {
-                    const typeAccounts = groupedAccounts[type];
-                    if (!typeAccounts || typeAccounts.length === 0) return null;
-                    
-                    return (
-                      <div key={type} className="border-b last:border-0">
-                        <div className="px-4 py-2 bg-gray-50 text-sm font-medium text-gray-600">
-                          {t[type] || type}
-                        </div>
-                        {typeAccounts.map((account) => (
-                          <div
-                            key={account.id}
-                            onClick={() => setSelectedAccount(account)}
-                            className={`px-3 py-2.5 cursor-pointer hover:bg-blue-50/80 transition-all border-b last:border-0 ${
-                              selectedAccount?.id === account.id ? 'bg-blue-50 border-r-3 border-r-[#28376B] shadow-sm' : ''
-                            }`}
-                          >
-                            <div className="flex justify-between items-center gap-2">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs font-mono font-bold text-[#1e3a8a] bg-blue-50 px-1.5 py-0.5 rounded flex-shrink-0">
-                                    {account.account_code}
-                                  </span>
-                                  <span className="font-medium text-gray-800 text-sm truncate">
-                                    {account.account_name}
-                                  </span>
-                                </div>
-                                {account.account_name_en && (
-                                  <div className="text-xs text-gray-400 mt-0.5 truncate">{account.account_name_en}</div>
-                                )}
-                              </div>
-                              <div className="flex-shrink-0">
-                                {formatBalance(account.current_balance || 0, account.account_type)}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
+      <div className="grid lg:grid-cols-[360px_1fr] gap-0 lg:gap-6 p-0 lg:p-6">
+        {/* ── Accounts ─────────────────────────────── */}
+        <aside className="gl-noprint bg-white lg:rounded-xl border-b lg:border border-slate-200 flex flex-col lg:max-h-[calc(100vh-10rem)] lg:sticky lg:top-6">
+          <div className="p-3 space-y-2 border-b border-slate-100">
+            <label className="relative block">
+              <span className="sr-only">{t.search}</span>
+              <Search className="w-4 h-4 text-slate-400 absolute top-1/2 -translate-y-1/2 start-3" aria-hidden />
+              <input
+                type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.search}
+                className="w-full ps-9 pe-9 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/40 focus:border-[#1e3a8a]"
+              />
+              {query && (
+                <button onClick={() => setQuery('')} aria-label="clear"
+                  className="absolute top-1/2 -translate-y-1/2 end-2 p-1 rounded text-slate-400 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-[#1e3a8a]">
+                  <X className="w-4 h-4" />
+                </button>
               )}
+            </label>
+            <div className="flex flex-wrap gap-1.5" role="radiogroup">
+              {['all', 'asset', 'liability', 'equity', 'revenue', 'expense'].map((k) => (
+                <button key={k} role="radio" aria-checked={typeFilter === k} onClick={() => setTypeFilter(k)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold border focus-visible:ring-2 focus-visible:ring-[#1e3a8a] ${
+                    typeFilter === k ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>
+                  {t[k]}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Account Details & Ledger */}
-          <div className="col-span-8">
-            {!selectedAccount ? (
-              <div className="bg-white rounded-xl shadow-sm p-10 text-center">
-                <BookOpen className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <p className="text-gray-500">{t.selectAccount}</p>
+          <div className="overflow-y-auto max-h-72 lg:max-h-none flex-1">
+            {loading ? (
+              <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
+            ) : accountsError ? (
+              <div className="p-6 text-center text-sm text-slate-600">
+                <p>{t.loadError}</p>
+                <button onClick={fetchAccounts} className="mt-3 px-3 py-1.5 rounded-md bg-[#1e3a8a] text-white text-sm">{t.retry}</button>
               </div>
+            ) : visible.length === 0 ? (
+              <p className="p-6 text-center text-sm text-slate-500">{t.noMatch}</p>
             ) : (
-              <div className="space-y-6">
-                {/* Account Info Card */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h2 className="text-2xl font-bold text-[#28376B]">
-                        {selectedAccount.account_code} - {selectedAccount.account_name}
-                      </h2>
-                      {selectedAccount.account_name_en && (
-                        <p className="text-gray-500">{selectedAccount.account_name_en}</p>
-                      )}
-                      <div className="mt-2">
-                        {getAccountTypeBadge(selectedAccount.account_type)}
-                      </div>
-                    </div>
-                    <div className="text-end">
-                      <div className="text-sm text-gray-500">{t.closingBalance}</div>
-                      <div className="text-3xl font-bold text-[#28376B]">
-                        {(selectedAccount.current_balance || 0).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <ul>
+                {visible.map((a) => {
+                  const depth = query ? 0 : Math.min(Math.max(String(a.account_code).length - 1, 0), 3);
+                  if (isHeader(a)) {
+                    return (
+                      <li key={a.id} style={{ paddingInlineStart: `${0.75 + depth * 0.9}rem` }}
+                        className={`pe-3 pt-3 pb-1 text-slate-900 ${depth === 0 ? 'text-sm font-extrabold' : 'text-xs font-bold text-slate-600'}`}>
+                        <span className="tabular-nums text-slate-400 me-1.5">{a.account_code}</span>{a.account_name}
+                      </li>
+                    );
+                  }
+                  const active = selected?.id === a.id;
+                  return (
+                    <li key={a.id}>
+                      <button onClick={() => setSelected(a)} aria-current={active}
+                        style={{ paddingInlineStart: `${0.75 + depth * 0.9}rem` }}
+                        className={`w-full pe-3 py-2 flex items-center gap-2 text-start text-sm border-s-[3px] focus-visible:outline-none focus-visible:bg-slate-100 ${
+                          active ? 'bg-blue-50 border-[#1e3a8a]' : 'border-transparent hover:bg-slate-50'}`}>
+                        <span className="tabular-nums text-slate-400 w-12 shrink-0">{a.account_code}</span>
+                        <span className="flex-1 truncate">{a.account_name}</span>
+                        {!!a.current_balance && (
+                          <span className={`${num} text-xs text-slate-600`}>
+                            {fmt(a.current_balance)} <span className="text-slate-400">{side(a.current_balance, a.account_type)}</span>
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </aside>
 
-                {/* Filters */}
-                <div className="bg-white rounded-xl shadow-sm p-4">
-                  <div className="flex flex-wrap gap-4 items-center">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-gray-400" />
-                      <input
-                        type="date"
-                        value={filters.startDate}
-                        onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                        className="border rounded-lg px-3 py-2 text-sm"
-                      />
-                      <span className="text-gray-400">-</span>
-                      <input
-                        type="date"
-                        value={filters.endDate}
-                        onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                        className="border rounded-lg px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <button className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50">
-                      <Download className="w-4 h-4" />
-                      {t.export}
+        {/* ── Statement ───────────────────────────── */}
+        <section className="gl-print bg-white lg:rounded-xl lg:border border-slate-200 min-h-[24rem]">
+          {!selected ? (
+            <div className="h-full min-h-[24rem] flex items-center justify-center p-8 text-center text-slate-500">
+              <p>{t.pick}</p>
+            </div>
+          ) : (
+            <>
+              <div className="px-4 md:px-6 pt-5 pb-4 border-b border-slate-200">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="tabular-nums text-sm text-slate-500">{selected.account_code}</p>
+                    <h2 className="text-2xl font-extrabold text-slate-900 leading-tight">{selected.account_name}</h2>
+                    {selected.account_name_en && <p className="text-sm text-slate-500">{selected.account_name_en}</p>}
+                  </div>
+                  <div className="gl-noprint flex flex-wrap items-end gap-2">
+                    <label className="text-xs text-slate-500">{t.from}
+                      <input type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })}
+                        className="block mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+                    </label>
+                    <label className="text-xs text-slate-500">{t.to}
+                      <input type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })}
+                        className="block mt-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm" />
+                    </label>
+                    {(range.from || range.to) && (
+                      <button onClick={() => setRange({ from: '', to: '' })}
+                        className="px-2.5 py-1.5 text-sm text-[#1e3a8a] hover:underline">{t.clear}</button>
+                    )}
+                    <button onClick={exportCsv} disabled={!statement}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-sm hover:bg-slate-50 disabled:opacity-40">
+                      <Download className="w-4 h-4" />{t.export}
+                    </button>
+                    <button onClick={() => window.print()} disabled={!statement}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-sm hover:bg-slate-50 disabled:opacity-40">
+                      <Printer className="w-4 h-4" />{t.print}
                     </button>
                   </div>
                 </div>
 
-                {/* Ledger Entries Table */}
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                  <div className="p-4 border-b">
-                    <h3 className="font-semibold text-gray-800">{t.accountStatement}</h3>
-                  </div>
-                  
-                  {loadingEntries ? (
-                    <div className="flex justify-center py-10">
-                      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                    </div>
-                  ) : ledgerEntries.length === 0 ? (
-                    <div className="text-center py-10 text-gray-500">
-                      {t.noEntries}
-                    </div>
-                  ) : (
-                    <>
-                      <table className="w-full">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t.date}</th>
-                            <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t.description}</th>
-                            <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t.debit}</th>
-                            <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t.credit}</th>
-                            <th className="px-4 py-3 text-start text-sm font-medium text-gray-600">{t.runningBalance}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ledgerEntries.map((entry, idx) => (
-                            <tr key={entry.id || idx} className="border-b hover:bg-gray-50">
-                              <td className="px-4 py-3">{entry.entry_date}</td>
-                              <td className="px-4 py-3">{entry.description}</td>
-                              <td className="px-4 py-3">
-                                {entry.debit > 0 && (
-                                  <span className="flex items-center gap-1 text-green-600">
-                                    <ArrowUpRight className="w-4 h-4" />
-                                    {entry.debit.toLocaleString()}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                {entry.credit > 0 && (
-                                  <span className="flex items-center gap-1 text-red-600">
-                                    <ArrowDownRight className="w-4 h-4" />
-                                    {entry.credit.toLocaleString()}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 font-medium">
-                                {entry.balance?.toLocaleString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-
-                      {/* Totals */}
-                      {accountStatement && (
-                        <div className="p-4 bg-gray-50 border-t">
-                          <div className="grid grid-cols-3 gap-4 text-center">
-                            <div>
-                              <div className="text-sm text-gray-500">{t.totalDebit}</div>
-                              <div className="text-xl font-bold text-green-600">
-                                {accountStatement.total_debit?.toLocaleString()}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-500">{t.totalCredit}</div>
-                              <div className="text-xl font-bold text-red-600">
-                                {accountStatement.total_credit?.toLocaleString()}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-500">{t.closingBalance}</div>
-                              <div className="text-xl font-bold text-[#28376B]">
-                                {accountStatement.closing_balance?.toLocaleString()}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
+                {statement && (
+                  <dl className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 text-sm">
+                    {[[t.opening, statement.opening_balance, true], [t.debit, statement.total_debit, false],
+                      [t.credit, statement.total_credit, false], [t.closing, statement.closing_balance, true]].map(([label, val, withSide], i) => (
+                      <div key={i} className={i === 3 ? 'md:border-s md:ps-6 border-slate-200' : ''}>
+                        <dt className="text-slate-500">{label}</dt>
+                        <dd className={`tabular-nums font-bold ${i === 3 ? 'text-lg text-slate-900' : 'text-slate-700'}`}>
+                          {fmt(val)}{withSide && <span className="ms-1 text-xs font-semibold text-slate-500">{side(val, balType)}</span>}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+
+              {loadingStatement ? (
+                <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-slate-400" /></div>
+              ) : statementError ? (
+                <div className="p-10 text-center text-sm text-slate-600">
+                  <p>{t.loadError}</p>
+                  <button onClick={fetchStatement} className="mt-3 px-3 py-1.5 rounded-md bg-[#1e3a8a] text-white">{t.retry}</button>
+                </div>
+              ) : !statement || total === 0 ? (
+                <p className="p-10 text-center text-sm text-slate-500">{t.noEntries}</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-slate-500 border-b border-slate-200 bg-slate-50">
+                          <th scope="col" className="px-4 py-2.5 text-start font-semibold">{t.date}</th>
+                          <th scope="col" className="px-4 py-2.5 text-start font-semibold">{t.entry}</th>
+                          <th scope="col" className="px-4 py-2.5 text-start font-semibold w-full">{t.desc}</th>
+                          <th scope="col" className="px-4 py-2.5 text-end font-semibold">{t.debit}</th>
+                          <th scope="col" className="px-4 py-2.5 text-end font-semibold">{t.credit}</th>
+                          <th scope="col" className="px-4 py-2.5 text-end font-semibold">{t.balance}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {page === 1 && (
+                          <tr className="border-b border-slate-100 text-slate-500 italic">
+                            <td className="px-4 py-2" colSpan={5}>{t.opening}</td>
+                            <td className={`px-4 py-2 ${num}`}>{fmt(statement.opening_balance)} <span className="text-xs">{side(statement.opening_balance, balType)}</span></td>
+                          </tr>
+                        )}
+                        {entries.map((e, i) => (
+                          <tr key={e.id || i} className="border-b border-slate-100 hover:bg-slate-50">
+                            <td className="px-4 py-2 tabular-nums whitespace-nowrap">{e.entry_date?.slice(0, 10)}</td>
+                            <td className="px-4 py-2 tabular-nums text-slate-500">{e.entry_number ?? '—'}</td>
+                            <td className="px-4 py-2">{e.description || '—'}</td>
+                            <td className={`px-4 py-2 ${num}`}>{e.debit ? fmt(e.debit) : ''}</td>
+                            <td className={`px-4 py-2 ${num}`}>{e.credit ? fmt(e.credit) : ''}</td>
+                            <td className={`px-4 py-2 ${num} font-semibold`}>{fmt(e.balance)} <span className="text-xs text-slate-500 font-normal">{side(e.balance, balType)}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      {page === pages && (
+                        <tfoot>
+                          <tr className="border-t-2 border-slate-300 font-semibold">
+                            <td className="px-4 py-2.5" colSpan={3}>{t.totals}</td>
+                            <td className={`px-4 py-2.5 ${num}`}>{fmt(statement.total_debit)}</td>
+                            <td className={`px-4 py-2.5 ${num}`}>{fmt(statement.total_credit)}</td>
+                            <td />
+                          </tr>
+                          <tr className="bg-slate-50 font-extrabold text-slate-900">
+                            <td className="px-4 py-3" colSpan={5}>{t.closing}</td>
+                            <td className={`px-4 py-3 ${num}`}>{fmt(statement.closing_balance)} <span className="text-xs font-semibold text-slate-500">{side(statement.closing_balance, balType)}</span></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                  <div className="gl-noprint flex items-center justify-between gap-3 px-4 py-3 text-sm text-slate-500">
+                    <span className="tabular-nums">{total.toLocaleString(isRTL ? 'ar-EG' : 'en-US')} {t.movements}</span>
+                    {pages > 1 && (
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                          className="p-1.5 rounded border border-slate-300 disabled:opacity-30" aria-label="previous"><PrevIcon className="w-4 h-4" /></button>
+                        <span className="tabular-nums">{t.page} {page} {t.of} {pages}</span>
+                        <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages}
+                          className="p-1.5 rounded border border-slate-300 disabled:opacity-30" aria-label="next"><NextIcon className="w-4 h-4" /></button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </section>
       </div>
     </div>
   );
-};
-
-export default GeneralLedgerPage;
+}

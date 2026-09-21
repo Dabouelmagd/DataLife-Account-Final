@@ -7,8 +7,17 @@ import { Badge } from './ui/badge';
 import { printContent, exportToPDF, generateTableHTML, generateStatsHTML } from '../utils/printExport';
 import ImportButton from './ImportButton';
 
+// Shared search: matches any plain field of a row; Arabic spelling variants
+// (أ/إ/آ→ا، ة→ه، ى→ي) and diacritics are ignored.
+const _normSearch = (s) => String(s ?? '').toLowerCase()
+  .replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآٱ]/g, 'ا')
+  .replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
+const matchesSearch = (row, q) => !q || Object.values(row || {}).some(
+  (v) => v !== null && typeof v !== 'object' && _normSearch(v).includes(_normSearch(q)));
+
 // Journal Entries Component
 export const JournalEntriesModule = ({ language, userRole }) => {
+  const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -185,6 +194,8 @@ export const JournalEntriesModule = ({ language, userRole }) => {
               <input
                 type="text"
                 placeholder={language === 'ar' ? 'البحث بالوصف أو رقم القيد...' : 'Search by description or entry number...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -248,7 +259,7 @@ export const JournalEntriesModule = ({ language, userRole }) => {
                   );
                 }
                 
-                return filteredEntries.map((entry) => (
+                return filteredEntries.filter((r) => matchesSearch(r, searchTerm)).map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell className="font-medium">{entry.id}</TableCell>
                   <TableCell>{entry.date}</TableCell>
@@ -669,6 +680,7 @@ export const JournalEntriesModule = ({ language, userRole }) => {
 
 // Treasury/Cash Module
 export const TreasuryModule = ({ language, userRole }) => {
+  const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -744,6 +756,11 @@ export const TreasuryModule = ({ language, userRole }) => {
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div role="note" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        {language === 'ar'
+          ? 'هذه الصفحة تعرض بيانات توضيحية ولم تُربط بعد ببيانات شركتك — أي إضافة أو تعديل هنا لا يُحفظ.'
+          : 'This page shows sample data and is not yet connected to your company records — changes here are not saved.'}
+      </div>
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'الخزينة' : 'Treasury'}
@@ -835,6 +852,8 @@ export const TreasuryModule = ({ language, userRole }) => {
               <input
                 type="text"
                 placeholder={language === 'ar' ? 'البحث بالوصف أو رقم الحركة...' : 'Search by description or transaction ID...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -880,7 +899,7 @@ export const TreasuryModule = ({ language, userRole }) => {
                   );
                 }
                 
-                return filteredTransactions.map((tx) => (
+                return filteredTransactions.filter((r) => matchesSearch(r, searchTerm)).map((tx) => (
                   <TableRow key={tx.id}>
                     <TableCell className="font-medium">{tx.id}</TableCell>
                     <TableCell>{tx.date}</TableCell>
@@ -1323,6 +1342,7 @@ export const TreasuryModule = ({ language, userRole }) => {
 
 // Custody Module
 export const CustodyModule = ({ language, userRole }) => {
+  const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1396,6 +1416,11 @@ export const CustodyModule = ({ language, userRole }) => {
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div role="note" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        {language === 'ar'
+          ? 'هذه الصفحة تعرض بيانات توضيحية ولم تُربط بعد ببيانات شركتك — أي إضافة أو تعديل هنا لا يُحفظ.'
+          : 'This page shows sample data and is not yet connected to your company records — changes here are not saved.'}
+      </div>
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'العهدة' : 'Custody'}
@@ -1508,6 +1533,8 @@ export const CustodyModule = ({ language, userRole }) => {
               <input
                 type="text"
                 placeholder={language === 'ar' ? 'البحث بالموظف أو رقم العهدة...' : 'Search by employee or custody ID...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -1554,7 +1581,7 @@ export const CustodyModule = ({ language, userRole }) => {
                   );
                 }
                 
-                return filteredCustody.map((custody) => (
+                return filteredCustody.filter((r) => matchesSearch(r, searchTerm)).map((custody) => (
                   <TableRow key={custody.id}>
                     <TableCell className="font-medium">{custody.id}</TableCell>
                     <TableCell>
@@ -2572,6 +2599,7 @@ export const AccountsModule = ({ language, userRole }) => {
 
 // Suppliers Module
 export const SuppliersModule = ({ language, userRole }) => {
+  const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -2646,6 +2674,11 @@ export const SuppliersModule = ({ language, userRole }) => {
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div role="note" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        {language === 'ar'
+          ? 'هذه الصفحة تعرض بيانات توضيحية ولم تُربط بعد ببيانات شركتك — أي إضافة أو تعديل هنا لا يُحفظ.'
+          : 'This page shows sample data and is not yet connected to your company records — changes here are not saved.'}
+      </div>
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">
           {language === 'ar' ? 'الموردين' : 'Suppliers'}
@@ -2742,6 +2775,8 @@ export const SuppliersModule = ({ language, userRole }) => {
               <input
                 type="text"
                 placeholder={language === 'ar' ? 'البحث بالاسم أو رقم الهاتف...' : 'Search by name or phone...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -2787,7 +2822,7 @@ export const SuppliersModule = ({ language, userRole }) => {
                   );
                 }
                 
-                return filteredSuppliers.map((supplier) => (
+                return filteredSuppliers.filter((r) => matchesSearch(r, searchTerm)).map((supplier) => (
                   <TableRow key={supplier.id}>
                     <TableCell className="font-medium">{supplier.id}</TableCell>
                     <TableCell>{supplier.name}</TableCell>
@@ -3116,6 +3151,7 @@ export const SuppliersModule = ({ language, userRole }) => {
 
 // Inventory Module
 export const InventoryModule = ({ language, userRole }) => {
+  const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -3336,6 +3372,8 @@ export const InventoryModule = ({ language, userRole }) => {
               <input
                 type="text"
                 placeholder={language === 'ar' ? 'البحث بالاسم أو الكود...' : 'Search by name or ID...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -3405,7 +3443,7 @@ export const InventoryModule = ({ language, userRole }) => {
                   );
                 }
                 
-                return filteredInventory.map((item) => (
+                return filteredInventory.filter((r) => matchesSearch(r, searchTerm)).map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-bold text-blue-600">{item.id}</TableCell>
                     <TableCell className="font-medium">{item.name}</TableCell>
@@ -5557,6 +5595,7 @@ export const CustomersModule = ({ language, userRole }) => {
 
 // Bank Module
 export const BankModule = ({ language, userRole }) => {
+  const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -5719,6 +5758,8 @@ export const BankModule = ({ language, userRole }) => {
               <input
                 type="text"
                 placeholder={language === 'ar' ? 'البحث بالوصف أو رقم المعاملة...' : 'Search by description or transaction ID...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -5749,7 +5790,7 @@ export const BankModule = ({ language, userRole }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((transaction) => (
+              {transactions.filter((r) => matchesSearch(r, searchTerm)).map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell className="font-medium">{transaction.id}</TableCell>
                   <TableCell>{transaction.date}</TableCell>

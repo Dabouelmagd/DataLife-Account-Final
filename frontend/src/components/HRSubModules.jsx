@@ -7,8 +7,17 @@ import { Badge } from './ui/badge';
 import { printContent, exportToPDF, generateTableHTML, generateStatsHTML } from '../utils/printExport';
 import ImportButton from './ImportButton';
 
+// Shared search: matches any plain field of a row; Arabic spelling variants
+// (أ/إ/آ→ا، ة→ه، ى→ي) and diacritics are ignored.
+const _normSearch = (s) => String(s ?? '').toLowerCase()
+  .replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآٱ]/g, 'ا')
+  .replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
+const matchesSearch = (row, q) => !q || Object.values(row || {}).some(
+  (v) => v !== null && typeof v !== 'object' && _normSearch(v).includes(_normSearch(q)));
+
 // Salaries Module
 export const SalariesModule = ({ language, userRole, onNavigateToEmployees }) => {
+  const [searchTerm, setSearchTerm] = React.useState('');
   const isRTL = language === 'ar';
   const canEdit = ['HR Manager', 'مدير الموارد البشرية', 'General Manager', 'مدير عام', 'CEO', 'المدير التنفيذي', 'Board Chairman', 'رئيس مجلس الإدارة'].includes(userRole);
 
@@ -322,6 +331,8 @@ export const SalariesModule = ({ language, userRole, onNavigateToEmployees }) =>
               <input
                 type="text"
                 placeholder={language === 'ar' ? 'البحث بالاسم أو الكود...' : 'Search by name or ID...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -349,7 +360,7 @@ export const SalariesModule = ({ language, userRole, onNavigateToEmployees }) =>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {salaries.map((salary) => (
+              {salaries.filter((r) => matchesSearch(r, searchTerm)).map((salary) => (
                 <TableRow key={salary.id}>
                   <TableCell className="font-medium">{salary.id}</TableCell>
                   <TableCell>{salary.name}</TableCell>

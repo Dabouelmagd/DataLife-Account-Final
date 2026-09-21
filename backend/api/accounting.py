@@ -169,7 +169,7 @@ async def get_account(
 ):
     """الحصول على حساب محدد"""
     service = AccountingService(db)
-    account = await service.get_account_by_id(account_id)
+    account = await service.get_account_by_id(account_id, current_user["company_id"])
     
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -314,7 +314,7 @@ async def create_journal_entry(
     # بناء سطور القيد مع معلومات الحساب
     lines = []
     for line_req in request.lines:
-        account = await service.get_account_by_id(line_req.account_id)
+        account = await service.get_account_by_id(line_req.account_id, current_user["company_id"])
         if not account:
             raise HTTPException(
                 status_code=400, 
@@ -520,10 +520,10 @@ async def get_account_statement(
         statement = await service.get_account_statement(
             current_user["company_id"], account_id, date_from, date_to
         )
-        transactions = statement.get("transactions", [])
-        total = len(transactions)
+        entries = statement.get("entries", [])   # was "transactions": never set, so total was always 0
+        total = len(entries)
         start = (page - 1) * limit
-        statement["transactions"] = transactions[start:start + limit]
+        statement["entries"] = entries[start:start + limit]
         statement["pagination"] = {
             "page": page, "limit": limit, "total": total,
             "pages": -(-total // limit)
@@ -675,8 +675,8 @@ async def create_receipt_entry(
     """قيد سريع - إيصال قبض"""
     service = AccountingService(db)
     
-    from_account = await service.get_account_by_id(from_account_id)
-    to_account = await service.get_account_by_id(to_account_id)
+    from_account = await service.get_account_by_id(from_account_id, current_user["company_id"])
+    to_account = await service.get_account_by_id(to_account_id, current_user["company_id"])
     
     if not from_account or not to_account:
         raise HTTPException(status_code=400, detail="Invalid accounts")
@@ -725,8 +725,8 @@ async def create_payment_entry(
     """قيد سريع - إيصال صرف"""
     service = AccountingService(db)
     
-    from_account = await service.get_account_by_id(from_account_id)
-    to_account = await service.get_account_by_id(to_account_id)
+    from_account = await service.get_account_by_id(from_account_id, current_user["company_id"])
+    to_account = await service.get_account_by_id(to_account_id, current_user["company_id"])
     
     if not from_account or not to_account:
         raise HTTPException(status_code=400, detail="Invalid accounts")

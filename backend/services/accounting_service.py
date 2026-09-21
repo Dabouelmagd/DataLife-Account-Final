@@ -95,11 +95,13 @@ class AccountingService:
         ).sort("account_code", 1).to_list(length=1000)
         return accounts
     
-    async def get_account_by_id(self, account_id: str) -> Optional[Dict]:
-        """الحصول على حساب بمعرفه"""
-        return await self.db.chart_of_accounts.find_one(
-            {"id": account_id}, {"_id": 0}
-        )
+    async def get_account_by_id(self, account_id: str, company_id: Optional[str] = None) -> Optional[Dict]:
+        """الحصول على حساب بمعرفه — pass company_id wherever the id comes from a
+        request, so one company can never read or post to another's account."""
+        q = {"id": account_id}
+        if company_id:
+            q["company_id"] = company_id
+        return await self.db.chart_of_accounts.find_one(q, {"_id": 0})
     
     async def get_account_by_code(self, company_id: str, account_code: str) -> Optional[Dict]:
         """الحصول على حساب برقمه"""
@@ -379,7 +381,7 @@ class AccountingService:
         # إنشاء قيود في دفتر الأستاذ
         for line in entry["lines"]:
             # حساب الرصيد الجديد
-            account = await self.get_account_by_id(line["account_id"])
+            account = await self.get_account_by_id(line["account_id"], entry["company_id"])
             if not account:
                 raise ValueError(f"Account {line['account_id']} not found")
             
@@ -521,24 +523,76 @@ class AccountingService:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None
     ) -> Dict:
-        """كشف حساب"""
-        account = await self.get_account_by_id(account_id)
+        """كشف حساب — opening balance, lines with a running balance, closing balance.
+
+        Previously: the account was fetched by id with no company check (any
+        company could read another's account), closing_balance was the
+        all-time current_balance whatever the period, there was no opening
+        balance, and the per-line balance was the one stored at posting time —
+        wrong whenever entries are posted out of date order.
+        """
+        account = await self.db.chart_of_accounts.find_one(
+            {"id": account_id, "company_id": company_id}, {"_id": 0})
         if not account:
             raise ValueError("Account not found")
-        
-        entries = await self.get_ledger_entries(company_id, account_id, start_date, end_date)
-        
-        total_debit = sum(e["debit"] for e in entries)
-        total_credit = sum(e["credit"] for e in entries)
-        
+
+        debit_nature = get_account_nature(AccountType(account["account_type"])) == "debit"
+        sign = (lambda d, c: d - c) if debit_nature else (lambda d, c: c - d)
+
+        opening = float(account.get("opening_balance", 0) or 0)
+        if start_date:
+            async for r in self.db.general_ledger.aggregate([
+                {"$match": {"company_id": company_id, "account_id": account_id,
+                            "entry_date": {"$lt": start_date}}},
+                {"$group": {"_id": None, "d": {"$sum": "$debit"}, "c": {"$sum": "$credit"}}},
+            ]):
+                opening += sign(r["d"], r["c"])
+
+        q = {"company_id": company_id, "account_id": account_id}
+        rng = {}
+        if start_date:
+            rng["$gte"] = start_date
+        if end_date:
+            rng["$lte"] = end_date + "\uffff"
+        if rng:
+            q["entry_date"] = rng
+        rows = await self.db.general_ledger.find(q, {"_id": 0}).sort(
+            [("entry_date", 1), ("created_at", 1)]).to_list(length=None)
+
+        je_ids = list({r.get("journal_entry_id") for r in rows if r.get("journal_entry_id")})
+        je_map = {}
+        if je_ids:
+            async for je in self.db.journal_entries.find(
+                    {"id": {"$in": je_ids}},
+                    {"_id": 0, "id": 1, "entry_number": 1, "entry_number_str": 1,
+                     "reference": 1, "description": 1}):
+                je_map[je["id"]] = je
+
+        running = opening
+        entries = []
+        for r in rows:
+            running = round(running + sign(r.get("debit", 0), r.get("credit", 0)), 2)
+            je = je_map.get(r.get("journal_entry_id"), {})
+            entries.append({
+                **r,
+                "balance": running,
+                "entry_number": je.get("entry_number_str") or je.get("entry_number"),
+                "reference": je.get("reference"),
+                "description": r.get("description") or je.get("description", ""),
+            })
+
+        total_debit = round(sum(e.get("debit", 0) for e in entries), 2)
+        total_credit = round(sum(e.get("credit", 0) for e in entries), 2)
         return {
             "account": account,
             "entries": entries,
+            "opening_balance": round(opening, 2),
             "total_debit": total_debit,
             "total_credit": total_credit,
-            "closing_balance": account.get("current_balance", 0)
+            "closing_balance": running,
+            "nature": "debit" if debit_nature else "credit",
         }
-    
+
     # ==========================================
     # التقارير المالية - Financial Reports
     # ==========================================
