@@ -282,7 +282,7 @@ const PricingSection = () => {
     setActivating(true);
     try {
       const token = localStorage.getItem('token');
-      const r = await fetch(`${API_URL}/api/subscriptions/activate-code`, {
+      const r = await fetch(`${API_URL}/api/subscriptions/redeem-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ code: subCode.trim(), duration_months: parseInt(subDuration) }),

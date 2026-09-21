@@ -143,7 +143,7 @@ def check_api_routes():
         pref = re.findall(r'APIRouter\([^)]*prefix\s*=\s*["\']([^"\']+)["\']', t)
         prefix = pref[0] if pref else ""
         for _, path in re.findall(
-                r'@(?:router|app)\.(get|post|put|patch|delete)\(\s*["\']([^"\']*)["\']', t):
+                r'@(?:router|app)\.(get|post|put|patch|delete|websocket)\(\s*["\']([^"\']*)["\']', t):
             served.add(norm_path(prefix + path) if path else norm_path(prefix))
 
     called = {}
@@ -156,8 +156,15 @@ def check_api_routes():
             called.setdefault(norm_path(raw), set()).add(
                 str(f).split("frontend/src/", 1)[-1])
 
+    def seg_match(a, b):
+        x, y = a.split("/"), b.split("/")
+        return len(x) == len(y) and all(
+            p == q or p == "{}" or q == "{}" for p, q in zip(x, y))
+
     for path, sources in sorted(called.items()):
         if path in served:
+            continue
+        if any(seg_match(path, r) for r in served):
             continue
         # a base URL the code appends to: backend serves deeper paths
         if any(r.startswith(path + "/") for r in served):

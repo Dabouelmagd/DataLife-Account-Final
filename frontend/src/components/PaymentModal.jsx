@@ -15,6 +15,7 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
   const { language, isRTL } = useLanguage();
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [paymentStep, setPaymentStep] = useState('method'); // method, details, processing, success
+  const [submitError, setSubmitError] = useState('');
   const [formData, setFormData] = useState({
     cardNumber: '',
     expiryDate: '',
@@ -83,6 +84,7 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
 
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
+    setSubmitError('');
     setPaymentStep('processing');
     
     const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
@@ -95,21 +97,20 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
         const formData = new FormData();
         formData.append('file', receiptFile);
         formData.append('type', 'payment_receipt');
-        try {
-          const uploadRes = await fetch(`${API_URL}/api/auth/upload`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-            body: formData,
-          });
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-            receiptUrl = uploadData.url || '';
-          }
-        } catch {}
+        const uploadRes = await fetch(`${API_URL}/api/payments/upload-receipt`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({}));
+          throw new Error(err.detail || (isRTL ? 'تعذر رفع الإيصال' : 'Receipt upload failed'));
+        }
+        receiptUrl = (await uploadRes.json()).url || '';
       }
 
       // Submit payment request to backend
-      await fetch(`${API_URL}/api/payments/request`, {
+      const reqRes = await fetch(`${API_URL}/api/payments/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -124,9 +125,15 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
         }),
       });
 
+      if (!reqRes.ok) {
+        const err = await reqRes.json().catch(() => ({}));
+        throw new Error(err.detail || (isRTL ? 'لم يتم تسجيل طلب الدفع' : 'Payment request was not recorded'));
+      }
       setPaymentStep('success');
-    } catch {
-      setPaymentStep('success'); // Still show success to user
+    } catch (e) {
+      // Never tell a customer who has paid that it went through when it did not.
+      setSubmitError(e.message || (isRTL ? 'حدث خطأ، لم يتم إرسال الطلب' : 'Something went wrong, request not sent'));
+      setPaymentStep('details');
     }
   };
 
@@ -350,6 +357,17 @@ const PaymentModal = ({ isOpen, onClose, selectedPlan, billingCycle }) => {
       </div>
 
       {/* Reference + Receipt Upload for non-card/non-paypal */}
+      {submitError && (
+        <div className="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
+          ⚠️ {submitError}
+          <p className="text-xs text-red-500 mt-1 font-normal">
+            {language === 'ar'
+              ? 'لم يُسجَّل طلبك. إن كنت قد حوّلت المبلغ بالفعل، احتفظ برقم العملية وأعد المحاولة أو تواصل مع الدعم.'
+              : 'Your request was not recorded. If you already transferred, keep the reference and retry or contact support.'}
+          </p>
+        </div>
+      )}
+
       {paymentMethod && paymentMethod !== 'card' && paymentMethod !== 'paypal' && (
         <div className="space-y-3 mt-4 p-4 bg-gray-50 rounded-xl border">
           <div>

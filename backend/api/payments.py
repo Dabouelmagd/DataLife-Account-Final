@@ -3,7 +3,7 @@ Payments API — نظام المدفوعات
 يدعم: Stripe, PayPal, InstaPay, فودافون كاش, تحويل بنكي, كود تفعيل
 """
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, UploadFile, File
 from typing import Optional
 from datetime import datetime, timezone
 import secrets, os
@@ -108,6 +108,35 @@ async def paypal_checkout(data: dict):
     })
 
 
+@router.post("/upload-receipt")
+async def upload_receipt(
+    file: UploadFile = File(...),
+    authorization: Optional[str] = Header(None)
+):
+    """Upload a payment receipt so the admin can verify the transfer."""
+    from services.auth_service import verify_token
+    user = verify_token((authorization or '').replace('Bearer ', ''))
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    allowed = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "application/pdf": ".pdf"}
+    ext = allowed.get(file.content_type)
+    if not ext:
+        raise HTTPException(status_code=400, detail="Receipt must be JPG, PNG, WEBP or PDF")
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Receipt must be under 5 MB")
+
+    folder = "/app/uploads/receipts"
+    os.makedirs(folder, exist_ok=True)
+    name = f"{user.get('company_id', 'x')}_{secrets.token_hex(8)}{ext}"
+    with open(os.path.join(folder, name), "wb") as fh:
+        fh.write(content)
+
+    return {"url": f"/api/uploads/receipts/{name}"}
+
+
 @router.post("/request")
 async def submit_payment_request(
     data: dict,
@@ -116,7 +145,11 @@ async def submit_payment_request(
     """العميل يرسل طلب دفع لتأكيده يدوياً من السوبر ادمن"""
     from services.auth_service import verify_token
     user = verify_token((authorization or '').replace('Bearer ',''))
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     company_id = user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="Account is not linked to a company")
 
     request = {
         "id": f"preq_{secrets.token_hex(8)}",
@@ -129,6 +162,7 @@ async def submit_payment_request(
         "amount_egp": data.get("amount_egp"),
         "payment_method": data.get("payment_method"),
         "reference_number": data.get("reference_number", ""),
+        "receipt_url": data.get("receipt_url", ""),
         "notes": data.get("notes", ""),
         "status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -143,6 +177,8 @@ async def get_my_transactions(authorization: Optional[str] = Header(None)):
     """معاملات الشركة الحالية"""
     from services.auth_service import verify_token
     user = verify_token((authorization or '').replace('Bearer ',''))
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     company_id = user.get("company_id")
 
     transactions = await db.subscription_payments.find(

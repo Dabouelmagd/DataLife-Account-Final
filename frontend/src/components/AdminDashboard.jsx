@@ -449,7 +449,9 @@ const AdminDashboard = () => {
       // Check if response indicates success
       if (response.data && response.data.success) {
         showToastMessage(
-          isRTL ? `تم تعيين اشتراك ${planNames[subscriptionPlan]} بنجاح وتم إرسال إيميل للعميل` : `${planNames[subscriptionPlan]} subscription assigned & email sent`, 
+          response.data.email_sent
+            ? (isRTL ? `تم تعيين اشتراك ${planNames[subscriptionPlan]} وإرسال إيميل للعميل` : `${planNames[subscriptionPlan]} assigned & email sent`)
+            : (isRTL ? `تم تعيين اشتراك ${planNames[subscriptionPlan]} — لم يُرسَل الإيميل` : `${planNames[subscriptionPlan]} assigned — email not sent`), 
           'success'
         );
         

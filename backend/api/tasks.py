@@ -345,6 +345,20 @@ async def update_project_progress(project_id: str):
         )
 
 
+@router.patch("/{task_id}/status")
+async def update_task_status(
+    task_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None)
+):
+    """Change only the status. Delegates to update_task so the project
+    progress bookkeeping (completed_tasks, completed_at) stays in one place."""
+    status = data.get("status")
+    if not status:
+        raise HTTPException(status_code=400, detail="status is required")
+    return await update_task(task_id, {"status": status}, authorization)
+
+
 @router.delete("/{task_id}")
 async def delete_task(
     task_id: str,

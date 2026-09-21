@@ -30,11 +30,17 @@ def generate_activation_code(prefix: str = "DL") -> str:
 def calculate_end_date(start_date: datetime, duration: str) -> datetime:
     """Calculate subscription end date based on duration"""
     duration_days = {
+        "monthly": 30,
         "3_months": 90,
+        "quarterly": 90,
         "6_months": 180,
         "9_months": 270,
         "12_months": 365,
-        "lifetime": 36500  # 100 years
+        "yearly": 365,
+        "annual": 365,        # PaymentModal sends billingCycle = 'annual'
+        "month": 30,
+        "gift": 365,          # matches admin_subscriptions
+        "lifetime": 36500,    # 100 years
     }
     return start_date + timedelta(days=duration_days.get(duration, 30))
 
@@ -113,7 +119,7 @@ async def create_subscription(
         # Update code usage
         await db.activation_codes.update_one(
             {"id": code["id"]},
-            {"$inc": {"current_uses": 1}}
+            {"$inc": {"current_uses": 1, "used_count": 1}}
         )
     
     # Calculate final price
@@ -332,7 +338,8 @@ async def validate_activation_code(code: str):
     if not activation_code:
         return {"valid": False, "message": "Invalid activation code"}
     
-    if activation_code.get("current_uses", 0) >= activation_code.get("max_uses", 1):
+    uses_so_far = max(activation_code.get("current_uses", 0), activation_code.get("used_count", 0))
+    if uses_so_far >= activation_code.get("max_uses", 1):
         return {"valid": False, "message": "Activation code fully used"}
     
     if activation_code.get("expires_at"):
@@ -433,7 +440,7 @@ async def redeem_activation_code(
     )
     
     # If max uses reached, deactivate
-    new_uses = activation_code.get("current_uses", 0) + 1
+    new_uses = uses_so_far + 1
     if new_uses >= activation_code.get("max_uses", 1):
         await db.activation_codes.update_one(
             {"code": code_str},

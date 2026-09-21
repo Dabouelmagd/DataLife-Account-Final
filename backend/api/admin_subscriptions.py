@@ -252,7 +252,7 @@ async def assign_subscription_to_company(
     # Send email notification if requested
     if send_email and company_email:
         try:
-            from services.professional_email_service import send_email_with_resend
+            from api.email_notifications import send_email_async
             duration_ar = {
                 'monthly': 'شهر', '3_months': '3 أشهر', '6_months': '6 أشهر',
                 '12_months': 'سنة', 'yearly': 'سنة', 'lifetime': 'مدى الحياة', 'gift': 'هدية'
@@ -281,8 +281,8 @@ async def assign_subscription_to_company(
                     </div>
                 </div>
             </div>"""
-            await send_email_with_resend(company_email, subject, html_body)
-            return_data["email_sent"] = True
+            result = await send_email_async(company_email, subject, html_body)
+            return_data["email_sent"] = bool(result and result.get("status") == "success")
         except Exception as e:
             logger.error(f"Email send error: {e}")
     return return_data

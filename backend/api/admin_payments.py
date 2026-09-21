@@ -1,3 +1,4 @@
+import uuid
 """
 Admin Payments API
 إدارة المدفوعات والاشتراكات
@@ -414,14 +415,70 @@ async def update_payment_request(
     """الموافقة على أو رفض طلب دفع"""
     user = await verify_admin(authorization)
     status = data.get("status")  # approved / rejected
-    
+    if status not in ("approved", "rejected"):
+        raise HTTPException(status_code=400, detail="status must be 'approved' or 'rejected'")
+
+    req = await db.payment_requests.find_one({"id": request_id}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="Payment request not found")
+
+    # Idempotent: a request that was already reviewed is never re-applied,
+    # so a double click can't create two subscriptions.
+    if req.get("status") != "pending":
+        return {"message": f"Request already {req.get('status')}", "status": req.get("status")}
+
+    now = datetime.now(timezone.utc)
+    subscription_id = None
+
+    if status == "approved":
+        # Approving a payment has to actually activate the plan — flipping
+        # the flag alone left paying customers without access.
+        from api.subscriptions import calculate_end_date
+        company_id = req.get("company_id")
+        if not company_id:
+            raise HTTPException(status_code=400, detail="Request has no company")
+
+        plan = req.get("plan") or "professional"
+        duration = req.get("duration") or "monthly"
+        end_date = calculate_end_date(now.replace(tzinfo=None), duration)
+
+        await db.subscriptions.update_many(
+            {"company_id": company_id, "status": "active"},
+            {"$set": {"status": "replaced"}},
+        )
+        subscription_id = str(uuid.uuid4())
+        await db.subscriptions.insert_one({
+            "id": subscription_id,
+            "company_id": company_id,
+            "plan": plan,
+            "duration": duration,
+            "status": "active",
+            "start_date": now.isoformat(),
+            "end_date": end_date.isoformat(),
+            "amount_paid": req.get("amount_egp") or 0,
+            "payment_method": req.get("payment_method"),
+            "payment_reference": req.get("reference_number", ""),
+            "payment_request_id": request_id,
+            "approved_by": user.get("email"),
+            "created_at": now.isoformat(),
+        })
+        await db.companies.update_one(
+            {"id": company_id},
+            {"$set": {
+                "subscription_status": "active",
+                "subscription_plan": plan,
+                "subscription_expires_at": end_date.isoformat(),
+            }},
+        )
+
     await db.payment_requests.update_one(
         {"id": request_id},
         {"$set": {
             "status": status,
             "reviewed_by": user.get("email"),
-            "reviewed_at": datetime.now(timezone.utc).isoformat(),
-            "review_notes": data.get("notes", "")
+            "reviewed_at": now.isoformat(),
+            "review_notes": data.get("notes", ""),
+            "subscription_id": subscription_id,
         }}
     )
-    return {"message": f"Request {status}"}
+    return {"message": f"Request {status}", "status": status, "subscription_id": subscription_id}

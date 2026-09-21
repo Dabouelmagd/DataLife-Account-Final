@@ -53,7 +53,7 @@ export default function PaymentsAdminPanel() {
       const [subsRes, summaryRes, reqRes] = await Promise.all([
         fetch(`${API}/api/admin/payments/subscriptions?status=${filter === 'all' ? '' : filter}`, { headers }),
         fetch(`${API}/api/admin/payments/summary`, { headers }),
-        fetch(`${API}/api/admin/payment-requests`, { headers }),
+        fetch(`${API}/api/admin/payments/payment-requests`, { headers }),
       ]);
       if (subsRes.ok) {
         const d = await subsRes.json();
@@ -69,6 +69,35 @@ export default function PaymentsAdminPanel() {
   }, [filter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const [reviewingId, setReviewingId] = useState(null);
+
+  const reviewRequest = async (req, status) => {
+    const confirmMsg = status === 'approved'
+      ? (ar
+          ? `تأكيد استلام ${req.amount_egp?.toLocaleString() || ''} ج.م من ${req.company_name || req.user_email}؟\nسيتم تفعيل اشتراك ${req.plan || ''} فوراً.`
+          : `Confirm receipt of ${req.amount_egp || ''} EGP from ${req.company_name || req.user_email}?\nThe ${req.plan || ''} plan will be activated immediately.`)
+      : (ar ? 'رفض طلب الدفع هذا؟' : 'Reject this payment request?');
+    if (!window.confirm(confirmMsg)) return;
+
+    setReviewingId(req.id);
+    try {
+      const res = await fetch(`${API}/api/admin/payments/payment-requests/${req.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert((ar ? 'تعذر تنفيذ العملية: ' : 'Operation failed: ') + (err.detail || res.status));
+      }
+      await fetchData();
+    } catch {
+      alert(ar ? 'تعذر الاتصال بالخادم' : 'Could not reach the server');
+    } finally {
+      setReviewingId(null);
+    }
+  };
 
   const confirmPayment = async (subId, isPaid) => {
     if (!subId) return;
@@ -297,10 +326,16 @@ export default function PaymentsAdminPanel() {
                   </div>
                   {req.status === 'pending' && (
                     <div className="flex gap-2">
-                      <button className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700">
-                        {ar ? 'موافقة' : 'Approve'}
+                      <button
+                        onClick={() => reviewRequest(req, 'approved')}
+                        disabled={reviewingId === req.id}
+                        className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 disabled:opacity-50">
+                        {reviewingId === req.id ? '…' : (ar ? 'موافقة وتفعيل' : 'Approve & activate')}
                       </button>
-                      <button className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs hover:bg-red-100">
+                      <button
+                        onClick={() => reviewRequest(req, 'rejected')}
+                        disabled={reviewingId === req.id}
+                        className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs hover:bg-red-100 disabled:opacity-50">
                         {ar ? 'رفض' : 'Reject'}
                       </button>
                     </div>
