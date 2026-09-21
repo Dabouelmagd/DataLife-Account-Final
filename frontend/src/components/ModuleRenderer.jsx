@@ -26,6 +26,7 @@ import CurrenciesPage from '../pages/CurrenciesPage';
 import InventoryPage from '../pages/InventoryPage';
 import PayrollPage from '../pages/PayrollPage';
 import EmployeeProfilePage from '../pages/EmployeeProfilePage';
+import EmployeesPage from '../pages/EmployeesPage';
 import ShiftsPage from '../pages/ShiftsPage';
 import AttendancePage from '../pages/AttendancePage';
 import HRSettingsPage from '../pages/HRSettingsPage';
@@ -115,7 +116,7 @@ export const renderHRContent = ({
   }
 
   // HR Overview
-  if (['overview', 'hr-overview', 'employees'].includes(activeHRSubModule) || !activeHRSubModule) {
+  if (['overview', 'hr-overview'].includes(activeHRSubModule) || !activeHRSubModule) {
     return (
       <HROverviewContent
         language={language}
@@ -130,6 +131,7 @@ export const renderHRContent = ({
 
   // HR Sub-modules
   const hrSubModuleMap = {
+    'employees': <EmployeesPage language={language} />,
     'payroll': <PayrollPage language={language} />,
     'salaries': <SalariesPage language={language} onNavigateToEmployees={() => setActiveHRSubModule('employees')} />,
     'allowances': <AllowancesPage language={language} />,
