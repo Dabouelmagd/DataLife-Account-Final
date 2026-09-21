@@ -28,6 +28,7 @@ const FinancialReportsPage = () => {
       trialBalance: 'ميزان المراجعة',
       incomeStatement: 'قائمة الدخل',
       balanceSheet: 'الميزانية العمومية',
+      cashFlow: 'قائمة التدفقات النقدية',
       asOfDate: 'كما في تاريخ',
       fromDate: 'من تاريخ',
       toDate: 'إلى تاريخ',
@@ -68,6 +69,7 @@ const FinancialReportsPage = () => {
       trialBalance: 'Trial Balance',
       incomeStatement: 'Income Statement',
       balanceSheet: 'Balance Sheet',
+      cashFlow: 'Cash Flow Statement',
       asOfDate: 'As of Date',
       fromDate: 'From Date',
       toDate: 'To Date',
@@ -109,7 +111,8 @@ const FinancialReportsPage = () => {
   const reports = [
     { id: 'trial-balance', name: t.trialBalance, icon: Scale },
     { id: 'income-statement', name: t.incomeStatement, icon: BarChart3 },
-    { id: 'balance-sheet', name: t.balanceSheet, icon: PieChart }
+    { id: 'balance-sheet', name: t.balanceSheet, icon: PieChart },
+    { id: 'cash-flow', name: t.cashFlow, icon: BarChart3 }
   ];
 
   useEffect(() => {
@@ -117,6 +120,19 @@ const FinancialReportsPage = () => {
   }, [activeReport]);
 
   const handleExport = async () => {
+    if (activeReport === 'cash-flow') {           // no server export: build a CSV from the statement
+      if (!reportData) return;
+      const r = reportData, o = r.operating_activities;
+      const rows = [['البند', 'المبلغ'], ['صافي الربح', o.net_income], ['الإهلاك', o.depreciation],
+        ...o.working_capital.map((w) => [w.item, w.amount]), ['صافي التدفق من الأنشطة التشغيلية', o.net],
+        ...r.investing_activities.items.map((w) => [w.item, w.amount]), ['صافي التدفق من الأنشطة الاستثمارية', r.investing_activities.net],
+        ...r.financing_activities.items.map((w) => [w.item, w.amount]), ['صافي التدفق من الأنشطة التمويلية', r.financing_activities.net],
+        ['صافي التغير في النقدية', r.net_change_in_cash], ['النقدية أول الفترة', r.opening_cash_balance], ['النقدية آخر الفترة', r.closing_cash_balance]];
+      const csv = '\uFEFF' + rows.map((x) => x.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })),
+        download: `cash-flow_${dateFilters.startDate}_${dateFilters.endDate}.csv` });
+      a.click(); return;
+    }
     try {
       const token = localStorage.getItem('token');
       let url = '';
@@ -183,6 +199,12 @@ const FinancialReportsPage = () => {
         case 'balance-sheet':
           url = `${API_URL}/api/accounting/reports/balance-sheet`;
           if (dateFilters.asOfDate) params.append('as_of_date', dateFilters.asOfDate);
+          break;
+        case 'cash-flow':
+          url = `${API_URL}/api/cash-flow/indirect`;
+          params.append('year', dateFilters.startDate.slice(0, 4));
+          params.append('date_from', dateFilters.startDate);
+          params.append('date_to', dateFilters.endDate);
           break;
       }
 
@@ -335,6 +357,52 @@ const FinancialReportsPage = () => {
             </div>
           </div>
         </div>
+      </div>
+    );
+  };
+
+  const renderCashFlow = () => {
+    if (!reportData || !reportData.operating_activities) return null;
+    const r = reportData, o = r.operating_activities;
+    const ar = language === 'ar';
+    const fmt = (n) => { const v = Number(n) || 0; const s = Math.abs(v).toLocaleString(ar ? 'ar-EG' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return v < 0 ? `(${s})` : s; };
+    const Row = ({ label, value, strong, indent }) => (
+      <div className={`flex justify-between gap-4 py-1.5 ${strong ? 'font-bold border-t border-gray-200 mt-1 pt-2' : ''} ${indent ? (ar ? 'pr-5' : 'pl-5') : ''}`}>
+        <span>{label}</span><span className="tabular-nums whitespace-nowrap">{fmt(value)}</span></div>
+    );
+    const Section = ({ title, children }) => (
+      <section className="bg-white rounded-xl shadow-sm p-5"><h3 className="font-extrabold text-gray-900 mb-2">{title}</h3>{children}</section>
+    );
+    return (
+      <div className="space-y-4" dir={ar ? 'rtl' : 'ltr'}>
+        <Section title={ar ? 'أولاً: التدفقات النقدية من الأنشطة التشغيلية' : 'Operating activities'}>
+          <Row label={ar ? 'صافي الربح (الخسارة)' : 'Net profit (loss)'} value={o.net_income} />
+          <p className="text-xs text-gray-500 mt-2 mb-1">{ar ? 'تسويات لبنود غير نقدية:' : 'Non-cash adjustments:'}</p>
+          <Row indent label={ar ? 'الإهلاك' : 'Depreciation'} value={o.depreciation} />
+          {!!o.gains_on_disposal && <Row indent label={ar ? 'أرباح بيع أصول' : 'Gains on disposal'} value={o.gains_on_disposal} />}
+          <p className="text-xs text-gray-500 mt-2 mb-1">{ar ? 'التغير في رأس المال العامل:' : 'Working capital changes:'}</p>
+          {o.working_capital.map((w) => <Row indent key={w.account} label={`${w.account} — ${w.item}`} value={w.amount} />)}
+          <Row strong label={ar ? 'صافي التدفق من الأنشطة التشغيلية' : 'Net cash from operating activities'} value={o.net} />
+        </Section>
+        <Section title={ar ? 'ثانياً: التدفقات النقدية من الأنشطة الاستثمارية' : 'Investing activities'}>
+          {r.investing_activities.items.map((w) => <Row indent key={w.account + w.item} label={`${w.account} — ${w.item}`} value={w.amount} />)}
+          <Row strong label={ar ? 'صافي التدفق من الأنشطة الاستثمارية' : 'Net cash from investing activities'} value={r.investing_activities.net} />
+        </Section>
+        <Section title={ar ? 'ثالثاً: التدفقات النقدية من الأنشطة التمويلية' : 'Financing activities'}>
+          {r.financing_activities.items.map((w) => <Row indent key={w.account + w.item} label={`${w.account} — ${w.item}`} value={w.amount} />)}
+          <Row strong label={ar ? 'صافي التدفق من الأنشطة التمويلية' : 'Net cash from financing activities'} value={r.financing_activities.net} />
+        </Section>
+        <section className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+          <Row strong label={ar ? 'صافي التغير في النقدية' : 'Net change in cash'} value={r.net_change_in_cash} />
+          <Row label={ar ? 'النقدية وما في حكمها أول الفترة' : 'Cash at beginning of period'} value={r.opening_cash_balance} />
+          <Row strong label={ar ? 'النقدية وما في حكمها آخر الفترة' : 'Cash at end of period'} value={r.closing_cash_balance} />
+          <p className={`mt-3 text-sm font-semibold ${r.reconciliation?.reconciled ? 'text-emerald-700' : 'text-red-700'}`}>
+            {r.reconciliation?.reconciled
+              ? (ar ? '✓ مطابقة لحركة الخزينة والبنوك في دفتر الأستاذ' : '✓ Reconciles to treasury and bank in the ledger')
+              : (ar ? `✗ فرق عن الدفتر: ${fmt(r.reconciliation?.difference)}` : `✗ Differs from the ledger by ${fmt(r.reconciliation?.difference)}`)}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">{r.standard}</p>
+        </section>
       </div>
     );
   };
@@ -503,7 +571,7 @@ const FinancialReportsPage = () => {
             </div>
             
             <div className="flex items-center gap-4">
-              {activeReport === 'income-statement' ? (
+              {activeReport === 'income-statement' || activeReport === 'cash-flow' ? (
                 <>
                   <div className="flex items-center gap-2">
                     <label className="text-sm text-gray-600">{t.fromDate}:</label>
@@ -572,6 +640,7 @@ const FinancialReportsPage = () => {
             {activeReport === 'trial-balance' && renderTrialBalance()}
             {activeReport === 'income-statement' && renderIncomeStatement()}
             {activeReport === 'balance-sheet' && renderBalanceSheet()}
+            {activeReport === 'cash-flow' && renderCashFlow()}
           </>
         )}
       </div>

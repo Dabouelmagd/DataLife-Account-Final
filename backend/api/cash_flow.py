@@ -79,6 +79,28 @@ DIRECT_CLASSIFICATION = {
 }
 
 # Indirect method: non-cash items and working capital accounts
+
+# One classification for BOTH methods, so direct and indirect always agree.
+CF_CASH = {"161", "162", "164"}
+CF_ACCUM = ("222", "1562")              # accumulated depreciation (contra assets)
+CF_INVEST = ("11", "14", "15")           # fixed assets, projects, investments (incl. 1561 ROU)
+CF_FIN_EXACT = {"241", "242", "2611", "2612", "256", "2542", "2141"}
+
+
+def cf_bucket(code: str) -> str:
+    code = str(code or "")
+    if code in CF_CASH:
+        return "cash"
+    if code[:1] in ("3", "4"):
+        return "pl"
+    if code.startswith(CF_ACCUM):
+        return "accum"
+    if code.startswith(CF_INVEST):
+        return "investing"
+    if code in CF_FIN_EXACT or code.startswith("24") or (code.startswith("21") and code != "213"):
+        return "financing"
+    return "operating"
+
 NON_CASH_ITEMS = {
     "222":   ("add",   "إهلاك الأصول الثابتة"),
     "22201": ("add",   "إهلاك مباني وإنشاءات"),
@@ -123,8 +145,8 @@ async def get_account_balance(
     """Sum debit/credit/net for an account in a date range from posted JEs"""
     pipeline = [
         {"$match": {
-            "company_id": company_id, "status": "posted",
-            "entry_date": {"$gte": date_from, "$lte": date_to},
+            "company_id": company_id, "status": {"$in": ["posted", "reversed"]},   # a reversed original + its reversal net to zero
+            "entry_date": {"$gte": date_from, "$lte": date_to + "\uffff"},
         }},
         {"$unwind": "$lines"},
         {"$match": {"lines.account_code": {"$regex": f"^{account_code}"}}},
@@ -149,7 +171,7 @@ async def get_account_balance_period(
     """Cumulative balance from inception to as_of (for balance sheet accounts)"""
     pipeline = [
         {"$match": {
-            "company_id": company_id, "status": "posted",
+            "company_id": company_id, "status": {"$in": ["posted", "reversed"]},   # a reversed original + its reversal net to zero
             "entry_date": {"$lte": as_of},
         }},
         {"$unwind": "$lines"},
@@ -192,8 +214,8 @@ async def cash_flow_direct(
     # ── اسحب كل حركات الخزينة / البنوك ──────────────────────
     pipeline = [
         {"$match": {
-            "company_id": company_id, "status": "posted",
-            "entry_date": {"$gte": date_from, "$lte": date_to},
+            "company_id": company_id, "status": {"$in": ["posted", "reversed"]},   # a reversed original + its reversal net to zero
+            "entry_date": {"$gte": date_from, "$lte": date_to + "\uffff"},
         }},
         {"$unwind": "$lines"},
         # Only cash/bank debit lines (money coming in) or credit lines (money going out)
@@ -232,26 +254,28 @@ async def cash_flow_direct(
                 if code not in CASH_ACCOUNTS:
                     counter_accounts.add(code)
 
-        # Classify based on first matching counter account
-        activity = "unclassified"
-        label    = move["_id"]["desc"]
+        # Classify with the shared rule: investing or financing if any counter
+        # account is one; otherwise operating (EAS 4). The label keeps the old map.
+        buckets = {cf_bucket(ca) for ca in counter_accounts}
+        activity = ("investing" if buckets & {"investing", "accum"}
+                    else "financing" if "financing" in buckets else "operating")
+        label = move["_id"]["desc"]
+        for ca in counter_accounts:
+            if ca in DIRECT_CLASSIFICATION:
+                label = DIRECT_CLASSIFICATION[ca][1]
+                break
         direction = "inflow" if net_cash > 0 else "outflow"
 
-        for ca in counter_accounts:
-            # Exact match first
-            if ca in DIRECT_CLASSIFICATION:
-                activity, label, _ = DIRECT_CLASSIFICATION[ca]
-                break
-            # Prefix match (e.g. 221xx matches 22)
-            for prefix in sorted(DIRECT_CLASSIFICATION.keys(), key=len, reverse=True):
-                if ca.startswith(prefix):
-                    activity, label, _ = DIRECT_CLASSIFICATION[prefix]
-                    break
-            if activity != "unclassified":
-                break
+        # EAS 4: operating = everything that is not investing or financing. A move
+        # whose counter account is not in the map (e.g. 423 other income) used to be
+        # left out of all three sections, so they no longer summed to the cash change.
+        defaulted = activity == "unclassified"
+        if defaulted:
+            activity = "operating"
 
         amount = abs(net_cash)
         entry_detail = {
+            "classified_by_default": defaulted,
             "date":             move["_id"]["entry_date"],
             "description":      label,
             "counter_accounts": list(counter_accounts),
@@ -336,245 +360,98 @@ async def cash_flow_indirect(
     date_to:   Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    قائمة التدفقات النقدية — الطريقة غير المباشرة
-    المعيار المصري 4
+    """قائمة التدفقات النقدية — الطريقة غير المباشرة (معيار المحاسبة المصري رقم 4)
 
-    1. صافي الربح (من قائمة الدخل)
-    2. + بنود غير نقدية (إهلاك، مخصصات)
-    3. ± تغيرات رأس المال العامل
-    4. = صافي تدفق الأنشطة التشغيلية
+    Built so it cannot fail to reconcile: every balance-sheet account belongs to
+    exactly one of cash / operating / investing / financing, and its cash effect
+    is its period movement (credit − debit) from the general ledger. Double entry
+    makes the non-cash movements sum to the change in cash, so the three sections
+    always add up. The previous version listed accounts one by one and missed
+    some (tax accounts), mis-read others (dividends from a revaluation reserve,
+    gains booked as sale proceeds, interest counted twice).
     """
     company_id = current_user["company_id"]
-    date_from  = date_from or f"{year}-01-01"
-    date_to    = date_to   or f"{year}-12-31"
-    prev_end   = f"{year-1}-12-31"
+    date_from = date_from or f"{year}-01-01"
+    date_to = date_to or f"{year}-12-31"
 
-    # ── 1. صافي الربح ─────────────────────────────────────────
-    revenue_total  = await get_account_balance(company_id, "4", date_from, date_to, "credit")
-    expense_total  = await get_account_balance(company_id, "3", date_from, date_to, "debit")
-    net_income     = round(revenue_total - expense_total, 2)
+    accounts = {a["id"]: a for a in await db.chart_of_accounts.find({"company_id": company_id}, {"_id": 0}).to_list(None)}
 
-    # ── 2. البنود غير النقدية ─────────────────────────────────
-    # Depreciation: credit side of accumulated depreciation accounts (new period charge)
-    dep_charged = 0.0
-    dep_detail  = []
+    async def movement(start, end):
+        m = {"company_id": company_id, "entry_date": {"$lte": end + "\uffff"}}
+        if start:
+            m["entry_date"]["$gte"] = start
+        out = {}
+        async for r in db.general_ledger.aggregate([{"$match": m},
+                {"$group": {"_id": "$account_id", "d": {"$sum": "$debit"}, "c": {"$sum": "$credit"}}}]):
+            a = accounts.get(r["_id"])
+            if a:
+                out[a["account_code"]] = out.get(a["account_code"], 0) + r["c"] - r["d"]   # credit − debit
+        return out
 
-    dep_accounts = {
-        "222":   "إهلاك الأصول الثابتة (مجمَّع)",
-        "22201": "إهلاك مباني",
-        "22202": "إهلاك آلات",
-        "22203": "إهلاك سيارات",
-        "22204": "إهلاك أثاث",
-        "1562":  "إهلاك ROU Assets",
-    }
-    # Get depreciation expense accounts (debit) — more accurate
-    dep_exp_accounts = {"313": "إهلاك تشغيلي", "333": "إهلاك إداري",
-                        "3411": "إهلاك ROU", "3412": "فوائد تمويلية إيجار"}
+    mv = await movement(date_from, date_to)
+    prev_day = (date.fromisoformat(date_from) - __import__("datetime").timedelta(days=1)).isoformat()
+    before = await movement(None, prev_day)
 
-    tasks = [get_account_balance(company_id, code, date_from, date_to, "debit")
-             for code in dep_exp_accounts]
-    dep_amounts = await asyncio.gather(*tasks)
+    CASH, ACCUM, bucket = CF_CASH, CF_ACCUM, cf_bucket
+    names = {a["account_code"]: a["account_name"] for a in accounts.values()}
 
-    for (code, lbl), amt in zip(dep_exp_accounts.items(), dep_amounts):
-        if amt > 0:
-            dep_charged += amt
-            dep_detail.append({"item": lbl, "amount": round(amt, 2)})
+    net_income = round(sum(v for c, v in mv.items() if bucket(c) == "pl"), 2)
+    # depreciation charge = credits to accumulated depreciation in the period
+    dep_rows = [r async for r in db.general_ledger.aggregate([
+        {"$match": {"company_id": company_id, "entry_date": {"$gte": date_from, "$lte": date_to + "\uffff"},
+                    "account_id": {"$in": [i for i, a in accounts.items() if a["account_code"].startswith(ACCUM)]}}},
+        {"$group": {"_id": None, "c": {"$sum": "$credit"}}}])]
+    depreciation = round(dep_rows[0]["c"] if dep_rows else 0.0, 2)
+    gains = round(mv.get("421", 0), 2)           # disposal gains: in profit, but the cash is investing
 
-    # Provisions charged this period
-    prov_charged = 0.0
-    prov_detail  = []
-    prov_accounts = {
-        "223": "مخصص مكافأة نهاية الخدمة",
-        "224": "مخصص خسائر ائتمانية ECL",
-        "226": "مخصص هبوط مخزون",
-        "227": "مخصص قضايا",
-    }
-    tasks2 = [get_account_balance(company_id, code, date_from, date_to, "credit")
-              for code in prov_accounts]
-    prov_amounts = await asyncio.gather(*tasks2)
-    for (code, lbl), amt in zip(prov_accounts.items(), prov_amounts):
-        if amt > 0:
-            prov_charged += amt
-            prov_detail.append({"item": lbl, "amount": round(amt, 2)})
-
-    # Capital gains (already in revenue — deduct from operating)
-    capital_gains = await get_account_balance(company_id, "421", date_from, date_to, "credit")
-
-    # Finance interest (add back to operating, will appear in financing)
-    finance_interest = await get_account_balance(company_id, "3412", date_from, date_to, "debit")
-
-    non_cash_total = round(dep_charged + prov_charged - capital_gains, 2)
-
-    # ── 3. تغيرات رأس المال العامل ───────────────────────────
-    wc_items   = []
-    wc_total   = 0.0
-
-    wc_tasks_curr = [get_account_balance_period(company_id, code, date_to, "net")
-                     for code in WORKING_CAPITAL]
-    wc_tasks_prev = [get_account_balance_period(company_id, code, prev_end, "net")
-                     for code in WORKING_CAPITAL]
-
-    curr_balances, prev_balances = await asyncio.gather(
-        asyncio.gather(*wc_tasks_curr),
-        asyncio.gather(*wc_tasks_prev)
-    )
-
-    for (code, (key, acc_type, lbl)), curr, prev in zip(
-        WORKING_CAPITAL.items(), curr_balances, prev_balances
-    ):
-        change = round(curr - prev, 2)
-        if abs(change) < 0.01:
+    wc_items, operating_wc = [], 0.0
+    invest_items, investing = [], 0.0
+    fin_items, financing = [], 0.0
+    for code, v in sorted(mv.items()):
+        v = round(v, 2)
+        if abs(v) < 0.005:
             continue
+        b = bucket(code)
+        item = {"account": code, "item": names.get(code, code), "amount": v}
+        if b == "operating":
+            wc_items.append(item); operating_wc += v
+        elif b == "investing":
+            invest_items.append(item); investing += v
+        elif b == "financing":
+            fin_items.append(item); financing += v
+    accum_move = round(sum(v for c, v in mv.items() if bucket(c) == "accum"), 2)
+    disposal_accum = round(accum_move - depreciation, 2)              # < 0 when assets were retired
+    if disposal_accum:
+        invest_items.append({"account": "222", "item": "مجمع إهلاك الأصول المستبعدة", "amount": disposal_accum})
+        investing += disposal_accum
+    if gains:
+        invest_items.append({"account": "421", "item": "أرباح بيع أصول (حصيلة البيع)", "amount": gains})
+        investing += gains
 
-        # Assets: increase = outflow (negative), decrease = inflow (positive)
-        # Liabilities: increase = inflow (positive), decrease = outflow (negative)
-        if acc_type == "asset":
-            cf_effect = round(-change, 2)   # flip sign
-            direction = "inflow" if change < 0 else "outflow"
-        else:
-            cf_effect = round(change, 2)
-            direction = "inflow" if change > 0 else "outflow"
-
-        wc_items.append({
-            "item":      lbl,
-            "account":   code,
-            "prev_bal":  prev,
-            "curr_bal":  curr,
-            "change":    change,
-            "cf_effect": cf_effect,
-            "direction": direction,
-        })
-        wc_total = round(wc_total + cf_effect, 2)
-
-    # ── 4. Assemble Operating Activities ─────────────────────
-    net_operating = round(net_income + non_cash_total + wc_total, 2)
-
-    # ── 5. Investing Activities ───────────────────────────────
-    # Fixed asset purchases (debit to asset accounts) — credit side = inflows
-    invest_items = []
-    invest_net   = 0.0
-
-    invest_accounts = {
-        "111": "شراء أراضٍ ومباني", "113": "شراء سيارات",
-        "114": "شراء آلات ومعدات", "115": "شراء أثاث",
-        "116": "شراء حواسب", "1561": "دفعات إيجار تمويلي",
-        "142": "تطوير عقاري",
-    }
-    tasks_inv = [get_account_balance(company_id, code, date_from, date_to, "net")
-                 for code in invest_accounts]
-    inv_amounts = await asyncio.gather(*tasks_inv)
-
-    for (code, lbl), net in zip(invest_accounts.items(), inv_amounts):
-        if abs(net) < 0.01:
-            continue
-        cf = round(-net, 2)  # debit = purchase = outflow → flip
-        invest_items.append({"item": lbl, "amount": cf})
-        invest_net = round(invest_net + cf, 2)
-
-    if capital_gains > 0:
-        invest_items.append({"item": "حصيلة بيع أصول ثابتة", "amount": capital_gains})
-        invest_net = round(invest_net + capital_gains, 2)
-
-    interest_received = await get_account_balance(company_id, "422", date_from, date_to, "credit")
-    if interest_received > 0:
-        invest_items.append({"item": "فوائد دائنة مقبوضة", "amount": interest_received})
-        invest_net = round(invest_net + interest_received, 2)
-
-    # ── 6. Financing Activities ───────────────────────────────
-    fin_items = []
-    fin_net   = 0.0
-
-    loans_received = await get_account_balance(company_id, "241", date_from, date_to, "credit")
-    loans_repaid   = await get_account_balance(company_id, "241", date_from, date_to, "debit")
-    capital_inc    = await get_account_balance(company_id, "211", date_from, date_to, "credit")
-    dividends_paid = await get_account_balance(company_id, "215", date_from, date_to, "debit")
-    gratuity_paid  = await get_account_balance(company_id, "223", date_from, date_to, "debit")
-    lease_paid     = await get_account_balance(company_id, "2611", date_from, date_to, "debit")
-
-    for lbl, amt, sign in [
-        ("حصيلة قروض بنكية",              loans_received,  +1),
-        ("سداد قروض بنكية",               loans_repaid,    -1),
-        ("زيادة رأس المال",               capital_inc,     +1),
-        ("توزيعات أرباح مدفوعة",          dividends_paid,  -1),
-        ("مكافآت نهاية خدمة مدفوعة",      gratuity_paid,   -1),
-        ("سداد التزامات إيجار تمويلي",    lease_paid,      -1),
-        ("فوائد تمويلية مدفوعة",          finance_interest,-1),
-    ]:
-        if amt > 0:
-            cf = round(amt * sign, 2)
-            fin_items.append({"item": lbl, "amount": cf})
-            fin_net = round(fin_net + cf, 2)
-
-    # ── 7. Net Change & Reconciliation ───────────────────────
-    net_change = round(net_operating + invest_net + fin_net, 2)
-    cash_open  = await get_account_balance_period(company_id, "16", prev_end, "net")
-    cash_close = round(cash_open + net_change, 2)
+    operating = round(net_income + depreciation - gains + operating_wc, 2)
+    investing, financing = round(investing, 2), round(financing, 2)
+    opening_cash = round(-sum(v for c, v in before.items() if c in CASH), 2)
+    cash_change = round(-sum(v for c, v in mv.items() if c in CASH), 2)
+    total = round(operating + investing + financing, 2)
 
     return {
-        "statement":  "قائمة التدفقات النقدية — الطريقة غير المباشرة",
-        "standard":   "المعيار المحاسبي المصري رقم (4)",
-        "method":     "indirect",
-        "period":     {"from": date_from, "to": date_to},
-        "opening_cash_balance": round(cash_open, 2),
+        "statement": "قائمة التدفقات النقدية — الطريقة غير المباشرة",
+        "standard": "معيار المحاسبة المصري رقم 4",
+        "method": "indirect",
+        "period": {"from": date_from, "to": date_to},
+        "opening_cash_balance": opening_cash,
         "operating_activities": {
-            "label": "أولاً: التدفقات النقدية من الأنشطة التشغيلية",
-            "net_income": net_income,
-            "adjustments": {
-                "depreciation_amortization": {
-                    "label":  "إضافة: الإهلاك والاستهلاك",
-                    "amount": round(dep_charged, 2),
-                    "detail": dep_detail,
-                },
-                "provisions": {
-                    "label":  "إضافة: المخصصات المحملة",
-                    "amount": round(prov_charged, 2),
-                    "detail": prov_detail,
-                },
-                "capital_gains": {
-                    "label":  "خصم: أرباح بيع أصول (تُنقَل للاستثماري)",
-                    "amount": round(-capital_gains, 2),
-                },
-                "finance_interest": {
-                    "label":  "خصم: فوائد تمويلية (تُنقَل للتمويلي)",
-                    "amount": round(-finance_interest, 2),
-                },
-                "total_non_cash": round(non_cash_total, 2),
-            },
-            "working_capital_changes": {
-                "label":  "التغير في رأس المال العامل",
-                "items":  wc_items,
-                "total":  wc_total,
-            },
-            "net": net_operating,
-        },
-        "investing_activities": {
-            "label": "ثانياً: التدفقات النقدية من الأنشطة الاستثمارية",
-            "items": invest_items,
-            "net":   round(invest_net, 2),
-        },
-        "financing_activities": {
-            "label": "ثالثاً: التدفقات النقدية من الأنشطة التمويلية",
-            "items": fin_items,
-            "net":   round(fin_net, 2),
-        },
-        "net_change_in_cash":   net_change,
-        "closing_cash_balance": cash_close,
-        "reconciliation": {
-            "opening_cash": round(cash_open, 2),
-            "operating":    net_operating,
-            "investing":    round(invest_net, 2),
-            "financing":    round(fin_net, 2),
-            "net_change":   net_change,
-            "closing_cash": cash_close,
-        },
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+            "net_income": net_income, "depreciation": depreciation, "gains_on_disposal": -gains,
+            "working_capital": wc_items, "working_capital_total": round(operating_wc, 2), "net": operating},
+        "investing_activities": {"items": invest_items, "net": investing},
+        "financing_activities": {"items": fin_items, "net": financing},
+        "net_change_in_cash": total,
+        "closing_cash_balance": round(opening_cash + total, 2),
+        "reconciliation": {"ledger_cash_change": cash_change, "difference": round(total - cash_change, 2),
+                           "reconciled": abs(total - cash_change) < 0.01},
+        "generated_at": datetime.utcnow().isoformat(),
     }
 
-
-# ══════════════════════════════════════════════════════════════
-# 3. COMPARISON — مقارنة الطريقتين
-# ══════════════════════════════════════════════════════════════
 
 @router.get("/compare")
 async def cash_flow_compare(

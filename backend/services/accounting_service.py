@@ -333,7 +333,16 @@ class AccountingService:
         # Mark as posted
         await self.db.journal_entries.update_one(
             {"id": entry.get("id")},
-            {"$set": {"status": "posted", "posted_at": datetime.utcnow().isoformat(), "posted_by": user_id}}
+            {"$set": {"status": "posted", "posted_at": datetime.utcnow().isoformat(), "posted_by": user_id,
+                      "entry_date": entry_date,
+                      # simple entries had no `lines`, so every report that reads lines
+                      # (cash flow, tax returns, rebuild) could not see them — e.g. an
+                      # asset bought from the bank was missing from investing activities
+                      "lines": [
+                          {"account_id": debit_acc["id"], "account_code": debit_acc["account_code"],
+                           "account_name": debit_acc["account_name"], "debit": amount, "credit": 0.0},
+                          {"account_id": credit_acc["id"], "account_code": credit_acc["account_code"],
+                           "account_name": credit_acc["account_name"], "debit": 0.0, "credit": amount}]}}
         )
         return True
 
