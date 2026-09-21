@@ -547,15 +547,32 @@ class AccountingService:
         company_id: str,
         as_of_date: Optional[str] = None
     ) -> Dict:
-        """ميزان المراجعة"""
+        """ميزان المراجعة — balances as of `as_of_date`, from the ledger.
+        It read current_balance and ignored the date, so a trial balance for
+        any day included every later (even future-dated) entry."""
+        as_of_date = as_of_date or datetime.utcnow().strftime("%Y-%m-%d")
         accounts = await self.get_all_accounts(company_id)
-        
+        pipeline = [
+            {"$match": {"company_id": company_id,
+                        "entry_date": {"$lte": as_of_date + "\uffff"}}},
+            {"$group": {"_id": "$account_id",
+                        "debit": {"$sum": "$debit"}, "credit": {"$sum": "$credit"}}},
+        ]
+        movement = {r["_id"]: r async for r in self.db.general_ledger.aggregate(pipeline)}
+
         items = []
         total_debit = 0
         total_credit = 0
-        
+
         for account in accounts:
-            balance = account.get("current_balance", 0)
+            if account.get("is_header") or account.get("account_category") == "header":
+                continue
+            mv = movement.get(account.get("id"), {"debit": 0, "credit": 0})
+            opening = float(account.get("opening_balance", 0) or 0)
+            if get_account_nature(AccountType(account["account_type"])) == "debit":
+                balance = round(opening + mv["debit"] - mv["credit"], 2)
+            else:
+                balance = round(opening + mv["credit"] - mv["debit"], 2)
             if balance == 0:
                 continue
             
@@ -670,68 +687,74 @@ class AccountingService:
         company_id: str,
         as_of_date: Optional[str] = None
     ) -> Dict:
-        """الميزانية العمومية"""
+        """الميزانية العمومية — every balance as of `as_of_date`, from the ledger.
+
+        Previously: balances came from current_balance (ignoring the date, so
+        future-dated entries leaked in) and equity only added the last 365 days
+        of net income, dropping every earlier year's result. The two sides then
+        never matched and the sheet reported itself unbalanced.
+        """
+        as_of_date = as_of_date or datetime.utcnow().strftime("%Y-%m-%d")
         accounts = await self.get_all_accounts(company_id)
-        
+
+        pipeline = [
+            {"$match": {"company_id": company_id,
+                        "entry_date": {"$lte": as_of_date + "\uffff"}}},
+            {"$group": {"_id": "$account_id",
+                        "debit": {"$sum": "$debit"}, "credit": {"$sum": "$credit"}}},
+        ]
+        movement = {r["_id"]: r async for r in self.db.general_ledger.aggregate(pipeline)}
+
+        def balance_of(account):
+            mv = movement.get(account.get("id"), {"debit": 0, "credit": 0})
+            opening = float(account.get("opening_balance", 0) or 0)
+            if get_account_nature(AccountType(account["account_type"])) == "debit":
+                return opening + mv["debit"] - mv["credit"]
+            return opening + mv["credit"] - mv["debit"]
+
         assets = {"current": [], "fixed": [], "total": 0}
         liabilities = {"current": [], "long_term": [], "total": 0}
         equity = {"items": [], "total": 0}
-        
+        accumulated_result = 0.0   # revenue − expense since inception, to as_of_date
+
         for account in accounts:
-            balance = account.get("current_balance", 0)
+            if account.get("is_header") or account.get("account_category") == "header":
+                continue
+            balance = round(balance_of(account), 2)
             if balance == 0:
                 continue
-            
-            item = {
-                "account_code": account["account_code"],
-                "account_name": account["account_name"],
-                "amount": abs(balance)
-            }
-            
+
             account_type = account["account_type"]
-            category = account["account_category"]
-            
-            if account_type in [AccountType.ASSET.value, AccountType.CONTRA_ASSET.value]:
-                if category == AccountCategory.FIXED_ASSET.value:
-                    assets["fixed"].append(item)
-                else:
-                    assets["current"].append(item)
-                
-                if account_type == AccountType.CONTRA_ASSET.value:
-                    assets["total"] -= abs(balance)
-                else:
-                    assets["total"] += balance
-            
-            elif account_type == AccountType.LIABILITY.value:
-                if category == AccountCategory.LONG_TERM_LIABILITY.value:
-                    liabilities["long_term"].append(item)
-                else:
-                    liabilities["current"].append(item)
-                liabilities["total"] += balance
-            
+            category = account.get("account_category")
+            item = {"account_code": account["account_code"],
+                    "account_name": account["account_name"], "amount": balance}
+
+            if account_type == AccountType.REVENUE.value:
+                accumulated_result += balance
+            elif account_type == AccountType.EXPENSE.value:
+                accumulated_result -= balance
+            elif account_type in [AccountType.ASSET.value, AccountType.CONTRA_ASSET.value]:
+                (assets["fixed"] if category == AccountCategory.FIXED_ASSET.value
+                 else assets["current"]).append(item)
+                assets["total"] += -balance if account_type == AccountType.CONTRA_ASSET.value else balance
+            elif account_type in [AccountType.LIABILITY.value, AccountType.CONTRA_LIABILITY.value]:
+                (liabilities["long_term"] if category == AccountCategory.LONG_TERM_LIABILITY.value
+                 else liabilities["current"]).append(item)
+                liabilities["total"] += -balance if account_type == AccountType.CONTRA_LIABILITY.value else balance
             elif account_type in [AccountType.EQUITY.value, AccountType.CONTRA_EQUITY.value]:
                 equity["items"].append(item)
-                if account_type == AccountType.CONTRA_EQUITY.value:
-                    equity["total"] -= abs(balance)
-                else:
-                    equity["total"] += balance
-        
-        # إضافة صافي الدخل لحقوق الملكية
-        income_statement = await self.get_income_statement(
-            company_id,
-            (datetime.utcnow() - timedelta(days=365)).strftime("%Y-%m-%d"),
-            as_of_date or datetime.utcnow().strftime("%Y-%m-%d")
-        )
-        net_income = income_statement["net_income"]
-        
-        if net_income != 0:
-            equity["items"].append({
-                "account_code": "-",
-                "account_name": "صافي الدخل للفترة",
-                "amount": net_income
-            })
-            equity["total"] += net_income
-        
+                equity["total"] += -balance if account_type == AccountType.CONTRA_EQUITY.value else balance
+
+        accumulated_result = round(accumulated_result, 2)
+        if accumulated_result != 0:
+            equity["items"].append({"account_code": "-",
+                                    "account_name": "صافي الأرباح (الخسائر) المتراكمة",
+                                    "amount": accumulated_result})
+            equity["total"] += accumulated_result
+
+        for group in (assets, liabilities, equity):
+            group["total"] = round(group["total"], 2)
+
         return {
             "as_of_date": as_of_date or datetime.utcnow().strftime("%Y-%m-%d"),
             "assets": assets,
