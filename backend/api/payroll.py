@@ -390,7 +390,7 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
     # الأكواد تتوافق مع دليل الحسابات المصري — قانون 148/2019 و91/2005
     sal_id,    sal_code,    sal_name    = get_account_info(settings.get("salaries_expense_account"),         "331")  # رواتب وأجور إدارية
     allow_id,  allow_code,  allow_name  = get_account_info(settings.get("allowances_expense_account"),       "331")  # بدلات (نفس حساب الرواتب)
-    si_exp_id, si_exp_code, si_exp_name = get_account_info(settings.get("social_insurance_expense_account"),"331")  # تأمينات حصة الشركة 18.75%
+    si_exp_id, si_exp_code, si_exp_name = get_account_info(settings.get("social_insurance_expense_account"),"3367")  # تأمينات حصة الشركة 18.75%
     si_pay_id, si_pay_code, si_pay_name = get_account_info(settings.get("social_insurance_payable_account"),"255")  # التأمينات الاجتماعية المستحقة
     tax_id,    tax_code,    tax_name    = get_account_info(settings.get("income_tax_payable_account"),       "266")  # ضريبة كسب العمل
     sal_pay_id,sal_pay_code,sal_pay_name= get_account_info(settings.get("salaries_payable_account"),        "253")  # صافي الرواتب المستحقة
@@ -1223,7 +1223,7 @@ async def pay_payroll(
         return None, default_code, f"حساب {default_code}"
     
     sal_pay_id, sal_pay_code, sal_pay_name = get_acc(settings.get("salaries_payable_account"), "253")  # مصروفات مستحقة
-    bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "111")  # البنك
+    bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "162")  # البنك (111 is Land in this chart)
     
     if not sal_pay_id or not bank_id:
         raise HTTPException(status_code=400, detail="الحسابات المحاسبية غير متوفرة")
@@ -2110,13 +2110,15 @@ async def disburse_payroll(
     # حسابات القيد
     sal_pay_id,  sal_pay_code,  sal_pay_name  = acct("salaries_payable_account_id",      "253")
     bank_id,     bank_code,     bank_name      = acct("bank_account_id",                  "162")
-    si_pay_id,   si_pay_code,   si_pay_name    = acct("social_insurance_payable_account_id","260")
+    si_pay_id,   si_pay_code,   si_pay_name    = acct("social_insurance_payable_account_id","255")
     tax_id,      tax_code,      tax_name       = acct("income_tax_payable_account_id",    "266")
     emg_pay_id,  emg_pay_code,  emg_pay_name   = acct(None,                               "258")
     mrt_pay_id,  mrt_pay_code,  mrt_pay_name   = acct(None,                               "259")
     uhi_pay_id,  uhi_pay_code,  uhi_pay_name   = acct(None,                               "262")
     
-    payroll_month = f"{run.get('year', '')}/{run.get('month', '')}"
+    # month is stored as "YYYY-MM"; prefixing the year again printed "2026/2026-09"
+    _m = str(run.get('month', ''))
+    payroll_month = _m if "-" in _m else f"{run.get('year', '')}/{_m}"
     entry_date = datetime.now().strftime("%Y-%m-%d")
     
     # ══ القيد أ: صرف الرواتب ══════════════════════════

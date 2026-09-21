@@ -565,6 +565,8 @@ DEFAULT_ACCOUNTS = [
      "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "33"},
     {"code": "3366", "name": "مصروفات نثرية ومتنوعة", "name_en": "Petty & Sundry Expenses",
      "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
+    {"code": "3367", "name": "حصة الشركة في التأمينات الاجتماعية", "name_en": "Employer Social Insurance Contribution",
+     "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
     {"code": "417", "name": "إيرادات غرف العمليات والجراحة", "name_en": "Operating Room & Surgery Revenue",
      "type": AccountType.REVENUE, "category": AccountCategory.OPERATING_REVENUE, "parent_code": "41"},
     # ── Accounts specialised modules post to (a wider scan found map entries

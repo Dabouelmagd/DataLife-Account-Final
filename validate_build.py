@@ -266,6 +266,11 @@ ROLE_NAMES = [
     (r'accum\w*_dep\w*', r'مجمع'),
     (r'social_insurance\w*|si_payable', r'تأمين'),
     (r'petty\w*', r'نثري'),
+    (r'\w*social_insurance_payable\w*', r'تأمين'),
+    (r'\w*income_tax_payable\w*|\w*payroll_tax\w*', r'ضريب'),
+    (r'\w*loans_receivable\w*', r'سلف|قروض'),
+    (r'\w*salaries_payable\w*', r'أجور|مرتبات|مستحق'),
+    (r'\w*bank_account\w*', r'بنك|بنوك'),
 ]
 def check_account_roles():
     import re
@@ -275,10 +280,12 @@ def check_account_roles():
     names = dict(re.findall(r'"code":\s*"(\d+)",\s*"name":\s*"([^"]+)"', chart.read_text(encoding="utf-8")))
     alt = "|".join(f"(?:{r})" for r, _ in ROLE_NAMES)
     pat = re.compile(r'["\']?\b(' + alt + r')\b["\']?\s*(?::\s*(?:str\s*=\s*)?|=\s*)\(?\s*["\'](\d{2,5})["\']', re.I)
+    # also the call form: get_acc(settings.get("bank_account"), "111") / acct("x_id", "260")
+    call = re.compile(r'\b(?:get_acc|acct|get_account_info)\(\s*(?:settings\.get\()?\s*["\'](' + alt + r')["\']\)?\s*,\s*["\'](\d{2,5})["\']', re.I)
     for folder in ("api", "services"):
         for f in sorted((ROOT / "backend" / folder).glob("*.py")):
             for n, line in enumerate(f.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
-                for m in pat.finditer(line):
+                for m in list(pat.finditer(line)) + list(call.finditer(line)):
                     role, code = m.group(1), m.group(2)
                     if code not in names:
                         continue
