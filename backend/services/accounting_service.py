@@ -217,7 +217,8 @@ class AccountingService:
         VALID_SOURCE_TYPES = {
             "manual","payroll","invoice","claim","medical_service",
             "subcontractor_claim","doctor_payment","construction",
-            "payroll_disbursement","payroll_government","cogs_entry"
+            "payroll_disbursement","payroll_government","cogs_entry",
+            "adjustment",   # correcting / reclassification entries
         }
         if entry.source_document_type not in VALID_SOURCE_TYPES:
             entry.source_document_type = "manual"
@@ -337,7 +338,7 @@ class AccountingService:
         if entry["status"] == JournalEntryStatus.POSTED.value:
             raise ValueError("IMMUTABILITY VIOLATION: Journal entry already posted. Use reversal to correct.")
         
-        if entry["status"] == JournalEntryStatus.CANCELLED.value:
+        if entry["status"] == JournalEntryStatus.CANCELED.value:
             raise ValueError("Cannot post a cancelled entry")
 
         # An entry with no lines would be marked posted while writing nothing
