@@ -536,7 +536,7 @@ class GovernmentPaymentRequest(BaseModel):
     period:           str   # "2026-01" or "2026-Q1"
     reference_number: Optional[str] = None   # رقم المرجع من البوابة
     payment_date:     str
-    bank_account:     str = "112"
+    bank_account:     str = "162"
     notes:            Optional[str] = None
 
 

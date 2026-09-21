@@ -35,7 +35,7 @@ ACC = {
     "lg_fees_exp":     "3321",  # مصروف عمولات إصدار
     "lg_memo_dr":      "9111",  # التزام خطاب ضمان صادر (نظامي)
     "lg_memo_cr":      "9112",  # التزام البنك (نظامي مقابل)
-    "bank":            "112",
+    "bank":            "162",
     # EAS 49 — Lease
     "rou_asset":       "1561",  # أصل حق الاستخدام
     "rou_acc_dep":     "1562",  # مجمع إهلاك ROU
@@ -108,7 +108,7 @@ class IssueLGRequest(BaseModel):
     commission_rate: float = 0.005  # عمولة إصدار (0.5% افتراضي)
     issue_date:      str
     expiry_date:     str
-    bank_account:    str = "112"
+    bank_account:    str = "162"
     reference:       Optional[str] = None
     notes:           Optional[str] = None
 
@@ -239,7 +239,7 @@ async def release_letter_of_guarantee(
 
     # ── القيد أ: استرداد الغطاء ──────────────────────────────
     lines_a = await asyncio.gather(
-        je_line(company_id, "112", debit=margin,
+        je_line(company_id, "162", debit=margin,
                 desc=f"استرداد غطاء خطاب ضمان — {lg['beneficiary']} — {reason}"),
         je_line(company_id, ACC["lg_margin"], credit=margin,
                 desc=f"إقفال غطاء خطاب ضمان — {lg['lg_type_ar']}"),
@@ -411,7 +411,7 @@ async def create_lease_contract(
         # Flip: initial direct costs come from bank usually
         lines[-1]["credit"] = 0
         lines.append(await je_line(
-            company_id, "112", credit=req.initial_direct_costs,
+            company_id, "162", credit=req.initial_direct_costs,
             desc="تكاليف مباشرة أولية مدفوعة"))
 
     je_id = await post_je(company_id, current_user["user_id"], req.lease_start,
@@ -528,7 +528,7 @@ async def post_monthly_lease_entry(
     lines += [
         await je_line(company_id, ACC["rou_acc_dep"], credit=dep_amount,
                       desc=f"مجمع إهلاك — {asset_name}"),
-        await je_line(company_id, "112", credit=payment,
+        await je_line(company_id, "162", credit=payment,
                       desc=f"سداد قسط إيجار {period}/{lease['lease_term_months']} — {asset_name}"),
     ]
     # الفائدة المستحقة تُقلِّل الالتزام بقدر الفائدة فقط (الباقي رأس المال)

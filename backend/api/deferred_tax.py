@@ -42,7 +42,7 @@ ACC = {
     "deferred_tax_exp":"3352",  # مصروف الضريبة المؤجلة
     "deferred_tax_inc":"4351",  # إيراد انعكاس ضريبة مؤجلة
     "retained":        "213",
-    "bank":            "112",
+    "bank":            "162",
 }
 
 # Non-deductible provisions (create DTA when charged, reverse when settled)

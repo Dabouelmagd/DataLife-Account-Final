@@ -442,7 +442,7 @@ async def pay_supplier(supplier_id: str, data: SupplierPaymentIn,
     entry = JournalEntry(
         company_id=company_id, entry_date=data.date, reference=data.reference or payment_id,
         description=desc, created_by=user_id or "system",
-        source_document_type="manual", source_document_id=payment_id,
+        source_document_type="supplier_payment", source_document_id=payment_id,
         lines=[
             JournalEntryLine(account_id=payable["id"], account_code=payable["account_code"],
                              account_name=payable["account_name"], debit=amount, credit=0, description=desc),

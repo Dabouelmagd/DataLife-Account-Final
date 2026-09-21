@@ -2109,7 +2109,7 @@ async def disburse_payroll(
     
     # حسابات القيد
     sal_pay_id,  sal_pay_code,  sal_pay_name  = acct("salaries_payable_account_id",      "253")
-    bank_id,     bank_code,     bank_name      = acct("bank_account_id",                  "112")
+    bank_id,     bank_code,     bank_name      = acct("bank_account_id",                  "162")
     si_pay_id,   si_pay_code,   si_pay_name    = acct("social_insurance_payable_account_id","260")
     tax_id,      tax_code,      tax_name       = acct("income_tax_payable_account_id",    "266")
     emg_pay_id,  emg_pay_code,  emg_pay_name   = acct(None,                               "258")

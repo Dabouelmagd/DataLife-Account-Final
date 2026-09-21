@@ -34,7 +34,7 @@ ACC = {
     "inventory_rm":"121",   # مخزون خامات ومواد أولية
     "inventory_fg":"122",   # مخزون بضاعة جاهزة
     "inventory_tr":"123",   # بضاعة بالطريق
-    "bank":        "112",
+    "bank":        "162",
     "cash":        "161",
 }
 
@@ -95,7 +95,7 @@ class OpenLCRequest(BaseModel):
     bank_commission:  float         # عمولة البنك
     open_date:        str
     expiry_date:      str
-    bank_account:     str = "112"
+    bank_account:     str = "162"
     notes:            Optional[str] = None
 
 

@@ -530,7 +530,7 @@ async def post_gratuity_journal(
     lines = [
         await je_line(company_id, "223", debit=amount,
                       desc=f"مكافأة نهاية خدمة — {emp.get('name','')}"),
-        await je_line(company_id, "112", credit=amount,
+        await je_line(company_id, "162", credit=amount,
                       desc=f"صرف مكافأة نهاية خدمة — {emp.get('name','')}"),
     ]
     svc = AccountingService(db)

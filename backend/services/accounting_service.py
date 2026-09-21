@@ -38,7 +38,7 @@ class AccountingService:
             # إنشاء الحسابات الافتراضية
             # حسابات تحتاج تسوية دورية (بنوك / عملاء / موردون / ضرائب)
             RECONCILIATION_CODES = {
-                "112","113","114",          # بنوك
+                "162","163","164",          # بنوك، شيكات، درج الكاشير (were 112-114: buildings, vehicles, machinery)
                 "131","132","133","134",    # ذمم مدينة
                 "161",                      # الخزينة
                 "212","251","252","253",    # موردون وأرصدة دائنة
@@ -222,6 +222,10 @@ class AccountingService:
             "subcontractor_claim","doctor_payment","construction",
             "payroll_disbursement","payroll_government","cogs_entry",
             "adjustment",   # correcting / reclassification entries
+            # used by modules but previously rewritten to "manual", which hid
+            # where an entry came from in audits and reports
+            "petty_cash", "letter_of_credit", "equity", "sales_invoice",
+            "project_expense", "project_revenue", "supplier_payment",
         }
         if entry.source_document_type not in VALID_SOURCE_TYPES:
             entry.source_document_type = "manual"

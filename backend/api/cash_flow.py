@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/cash-flow", tags=["Cash Flow"])
 # كل حساب → نشاط تشغيلي / استثماري / تمويلي
 # ══════════════════════════════════════════════════════════════
 
-CASH_ACCOUNTS = {"112", "161", "162", "113"}  # بنوك + خزائن
+CASH_ACCOUNTS = {"161", "162", "164"}  # الخزينة + البنوك + درج الكاشير (112/113 were buildings/vehicles)
 
 # Direct method: حركات البنك/الخزينة مصنَّفة حسب الحساب المقابل
 DIRECT_CLASSIFICATION = {

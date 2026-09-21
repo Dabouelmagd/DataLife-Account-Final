@@ -428,7 +428,7 @@ async def create_e_receipt(
     # Dr البنك/الخزينة/محفظة إلكترونية | Cr إيرادات مبيعات + VAT مخرجات
     PAYMENT_ACCOUNTS = {
         "cash":           ("161", "الخزينة"),
-        "card":           ("112", "البنك — نقطة بيع"),
+        "card":           ("162", "البنك — نقطة بيع"),
         "mobile_wallet":  ("113", "محافظ إلكترونية"),
     }
     pay_code, pay_name = PAYMENT_ACCOUNTS.get(req.payment_method, ("161", "الخزينة"))

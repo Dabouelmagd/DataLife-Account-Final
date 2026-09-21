@@ -778,7 +778,7 @@ async def create_medical_service(data: dict, current_user: dict = Depends(get_us
     rev_code, rev_name_default = SERVICE_REVENUE_ACCOUNTS.get(svc_type, SERVICE_REVENUE_ACCOUNTS["other"])
     
     cash_id,   cash_code,   cash_name    = acct("161", "الخزينة / الصندوق النقدي")
-    bank_id,   bank_code,   bank_name    = acct("112", "البنك")
+    bank_id,   bank_code,   bank_name    = acct("162", "البنك")
     ins_id,    ins_code,    ins_name     = acct("134", "مدينو شركات التأمين الطبي")
     rev_id,    rev_code2,   rev_name     = acct(rev_code, rev_name_default)
     trust_id,  trust_code,  trust_name   = acct("264", "أمانات أطباء استشاريين")
@@ -1031,7 +1031,7 @@ async def pay_doctor(data: dict, current_user: dict = Depends(get_user)):
     
     trust_id,  trust_code,  trust_name   = acct("264", "أمانات أطباء استشاريين")
     wht_id,    wht_code,    wht_name     = acct("261", "مصلحة الضرائب — خصم وتحصيل")
-    bank_id,   bank_code,   bank_name    = acct("112", "البنك")
+    bank_id,   bank_code,   bank_name    = acct("162", "البنك")
     cash_id,   cash_code,   cash_name    = acct("161", "الخزينة / الصندوق النقدي")
     
     lines_je = []

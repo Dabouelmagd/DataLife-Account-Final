@@ -563,6 +563,8 @@ DEFAULT_ACCOUNTS = [
      "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "33"},
     {"code": "3365", "name": "خسائر عهد ومفقودات", "name_en": "Loss on Lost Custody Items",
      "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "33"},
+    {"code": "3366", "name": "مصروفات نثرية ومتنوعة", "name_en": "Petty & Sundry Expenses",
+     "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
     {"code": "417", "name": "إيرادات غرف العمليات والجراحة", "name_en": "Operating Room & Surgery Revenue",
      "type": AccountType.REVENUE, "category": AccountCategory.OPERATING_REVENUE, "parent_code": "41"},
 ]

@@ -249,6 +249,44 @@ def check_token_keys():
                 errors.append(f"❌ backend/api/{f.name}:{line}: current_user[\"{m.group(1)}\"] — "
                               f"the token has no such key (use user_id / .get())")
 
+# ── Mode 8: Account role vs account name ─────────────────────
+# Modules were written against another chart: "bank": "112" posted every
+# bank movement to 112 مباني وإنشاءات. A code that exists is not enough —
+# its NAME must fit the role the code gives it.
+ROLE_NAMES = [
+    (r'bank\w*', r'بنك|بنوك'),
+    (r'(?:main_)?cash(?:_drawer)?|treasury_cash', r'خزين|صندوق|نقدي|كاشير'),
+    (r'customers?|receivables?|accounts_receivable', r'عملاء|مدين|قبض'),
+    (r'suppliers?|payables?|accounts_payable|vendors?', r'موردون|دائن|الدفع'),
+    (r'vat_out\w*|output_vat|sales_vat', r'مخرجات|القيمة المضافة|الضرائب المستحقة'),
+    (r'vat_in\w*|input_vat|purchase_vat', r'مدخلات'),
+    (r'salar\w*_payable|wages_payable|payroll_payable', r'أجور|مرتبات|مستحق'),
+    (r'inventory|stock', r'مخزون'),
+    (r'depreciation_exp\w*|dep_exp\w*', r'إهلاك'),
+    (r'accum\w*_dep\w*', r'مجمع'),
+    (r'social_insurance\w*|si_payable', r'تأمين'),
+    (r'petty\w*', r'نثري'),
+]
+def check_account_roles():
+    import re
+    chart = ROOT / "backend" / "models" / "accounting.py"
+    if not chart.exists():
+        return
+    names = dict(re.findall(r'"code":\s*"(\d+)",\s*"name":\s*"([^"]+)"', chart.read_text(encoding="utf-8")))
+    alt = "|".join(f"(?:{r})" for r, _ in ROLE_NAMES)
+    pat = re.compile(r'["\']?\b(' + alt + r')\b["\']?\s*(?::\s*(?:str\s*=\s*)?|=\s*)\(?\s*["\'](\d{2,5})["\']', re.I)
+    for folder in ("api", "services"):
+        for f in sorted((ROOT / "backend" / folder).glob("*.py")):
+            for n, line in enumerate(f.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                for m in pat.finditer(line):
+                    role, code = m.group(1), m.group(2)
+                    if code not in names:
+                        continue
+                    allow = next(a for r, a in ROLE_NAMES if re.fullmatch(r, role, re.I))
+                    if not re.search(allow, names[code]):
+                        errors.append(f"❌ backend/{folder}/{f.name}:{n}: {role}={code} "
+                                      f"but {code} is «{names[code]}»")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -264,6 +302,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 8: Account role check...")
+check_account_roles()
 
 print(f"Mode 7: Token key check...")
 check_token_keys()

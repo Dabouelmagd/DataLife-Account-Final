@@ -113,7 +113,7 @@ async def create_fixed_asset(data: dict, current_user: dict = Depends(get_curren
     # ── Purchase Journal Entry ──────────────────────────────
     purchase_cost = float(data.get("purchase_cost", 0))
     payment_method = data.get("payment_method", "bank")  # bank | credit
-    bank_code   = "112"   # البنك
+    bank_code   = "162"   # البنك
     creditor_code = "251"  # الموردون
 
     # القيد أ: شراء وإضافة للمشروعات تحت التنفيذ
@@ -474,7 +474,7 @@ async def dispose_asset(
     # مدين: البنك (عائد البيع)
     if sale_proceeds > 0:
         lines.append(await make_je_line(
-            company_id, "112", "البنك",
+            company_id, "162", "البنك",
             debit=sale_proceeds, desc=f"عائد بيع {asset_name}"))
 
     # مدين: مجمع الإهلاك (إقفال المتراكم)

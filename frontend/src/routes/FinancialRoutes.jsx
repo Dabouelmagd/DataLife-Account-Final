@@ -10,6 +10,7 @@ import InventoryPage from '../pages/InventoryPage';
 import ProjectsModule from '../components/ProjectsModule';
 import BankManagementPage from '../pages/BankManagementPage';
 import SuppliersPage from '../pages/SuppliersPage';
+import CustodyPage from '../pages/CustodyPage';
 
 // Financial Modules
 import PurchasesModule from '../components/PurchasesModule';
@@ -18,7 +19,6 @@ import {
   GeneralLedgerPage,
   FinancialReportsPage,
   TreasuryModule,
-  CustodyModule,
   AccountsModule,
   CustomersModule,
 } from '../components/FinancialSubModules';
@@ -49,7 +49,8 @@ export const renderFinancialContent = ({
     case 'treasury':
       return <TreasuryModule language={language} userRole={userRole} />;
     case 'custody':
-      return <CustodyModule language={language} userRole={userRole} />;
+      // was CustodyModule: hard-coded sample rows, nothing saved
+      return <CustodyPage />;
     case 'accounts':
       return <AccountsModule language={language} userRole={userRole} />;
     case 'bank':

@@ -41,7 +41,7 @@ ACC = {
     "cogs":            "311",
     "inventory":       "121",
     "retained":        "213",
-    "bank":            "112",
+    "bank":            "162",
 }
 
 

@@ -28,7 +28,7 @@ router = APIRouter(prefix="/api/treasury", tags=["Treasury & Cheques"])
 # ══════════════════════════════════════════════════════════════
 ACC = {
     "cash":             "161",  # الخزينة
-    "bank":             "112",  # البنك الجاري
+    "bank":             "162",  # البنك الجاري
     "ar":               "131",  # العملاء
     "ap":               "251",  # الموردون
     "notes_receivable": "132",  # أوراق القبض (شيكات واردة)
@@ -36,7 +36,7 @@ ACC = {
     "returned_checks":  "234",  # شيكات مرتجعة
     "bounce_fees_exp":  "235",  # مصاريف ارتداد الشيكات
     "notes_payable":    "252",  # أوراق الدفع (شيكات صادرة)
-    "bank_charges_exp": "332",  # مصاريف بنكية
+    "bank_charges_exp": "334",  # مصروفات وعمولات بنكية (332 is utilities)
 }
 
 
@@ -116,19 +116,19 @@ class IssueChequeRequest(BaseModel):
     cheque_number:  str
     cheque_date:    str            # تاريخ الاستحقاق
     issue_date:     str            # تاريخ الإصدار
-    bank_account_code: str = "112"
+    bank_account_code: str = "162"
     notes:          Optional[str] = None
 
 class DepositRequest(BaseModel):
     cheque_id:      str
     deposit_date:   str
-    bank_account_code: str = "112"
+    bank_account_code: str = "162"
     notes:          Optional[str] = None
 
 class CollectRequest(BaseModel):
     cheque_id:      str
     collection_date: str
-    bank_account_code: str = "112"
+    bank_account_code: str = "162"
 
 class BounceRequest(BaseModel):
     cheque_id:      str
@@ -139,7 +139,7 @@ class BounceRequest(BaseModel):
 class ClearOutgoingRequest(BaseModel):
     cheque_id:      str
     clear_date:     str
-    bank_account_code: str = "112"
+    bank_account_code: str = "162"
 
 
 # ══════════════════════════════════════════════════════════════

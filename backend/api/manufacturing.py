@@ -44,7 +44,7 @@ ACC = {
     "inv_writedown_exp":"313",   # مصروف هبوط مخزون
     "contingency_prov": "227",   # مخصص قضايا والتزامات محتملة
     "contingency_exp":  "333",   # مصروف مخصص قضايا
-    "bank":             "112",
+    "bank":             "162",
     "ar":               "131",
     "service_rev":      "412",   # إيرادات الخدمات المحققة
     "rent_exp":         "332",
@@ -378,7 +378,7 @@ class PrepaymentRequest(BaseModel):
     start_date:      str
     end_date:        str          # فترة الاستحقاق
     payment_date:    str
-    payment_account: str = "112"  # بنك | خزينة
+    payment_account: str = "162"  # بنك | خزينة
     expense_account: str = "332"  # حساب المصروف (للمدفوع مقدماً)
     revenue_account: str = "412"  # حساب الإيراد (للمؤجل)
     notes:           Optional[str] = None
