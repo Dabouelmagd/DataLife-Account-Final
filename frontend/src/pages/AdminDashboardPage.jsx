@@ -76,13 +76,13 @@ const AdminDashboardPage = ({ language }) => {
         projectsRes
       ] = await Promise.all([
         fetch(`${API_URL}/api/employees`, { headers }).catch(() => null),
-        fetch(`${API_URL}/api/customers`, { headers }).catch(() => null),
-        fetch(`${API_URL}/api/suppliers`, { headers }).catch(() => null),
-        fetch(`${API_URL}/api/invoices`, { headers }).catch(() => null),
+        fetch(`${API_URL}/api/financial/customers`, { headers }).catch(() => null),
+        fetch(`${API_URL}/api/financial/suppliers`, { headers }).catch(() => null),
+        fetch(`${API_URL}/api/invoices/`, { headers }).catch(() => null),
         fetch(`${API_URL}/api/bank-accounts`, { headers }).catch(() => null),
         fetch(`${API_URL}/api/bank-transactions`, { headers }).catch(() => null),
-        fetch(`${API_URL}/api/products`, { headers }).catch(() => null),
-        fetch(`${API_URL}/api/projects`, { headers }).catch(() => null)
+        fetch(`${API_URL}/api/inventory/products`, { headers }).catch(() => null),
+        fetch(`${API_URL}/api/tasks/projects`, { headers }).catch(() => null)
       ]);
 
       // Process employees

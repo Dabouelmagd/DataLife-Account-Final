@@ -19,6 +19,11 @@ ROOT = Path(__file__).parent
 # paths that are legitimately absent from the backend
 API_IGNORE = (
     "/api/placeholder",   # demo and mock imagery
+    # Stripe and PayPal checkout deliberately return 503 ("coming soon").
+    # Do NOT add capture/status routes for them: a status route that ever
+    # reported "paid" would activate subscriptions with no money received.
+    "/api/payments/paypal/capture",
+    "/api/payments/status",
 )
 
 def norm_path(p):
@@ -173,6 +178,8 @@ def check_api_routes():
             continue
         warnings.append(
             f"⚠️  {path} — no backend route  ← " + ", ".join(sorted(sources)[:2]))
+    print(f"  checked {len(called)} frontend API paths against {len(served)} backend routes")
+    return True
 
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')

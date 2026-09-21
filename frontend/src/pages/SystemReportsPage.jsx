@@ -89,21 +89,21 @@ const SystemReportsPage = ({ language }) => {
         revenuesRes
       ] = await Promise.all([
         fetch(`${API_URL}/api/employees`, { headers }).catch(() => ({ ok: false })),
-        fetch(`${API_URL}/api/customers`, { headers }).catch(() => ({ ok: false })),
-        fetch(`${API_URL}/api/suppliers`, { headers }).catch(() => ({ ok: false })),
-        fetch(`${API_URL}/api/invoices`, { headers }).catch(() => ({ ok: false })),
-        fetch(`${API_URL}/api/purchases`, { headers }).catch(() => ({ ok: false })),
-        fetch(`${API_URL}/api/products`, { headers }).catch(() => ({ ok: false })),
-        fetch(`${API_URL}/api/projects`, { headers }).catch(() => ({ ok: false })),
-        fetch(`${API_URL}/api/expenses`, { headers }).catch(() => ({ ok: false })),
-        fetch(`${API_URL}/api/revenues`, { headers }).catch(() => ({ ok: false }))
+        fetch(`${API_URL}/api/financial/customers`, { headers }).catch(() => ({ ok: false })),
+        fetch(`${API_URL}/api/financial/suppliers`, { headers }).catch(() => ({ ok: false })),
+        fetch(`${API_URL}/api/invoices/`, { headers }).catch(() => ({ ok: false })),
+        fetch(`${API_URL}/api/purchases/orders`, { headers }).catch(() => ({ ok: false })),
+        fetch(`${API_URL}/api/inventory/products`, { headers }).catch(() => ({ ok: false })),
+        fetch(`${API_URL}/api/tasks/projects`, { headers }).catch(() => ({ ok: false })),
+        Promise.resolve({ ok: false }) /* no /api/expenses; totals fall back to invoices/purchases */,
+        Promise.resolve({ ok: false }) /* no /api/revenues; totals fall back to invoices/purchases */
       ]);
 
       // Parse responses
       const parseResponse = async (res) => {
         if (!res.ok) return [];
         const data = await res.json();
-        return Array.isArray(data) ? data : (data.employees || data.items || data.data || []);
+        return Array.isArray(data) ? data : (data.employees || data.items || data.data || data.products || []);
       };
 
       const employees = await parseResponse(employeesRes);

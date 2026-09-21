@@ -131,8 +131,7 @@ const EmployeeSelfService = () => {
     try {
       setLoading(true);
       // Try ESS endpoint first — returns own employee data
-      const res = await axios.get(`${API}/api/ess/profile`, { headers: authHeaders() })
-        .catch(() => axios.get(`${API}/api/hr/employees/me`, { headers: authHeaders() }));
+      const res = await axios.get(`${API}/api/ess/profile`, { headers: authHeaders() });
       setEmployee(res.data?.employee || res.data);
     } catch {
       // Fallback: build from user data
@@ -272,9 +271,9 @@ const EmployeeSelfService = () => {
   // ── Upload photo ─────────────────────────────────────────────
   const uploadPhoto = async (file) => {
     const fd = new FormData();
-    fd.append('photo', file);
+    fd.append('file', file);   // /api/users/upload-photo reads the 'file' field
     try {
-      const res = await axios.post(`${API}/api/hr/employees/${employee?.id}/photo`, fd, {
+      const res = await axios.post(`${API}/api/users/upload-photo`, fd, {
         headers: { ...authHeaders(), 'Content-Type': 'multipart/form-data' }
       });
       setEmployee(prev => ({ ...prev, photo_url: res.data?.photo_url }));
