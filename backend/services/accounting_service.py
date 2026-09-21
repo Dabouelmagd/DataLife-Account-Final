@@ -294,17 +294,32 @@ class AccountingService:
         debit_code  = entry.get("debit_account_code")
         credit_code = entry.get("credit_account_code")
 
-        if debit_code:
-            acc = await self.db.chart_of_accounts.find_one(
-                {"company_id": company_id, "account_code": debit_code}, {"_id": 0})
-            if acc:
-                await self.update_account_balance(acc["id"], amount, 0)
+        # Resolve both accounts first. Previously an unknown code was skipped
+        # silently and the entry was still marked posted, and no ledger rows
+        # were ever written — so these entries never reached any report.
+        debit_acc = await self.db.chart_of_accounts.find_one(
+            {"company_id": company_id, "account_code": debit_code}, {"_id": 0}) if debit_code else None
+        credit_acc = await self.db.chart_of_accounts.find_one(
+            {"company_id": company_id, "account_code": credit_code}, {"_id": 0}) if credit_code else None
+        if not debit_acc or not credit_acc:
+            raise ValueError(
+                f"Account code not found in chart of accounts: "
+                f"{debit_code if not debit_acc else ''} {credit_code if not credit_acc else ''}".strip())
 
-        if credit_code:
-            acc = await self.db.chart_of_accounts.find_one(
-                {"company_id": company_id, "account_code": credit_code}, {"_id": 0})
-            if acc:
-                await self.update_account_balance(acc["id"], 0, amount)
+        entry_date = entry.get("entry_date") or entry.get("date") or datetime.utcnow().strftime("%Y-%m-%d")
+        for acc, dr, cr in ((debit_acc, amount, 0.0), (credit_acc, 0.0, amount)):
+            nature = get_account_nature(AccountType(acc["account_type"]))
+            cur = acc.get("current_balance", 0) or 0
+            new_balance = cur + (dr - cr if nature == "debit" else cr - dr)
+            await self.db.general_ledger.insert_one(LedgerEntry(
+                company_id=company_id,
+                account_id=acc["id"],
+                journal_entry_id=entry.get("id"),
+                entry_date=entry_date,
+                description=entry.get("description", ""),
+                debit=dr, credit=cr, balance=new_balance,
+            ).dict())
+            await self.update_account_balance(acc["id"], dr, cr)
 
         # Mark as posted
         await self.db.journal_entries.update_one(
@@ -324,6 +339,16 @@ class AccountingService:
         
         if entry["status"] == JournalEntryStatus.CANCELLED.value:
             raise ValueError("Cannot post a cancelled entry")
+
+        # An entry with no lines would be marked posted while writing nothing
+        # to the ledger — invisible to every report. Refuse instead.
+        lines = entry.get("lines") or []
+        if not lines:
+            raise ValueError("Cannot post an entry with no lines")
+        td = round(sum(float(l.get("debit", 0) or 0) for l in lines), 2)
+        tc = round(sum(float(l.get("credit", 0) or 0) for l in lines), 2)
+        if td != tc:
+            raise ValueError(f"Cannot post an unbalanced entry (debit {td} / credit {tc})")
 
         # ── فحص الفترة المالية: هل مفتوحة؟ ──────────────────────
         entry_date   = entry.get("entry_date", "")

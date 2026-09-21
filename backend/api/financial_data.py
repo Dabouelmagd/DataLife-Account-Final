@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, HTTPException, Depends, Header, Query
 from models.financial_data import JournalEntry, TreasuryTransaction, BankTransaction, Customer, Supplier
 from services.auth_service import verify_token
@@ -68,7 +70,8 @@ async def create_journal_entry(entry: JournalEntry, current_user: dict = Depends
         try:
             await service.post_journal_entry(result["id"], current_user.get("user_id"))
         except Exception as e:
-            pass  # Entry created but not posted — user can post manually
+            # Entry stays a draft (status only flips after the ledger is written).
+            logger.error(f"auto-post failed for journal entry {result.get('id')}: {e}")
     return {"message": "Journal entry created successfully", "id": result.get("id")}
 
 # Treasury
@@ -319,7 +322,7 @@ async def create_fixed_asset(asset_data: dict, current_user: dict = Depends(get_
         "credit_account": "النقدية بالبنوك الجارية",
         "credit_account_code": "162",
         "amount": cost, "type": "journal", "reference": asset_code, "source": "asset_purchase",
-        "status": "posted",
+        "status": "draft",   # post_simple_journal_entry marks it posted only on success
     })
     # Update account balances for asset purchase
     try:
@@ -332,7 +335,9 @@ async def create_fixed_asset(asset_data: dict, current_user: dict = Depends(get_
         if _je_ref:
             await _svc_asset.post_simple_journal_entry(_je_ref, current_user.get("user_id", "system"))
     except Exception as _e:
-        pass  # Non-critical
+        # Stays a draft, visible in the journal for manual posting — never a
+        # silent "posted" entry that is missing from the ledger.
+        logger.error(f"asset purchase journal not posted ({asset_code}): {_e}")
     return asset
 
 @router.put("/assets/{asset_id}")
@@ -366,8 +371,19 @@ async def run_depreciation(request_data: dict, current_user: dict = Depends(get_
             "credit_account": f"مجمع إهلاك — {asset.get('asset_type_ar', 'أصول')}",
             "credit_account_code": "222",
             "amount": monthly_dep, "type": "journal", "source": "depreciation",
-            "asset_id": asset["id"], "period": period,
+            "asset_id": asset["id"], "period": period, "status": "draft",
         })
+        # Depreciation used to be inserted with no status and never posted,
+        # so it reached no report. Post it; on failure it stays a draft.
+        try:
+            from services.accounting_service import AccountingService as _ACS_dep
+            _je = await db.journal_entries.find_one(
+                {"company_id": company_id, "source": "depreciation",
+                 "asset_id": asset["id"], "period": period, "status": "draft"}, {"_id": 0})
+            if _je:
+                await _ACS_dep(db).post_simple_journal_entry(_je, current_user.get("user_id", "system"))
+        except Exception as _e:
+            logger.error(f"depreciation not posted ({asset.get('asset_code')} {period}): {_e}")
         entries_created.append({"asset": asset["name"], "monthly_depreciation": monthly_dep})
         total_depreciation += monthly_dep
         await db.fixed_assets.update_one({"id": asset["id"]}, {
