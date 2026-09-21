@@ -131,7 +131,6 @@ const RealDashboard = () => {
       const deductionsData = safeArray(deductions);
       const customersData = safeArray(customers);
       const suppliersData = safeArray(suppliers);
-      const entriesData = safeArray(journalEntries);
       const projectsData   = safeArray(projectsRes);
       const invoicesData   = safeArray(invoicesRes);
       const inventoryData  = safeArray(inventoryRes);
@@ -139,31 +138,28 @@ const RealDashboard = () => {
 
       setEmployees(employeesData);
       
-      // Calculate revenue and expenses from journal entries
-      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      // This month's revenue and expenses come from the income statement, so the
+      // dashboard always agrees with the financial reports. The old loop added
+      // every credit as revenue and every debit as expense — in a balanced entry
+      // both sides are equal, so a capital injection showed as revenue AND expense.
+      // It also counted draft entries, which have not hit the ledger.
       let revenue = 0;
       let expenses = 0;
-      entriesData.forEach(entry => {
-        const entryMonth = (entry.date || entry.created_at || '').slice(0, 7);
-        const isCurrentMonth = entryMonth === currentMonth;
-        if (entry.lines && Array.isArray(entry.lines)) {
-          entry.lines.forEach(line => {
-            if (isCurrentMonth) {
-              revenue += line.credit || 0;
-              expenses += line.debit || 0;
-            }
-          });
-        } else {
-          // Simple entry format: credit_account = revenue, debit_account = expense
-          const creditAcc = (entry.credit_account || '').toLowerCase();
-          const debitAcc = (entry.debit_account || '').toLowerCase();
-          const amt = entry.amount || 0;
-          const revenueKeywords = ['إيراد', 'revenue', 'مبيعات', 'sales', 'دخل', 'income'];
-          const expenseKeywords = ['مصروف', 'expense', 'تكلفة', 'cost', 'إهلاك', 'depreciation'];
-          if (revenueKeywords.some(k => creditAcc.includes(k))) revenue += amt;
-          if (expenseKeywords.some(k => debitAcc.includes(k))) expenses += amt;
-        }
-      });
+      try {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const monthStart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const monthEnd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(lastDay)}`;
+        const is = await axios.get(
+          `${API_URL}/api/accounting/reports/income-statement?start_date=${monthStart}&end_date=${monthEnd}`,
+          config
+        );
+        revenue = Number(is.data?.total_revenue) || 0;
+        expenses = Number(is.data?.total_expenses) || 0;
+      } catch {
+        // leave at 0 rather than show a misleading figure
+      }
 
       setStats({
         totalEmployees: employeesData.length,

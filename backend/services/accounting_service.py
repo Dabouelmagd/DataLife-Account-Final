@@ -578,17 +578,39 @@ class AccountingService:
     ) -> Dict:
         """قائمة الدخل"""
         accounts = await self.get_all_accounts(company_id)
-        
+
+        # Movement WITHIN the period, from the general ledger. The previous
+        # version read current_balance, the all-time running total, so every
+        # period showed cumulative figures and start_date/end_date did nothing.
+        # "\uffff" makes the upper bound inclusive of full ISO timestamps.
+        pipeline = [
+            {"$match": {
+                "company_id": company_id,
+                "entry_date": {"$gte": start_date, "$lte": end_date + "\uffff"},
+            }},
+            {"$group": {"_id": "$account_id",
+                        "debit": {"$sum": "$debit"}, "credit": {"$sum": "$credit"}}},
+        ]
+        movement = {row["_id"]: row async for row in self.db.general_ledger.aggregate(pipeline)}
+
         revenues = []
         expenses = []
         total_revenue = 0
         total_expenses = 0
-        
+
         for account in accounts:
-            balance = account.get("current_balance", 0)
+            mv = movement.get(account.get("id"))
+            if not mv:
+                continue
+            if account["account_type"] == AccountType.REVENUE.value:
+                balance = mv["credit"] - mv["debit"]      # credit-natured
+            elif account["account_type"] == AccountType.EXPENSE.value:
+                balance = mv["debit"] - mv["credit"]      # debit-natured
+            else:
+                continue
             if balance == 0:
                 continue
-            
+
             if account["account_type"] == AccountType.REVENUE.value:
                 revenues.append({
                     "account_code": account["account_code"],
