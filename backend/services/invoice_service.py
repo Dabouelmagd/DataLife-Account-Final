@@ -282,6 +282,10 @@ class InvoiceService:
     async def _create_invoice_journal_entry(self, invoice: Dict, user_id: str) -> str:
         """إنشاء القيد المحاسبي للفاتورة"""
         doc_type = invoice["document_type"]
+        # invoice_type / client_wht_* are stored on the invoice itself. This
+        # name was never defined, so approving ANY sales or purchase invoice
+        # raised NameError and no invoice could be approved or journalised.
+        invoice_extra = invoice
         
         # الحصول على الحسابات
         accounts = await self.accounting.get_all_accounts(invoice["company_id"])

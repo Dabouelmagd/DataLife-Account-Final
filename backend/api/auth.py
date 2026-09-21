@@ -29,6 +29,7 @@ router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
 # Get database instance
 from database import get_database
+import uuid
 db = get_database()
 
 @router.post("/register-company", response_model=Token)

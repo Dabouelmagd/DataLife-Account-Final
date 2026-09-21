@@ -21,6 +21,16 @@ from models.eta_settings import (
 )
 
 router = APIRouter(prefix="/api/eta", tags=["ETA Integration"])
+
+
+def get_eta_base_url(environment: str) -> str:
+    """ETA API root incl. version. Accepts both spellings used in settings
+    ('preprod' in the submit path, 'preproduction' as this default)."""
+    env = (environment or "").lower()
+    host = ("https://api.preprod.invoicing.eta.gov.eg"
+            if env in ("preprod", "preproduction", "sandbox", "test")
+            else "https://api.invoicing.eta.gov.eg")
+    return f"{host}/api/v1.0"
 logger = logging.getLogger(__name__)
 
 

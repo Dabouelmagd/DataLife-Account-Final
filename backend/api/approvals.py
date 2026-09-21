@@ -638,7 +638,8 @@ async def execute_approval_action(request: dict):
                         "start_date": leave.get("start_date", ""),
                         "end_date": leave.get("end_date", ""),
                         "status": "approved",
-                        "approver_name": current_user.get("full_name", "المدير"),
+                        "approver_name": ((request.get("approvals") or [{}])[-1].get("approver_name")
+                                          or request.get("approver_name") or "المدير"),
                         "rejection_reason": None,
                     }, leave.get("company_id", ""))
         except Exception as e:

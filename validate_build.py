@@ -211,6 +211,25 @@ def check_shadowed_routes():
                     errors.append(f"❌ backend/api/{f.name}: {m2.upper()} {r2} is unreachable "
                                   f"— declared after {r1}; move it above")
 
+# ── Mode 6: Undefined names in the backend ───────────────────
+# A name used but never defined compiles fine and only explodes when that
+# line runs. This class broke invoice approval, code redemption and the
+# payroll runs page. pyflakes finds it statically.
+def check_undefined_names():
+    try:
+        import pyflakes  # noqa: F401
+    except ImportError:
+        print("  (skipped — pip install pyflakes to enable)")
+        return
+    backend = ROOT / "backend"
+    targets = [str(backend / d) for d in ("api", "services", "models") if (backend / d).exists()]
+    targets += [str(f) for f in backend.glob("*.py")]
+    out = subprocess.run([sys.executable, "-m", "pyflakes", *targets],
+                         capture_output=True, text=True).stdout
+    for line in out.splitlines():
+        if "undefined name" in line and "__pycache__" not in line:
+            errors.append("❌ " + line.replace(str(ROOT) + "/", ""))
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -226,6 +245,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 6: Undefined name check...")
+check_undefined_names()
 
 print(f"Mode 5: Shadowed route check...")
 check_shadowed_routes()

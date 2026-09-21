@@ -385,7 +385,8 @@ async def redeem_activation_code(
             "message_ar": "كود التفعيل غير صالح أو غير نشط"
         })
     
-    if activation_code.get("current_uses", 0) >= activation_code.get("max_uses", 1):
+    uses_so_far = max(activation_code.get("current_uses", 0), activation_code.get("used_count", 0))
+    if uses_so_far >= activation_code.get("max_uses", 1):
         raise HTTPException(status_code=400, detail={
             "message_en": "This activation code has been fully used",
             "message_ar": "تم استخدام كود التفعيل بالكامل"
@@ -436,7 +437,7 @@ async def redeem_activation_code(
     # Update activation code usage
     await db.activation_codes.update_one(
         {"code": code_str},
-        {"$inc": {"current_uses": 1}}
+        {"$inc": {"current_uses": 1, "used_count": 1}}
     )
     
     # If max uses reached, deactivate

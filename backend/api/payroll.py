@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 from services.accounting_service import AccountingService
 from services.email_service import send_bulk_payslip_notifications, send_payroll_approved_notification
 from dependencies import get_current_user
+from datetime import timezone
 
 router = APIRouter(prefix="/api/payroll", tags=["Payroll"])
 
@@ -760,20 +761,28 @@ async def approve_loan(
 async def get_payroll_runs(
     year: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
     current_user: dict = Depends(get_current_user)
 ):
-    """الحصول على مسيرات الرواتب"""
+    """الحصول على مسيرات الرواتب
+
+    The response referenced total/page/limit that were never defined, so
+    every call raised NameError -> 500 and the payroll runs page was empty.
+    """
     query = {"company_id": current_user["company_id"]}
     if year:
         query["year"] = year
     if status:
         query["status"] = status
-    
+
+    total = await db.payroll_runs.count_documents(query)
     runs = await db.payroll_runs.find(query, {"_id": 0}).sort(
-        "month", -1
-    ).to_list(length=None)
-    
-    return {"payroll_runs": runs, "total": total, "page": page, "limit": limit, "pages": -(-total // limit)}
+        [("year", -1), ("month", -1)]
+    ).skip((page - 1) * limit).limit(limit).to_list(length=limit)
+
+    return {"payroll_runs": runs, "total": total, "page": page, "limit": limit,
+            "pages": -(-total // limit)}
 
 
 @router.get("/runs/{run_id}")

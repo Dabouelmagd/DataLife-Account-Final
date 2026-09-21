@@ -12,6 +12,7 @@ from models.accounting import (
     DEFAULT_ACCOUNTS, get_account_nature
 )
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 

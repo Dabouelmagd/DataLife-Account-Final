@@ -15,6 +15,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Get database instance
 from database import get_database
+from datetime import datetime, timezone
 db = get_database()
 
 async def get_current_user(authorization: Optional[str] = Header(None)):
