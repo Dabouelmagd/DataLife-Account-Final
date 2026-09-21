@@ -187,6 +187,30 @@ def check_api_routes():
     print(f"  checked {len(called)} frontend API paths against {len(served)} backend routes")
     return True
 
+# ── Mode 5: Shadowed backend routes ──────────────────────────
+# FastAPI matches routes in declaration order. A dynamic route such as
+# /{request_id} declared before a static sibling such as /workflows
+# swallows it: the static handler is unreachable and the request 404s.
+def check_shadowed_routes():
+    import re
+    api = ROOT / "backend" / "api"
+    if not api.exists():
+        return
+    for f in sorted(api.glob("*.py")):
+        s = f.read_text(encoding="utf-8", errors="ignore")
+        routes = [(m.group(1), m.group(2)) for m in
+                  re.finditer(r'@router\.(get|post|put|patch|delete)\("([^"]*)"', s)]
+        for i, (m1, r1) in enumerate(routes):
+            a = r1.strip("/").split("/")
+            if not any(x.startswith("{") for x in a):
+                continue
+            for m2, r2 in routes[i + 1:]:
+                b = r2.strip("/").split("/")
+                if m1 == m2 and len(a) == len(b) and a != b and \
+                   all(x == y or x.startswith("{") for x, y in zip(a, b)):
+                    errors.append(f"❌ backend/api/{f.name}: {m2.upper()} {r2} is unreachable "
+                                  f"— declared after {r1}; move it above")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -202,6 +226,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 5: Shadowed route check...")
+check_shadowed_routes()
 
 print(f"Mode 4: API route check...")
 if check_api_routes() is None:

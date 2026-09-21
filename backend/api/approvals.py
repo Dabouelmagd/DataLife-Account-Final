@@ -299,6 +299,32 @@ async def get_workflows(authorization: Optional[str] = Header(None)):
     return workflows
 
 
+@router.get("/workflows")
+async def get_workflows(authorization: Optional[str] = Header(None)):
+    """Get all approval workflows"""
+    user_data = await verify_token(authorization)
+    company_id = user_data.get("company_id")
+    
+    workflows = await db.approval_workflows.find(
+        {"company_id": company_id},
+        {"_id": 0}
+    ).to_list(length=None)
+    
+    # Add default types that don't have custom workflows
+    existing_types = [w.get("type") for w in workflows]
+    for type_key, type_config in APPROVAL_TYPES.items():
+        if type_key not in existing_types:
+            workflows.append({
+                "type": type_key,
+                "name_en": type_config["name_en"],
+                "name_ar": type_config["name_ar"],
+                "is_default": True,
+                "default_approvers": type_config["default_approvers"]
+            })
+    
+    return workflows
+
+
 @router.get("/{request_id}")
 async def get_approval_request(
     request_id: str,
@@ -506,32 +532,6 @@ async def cancel_request(
 
 
 # ============ WORKFLOW CONFIGURATION ============
-
-@router.get("/workflows")
-async def get_workflows(authorization: Optional[str] = Header(None)):
-    """Get all approval workflows"""
-    user_data = await verify_token(authorization)
-    company_id = user_data.get("company_id")
-    
-    workflows = await db.approval_workflows.find(
-        {"company_id": company_id},
-        {"_id": 0}
-    ).to_list(length=None)
-    
-    # Add default types that don't have custom workflows
-    existing_types = [w.get("type") for w in workflows]
-    for type_key, type_config in APPROVAL_TYPES.items():
-        if type_key not in existing_types:
-            workflows.append({
-                "type": type_key,
-                "name_en": type_config["name_en"],
-                "name_ar": type_config["name_ar"],
-                "is_default": True,
-                "default_approvers": type_config["default_approvers"]
-            })
-    
-    return workflows
-
 
 @router.post("/workflows")
 async def create_workflow(

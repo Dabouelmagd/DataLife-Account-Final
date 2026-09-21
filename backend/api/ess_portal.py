@@ -371,6 +371,32 @@ async def my_requests(
 # أ-3. PAYSLIP PDF — قسيمة الراتب المشفرة
 # ══════════════════════════════════════════════════════════════
 
+@router.get("/payslip/list")
+async def list_my_payslips(current_user: dict = Depends(get_current_user)):
+    """قائمة كشوف الرواتب المتاحة للموظف"""
+    company_id = current_user["company_id"]
+    emp = await get_employee_by_user(current_user["user_id"], company_id)
+
+    runs = await db.payroll_runs.find({
+        "company_id":    company_id,
+        "status":        {"$in": ["approved","paid"]},
+        "employees_data.employee_id": emp["id"],
+    }, {"_id": 0, "id": 1, "year": 1, "month": 1, "status": 1,
+        "payment_date": 1}).sort([("year",-1),("month",-1)]).limit(24).to_list(None)
+
+    return {
+        "employee":   emp.get("name",""),
+        "payslips":   runs,
+        "total":      len(runs),
+        "download_url": "/api/ess/payslip/{run_id}",
+    }
+
+
+# ══════════════════════════════════════════════════════════════
+# ب. MULTI-TENANT ISOLATION ARCHITECTURE
+# ══════════════════════════════════════════════════════════════
+
+
 @router.get("/payslip/{run_id}")
 async def get_payslip_pdf(
     run_id: str,
@@ -559,31 +585,6 @@ async def get_payslip_pdf(
             }
         }
 
-
-@router.get("/payslip/list")
-async def list_my_payslips(current_user: dict = Depends(get_current_user)):
-    """قائمة كشوف الرواتب المتاحة للموظف"""
-    company_id = current_user["company_id"]
-    emp = await get_employee_by_user(current_user["user_id"], company_id)
-
-    runs = await db.payroll_runs.find({
-        "company_id":    company_id,
-        "status":        {"$in": ["approved","paid"]},
-        "employees_data.employee_id": emp["id"],
-    }, {"_id": 0, "id": 1, "year": 1, "month": 1, "status": 1,
-        "payment_date": 1}).sort([("year",-1),("month",-1)]).limit(24).to_list(None)
-
-    return {
-        "employee":   emp.get("name",""),
-        "payslips":   runs,
-        "total":      len(runs),
-        "download_url": "/api/ess/payslip/{run_id}",
-    }
-
-
-# ══════════════════════════════════════════════════════════════
-# ب. MULTI-TENANT ISOLATION ARCHITECTURE
-# ══════════════════════════════════════════════════════════════
 
 @router.get("/admin/tenant-isolation/audit")
 async def audit_tenant_isolation(current_user: dict = Depends(get_current_user)):

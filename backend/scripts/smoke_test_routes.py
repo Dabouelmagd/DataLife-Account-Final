@@ -53,10 +53,18 @@ def main():
     t0 = time.time()
     with httpx.Client(base_url=BASE, headers=headers, timeout=25) as client:
         for p in paths:
-            try:
-                code = client.get(p).status_code
-            except Exception as e:
-                code = f"ERR {type(e).__name__}"
+            # The API rate-limits to 300 req/min; stay under it, and if a 429
+            # still slips through, wait and retry instead of reporting it.
+            time.sleep(0.25)
+            code = None
+            for attempt in range(3):
+                try:
+                    code = client.get(p).status_code
+                except Exception as e:
+                    code = f"ERR {type(e).__name__}"
+                if code != 429:
+                    break
+                time.sleep(20)
             key = ("5xx" if isinstance(code, int) and code >= 500 else
                    "error" if not isinstance(code, int) else
                    "404" if code == 404 else
@@ -74,6 +82,7 @@ def main():
     print(f"  ✗ request error      : {len(buckets['error'])}")
     print(f"  · auth / permission  : {len(buckets['auth'])}")
     print(f"  · needs parameters   : {len(buckets['params'])}")
+    print(f"  · rate-limited       : {sum(1 for p, c in buckets['other'] if c == 429)}  (untested)")
     for key, title in (("5xx", "CRASHED"), ("404", "404"), ("error", "REQUEST ERROR"), ("other", "OTHER")):
         if buckets[key]:
             print(f"\n{title}:")

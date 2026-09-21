@@ -260,6 +260,12 @@ async def get_my_tasks(authorization: Optional[str] = Header(None)):
     return tasks
 
 
+@router.get("/stats")
+async def get_task_stats_alias(authorization: Optional[str] = Header(None)):
+    """Alias for /dashboard/stats — frontend compatibility"""
+    return await get_task_stats(authorization)
+
+
 @router.get("/{task_id}")
 async def get_task(
     task_id: str,
@@ -490,12 +496,6 @@ async def get_task_stats(authorization: Optional[str] = Header(None)):
 
 
 # ============ TASK NOTIFICATIONS ============
-
-@router.get("/stats")
-async def get_task_stats_alias(authorization: Optional[str] = Header(None)):
-    """Alias for /dashboard/stats — frontend compatibility"""
-    return await get_task_stats(authorization)
-
 
 @router.get("/projects/{project_id}/export")
 async def export_project(

@@ -313,19 +313,6 @@ async def mark_all_as_read(authorization: Optional[str] = Header(None)):
     return {"success": True, "count": result.modified_count}
 
 
-@router.delete("/{notification_id}")
-async def delete_notification(
-    notification_id: str,
-    authorization: Optional[str] = Header(None)
-):
-    """Delete a notification"""
-    await verify_token_from_header(authorization)
-    
-    result = await db.notifications.delete_one({"id": notification_id})
-    
-    return {"success": result.deleted_count > 0}
-
-
 @router.delete("/clear-all")
 async def clear_all_notifications(authorization: Optional[str] = Header(None)):
     """Clear all read notifications"""
@@ -456,6 +443,20 @@ async def check_low_inventory():
 # ==========================================
 # HR Alerts - Leave Expiring & Termination
 # ==========================================
+
+
+@router.delete("/{notification_id}")
+async def delete_notification(
+    notification_id: str,
+    authorization: Optional[str] = Header(None)
+):
+    """Delete a notification"""
+    await verify_token_from_header(authorization)
+    
+    result = await db.notifications.delete_one({"id": notification_id})
+    
+    return {"success": result.deleted_count > 0}
+
 
 @router.get("/hr-alerts")
 async def get_hr_alerts(

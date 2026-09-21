@@ -175,6 +175,12 @@ async def add_project_expense(
     return expense
 
 
+@router.get("/categories/expenses")
+async def get_expense_categories():
+    """Get all expense categories"""
+    return EXPENSE_CATEGORIES
+
+
 @router.get("/{project_id}/expenses")
 async def get_project_expenses(
     project_id: str,
@@ -365,6 +371,12 @@ async def add_project_revenue(
     await update_project_financials(project_id)
     
     return revenue
+
+
+@router.get("/categories/revenues")
+async def get_revenue_categories():
+    """Get all revenue categories"""
+    return REVENUE_CATEGORIES
 
 
 @router.get("/{project_id}/revenues")
@@ -665,13 +677,3 @@ async def get_all_projects_financials(
 
 # ============ CATEGORIES ENDPOINTS ============
 
-@router.get("/categories/expenses")
-async def get_expense_categories():
-    """Get all expense categories"""
-    return EXPENSE_CATEGORIES
-
-
-@router.get("/categories/revenues")
-async def get_revenue_categories():
-    """Get all revenue categories"""
-    return REVENUE_CATEGORIES

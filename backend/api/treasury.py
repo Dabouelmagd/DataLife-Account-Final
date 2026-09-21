@@ -495,15 +495,6 @@ async def list_cheques(
     }
 
 
-@router.get("/cheques/{cheque_id}")
-async def get_cheque(cheque_id: str, current_user: dict = Depends(get_current_user)):
-    cheque = await db.cheques.find_one(
-        {"id": cheque_id, "company_id": current_user["company_id"]}, {"_id": 0})
-    if not cheque:
-        raise HTTPException(404, "الشيك غير موجود")
-    return cheque
-
-
 @router.get("/cheques/due-soon")
 async def get_due_cheques(
     days: int = Query(7, description="أيام للاستحقاق"),
@@ -527,3 +518,14 @@ async def get_due_cheques(
         "total": round(sum(c["amount"] for c in cheques), 2),
         "cheques": cheques,
     }
+
+
+@router.get("/cheques/{cheque_id}")
+async def get_cheque(cheque_id: str, current_user: dict = Depends(get_current_user)):
+    cheque = await db.cheques.find_one(
+        {"id": cheque_id, "company_id": current_user["company_id"]}, {"_id": 0})
+    if not cheque:
+        raise HTTPException(404, "الشيك غير موجود")
+    return cheque
+
+

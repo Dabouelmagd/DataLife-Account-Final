@@ -908,6 +908,48 @@ async def get_medical_services(
     return {"services": services, "total": total, "page": page, "limit": limit}
 
 
+@router.get("/medical-services/pending-doctors")
+async def get_pending_doctor_payments(
+    doctor_id: str = None,
+    current_user: dict = Depends(get_user)
+):
+    """قائمة الأطباء الذين لم تُسدَّد أتعابهم بعد"""
+    q = {"company_id": current_user.get("company_id")}
+    if doctor_id:
+        q["$or"] = [{"doctor_id": doctor_id},
+                    {"doctors.doctor_id": doctor_id}]
+    else:
+        q["$or"] = [
+            {"doctors.status": "pending"},
+            {"status": {"$in": ["pending","billed"]}, "doctor_net_payment": {"$gt": 0}}
+        ]
+    
+    services = await db.medical_services.find(q, {"_id": 0}).sort("service_date", -1).to_list(200)
+    
+    pending_by_doctor = {}
+    for svc in services:
+        for doc in (svc.get("doctors") or []):
+            if doc.get("status") == "pending":
+                did = doc.get("doctor_id", "unknown")
+                if did not in pending_by_doctor:
+                    pending_by_doctor[did] = {"doctor_id": did, "doctor_name": doc.get("doctor_name",""),
+                                               "total_pending": 0, "services": []}
+                share = float(doc.get("share", 0))
+                wht   = round(share * float(doc.get("wht_rate", 0.05)), 2)
+                pending_by_doctor[did]["total_pending"] += (share - wht)
+                pending_by_doctor[did]["services"].append({
+                    "service_id": svc["id"],
+                    "service_date": svc.get("service_date"),
+                    "gross": share, "wht": wht, "net": share - wht
+                })
+    
+    return {
+        "pending_doctors": list(pending_by_doctor.values()),
+        "total_doctors": len(pending_by_doctor),
+        "total_amount": round(sum(d["total_pending"] for d in pending_by_doctor.values()), 2)
+    }
+
+
 @router.get("/medical-services/{service_id}")
 async def get_medical_service(service_id: str, current_user: dict = Depends(get_user)):
     svc = await db.medical_services.find_one(
@@ -1094,48 +1136,6 @@ async def update_medical_service_status(
         {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
     return {"message": f"تم تحديث حالة الخدمة إلى '{new_status}'"}
-
-
-@router.get("/medical-services/pending-doctors")
-async def get_pending_doctor_payments(
-    doctor_id: str = None,
-    current_user: dict = Depends(get_user)
-):
-    """قائمة الأطباء الذين لم تُسدَّد أتعابهم بعد"""
-    q = {"company_id": current_user.get("company_id")}
-    if doctor_id:
-        q["$or"] = [{"doctor_id": doctor_id},
-                    {"doctors.doctor_id": doctor_id}]
-    else:
-        q["$or"] = [
-            {"doctors.status": "pending"},
-            {"status": {"$in": ["pending","billed"]}, "doctor_net_payment": {"$gt": 0}}
-        ]
-    
-    services = await db.medical_services.find(q, {"_id": 0}).sort("service_date", -1).to_list(200)
-    
-    pending_by_doctor = {}
-    for svc in services:
-        for doc in (svc.get("doctors") or []):
-            if doc.get("status") == "pending":
-                did = doc.get("doctor_id", "unknown")
-                if did not in pending_by_doctor:
-                    pending_by_doctor[did] = {"doctor_id": did, "doctor_name": doc.get("doctor_name",""),
-                                               "total_pending": 0, "services": []}
-                share = float(doc.get("share", 0))
-                wht   = round(share * float(doc.get("wht_rate", 0.05)), 2)
-                pending_by_doctor[did]["total_pending"] += (share - wht)
-                pending_by_doctor[did]["services"].append({
-                    "service_id": svc["id"],
-                    "service_date": svc.get("service_date"),
-                    "gross": share, "wht": wht, "net": share - wht
-                })
-    
-    return {
-        "pending_doctors": list(pending_by_doctor.values()),
-        "total_doctors": len(pending_by_doctor),
-        "total_amount": round(sum(d["total_pending"] for d in pending_by_doctor.values()), 2)
-    }
 
 
 @router.get("/doctor-payments")
