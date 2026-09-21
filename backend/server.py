@@ -83,6 +83,7 @@ from api.admin_users import router as admin_users_router
 from api.admin_subscriptions import router as admin_subscriptions_router
 from api.admin_payments import router as admin_payments_router
 from api.push_notifications import router as push_notifications_router
+from api.hr_leaves import router as hr_leaves_router
 from api.health_check import router as health_check_router
 from api.error_monitor import router as monitor_router
 from api.app_updates import router as updates_router
@@ -218,6 +219,7 @@ app.include_router(reports_router)
 app.include_router(audit_router)
 app.include_router(notification_events_router)
 app.include_router(push_notifications_router)
+app.include_router(hr_leaves_router)
 app.include_router(health_check_router)
 app.include_router(monitor_router)
 app.include_router(updates_router)
