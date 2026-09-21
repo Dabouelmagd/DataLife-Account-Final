@@ -580,6 +580,17 @@ async def get_financial_summary(
     }
 
 
+@router.get("/reports/trial-balance")
+async def get_trial_balance(
+    as_of_date: Optional[str] = Query(None, description="As-of date (YYYY-MM-DD)"),
+    current_user: dict = Depends(get_current_user),
+):
+    """ميزان المراجعة — TrialBalancePage and FinancialReportsPage call this;
+    only the /export variant existed, so both pages always came back empty."""
+    service = AccountingService(db)
+    return await service.get_trial_balance(current_user["company_id"], as_of_date)
+
+
 @router.get("/reports/income-statement")
 async def get_income_statement(
     start_date: str = Query(..., description="Start date (YYYY-MM-DD)"),

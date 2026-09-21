@@ -152,14 +152,20 @@ def check_api_routes():
             served.add(norm_path(prefix + path) if path else norm_path(prefix))
 
     called = {}
+    bases = set()
     for f in list(SRC.rglob("*.jsx")) + list(SRC.rglob("*.js")):
         if "node_modules" in str(f) or "__tests__" in str(f) or ".test." in str(f):
             continue
         t = f.read_text(encoding="utf-8", errors="ignore")
         for m in re.finditer(r'[`"\']((?:\$\{[^}]*\})?/api/[^`"\'\s]*)[`"\']', t):
             raw = "/api/" + m.group(1).split("/api/", 1)[1]
-            called.setdefault(norm_path(raw), set()).add(
-                str(f).split("frontend/src/", 1)[-1])
+            key = norm_path(raw)
+            called.setdefault(key, set()).add(str(f).split("frontend/src/", 1)[-1])
+            before = t[max(0, m.start() - 60):m.start()]
+            # `const API = ${X}/api/payroll` is a base the code appends to;
+            # a full call such as fetch(`/api/x/trial-balance`) is not.
+            if re.search(r'(?:const|let|var)\s+[A-Z][A-Z0-9_]*\s*=\s*[^;\n]*$', before):
+                bases.add(key)
 
     def seg_match(a, b):
         x, y = a.split("/"), b.split("/")
@@ -172,7 +178,7 @@ def check_api_routes():
         if any(seg_match(path, r) for r in served):
             continue
         # a base URL the code appends to: backend serves deeper paths
-        if any(r.startswith(path + "/") for r in served):
+        if path in bases and any(r.startswith(path + "/") for r in served):
             continue
         if any(path.startswith(ok) for ok in API_IGNORE):
             continue
