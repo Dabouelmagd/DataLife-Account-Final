@@ -147,9 +147,10 @@ export default function TreasuryPage() {
     setChequeForm({ direction, party: '', amount: '', cheque_number: '', cheque_date: today(), date: today(), bank_name: '' });
     setMsg({ type: '', text: '' });
     try {
-      const url = direction === 'incoming' ? '/api/financial/customers?limit=500' : '/api/purchases/suppliers';
-      const d = (await axios.get(`${API_URL}${url}`, auth())).data;
-      setParties(Array.isArray(d) ? d : d.data || d.customers || []);
+      // same store the invoice page uses, so cheques attach to the same customer/supplier ids
+      const type = direction === 'incoming' ? 'customer' : 'supplier';
+      const d = (await axios.get(`${API_URL}/api/invoice/parties`, auth())).data;
+      setParties((d.parties || []).filter((x) => x.party_type === type || x.party_type === 'both'));
     } catch { setParties([]); }
   };
 

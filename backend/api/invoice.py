@@ -139,7 +139,7 @@ async def get_party(
     """الحصول على عميل أو مورد"""
     service = InvoiceService(db)
     party = await service.get_party_by_id(party_id)
-    if not party:
+    if not party or party.get("company_id") != current_user["company_id"]:   # was readable across companies
         raise HTTPException(status_code=404, detail="Party not found")
     return party
 
@@ -180,6 +180,9 @@ async def update_party(
     current_user: dict = Depends(get_current_user)
 ):
     """تحديث عميل أو مورد"""
+    _own = await db.parties.find_one({"id": party_id, "company_id": current_user["company_id"]}, {"_id": 1})
+    if not _own:
+        raise HTTPException(status_code=404, detail="Party not found")
     service = InvoiceService(db)
     updates = request.dict(exclude_unset=True)
     result = await service.update_party(party_id, updates)

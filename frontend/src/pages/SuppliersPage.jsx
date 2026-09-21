@@ -18,7 +18,10 @@ const normalize = (s = '') => String(s ?? '').toLowerCase()
   .replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
 
 const today = () => new Date().toISOString().slice(0, 10);
-const EMPTY = { name: '', contact_person: '', phone: '', email: '', tax_id: '', address: '', payment_terms: 'Net 30', category: '', notes: '' };
+// Suppliers are `parties` (party_type supplier) — the store the invoice page uses,
+// so purchase invoices link to these ids. payment_terms must be one of TERMS.
+const EMPTY = { name: '', contact_person: '', phone: '', email: '', tax_id: '', address: '', city: '', payment_terms: 'net_30' };
+const TERMS = ['cash', 'net_7', 'net_15', 'net_30', 'net_60', 'net_90'];
 
 const T = {
   ar: {
@@ -32,7 +35,8 @@ const T = {
     method: 'طريقة السداد', cash: 'نقدي — الخزينة', bank: 'تحويل / شيك — البنك', reference: 'رقم الشيك أو التحويل',
     confirmPay: 'سداد وترحيل القيد', paid: 'تم تسجيل السداد وترحيله إلى دفتر الأستاذ', settled: 'لا يوجد مستحق لهذا المورد',
     required: 'اسم المورد مطلوب', loadError: 'تعذّر تحميل الموردين — تحقق من الاتصال', retry: 'إعادة المحاولة',
-    close: 'إغلاق', inactive: 'غير نشط',
+    close: 'إغلاق', inactive: 'غير نشط', city: 'المدينة',
+    termNames: { cash: 'نقداً', net_7: 'خلال ٧ أيام', net_15: 'خلال ١٥ يوماً', net_30: 'خلال ٣٠ يوماً', net_60: 'خلال ٦٠ يوماً', net_90: 'خلال ٩٠ يوماً' },
   },
   en: {
     title: 'Suppliers', owed: 'Total owed to suppliers', add: 'Add supplier', search: 'Search by name, phone or tax ID',
@@ -45,7 +49,8 @@ const T = {
     method: 'Payment method', cash: 'Cash — treasury', bank: 'Transfer / cheque — bank', reference: 'Cheque or transfer number',
     confirmPay: 'Pay and post entry', paid: 'Payment recorded and posted to the general ledger', settled: 'Nothing is owed to this supplier',
     required: 'Supplier name is required', loadError: 'Could not load suppliers — check your connection', retry: 'Retry',
-    close: 'Close', inactive: 'Inactive',
+    close: 'Close', inactive: 'Inactive', city: 'City',
+    termNames: { cash: 'Cash', net_7: 'Net 7', net_15: 'Net 15', net_30: 'Net 30', net_60: 'Net 60', net_90: 'Net 90' },
   },
 };
 
@@ -104,9 +109,11 @@ export default function SuppliersPage() {
     if (!form.name?.trim()) { setFormError(t.required); return; }
     setSaving(true); setFormError('');
     try {
-      const body = { ...form, name: form.name.trim() };
-      if (form.id) await axios.put(`${API_URL}/api/purchases/suppliers/${form.id}`, body, auth());
-      else await axios.post(`${API_URL}/api/purchases/suppliers`, body, auth());
+      const pick = ['name', 'contact_person', 'phone', 'email', 'tax_id', 'address', 'city', 'payment_terms'];
+      const body = { party_type: 'supplier', ...Object.fromEntries(pick.map((k) => [k, form[k] || undefined])), name: form.name.trim() };
+      if (!TERMS.includes(body.payment_terms)) body.payment_terms = 'net_30';
+      if (form.id) await axios.put(`${API_URL}/api/invoice/parties/${form.id}`, body, auth());
+      else await axios.post(`${API_URL}/api/invoice/parties`, body, auth());
       setForm(null);
       await load();
     } catch (e) {
@@ -234,10 +241,13 @@ export default function SuppliersPage() {
               {field('phone', t.phone, { dir: 'ltr', inputMode: 'tel' })}
               {field('email', t.email, { dir: 'ltr', type: 'email' })}
               {field('tax_id', t.taxId, { dir: 'ltr' })}
-              {field('payment_terms', t.terms)}
-              {field('category', t.category)}
+              <label className="block text-sm"><span className="text-slate-600">{t.terms}</span>
+                <select value={TERMS.includes(form.payment_terms) ? form.payment_terms : 'net_30'} onChange={(e) => setForm({ ...form, payment_terms: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md bg-white">
+                  {TERMS.map((k) => <option key={k} value={k}>{t.termNames[k]}</option>)}
+                </select></label>
+              {field('city', t.city)}
               <div className="sm:col-span-2">{field('address', t.address)}</div>
-              <div className="sm:col-span-2">{field('notes', t.notes)}</div>
             </div>
             {formError && <p className="mx-5 mb-3 text-sm text-red-700">{formError}</p>}
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-200">

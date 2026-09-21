@@ -336,6 +336,19 @@ PAYABLES_CODE = "251"
 PAY_FROM = {"cash": "161", "bank": "162"}
 
 
+SUPPLIER_TYPES = ["supplier", "both"]
+
+
+async def _find_supplier(company_id: str, supplier_id: str):
+    """Suppliers live in `parties` — the store the invoice page picks from, so
+    purchase invoices carry these ids as party_id. suppliers_extended (used by
+    purchase orders) is still read so older records keep working."""
+    sup = await db.parties.find_one(
+        {"id": supplier_id, "company_id": company_id, "party_type": {"$in": SUPPLIER_TYPES}}, {"_id": 0})
+    return sup or await db.suppliers_extended.find_one(
+        {"id": supplier_id, "company_id": company_id}, {"_id": 0})
+
+
 async def _supplier_movements(company_id: str, supplier_id: str):
     """Invoices (credit) and payments (debit) for one supplier, oldest first."""
     rows = []
@@ -381,8 +394,12 @@ async def get_suppliers_with_balances(authorization: Optional[str] = Header(None
     """All suppliers with what the company currently owes each."""
     user_data = await verify_token(authorization)
     company_id = user_data.get("company_id")
-    suppliers = await db.suppliers_extended.find(
-        {"company_id": company_id}, {"_id": 0}).sort("name", 1).to_list(length=None)
+    suppliers = await db.parties.find(
+        {"company_id": company_id, "party_type": {"$in": SUPPLIER_TYPES}}, {"_id": 0}).to_list(length=None)
+    seen = {x["id"] for x in suppliers}
+    suppliers += [x for x in await db.suppliers_extended.find({"company_id": company_id}, {"_id": 0}).to_list(length=None)
+                  if x["id"] not in seen]
+    suppliers.sort(key=lambda x: x.get("name") or "")
     for sup in suppliers:
         rows = await _supplier_movements(company_id, sup["id"])
         sup["balance"] = round(sum(r["credit"] - r["debit"] for r in rows), 2)
@@ -396,7 +413,7 @@ async def get_supplier_statement(supplier_id: str, authorization: Optional[str] 
     """كشف حساب مورد — invoices, payments and a running balance."""
     user_data = await verify_token(authorization)
     company_id = user_data.get("company_id")
-    sup = await db.suppliers_extended.find_one({"id": supplier_id, "company_id": company_id}, {"_id": 0})
+    sup = await _find_supplier(company_id, supplier_id)
     if not sup:
         raise HTTPException(status_code=404, detail="Supplier not found")
     running = 0.0
@@ -426,7 +443,7 @@ async def pay_supplier(supplier_id: str, data: SupplierPaymentIn,
     company_id = user_data.get("company_id")
     user_id = user_data.get("user_id")
 
-    sup = await db.suppliers_extended.find_one({"id": supplier_id, "company_id": company_id}, {"_id": 0})
+    sup = await _find_supplier(company_id, supplier_id)
     if not sup:
         raise HTTPException(status_code=404, detail="Supplier not found")
     if data.method not in PAY_FROM:
