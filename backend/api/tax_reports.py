@@ -105,7 +105,7 @@ async def generate_form_41(
         invoice_id = entry["_id"]
         invoice    = await db.invoices.find_one({"id": invoice_id}, {"_id": 0}) or {}
         party_id   = invoice.get("party_id")
-        party      = await db.invoice_parties.find_one({"id": party_id}, {"_id": 0}) or {}
+        party      = await db.parties.find_one({"id": party_id}, {"_id": 0}) or {}   # was invoice_parties, which does not exist
         inv_type   = invoice.get("invoice_type", "goods")
         wht_amount = round(entry["wht_amount"], 2)
 
@@ -188,35 +188,51 @@ async def generate_form_10(
     else:
         date_to = f"{year}-{month:02d}-{(date(year, month+1, 1) - __import__('datetime').timedelta(days=1)).day:02d}"
 
-    # ── ضريبة المخرجات (المبيعات) — م/260 دائن ───────────────
-    vat_output = await aggregate_je_lines(company_id, "260", date_from, date_to, "credit")
+    # Everything comes from the ledger, NET (credit − debit), so:
+    #  - sales from any module count (the base used to read only the invoice
+    #    page, so Sales-module invoices showed VAT on a base of 0);
+    #  - drafts never count (purchases were taken with no status filter);
+    #  - returns / credit notes / reversals reduce the figures (one-sided sums
+    #    ignored them and overstated the tax due).
+    # Reversed originals are kept: their posted reversal nets them out in
+    # whichever month it is dated.
+    entries = await db.journal_entries.find({
+        "company_id": company_id, "status": {"$in": ["posted", "reversed"]},
+        "entry_date": {"$gte": date_from, "$lte": date_to + "\uffff"},
+        "lines.account_code": {"$in": ["260", "137"]},
+    }, {"_id": 0}).to_list(None)
 
-    # ── ضريبة المدخلات (المشتريات) — م/153 مدين ─────────────
-    vat_input  = await aggregate_je_lines(company_id, "137", date_from, date_to, "debit")
-
-    # ── ضريبة الجدول (خدمات وسلع جدولية) ────────────────────
-    # يمكن إضافة حساب منفصل م/260-J للجدول إذا كان موجوداً
-    vat_table  = 0.0  # placeholder — يُستكمل عند إضافة م/260-J
-
+    BASE_ASSET_PREFIXES = ("11", "12", "14")        # fixed assets, inventory, projects bought with VAT
+    vat_output = vat_input = sales_base = purchase_base = 0.0
+    sales_docs = purchase_docs = credit_notes = debit_notes = 0
+    for je in entries:
+        L = je.get("lines", [])
+        out = sum(l.get("credit", 0) - l.get("debit", 0) for l in L if l.get("account_code") == "260")
+        inp = sum(l.get("debit", 0) - l.get("credit", 0) for l in L if l.get("account_code") == "137")
+        if out:
+            vat_output += out
+            sales_base += sum(l.get("credit", 0) - l.get("debit", 0) for l in L
+                              if str(l.get("account_code", "")).startswith("4"))
+            sales_docs += out > 0
+            credit_notes += out < 0
+        if inp:
+            vat_input += inp
+            purchase_base += sum(l.get("debit", 0) - l.get("credit", 0) for l in L
+                                 if l.get("account_code") != "137" and (
+                                     str(l.get("account_code", "")).startswith("3")
+                                     or str(l.get("account_code", "")).startswith(BASE_ASSET_PREFIXES)))
+            purchase_docs += inp > 0
+            debit_notes += inp < 0
+    vat_output, vat_input = round(vat_output, 2), round(vat_input, 2)
+    sales_base, purchase_base = round(sales_base, 2), round(purchase_base, 2)
+    vat_table = 0.0   # table tax needs its own account; none is posted yet
     net_vat = round(vat_output - vat_input - vat_table, 2)
 
-    # ── تفاصيل فواتير المبيعات في الشهر ───────────────────────
-    sales_invoices = await db.invoices.find({
-        "company_id": company_id,
-        "document_type": "sales_invoice",
-        "document_date": {"$gte": date_from, "$lte": date_to},
-    }, {"_id": 0, "document_number": 1, "document_date": 1,
-        "party_name": 1, "total_after_discount": 1, "total_tax": 1}).to_list(None)
-
-    purchase_invoices = await db.invoices.find({
-        "company_id": company_id,
-        "document_type": "purchase_invoice",
-        "document_date": {"$gte": date_from, "$lte": date_to},
-    }, {"_id": 0, "document_number": 1, "document_date": 1,
-        "party_name": 1, "total_after_discount": 1, "total_tax": 1}).to_list(None)
-
-    sales_base     = round(sum(float(i.get("total_after_discount",0)) for i in sales_invoices), 2)
-    purchase_base  = round(sum(float(i.get("total_after_discount",0)) for i in purchase_invoices), 2)
+    # monthly return, due within the month following the tax period (Law 67/2016, art. 16)
+    nm_y, nm_m = (year + 1, 1) if month == 12 else (year, month + 1)
+    due_date = (date(nm_y + (nm_m == 12), nm_m % 12 + 1, 1) - __import__('datetime').timedelta(days=1)).isoformat()
+    sales_invoices = [None] * sales_docs            # counts kept for the response shape below
+    purchase_invoices = [None] * purchase_docs
 
     return {
         "form":       "نموذج 10 — إقرار ضريبة القيمة المضافة",
@@ -224,7 +240,8 @@ async def generate_form_10(
         "period":     f"{year}/{month:02d}",
         "date_from":  date_from,
         "date_to":    date_to,
-        "due_date":   f"آخر أبريل / يوليو / أكتوبر / يناير — حسب الدورة الضريبية",
+        "due_date":   due_date,
+        "due_note":   "الإقرار شهري — يُقدَّم خلال الشهر التالي لانتهاء الفترة الضريبية",
         "company": {
             "name":   company.get("name",""),
             "tax_id": company.get("tax_id",""),
@@ -236,10 +253,12 @@ async def generate_form_10(
             "sales_base":       sales_base,
             "vat_amount":       vat_output,
             "invoice_count":    len(sales_invoices),
+            "credit_notes":     credit_notes,
         },
         "vat_input": {
             "label":            "ثانياً: ضريبة القيمة المضافة على المشتريات (المدخلات)",
-            "account":          "م/153",
+            "account":          "م/137",
+            "debit_notes":      debit_notes,
             "purchase_base":    purchase_base,
             "vat_amount":       vat_input,
             "invoice_count":    len(purchase_invoices),
