@@ -381,16 +381,6 @@ const ModernSidebar = ({
             <NotificationCenter />
           </div>
           
-          {/* Subscription Code - Compact */}
-          <div className="mt-2 flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded px-2 py-1.5">
-            <code className="text-xs font-mono font-bold text-gray-700 dark:text-gray-300">
-              {user?.subscription_code || user?.company_id?.slice(0, 8).toUpperCase() || '--------'}
-            </code>
-            <button onClick={copyCode} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors">
-              {copied ? <CheckCircle weight="fill" className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-gray-500" />}
-            </button>
-          </div>
-          
           {/* Permissions - Collapsible */}
           <div className="mt-2">
             <button 

@@ -20,8 +20,6 @@ const LoginPage = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [subscriptionCode, setSubscriptionCode] = useState('');
 
   const isRTL = language === 'ar';
 
@@ -43,11 +41,7 @@ const LoginPage = () => {
       resetSuccess: 'New password sent to your email',
       showPassword: 'Show Password',
       hidePassword: 'Hide Password',
-      subscriptionCodeTitle: 'Your Subscription Code',
-      subscriptionCodeDesc: 'Save this code, you will need it to manage your account',
-      copyCode: 'Copy Code',
-      copiedCode: 'Copied!',
-      continueToApp: 'Continue to Application'
+      copiedCode: 'Copied!'
     },
     ar: {
       title: 'مرحباً بعودتك',
@@ -66,11 +60,7 @@ const LoginPage = () => {
       resetSuccess: 'تم إرسال كلمة المرور الجديدة إلى بريدك الإلكتروني',
       showPassword: 'إظهار كلمة المرور',
       hidePassword: 'إخفاء كلمة المرور',
-      subscriptionCodeTitle: 'كود الاشتراك الخاص بك',
-      subscriptionCodeDesc: 'احفظ هذا الكود، ستحتاجه لإدارة حسابك',
-      copyCode: 'نسخ الكود',
-      copiedCode: 'تم النسخ!',
-      continueToApp: 'الانتقال للتطبيق'
+      copiedCode: 'تم النسخ!'
     }
   };
 
@@ -96,10 +86,7 @@ const LoginPage = () => {
         // Employees go directly to their personal portal — no access to company data
         navigate('/my-portal');
       } else {
-        // Show subscription code for regular users
-        const code = result.user?.subscription_code || result.user?.company_id?.slice(0, 8).toUpperCase() || '';
-        setSubscriptionCode(code);
-        setShowSubscriptionModal(true);
+        navigate('/dashboard');
       }
     } else {
       setError(result.error);
@@ -314,58 +301,6 @@ const LoginPage = () => {
         </div>
       )}
 
-      {/* Subscription Code Modal - Shows after successful login */}
-      {showSubscriptionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full" dir={isRTL ? 'rtl' : 'ltr'}>
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">{t.subscriptionCodeTitle}</h3>
-              <p className="text-gray-600">{t.subscriptionCodeDesc}</p>
-            </div>
-
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-6 mb-6">
-              <div className="text-center">
-                <code className="text-3xl font-mono font-bold text-amber-600 tracking-widest">
-                  {subscriptionCode}
-                </code>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(subscriptionCode);
-                  const btn = document.getElementById('copy-btn');
-                  if (btn) {
-                    btn.textContent = t.copiedCode;
-                    setTimeout(() => {
-                      btn.textContent = t.copyCode;
-                    }, 2000);
-                  }
-                }}
-                id="copy-btn"
-                className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-              >
-                {t.copyCode}
-              </button>
-              <button
-                onClick={() => {
-                  setShowSubscriptionModal(false);
-                  navigate('/dashboard');
-                }}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-              >
-                {t.continueToApp}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
