@@ -295,6 +295,8 @@ async def get_journal_entry(
     """الحصول على قيد يومي محدد"""
     service = AccountingService(db)
     entry = await service.get_journal_entry(entry_id)
+    if entry and entry.get("company_id") != current_user["company_id"]:
+        entry = None                                  # was readable across companies
     
     if not entry:
         raise HTTPException(status_code=404, detail="Journal entry not found")
@@ -357,6 +359,8 @@ async def post_journal_entry(
     service = AccountingService(db)
     
     try:
+        if not await db.journal_entries.find_one({"id": entry_id, "company_id": current_user["company_id"]}, {"_id": 1}):
+            raise HTTPException(status_code=404, detail="Journal entry not found")   # could post another company's draft
         await service.post_journal_entry(entry_id, current_user["user_id"])
         return {"message": "تم ترحيل القيد بنجاح"}
     except ValueError as e:
@@ -471,14 +475,19 @@ async def update_journal_entry(
 @router.post("/journal-entries/{entry_id}/reverse")
 async def reverse_journal_entry(
     entry_id: str,
+    data: Optional[dict] = None,
     current_user: dict = Depends(get_current_user),
-    
 ):
-    """عكس قيد يومي"""
+    """عكس قيد يومي — optional {"reversal_date": "YYYY-MM-DD"}; defaults to the
+    original date while its period is open, else today."""
     service = AccountingService(db)
-    
+    _own = await db.journal_entries.find_one({"id": entry_id, "company_id": current_user["company_id"]}, {"_id": 1})
+    if not _own:
+        raise HTTPException(status_code=404, detail="Journal entry not found")   # was reversible across companies
+
     try:
-        result = await service.reverse_journal_entry(entry_id, current_user["user_id"])
+        result = await service.reverse_journal_entry(entry_id, current_user["user_id"],
+                                                     (data or {}).get("reversal_date"))
         return {"message": "تم عكس القيد بنجاح", "reversed_entry": result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

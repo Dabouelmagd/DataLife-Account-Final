@@ -698,6 +698,11 @@ async def inter_company_balance(current_user: dict = Depends(get_current_user)):
 # TC-JE-07: منع الترحيل في فترات مغلقة
 # ══════════════════════════════════════════════════════════════
 
+PERIOD_REOPEN_ROLES = ["رئيس مجلس الإدارة", "Board Chairman", "General Manager", "مدير عام", "CEO",
+                       "المدير التنفيذي", "Super Admin", "المدير المالي", "CFO"]
+PERIOD_CLOSE_ROLES = PERIOD_REOPEN_ROLES + ["رئيس الحسابات", "Chief Accountant"]
+
+
 @router.post("/periods/close")
 async def close_fiscal_period(
     data: dict,
@@ -714,6 +719,21 @@ async def close_fiscal_period(
     month = int(data.get("month", date.today().month))
     period = f"{year}-{month:02d}"
     reason = data.get("reason", "إغلاق شهري روتيني")
+    # Who may close: owners and the finance heads. Anyone could close before.
+    if current_user.get("role") not in PERIOD_CLOSE_ROLES:
+        raise HTTPException(403, "إقفال الفترات المالية مقصور على الإدارة والمدير المالي ورئيس الحسابات")
+    import calendar as _cal
+    last_day = date(year, month, _cal.monthrange(year, month)[1])
+    if last_day >= date.today():
+        raise HTTPException(400, f"لا يمكن إقفال الفترة {period} قبل انتهائها ({last_day.isoformat()})")
+    # Drafts dated inside the period could never be posted once it is closed.
+    drafts = await db.journal_entries.find(
+        {"company_id": company_id, "status": "draft",
+         "entry_date": {"$gte": f"{period}-01", "$lte": f"{period}-31\uffff"}},
+        {"_id": 0, "entry_number": 1, "description": 1}).to_list(20)
+    if drafts:
+        raise HTTPException(400, {"message": f"في الفترة {period} قيود مسودة غير مرحّلة — رحّلها أو احذفها قبل الإقفال",
+                                  "drafts": drafts})
 
     # Check not already closed
     existing = await db.financial_periods.find_one(
@@ -759,6 +779,9 @@ async def reopen_fiscal_period(
     يُسجَّل في سجل التدقيق
     """
     company_id = current_user["company_id"]
+    # Reopening changes figures that may already have been filed: stricter than closing.
+    if current_user.get("role") not in PERIOD_REOPEN_ROLES:
+        raise HTTPException(403, "إعادة فتح فترة مالية مقصورة على الإدارة والمدير المالي")
     year  = int(data.get("year"))
     month = int(data.get("month"))
     period = f"{year}-{month:02d}"

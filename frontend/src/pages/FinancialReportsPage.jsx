@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PeriodClosePanel from '../components/PeriodClosePanel';
 import { useLanguage } from '../contexts/LanguageContext';
 import axios from 'axios';
 import { 
@@ -29,6 +30,7 @@ const FinancialReportsPage = () => {
       incomeStatement: 'قائمة الدخل',
       balanceSheet: 'الميزانية العمومية',
       cashFlow: 'قائمة التدفقات النقدية',
+      periods: 'إقفال الفترات',
       asOfDate: 'كما في تاريخ',
       fromDate: 'من تاريخ',
       toDate: 'إلى تاريخ',
@@ -70,6 +72,7 @@ const FinancialReportsPage = () => {
       incomeStatement: 'Income Statement',
       balanceSheet: 'Balance Sheet',
       cashFlow: 'Cash Flow Statement',
+      periods: 'Period closing',
       asOfDate: 'As of Date',
       fromDate: 'From Date',
       toDate: 'To Date',
@@ -112,7 +115,8 @@ const FinancialReportsPage = () => {
     { id: 'trial-balance', name: t.trialBalance, icon: Scale },
     { id: 'income-statement', name: t.incomeStatement, icon: BarChart3 },
     { id: 'balance-sheet', name: t.balanceSheet, icon: PieChart },
-    { id: 'cash-flow', name: t.cashFlow, icon: BarChart3 }
+    { id: 'cash-flow', name: t.cashFlow, icon: BarChart3 },
+    { id: 'periods', name: t.periods, icon: Scale }
   ];
 
   useEffect(() => {
@@ -180,6 +184,7 @@ const FinancialReportsPage = () => {
   };
 
   const fetchReport = async () => {
+    if (activeReport === 'periods') return;          // a tool, not a report
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
@@ -630,6 +635,8 @@ const FinancialReportsPage = () => {
           <div className="bg-white rounded-xl shadow-sm p-20 flex justify-center">
             <Loader2 className="w-10 h-10 animate-spin text-[#28376B]" />
           </div>
+        ) : activeReport === 'periods' ? (
+          <PeriodClosePanel language={language} />
         ) : !reportData ? (
           <div className="bg-white rounded-xl shadow-sm p-20 text-center text-gray-500">
             <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />

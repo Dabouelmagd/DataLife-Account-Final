@@ -458,7 +458,7 @@ class AccountingService:
         
         return True
     
-    async def reverse_journal_entry(self, entry_id: str, user_id: str) -> Dict:
+    async def reverse_journal_entry(self, entry_id: str, user_id: str, reversal_date: Optional[str] = None) -> Dict:
         """عكس قيد يومي"""
         original = await self.get_journal_entry(entry_id)
         if not original:
@@ -479,10 +479,21 @@ class AccountingService:
                 description=f"عكس: {line.get('description', '')}"
             ))
         
+        # Date of the reversal. It used to be always today, so correcting a May
+        # error in September left May's reports (and its VAT return) wrong.
+        # Default: the original date while its period is open; once the period
+        # is closed (and possibly filed), today.
+        if not reversal_date:
+            orig = original.get("entry_date") or datetime.utcnow().strftime("%Y-%m-%d")
+            closed = await self.db.financial_periods.find_one(
+                {"company_id": original["company_id"], "status": "closed",
+                 "$or": [{"period": orig[:7]}, {"year": int(orig[:4]), "month": int(orig[5:7])}]}, {"_id": 1})
+            reversal_date = datetime.utcnow().strftime("%Y-%m-%d") if closed else orig[:10]
+
         reversed_entry = JournalEntry(
             company_id=original["company_id"],
             entry_number=await self.get_next_entry_number(original["company_id"]),
-            entry_date=datetime.utcnow().strftime("%Y-%m-%d"),
+            entry_date=reversal_date,
             reference=f"REV-{original['entry_number']}",
             description=f"عكس القيد رقم {original['entry_number']}",
             lines=reversed_lines,
