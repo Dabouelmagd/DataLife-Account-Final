@@ -4,6 +4,7 @@ Pre-deploy validator — catches build-blocking errors before docker build.
 Mode 1: Python structural checks (fast, runs anywhere)
 Mode 2: Babel JSX parse (accurate, runs on server with node_modules)
 Mode 3: Backend Python import checks
+Mode 4: Dead API route detection (warning only)
 """
 import re, sys, os, subprocess
 from pathlib import Path
@@ -11,6 +12,22 @@ from pathlib import Path
 SRC = Path("frontend/src")
 BACKEND = Path("backend/api")
 errors = []
+warnings = []
+
+ROOT = Path(__file__).parent
+
+# paths that are legitimately absent from the backend
+API_IGNORE = (
+    "/api/placeholder",   # demo and mock imagery
+)
+
+def norm_path(p):
+    """Normalise so path params and JS template vars compare equal."""
+    import re as _re
+    p = p.split("?")[0].rstrip("/")
+    p = _re.sub(r"\$\{[^}]*\}", "{}", p)
+    p = _re.sub(r"\{[^}]*\}", "{}", p)
+    return p or "/"
 
 # ── Mode 1: Frontend structural checks ───────────────────────
 def check_frontend(path):
@@ -106,6 +123,50 @@ def check_backend():
             if f"{item}(" in code and item not in code.split("from fastapi import",1)[-1].split("\n")[0]:
                 pass  # too many false positives for now
 
+# ── Mode 4: Dead API route detection ─────────────────────────
+# A page that calls a path the backend does not serve renders as an
+# empty screen with a 404 in the console — it never fails the build.
+# Reported as a warning, not an error: base URLs that get concatenated
+# produce unavoidable false positives, and a noisy gate gets ignored.
+def check_api_routes():
+    import re
+
+    backend = ROOT / "backend"
+    if not backend.exists():
+        return None
+
+    served = set()
+    for f in backend.rglob("*.py"):
+        if "__pycache__" in str(f):
+            continue
+        t = f.read_text(encoding="utf-8", errors="ignore")
+        pref = re.findall(r'APIRouter\([^)]*prefix\s*=\s*["\']([^"\']+)["\']', t)
+        prefix = pref[0] if pref else ""
+        for _, path in re.findall(
+                r'@(?:router|app)\.(get|post|put|patch|delete)\(\s*["\']([^"\']*)["\']', t):
+            served.add(norm_path(prefix + path) if path else norm_path(prefix))
+
+    called = {}
+    for f in list(SRC.rglob("*.jsx")) + list(SRC.rglob("*.js")):
+        if "node_modules" in str(f) or "__tests__" in str(f) or ".test." in str(f):
+            continue
+        t = f.read_text(encoding="utf-8", errors="ignore")
+        for m in re.finditer(r'[`"\']((?:\$\{[^}]*\})?/api/[^`"\'\s]*)[`"\']', t):
+            raw = "/api/" + m.group(1).split("/api/", 1)[1]
+            called.setdefault(norm_path(raw), set()).add(
+                str(f).split("frontend/src/", 1)[-1])
+
+    for path, sources in sorted(called.items()):
+        if path in served:
+            continue
+        # a base URL the code appends to: backend serves deeper paths
+        if any(r.startswith(path + "/") for r in served):
+            continue
+        if any(path.startswith(ok) for ok in API_IGNORE):
+            continue
+        warnings.append(
+            f"⚠️  {path} — no backend route  ← " + ", ".join(sorted(sources)[:2]))
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -122,7 +183,19 @@ if result is None:
 print(f"Mode 3: Backend import check...")
 check_backend()
 
+print(f"Mode 4: API route check...")
+if check_api_routes() is None:
+    print("  (skipped — backend/ not available)")
+
 print(f"\nScanned {len(files)} frontend files\n")
+
+if warnings:
+    print("-" * 60)
+    print(f"⚠️  {len(warnings)} dead API route(s) — pages will render empty:")
+    print("-" * 60)
+    for w in sorted(warnings):
+        print(f"  {w}")
+    print()
 
 if errors:
     print("=" * 60)
