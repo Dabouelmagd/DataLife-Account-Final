@@ -151,10 +151,13 @@ async def submit_payment_request(
     if not company_id:
         raise HTTPException(status_code=400, detail="Account is not linked to a company")
 
+    # the JWT carries no company_name — look it up so the admin can tell who paid
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1}) or {}
+
     request = {
         "id": f"preq_{secrets.token_hex(8)}",
         "company_id": company_id,
-        "company_name": user.get("company_name", ""),
+        "company_name": company.get("name", ""),
         "user_email": user.get("email"),
         "package_id": data.get("package_id"),
         "plan": data.get("plan"),

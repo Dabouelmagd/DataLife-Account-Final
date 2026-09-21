@@ -320,6 +320,13 @@ export default function PaymentsAdminPanel() {
                       <span>{METHOD_ICONS[req.payment_method]} {ar ? METHOD_NAMES_AR[req.payment_method] : req.payment_method}</span>
                       <span>💰 {req.amount_egp?.toLocaleString()} {ar ? 'ج.م' : 'EGP'}</span>
                       {req.reference_number && <span>🔖 {req.reference_number}</span>}
+                      {req.receipt_url && (
+                        <a href={req.receipt_url.startsWith('/') ? `${API}${req.receipt_url}` : req.receipt_url}
+                           target="_blank" rel="noopener noreferrer"
+                           className="text-blue-600 underline font-medium">
+                          🧾 {ar ? 'عرض الإيصال' : 'View receipt'}
+                        </a>
+                      )}
                       <span>📅 {new Date(req.created_at).toLocaleDateString(ar ? 'ar-EG' : 'en-US')}</span>
                     </div>
                     {req.notes && <p className="text-xs text-gray-400 mt-1">💬 {req.notes}</p>}

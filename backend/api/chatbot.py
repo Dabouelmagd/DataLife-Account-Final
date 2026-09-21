@@ -38,15 +38,13 @@ MAX_HISTORY = 60
 # ── Knowledge base ─────────────────────────────────────────
 # (keywords, arabic answer, english answer)
 KB = [
-    (("سعر", "اسعار", "أسعار", "باقة", "باقات", "اشتراك", "price", "pricing", "plan", "cost"),
-     "لدينا ثلاث باقات: أساسي واحترافي ومؤسسي، باشتراك شهري أو سنوي. تجد التفاصيل في قسم «الأسعار» بالصفحة الرئيسية.",
-     "We offer Basic, Professional and Enterprise plans, monthly or yearly. See the Pricing section on the home page."),
-    (("دفع", "انستاباي", "instapay", "فودافون", "vodafone", "pay", "payment"),
-     "يمكنك الدفع عبر InstaPay أو فودافون كاش ثم إرسال رقم العملية من صفحة الاشتراك، ويُفعَّل حسابك بعد تأكيد الدفع. أو استخدم كود تفعيل إن كان لديك.",
-     "Pay via InstaPay or Vodafone Cash and submit the reference number from the subscription page; your account is activated once payment is confirmed. You can also use an activation code."),
+    # order matters: specific intents before the generic pricing entry
     (("كود", "تفعيل", "code", "activate", "activation"),
      "لتفعيل كود: افتح صفحة الأسعار، أدخل الكود في خانة «كود التفعيل» واضغط تفعيل. مدة الاشتراك محددة داخل الكود نفسه.",
      "To redeem a code, open Pricing, enter it in the activation code field and press activate. The subscription length is set by the code."),
+    (("دفع", "انستاباي", "instapay", "فودافون", "vodafone", "pay", "payment"),
+     "يمكنك الدفع عبر InstaPay أو فودافون كاش ثم إرسال رقم العملية من صفحة الاشتراك، ويُفعَّل حسابك بعد تأكيد الدفع. أو استخدم كود تفعيل إن كان لديك.",
+     "Pay via InstaPay or Vodafone Cash and submit the reference number from the subscription page; your account is activated once payment is confirmed. You can also use an activation code."),
     (("ضريب", "فاتورة", "eta", "invoice", "tax"),
      "النظام مطابق لمنظومة الفاتورة الإلكترونية لمصلحة الضرائب المصرية (ETA). يمكنك ربط حسابك من إعدادات الفواتير.",
      "The system is compliant with the Egyptian Tax Authority e-invoicing (ETA). Connect your account from invoice settings."),
@@ -56,6 +54,9 @@ KB = [
     (("كلمة المرور", "باسورد", "password", "دخول", "login"),
      "لاستعادة كلمة المرور اضغط «نسيت كلمة المرور؟» في صفحة الدخول. وإن استمرت المشكلة اطلب التحدث مع الدعم.",
      "To reset your password, press 'Forgot password?' on the login page. If it persists, ask to talk to support."),
+    (("سعر", "اسعار", "أسعار", "باقة", "باقات", "اشتراك", "price", "pricing", "plan", "cost"),
+     "لدينا ثلاث باقات: أساسي واحترافي ومؤسسي، باشتراك شهري أو سنوي. تجد التفاصيل في قسم «الأسعار» بالصفحة الرئيسية.",
+     "We offer Basic, Professional and Enterprise plans, monthly or yearly. See the Pricing section on the home page."),
 ]
 
 FALLBACK_AR = ("لم أجد إجابة دقيقة لسؤالك. اضغط «التحدث مع الدعم» وسيتواصل معك فريقنا عبر البريد الإلكتروني.")
