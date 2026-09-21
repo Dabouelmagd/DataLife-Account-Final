@@ -353,48 +353,77 @@ async def update_asset(asset_id: str, update_data: dict, current_user: dict = De
 
 @router.post("/assets/depreciation/run")
 async def run_depreciation(request_data: dict, current_user: dict = Depends(get_current_user)):
+    """Post one month of depreciation per active asset — the ledger is the reference.
+
+    Previously: the same month could be posted any number of times (running it
+    twice doubled the expense); the charge was computed from a calendar-based
+    theoretical book value while the asset's accumulated depreciation grew only
+    by what was posted, so book value and ledger disagreed (a vehicle showed
+    191,570 against 231,848); every asset credited 222, the parent header,
+    instead of its own accumulated-depreciation account; and the asset was
+    updated even when posting failed.
+    """
     import uuid as _uuid
-    from datetime import datetime, timezone
+    from datetime import datetime, timezone, date as _date
+    from services.accounting_service import AccountingService as _ACS
     company_id = current_user.get("company_id")
+    user_id = current_user.get("user_id", "system")
     period = request_data.get("period", datetime.now(timezone.utc).strftime("%Y-%m"))
-    period_date = f"{period}-28"
+    y, m = int(period[:4]), int(period[5:7])
+    period_date = (_date(y + (m == 12), m % 12 + 1, 1).toordinal() - 1)
+    period_date = _date.fromordinal(period_date).isoformat()          # last day of the month
+
+    ACCUM = {"buildings": "22201", "machinery": "22202", "vehicles": "22203",
+             "furniture": "22204", "computers": "22204", "software": "22204", "other": "22204"}
+    svc = _ACS(db)
+    posted, skipped, failed, total = [], [], [], 0.0
     assets = await db.fixed_assets.find({"company_id": company_id, "status": "active"}, {"_id": 0}).to_list(10000)
-    entries_created = []; total_depreciation = 0
     for asset in assets:
-        dep = _calculate_depreciation(asset, period_date)
-        monthly_dep = round(dep.get("annual_depreciation", 0) / 12, 2)
-        if monthly_dep <= 0: continue
-        await db.journal_entries.insert_one({
-            "id": str(_uuid.uuid4()), "company_id": company_id,
-            "date": f"{period}-28",
-            "description": f"إهلاك {period}: {asset['name']} ({asset['asset_code']})",
-            "debit_account": "إهلاكات الأصول الإدارية",
-            "debit_account_code": "333",
-            "credit_account": f"مجمع إهلاك — {asset.get('asset_type_ar', 'أصول')}",
-            "credit_account_code": "222",
-            "amount": monthly_dep, "type": "journal", "source": "depreciation",
-            "asset_id": asset["id"], "period": period, "status": "draft",
-        })
-        # Depreciation used to be inserted with no status and never posted,
-        # so it reached no report. Post it; on failure it stays a draft.
+        name = asset.get("name", "")
+        start = (asset.get("service_date") or asset.get("purchase_date") or "")[:7]
+        if start and period < start:
+            skipped.append({"asset": name, "reason": "قبل تاريخ بدء التشغيل"}); continue
+        if period in (asset.get("depreciated_periods") or []):
+            skipped.append({"asset": name, "reason": "سبق إهلاك هذا الشهر"}); continue
+
+        cost = float(asset.get("cost", 0)); salvage = float(asset.get("salvage_value", 0))
+        rate = float(asset.get("depreciation_rate", 0)); acc = float(asset.get("accumulated_depreciation", 0))
+        remaining = round(cost - salvage - acc, 2)
+        if rate <= 0 or remaining <= 0:
+            skipped.append({"asset": name, "reason": "مُهلَك بالكامل أو غير قابل للإهلاك"}); continue
+        if asset.get("depreciation_method", "straight_line") == "declining":
+            monthly = (cost - acc) * rate / 12            # on the book value actually carried
+        else:
+            monthly = (cost - salvage) * rate / 12
+        monthly = round(min(monthly, remaining), 2)
+        if monthly <= 0:
+            continue
+
+        accum_code = ACCUM.get(asset.get("asset_type", "other"), "22204")
+        je = {"id": str(_uuid.uuid4()), "company_id": company_id, "date": period_date,
+              "description": f"إهلاك {period}: {name} ({asset.get('asset_code', '')})",
+              "debit_account_code": "333", "credit_account_code": accum_code,
+              "amount": monthly, "type": "journal", "source": "depreciation",
+              "asset_id": asset["id"], "period": period, "status": "draft"}
+        await db.journal_entries.insert_one(dict(je))
         try:
-            from services.accounting_service import AccountingService as _ACS_dep
-            _je = await db.journal_entries.find_one(
-                {"company_id": company_id, "source": "depreciation",
-                 "asset_id": asset["id"], "period": period, "status": "draft"}, {"_id": 0})
-            if _je:
-                await _ACS_dep(db).post_simple_journal_entry(_je, current_user.get("user_id", "system"))
-        except Exception as _e:
-            logger.error(f"depreciation not posted ({asset.get('asset_code')} {period}): {_e}")
-        entries_created.append({"asset": asset["name"], "monthly_depreciation": monthly_dep})
-        total_depreciation += monthly_dep
+            await svc.post_simple_journal_entry(je, user_id)
+        except Exception as e:
+            failed.append({"asset": name, "error": str(e)})   # stays a draft; asset NOT updated
+            continue
+
+        acc = round(acc + monthly, 2)
         await db.fixed_assets.update_one({"id": asset["id"]}, {
-            "$inc": {"accumulated_depreciation": monthly_dep},
-            "$set": {"book_value": max(0, dep["book_value"] - monthly_dep),
-                     "updated_at": datetime.now(timezone.utc).isoformat()}
-        })
-    return {"period": period, "assets_processed": len(entries_created),
-            "total_monthly_depreciation": round(total_depreciation, 2), "entries": entries_created}
+            "$set": {"accumulated_depreciation": acc, "book_value": round(cost - acc, 2),
+                     "last_depreciation_period": period,
+                     "updated_at": datetime.now(timezone.utc).isoformat()},
+            "$push": {"depreciated_periods": period}})
+        posted.append({"asset": name, "monthly_depreciation": monthly, "account": accum_code})
+        total += monthly
+
+    return {"period": period, "assets_processed": len(posted), "total_monthly_depreciation": round(total, 2),
+            "entries": posted, "skipped": skipped, "failed": failed}
+
 
 @router.get("/assets/depreciation-rates")
 async def get_depreciation_rates(current_user: dict = Depends(get_current_user)):

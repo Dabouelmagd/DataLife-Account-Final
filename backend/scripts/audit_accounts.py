@@ -226,6 +226,21 @@ def main():
             print("      ← scripts/rebuild_ledger.py --apply ثم scripts/backfill_sales_ledger.py --apply")
         issues += len(bad_inv) + len(bad_pay)
 
+    # fixed assets: book value must be cost - accumulated, and accumulated must be in the ledger
+    if "fixed_assets" in db.list_collection_names():
+        fas = list(db.fixed_assets.find({"company_id": cid}, {"_id": 0}))
+        bad_book = [a for a in fas if round(float(a.get("cost", 0)) - float(a.get("accumulated_depreciation", 0)), 2)
+                    != round(float(a.get("book_value", 0)), 2)]
+        led = sum(a.get("current_balance", 0) for a in accounts if a["account_code"].startswith("2220") or a["account_code"] == "222")
+        acc_total = round(sum(float(a.get("accumulated_depreciation", 0)) for a in fas), 2)
+        print(f"  {'أصول ثابتة':<28}: {len(fas)} | قيمة دفترية ≠ التكلفة − المجمع: {len(bad_book)}")
+        print(f"  {'مجمع الإهلاك':<28}: في الأصول {acc_total:,.2f} | في الدفتر {round(led, 2):,.2f}"
+              f"{'  ✓' if round(led, 2) == acc_total else '  ✗'}")
+        for a in bad_book[:10]:
+            print(f"      {a.get('asset_code')} {a.get('name')}: دفترية {a.get('book_value')} / "
+                  f"التكلفة − المجمع {round(float(a.get('cost', 0)) - float(a.get('accumulated_depreciation', 0)), 2)}")
+        issues += len(bad_book) + (0 if round(led, 2) == acc_total else 1)
+
     by_src = list(db.journal_entries.aggregate([
         {"$match": {"company_id": cid, "status": "draft"}},
         {"$group": {"_id": "$source_document_type", "n": {"$sum": 1}, "oldest": {"$min": "$entry_date"}}}]))
