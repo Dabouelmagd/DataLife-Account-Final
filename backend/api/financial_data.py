@@ -187,8 +187,8 @@ async def get_suppliers(
     company_id = current_user.get("company_id")
     skip = (page - 1) * limit
     
-    total = await db.suppliers.count_documents({"company_id": company_id})
-    suppliers = await db.suppliers.find(
+    total = await db.suppliers_extended.count_documents({"company_id": company_id})
+    suppliers = await db.suppliers_extended.find(
         {"company_id": company_id},
         {"_id": 0}
     ).skip(skip).limit(limit).to_list(length=limit)
@@ -207,7 +207,9 @@ async def create_supplier(supplier: Supplier, current_user: dict = Depends(get_c
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     supplier.company_id = current_user.get("company_id")
-    await db.suppliers.insert_one(supplier.dict())
+    doc = {**supplier.dict(), "is_active": True}   # one supplier store: suppliers_extended
+    doc.pop("balance", None)                       # balance is derived from the ledger, never stored
+    await db.suppliers_extended.insert_one(doc)
     return {"message": "Supplier created successfully", "id": supplier.id}
 
 

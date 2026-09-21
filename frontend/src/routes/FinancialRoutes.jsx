@@ -9,6 +9,7 @@ import CurrenciesPage from '../pages/CurrenciesPage';
 import InventoryPage from '../pages/InventoryPage';
 import ProjectsModule from '../components/ProjectsModule';
 import BankManagementPage from '../pages/BankManagementPage';
+import SuppliersPage from '../pages/SuppliersPage';
 
 // Financial Modules
 import PurchasesModule from '../components/PurchasesModule';
@@ -20,7 +21,6 @@ import {
   CustodyModule,
   AccountsModule,
   CustomersModule,
-  SuppliersModule,
 } from '../components/FinancialSubModules';
 
 /**
@@ -58,7 +58,8 @@ export const renderFinancialContent = ({
     case 'customers':
       return <CustomersModule language={language} userRole={userRole} />;
     case 'suppliers':
-      return <SuppliersModule language={language} userRole={userRole} />;
+      // was SuppliersModule: hard-coded sample rows, nothing saved
+      return <SuppliersPage />;
     case 'products':
       return <ProductsPage />;
     case 'currencies':

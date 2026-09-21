@@ -382,7 +382,7 @@ async def import_suppliers(
             if not supplier['name']:
                 raise ValueError("Name is required")
             
-            await db.suppliers.insert_one(supplier)
+            await db.suppliers_extended.insert_one(supplier)
             success_count += 1
         except Exception as e:
             error_count += 1

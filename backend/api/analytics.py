@@ -58,7 +58,7 @@ async def get_analytics_overview(
     
     # Financial Analytics
     total_customers = await db.customers.count_documents({"company_id": company_id})
-    total_suppliers = await db.suppliers.count_documents({"company_id": company_id})
+    total_suppliers = await db.suppliers_extended.count_documents({"company_id": company_id})
     
     # Journal Entries for revenue/expenses
     journal_entries = await db.journal_entries.find({"company_id": company_id}).to_list(length=None)
@@ -124,7 +124,7 @@ async def get_financial_analytics(
         db.treasury.find({"company_id": company_id}).to_list(length=None),
         db.bank.find({"company_id": company_id}).to_list(length=None),
         db.customers.find({"company_id": company_id}).to_list(length=None),
-        db.suppliers.find({"company_id": company_id}).to_list(length=None),
+        db.suppliers_extended.find({"company_id": company_id}).to_list(length=None),
     )
     
     # Calculate revenue by month
@@ -764,7 +764,7 @@ async def get_purchases_analytics(period: str = "monthly", authorization: Option
 
     purchases  = await db.purchases.find(q, {"_id": 0}).to_list(None)
     pos        = await db.purchase_orders.find(q, {"_id": 0}).to_list(None)
-    suppliers  = await db.suppliers.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+    suppliers  = await db.suppliers_extended.find({"company_id": company_id}, {"_id": 0}).to_list(None)
 
     total_purch  = sum(p.get("total", p.get("total_amount", 0)) for p in purchases)
     total_pos    = sum(po.get("total", 0) for po in pos)

@@ -326,6 +326,141 @@ async def get_suppliers(
     return suppliers
 
 
+# ============ SUPPLIER BALANCES, STATEMENT & PAYMENTS ============
+# Balance-forward per supplier, derived from the LEDGER side of each
+# document: an approved purchase invoice contributes the credit it put on
+# 251 الموردون (grand total net of withholding), a payment the debit it put
+# there. The supplier balance therefore always agrees with the ledger.
+
+PAYABLES_CODE = "251"
+PAY_FROM = {"cash": "161", "bank": "162"}
+
+
+async def _supplier_movements(company_id: str, supplier_id: str):
+    """Invoices (credit) and payments (debit) for one supplier, oldest first."""
+    rows = []
+    invoices = await db.invoices.find(
+        {"company_id": company_id, "party_id": supplier_id,
+         "document_type": "purchase_invoice",
+         "status": {"$in": ["approved", "paid", "partially_paid"]}},
+        {"_id": 0}).to_list(length=None)
+    je_ids = [i["journal_entry_id"] for i in invoices if i.get("journal_entry_id")]
+    je_map = {je["id"]: je async for je in db.journal_entries.find(
+        {"id": {"$in": je_ids}, "status": {"$in": ["posted", "reversed"]}}, {"_id": 0})}
+    for inv in invoices:
+        je = je_map.get(inv.get("journal_entry_id"))
+        if not je or je.get("status") == "reversed":
+            continue   # not in the ledger (or cancelled) — not owed
+        owed = sum(float(l.get("credit", 0) or 0) - float(l.get("debit", 0) or 0)
+                   for l in je.get("lines", []) if l.get("account_code") == PAYABLES_CODE)
+        rows.append({"date": inv.get("document_date") or je.get("entry_date"), "type": "invoice",
+                     "reference": inv.get("document_number"), "description": "فاتورة شراء",
+                     "credit": round(owed, 2), "debit": 0.0, "journal_entry_id": je["id"]})
+    async for pay in db.supplier_payments.find(
+            {"company_id": company_id, "supplier_id": supplier_id, "status": "posted"}, {"_id": 0}):
+        rows.append({"date": pay["date"], "type": "payment", "reference": pay.get("reference") or pay["id"],
+                     "description": pay.get("notes") or ("سداد نقدي" if pay["method"] == "cash" else "سداد بنكي"),
+                     "credit": 0.0, "debit": pay["amount"], "journal_entry_id": pay.get("journal_entry_id")})
+    rows.sort(key=lambda r: (r["date"] or "", 0 if r["type"] == "invoice" else 1))
+    return rows
+
+
+@router.get("/suppliers-balances")
+async def get_suppliers_with_balances(authorization: Optional[str] = Header(None)):
+    """All suppliers with what the company currently owes each."""
+    user_data = await verify_token(authorization)
+    company_id = user_data.get("company_id")
+    suppliers = await db.suppliers_extended.find(
+        {"company_id": company_id}, {"_id": 0}).sort("name", 1).to_list(length=None)
+    for sup in suppliers:
+        rows = await _supplier_movements(company_id, sup["id"])
+        sup["balance"] = round(sum(r["credit"] - r["debit"] for r in rows), 2)
+        sup["invoice_count"] = sum(1 for r in rows if r["type"] == "invoice")
+    return {"suppliers": suppliers,
+            "total_payable": round(sum(s["balance"] for s in suppliers), 2)}
+
+
+@router.get("/suppliers/{supplier_id}/statement")
+async def get_supplier_statement(supplier_id: str, authorization: Optional[str] = Header(None)):
+    """كشف حساب مورد — invoices, payments and a running balance."""
+    user_data = await verify_token(authorization)
+    company_id = user_data.get("company_id")
+    sup = await db.suppliers_extended.find_one({"id": supplier_id, "company_id": company_id}, {"_id": 0})
+    if not sup:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    running = 0.0
+    rows = await _supplier_movements(company_id, supplier_id)
+    for r in rows:
+        running = round(running + r["credit"] - r["debit"], 2)
+        r["balance"] = running
+    return {"supplier": sup, "entries": rows, "balance": running,
+            "total_invoiced": round(sum(r["credit"] for r in rows), 2),
+            "total_paid": round(sum(r["debit"] for r in rows), 2)}
+
+
+class SupplierPaymentIn(BaseModel):
+    amount: float
+    date: str
+    method: str = "bank"          # cash | bank
+    reference: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.post("/suppliers/{supplier_id}/payments")
+async def pay_supplier(supplier_id: str, data: SupplierPaymentIn,
+                       authorization: Optional[str] = Header(None)):
+    """Record a payment to a supplier and post it:
+    من ح/ الموردون (251)  ←  إلى ح/ الخزينة (161) أو البنك (162)"""
+    user_data = await verify_token(authorization)
+    company_id = user_data.get("company_id")
+    user_id = user_data.get("user_id")
+
+    sup = await db.suppliers_extended.find_one({"id": supplier_id, "company_id": company_id}, {"_id": 0})
+    if not sup:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    if data.method not in PAY_FROM:
+        raise HTTPException(status_code=400, detail="طريقة السداد يجب أن تكون نقدي أو بنكي")
+    amount = round(float(data.amount or 0), 2)
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="مبلغ السداد يجب أن يكون أكبر من صفر")
+    balance = round(sum(r["credit"] - r["debit"] for r in await _supplier_movements(company_id, supplier_id)), 2)
+    if amount > balance + 0.005:
+        raise HTTPException(status_code=400, detail=(
+            f"مبلغ السداد ({amount:,.2f}) أكبر من المستحق للمورد ({balance:,.2f})"))
+
+    from services.accounting_service import AccountingService
+    from models.accounting import JournalEntry, JournalEntryLine
+    svc = AccountingService(db)
+    accs = {a["account_code"]: a async for a in db.chart_of_accounts.find(
+        {"company_id": company_id, "account_code": {"$in": [PAYABLES_CODE, PAY_FROM[data.method]]}}, {"_id": 0})}
+    payable, source = accs.get(PAYABLES_CODE), accs.get(PAY_FROM[data.method])
+    if not payable or not source:
+        raise HTTPException(status_code=400, detail="حسابات الموردين أو الخزينة/البنك غير موجودة في شجرة الحسابات")
+
+    payment_id = generate_id("spay_")
+    desc = f"سداد للمورد {sup.get('name', '')}" + (f" — {data.reference}" if data.reference else "")
+    entry = JournalEntry(
+        company_id=company_id, entry_date=data.date, reference=data.reference or payment_id,
+        description=desc, created_by=user_id or "system",
+        source_document_type="manual", source_document_id=payment_id,
+        lines=[
+            JournalEntryLine(account_id=payable["id"], account_code=payable["account_code"],
+                             account_name=payable["account_name"], debit=amount, credit=0, description=desc),
+            JournalEntryLine(account_id=source["id"], account_code=source["account_code"],
+                             account_name=source["account_name"], debit=0, credit=amount, description=desc),
+        ])
+    je = await svc.create_journal_entry(entry)
+    await svc.post_journal_entry(je["id"], user_id or "system")   # payment exists only once it is in the ledger
+
+    payment = {"id": payment_id, "company_id": company_id, "supplier_id": supplier_id,
+               "supplier_name": sup.get("name"), "amount": amount, "date": data.date,
+               "method": data.method, "reference": data.reference, "notes": data.notes,
+               "journal_entry_id": je["id"], "status": "posted", "created_by": user_id,
+               "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.supplier_payments.insert_one(dict(payment))
+    return {"payment": payment, "balance": round(balance - amount, 2)}
+
+
 @router.get("/suppliers/{supplier_id}")
 async def get_supplier(
     supplier_id: str,
