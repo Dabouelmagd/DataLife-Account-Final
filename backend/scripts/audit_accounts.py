@@ -211,6 +211,21 @@ def main():
             print(f"      {d.get('document_number') or d.get('invoice_number') or d.get('id')}")
         issues += len(bad)
 
+    # sales module: every invoice and every recorded payment needs a posted entry
+    if "sales_invoices" in db.list_collection_names():
+        sinv = list(db.sales_invoices.find({"company_id": cid, "status": {"$nin": ["cancelled", "void", "voided"]}},
+                                           {"_id": 0, "invoice_number": 1, "journal_entry_id": 1, "payments": 1}))
+        bad_inv = [i for i in sinv if i.get("journal_entry_id") not in posted_ids]
+        pays = [(i, p) for i in sinv for p in (i.get("payments") or [])]
+        bad_pay = [(i, p) for i, p in pays if p.get("journal_entry_id") not in posted_ids]
+        print(f"  {'فواتير المبيعات':<28}: {len(sinv)} | بلا قيد مرحّل: {len(bad_inv)}")
+        print(f"  {'تحصيلات المبيعات':<28}: {len(pays)} | بلا قيد مرحّل: {len(bad_pay)}")
+        for i in bad_inv[:10]:
+            print(f"      {i.get('invoice_number')}")
+        if bad_inv or bad_pay:
+            print("      ← scripts/rebuild_ledger.py --apply ثم scripts/backfill_sales_ledger.py --apply")
+        issues += len(bad_inv) + len(bad_pay)
+
     by_src = list(db.journal_entries.aggregate([
         {"$match": {"company_id": cid, "status": "draft"}},
         {"$group": {"_id": "$source_document_type", "n": {"$sum": 1}, "oldest": {"$min": "$entry_date"}}}]))

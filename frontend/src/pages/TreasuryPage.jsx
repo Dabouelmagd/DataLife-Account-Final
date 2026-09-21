@@ -147,10 +147,15 @@ export default function TreasuryPage() {
     setChequeForm({ direction, party: '', amount: '', cheque_number: '', cheque_date: today(), date: today(), bank_name: '' });
     setMsg({ type: '', text: '' });
     try {
-      // same store the invoice page uses, so cheques attach to the same customer/supplier ids
-      const type = direction === 'incoming' ? 'customer' : 'supplier';
-      const d = (await axios.get(`${API_URL}/api/invoice/parties`, auth())).data;
-      setParties((d.parties || []).filter((x) => x.party_type === type || x.party_type === 'both'));
+      // Customers: the Sales module's store — sales invoices carry these ids.
+      // Suppliers: `parties` — purchase invoices carry those ids.
+      if (direction === 'incoming') {
+        const d = (await axios.get(`${API_URL}/api/sales/customers?limit=500`, auth())).data;
+        setParties(d.customers || []);
+      } else {
+        const d = (await axios.get(`${API_URL}/api/invoice/parties?party_type=supplier`, auth())).data;
+        setParties(d.parties || []);
+      }
     } catch { setParties([]); }
   };
 

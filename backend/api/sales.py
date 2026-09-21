@@ -346,7 +346,9 @@ async def convert_quotation_to_invoice(quote_id: str, authorization: Optional[st
         "updated_at": now_iso(),
     }
 
+    invoice["journal_entry_id"] = await post_sales_invoice(invoice, user.get("user_id"))  # had no entry at all
     await db.sales_invoices.insert_one(invoice)
+    invoice.pop("_id", None)
     await db.sales_quotations.update_one(
         {"id": quote_id},
         {"$set": {"status": "converted", "converted_invoice": invoice_number, "updated_at": now_iso()}}
@@ -447,41 +449,10 @@ async def create_sales_invoice(data: dict, authorization: Optional[str] = Header
         "updated_at": now_iso(),
     }
 
+    # post first; the invoice is saved only once its entry is in the ledger
+    invoice["journal_entry_id"] = await post_sales_invoice(invoice, user.get("user_id"))
     await db.sales_invoices.insert_one(invoice)
     invoice.pop("_id", None)
-
-    # Post to General Ledger
-    try:
-        from services.accounting_service import AccountingService, JournalEntry, JournalEntryLine, JournalEntryStatus
-        svc = AccountingService(db)
-        # DR: Receivables (131) / CR: Revenue (411)
-        recv_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "131"})
-        rev_acc  = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "411"})
-        vat_acc  = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "260"})
-        lines = []
-        if recv_acc:
-            lines.append(JournalEntryLine(account_id=recv_acc["id"], account_code="131",
-                account_name=recv_acc.get("account_name","ذمم مدينة"),
-                debit=round(total,2), credit=0, description=f"فاتورة مبيعات {invoice_number}"))
-        if rev_acc:
-            lines.append(JournalEntryLine(account_id=rev_acc["id"], account_code="411",
-                account_name=rev_acc.get("account_name","إيرادات المبيعات"),
-                debit=0, credit=round(after_discount,2), description=f"فاتورة {invoice_number}"))
-        if vat_acc and vat_amount > 0:
-            lines.append(JournalEntryLine(account_id=vat_acc["id"], account_code="260",
-                account_name=vat_acc.get("account_name","ضريبة القيمة المضافة"),
-                debit=0, credit=round(vat_amount,2), description=f"ضريبة فاتورة {invoice_number}"))
-        if lines:
-            je = JournalEntry(company_id=company_id, entry_number=await svc.get_next_entry_number(company_id),
-                entry_date=date_str, description=f"فاتورة مبيعات {invoice_number} — {data.get('customer_name','')}",
-                lines=lines, total_debit=round(total,2), total_credit=round(total,2),
-                status=JournalEntryStatus.POSTED, source_document_type="sales_invoice",
-                source_document_id=invoice["id"], created_by=user.get("user_id","system"),
-                fiscal_year=date_str[:4], period=date_str[:7])
-            je_dict = await svc.create_journal_entry(je)
-            await svc.post_journal_entry(je_dict["id"], user.get("user_id","system"))
-    except Exception:
-        pass
 
     return {"message": f"تم إنشاء الفاتورة {invoice_number}", "invoice": invoice}
 
@@ -505,6 +476,10 @@ async def update_sales_invoice(invoice_id: str, data: dict, authorization: Optio
     allowed = ["status","payment_status","notes","terms","due_date","items","discount_percent","vat_percent"]
     update = {k: v for k, v in data.items() if k in allowed}
     update["updated_at"] = now_iso()
+    _cur = await db.sales_invoices.find_one({"$or": [{"id": invoice_id}, {"invoice_number": invoice_id}], "company_id": company_id}, {"_id": 0})
+    _money = {"items", "subtotal", "discount_percent", "discount_amount", "after_discount", "vat_percent", "vat_amount", "total"}
+    if _cur and _cur.get("journal_entry_id") and _money & set(data or {}):
+        raise HTTPException(400, "لا يمكن تعديل مبالغ فاتورة مُرحّلة — أصدر إشعاراً دائناً أو فاتورة جديدة")
     await db.sales_invoices.update_one(
         {"$or": [{"id": invoice_id}, {"invoice_number": invoice_id}], "company_id": company_id},
         {"$set": update}
@@ -535,6 +510,12 @@ async def record_payment(invoice_id: str, data: dict, authorization: Optional[st
         "created_at": now_iso(),
     }
 
+    outstanding = round((inv.get("total", 0) or 0) - (inv.get("paid_amount", 0) or 0), 2)
+    if amount > outstanding + 0.005:
+        raise HTTPException(400, f"المبلغ ({amount:,.2f}) أكبر من المتبقي على الفاتورة ({outstanding:,.2f})")
+    # payments never reached the ledger: cash/bank and receivables stayed wrong
+    payment["journal_entry_id"] = await post_customer_payment(inv, payment, user.get("user_id"))
+
     new_paid = round((inv.get("paid_amount", 0) or 0) + amount, 2)
     new_balance = round((inv.get("total", 0) or 0) - new_paid, 2)
     payment_status = "paid" if new_balance <= 0 else ("partial" if new_paid > 0 else "unpaid")
@@ -547,6 +528,72 @@ async def record_payment(invoice_id: str, data: dict, authorization: Optional[st
     )
     return {"message": "تم تسجيل الدفعة", "paid_amount": new_paid, "balance": new_balance, "payment_status": payment_status}
 
+
+
+# ══════════════════════════════════════════
+# LEDGER POSTING — one path for every sales document
+# ══════════════════════════════════════════
+# Direct invoices used to create their entry with status=POSTED and then call
+# post_journal_entry, which refuses an entry that is already posted; the error
+# was swallowed (`except: pass`), so the entry said "posted" while the ledger
+# had nothing. Invoices converted from quotations or generated from
+# subscriptions, and customer payments, created no entry at all.
+
+MONEY_ACCOUNT = {"cash": "161"}          # anything else (bank, transfer, card, cheque) -> 162
+
+
+async def _ledger_accounts(company_id: str, codes):
+    accs = {a["account_code"]: a async for a in db.chart_of_accounts.find(
+        {"company_id": company_id, "account_code": {"$in": list(codes)}}, {"_id": 0})}
+    missing = [c for c in codes if c not in accs]
+    if missing:
+        raise HTTPException(400, f"حسابات غير موجودة في شجرة الحسابات: {', '.join(missing)}")
+    return accs
+
+
+async def _post_entry(company_id, user_id, date, description, lines, source_id, source_type="sales_invoice"):
+    from services.accounting_service import AccountingService
+    from models.accounting import JournalEntry, JournalEntryLine
+    svc = AccountingService(db)
+    je = await svc.create_journal_entry(JournalEntry(
+        company_id=company_id, entry_date=date, description=description,
+        source_document_type=source_type, source_document_id=source_id,
+        created_by=user_id or "system",
+        lines=[JournalEntryLine(**l) for l in lines]))          # created as a DRAFT...
+    await svc.post_journal_entry(je["id"], user_id or "system")  # ...then posted: rows reach the ledger
+    return je["id"]
+
+
+async def post_sales_invoice(invoice: dict, user_id: str) -> str:
+    """من ح/ العملاء 131  ←  إلى ح/ المبيعات 411 + ضريبة المخرجات 260"""
+    company_id = invoice["company_id"]
+    total = round(float(invoice.get("total") or 0), 2)
+    vat = round(float(invoice.get("vat_amount") or 0), 2)
+    revenue = round(total - vat, 2)          # keeps the entry balanced to the cent
+    if total <= 0:
+        raise HTTPException(400, "إجمالي الفاتورة يجب أن يكون أكبر من صفر")
+    accs = await _ledger_accounts(company_id, ["131", "411"] + (["260"] if vat > 0 else []))
+    num = invoice.get("invoice_number", "")
+    L = lambda c, d, cr, desc: {"account_id": accs[c]["id"], "account_code": c,
+                                "account_name": accs[c]["account_name"], "debit": d, "credit": cr, "description": desc}
+    lines = [L("131", total, 0, f"فاتورة مبيعات {num}"), L("411", 0, revenue, f"فاتورة {num}")]
+    if vat > 0:
+        lines.append(L("260", 0, vat, f"ضريبة فاتورة {num}"))
+    return await _post_entry(company_id, user_id, invoice.get("date") or datetime.now().strftime("%Y-%m-%d"),
+                             f"فاتورة مبيعات {num} — {invoice.get('customer_name', '')}", lines, invoice["id"])
+
+
+async def post_customer_payment(inv: dict, payment: dict, user_id: str) -> str:
+    """من ح/ الخزينة 161 أو البنك 162  ←  إلى ح/ العملاء 131"""
+    money = MONEY_ACCOUNT.get(payment.get("method"), "162")
+    accs = await _ledger_accounts(inv["company_id"], [money, "131"])
+    amt = round(float(payment["amount"]), 2)
+    desc = f"تحصيل فاتورة {inv.get('invoice_number', '')} — {inv.get('customer_name', '')}"
+    lines = [{"account_id": accs[money]["id"], "account_code": money, "account_name": accs[money]["account_name"],
+              "debit": amt, "credit": 0, "description": desc},
+             {"account_id": accs["131"]["id"], "account_code": "131", "account_name": accs["131"]["account_name"],
+              "debit": 0, "credit": amt, "description": desc}]
+    return await _post_entry(inv["company_id"], user_id, payment["date"], desc, lines, payment["id"], "sales_invoice")
 
 # ══════════════════════════════════════════
 # SALES STATS
@@ -696,7 +743,9 @@ async def generate_subscription_invoice(sub_id: str, authorization: Optional[str
         "from_subscription": sub_id, "payments": [],
         "created_by": user.get("user_id"), "created_at": now_iso(), "updated_at": now_iso(),
     }
+    invoice["journal_entry_id"] = await post_sales_invoice(invoice, user.get("user_id"))  # had no entry at all
     await db.sales_invoices.insert_one(invoice)
+    invoice.pop("_id", None)
 
     # Update subscription next billing date
     cycle_days = {"monthly": 30, "quarterly": 90, "semi-annual": 180, "annual": 365}.get(sub.get("billing_cycle","monthly"), 30)
