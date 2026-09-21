@@ -186,6 +186,31 @@ def main():
     drafts = db.journal_entries.count_documents({"company_id": cid, "status": "draft"})
     print(f"  قيود مسودة غير مرحّلة       : {drafts}  (للمراجعة، ليست خطأ بالضرورة)")
 
+    # ── 5. completeness: closed documents whose entry never reached the ledger ──
+    print("\n[٥] اكتمال الدفتر — مستندات مُقفلة بلا قيد مرحّل")
+    posted_ids = {e["id"] for e in db.journal_entries.find(
+        {"company_id": cid, "status": {"$in": ["posted", "reversed"]}}, {"id": 1})}
+    checks = [
+        ("فواتير معتمدة/مدفوعة", "invoices", {"status": {"$in": ["approved", "paid", "partially_paid"]}}),
+        ("تسويات نهاية خدمة", "end_of_service", {"status": {"$in": ["approved", "paid"]}}),
+    ]
+    for label, coll, q in checks:
+        if coll not in db.list_collection_names():
+            continue
+        docs = list(db[coll].find({"company_id": cid, **q}, {"_id": 0, "id": 1, "journal_entry_id": 1,
+                                                             "document_number": 1, "invoice_number": 1}))
+        bad = [d for d in docs if d.get("journal_entry_id") not in posted_ids]
+        print(f"  {label:<28}: {len(docs)} | بلا قيد مرحّل: {len(bad)}")
+        for d in bad[:10]:
+            print(f"      {d.get('document_number') or d.get('invoice_number') or d.get('id')}")
+        issues += len(bad)
+
+    by_src = list(db.journal_entries.aggregate([
+        {"$match": {"company_id": cid, "status": "draft"}},
+        {"$group": {"_id": "$source_document_type", "n": {"$sum": 1}, "oldest": {"$min": "$entry_date"}}}]))
+    for r in by_src:
+        print(f"  مسودات من {r['_id'] or 'manual':<24}: {r['n']}  (أقدمها {r['oldest']})")
+
     print("\n" + "=" * 72)
     print(f"إجمالي الملاحظات: {issues}")
 

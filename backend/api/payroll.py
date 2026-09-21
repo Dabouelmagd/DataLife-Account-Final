@@ -739,7 +739,11 @@ async def approve_loan(
     )
     
     result = await service.create_journal_entry(entry)
-    
+    # Post before marking the loan approved: the entry used to stay a draft,
+    # so disbursed loans never reached the ledger. If posting fails, the loan
+    # is not approved either.
+    await service.post_journal_entry(result["id"], current_user["user_id"])
+
     # تحديث حالة السُلفة
     await db.employee_loans.update_one(
         {"id": loan_id},
@@ -1549,7 +1553,9 @@ async def approve_end_of_service(
     )
     
     result = await service.create_journal_entry(entry)
-    
+    # Post before closing the settlement (it used to stay a draft forever).
+    await service.post_journal_entry(result["id"], current_user["user_id"])
+
     # إيقاف الموظف
     await db.employees.update_one(
         {"id": settlement["employee_id"]},
@@ -2140,9 +2146,10 @@ async def disburse_payroll(
             lines=[l.dict() for l in lines_a],
             source_type="payroll_disbursement",
             source_id=run_id,
-            created_by=current_user["id"]
+            created_by=current_user["user_id"]
         )
-        await service.create_journal_entry(entry_a)
+        je_a = await service.create_journal_entry(entry_a)
+        await service.post_journal_entry(je_a["id"], current_user["user_id"])
     
     # ══ القيد ب: سداد الالتزامات الحكومية ═══════════
     # من حـ/ مذكورين → إلى حـ/ البنك
@@ -2216,9 +2223,10 @@ async def disburse_payroll(
             lines=[l.dict() for l in lines_b],
             source_type="payroll_government",
             source_id=run_id,
-            created_by=current_user["id"]
+            created_by=current_user["user_id"]
         )
-        await service.create_journal_entry(entry_b)
+        je_b = await service.create_journal_entry(entry_b)
+        await service.post_journal_entry(je_b["id"], current_user["user_id"])
     
     # تحديث حالة الصرف
     await db.payroll_runs.update_one(
@@ -2226,7 +2234,7 @@ async def disburse_payroll(
         {"$set": {
             "disbursed": True,
             "disbursed_at": datetime.utcnow().isoformat(),
-            "disbursed_by": current_user["id"],
+            "disbursed_by": current_user["user_id"],
             "status": "paid"
         }}
     )
@@ -2234,7 +2242,7 @@ async def disburse_payroll(
     # Audit log
     await db.activity_logs.insert_one({
         "company_id": company_id,
-        "user_id": current_user["id"],
+        "user_id": current_user["user_id"],
         "action": "payroll_disburse",
         "module": "payroll",
         "details": f"صرف رواتب شهر {payroll_month} — صافي: {run.get('total_net_salary', 0):,.2f} + التزامات حكومية: {total_gov:,.2f}",

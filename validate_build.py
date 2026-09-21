@@ -230,6 +230,25 @@ def check_undefined_names():
         if "undefined name" in line and "__pycache__" not in line:
             errors.append("❌ " + line.replace(str(ROOT) + "/", ""))
 
+# ── Mode 7: Reading keys the JWT does not carry ──────────────
+# get_current_user returns the token payload: user_id, email, company_id,
+# role. current_user["id"] raised KeyError and broke payroll disbursement.
+def check_token_keys():
+    import re
+    api = ROOT / "backend" / "api"
+    if not api.exists():
+        return
+    allowed = {"user_id", "email", "company_id", "role", "exp"}
+    for f in sorted(api.glob("*.py")):
+        s = f.read_text(encoding="utf-8", errors="ignore")
+        if "Depends(get_current_user)" not in s:
+            continue
+        for m in re.finditer(r'current_user\[["\'](\w+)["\']\]', s):
+            if m.group(1) not in allowed:
+                line = s[:m.start()].count("\n") + 1
+                errors.append(f"❌ backend/api/{f.name}:{line}: current_user[\"{m.group(1)}\"] — "
+                              f"the token has no such key (use user_id / .get())")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -245,6 +264,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 7: Token key check...")
+check_token_keys()
 
 print(f"Mode 6: Undefined name check...")
 check_undefined_names()

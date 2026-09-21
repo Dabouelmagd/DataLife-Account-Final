@@ -473,17 +473,26 @@ class AccountingService:
             description=f"عكس القيد رقم {original['entry_number']}",
             lines=reversed_lines,
             status=JournalEntryStatus.DRAFT,
+            is_reversal=True,
+            reversal_of=entry_id,
             created_by=user_id
         )
-        
+
         result = await self.create_journal_entry(reversed_entry)
-        
-        # تحديث حالة القيد الأصلي
+
+        # The reversal used to stay a draft forever while the original was
+        # marked "reversed": the original kept its full effect in the ledger
+        # and every report, yet the screen said it was cancelled. Post the
+        # reversal first; mark the original only once that has succeeded.
+        await self.post_journal_entry(result["id"], user_id)
+
         await self.db.journal_entries.update_one(
             {"id": entry_id},
-            {"$set": {"status": JournalEntryStatus.REVERSED.value}}
+            {"$set": {"status": JournalEntryStatus.REVERSED.value,
+                      "reversed_by": result["id"],
+                      "reversal_date": datetime.utcnow().strftime("%Y-%m-%d")}}
         )
-        
+        result["status"] = JournalEntryStatus.POSTED.value
         return result
     
     # ==========================================
