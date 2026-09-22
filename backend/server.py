@@ -303,6 +303,77 @@ class SafeUploadsMiddleware:
         await self.app(scope, receive, guarded_send)
 
 
+class PermissionMiddleware:
+    """Backend enforcement of the permissions the UI already applies.
+
+    Permissions were checked in the frontend only; any logged-in company user
+    could call payroll, ledger, treasury... APIs directly. The map is in
+    services/route_permissions.py. PERMISSION_ENFORCEMENT:
+      "log" (default) — blocks nothing, records what would have been refused
+                        in permission_audit (see scripts/permission_denials.py);
+      "enforce"       — refuses with 403.
+    Never breaks a request on its own error: lookup failures let it through.
+    """
+    TTL = 60
+
+    def __init__(self, app):
+        self.app = app
+        self.cache = {}
+        self.logged = {}
+
+    async def _user(self, uid):
+        import time
+        hit = self.cache.get(uid)
+        if hit and time.time() - hit[0] < self.TTL:
+            return hit[1]
+        from database import db as _db
+        u = await _db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "permissions": 1,
+                                                   "is_platform_admin": 1, "email": 1, "company_id": 1})
+        self.cache[uid] = (time.time(), u)
+        return u
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path", "").startswith("/api/"):
+            try:
+                from services.route_permissions import required_for, effective_permissions, PLATFORM_ROLES
+                need = required_for(scope["path"])
+                if need:
+                    auth = dict(scope.get("headers") or []).get(b"authorization", b"").decode()
+                    from services.auth_service import verify_token as _vt
+                    payload = _vt(auth[7:]) if auth.startswith("Bearer ") else None
+                    if payload and payload.get("user_id") and payload.get("role") not in PLATFORM_ROLES:
+                        user = await self._user(payload["user_id"])
+                        if user and not user.get("is_platform_admin") and not (effective_permissions(user) & need[1]):
+                            await self._record(scope, user, need)
+                            if os.environ.get("PERMISSION_ENFORCEMENT", "log") == "enforce":
+                                body = ('{"detail":"ليس لديك صلاحية الوصول إلى هذا القسم"}').encode()
+                                await send({"type": "http.response.start", "status": 403,
+                                            "headers": [(b"content-type", b"application/json; charset=utf-8")]})
+                                await send({"type": "http.response.body", "body": body})
+                                return
+            except Exception:
+                pass
+        await self.app(scope, receive, send)
+
+    async def _record(self, scope, user, need):
+        import time
+        from datetime import datetime, timezone
+        key = (user.get("email"), need[0], scope.get("method"), int(time.time() // 3600))
+        if key in self.logged:
+            return
+        self.logged[key] = 1
+        if len(self.logged) > 5000:
+            self.logged.clear()
+        from database import db as _db
+        await _db.permission_audit.insert_one({
+            "at": datetime.now(timezone.utc).isoformat(), "email": user.get("email"),
+            "company_id": user.get("company_id"), "role": user.get("role"),
+            "method": scope.get("method"), "path": scope.get("path"), "prefix": need[0],
+            "required_any_of": sorted(need[1]),
+            "mode": os.environ.get("PERMISSION_ENFORCEMENT", "log")})
+
+
+app.add_middleware(PermissionMiddleware)
 app.add_middleware(SafeUploadsMiddleware)
 app.add_middleware(RateLimitMiddleware, calls_per_minute=300)
 
