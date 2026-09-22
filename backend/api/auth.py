@@ -1,3 +1,4 @@
+import secrets
 from fastapi import APIRouter, HTTPException, Depends, Header
 from motor.motor_asyncio import AsyncIOMotorClient
 from models.user import UserCreate, UserLogin, Token, User, UserResponse, UserPermissionsUpdate, ALL_PERMISSIONS
@@ -143,7 +144,14 @@ async def register_company(
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin):
     """Login with email and password"""
+    from services import auth_throttle as _th
+    _lk = _th.k("login_fail", credentials.email)
+    await _th.check(db, _lk, *_th.LOGIN_FAILS)
     user = await authenticate_user(db, credentials.email, credentials.password)
+    if not user:
+        await _th.record(db, _lk)
+    else:
+        await _th.clear(db, _lk)
     
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -964,7 +972,7 @@ otp_storage = {}
 
 def generate_otp(length=6):
     """Generate a random OTP"""
-    return ''.join(random.choices(string.digits, k=length))
+    return ''.join(secrets.choice(string.digits) for _ in range(length))   # was random.choices (not a CSPRNG)
 
 async def send_otp_email(email: str, otp: str, user_name: str = ""):
     """Send OTP via branded email"""
@@ -992,6 +1000,11 @@ async def request_password_reset(email: str):
         }
     
     # Generate OTP
+    from services import auth_throttle as _th
+    _rk = _th.k("otp_request", email)
+    await _th.check(db, _rk, *_th.RESET_REQ_SHORT)
+    await _th.check(db, _rk, *_th.RESET_REQ_DAY)
+    await _th.record(db, _rk)
     otp = generate_otp()
     
     # Store OTP in database (instead of memory) with expiration (10 minutes)
@@ -1042,6 +1055,9 @@ async def verify_otp_and_reset_password(
     email = email.lower().strip()
     
     # Check if OTP exists in database
+    from services import auth_throttle as _th
+    _fk = _th.k("otp_fail", email)
+    await _th.check(db, _fk, *_th.OTP_FAILS_DAY)     # across all codes: new codes no longer reset the count
     stored_data = await db.password_reset_otps.find_one({"email": email})
     if not stored_data:
         raise HTTPException(status_code=400, detail="لم يتم طلب إعادة تعيين كلمة المرور لهذا البريد")
@@ -1058,7 +1074,8 @@ async def verify_otp_and_reset_password(
         raise HTTPException(status_code=400, detail="تم تجاوز عدد المحاولات المسموح بها. يرجى طلب رمز جديد")
     
     # Verify OTP
-    if stored_data["otp"] != otp:
+    if not secrets.compare_digest(str(stored_data["otp"]), str(otp)):
+        await _th.record(db, _fk)
         await db.password_reset_otps.update_one(
             {"email": email},
             {"$inc": {"attempts": 1}}

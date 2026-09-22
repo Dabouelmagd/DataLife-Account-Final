@@ -9,7 +9,7 @@ import httpx
 import logging
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from motor.motor_asyncio import AsyncIOMotorClient
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ async def get_admin_token():
         if not admin:
             return None
         import jwt
-        SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+        from services.auth_service import SECRET_KEY   # one place for the signing key
         payload = {
             "user_id": admin.get("id"),
             "email": admin.get("email"),
@@ -147,7 +147,24 @@ async def detailed_health_check():
     return results
 
 
+async def _internal_or_platform_admin(request, authorization):
+    """The internal scheduler calls these from inside the container (127.0.0.1);
+    everything from outside arrives through nginx with another address and must
+    be a platform admin. Both endpoints used to be public: each call fires dozens
+    of requests carrying a Super Admin token — an easy way to load the server."""
+    host = (request.client.host if request and request.client else "") or ""
+    if host in ("127.0.0.1", "::1", "localhost"):
+        return
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)
+
+
 @router.get("/test-routes")
+async def test_all_routes_route(request: Request, authorization: Optional[str] = Header(None)):
+    await _internal_or_platform_admin(request, authorization)
+    return await test_all_routes()
+
+
 async def test_all_routes():
     """
     Test ALL critical API routes by sending real HTTP requests.
@@ -331,7 +348,8 @@ async def get_health_history(limit: int = 50):
 
 
 @router.post("/run-now")
-async def run_health_now():
+async def run_health_now(request: Request = None, authorization: Optional[str] = Header(None)):
+    await _internal_or_platform_admin(request, authorization)
     """Trigger immediate full health check + route test"""
     detailed = await detailed_health_check()
     routes = await test_all_routes()
