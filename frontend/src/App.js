@@ -63,8 +63,14 @@ const Home = () => {
   return <LandingPage />;
 };
 
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+// Employees (role Employee / موظف) only ever see their own portal. The login
+// sent them to /my-portal, but typing /dashboard opened the whole app.
+const EMPLOYEE_ROLES = ['Employee', 'موظف'];
+
+const ProtectedRoute = ({ children, allowEmployee = false }) => {
+  const { isAuthenticated, loading, user } = useAuth();
+  let role = user?.role;
+  if (!role) { try { role = JSON.parse(localStorage.getItem('user') || '{}').role; } catch { role = undefined; } }
 
   if (loading) {
     return (
@@ -74,7 +80,9 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  if (!isAuthenticated) return <Navigate to="/login" />;
+  if (!allowEmployee && EMPLOYEE_ROLES.includes(role)) return <Navigate to="/my-portal" replace />;
+  return children;
 };
 
 function App() {
@@ -232,7 +240,7 @@ function App() {
         <Route path="/contact" element={<ContactPage />} />
           <Route path="/partners" element={<PartnersPage />} />
           <Route path="/my-portal" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowEmployee>
                   <EmployeeSelfService />
                 </ProtectedRoute>
               } />

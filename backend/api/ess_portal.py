@@ -596,6 +596,12 @@ async def audit_tenant_isolation(current_user: dict = Depends(get_current_user))
     2. لا توجد وثائق بدون company_id
     3. Row-Level Security مُطبَّق على كل استعلام
     """
+    # platform tool: counts documents across ALL companies — was open to any
+    # logged-in user, including employees on their self-service portal
+    if current_user.get("role") != "Super Admin":
+        _u = await db.users.find_one({"id": current_user.get("user_id")}, {"_id": 0, "is_platform_admin": 1})
+        if not (_u and _u.get("is_platform_admin")):
+            raise HTTPException(status_code=403, detail="Platform administrator access required")
     company_id = current_user["company_id"]
 
     AUDITED_COLLECTIONS = [
@@ -668,6 +674,12 @@ async def validate_query_isolation(
     """
     التحقق من أن استعلام محدد يشمل company_id filter (RLS Check)
     """
+    # platform tool: counts documents across ALL companies — was open to any
+    # logged-in user, including employees on their self-service portal
+    if current_user.get("role") != "Super Admin":
+        _u = await db.users.find_one({"id": current_user.get("user_id")}, {"_id": 0, "is_platform_admin": 1})
+        if not (_u and _u.get("is_platform_admin")):
+            raise HTTPException(status_code=403, detail="Platform administrator access required")
     company_id = current_user["company_id"]
     col = db[collection]
 
@@ -699,6 +711,12 @@ async def get_tenant_architecture(current_user: dict = Depends(get_current_user)
     """
     وثيقة معمارية عزل البيانات المُطبَّقة في النظام
     """
+    # platform tool: counts documents across ALL companies — was open to any
+    # logged-in user, including employees on their self-service portal
+    if current_user.get("role") != "Super Admin":
+        _u = await db.users.find_one({"id": current_user.get("user_id")}, {"_id": 0, "is_platform_admin": 1})
+        if not (_u and _u.get("is_platform_admin")):
+            raise HTTPException(status_code=403, detail="Platform administrator access required")
     return {
         "architecture_name": "Shared Database — Row-Level Security (RLS)",
         "description": "قاعدة بيانات موحدة مع عزل البيانات عبر حقل company_id",

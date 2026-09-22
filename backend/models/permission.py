@@ -231,23 +231,19 @@ ROLE_PERMISSIONS = {
         }
     },
     "Employee": {
-        "modules": ["dashboard", "financial", "reports"],
+        # Own portal only (/my-portal): payslips, leave, attendance, own documents.
+        # Was a copy of the accountant's rights, including financial create/edit.
+        "modules": ["self_service"],
         "permissions": {
-            "dashboard": ["view"],
-            "financial": ["view", "create", "edit"],
-            "sales": ["view", "create", "edit"],
-            "reports": ["view", "print"],
-            "users": []
+            "self_service": ["view", "create"]
         }
     },
     "موظف": {
-        "modules": ["dashboard", "financial", "reports"],
+        # Own portal only (/my-portal): payslips, leave, attendance, own documents.
+        # Was a copy of the accountant's rights, including financial create/edit.
+        "modules": ["self_service"],
         "permissions": {
-            "dashboard": ["view"],
-            "financial": ["view", "create", "edit"],
-            "sales": ["view", "create", "edit"],
-            "reports": ["view", "print"],
-            "users": []
+            "self_service": ["view", "create"]
         }
     }
 }
