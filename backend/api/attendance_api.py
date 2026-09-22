@@ -935,7 +935,8 @@ async def import_fingerprint_data(
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="يجب أن يكون الملف بصيغة CSV")
     
-    content = await file.read()
+    from services.upload_limits import read_limited as _rl, IMPORT_LIMIT as _LIM
+    content = await _rl(file, _LIM)
     decoded = content.decode('utf-8-sig')
     reader = csv.DictReader(io.StringIO(decoded))
     

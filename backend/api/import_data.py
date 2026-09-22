@@ -71,7 +71,8 @@ async def import_employees(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     company_id = current_user.get("company_id")
-    content = await file.read()
+    from services.upload_limits import read_limited as _rl, IMPORT_LIMIT as _LIM
+    content = await _rl(file, _LIM)
     
     try:
         df = parse_file(content, file.filename)
@@ -166,7 +167,8 @@ async def import_financial(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     company_id = current_user.get("company_id")
-    content = await file.read()
+    from services.upload_limits import read_limited as _rl, IMPORT_LIMIT as _LIM
+    content = await _rl(file, _LIM)
     
     try:
         df = parse_file(content, file.filename)
@@ -248,7 +250,8 @@ async def import_customers(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     company_id = current_user.get("company_id")
-    content = await file.read()
+    from services.upload_limits import read_limited as _rl, IMPORT_LIMIT as _LIM
+    content = await _rl(file, _LIM)
     
     try:
         df = parse_file(content, file.filename)
@@ -335,7 +338,8 @@ async def import_suppliers(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     company_id = current_user.get("company_id")
-    content = await file.read()
+    from services.upload_limits import read_limited as _rl, IMPORT_LIMIT as _LIM
+    content = await _rl(file, _LIM)
     
     try:
         df = parse_file(content, file.filename)
@@ -422,7 +426,8 @@ async def import_inventory(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     company_id = current_user.get("company_id")
-    content = await file.read()
+    from services.upload_limits import read_limited as _rl, IMPORT_LIMIT as _LIM
+    content = await _rl(file, _LIM)
     
     try:
         df = parse_file(content, file.filename)
@@ -518,7 +523,8 @@ async def import_invoices(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     company_id = current_user.get("company_id")
-    content = await file.read()
+    from services.upload_limits import read_limited as _rl, IMPORT_LIMIT as _LIM
+    content = await _rl(file, _LIM)
     
     try:
         df = parse_file(content, file.filename)
@@ -601,7 +607,8 @@ async def import_purchases(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     company_id = current_user.get("company_id")
-    content = await file.read()
+    from services.upload_limits import read_limited as _rl, IMPORT_LIMIT as _LIM
+    content = await _rl(file, _LIM)
     
     try:
         df = parse_file(content, file.filename)

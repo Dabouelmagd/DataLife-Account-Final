@@ -369,7 +369,8 @@ async def upload_employee_photo(
     filepath = os.path.join(UPLOAD_DIR, filename)
     
     async with aiofiles.open(filepath, "wb") as f:
-        content = await file.read()
+        from services.upload_limits import read_limited as _rl, PHOTO_LIMIT as _LIM
+        content = await _rl(file, _LIM)
         await f.write(content)
     
     photo_url = f"/api/uploads/employees/{filename}"

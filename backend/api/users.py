@@ -492,14 +492,15 @@ async def upload_profile_photo(
     os.makedirs(upload_dir, exist_ok=True)
     
     # Generate unique filename
-    file_ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    from services.upload_limits import read_limited as _rl, PHOTO_LIMIT, IMAGE_EXT
+    file_ext = IMAGE_EXT.get(file.content_type, "jpg")   # was taken from the client's filename
     unique_filename = f"{current_user.get('user_id')}_{uuid_module.uuid4().hex[:8]}.{file_ext}"
     file_path = os.path.join(upload_dir, unique_filename)
     
     # Save file
     try:
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            buffer.write(await _rl(file, PHOTO_LIMIT))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"فشل حفظ الملف: {str(e)}")
     
@@ -684,7 +685,8 @@ async def upload_user_photo(
     
     # Save file
     try:
-        contents = await file.read()
+        from services.upload_limits import read_limited as _rl, PHOTO_LIMIT as _LIM
+        contents = await _rl(file, _LIM)
         with open(file_path, "wb") as f:
             f.write(contents)
     except Exception as e:
