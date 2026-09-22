@@ -424,7 +424,11 @@ async def upload_employee_document(
     
     # حفظ الملف
     doc_id = str(uuid.uuid4())
-    ext = file.filename.split(".")[-1]
+    # the extension came straight from the client: "contract.html" was stored and
+    # served from the app's own origin (SafeUploadsMiddleware now also guards this)
+    ext = (file.filename.rsplit(".", 1)[-1] if "." in (file.filename or "") else "").lower()
+    if ext not in {"pdf", "jpg", "jpeg", "png", "webp", "doc", "docx", "xls", "xlsx", "txt", "csv"}:
+        raise HTTPException(status_code=400, detail="نوع الملف غير مسموح — المسموح: PDF، صور، Word، Excel")
     filename = f"{employee_id}_{doc_id}.{ext}"
     filepath = os.path.join(UPLOAD_DIR, filename)
     

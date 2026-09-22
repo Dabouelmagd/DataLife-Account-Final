@@ -266,6 +266,44 @@ class RateLimitMiddleware:
             self.calls[ip].append(now)
         await self.app(scope, receive, send)
 
+class SafeUploadsMiddleware:
+    """User-uploaded files are served from the app's own origin
+    (/api/uploads/..., attachment and document downloads). An uploaded .html or
+    .svg would run as part of datalifeaccount.com and could read the viewer's
+    login token from localStorage — e.g. an HR user uploading "contract.html" as
+    an employee document and sending the link to an admin.
+
+    For those paths: never let the browser guess types (nosniff), and serve any
+    type that can run script in a sandbox, as a download. Images and PDFs are
+    untouched."""
+    PATHS = ("/api/uploads", "/api/attachments/", "/api/documents/")
+    ACTIVE = (b"text/html", b"image/svg", b"application/xhtml", b"text/xml", b"application/xml",
+              b"text/javascript", b"application/javascript", b"application/x-javascript", b"text/x-")
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not scope.get("path", "").startswith(self.PATHS):
+            return await self.app(scope, receive, send)
+
+        async def guarded_send(message):
+            if message["type"] == "http.response.start":
+                headers = [(k, v) for k, v in message.get("headers", []) if k.lower() not in (
+                    b"x-content-type-options", b"content-security-policy")]
+                ctype = next((v.lower() for k, v in headers if k.lower() == b"content-type"), b"")
+                headers.append((b"x-content-type-options", b"nosniff"))
+                if not ctype or ctype.startswith(self.ACTIVE):
+                    headers = [(k, v) for k, v in headers if k.lower() != b"content-disposition"]
+                    headers.append((b"content-security-policy", b"default-src 'none'; sandbox"))
+                    headers.append((b"content-disposition", b"attachment"))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, guarded_send)
+
+
+app.add_middleware(SafeUploadsMiddleware)
 app.add_middleware(RateLimitMiddleware, calls_per_minute=300)
 
 app.add_middleware(
