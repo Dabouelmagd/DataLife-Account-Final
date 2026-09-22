@@ -17,7 +17,13 @@ from typing import Optional
 import os
 
 # JWT settings
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "")
+# Refuse to start without a real signing key. There used to be a fallback
+# value in the source: with the variable unset, anyone could sign their own
+# Super Admin token. (Production is set — 39 characters — this keeps it so.)
+if (not SECRET_KEY or len(SECRET_KEY) < 32
+        or SECRET_KEY in ("your-secret-key-change-in-production", "your-secret-key", "secret", "changeme")):
+    raise RuntimeError("JWT_SECRET_KEY must be set to a random value of at least 32 characters")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8   # 8 hours — financial data security
 
