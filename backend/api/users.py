@@ -681,7 +681,9 @@ async def upload_user_photo(
         raise HTTPException(status_code=400, detail="File must be an image")
     
     # Create uploads directory if it doesn't exist
-    upload_dir = Path("/app/frontend/public/uploads/users")
+    # was /app/frontend/public/uploads/users inside the BACKEND container: served by
+    # nobody (the frontend is another container) and wiped on every deploy
+    upload_dir = Path("/app/uploads/users")
     upload_dir.mkdir(parents=True, exist_ok=True)
     
     # Generate filename
@@ -699,7 +701,7 @@ async def upload_user_photo(
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
     
     # Update user profile_photo_url in database
-    photo_url = f"/uploads/users/{filename}"
+    photo_url = f"/api/uploads/users/{filename}"
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

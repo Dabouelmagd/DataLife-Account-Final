@@ -469,6 +469,24 @@ def check_public_routes():
                 errors.append(f"backend/api/{f.name}:{n.lineno}: {key} reads or writes the database with no "
                               f"authentication — require login, or review and add to reviewed_public_routes.txt")
 
+# ── Mode 13: Uploads must be written inside the persistent volume (blocking) ─
+# Only /app/uploads is a Docker volume. Employee documents and photos were
+# written to /app/backend/uploads and user photos to /app/frontend/public/uploads:
+# both inside the container, wiped on every deploy (and never served).
+def check_upload_paths():
+    import re
+    bad = re.compile(r'["\'](/app/(?!uploads\b)[^"\']*uploads[^"\']*)["\']')
+    for f in list((ROOT / "backend" / "api").glob("*.py")) + list((ROOT / "backend" / "services").glob("*.py")) + [ROOT / "backend" / "server.py"]:
+        if not f.exists():
+            continue
+        for n, line in enumerate(f.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+            if line.lstrip().startswith("#"):
+                continue
+            m = bad.search(line)
+            if m:
+                errors.append(f"{f.relative_to(ROOT)}:{n}: writes uploads to {m.group(1)} — outside the /app/uploads "
+                              f"volume, so files are lost on every deploy")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -484,6 +502,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 13: Upload path check...")
+check_upload_paths()
 
 print(f"Mode 12: Public route check...")
 check_public_routes()

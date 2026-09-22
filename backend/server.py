@@ -102,7 +102,8 @@ load_dotenv(ROOT_DIR / '.env')
 # Create uploads directories
 os.makedirs("/app/uploads/photos", exist_ok=True)
 os.makedirs("/app/uploads/logos", exist_ok=True)
-os.makedirs("/app/backend/uploads/employees", exist_ok=True)
+for _d in ("employees", "users", "photos", "receipts", "logos"):
+    os.makedirs(f"/app/uploads/{_d}", exist_ok=True)   # all inside the persistent volume
 
 # Import database
 from database import db, client
@@ -112,7 +113,10 @@ app = FastAPI()
 
 # Mount static files for uploads - using /api/uploads for ingress compatibility
 app.mount("/api/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
-app.mount("/api/uploads/employees", StaticFiles(directory="/app/backend/uploads/employees"), name="employee_uploads")
+# /api/uploads/employees used to be a second mount on /app/backend/uploads/employees.
+# It was shadowed by the /api/uploads mount above (so every employee file 404'd) and
+# that directory was outside the persistent volume (wiped on every deploy).
+# Employee files now live in /app/uploads/employees and are served by the mount above.
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")

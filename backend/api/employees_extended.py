@@ -22,7 +22,7 @@ from models.employee_extended import (
 
 router = APIRouter(prefix="/api/employees", tags=["Employees Extended"])
 
-UPLOAD_DIR = "/app/backend/uploads/employees"
+UPLOAD_DIR = "/app/uploads/employees"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 

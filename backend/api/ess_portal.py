@@ -871,7 +871,7 @@ async def upload_my_document(
         raise HTTPException(status_code=400, detail="نوع الملف غير مسموح — المسموح: PDF، صور، Word")
     content = await read_limited(file, 10 * MB)
     doc_id = str(uuid.uuid4())
-    upload_dir = "/app/backend/uploads/employees"
+    upload_dir = "/app/uploads/employees"
     os.makedirs(upload_dir, exist_ok=True)
     filename = f"{emp['id']}_{doc_id}.{ext}"
     async with aiofiles.open(os.path.join(upload_dir, filename), "wb") as f:
