@@ -985,3 +985,55 @@ async def get_employees_stats(
         "by_department": [{"department": d["_id"] or "غير محدد", "count": d["count"]} for d in departments],
         "total_basic_salaries": round(total_salaries, 2)
     }
+
+
+@router.post("/{employee_id}/portal-invite")
+async def invite_employee_to_portal(employee_id: str, data: dict = None,
+                                    current_user: dict = Depends(get_current_user)):
+    """HR: give this employee access to their own portal (/my-portal).
+    Creates or reuses a login with role موظف, links it to the employee record,
+    and returns a one-time activation link (also emailed)."""
+    from services import portal_invites
+    from services.professional_email_service import email_service
+    company_id = current_user["company_id"]
+    emp = await db.employees.find_one({"id": employee_id, "company_id": company_id}, {"_id": 0})
+    if not emp:
+        raise HTTPException(status_code=404, detail="الموظف غير موجود")
+    email = ((data or {}).get("email") or emp.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="أضف بريداً إلكترونياً للموظف أولاً — سيكون اسم الدخول")
+
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if user and user.get("company_id") != company_id:
+        raise HTTPException(status_code=400, detail="هذا البريد مستخدم في شركة أخرى")
+    if user and user.get("employee_id") not in (None, "", employee_id):
+        raise HTTPException(status_code=400, detail="هذا البريد مرتبط بموظف آخر")
+    if user and user.get("password_hash") and user.get("portal_status") != "invited":
+        raise HTTPException(status_code=400, detail="الموظف لديه حساب مفعّل بالفعل — يمكنه الدخول أو استعادة كلمة المرور")
+    now = datetime.utcnow().isoformat()
+    if not user:
+        user = {"id": str(uuid.uuid4()), "email": email, "full_name": emp.get("name") or emp.get("full_name") or "",
+                "role": "موظف", "permissions": ["self_service"], "company_id": company_id,
+                "employee_id": employee_id, "is_active": True, "password_hash": None,
+                "portal_status": "invited", "created_at": now, "created_by": current_user.get("user_id")}
+        await db.users.insert_one(dict(user))
+    else:
+        await db.users.update_one({"id": user["id"]}, {"$set": {"employee_id": employee_id, "portal_status": "invited"}})
+    await db.employees.update_one({"id": employee_id, "company_id": company_id},
+                                  {"$set": {"user_id": user["id"], "email": email, "portal_status": "invited",
+                                            "portal_invited_at": now}})
+
+    token = await portal_invites.issue(db, user["id"], company_id, employee_id)
+    link = portal_invites.PORTAL_BASE + token
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1}) or {}
+    html = f"""<div dir="rtl" style="font-family:Tahoma,Arial;line-height:1.8">
+      <p>مرحباً {user.get('full_name') or ''}،</p>
+      <p>دعتك <b>{company.get('name','')}</b> لاستخدام بوابة الموظف: راتبك، إجازاتك، حضورك، ومستنداتك.</p>
+      <p><a href="{link}" style="background:#1e3a8a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">تفعيل حسابي واختيار كلمة المرور</a></p>
+      <p style="color:#666;font-size:13px">الرابط صالح {portal_invites.INVITE_DAYS} أيام ويُستخدم مرة واحدة. اسم الدخول: {email}</p></div>"""
+    try:
+        sent = await email_service.send_email(email, "دعوة لبوابة الموظف — DataLife Account", html)
+    except Exception:
+        sent = False
+    return {"message": "تم إنشاء رابط التفعيل", "email": email, "invite_link": link,
+            "email_sent": bool(sent), "expires_in_days": portal_invites.INVITE_DAYS}

@@ -46,8 +46,14 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     if len(password_bytes) > 72:
         password_bytes = password_bytes[:72]
     
-    # Verify password
-    return bcrypt.checkpw(password_bytes, hashed_password.encode('utf-8'))
+    # An account with no password yet (portal invitation not activated) simply
+    # fails to log in — it used to raise on None.encode() and return a 500.
+    if not hashed_password or not isinstance(hashed_password, str):
+        return False
+    try:
+        return bcrypt.checkpw(password_bytes, hashed_password.encode('utf-8'))
+    except ValueError:
+        return False
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Create a JWT access token"""

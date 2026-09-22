@@ -21,3 +21,5 @@ customer_portal.py:/register  # needs the company's portal code
 health_check.py:/detailed  # uptime monitor
 health_check.py:/history  # uptime monitor
 subscriptions.py:/validate-code  # checks an activation code during sign-up
+auth.py:/portal-invite  # activation page: needs a 256-bit one-time token
+auth.py:/portal-invite/accept  # sets the password: needs the one-time token, spent atomically

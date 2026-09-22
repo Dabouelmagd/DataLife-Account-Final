@@ -11,6 +11,10 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
   const [employee, setEmployee] = useState(null);
+  // portal invitation (HR): link to /accept-invite, emailed and shown here
+  const [invite, setInvite] = useState(null);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteError, setInviteError] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('info');
   const [isEditing, setIsEditing] = useState(false);
@@ -276,6 +280,21 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
   const getAuthHeader = () => {
     const token = localStorage.getItem('token');
     return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+  };
+
+  const sendPortalInvite = async () => {
+    setInviteBusy(true); setInviteError(''); setInvite(null);
+    try {
+      const res = await fetch(`${API_URL}/api/employees/${employeeId}/portal-invite`, {
+        method: 'POST', headers: getAuthHeader(), body: JSON.stringify({}),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.detail || '');
+      setInvite(d);
+      setEmployee((e) => (e ? { ...e, portal_status: 'invited', email: d.email } : e));
+    } catch (e) {
+      setInviteError(e.message || (language === 'ar' ? 'تعذّر إنشاء الدعوة' : 'Could not create the invitation'));
+    } finally { setInviteBusy(false); }
   };
 
   const fetchEmployee = useCallback(async () => {
@@ -587,6 +606,42 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
             </h2>
             {employee.name_en && (
               <p className="text-gray-500 dark:text-gray-400 mb-2">{employee.name_en}</p>
+            )}
+            {/* Employee portal access */}
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm" dir="rtl">
+              {employee.portal_status === 'active' ? (
+                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">✓ بوابة الموظف مفعّلة</span>
+              ) : (
+                <>
+                  {employee.portal_status === 'invited' && (
+                    <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 font-semibold">مدعو — لم يفعّل حسابه بعد</span>
+                  )}
+                  <button onClick={sendPortalInvite} disabled={inviteBusy}
+                    className="px-3 py-1.5 rounded-lg bg-[#1e3a8a] text-white font-semibold disabled:opacity-50">
+                    {inviteBusy ? '…' : employee.portal_status === 'invited' ? 'إرسال رابط جديد' : 'دعوة لبوابة الموظف'}
+                  </button>
+                </>
+              )}
+            </div>
+            {inviteError && <p className="mb-3 text-sm text-red-700" role="alert">{inviteError}</p>}
+            {invite && (
+              <div className="mb-3 p-3 rounded-lg border border-sky-200 bg-sky-50 text-sm space-y-2" dir="rtl">
+                <p className={invite.email_sent ? 'text-emerald-700' : 'text-amber-800'}>
+                  {invite.email_sent
+                    ? `أُرسل رابط التفعيل إلى ${invite.email}`
+                    : `لم يُرسَل البريد إلى ${invite.email} — أرسل الرابط للموظف بنفسك:`}
+                </p>
+                <input readOnly value={invite.invite_link} dir="ltr" onFocus={(e) => e.target.select()}
+                  className="w-full px-2 py-1.5 rounded border border-sky-200 bg-white font-mono text-xs" />
+                <div className="flex gap-2">
+                  <button onClick={() => navigator.clipboard?.writeText(invite.invite_link)}
+                    className="px-3 py-1.5 rounded-lg border border-sky-300 text-sky-800 font-semibold">نسخ الرابط</button>
+                  <a target="_blank" rel="noreferrer"
+                    href={`https://wa.me/?text=${encodeURIComponent(`رابط تفعيل حسابك في بوابة الموظف (صالح ${invite.expires_in_days} أيام، يُستخدم مرة واحدة):\n${invite.invite_link}`)}`}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold">إرسال عبر واتساب</a>
+                </div>
+                <p className="text-xs text-slate-600">الرابط صالح {invite.expires_in_days} أيام ويُستخدم مرة واحدة. اسم الدخول: {invite.email}</p>
+              </div>
             )}
             <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-300">
               <span className="flex items-center gap-1">

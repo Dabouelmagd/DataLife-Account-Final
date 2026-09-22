@@ -1135,3 +1135,37 @@ async def check_otp_status(email: str):
         "remaining_seconds": int(remaining_seconds),
         "attempts_remaining": 5 - stored_data["attempts"]
     }
+
+
+@router.get("/portal-invite")
+async def portal_invite_info(token: str):
+    """Public: what the activation page shows before the password is chosen."""
+    from services import portal_invites
+    inv = await portal_invites.lookup(db, token)
+    if not inv:
+        raise HTTPException(status_code=404, detail="رابط التفعيل غير صالح أو منتهي — اطلب رابطاً جديداً من الموارد البشرية")
+    user = await db.users.find_one({"id": inv["user_id"]}, {"_id": 0, "email": 1, "full_name": 1})
+    company = await db.companies.find_one({"id": inv["company_id"]}, {"_id": 0, "name": 1}) or {}
+    return {"email": (user or {}).get("email"), "name": (user or {}).get("full_name"), "company": company.get("name")}
+
+
+@router.post("/portal-invite/accept")
+async def accept_portal_invite(data: dict):
+    """Public: the employee chooses a password; the link is then spent."""
+    from services import portal_invites
+    from services.auth_service import hash_password
+    token, password = data.get("token"), data.get("password")
+    if not isinstance(token, str) or not isinstance(password, str):
+        raise HTTPException(status_code=400, detail="بيانات غير صحيحة")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="كلمة المرور يجب ألا تقل عن 8 أحرف")
+    inv = await portal_invites.consume(db, token)          # atomic: a link works once
+    if not inv:
+        raise HTTPException(status_code=404, detail="رابط التفعيل غير صالح أو منتهي — اطلب رابطاً جديداً من الموارد البشرية")
+    await db.users.update_one({"id": inv["user_id"]}, {"$set": {
+        "password_hash": hash_password(password), "is_active": True, "portal_status": "active",
+        "activated_at": datetime.now(timezone.utc).isoformat()}})
+    await db.employees.update_one({"id": inv["employee_id"], "company_id": inv["company_id"]},
+                                  {"$set": {"portal_status": "active"}})
+    user = await db.users.find_one({"id": inv["user_id"]}, {"_id": 0, "email": 1})
+    return {"message": "تم تفعيل حسابك — سجّل الدخول ببريدك وكلمة المرور", "email": (user or {}).get("email")}
