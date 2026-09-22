@@ -61,10 +61,19 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def verify_token(token: str) -> Optional[dict]:
-    """Verify and decode a JWT token"""
+def verify_token(token: str, allow_customer: bool = False) -> Optional[dict]:
+    """Verify and decode a JWT token — STAFF tokens by default.
+
+    Customer-portal tokens are signed with the same key and carry the vendor's
+    company_id. Staff authentication accepted them, so any portal customer could
+    call staff APIs as a member of that company (ledger, payroll, other
+    customers' invoices). They are now refused everywhere except where the
+    portal asks for them explicitly (allow_customer=True).
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
     except JWTError:
         return None
+    if payload.get("type") == "customer" and not allow_customer:
+        return None
+    return payload

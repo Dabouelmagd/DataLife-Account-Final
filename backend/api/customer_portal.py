@@ -38,7 +38,7 @@ async def verify_customer_token(authorization: str):
     
     from services.auth_service import verify_token
     token = authorization.split(" ")[1]
-    data = verify_token(token)
+    data = verify_token(token, allow_customer=True)
     
     if not data or data.get("type") != "customer":
         raise HTTPException(status_code=401, detail="Invalid customer token")
@@ -76,6 +76,11 @@ async def register_customer(customer_data: dict):
         raise HTTPException(status_code=400, detail="Email, password and company code required")
     
     # Find company by code
+    # strings only: {"$ne": ""} as the code matched the first company, letting
+    # anyone register into a company without knowing its portal code
+    if not all(isinstance(v, str) and v.strip() for v in (email, password, company_code)):
+        raise HTTPException(status_code=400, detail="Email, password and company code required")
+    email, company_code = email.strip().lower(), company_code.strip()
     company = await db.companies.find_one({"portal_code": company_code})
     if not company:
         raise HTTPException(status_code=404, detail="Invalid company code")
@@ -108,17 +113,19 @@ async def customer_login(login_data: dict):
     """Customer portal login"""
     email = login_data.get("email")
     password = login_data.get("password")
-    
-    if not email or not password:
+    # strings only: {"$ne": ""} as the email matched the first account
+    if not isinstance(email, str) or not isinstance(password, str) or not email or not password:
         raise HTTPException(status_code=400, detail="Email and password required")
-    
+    email = email.strip().lower()
+    from services import auth_throttle as _th     # the portal had no lockout at all
+    _lk = _th.k("portal_login_fail", email)
+    await _th.check(db, _lk, *_th.LOGIN_FAILS)
+
     customer = await db.customer_accounts.find_one({"email": email})
-    
-    if not customer:
+    if not customer or not verify_password(password, customer.get("password_hash", "")):
+        await _th.record(db, _lk)
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    if not verify_password(password, customer.get("password_hash", "")):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    await _th.clear(db, _lk)
     
     if not customer.get("is_active"):
         raise HTTPException(status_code=401, detail="Account is deactivated")
