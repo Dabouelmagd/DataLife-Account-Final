@@ -15,7 +15,7 @@ Employee Self-Service Portal — بوابة الخدمة الذاتية للمو
 import uuid, io, math, hashlib, json
 from datetime import datetime, timezone, date
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -71,6 +71,24 @@ class AttendanceRequest(BaseModel):
     notes:      Optional[str] = None
 
 
+
+def resolve_work_location(emp: dict, company: dict):
+    """Where this employee must check in, and whether remote check-in is allowed.
+
+    The GPS settings page saves companies.gps_settings, but check-in read
+    companies.work_location — a field nothing writes — so the geofence never
+    applied and anyone could check in from anywhere. Order: the employee's own
+    location (a branch) first, then the company's GPS settings, then the old
+    field. Returns (location | None, remote_allowed)."""
+    gps = company.get("gps_settings") or {}
+    candidates = [emp.get("work_location"),
+                  gps if gps.get("enabled", True) else None,
+                  company.get("work_location")]
+    loc = next((c for c in candidates if c and c.get("latitude") not in (None, "")), None)
+    remote = bool(gps.get("allow_remote") or company.get("allow_remote_checkin") or emp.get("remote_work_allowed"))
+    return loc, remote
+
+
 @router.post("/attendance/check-in")
 async def ess_check_in(
     req: AttendanceRequest,
@@ -98,7 +116,7 @@ async def ess_check_in(
 
     # Geofencing check
     company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
-    work_location = company.get("work_location") or emp.get("work_location")
+    work_location, remote_allowed = resolve_work_location(emp, company)
     geofence_status = "not_configured"
     distance_m      = None
     allowed_radius  = 500  # default 500 meters
@@ -114,7 +132,7 @@ async def ess_check_in(
         else:
             geofence_status = "out_of_range"
             # Check if remote work is allowed
-            if not company.get("allow_remote_checkin") and not emp.get("remote_work_allowed"):
+            if not remote_allowed:
                 raise HTTPException(400,
                     f"أنت خارج نطاق مكان العمل ({distance_m:.0f}م) — "
                     f"الحد المسموح {allowed_radius:.0f}م | "
@@ -397,9 +415,42 @@ async def list_my_payslips(current_user: dict = Depends(get_current_user)):
 # ══════════════════════════════════════════════════════════════
 
 
+
+def slip_figures(emp_data: dict) -> dict:
+    """Payslip figures from one employee's entry in a payroll run.
+
+    The run stores allowances and deductions as LISTS ({deduction_type, name,
+    amount}); there are no employee_si / income_tax / loan_deduction fields.
+    The payslip read those missing fields (so tax and insurance printed 0) and
+    did float() on the allowances list (the PDF failed with a 500)."""
+    def num(v):
+        try:
+            return float(v or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def total(v):
+        return sum(num(x.get("amount")) for x in v) if isinstance(v, list) else num(v)
+
+    deds = emp_data.get("deductions") if isinstance(emp_data.get("deductions"), list) else []
+    by = lambda *types: round(sum(num(d.get("amount")) for d in deds if d.get("deduction_type") in types), 2)
+    si, tax, loan = by("social_insurance"), by("income_tax"), by("loan", "advance")
+    ded_total = num(emp_data.get("total_deductions")) or round(sum(num(d.get("amount")) for d in deds), 2)
+    allow = num(emp_data.get("total_allowances")) or total(emp_data.get("allowances"))
+    return {"basic_salary": round(num(emp_data.get("basic_salary")), 2), "allowances": round(allow, 2),
+            "overtime": round(num(emp_data.get("overtime_bonus")), 2),
+            "gross_salary": round(num(emp_data.get("gross_salary")), 2),
+            "employee_si": si, "income_tax": tax, "loan_deduction": loan,
+            "other_deductions": round(max(ded_total - si - tax - loan, 0.0), 2),
+            "total_deductions": round(ded_total, 2), "net_salary": round(num(emp_data.get("net_salary")), 2),
+            "deductions": [{"type": d.get("deduction_type"), "name": d.get("name"), "amount": round(num(d.get("amount")), 2)}
+                           for d in deds]}
+
+
 @router.get("/payslip/{run_id}")
 async def get_payslip_pdf(
     run_id: str,
+    format: Optional[str] = Query(None),        # "json": the figures, for the on-screen breakdown
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -408,6 +459,8 @@ async def get_payslip_pdf(
     """
     company_id = current_user["company_id"]
     emp = await get_employee_by_user(current_user["user_id"], company_id)
+    if not emp:                                   # was a 500 (emp["id"] on None)
+        raise HTTPException(404, "لا يوجد ملف موظف مرتبط بحسابك — تواصل مع الموارد البشرية")
 
     run = await db.payroll_runs.find_one(
         {"id": run_id, "company_id": company_id}, {"_id": 0})
@@ -422,6 +475,9 @@ async def get_payslip_pdf(
     )
     if not emp_data:
         raise HTTPException(404, "لا توجد بيانات راتب لهذا الشهر")
+
+    if format == "json":
+        return {"period": f"{run.get('year', '')}/{run.get('month', '')}".strip("/"), **slip_figures(emp_data)}
 
     company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
 
@@ -485,13 +541,9 @@ async def get_payslip_pdf(
         earn_data = [["EARNINGS / المكاسب", "Amount (EGP)"]]
         deduct_data= [["DEDUCTIONS / الخصومات", "Amount (EGP)"]]
 
-        basic  = float(emp_data.get("basic_salary", 0))
-        allow  = float(emp_data.get("allowances", 0))
-        gross  = float(emp_data.get("gross_salary", 0))
-        si_emp = float(emp_data.get("employee_si", 0))
-        tax    = float(emp_data.get("income_tax", 0))
-        loan   = float(emp_data.get("loan_deduction", 0))
-        net    = float(emp_data.get("net_salary", 0))
+        _fg = slip_figures(emp_data)
+        basic, allow, gross = _fg["basic_salary"], _fg["allowances"], _fg["gross_salary"]
+        si_emp, tax, loan, net = _fg["employee_si"], _fg["income_tax"], _fg["loan_deduction"], _fg["net_salary"]
 
         earn_data += [
             ["Basic Salary / الراتب الأساسي", f"{basic:,.2f}"],
@@ -572,17 +624,7 @@ async def get_payslip_pdf(
         # Fallback: return JSON if reportlab not available
         return {
             "message":   "PDF library not installed — returning JSON payslip",
-            "payslip": {
-                "employee":       emp.get("name",""),
-                "period":         f"{run.get('year')}/{run.get('month',0):02d}",
-                "basic_salary":   float(emp_data.get("basic_salary",0)),
-                "allowances":     float(emp_data.get("allowances",0)),
-                "gross_salary":   float(emp_data.get("gross_salary",0)),
-                "employee_si":    float(emp_data.get("employee_si",0)),
-                "income_tax":     float(emp_data.get("income_tax",0)),
-                "loan_deduction": float(emp_data.get("loan_deduction",0)),
-                "net_salary":     float(emp_data.get("net_salary",0)),
-            }
+            "payslip": {"employee": emp.get("name", ""), "period": f"{run.get('year')}/{run.get('month',0):02d}", **slip_figures(emp_data)}
         }
 
 
@@ -795,3 +837,65 @@ async def get_leave_balances(current_user: dict = Depends(get_current_user)):
         "sick":   emp.get("sick_leave_balance",   15),
         "employee_id": emp["id"],
     }
+
+
+# ══════════════════════════════════════════
+# MY DOCUMENTS — the employee uploads their own; HR uploads too.
+# Same storage as HR (employees.documents + uploads/employees), so both
+# always see one list. The portal shows it from /api/ess/profile.
+# ══════════════════════════════════════════
+DOC_EXTENSIONS = {"pdf", "jpg", "jpeg", "png", "webp", "doc", "docx"}
+
+
+@router.post("/documents")
+async def upload_my_document(
+    file: UploadFile = File(...),
+    document_type: str = Form("other"),
+    name: str = Form(...),
+    expiry_date: Optional[str] = Form(None),
+    notes: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_user),
+):
+    import os, aiofiles
+    from models.employee_extended import EmployeeDocument, DocumentType
+    from services.upload_limits import read_limited, MB
+    emp = await get_employee_by_user(current_user["user_id"], current_user["company_id"])
+    if not emp:
+        raise HTTPException(status_code=404, detail="لا يوجد ملف موظف مرتبط بحسابك — تواصل مع الموارد البشرية")
+    try:
+        dtype = DocumentType(document_type)
+    except ValueError:
+        dtype = DocumentType.OTHER
+    ext = (file.filename.rsplit(".", 1)[-1] if "." in (file.filename or "") else "").lower()
+    if ext not in DOC_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="نوع الملف غير مسموح — المسموح: PDF، صور، Word")
+    content = await read_limited(file, 10 * MB)
+    doc_id = str(uuid.uuid4())
+    upload_dir = "/app/backend/uploads/employees"
+    os.makedirs(upload_dir, exist_ok=True)
+    filename = f"{emp['id']}_{doc_id}.{ext}"
+    async with aiofiles.open(os.path.join(upload_dir, filename), "wb") as f:
+        await f.write(content)
+    document = EmployeeDocument(
+        id=doc_id, document_type=dtype, name=(name or "").strip()[:120] or dtype.value,
+        file_url=f"/api/uploads/employees/{filename}", file_name=file.filename, file_size=len(content),
+        expiry_date=expiry_date or None, notes=notes, uploaded_by=current_user["user_id"]).dict()
+    document["uploaded_by_role"] = "employee"
+    await db.employees.update_one({"id": emp["id"], "company_id": current_user["company_id"]},
+                                  {"$push": {"documents": document}})
+    return {"message": "تم رفع المستند", "document": document}
+
+
+@router.get("/work-location")
+async def my_work_location(current_user: dict = Depends(get_current_user)):
+    """The place and radius used for this employee's check-in — for the map."""
+    emp = await get_employee_by_user(current_user["user_id"], current_user["company_id"])
+    if not emp:
+        raise HTTPException(404, "لا يوجد ملف موظف مرتبط بحسابك — تواصل مع الموارد البشرية")
+    company = await db.companies.find_one({"id": current_user["company_id"]}, {"_id": 0}) or {}
+    loc, remote = resolve_work_location(emp, company)
+    if not loc:
+        return {"configured": False, "remote_allowed": remote}
+    return {"configured": True, "latitude": float(loc["latitude"]), "longitude": float(loc["longitude"]),
+            "radius_meters": float(loc.get("radius_meters") or 200), "address": loc.get("address", ""),
+            "remote_allowed": remote}

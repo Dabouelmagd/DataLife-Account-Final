@@ -107,6 +107,13 @@ const EmployeeSelfService = () => {
   const [leaveModal, setLeaveModal] = useState(false);
   const [loanModal, setLoanModal] = useState(false);
   const [docModal, setDocModal] = useState(false);
+  const [latestSlip, setLatestSlip] = useState(null);
+  const [workLoc, setWorkLoc] = useState(null);
+  // upload form: the employee adds their own documents (HR can too — same list)
+  const [docForm, setDocForm] = useState({ document_type: 'national_id', name: '', expiry_date: '' });
+  const [docFile, setDocFile] = useState(null);
+  const [docBusy, setDocBusy] = useState(false);
+  const [docError, setDocError] = useState('');
   const [leaveForm, setLeaveForm] = useState({ leave_type: 'annual', start_date: '', end_date: '', reason: '' });
   const [loanForm, setLoanForm] = useState({ amount: '', installments: 3, reason: '' });
 
@@ -120,6 +127,32 @@ const EmployeeSelfService = () => {
   const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem('token')}`,
   });
+
+  const DOC_TYPES = [
+    ['national_id', 'البطاقة الشخصية'], ['passport', 'جواز السفر'], ['certificate', 'شهادة علمية'],
+    ['contract', 'عقد العمل'], ['appointment_letter', 'خطاب التعيين'], ['insurance_card', 'كارنيه التأمين'],
+    ['medical_report', 'تقرير طبي'], ['bank_account', 'بيانات الحساب البنكي'], ['criminal_record', 'صحيفة الحالة الجنائية'],
+    ['other', 'أخرى'],
+  ];
+
+  const uploadDocument = async () => {
+    if (!docFile || !docForm.name.trim()) { setDocError('اختر الملف واكتب اسم المستند'); return; }
+    if (docFile.size > 10 * 1024 * 1024) { setDocError('حجم الملف أكبر من 10 ميجابايت'); return; }
+    setDocBusy(true); setDocError('');
+    try {
+      const fd = new FormData();
+      fd.append('file', docFile);
+      fd.append('document_type', docForm.document_type);
+      fd.append('name', docForm.name.trim());
+      if (docForm.expiry_date) fd.append('expiry_date', docForm.expiry_date);
+      await axios.post(`${API}/api/ess/documents`, fd, { headers: authHeaders() });
+      setDocModal(false); setDocFile(null); setDocForm({ document_type: 'national_id', name: '', expiry_date: '' });
+      showToast('تم رفع المستند');
+      await fetchEmployee();
+    } catch (e) {
+      setDocError(e.response?.data?.detail || 'تعذّر رفع المستند');
+    } finally { setDocBusy(false); }
+  };
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -144,7 +177,16 @@ const EmployeeSelfService = () => {
   const fetchPayroll = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/api/ess/payslip/list`, { headers: authHeaders() });
-      setPayrollHistory(res.data?.payslips || []);
+      const slips = res.data?.payslips || [];
+      setPayrollHistory(slips);
+      // the latest payslip, itemised: tax, insurance, loans, other deductions
+      const latest = slips[0];
+      if (latest?.run_id) {
+        try {
+          const d = await axios.get(`${API}/api/ess/payslip/${latest.run_id}?format=json`, { headers: authHeaders() });
+          setLatestSlip(d.data);
+        } catch { setLatestSlip(null); }
+      }
     } catch { setPayrollHistory([]); }
   }, []);
 
@@ -192,7 +234,11 @@ const EmployeeSelfService = () => {
   useEffect(() => {
     if (activeTab === 'salary')     fetchPayroll();
     if (activeTab === 'leaves')     fetchLeaves();
-    if (activeTab === 'attendance') fetchAttendance();
+    if (activeTab === 'attendance') {
+      fetchAttendance();
+      axios.get(`${API}/api/ess/work-location`, { headers: authHeaders() })
+        .then((r) => setWorkLoc(r.data)).catch(() => setWorkLoc(null));
+    }
     if (activeTab === 'requests')   fetchRequests();
   }, [activeTab, fetchPayroll, fetchLeaves, fetchAttendance, fetchRequests]);
 
@@ -455,6 +501,34 @@ const EmployeeSelfService = () => {
         {/* ══ SALARY TAB ═════════════════════════════════════════ */}
         {activeTab === 'salary' && (
           <div className="space-y-4">
+            {latestSlip && (
+              <div className="bg-white rounded-2xl border shadow-sm overflow-hidden" dir="rtl">
+                <div className="bg-emerald-50 border-b px-5 py-3 font-bold text-emerald-900 text-sm">
+                  آخر قسيمة راتب — {latestSlip.period}
+                </div>
+                <div className="p-5 grid sm:grid-cols-2 gap-6 text-sm">
+                  <dl className="space-y-1.5">
+                    {[['الراتب الأساسي', latestSlip.basic_salary], ['البدلات', latestSlip.allowances],
+                      ...(latestSlip.overtime ? [['الإضافي', latestSlip.overtime]] : []),
+                      ['إجمالي الاستحقاقات', latestSlip.gross_salary, true]].map(([l, v, b]) => (
+                      <div key={l} className={`flex justify-between ${b ? 'font-bold border-t pt-1.5' : ''}`}><dt>{l}</dt><dd className="tabular-nums">{Number(v || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}</dd></div>
+                    ))}
+                  </dl>
+                  <dl className="space-y-1.5">
+                    {[['التأمينات الاجتماعية (حصتك)', latestSlip.employee_si], ['ضريبة كسب العمل', latestSlip.income_tax],
+                      ...(latestSlip.loan_deduction ? [['أقساط السلف', latestSlip.loan_deduction]] : []),
+                      ...(latestSlip.other_deductions ? [['خصومات أخرى (غياب، تأخير، جزاءات)', latestSlip.other_deductions]] : []),
+                      ['إجمالي الخصومات', latestSlip.total_deductions, true]].map(([l, v, b]) => (
+                      <div key={l} className={`flex justify-between ${b ? 'font-bold border-t pt-1.5' : ''}`}><dt>{l}</dt><dd className="tabular-nums text-red-700">{Number(v || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}</dd></div>
+                    ))}
+                  </dl>
+                </div>
+                <div className="flex justify-between px-5 py-3 bg-gray-50 border-t font-extrabold">
+                  <span>صافي الراتب</span>
+                  <span className="tabular-nums">{Number(latestSlip.net_salary || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            )}
             {/* Salary summary */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
@@ -594,6 +668,32 @@ const EmployeeSelfService = () => {
         {/* ══ ATTENDANCE TAB ══════════════════════════════════════ */}
         {activeTab === 'attendance' && (
           <div className="space-y-4">
+            {workLoc && (
+              <div className="bg-white rounded-2xl border shadow-sm overflow-hidden" dir="rtl">
+                <div className="bg-sky-50 border-b px-5 py-3 flex items-center justify-between">
+                  <span className="font-bold text-sky-900 text-sm">📍 مكان تسجيل الحضور</span>
+                  {workLoc.configured && (
+                    <span className="text-xs text-sky-800">النطاق المسموح: {Math.round(workLoc.radius_meters)} متر{workLoc.remote_allowed ? ' — العمل عن بُعد مسموح' : ''}</span>
+                  )}
+                </div>
+                {workLoc.configured ? (
+                  <>
+                    {(() => {
+                      const lat = workLoc.latitude, lng = workLoc.longitude;
+                      const d = Math.max(workLoc.radius_meters / 111000 * 2.5, 0.004);   // map span ≈ 2.5 × radius
+                      const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d},${lat - d},${lng + d},${lat + d}&layer=mapnik&marker=${lat},${lng}`;
+                      return <iframe title="مكان العمل" src={src} className="w-full h-64 border-0" loading="lazy" referrerPolicy="no-referrer" />;
+                    })()}
+                    <div className="px-5 py-3 text-xs text-gray-600 flex flex-wrap justify-between gap-2">
+                      <span>{workLoc.address || 'سجّل حضورك وأنت داخل النطاق المحدد حول هذا المكان'}</span>
+                      <a href={`https://www.google.com/maps?q=${workLoc.latitude},${workLoc.longitude}`} target="_blank" rel="noreferrer" className="text-sky-700 font-semibold hover:underline">فتح في خرائط جوجل ↗</a>
+                    </div>
+                  </>
+                ) : (
+                  <p className="px-5 py-4 text-sm text-gray-600">لم تحدد الموارد البشرية مكان الحضور بعد — يمكنك تسجيل الحضور من أي مكان.</p>
+                )}
+              </div>
+            )}
             {/* GPS Check-in/out */}
             <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
               <div className="bg-blue-50 border-b px-5 py-3 flex items-center gap-2">
@@ -665,6 +765,39 @@ const EmployeeSelfService = () => {
         )}
 
         {/* ══ DOCS TAB ════════════════════════════════════════════ */}
+        {docModal && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" role="dialog" aria-modal="true" dir="rtl">
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+              <div className="flex items-center justify-between px-5 py-4 border-b">
+                <h3 className="font-bold text-gray-900">{T.docs.upload}</h3>
+                <button onClick={() => { setDocModal(false); setDocError(''); }} aria-label="إغلاق" className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+              </div>
+              <div className="p-5 space-y-3 text-sm">
+                <label className="block"><span className="text-gray-600">{T.docs.type}</span>
+                  <select value={docForm.document_type} onChange={(e) => setDocForm({ ...docForm, document_type: e.target.value })}
+                    className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white">
+                    {DOC_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select></label>
+                <label className="block"><span className="text-gray-600">اسم المستند *</span>
+                  <input value={docForm.name} onChange={(e) => setDocForm({ ...docForm, name: e.target.value })}
+                    placeholder="مثال: صورة البطاقة — الوجه الأمامي" className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2" /></label>
+                <label className="block"><span className="text-gray-600">{T.docs.expiry} (اختياري)</span>
+                  <input type="date" value={docForm.expiry_date} onChange={(e) => setDocForm({ ...docForm, expiry_date: e.target.value })}
+                    className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2" /></label>
+                <label className="block"><span className="text-gray-600">الملف * (PDF، صورة، Word — حتى 10 ميجابايت)</span>
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+                    className="mt-1 w-full text-sm" /></label>
+                {docError && <p className="text-red-700" role="alert">{docError}</p>}
+              </div>
+              <div className="flex justify-end gap-2 px-5 py-4 border-t">
+                <button onClick={() => { setDocModal(false); setDocError(''); }} className="px-4 py-2 rounded-lg border border-gray-300">إلغاء</button>
+                <button onClick={uploadDocument} disabled={docBusy} className="px-4 py-2 rounded-lg bg-purple-600 text-white font-bold disabled:opacity-50">
+                  {docBusy ? 'جاري الرفع…' : T.docs.upload}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'docs' && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">

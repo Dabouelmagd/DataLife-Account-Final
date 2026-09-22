@@ -433,8 +433,9 @@ async def upload_employee_document(
     filename = f"{employee_id}_{doc_id}.{ext}"
     filepath = os.path.join(UPLOAD_DIR, filename)
     
+    from services.upload_limits import read_limited as _rl, MB as _MB
+    content = await _rl(file, 10 * _MB)          # was unlimited
     async with aiofiles.open(filepath, "wb") as f:
-        content = await file.read()
         await f.write(content)
     
     file_url = f"/api/uploads/employees/{filename}"
