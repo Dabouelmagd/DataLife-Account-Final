@@ -113,17 +113,26 @@ async def add_questions_bulk(payload: dict, current_user: dict = Depends(get_cur
         raise HTTPException(status_code=400, detail="لا توجد أسئلة للحفظ")
     if len(items) > 50:
         raise HTTPException(status_code=400, detail="الحد الأقصى 50 سؤالاً في المرة")
-    docs = []
+    from pydantic import ValidationError
+    docs, skipped = [], []
     for raw in items:
         if not isinstance(raw, dict):
             continue
-        q = InterviewQuestion(**{**raw, "company_id": company_id,
-                                 "created_by": current_user.get("user_id")})
+        try:                                   # one bad item used to fail the whole save
+            q = InterviewQuestion(**{**raw, "company_id": company_id,
+                                     "created_by": current_user.get("user_id")})
+        except ValidationError as e:
+            skipped.append({"question": str(raw.get("question", ""))[:60],
+                            "reason": e.errors()[0].get("msg", "غير صالح")})
+            continue
         docs.append(q.model_dump())
     if not docs:
-        raise HTTPException(status_code=400, detail="لا توجد أسئلة صالحة")
+        raise HTTPException(status_code=400, detail="لا توجد أسئلة صالحة للحفظ")
     await db.interview_questions.insert_many(docs)
-    return {"message": f"تم حفظ {len(docs)} سؤالاً", "questions": docs}
+    message = f"تم حفظ {len(docs)} سؤالاً"
+    if skipped:
+        message += f" — وتم تخطي {len(skipped)} غير صالح"
+    return {"message": message, "questions": docs, "skipped": skipped}
 
 
 @router.get("/questions")

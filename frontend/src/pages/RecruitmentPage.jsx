@@ -13,6 +13,7 @@ import {
   Sparkles, AlertTriangle, Scale, Trophy,
 } from 'lucide-react';
 import InterviewScorecard from '../components/InterviewScorecard';
+import QuestionBank from '../components/QuestionBank';
 
 const API = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -61,6 +62,7 @@ export default function RecruitmentPage() {
   const [hireForm, setHireForm] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
+  const [tab, setTab] = useState('jobs');   // jobs | questions
 
   const loadJobs = useCallback(async () => {
     try {
@@ -398,15 +400,27 @@ export default function RecruitmentPage() {
         <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
           <Briefcase className="w-6 h-6 text-[#1e3a8a]" aria-hidden />التوظيف والمقابلات
         </h1>
-        <button onClick={() => { setJobForm({ ...EMPTY_JOB, criteria: EMPTY_JOB.criteria.map((c) => ({ ...c })) }); setMsg({ type: '', text: '' }); }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1e3a8a] text-white font-semibold">
-          <Plus className="w-4 h-4" aria-hidden />وظيفة جديدة
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5" role="tablist">
+            {[['jobs', 'الوظائف'], ['questions', 'بنك الأسئلة']].map(([k, l]) => (
+              <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+                className={`px-3.5 py-2 rounded-lg text-sm font-semibold ${tab === k ? 'bg-[#1e3a8a] text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>{l}</button>
+            ))}
+          </div>
+          {tab === 'jobs' && (
+            <button onClick={() => { setJobForm({ ...EMPTY_JOB, criteria: EMPTY_JOB.criteria.map((c) => ({ ...c })) }); setMsg({ type: '', text: '' }); }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1e3a8a] text-white font-semibold">
+              <Plus className="w-4 h-4" aria-hidden />وظيفة جديدة
+            </button>
+          )}
+        </div>
       </header>
+
+      {tab === 'questions' && <QuestionBank jobs={jobs || []} />}
 
       {msg.text && <p className={`text-sm ${msg.type === 'err' ? 'text-red-700' : 'text-emerald-700'}`} role="status">{msg.text}</p>}
 
-      {jobs === null ? (
+      {tab !== 'jobs' ? null : jobs === null ? (
         <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-slate-400" /></div>
       ) : jobs.length === 0 ? (
         <p className={`${card} p-12 text-center text-slate-600`}>ابدأ بإنشاء وظيفة ومعايير تقييمها، ثم أضف المرشحين.</p>
