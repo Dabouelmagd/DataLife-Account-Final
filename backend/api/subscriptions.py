@@ -53,10 +53,19 @@ ADMIN_ROLES = [
 ]
 
 def is_admin(user: dict) -> bool:
-    """Check if user has admin privileges"""
-    role = user.get("role", "")
-    is_platform = user.get("is_platform_admin", False)
-    return role in ADMIN_ROLES or is_platform
+    """Kept for any caller that only needs a quick role test — platform roles only."""
+    return user.get("role") == "Super Admin" or user.get("is_platform_admin") is True
+
+
+async def is_platform_admin(user: dict) -> bool:
+    """Platform (DataLife) administrator. ADMIN_ROLES lists COMPANY roles (General
+    Manager, CEO...) and "admin": any customer's manager could create activation
+    codes, grant subscriptions (/admin/grant) and list every company's codes.
+    is_platform_admin is not in the JWT, so it is read from the user record."""
+    if user.get("role") == "Super Admin":
+        return True
+    rec = await db.users.find_one({"id": user.get("user_id")}, {"_id": 0, "is_platform_admin": 1, "role": 1})
+    return bool(rec and (rec.get("is_platform_admin") is True or rec.get("role") == "Super Admin"))
 
 @router.get("/plans")
 async def get_subscription_plans():
@@ -198,7 +207,7 @@ async def create_activation_code(
     current_user: dict = Depends(get_current_user)
 ):
     """Create a new activation code (Admin only)"""
-    if not is_admin(current_user):
+    if not await is_platform_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     code = ActivationCode(
@@ -225,7 +234,7 @@ async def create_activation_code(
 @router.get("/admin/activation-codes")
 async def list_activation_codes(current_user: dict = Depends(get_current_user)):
     """List all activation codes (Admin only)"""
-    if not is_admin(current_user):
+    if not await is_platform_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     codes = await db.activation_codes.find({}, {"_id": 0}).to_list(100)
@@ -237,7 +246,7 @@ async def delete_activation_code(
     current_user: dict = Depends(get_current_user)
 ):
     """Deactivate an activation code (Admin only)"""
-    if not is_admin(current_user):
+    if not await is_platform_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     result = await db.activation_codes.update_one(
@@ -253,7 +262,7 @@ async def delete_activation_code(
 @router.get("/admin/all")
 async def list_all_subscriptions(current_user: dict = Depends(get_current_user)):
     """List all subscriptions (Admin only)"""
-    if not is_admin(current_user):
+    if not await is_platform_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     subscriptions = await db.subscriptions.find({}, {"_id": 0}).to_list(500)
@@ -267,7 +276,7 @@ async def grant_subscription(
     current_user: dict = Depends(get_current_user)
 ):
     """Grant subscription to a company (Admin only)"""
-    if not is_admin(current_user):
+    if not await is_platform_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     # Verify company exists

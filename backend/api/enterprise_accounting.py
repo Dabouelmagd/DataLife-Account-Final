@@ -59,6 +59,9 @@ async def get_tax_brackets(year: int = 2024, current_user: dict = Depends(get_us
 @router.put("/tax-brackets/{bracket_id}")
 async def update_tax_bracket(bracket_id: str, data: dict, current_user: dict = Depends(get_user)):
     """تحديث شريحة ضريبية — Super Admin أو مدير مالي"""
+    # only this company's brackets; the shared defaults (company_id None) apply to every company
+    if not await db.payroll_tax_brackets.find_one({"id": bracket_id, "company_id": current_user.get("company_id")}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="الشريحة غير موجودة أو شريحة افتراضية لا يمكن تعديلها من حساب الشركة")
     await db.payroll_tax_brackets.update_one(
         {"id": bracket_id},
         {"$set": {**data, "updated_at": datetime.now(timezone.utc).isoformat()}}
@@ -530,6 +533,8 @@ async def get_boq(
 @router.put("/boq/{boq_item_id}")
 async def update_boq_item(boq_item_id: str, data: dict, current_user: dict = Depends(get_user)):
     """تعديل بند مقايسة — سعر أو كمية"""
+    if not await db.project_boq.find_one({"id": boq_item_id, "company_id": current_user.get("company_id")}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="BOQ item not found")
     from datetime import datetime, timezone
     if "unit_price" in data or "planned_qty" in data:
         item = await db.project_boq.find_one({"id": boq_item_id}, {"_id": 0})
@@ -549,6 +554,8 @@ async def update_executed_qty(
     current_user: dict = Depends(get_user)
 ):
     """تحديث الكمية المنفذة لبند المقايسة عند إعداد المستخلص"""
+    if not await db.project_boq.find_one({"id": boq_item_id, "company_id": current_user.get("company_id")}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="BOQ item not found")
     item = await db.project_boq.find_one({"id": boq_item_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="البند غير موجود")
@@ -580,6 +587,8 @@ async def update_executed_qty(
 @router.delete("/boq/{boq_item_id}")
 async def delete_boq_item(boq_item_id: str, current_user: dict = Depends(get_user)):
     """حذف بند مقايسة (قبل البدء في التنفيذ فقط)"""
+    if not await db.project_boq.find_one({"id": boq_item_id, "company_id": current_user.get("company_id")}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="BOQ item not found")
     item = await db.project_boq.find_one({"id": boq_item_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="البند غير موجود")

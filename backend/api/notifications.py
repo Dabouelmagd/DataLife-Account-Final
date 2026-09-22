@@ -282,6 +282,12 @@ async def mark_as_read(
     authorization: Optional[str] = Header(None)
 ):
     """Mark notification as read"""
+    from services.auth_service import verify_token as _vt
+    _u = _vt((authorization or "").replace("Bearer ", "")) or {}
+    if not _u.get("user_id"):
+        raise HTTPException(status_code=401, detail="تسجيل الدخول مطلوب")
+    if not await db.notifications.find_one({"id": notification_id, "$or": [{"user_id": _u["user_id"]}, {"company_id": _u.get("company_id"), "user_id": {"$in": [None, ""]}}]}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Notification not found")
     await verify_token_from_header(authorization)
     
     result = await db.notifications.update_one(
@@ -451,6 +457,12 @@ async def delete_notification(
     authorization: Optional[str] = Header(None)
 ):
     """Delete a notification"""
+    from services.auth_service import verify_token as _vt
+    _u = _vt((authorization or "").replace("Bearer ", "")) or {}
+    if not _u.get("user_id"):
+        raise HTTPException(status_code=401, detail="تسجيل الدخول مطلوب")
+    if not await db.notifications.find_one({"id": notification_id, "$or": [{"user_id": _u["user_id"]}, {"company_id": _u.get("company_id"), "user_id": {"$in": [None, ""]}}]}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Notification not found")
     await verify_token_from_header(authorization)
     
     result = await db.notifications.delete_one({"id": notification_id})

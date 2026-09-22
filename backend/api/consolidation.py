@@ -199,6 +199,8 @@ async def consolidated_trial_balance(
     3. احسب الاستبعادات
     4. اعرض النتيجة المجمعة بعد الاستبعادات
     """
+    if not await db.company_groups.find_one({"id": group_id, "holding_company_id": current_user["company_id"]}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Group not found")   # exposed other groups' consolidated figures
     df = date_from or f"{year}-01-01"
     dt = date_to   or f"{year}-12-31"
 
@@ -549,6 +551,8 @@ async def consolidation_worksheet(
     العمود الاستبعادات: Dr / Cr
     العمود المجمَّع: الناتج النهائي
     """
+    if not await db.company_groups.find_one({"id": group_id, "holding_company_id": current_user["company_id"]}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Group not found")
     df = f"{year}-01-01"
     dt = f"{year}-12-31"
 

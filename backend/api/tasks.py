@@ -402,6 +402,8 @@ async def add_task_comment(
 ):
     """Add comment to task"""
     user_data = await verify_token_from_header(authorization)
+    if not await db.tasks.find_one({"id": task_id, "company_id": user_data.get("company_id")}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Task not found")
     user_id = user_data.get("user_id")
     
     # Fetch user's full name from database
@@ -437,6 +439,12 @@ async def update_checklist_item(
     authorization: Optional[str] = Header(None)
 ):
     """Update checklist item"""
+    from services.auth_service import verify_token as _vt
+    _u = _vt((authorization or "").replace("Bearer ", "")) or {}
+    if not _u.get("user_id"):
+        raise HTTPException(status_code=401, detail="تسجيل الدخول مطلوب")
+    if not await db.tasks.find_one({"id": task_id, "company_id": _u.get("company_id")}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Task not found")
     await verify_token_from_header(authorization)
     
     update_field = f"checklist.{item_index}.completed"

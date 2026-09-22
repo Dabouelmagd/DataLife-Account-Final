@@ -8,7 +8,7 @@ import os
 import logging
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Header
 from pydantic import BaseModel, EmailStr
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -335,13 +335,21 @@ async def get_notification_logs(
     company_id: str = None,
     event_type: str = None,
     limit: int = 50,
-    skip: int = 0
+    skip: int = 0,
+    authorization: Optional[str] = Header(None),
 ):
-    """جلب سجل الإشعارات"""
-    
-    query = {}
-    if company_id:
-        query["company_id"] = company_id
+    """جلب سجل الإشعارات — the caller's company only.
+
+    Was public with the company taken from the query string, and with none it
+    returned every company's log: recipients' emails and message subjects."""
+    from services.auth_service import verify_token as _vt
+    _u = _vt((authorization or "").replace("Bearer ", "")) or {}
+    if not _u.get("user_id"):
+        raise HTTPException(status_code=401, detail="تسجيل الدخول مطلوب")
+    if _u.get("role") != "Super Admin" or not company_id:
+        company_id = _u.get("company_id")          # a customer can only see their own
+    limit = max(1, min(int(limit), 200))
+    query = {"company_id": company_id}
     if event_type:
         query["event_type"] = event_type
     

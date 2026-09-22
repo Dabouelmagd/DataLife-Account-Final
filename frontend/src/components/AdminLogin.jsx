@@ -114,14 +114,7 @@ const AdminLogin = () => {
     try {
       const response = await axios.post(
         `${API_URL}/api/auth/verify-otp-reset-password`,
-        null,
-        {
-          params: {
-            email: resetData.email,
-            otp: resetData.otp,
-            new_password: resetData.newPassword
-          }
-        }
+        { email: resetData.email, otp: resetData.otp, new_password: resetData.newPassword }   // body, not the URL (access logs)
       );
       
       if (response.data.success) {

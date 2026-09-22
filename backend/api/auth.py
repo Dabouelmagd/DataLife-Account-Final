@@ -253,89 +253,23 @@ async def logout(authorization: str = Header(None)):
 
 @router.post("/reset-password")
 async def reset_password(request_data: dict):
+    """Forgot password — sends a one-time code (same flow as /request-password-reset).
+
+    It used to set a random password for ANY email with no proof of ownership, and
+    when the email failed to send it returned the new password in the response —
+    anyone could take over any account whenever mail delivery failed. It now only
+    sends a 10-minute code; the password changes in /verify-otp-reset-password.
     """
-    Reset user password and send new password via email
-    """
-    email = request_data.get("email")
-    
+    email = (request_data.get("email") or "").strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
-    
-    # Check if user exists
-    user = await get_user_by_email(db, email)
-    if not user:
-        raise HTTPException(status_code=404, detail="User with this email not found")
-    
-    # Generate new temporary password
-    import secrets
-    import string
-    alphabet = string.ascii_letters + string.digits
-    new_password = ''.join(secrets.choice(alphabet) for _ in range(10))
-    
-    # Hash new password
-    import bcrypt
-    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-    
-    # Update password in database (update both fields for compatibility)
-    await db.users.update_one(
-        {"id": user.id},
-        {"$set": {
-            "password": hashed_password.decode('utf-8'),
-            "password_hash": hashed_password.decode('utf-8')
-        }}
-    )
-    
-    # Send email with new password
     try:
-        html_content = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; direction: rtl;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-                <h1 style="color: white; margin: 0; text-align: center;">DataLife Account</h1>
-            </div>
-            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
-                <h2 style="color: #333; text-align: center;">إعادة تعيين كلمة المرور</h2>
-                <p style="color: #666; font-size: 16px; text-align: center;">
-                    تم إعادة تعيين كلمة المرور الخاصة بك بنجاح.
-                </p>
-                <div style="background: #fff; border: 2px dashed #667eea; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-                    <p style="color: #333; margin: 0 0 10px 0; font-size: 14px;">كلمة المرور الجديدة:</p>
-                    <p style="color: #667eea; font-size: 24px; font-weight: bold; margin: 0; letter-spacing: 2px;">{new_password}</p>
-                </div>
-                <p style="color: #999; font-size: 12px; text-align: center;">
-                    يرجى تغيير كلمة المرور بعد تسجيل الدخول للحفاظ على أمان حسابك.
-                </p>
-                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="color: #999; font-size: 11px; text-align: center;">
-                    هذا البريد الإلكتروني تم إرساله تلقائياً من DataLife Account
-                </p>
-            </div>
-        </div>
-        """
-        
-        params = {
-            "from": SENDER_EMAIL,
-            "to": [email],
-            "subject": "إعادة تعيين كلمة المرور - DataLife Account",
-            "html": html_content
-        }
-        
-        # Send email asynchronously
-        await asyncio.to_thread(resend.Emails.send, params)
-        
-        return {
-            "message": "Password reset successful. New password sent to your email.",
-            "message_ar": "تم إعادة تعيين كلمة المرور بنجاح. تم إرسال كلمة المرور الجديدة إلى بريدك الإلكتروني.",
-            "email": email
-        }
-    except Exception as e:
-        # If email fails, still return success but with the password (fallback)
-        return {
-            "message": "Password reset successful",
-            "message_ar": "تم إعادة تعيين كلمة المرور بنجاح",
-            "new_password": new_password,
-            "email": email,
-            "email_error": str(e)
-        }
+        await request_password_reset(email)
+    except HTTPException:
+        pass            # same answer whether or not the address exists (no account enumeration)
+    return {"message": "إذا كان البريد مسجلاً لدينا، فقد أُرسل إليه رمز تحقق صالح لمدة 10 دقائق",
+            "otp_sent": True}
+
 
 @router.post("/set-password")
 async def set_user_password(request_data: dict):
@@ -470,8 +404,11 @@ async def verify_user_token(authorization: Optional[str] = Header(None)):
 
 
 @router.post("/debug-user")
-async def debug_user(request_data: dict):
-    """Debug endpoint to check user status in database"""
+async def debug_user(request_data: dict, authorization: Optional[str] = Header(None)):
+    """Support tool. Was public: anyone could type an email and learn whether the
+    account exists, its role, company and password-field state."""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)
     email = request_data.get("email")
     
     if not email:
@@ -514,10 +451,16 @@ async def debug_user(request_data: dict):
 
 
 @router.post("/force-reset-password")
-async def force_reset_password(request_data: dict):
-    """Force reset password for a user - sets a known password"""
+async def force_reset_password(request_data: dict, authorization: Optional[str] = Header(None)):
+    """Support tool: set a user's password. Was open to anyone with no login —
+    any account, including the platform admin, could be taken over by email
+    alone — and defaulted to a known password. Platform admins only now."""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)
     email = request_data.get("email")
-    new_password = request_data.get("new_password", "DataLife@2024")
+    new_password = request_data.get("new_password")
+    if not new_password or len(str(new_password)) < 8:
+        raise HTTPException(status_code=400, detail="new_password (8+ characters) is required")
     
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
@@ -673,10 +616,8 @@ async def initialize_super_admin(
     from datetime import datetime, timezone
     
     # Verify secret key (use environment variable or hardcoded for now)
-    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
-    
-    if secret_key != INIT_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid secret key")
+    from api.admin import _require_init_secret
+    _require_init_secret(secret_key)
     
     # Check if super admin already exists
     existing = await db.users.find_one({"email": email})
@@ -879,10 +820,8 @@ async def update_admin_permissions(secret_key: str):
     from datetime import datetime, timezone
     
     # Verify secret key
-    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
-    
-    if secret_key != INIT_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid secret key")
+    from api.admin import _require_init_secret
+    _require_init_secret(secret_key)
     
     ALL_PERMISSIONS_LIST = [
         'dashboard', 'hr', 'financial', 'invoices', 'purchases', 
@@ -934,10 +873,8 @@ async def reset_super_admin_password(
     from datetime import datetime, timezone
     
     # Verify secret key
-    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
-    
-    if secret_key != INIT_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid secret key")
+    from api.admin import _require_init_secret
+    _require_init_secret(secret_key)
     
     # Find super admin
     super_admin = await db.users.find_one({"role": "Super Admin"})
@@ -979,10 +916,8 @@ async def admin_reset_password(
     from datetime import datetime, timezone
     
     # Verify secret key
-    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
-    
-    if secret_key != INIT_SECRET:
-        raise HTTPException(status_code=403, detail="المفتاح السري غير صحيح / Invalid secret key")
+    from api.admin import _require_init_secret
+    _require_init_secret(secret_key)
     
     # Find user by email
     user = await db.users.find_one({"email": email.lower().strip()})
@@ -1086,10 +1021,19 @@ async def request_password_reset(email: str):
 
 @router.post("/verify-otp-reset-password")
 async def verify_otp_and_reset_password(
-    email: str,
-    otp: str,
-    new_password: str
+    data: Optional[dict] = None,
+    email: Optional[str] = None,
+    otp: Optional[str] = None,
+    new_password: Optional[str] = None,
 ):
+    # Prefer the JSON body: query strings (and so new passwords) end up in the
+    # web server's access logs. Query parameters are still accepted for old clients.
+    data = data or {}
+    email = (data.get("email") or email or "").strip().lower()
+    otp = str(data.get("otp") or otp or "").strip()
+    new_password = data.get("new_password") or new_password or ""
+    if not email or not otp or not new_password:
+        raise HTTPException(status_code=400, detail="email, otp and new_password are required")
     """
     Verify OTP and reset password
     """

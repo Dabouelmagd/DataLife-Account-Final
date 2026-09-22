@@ -240,6 +240,8 @@ async def get_bookings(authorization: Optional[str] = Header(None)):
 @router.patch("/bookings/{booking_id}")
 async def update_booking(booking_id: str, data: dict, authorization: Optional[str] = Header(None)):
     """تحديث حالة الحجز (Super Admin)"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)
     status = data.get("status")
     update = {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}
     if data.get("notes"): update["admin_notes"] = data["notes"]

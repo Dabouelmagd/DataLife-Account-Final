@@ -482,6 +482,8 @@ async def cancel_invoice(
     current_user: dict = Depends(get_current_user)
 ):
     """إلغاء الفاتورة"""
+    if not await db.invoices.find_one({"id": invoice_id, "company_id": current_user["company_id"]}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Invoice not found")   # could cancel another company's invoice
     service = InvoiceService(db)
     
     invoice = await service.get_invoice(invoice_id)

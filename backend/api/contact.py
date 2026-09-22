@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, EmailStr
 import smtplib
 from email.mime.text import MIMEText
@@ -173,15 +174,19 @@ async def send_contact_message(contact: ContactMessage):
 
 
 @router.get("/messages")
-async def get_contact_messages():
+async def get_contact_messages(authorization: Optional[str] = Header(None)):
     """Get all contact messages (admin only)"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # visitors' names, emails and phones were public
     messages = await db.contact_messages.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=100)
     return messages
 
 
 @router.put("/messages/mark-read")
-async def mark_messages_as_read(data: dict = None):
+async def mark_messages_as_read(data: dict = None, authorization: Optional[str] = Header(None)):
     """Mark specific or all messages as read"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # visitors' names, emails and phones were public
     from typing import Optional
     message_ids = (data or {}).get("message_ids", [])
     

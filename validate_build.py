@@ -358,6 +358,117 @@ def check_unposted_money_writes():
                 warnings.append(f"⚠️  {key} writes a money amount but creates no journal entry — "
                                 f"post it, or review and add to reviewed_unposted_writes.txt")
 
+# ── Mode 11: By-id routes must be scoped to the caller's company (blocking) ─
+# Ten cross-company gaps were found one by one before this check existed
+# (accounts, users, parties, journal entries, invoices, consolidation...).
+# A route taking an id in its path must query with company_id, verify the
+# record's company first, or be a platform-admin tool. Reviewed exceptions:
+# backend/scripts/reviewed_unscoped_routes.txt
+def check_tenant_scoping():
+    import ast, re, pathlib
+    listed = ROOT / "backend" / "scripts" / "reviewed_unscoped_routes.txt"
+    reviewed = {l.split("#")[0].strip() for l in listed.read_text(encoding="utf-8").splitlines()
+                if l.strip() and not l.startswith("#")} if listed.exists() else set()
+    QUERY = re.compile(r'db\.(\w+)\.(find_one|find|update_one|update_many|delete_one|delete_many|replace_one|count_documents|find_one_and_update|find_one_and_delete)\(')
+    PLATFORM = re.compile(r'admin|super_admin|platform|subscription|trial|coupon|payments?_admin|monitor|health|update|public|auth|chatbot|newsletter|landing|eta_signing|webhook', re.I)
+    def filter_text(src, start):
+        # the first argument: a balanced {...} or a variable name
+        i = src.index("(", start) + 1
+        while src[i] in " \n": i += 1
+        if src[i] != "{":
+            return src[i:i+40].split(",")[0].split(")")[0]
+        depth = 0
+        for j in range(i, len(src)):
+            if src[j] == "{": depth += 1
+            elif src[j] == "}":
+                depth -= 1
+                if depth == 0: return src[i:j+1]
+        return ""
+    findings = []
+    for f in sorted((ROOT / "backend" / "api").glob("*.py")):
+        src = f.read_text(encoding="utf-8", errors="ignore")
+        try: tree = ast.parse(src)
+        except SyntaxError: continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.AsyncFunctionDef): continue
+            deco = next((ast.get_source_segment(src, d) for d in node.decorator_list if "router." in (ast.get_source_segment(src, d) or "")), None)
+            if not deco: continue
+            params = re.findall(r'\{(\w+)\}', deco)
+            if not params: continue
+            body = ast.get_source_segment(src, node) or ""
+            if re.search(r'verify_admin\(|_platform_admin\(|is_platform_admin|_verify_admin\(|role["\']\)\s*[!=]=\s*["\']Super Admin["\']|\[["\']Super Admin["\']\]', body):
+                continue          # platform-admin tools: cross-company by design, gated by role
+            # (collection, param) pairs checked for ownership somewhere in the function
+            owned = set()
+            for m in QUERY.finditer(body):
+                ft = filter_text(body, m.start())
+                if "company_id" in ft:
+                    for p_ in params:
+                        if re.search(rf'\b{p_}\b', ft): owned.add((m.group(1), p_))
+            # also: ownership proven through a scoped helper, e.g. _find_supplier(company_id, supplier_id)
+            helper_ok = {p_ for p_ in params if re.search(rf'\w+\(\s*(?:company_id|current_user\[.company_id.\]|cid)\s*,\s*{p_}\b', body)}
+            for m in QUERY.finditer(body):
+                ft = filter_text(body, m.start())
+                used = [p for p in params if re.search(rf'\b{p}\b', ft)]
+                if not used or "company_id" in ft:
+                    continue
+                owned_params = {p_ for _, p_ in owned}
+                if all(p_ in owned_params or p_ in helper_ok for p_ in used):
+                    continue          # ownership already verified for this record
+                # a variable filter: accept if that variable was built with company_id
+                if not ft.startswith("{") and re.search(rf'{re.escape(ft)}\s*=\s*\{{[^}}]*company_id', body):
+                    continue
+                line = src[:src.index(body)].count("\n") + body[:m.start()].count("\n") + 1
+                findings.append((f.name, line, deco.replace("@router.", "")[:48], m.group(1), m.group(2)))
+    seen = set()
+    for fn, ln, route, coll, op in findings:
+        m = re.search(r'\("([^"]*)"', route)
+        key = f"{fn}:{m.group(1) if m else route}"
+        if key in reviewed or key in seen:
+            continue
+        seen.add(key)
+        errors.append(f"backend/api/{fn}:{ln}: {coll}.{op} by id without company_id ({key}) — "
+                      f"scope it, verify ownership first, or review and add to reviewed_unscoped_routes.txt")
+
+# ── Mode 12: Unauthenticated routes must be reviewed (blocking) ───────────
+# Before this check: anyone on the internet could reset any user's password
+# (force-reset-password), edit coupons, read DataLife's revenue reports and
+# the contact inbox, and list every company's notification log. Every route
+# that touches the database without authentication must be listed, with a
+# reason, in backend/scripts/reviewed_public_routes.txt.
+def check_public_routes():
+    import ast, re
+    listed = ROOT / "backend" / "scripts" / "reviewed_public_routes.txt"
+    reviewed = {l.split("#")[0].strip() for l in listed.read_text(encoding="utf-8").splitlines()
+                if l.strip() and not l.startswith("#")} if listed.exists() else set()
+    auth = re.compile(r'Depends\(|authorization|Authorization|x_admin_key|secret_key|admin_key|api_key|verify_|'
+                      r'signature|hmac|customer_token|x_api', re.I)
+    dbuse = re.compile(r'db\.\w+\.')
+    for f in sorted((ROOT / "backend" / "api").glob("*.py")):
+        src = f.read_text(encoding="utf-8", errors="ignore")
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            continue
+        if re.search(r'APIRouter\([^)]*dependencies=', src):
+            continue
+        for n in tree.body:
+            if not isinstance(n, (ast.AsyncFunctionDef, ast.FunctionDef)):
+                continue
+            deco = next((ast.get_source_segment(src, d) for d in n.decorator_list
+                         if "router." in (ast.get_source_segment(src, d) or "")), None)
+            if not deco:
+                continue
+            body = ast.get_source_segment(src, n) or ""
+            head = body[:body.index(":") + 400] if ":" in body else body
+            if auth.search(head) or not dbuse.search(body):
+                continue
+            m = re.search(r'router\.\w+\("([^"]*)"', deco)
+            key = f"{f.name}:{m.group(1) if m else n.name}"
+            if key not in reviewed:
+                errors.append(f"backend/api/{f.name}:{n.lineno}: {key} reads or writes the database with no "
+                              f"authentication — require login, or review and add to reviewed_public_routes.txt")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -373,6 +484,12 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 12: Public route check...")
+check_public_routes()
+
+print(f"Mode 11: Tenant scoping check...")
+check_tenant_scoping()
 
 print(f"Mode 10: Unposted money-write check...")
 check_unposted_money_writes()

@@ -20,6 +20,10 @@ const LoginPage = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
+  // step 2 of the reset: the emailed code + the new password
+  const [resetStep, setResetStep] = useState('email');
+  const [resetOtp, setResetOtp] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
 
   const isRTL = language === 'ar';
 
@@ -38,7 +42,9 @@ const LoginPage = () => {
       resetPasswordDesc: 'Enter your email and we will send you a new password',
       sendReset: 'Send',
       cancel: 'Cancel',
-      resetSuccess: 'New password sent to your email',
+      resetSuccess: 'Password changed — you can sign in now',
+      otpSent: 'If the email is registered, a code valid for 10 minutes was sent to it',
+      otpLabel: 'Verification code', newPasswordLabel: 'New password (8+ characters)', confirmReset: 'Change password',
       showPassword: 'Show Password',
       hidePassword: 'Hide Password',
       copiedCode: 'Copied!'
@@ -57,7 +63,9 @@ const LoginPage = () => {
       resetPasswordDesc: 'أدخل بريدك الإلكتروني وسنرسل لك كلمة المرور الجديدة',
       sendReset: 'إرسال',
       cancel: 'إلغاء',
-      resetSuccess: 'تم إرسال كلمة المرور الجديدة إلى بريدك الإلكتروني',
+      resetSuccess: 'تم تغيير كلمة المرور — يمكنك تسجيل الدخول الآن',
+      otpSent: 'إذا كان البريد مسجلاً، فقد أُرسل إليه رمز تحقق صالح لمدة 10 دقائق',
+      otpLabel: 'رمز التحقق', newPasswordLabel: 'كلمة المرور الجديدة (8 أحرف على الأقل)', confirmReset: 'تغيير كلمة المرور',
       showPassword: 'إظهار كلمة المرور',
       hidePassword: 'إخفاء كلمة المرور',
       copiedCode: 'تم النسخ!'
@@ -95,39 +103,40 @@ const LoginPage = () => {
     setLoading(false);
   };
 
+  // Forgot password: 1) email a one-time code, 2) code + new password.
+  // It used to reset the password straight from the email address and, when
+  // mail failed, show the new password on screen — anyone could take over any account.
+  const resetForgotState = () => {
+    setShowForgotPassword(false); setResetEmail(''); setError(''); setResetSuccess(false);
+    setResetStep('email'); setResetOtp(''); setResetNewPassword('');
+  };
+
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
+    const base = process.env.REACT_APP_BACKEND_URL;
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: resetEmail })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setResetSuccess(true);
-        setError('');
-        // إذا كان هناك خطأ في الإيميل، نعرض كلمة المرور
-        if (data.email_error && data.new_password) {
-          alert(`${language === 'ar' ? 'كلمة المرور الجديدة' : 'New Password'}: ${data.new_password}`);
+      if (resetStep === 'email') {
+        const response = await fetch(`${base}/api/auth/request-password-reset?email=${encodeURIComponent(resetEmail.trim())}`, { method: 'POST' });
+        if (!response.ok) {
+          const d = await response.json().catch(() => ({}));
+          throw new Error(d.detail || '');
         }
-        setTimeout(() => {
-          setShowForgotPassword(false);
-          setResetSuccess(false);
-          setResetEmail('');
-        }, 3000);
+        setResetStep('otp');
       } else {
-        const errorData = await response.json();
-        setError(errorData.detail || (language === 'ar' ? 'فشل إعادة تعيين كلمة المرور' : 'Failed to reset password'));
+        const response = await fetch(`${base}/api/auth/verify-otp-reset-password`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: resetEmail.trim(), otp: resetOtp.trim(), new_password: resetNewPassword }),
+        });
+        const d = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(d.detail || '');
+        setResetSuccess(true);
+        setTimeout(resetForgotState, 2500);
       }
-    } catch (error) {
-      setError(language === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'An error occurred, try again');
+    } catch (err) {
+      setError(err.message || (language === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'An error occurred, try again'));
     }
-    
     setLoading(false);
   };
 
@@ -239,7 +248,7 @@ const LoginPage = () => {
 
       {/* Forgot Password Modal */}
       {showForgotPassword && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowForgotPassword(false)}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={resetForgotState}>
           <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
             <h3 className="text-2xl font-bold text-gray-900 mb-2">{t.resetPasswordTitle}</h3>
             <p className="text-gray-600 mb-6">{t.resetPasswordDesc}</p>
@@ -271,9 +280,26 @@ const LoginPage = () => {
                     required
                     className={`w-full ${isRTL ? 'pr-10 text-right' : 'pl-10'} py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                     placeholder={t.email}
+                    disabled={resetStep === 'otp'}
                   />
                 </div>
               </div>
+
+              {resetStep === 'otp' && !resetSuccess && (
+                <>
+                  <p className="text-sm text-gray-600">{t.otpSent}</p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t.otpLabel}</label>
+                    <input value={resetOtp} onChange={(e) => setResetOtp(e.target.value)} required inputMode="numeric" autoComplete="one-time-code" dir="ltr"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg tracking-widest text-center focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t.newPasswordLabel}</label>
+                    <input type="password" value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} required minLength={8} autoComplete="new-password"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </>
+              )}
 
               <div className="flex gap-3">
                 <button
@@ -281,16 +307,11 @@ const LoginPage = () => {
                   disabled={loading}
                   className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
-                  {loading ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') : t.sendReset}
+                  {loading ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') : (resetStep === 'otp' ? t.confirmReset : t.sendReset)}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowForgotPassword(false);
-                    setResetEmail('');
-                    setError('');
-                    setResetSuccess(false);
-                  }}
+                  onClick={resetForgotState}
                   className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
                 >
                   {t.cancel}

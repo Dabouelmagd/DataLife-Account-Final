@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, Header
 from pydantic import BaseModel, Field
 from typing import Optional, List
 import os
@@ -396,8 +396,10 @@ async def send_report_email(pdf_buffer: BytesIO, report_type: str, recipient: st
 
 
 @router.post("/generate")
-async def generate_report(request: ReportRequest):
+async def generate_report(request: ReportRequest, authorization: Optional[str] = Header(None)):
     """Generate a sales report (PDF)"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # platform revenue data — was open to anyone
     
     now = datetime.now(timezone.utc)
     
@@ -457,8 +459,10 @@ async def generate_report(request: ReportRequest):
 
 
 @router.get("/download/{report_type}")
-async def download_report(report_type: str, days: int = 7):
+async def download_report(report_type: str, days: int = 7, authorization: Optional[str] = Header(None)):
     """Download PDF report"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # platform revenue data — was open to anyone
     
     now = datetime.now(timezone.utc)
     
@@ -485,8 +489,10 @@ async def download_report(report_type: str, days: int = 7):
 
 
 @router.get("/history")
-async def get_report_history(limit: int = 20):
+async def get_report_history(limit: int = 20, authorization: Optional[str] = Header(None)):
     """Get history of generated reports"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # platform revenue data — was open to anyone
     
     reports = await db.report_logs.find(
         {}, 
@@ -497,8 +503,10 @@ async def get_report_history(limit: int = 20):
 
 
 @router.post("/send-now/{report_type}")
-async def send_report_now(report_type: str, email_to: str = None):
+async def send_report_now(report_type: str, email_to: str = None, authorization: Optional[str] = Header(None)):
     """Generate and send report immediately"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # platform revenue data — was open to anyone
     
     now = datetime.now(timezone.utc)
     

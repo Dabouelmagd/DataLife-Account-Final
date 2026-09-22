@@ -152,11 +152,7 @@ async def get_audit_logs(
     query = {}
     
     # Super Admin sees all, others see only their company
-    super_admin_roles = [
-        'Super Admin', 'superadmin', 'super_admin', 'admin',
-        'مدير النظام', 'General Manager', 'مدير عام', 'CEO',
-        'المدير التنفيذي', 'رئيس مجلس الإدارة'
-    ]
+    super_admin_roles = ['Super Admin']   # held company roles (GM, CEO): they skipped the company check
     is_super = user.get('role') in super_admin_roles or user.get('is_super_admin') or user.get('is_admin')
     if not is_super:
         query["company_id"] = user.get('company_id')

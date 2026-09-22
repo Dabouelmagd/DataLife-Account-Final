@@ -507,6 +507,8 @@ async def cancel_request(
 ):
     """Cancel own request"""
     user_data = await verify_token(authorization)
+    if not await db.approval_requests.find_one({"id": request_id, "company_id": user_data.get("company_id")}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Request not found")
     user_id = user_data.get("user_id")
     
     request = await db.approval_requests.find_one({"id": request_id})

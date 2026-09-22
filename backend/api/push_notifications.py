@@ -141,6 +141,12 @@ async def mark_single_notification_read(
     authorization: Optional[str] = Header(None)
 ):
     """Mark a single notification as read"""
+    from services.auth_service import verify_token as _vt
+    _u = _vt((authorization or "").replace("Bearer ", "")) or {}
+    if not _u.get("user_id"):
+        raise HTTPException(status_code=401, detail="تسجيل الدخول مطلوب")
+    if not await db.user_notifications.find_one({"id": notification_id, "$or": [{"user_id": _u["user_id"]}, {"company_id": _u.get("company_id"), "user_id": {"$in": [None, ""]}}]}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Notification not found")
     await verify_user(authorization)
     await db.user_notifications.update_one({"id": notification_id}, {"$set": {"read": True}})
     return {"success": True}

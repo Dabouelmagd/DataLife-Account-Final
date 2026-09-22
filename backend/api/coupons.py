@@ -76,8 +76,10 @@ def generate_coupon_code(length=8):
 
 
 @router.post("/create")
-async def create_coupon(coupon: CouponCreate):
+async def create_coupon(coupon: CouponCreate, authorization: Optional[str] = Header(None)):
     """Create a new coupon (Admin only)"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     # Generate code if not provided
     code = coupon.code or generate_coupon_code()
@@ -127,8 +129,10 @@ async def create_coupon(coupon: CouponCreate):
 
 
 @router.get("/list")
-async def list_coupons(include_inactive: bool = False):
+async def list_coupons(include_inactive: bool = False, authorization: Optional[str] = Header(None)):
     """List all coupons (Admin only)"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     query = {} if include_inactive else {"is_active": True}
     coupons = await db.coupons.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
@@ -137,8 +141,10 @@ async def list_coupons(include_inactive: bool = False):
 
 
 @router.get("/expiring")
-async def get_expiring_coupons(days: int = 7):
+async def get_expiring_coupons(days: int = 7, authorization: Optional[str] = Header(None)):
     """Get coupons expiring within specified days"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     now = datetime.now(timezone.utc)
     future = now + timedelta(days=days)
@@ -175,8 +181,10 @@ async def get_expiring_coupons(days: int = 7):
 
 
 @router.get("/notifications")
-async def get_coupon_notifications(unread_only: bool = True, limit: int = 20):
+async def get_coupon_notifications(unread_only: bool = True, limit: int = 20, authorization: Optional[str] = Header(None)):
     """Get coupon-related notifications for admin"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     query = {"type": {"$in": ["coupon_expiring", "coupon_expired", "coupon_renewed"]}}
     if unread_only:
@@ -195,8 +203,10 @@ async def get_coupon_notifications(unread_only: bool = True, limit: int = 20):
 
 
 @router.get("/{code}")
-async def get_coupon(code: str):
+async def get_coupon(code: str, authorization: Optional[str] = Header(None)):
     """Get coupon details by code"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     coupon = await db.coupons.find_one({"code": code.upper()}, {"_id": 0})
     if not coupon:
@@ -206,8 +216,10 @@ async def get_coupon(code: str):
 
 
 @router.put("/{code}")
-async def update_coupon(code: str, update: CouponUpdate):
+async def update_coupon(code: str, update: CouponUpdate, authorization: Optional[str] = Header(None)):
     """Update coupon (Admin only)"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     coupon = await db.coupons.find_one({"code": code.upper()})
     if not coupon:
@@ -230,8 +242,10 @@ async def update_coupon(code: str, update: CouponUpdate):
 
 
 @router.delete("/{code}")
-async def delete_coupon(code: str):
+async def delete_coupon(code: str, authorization: Optional[str] = Header(None)):
     """Delete coupon (Admin only)"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     result = await db.coupons.delete_one({"code": code.upper()})
     if result.deleted_count == 0:
@@ -331,8 +345,11 @@ async def validate_coupon(data: CouponValidate):
 
 
 @router.post("/use/{code}")
-async def use_coupon(code: str):
+async def use_coupon(code: str, authorization: Optional[str] = Header(None)):
     """Increment coupon usage count (called after successful payment)"""
+    from services.auth_service import verify_token as _vt
+    if not authorization or not _vt(authorization.replace('Bearer ', '')):
+        raise HTTPException(401, 'تسجيل الدخول مطلوب')
     
     result = await db.coupons.update_one(
         {"code": code.upper()},
@@ -347,8 +364,10 @@ async def use_coupon(code: str):
 
 # Seed some default coupons for testing
 @router.post("/seed-defaults")
-async def seed_default_coupons():
+async def seed_default_coupons(authorization: Optional[str] = Header(None)):
     """Seed default coupons for testing"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     default_coupons = [
         {
@@ -429,8 +448,10 @@ class SendCouponEmail(BaseModel):
 
 
 @router.post("/send-email")
-async def send_coupon_email(data: SendCouponEmail):
+async def send_coupon_email(data: SendCouponEmail, authorization: Optional[str] = Header(None)):
     """Send coupon code to a customer via email"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     coupon = await db.coupons.find_one({"code": data.coupon_code.upper()}, {"_id": 0})
     if not coupon:
@@ -566,8 +587,10 @@ async def send_coupon_email(data: SendCouponEmail):
 # ============ ADVANCED STATISTICS ============
 
 @router.get("/statistics/advanced")
-async def get_advanced_statistics():
+async def get_advanced_statistics(authorization: Optional[str] = Header(None)):
     """Get advanced coupon usage statistics"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     # Get all coupons
     coupons = await db.coupons.find({}, {"_id": 0}).to_list(1000)
@@ -676,8 +699,10 @@ async def get_advanced_statistics():
 
 
 @router.get("/statistics/usage-chart")
-async def get_usage_chart_data():
+async def get_usage_chart_data(authorization: Optional[str] = Header(None)):
     """Get coupon usage data for chart visualization (last 30 days)"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     # Get transactions from last 30 days
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
@@ -722,8 +747,10 @@ async def get_usage_chart_data():
 
 
 @router.post("/check-and-notify")
-async def check_expiring_and_notify(admin_email: str = "info@datalifeai.com"):
+async def check_expiring_and_notify(admin_email: str = "info@datalifeai.com", authorization: Optional[str] = Header(None)):
     """Check for expiring coupons and send notifications"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     now = datetime.now(timezone.utc)
     
@@ -865,8 +892,10 @@ async def check_expiring_and_notify(admin_email: str = "info@datalifeai.com"):
 
 
 @router.post("/renew/{code}")
-async def renew_coupon(code: str, extend_months: int = 3):
+async def renew_coupon(code: str, extend_months: int = 3, authorization: Optional[str] = Header(None)):
     """Renew/extend a coupon's expiry date"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     coupon = await db.coupons.find_one({"code": code.upper()})
     if not coupon:
@@ -918,8 +947,10 @@ async def renew_coupon(code: str, extend_months: int = 3):
 
 
 @router.post("/notifications/mark-read")
-async def mark_notifications_read(notification_ids: List[str] = None, mark_all: bool = False):
+async def mark_notifications_read(notification_ids: List[str] = None, mark_all: bool = False, authorization: Optional[str] = Header(None)):
     """Mark notifications as read"""
+    from api.admin_common import verify_admin as _platform_admin
+    await _platform_admin(authorization)   # was open to anyone, no login at all
     
     if mark_all:
         result = await db.notifications.update_many(
@@ -1101,12 +1132,8 @@ async def get_my_referral_invites(authorization: Optional[str] = Header(None)):
 @router.get("/referral/admin/all")
 async def admin_get_all_referrals(authorization: Optional[str] = Header(None)):
     """SuperAdmin: get all referrals with stats"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing authorization")
-    from services.auth_service import verify_token
-    user = verify_token(authorization.split(" ")[1])
-    if not user or user.get("role") not in ["superadmin", "admin"]:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    from api.admin_common import verify_admin as _platform_admin
+    user = await _platform_admin(authorization)   # checked for roles "superadmin"/"admin", which no one has
 
     referrals = await db.referrals.find({}, {"_id": 0}).to_list(length=None)
     invites   = await db.referral_invites.find({}, {"_id": 0}).to_list(length=None)
@@ -1132,12 +1159,8 @@ async def admin_get_all_referrals(authorization: Optional[str] = Header(None)):
 @router.post("/referral/admin/reward/{user_id}")
 async def admin_grant_referral_reward(user_id: str, authorization: Optional[str] = Header(None)):
     """SuperAdmin: manually grant referral reward (free month)"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing authorization")
-    from services.auth_service import verify_token
-    admin = verify_token(authorization.split(" ")[1])
-    if not admin or admin.get("role") not in ["superadmin", "admin"]:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    from api.admin_common import verify_admin as _platform_admin
+    admin = await _platform_admin(authorization)   # checked for roles "superadmin"/"admin", which no one has
 
     referral = await db.referrals.find_one({"user_id": user_id})
     if not referral:

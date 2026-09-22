@@ -1,0 +1,23 @@
+# Routes that touch the database with NO authentication, each reviewed and
+# found intentionally public. validate_build Mode 12 blocks any other.
+# Format: file:route  # reason
+
+ads.py:/active/{space_id}  # public ad shown to visitors
+ads.py:/adsense/config  # public AdSense client id
+ads.py:/spaces  # public ad slots on the landing page
+ads.py:/spaces/{space_id}  # public ad slot
+auth.py:/login  # login
+auth.py:/register-company  # sign-up
+auth.py:/request-password-reset  # sends a 10-minute code; same answer for unknown emails
+chatbot.py:/email-transcript  # sends a visitor's own session (random id) to the address they give
+chatbot.py:/request-human-support  # public support ticket
+chatbot.py:/send  # public support chat
+chatbot.py:/session/{session_id}  # random session id held by the visitor
+contact.py:/send  # public contact form
+coupons.py:/referral/track  # records a referral click
+coupons.py:/validate  # checks a code during sign-up
+customer_portal.py:/login  # customer portal login
+customer_portal.py:/register  # needs the company's portal code
+health_check.py:/detailed  # uptime monitor
+health_check.py:/history  # uptime monitor
+subscriptions.py:/validate-code  # checks an activation code during sign-up

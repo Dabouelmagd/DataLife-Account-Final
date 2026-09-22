@@ -75,27 +75,33 @@ async def send_audit_notification(notification_type: str, **kwargs):
 
 
 async def verify_admin(authorization: str):
-    """Verify if user is admin"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing authorization")
-    from services.auth_service import verify_token
-    token = authorization.split(" ")[1]
-    user_data = verify_token(token)
-    if not user_data:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return user_data
+    """Platform administrators only. This copy used to accept ANY valid token,
+    so every logged-in customer could change payment settings, grant
+    subscriptions, disable companies and list all users."""
+    from api.admin_common import verify_admin as _platform_admin
+    return await _platform_admin(authorization)
 
 
 # ===========================================
 # Utility Endpoints
 # ===========================================
 
+def _require_init_secret(secret_key):
+    """Maintenance endpoints. There used to be a hard-coded default secret in the
+    source, so anyone who could read the code could run them. Now the endpoint is
+    disabled unless SUPER_ADMIN_INIT_SECRET is set in the environment."""
+    import hmac
+    expected = os.environ.get("SUPER_ADMIN_INIT_SECRET", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="Maintenance endpoint disabled")
+    if not secret_key or not hmac.compare_digest(str(secret_key), expected):
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+
 @router.post("/fix-all-issues")
 async def fix_all_production_issues(secret_key: str = None):
     """Master fix endpoint - fixes all common issues in production."""
-    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
-    if secret_key != INIT_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid secret key")
+    _require_init_secret(secret_key)
     
     results = {"super_admins_fixed": 0, "companies_fixed": 0, "codes_generated": 0, "permissions_updated": 0, "details": []}
     
@@ -141,9 +147,7 @@ async def fix_all_production_issues(secret_key: str = None):
 @router.get("/diagnostic")
 async def run_diagnostic(secret_key: str = None):
     """Run a diagnostic check on the system."""
-    INIT_SECRET = os.environ.get("SUPER_ADMIN_INIT_SECRET", "DataLife@SuperAdmin@Init@2026")
-    if secret_key != INIT_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid secret key")
+    _require_init_secret(secret_key)
     
     diagnostic = {"companies": [], "super_admins": [], "subscriptions": [], "issues": []}
     

@@ -39,57 +39,37 @@ def get_current_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# Platform (DataLife) administrators only. ADMIN_ROLES above contains COMPANY
+# roles (General Manager, CEO...) and must never grant platform access.
+PLATFORM_ADMIN_ROLES = ['Super Admin']
+
+
 async def verify_admin(authorization: str) -> dict:
-    """Verify admin authorization"""
+    """Verify a PLATFORM administrator.
+
+    Previously:
+    - company roles (General Manager, CEO, المدير التنفيذي...) and a user-level
+      "admin" permission passed — any customer's manager could approve payments,
+      grant subscriptions and change any user's role in any company;
+    - if the JWT failed to decode, the raw header was looked up as a user id
+      (or stored token): sending someone's user id authenticated as them with no
+      secret at all;
+    - the 403 was raised inside `try: ... except Exception: pass` and swallowed.
+    Now: a valid, unexpired JWT is required, and the user must be a Super Admin
+    or carry is_platform_admin.
+    """
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization required")
-    
-    token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
-    
-    # Try to decode JWT token
-    try:
-        import jwt
-        secret_key = os.environ.get('JWT_SECRET_KEY', os.environ.get('SECRET_KEY', 'your-secret-key'))
-        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-        user_id = payload.get("user_id")
-        
-        if user_id:
-            user = await db.users.find_one({"id": user_id})
-            if user:
-                # Check if user has admin role or is platform admin
-                is_admin = (
-                    user.get("role") in ADMIN_ROLES or 
-                    user.get("is_platform_admin") == True or
-                    "admin" in user.get("permissions", [])
-                )
-                
-                if not is_admin:
-                    raise HTTPException(status_code=403, detail="Admin access required")
-                
-                return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except Exception as e:
-        pass
-    
-    # Fallback: Check in users collection by id or token
-    user = await db.users.find_one({"id": token})
-    if not user:
-        user = await db.users.find_one({"token": token})
-    
-    if not user:
+    token = authorization[7:] if authorization.startswith("Bearer ") else authorization
+    from services.auth_service import verify_token as _vt
+    payload = _vt(token)
+    if not payload or not payload.get("user_id"):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user = await db.users.find_one({"id": payload["user_id"]}, {"_id": 0})
+    if not user or user.get("is_active") is False:
         raise HTTPException(status_code=401, detail="Invalid authorization")
-    
-    # Check if user has admin role or is platform admin
-    is_admin = (
-        user.get("role") in ADMIN_ROLES or 
-        user.get("is_platform_admin") == True or
-        "admin" in user.get("permissions", [])
-    )
-    
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
+    if user.get("role") not in PLATFORM_ADMIN_ROLES and user.get("is_platform_admin") is not True:
+        raise HTTPException(status_code=403, detail="Platform administrator access required")
     return user
 
 

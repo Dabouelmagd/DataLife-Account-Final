@@ -1,0 +1,14 @@
+# By-id routes whose database queries do not carry company_id, each reviewed
+# and found correct. validate_build Mode 11 blocks any other such route.
+# Format: file:route  # reason
+
+ads.py:/active/{space_id}  # public ad display
+ads.py:/spaces/{space_id}  # public ad display
+app_updates.py:/{update_id}/acknowledge  # adds the caller's own company to seen_by
+chatbot.py:/session/{session_id}  # random session id held by the visitor
+coupons.py:/use/{code}  # coupon codes are platform-wide; login required
+customer_portal.py:/invoices/{invoice_number}  # filtered by the customer id from the portal token
+customer_portal.py:/invoices/{invoice_number}/pay  # filtered by the customer id from the portal token
+users.py:/{user_id}  # explicit company check right after the lookup
+users.py:/{user_id}/permissions  # explicit company check right after the lookup
+audit_log.py:/logs/{log_id}  # Super Admin, or explicit company check right after the lookup
