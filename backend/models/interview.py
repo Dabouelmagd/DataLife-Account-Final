@@ -223,17 +223,24 @@ class EvaluationIn(BaseModel):
 
 
 class OnboardIn(BaseModel):
-    """تحويل مرشح إلى موظف"""
+    """تحويل مرشح إلى موظف — كل الحقول اختيارية.
+
+    One click from HR: anything left out is taken from the candidate and the
+    job profile (title, department, expected salary / range), so nobody
+    re-types data the system already holds. Only what HR actually changes is
+    sent."""
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    hire_date: str = Field(description="YYYY-MM-DD")
-    basic_salary: float = Field(gt=0)
+    hire_date: Optional[str] = Field(default=None, description="YYYY-MM-DD; default: today")
+    basic_salary: Optional[float] = Field(default=None, gt=0,
+                                          description="default: the candidate's expected salary, else the job's minimum")
     position: Optional[str] = Field(default=None, max_length=160)
     department: Optional[str] = Field(default=None, max_length=120)
     invite_to_portal: bool = Field(default=True, description="email the portal activation link")
 
     @field_validator("hire_date")
     @classmethod
-    def _date(cls, v: str) -> str:
-        datetime.strptime(v, "%Y-%m-%d")      # raises if malformed
+    def _date(cls, v: Optional[str]) -> Optional[str]:
+        if v:
+            datetime.strptime(v, "%Y-%m-%d")      # raises if malformed
         return v

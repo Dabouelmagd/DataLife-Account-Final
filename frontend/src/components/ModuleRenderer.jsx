@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import RecruitmentPage from '../pages/RecruitmentPage';
 import UnauthorizedPage from './UnauthorizedPage';
 
 // Page imports
@@ -131,6 +132,7 @@ export const renderHRContent = ({
   // HR Sub-modules
   const hrSubModuleMap = {
     'employees': <EmployeesPage language={language} />,
+    'recruitment': <RecruitmentPage />,      // jobs, candidates, scorecards, hiring
     'payroll': <PayrollPage language={language} />,
     'salaries': <PayrollPage language={language} />,  // legacy alias -> real payroll
     'allowances': <AllowancesPage language={language} />,
@@ -268,6 +270,7 @@ const ModuleRenderer = ({
     'hr': 'hr',
     'payroll': 'hr',
     'employees': 'hr',
+    'recruitment': 'hr',
     'attendance': 'hr',
     'shifts': 'hr',
     'hr-settings': 'hr_admin',

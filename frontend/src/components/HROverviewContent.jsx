@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { 
   Users, Plus, Eye, Edit, TrendingUp, Briefcase, Clock,
   DollarSign, UserCheck, UserMinus, Calendar, ChevronRight,
-  ArrowUp, ArrowDown
+  ArrowUp, ArrowDown,
+  UserPlus
 } from 'lucide-react';
 import { 
   UsersThree, UserCircle, Money, ClockCounterClockwise, CalendarCheck,
@@ -81,6 +82,12 @@ const HROverviewContent = ({
   ];
 
   const quickActions = [
+    {
+      title: language === 'ar' ? 'التوظيف والمقابلات' : 'Recruitment',
+      icon: UserPlus,
+      color: 'bg-indigo-500 hover:bg-indigo-600',
+      action: () => onNavigate?.('recruitment')
+    },
     {
       title: language === 'ar' ? 'إضافة موظف' : 'Add Employee',
       icon: Users,

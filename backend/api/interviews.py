@@ -402,6 +402,14 @@ async def onboard_candidate(candidate_id: str, payload: OnboardIn,
 
     profile = await db.job_profiles.find_one(
         {"id": candidate.get("job_profile_id"), "company_id": company_id}, {"_id": 0}) or {}
+
+    # one click: fill from what the system already knows
+    salary = payload.basic_salary or candidate.get("expected_salary") or profile.get("salary_range_min")
+    if not salary or float(salary) <= 0:
+        raise HTTPException(status_code=400,
+                            detail="لا يوجد راتب محفوظ للمرشح ولا نطاق للوظيفة — أدخل الراتب الأساسي")
+    hire_date = payload.hire_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
     employee = {
         "id": str(uuid.uuid4()),
         "company_id": company_id,
@@ -410,8 +418,8 @@ async def onboard_candidate(candidate_id: str, payload: OnboardIn,
         "department": payload.department or profile.get("department"),
         "email": candidate.get("email"),
         "phone": candidate.get("phone"),
-        "hire_date": payload.hire_date,
-        "basic_salary": float(payload.basic_salary),
+        "hire_date": hire_date,
+        "basic_salary": float(salary),
         "is_active": True,
         "source": "recruitment",
         "candidate_id": candidate_id,
@@ -433,4 +441,7 @@ async def onboard_candidate(candidate_id: str, payload: OnboardIn,
             invite = {"error": str(getattr(e, "detail", e))[:200]}
 
     return {"message": "تم تعيين المرشح وإنشاء ملف الموظف", "employee": employee,
-            "portal_invite": invite}
+            "portal_invite": invite,
+            "defaults_used": {"hire_date": not payload.hire_date, "basic_salary": not payload.basic_salary,
+                              "salary_source": "expected" if not payload.basic_salary and candidate.get("expected_salary")
+                                               else ("job_range" if not payload.basic_salary else "entered")}}
