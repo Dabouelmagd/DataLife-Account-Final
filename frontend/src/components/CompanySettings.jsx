@@ -47,7 +47,7 @@ const CompanySettings = () => {
   const [inviteData, setInviteData] = useState({
     full_name: '',
     email: '',
-    role: 'موظف',
+    role: 'محاسب',
     permissions: ['dashboard']
   });
   const [sendingInvite, setSendingInvite] = useState(false);
@@ -199,7 +199,7 @@ const CompanySettings = () => {
       setMessageType('success');
       toast.success(language === 'ar' ? '✅ تم إرسال الدعوة بنجاح!' : '✅ Invitation sent successfully!');
       setShowInviteModal(false);
-      setInviteData({ full_name: '', email: '', role: 'موظف', permissions: ['dashboard'] });
+      setInviteData({ full_name: '', email: '', role: 'محاسب', permissions: ['dashboard'] });
       fetchEmployees();
     } catch (error) {
       console.error('Error sending invitation:', error);

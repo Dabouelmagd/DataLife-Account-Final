@@ -352,6 +352,12 @@ async def invite_employee(
     if existing_user:
         raise HTTPException(status_code=400, detail="البريد الإلكتروني مسجل مسبقاً" if True else "User with this email already exists")
     
+    # Employees join through their HR profile (a one-time link, linked to the
+    # employee record). This route made unlinked logins with an emailed
+    # temporary password — the portal then showed "no employee file".
+    if invite_data.role in ("موظف", "Employee"):
+        raise HTTPException(status_code=400, detail="لإضافة موظف لبوابة الموظف: الموارد البشرية ← ملف الموظف ← «دعوة لبوابة الموظف»")
+
     # Validate role
     if invite_data.role not in ROLE_PERMISSIONS:
         # Add role to permissions if not exists (allow custom roles)

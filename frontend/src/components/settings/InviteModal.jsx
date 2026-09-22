@@ -201,12 +201,16 @@ const InviteModal = ({
                   onChange={e => setInviteData(p => ({ ...p, role: e.target.value }))}
                   className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-sm appearance-none"
                 >
-                  {availableRoles.map(role => (
+                  {availableRoles.filter(role => role.value !== 'موظف').map(role => (
                     <option key={role.value} value={role.value}>{role.label}</option>
                   ))}
                 </select>
                 <ChevronDown className="absolute left-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {ar ? 'لإضافة موظف إلى بوابة الموظف: الموارد البشرية ← ملف الموظف ← «دعوة لبوابة الموظف»'
+                    : 'To give an employee portal access: HR → employee profile → “Invite to employee portal”'}
+              </p>
               {inviteData.role && ROLE_DEFAULT_PERMISSIONS[inviteData.role] && (
                 <p className="text-xs text-green-600 mt-1 font-medium">
                   ✅ {ar ? 'صلاحيات محددة تلقائياً:' : 'Auto-permissions:'} {ROLE_DEFAULT_PERMISSIONS[inviteData.role].join(' · ')}
