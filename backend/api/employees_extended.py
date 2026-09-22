@@ -994,7 +994,6 @@ async def invite_employee_to_portal(employee_id: str, data: dict = None,
     Creates or reuses a login with role موظف, links it to the employee record,
     and returns a one-time activation link (also emailed)."""
     from services import portal_invites
-    from services.professional_email_service import email_service
     company_id = current_user["company_id"]
     emp = await db.employees.find_one({"id": employee_id, "company_id": company_id}, {"_id": 0})
     if not emp:
@@ -1031,8 +1030,17 @@ async def invite_employee_to_portal(employee_id: str, data: dict = None,
       <p>دعتك <b>{company.get('name','')}</b> لاستخدام بوابة الموظف: راتبك، إجازاتك، حضورك، ومستنداتك.</p>
       <p><a href="{link}" style="background:#1e3a8a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">تفعيل حسابي واختيار كلمة المرور</a></p>
       <p style="color:#666;font-size:13px">الرابط صالح {portal_invites.INVITE_DAYS} أيام ويُستخدم مرة واحدة. اسم الدخول: {email}</p></div>"""
+    # Resend, like the password-reset codes: SMTP is not configured on the
+    # server, and the SMTP helper returned False without sending.
+    sent = False
     try:
-        sent = await email_service.send_email(email, "دعوة لبوابة الموظف — DataLife Account", html)
+        import asyncio as _aio, resend as _rs
+        from services.email_service import SENDER_EMAIL
+        _rs.api_key = os.environ.get("RESEND_API_KEY", "")
+        if _rs.api_key:
+            await _aio.to_thread(_rs.Emails.send, {"from": SENDER_EMAIL, "to": [email],
+                                                   "subject": "دعوة لبوابة الموظف — DataLife Account", "html": html})
+            sent = True
     except Exception:
         sent = False
     return {"message": "تم إنشاء رابط التفعيل", "email": email, "invite_link": link,
