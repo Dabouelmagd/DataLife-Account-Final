@@ -65,6 +65,31 @@ async def je_line(company_id: str, code: str,
     }
 
 
+async def record_consolidation_entry(company_id: str, user_id: str, date_str: str,
+                                     description: str, lines: list, ref: str = None) -> str:
+    """Record a consolidation adjustment — WITHOUT posting it to any company's books.
+
+    These used to be posted into the holding company's own ledger. That did two
+    kinds of damage: the holding's standalone statements were distorted (its
+    sales reduced by amounts that only exist in the group view, so its own
+    income statement and VAT return were wrong), and the worksheet then
+    subtracted the same elimination again from a combined column that already
+    contained it — so the elimination cancelled itself out and consolidation
+    had no effect at all.
+
+    A consolidation adjustment belongs to the group's working papers only.
+    """
+    entry_id = str(uuid.uuid4())
+    await db.consolidation_entries.insert_one({
+        "id": entry_id, "company_id": company_id, "group_ref": ref,
+        "entry_date": date_str, "description": description,
+        "lines": lines, "created_by": user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "nature": "consolidation_adjustment",   # never posted to a ledger
+    })
+    return entry_id
+
+
 async def post_je(company_id: str, user_id: str, date_str: str,
                   description: str, lines: list, src_id: str = None) -> str:
     svc = AccountingService(db)
@@ -330,7 +355,7 @@ async def eliminate_intercompany_sales(
         je_line(company_id, ACC["cogs"], credit=sale_amt,
                 desc=f"استبعاد تكلفة مشتريات بينية — {req.buyer_company_id} (مقابل الإيراد كاملاً)"),
     )
-    je_a_id = await post_je(company_id, current_user["user_id"],
+    je_a_id = await record_consolidation_entry(company_id, current_user["user_id"],
         req.elimination_date,
         f"استبعاد معاملة بينية — {req.seller_company_id} → {req.buyer_company_id}",
         list(lines_a), elim_id)
@@ -346,7 +371,7 @@ async def eliminate_intercompany_sales(
             je_line(company_id, ACC["inventory"], credit=unrealized,
                     desc=f"تخفيض المخزون بقدر الأرباح غير المحققة — {unrealized:,.2f}"),
         )
-        je_b_id = await post_je(company_id, current_user["user_id"],
+        je_b_id = await record_consolidation_entry(company_id, current_user["user_id"],
             req.elimination_date,
             f"أرباح غير محققة في المخزون البيني — {unrealized:,.2f}",
             list(lines_b), elim_id)
@@ -425,7 +450,7 @@ async def eliminate_intercompany_balances(
         je_line(company_id, ACC["interco_ar"], credit=amount,
                 desc=f"استبعاد ح.ج مدينة — {co_b} من {co_a}"),
     )
-    je_id = await post_je(company_id, current_user["user_id"], date_str,
+    je_id = await record_consolidation_entry(company_id, current_user["user_id"], date_str,
         f"استبعاد حسابات جارية بينية — {co_a} / {co_b}", list(lines))
 
     elim = {
@@ -489,7 +514,7 @@ async def calculate_nci(
             je_line(company_id, ACC["nci_equity"], credit=nci_assets,
                     desc=f"حقوق الأقلية (NCI) — {sub_name}"),
         )
-        je_id = await post_je(company_id, current_user["user_id"], date_str,
+        je_id = await record_consolidation_entry(company_id, current_user["user_id"], date_str,
             f"إثبات حقوق الأقلية — {sub_name} {nci_pct}%", list(lines))
 
     nci_rec = {
@@ -608,6 +633,11 @@ async def consolidation_worksheet(
             elim_cr[ACC["cogs"]]      = elim_cr.get(ACC["cogs"],0)   + amount
 
     # Build worksheet rows
+    # An account that appears only in an elimination (a contra side with no
+    # balance of its own in any company) was dropped from the worksheet, so the
+    # consolidated columns could not balance.
+    all_account_codes |= set(elim_dr) | set(elim_cr)
+
     worksheet = []
     consolidated_dr = consolidated_cr = 0.0
 
@@ -624,8 +654,15 @@ async def consolidation_worksheet(
         # Apply eliminations
         e_dr = elim_dr.get(code, 0)
         e_cr = elim_cr.get(code, 0)
-        cons_dr = round(sum_dr - e_dr, 2)
-        cons_cr = round(sum_cr - e_cr, 2)
+        # An elimination DEBIT reduces a credit balance (it does not shrink the
+        # debit column), and an elimination CREDIT reduces a debit balance.
+        # Subtracting each from its own column left the balance untouched — the
+        # eliminations had no effect and the worksheet did not balance.
+        net_dr = sum_dr + e_dr          # everything on the debit side
+        net_cr = sum_cr + e_cr          # everything on the credit side
+        net    = round(net_dr - net_cr, 2)
+        cons_dr = round(net, 2) if net > 0 else 0.0
+        cons_cr = round(-net, 2) if net < 0 else 0.0
 
         row["combined"]      = {"debit": round(sum_dr,2), "credit": round(sum_cr,2)}
         row["eliminations"]  = {"debit": e_dr, "credit": e_cr}
