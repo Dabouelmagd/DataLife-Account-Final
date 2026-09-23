@@ -418,9 +418,15 @@ async def check_expiring_subscriptions():
 # Background task to check for low inventory
 async def check_low_inventory():
     """Check for items with low stock"""
-    items = await db.inventory_items.find({
-        "quantity": {"$lte": 10}  # Low stock threshold
-    }).to_list(length=None)
+    # stock lives in `stocks`, the catalogue in `products` (one item store now);
+    # each product's own min_stock is used, falling back to 10
+    items = []
+    async for st in db.stocks.find({}, {"_id": 0}):
+        qty = float(st.get("quantity") or 0)
+        prod = await db.products.find_one({"id": st.get("product_id")}, {"_id": 0}) or {}
+        threshold = float(prod.get("min_stock") or 10)
+        if qty <= threshold:
+            items.append({**prod, "quantity": qty, "company_id": st.get("company_id") or prod.get("company_id")})
     
     # Group by company
     company_items = {}

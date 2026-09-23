@@ -9,6 +9,7 @@ from models.inventory_data import (
 from services.auth_service import verify_token
 from database import db
 from datetime import datetime
+from services.item_store import as_legacy_item, from_legacy_item, stock_of
 
 
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
@@ -43,9 +44,14 @@ async def get_inventory_items(
     company_id = user_data.get("company_id")
     
     # Fetch inventory items for this company
-    items = await db.inventory_items.find({"company_id": company_id}).to_list(length=None)
-    
-    return [InventoryItemResponse(**{**item, '_id': str(item['_id'])}) for item in items]
+    # one catalogue: products (+ stocks for quantity), presented in this
+    # screen's flat shape by services/item_store
+    products = await db.products.find({"company_id": company_id}, {"_id": 0}).to_list(length=None)
+    out = []
+    for prod in products:
+        qty, cost = await stock_of(db, company_id, prod["id"])
+        out.append(InventoryItemResponse(**{**as_legacy_item(prod, qty, cost), "_id": prod["id"]}))
+    return out
 
 
 @router.post("/items", response_model=InventoryItemResponse)
@@ -98,12 +104,15 @@ async def create_inventory_item(
     )
     
     item_dict = item.dict()
-    result = await db.inventory_items.insert_one(item_dict)
-    
-    if result.inserted_id:
-        return InventoryItemResponse(**item_dict)
-    
-    raise HTTPException(status_code=500, detail="Failed to create inventory item")
+    product = from_legacy_item(item_dict, company_id, item_dict.get("id"))
+    await db.products.insert_one(dict(product))
+    qty = float(item_dict.get("quantity") or 0)
+    if qty:                                  # opening quantity for this item
+        await db.stocks.update_one(
+            {"company_id": company_id, "product_id": product["id"], "warehouse_id": "main"},
+            {"$set": {"quantity": qty, "unit_cost": float(item_dict.get("unit_price") or 0)}}, upsert=True)
+    return InventoryItemResponse(**{**as_legacy_item(product, qty, float(item_dict.get("unit_price") or 0)),
+                                    "_id": product["id"]})
 
 
 @router.get("/items/{item_id}", response_model=InventoryItemResponse)
@@ -126,7 +135,7 @@ async def get_inventory_item(
     company_id = user_data.get("company_id")
     
     # Fetch item and verify it belongs to user's company
-    item = await db.inventory_items.find_one({"id": item_id, "company_id": company_id})
+    item = await db.products.find_one({"id": item_id, "company_id": company_id})
     
     if not item:
         raise HTTPException(status_code=404, detail="Inventory item not found")
@@ -168,7 +177,7 @@ async def update_inventory_item(
     company_id = user_data.get("company_id")
     
     # Fetch existing item
-    existing_item = await db.inventory_items.find_one({"id": item_id, "company_id": company_id})
+    existing_item = await db.products.find_one({"id": item_id, "company_id": company_id})
     
     if not existing_item:
         raise HTTPException(status_code=404, detail="Inventory item not found")
@@ -187,18 +196,18 @@ async def update_inventory_item(
         update_data['updated_at'] = datetime.utcnow()
         
         # Update item
-        result = await db.inventory_items.update_one(
-            {"id": item_id, "company_id": company_id},
-            {"$set": update_data}
-        )
-        
-        if result.modified_count == 0:
-            raise HTTPException(status_code=500, detail="Failed to update inventory item")
-    
-    # Fetch and return updated item
-    updated_item = await db.inventory_items.find_one({"id": item_id, "company_id": company_id})
-    
-    return InventoryItemResponse(**updated_item)
+        prod_update = {k: v for k, v in from_legacy_item(
+            {**{"name": existing_item.get("name"), "unit": existing_item.get("base_unit_symbol")}, **update_data},
+            company_id, item_id).items() if k not in ("id", "company_id")}
+        await db.products.update_one({"id": item_id, "company_id": company_id}, {"$set": prod_update})
+        if "quantity" in update_data:
+            await db.stocks.update_one(
+                {"company_id": company_id, "product_id": item_id, "warehouse_id": "main"},
+                {"$set": {"quantity": float(update_data["quantity"] or 0)}}, upsert=True)
+
+    updated_item = await db.products.find_one({"id": item_id, "company_id": company_id}, {"_id": 0})
+    qty, cost = await stock_of(db, company_id, item_id)
+    return InventoryItemResponse(**{**as_legacy_item(updated_item, qty, cost), "_id": item_id})
 
 
 @router.delete("/items/{item_id}")
@@ -234,7 +243,8 @@ async def delete_inventory_item(
     company_id = user_data.get("company_id")
     
     # Delete item
-    result = await db.inventory_items.delete_one({"id": item_id, "company_id": company_id})
+    result = await db.products.delete_one({"id": item_id, "company_id": company_id})
+    await db.stocks.delete_many({"company_id": company_id, "product_id": item_id})
     
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Inventory item not found")

@@ -222,10 +222,11 @@ async def update_order_status(
         order = await db.purchase_orders.find_one({"po_number": po_number})
         if order:
             for item in order.get("items", []):
-                await db.inventory_items.update_one(
-                    {"id": item.get("product_id"), "company_id": company_id},
-                    {"$inc": {"quantity": item.get("quantity", 0)}}
-                )
+                await db.stocks.update_one(     # quantities live in `stocks`
+                    {"company_id": company_id, "product_id": item.get("product_id"),
+                     "warehouse_id": item.get("warehouse_id", "main")},
+                    {"$inc": {"quantity": float(item.get("quantity", 0) or 0)},
+                     "$setOnInsert": {"unit_cost": float(item.get("unit_price", 0) or 0)}}, upsert=True)
     
     result = await db.purchase_orders.update_one(
         {"po_number": po_number, "company_id": company_id},

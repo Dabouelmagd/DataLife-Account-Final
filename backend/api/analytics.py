@@ -67,7 +67,7 @@ async def get_analytics_overview(
     total_expenses = sum(entry.get('debit', 0) for entry in journal_entries if entry.get('debit', 0) > 0)
     
     # Inventory Analytics
-    inventory_items = await db.inventory_items.find({"company_id": company_id}).to_list(length=None)
+    inventory_items = await db.products.find({"company_id": company_id}, {"_id": 0}).to_list(length=None)
     total_inventory_value = sum(item.get('total_value', 0) for item in inventory_items)
     total_inventory_items = len(inventory_items)
     low_stock_items = sum(1 for item in inventory_items if item.get('status') == 'low-stock')
@@ -299,7 +299,7 @@ async def get_inventory_analytics(
     company_id = user_data.get("company_id")
     
     # Get all inventory items
-    items = await db.inventory_items.find({"company_id": company_id}).to_list(length=None)
+    items = await db.products.find({"company_id": company_id}, {"_id": 0}).to_list(length=None)
     
     # Category distribution
     category_count = defaultdict(int)
@@ -914,7 +914,7 @@ async def get_stock_analytics(period: str = "monthly", authorization: Optional[s
     q_date = {"company_id": company_id, "created_at": {"$gte": sd.isoformat()}}
 
     movements  = await db.stock_movements.find(q_date, {"_id": 0}).to_list(None)
-    items      = await db.inventory_items.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+    items      = await db.products.find({"company_id": company_id}, {"_id": 0}).to_list(None)
     warehouses = await db.warehouses.find({"company_id": company_id}, {"_id": 0}).to_list(None)
 
     total_in  = sum(m.get("quantity", 0) for m in movements if m.get("type") in ("in","purchase","transfer_in","adjustment_in"))
