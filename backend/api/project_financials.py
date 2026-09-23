@@ -62,6 +62,14 @@ REVENUE_CATEGORIES = {
 
 # ============ PROJECT EXPENSES ============
 
+async def _posted_entry_for(company_id: str, doc_type: str, doc_id: str):
+    """The journal entry a project expense/revenue produced, if it was posted."""
+    return await db.journal_entries.find_one(
+        {"company_id": company_id, "source_document_type": doc_type,
+         "source_document_id": doc_id, "status": {"$in": ["posted", "POSTED"]}},
+        {"_id": 0, "id": 1, "entry_number": 1})
+
+
 @router.post("/{project_id}/expenses")
 async def add_project_expense(
     project_id: str,
@@ -107,10 +115,19 @@ async def add_project_expense(
     credit_account = "البنك" if expense.get("payment_method", "cash") == "bank" else "الخزينة"
     import uuid as _uuid_exp
     # Map expense category to account code
+    # The chart has accounts made for contracting — 315 subcontractors, 316 site
+    # materials, 317 site labour — and none of them were used: subcontractor
+    # costs were booked as direct wages, which hides the split that project
+    # costing exists to show.
     exp_account_map = {
-        "labor": "312", "materials": "311", "equipment": "313",
-        "overhead": "313", "subcontract": "312", "travel": "332",
-        "utilities": "332", "other": "332"
+        "labor":       "317",   # أجور عمال الموقع
+        "materials":   "316",   # مواد ومستلزمات الموقع
+        "subcontract": "315",   # تكلفة مقاولي الباطن
+        "equipment":   "313",   # مصروفات وإهلاكات تشغيلية
+        "overhead":    "313",
+        "travel":      "337",   # بدل سفر وانتقالات
+        "utilities":   "332",   # مصروفات خدمية
+        "other":       "332",
     }
     exp_code = exp_account_map.get(expense.get("category","other"), "332")
     credit_code = "162" if expense.get("payment_method","cash") == "bank" else "161"
@@ -225,6 +242,16 @@ async def update_project_expense(
     user_data = await verify_token_from_header(authorization)
     company_id = user_data.get("company_id")
     
+    # The entry is already in the ledger: changing the amount here would leave
+    # the project report and the ledger saying different things. Descriptive
+    # fields stay editable; money does not.
+    posted = await _posted_entry_for(company_id, "project_expense", expense_id)
+    money = {"amount", "category", "payment_method", "date"}
+    if posted and money & set(update_data or {}):
+        raise HTTPException(status_code=400,
+                            detail=f"المصروف مُرحّل بالقيد رقم {posted.get('entry_number')} — "
+                                   f"لا يمكن تعديل المبلغ أو التصنيف أو التاريخ؛ سجّل قيداً عكسياً أو مصروفاً مصححاً")
+
     allowed_fields = ["category", "description", "amount", "date", "reference_number", 
                       "vendor", "payment_method", "notes", "attachments"]
     
@@ -256,6 +283,12 @@ async def delete_project_expense(
     user_data = await verify_token_from_header(authorization)
     company_id = user_data.get("company_id")
     
+    posted = await _posted_entry_for(company_id, "project_expense", expense_id)
+    if posted:
+        raise HTTPException(status_code=400,
+                            detail=f"المصروف مُرحّل بالقيد رقم {posted.get('entry_number')} — "
+                                   f"لا يمكن حذفه؛ القيد سيبقى في الدفتر بلا مستند")
+
     result = await db.project_expenses.delete_one(
         {"id": expense_id, "project_id": project_id, "company_id": company_id}
     )
@@ -423,6 +456,13 @@ async def update_project_revenue(
     user_data = await verify_token_from_header(authorization)
     company_id = user_data.get("company_id")
     
+    posted = await _posted_entry_for(company_id, "project_revenue", revenue_id)
+    money = {"amount", "category", "payment_method", "date"}
+    if posted and money & set(update_data or {}):
+        raise HTTPException(status_code=400,
+                            detail=f"الإيراد مُرحّل بالقيد رقم {posted.get('entry_number')} — "
+                                   f"لا يمكن تعديل المبلغ أو التاريخ؛ أصدر إشعاراً دائناً أو قيداً عكسياً")
+
     allowed_fields = ["category", "description", "amount", "date", "invoice_number", 
                       "payment_method", "notes", "attachments"]
     
@@ -454,6 +494,11 @@ async def delete_project_revenue(
     user_data = await verify_token_from_header(authorization)
     company_id = user_data.get("company_id")
     
+    posted = await _posted_entry_for(company_id, "project_revenue", revenue_id)
+    if posted:
+        raise HTTPException(status_code=400,
+                            detail=f"الإيراد مُرحّل بالقيد رقم {posted.get('entry_number')} — لا يمكن حذفه")
+
     result = await db.project_revenues.delete_one(
         {"id": revenue_id, "project_id": project_id, "company_id": company_id}
     )
