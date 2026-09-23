@@ -388,11 +388,36 @@ class InvoiceService:
             # إشعار دائن: عكس فاتورة البيع — من ح/ المبيعات + ضريبة المخرجات ← إلى ح/ العملاء
             # إشعار مدين: العكس (زيادة على العميل)
             credit_note = doc_type == DocumentType.CREDIT_NOTE.value
-            customers = find_account("131")
-            revenue = find_account("411") or find_account("412")
-            vat_out = find_account("260")
-            if not (customers and revenue):
-                raise ValueError("حسابات العملاء أو المبيعات غير موجودة في شجرة الحسابات")
+
+            # Which side of the business the note corrects. A note against a
+            # PURCHASE invoice (goods returned to a supplier) must move
+            # suppliers, purchases and INPUT VAT — it was posting to customers,
+            # revenue and output VAT like a sales return, which would have
+            # inflated sales and understated what the company owes.
+            original = None
+            if invoice.get("original_invoice_id"):
+                original = await self.db.invoices.find_one(
+                    {"id": invoice["original_invoice_id"], "company_id": invoice["company_id"]},
+                    {"_id": 0, "document_type": 1})
+            purchase_side = bool(original) and \
+                original.get("document_type") == DocumentType.PURCHASE_INVOICE.value
+
+            if purchase_side:
+                # مردود مشتريات: من ح/ الموردين ← إلى ح/ المشتريات + ضريبة المدخلات
+                party_acc = find_account("251")
+                _method = await self.inventory_method(invoice["company_id"])
+                goods_acc = (find_account("125") or find_account("311")) if _method == "perpetual" \
+                    else find_account("311")
+                tax_acc = find_account("137") or find_account("254")
+                if not (party_acc and goods_acc):
+                    raise ValueError("حسابات الموردين أو المشتريات غير موجودة في شجرة الحسابات")
+                customers, revenue, vat_out = party_acc, goods_acc, tax_acc
+            else:
+                customers = find_account("131")
+                revenue = find_account("411") or find_account("412")
+                vat_out = find_account("260")
+                if not (customers and revenue):
+                    raise ValueError("حسابات العملاء أو المبيعات غير موجودة في شجرة الحسابات")
             net = round(float(invoice.get("total_after_discount") or 0), 2)
             tax = round(float(invoice.get("total_tax") or 0), 2)
             total = round(float(invoice.get("grand_total") or 0), 2)
@@ -402,7 +427,10 @@ class InvoiceService:
                     account_id=acc["id"], account_code=acc["account_code"], account_name=acc["account_name"],
                     debit=amount if debit else 0.0, credit=0.0 if debit else amount, description=text)
 
-            label = "إشعار دائن" if credit_note else "إشعار مدين"
+            # A purchase debit note already has the right shape: the party line
+            # takes the opposite side to the goods line, so the supplier is
+            # debited (we owe less) and purchases are credited. No flip needed.
+            label = ("إشعار دائن" if doc_type == DocumentType.CREDIT_NOTE.value else "إشعار مدين")
             ref = invoice.get("original_invoice_number") or invoice.get("document_number")
             if net:
                 lines.append(line(revenue, net, credit_note, f"{label} — مردودات/خصم على الفاتورة {ref}"))
@@ -523,6 +551,14 @@ class InvoiceService:
             await self._create_cogs_entry(invoice, user_id, post_entry=(method == "perpetual"))
         elif doc_type == DocumentType.CREDIT_NOTE.value and invoice.get("restock", True):
             await self._create_cogs_entry(invoice, user_id, reverse=True, post_entry=(method == "perpetual"))
+        elif doc_type == DocumentType.DEBIT_NOTE.value and invoice.get("restock", True):
+            # goods handed back to the supplier leave the warehouse
+            for line in invoice.get("lines", []):
+                if line.get("product_id") and float(line.get("quantity", 0) or 0):
+                    await self.db.stocks.update_one(
+                        {"company_id": invoice["company_id"], "product_id": line["product_id"],
+                         "warehouse_id": line.get("warehouse_id", "main")},
+                        {"$inc": {"quantity": -float(line["quantity"])}}, upsert=True)
         
         return result["id"]
     

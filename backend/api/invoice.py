@@ -6,7 +6,7 @@ Invoice API Routes
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from models.invoice import (
@@ -1642,3 +1642,94 @@ async def convert_amount(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ══════════════════════════════════════════
+# DEBIT NOTES — returning goods to a supplier
+# ══════════════════════════════════════════
+# A posted purchase invoice cannot be edited, and until now there was nothing
+# to correct it with: the document type existed and nothing created one.
+
+@router.post("/purchase-invoices/{invoice_id}/debit-note")
+async def create_purchase_debit_note(invoice_id: str, data: dict,
+                                     current_user: dict = Depends(get_current_user)):
+    """إشعار مدين على فاتورة شراء (مردود مشتريات — كلي أو جزئي)."""
+    from models.invoice import Invoice, InvoiceLine, DocumentType
+    from services.invoice_service import InvoiceService
+
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=403, detail="الحساب غير مرتبط بشركة")
+
+    inv = await db.invoices.find_one(
+        {"$or": [{"id": invoice_id}, {"document_number": invoice_id}],
+         "company_id": company_id, "document_type": DocumentType.PURCHASE_INVOICE.value}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="فاتورة الشراء غير موجودة")
+    if not inv.get("journal_entry_id") or inv.get("status") in ("draft", "cancelled"):
+        raise HTTPException(status_code=400, detail="الإشعار المدين يصدر على فاتورة معتمدة ومرحّلة فقط")
+
+    settle = round(float(inv.get("settle_amount") or inv.get("grand_total") or 0), 2)
+    already = round(float(inv.get("credited_amount") or 0), 2)
+    remaining = round(settle - already, 2)
+    if remaining <= 0:
+        raise HTTPException(status_code=400, detail="تم رد قيمة هذه الفاتورة بالكامل")
+
+    requested = data.get("items")
+    lines = []
+    if requested:
+        for n, it in enumerate(requested, 1):
+            qty = float(it.get("quantity", 0) or 0)
+            if qty <= 0:
+                continue
+            original = next((l for l in inv.get("lines", [])
+                             if (it.get("product_id") and l.get("product_id") == it.get("product_id"))
+                             or l.get("description") == it.get("description")), {})
+            max_qty = float(original.get("quantity", 0) or 0)
+            if original and qty > max_qty + 0.001:
+                raise HTTPException(status_code=400,
+                                    detail=f"الكمية المرتجعة ({qty}) أكبر من كمية الفاتورة ({max_qty})")
+            lines.append(InvoiceLine(
+                line_number=n, product_id=it.get("product_id") or original.get("product_id"),
+                description=(it.get("description") or original.get("description") or "مردود")[:300],
+                unit=original.get("unit", "unit"), quantity=qty,
+                unit_price=float(it.get("unit_price", 0) or original.get("unit_price", 0) or 0),
+                tax_rate=float(it.get("vat_percent", original.get("tax_rate", 14)) or 0)))
+    else:
+        amount = round(float(data.get("amount") or 0), 2)
+        if amount <= 0:
+            raise HTTPException(status_code=400, detail="حدد الأصناف المرتجعة أو مبلغ الإشعار")
+        vat_rate = float(data.get("vat_percent", 14) or 0)
+        net = round(amount / (1 + vat_rate / 100), 2) if vat_rate else amount
+        lines.append(InvoiceLine(line_number=1, description=data.get("reason") or "خصم/تسوية على فاتورة الشراء",
+                                 quantity=1, unit_price=net, tax_rate=vat_rate))
+    if not lines:
+        raise HTTPException(status_code=400, detail="لا توجد بنود في الإشعار")
+
+    note = Invoice(
+        company_id=company_id, document_type=DocumentType.DEBIT_NOTE,
+        document_number="", document_date=data.get("date") or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        party_id=inv["party_id"], party_name=inv.get("party_name", ""),
+        party_tax_id=inv.get("party_tax_id"), lines=lines,
+        original_invoice_id=inv["id"], original_invoice_number=inv.get("document_number"),
+        credit_reason=data.get("reason"), restock=bool(requested),   # goods actually leave stock
+        notes=data.get("notes"), created_by=current_user.get("user_id"))
+
+    service = InvoiceService(db)
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1}) or {}
+    created = await service.create_invoice(note, company.get("name", ""))
+
+    total = round(float(created.get("grand_total") or 0), 2)
+    if total > remaining + 0.005:
+        await db.invoices.delete_one({"id": created["id"]})
+        raise HTTPException(status_code=400,
+                            detail=f"قيمة الإشعار ({total:,.2f}) أكبر من المتبقي على الفاتورة ({remaining:,.2f})")
+
+    approved = await service.approve_invoice(created["id"], current_user.get("user_id"))
+    new_credited = round(already + total, 2)
+    await db.invoices.update_one({"id": inv["id"], "company_id": company_id}, {"$set": {
+        "credited_amount": new_credited,
+        "amount_due": round(max(settle - new_credited - float(inv.get("amount_paid") or 0), 0), 2),
+        "status": "credited" if new_credited >= settle - 0.005 else inv.get("status"),
+        "updated_at": datetime.now(timezone.utc).isoformat()}})
+    return {"message": f"تم إصدار الإشعار المدين {created['document_number']} وترحيله",
+            "debit_note": approved or created, "invoice_remaining": round(remaining - total, 2)}
