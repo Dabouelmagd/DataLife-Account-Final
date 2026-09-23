@@ -1,0 +1,20 @@
+# Account comments reviewed and accepted (Mode 15 exceptions).
+# Format: file.py:CODE  # why the generic account is the right one here
+bank_management.py:162  # a second bank account is still 162 النقدية بالبنوك الجارية
+financial_engine.py:136  # amounts due from affiliates are accrued income until settled
+financial_engine.py:253  # amounts owed to affiliates are accrued expenses until settled
+financial_engine.py:332  # an inter-company service charge is an ordinary service expense
+inventory_engine.py:121  # goods inventory for companies that hold one inventory account
+inventory_engine.py:423  # an inventory surplus is miscellaneous income
+inventory_engine.py:1313  # an unallowed shortage is a claim on the person responsible
+inventory_engine.py:251  # import costs are owed to the supplier until cleared
+inventory_engine.py:3372  # international freight
+inventory_engine.py:3373  # marine insurance
+letter_of_credit.py:123  # goods in transit under an LC is exactly what 123 is
+letter_of_credit.py:122  # finished goods received under the LC
+petty_cash.py:162  # "بنك" is the current bank account
+treasury.py:162  # same
+treasury.py:334  # a bounced-cheque fee is a bank charge
+trade_finance.py:1361  # guarantee cover held with a related party
+pos_retail.py:412  # a restaurant service charge is service revenue
+pos_retail.py:125  # food and beverage stock is goods held for sale

@@ -39,7 +39,9 @@ ACC = {
     "paid_in_capital":"211",   # رأس المال المدفوع
     "partners_cur":   "212",   # جاري الشركاء
     "bank":           "162",
-    "net_income":     "413",   # صافي الربح (من قائمة الدخل)
+    # 413 is "مردودات ومسموحات المبيعات" — a contra-revenue account. Retained
+    # earnings is where a distribution comes from.
+    "net_income":     "213",   # الأرباح (الخسائر) المرحلة
 }
 
 

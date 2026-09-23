@@ -402,6 +402,10 @@ DEFAULT_ACCOUNTS = [
     {"code": "313", "name": "مصروفات وإهلاكات تشغيلية", "name_en": "Operating Expenses & Depreciation", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
     # مفقود من الشجرة: كانت تكلفة البضاعة المباعة تُرحّل على 321 (فوائد بنكية)
     {"code": "314", "name": "تكلفة البضاعة المباعة", "name_en": "Cost of Goods Sold", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
+    # التصنيع: كانت هذه البنود تُرحّل على حسابات مخزون ومصروفات لا تخصّها
+    {"code": "3181", "name": "تكاليف صناعية غير مباشرة محملة", "name_en": "Factory Overhead Applied", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
+    {"code": "3182", "name": "انحراف التكاليف الصناعية", "name_en": "Factory Overhead Variance", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
+    {"code": "3183", "name": "مصروف هبوط قيمة المخزون", "name_en": "Inventory Write-down Expense", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
     
     # 33 - المصروفات الإدارية والعمومية (G&A Expenses)
     {"code": "33", "name": "المصروفات الإدارية والعمومية", "name_en": "General & Administrative Expenses", "type": AccountType.EXPENSE, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "3"},
@@ -567,6 +571,10 @@ DEFAULT_ACCOUNTS = [
      "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "33"},
     {"code": "3366", "name": "مصروفات نثرية ومتنوعة", "name_en": "Petty & Sundry Expenses",
      "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
+    {"code": "33611", "name": "خسائر فروق عملة أجنبية", "name_en": "Foreign Exchange Losses", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "336"},
+    {"code": "3368", "name": "مصروف اضمحلال وخسائر ائتمانية متوقعة", "name_en": "Expected Credit Loss Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "336"},
+    {"code": "3369", "name": "مصروف مخصص قضايا والتزامات محتملة", "name_en": "Litigation Provision Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "336"},
+    {"code": "33610", "name": "مصروف تالف وهدر", "name_en": "Waste & Spoilage Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "336"},
     {"code": "3367", "name": "حصة الشركة في التأمينات الاجتماعية", "name_en": "Employer Social Insurance Contribution",
      "type": AccountType.EXPENSE, "category": AccountCategory.ADMIN_EXPENSE, "parent_code": "33"},
     {"code": "417", "name": "إيرادات غرف العمليات والجراحة", "name_en": "Operating Room & Surgery Revenue",

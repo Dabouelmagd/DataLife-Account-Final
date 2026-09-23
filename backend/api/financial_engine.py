@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/financial-engine", tags=["Financial Engine"])
 # ══════════════════════════════════════════════════════════════
 ACC = {
     "fx_gain":          "432",  # أرباح فروق عملة محققة
-    "fx_loss":          "334",  # خسائر فروق عملة محققة
+    "fx_loss":          "33611",  # خسائر فروق عملة محققة
     "fx_unrealized_gain": "432",# أرباح فروق عملة غير محققة (نفس الحساب — مميّز بالوصف)
     "fx_unrealized_loss": "334",
     "pnl":              "214",  # حساب الأرباح والخسائر
@@ -630,7 +630,7 @@ async def inter_company_transaction(req: InterCompanyRequest,
 
     # ── قيد الشركة المستلِمة (تلقائي) ────────────────────────
     dr_code_to = {
-        "loan":    "334",  # مصروف فائدة
+        "loan":    "321",  # فوائد وعمولات بنكية مدينة (كان 334: مصروفات بنكية)
         "service": "332",  # مصروف خدمة
         "asset_transfer": "112",
         "dividend": "213",

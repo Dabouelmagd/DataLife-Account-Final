@@ -503,6 +503,65 @@ def check_public_uploads():
             errors.append(f"backend/server.py:{n}: uploads served by a public static mount — "
                           f"anyone with the link could read personal documents")
 
+# ── Mode 15: account comment must match the account's real name (blocking) ──
+# Modules were written against a chart in their author's head, not the real
+# one: manufacturing posted "applied overhead" to 124 (SPARE PARTS INVENTORY)
+# and its variance to 125 (MERCHANDISE INVENTORY, the account sales credit
+# their cost from). The code even said so in a comment beside the wrong code.
+# Every entry posted "successfully" into the wrong account.
+def check_account_comments():
+    import re
+    chart_file = ROOT / "backend" / "models" / "accounting.py"
+    if not chart_file.exists():
+        return
+    names = dict(re.findall(r'"code":\s*"(\d+)"\s*,\s*"name":\s*"([^"]+)"',
+                            chart_file.read_text(encoding="utf-8")))
+    # "key": "CODE",  # what the author thinks this account is
+    entry = re.compile(r'^\s*["\'](\w+)["\']\s*:\s*["\'](\d{3,5})["\']\s*,?\s*#\s*(.+?)\s*$')
+
+    # generic accounts deliberately used for a specific purpose, each with its
+    # reason recorded in backend/scripts/reviewed_account_comments.txt
+    reviewed = set()
+    rf = ROOT / "backend" / "scripts" / "reviewed_account_comments.txt"
+    if rf.exists():
+        for line in rf.read_text(encoding="utf-8").splitlines():
+            line = line.split("#")[0].strip()
+            if line:
+                reviewed.add(line)
+    STOP = {"حساب", "حـ/", "ح/", "مصروف", "مصروفات", "إيراد", "إيرادات", "مخزون", "تكلفة", "من", "إلى", "the", "acc"}
+
+    def norm(w):
+        w = w.strip("()،,.:/—-\u200f")
+        if w.startswith("ال") and len(w) > 4:       # "القانوني" and "قانوني" are the same word
+            w = w[2:]
+        for a, b in (("أ", "ا"), ("إ", "ا"), ("آ", "ا"), ("ة", "ه"), ("ى", "ي")):
+            w = w.replace(a, b)
+        return w
+
+    def words(text):
+        return {norm(w) for w in text.split() if len(norm(w)) > 3} - STOP
+
+    for folder in ("api", "services"):
+        for f in sorted((ROOT / "backend" / folder).glob("*.py")):
+            for n, line in enumerate(f.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                m = entry.match(line)
+                if not m:
+                    continue
+                code, comment = m.group(2), m.group(3)
+                real = names.get(code)
+                if not real or not comment:
+                    continue
+                # any meaningful word shared between the comment and the real name
+                if words(comment) & words(real):
+                    continue
+                # an English-only note about a non-Arabic name cannot be compared
+                if not any("\u0600" <= ch <= "\u06ff" for ch in comment):
+                    continue
+                if f"{f.name}:{code}" in reviewed:
+                    continue
+                errors.append(f"{f.relative_to(ROOT)}:{n}: account {code} is \"{real}\" in the chart, "
+                              f"but the code calls it \"{comment}\" — entries would post to the wrong account")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -518,6 +577,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 15: Account comment check...")
+check_account_comments()
 
 print(f"Mode 14: Public upload mount check...")
 check_public_uploads()

@@ -30,20 +30,25 @@ router = APIRouter(prefix="/api/manufacturing", tags=["Manufacturing & Accruals"
 ACC = {
     "raw_materials":    "121",   # مخزون خامات ومواد أولية
     "wip":              "122",   # إنتاج تحت التشغيل
-    "finished_goods":   "123",   # مخزون إنتاج تام (نستخدم 123 للمنتجات التامة)
-    "foh_applied":      "124",   # تكاليف صناعية غير مباشرة محملة
-    "foh_variance":     "125",   # انحراف التكاليف الصناعية
+    # 123 is "مخزون بضاعة بالطريق / اعتمادات" — goods in transit under an LC.
+    # Finished production belongs in 122, which is exactly that account.
+    "finished_goods":   "122",   # مخزون الإنتاج التام
+    # 124 is "مخزون قطع غيار ومهمات" and 125 is "مخزون بضائع بغرض البيع" —
+    # applied overhead and its variance were being posted into INVENTORY
+    # assets, one of them the very account sales credit their cost from.
+    "foh_applied":      "3181",  # تكاليف صناعية غير مباشرة محملة
+    "foh_variance":     "3182",  # انحراف التكاليف الصناعية
     "direct_labor_exp": "312",   # أجور عمال الإنتاج المباشرة
     "foh_exp":          "313",   # مصروفات وإهلاكات تشغيلية (FOH الفعلية)
     "prepaid_exp":      "135",   # مصروفات مدفوعة مقدماً
     "deferred_rev":     "257",   # إيرادات محصلة مقدماً
     "accrued_exp":      "253",   # مصروفات مستحقة الدفع
     "ecl_provision":    "224",   # مخصص خسائر ائتمانية متوقعة
-    "ecl_expense":      "334",   # مصروف اضمحلال وخسائر ائتمانية
+    "ecl_expense":      "3368",  # مصروف اضمحلال وخسائر ائتمانية (كان 334: مصروفات بنكية)
     "inv_provision":    "226",   # مخصص هبوط قيمة المخزون
-    "inv_writedown_exp":"313",   # مصروف هبوط مخزون
+    "inv_writedown_exp":"3183",  # مصروف هبوط مخزون (كان 313: مصروفات تشغيلية عامة)
     "contingency_prov": "227",   # مخصص قضايا والتزامات محتملة
-    "contingency_exp":  "333",   # مصروف مخصص قضايا
+    "contingency_exp":  "3369",  # مصروف مخصص قضايا (كان 333: إهلاكات إدارية)
     "bank":             "162",
     "ar":               "131",
     "service_rev":      "412",   # إيرادات الخدمات المحققة

@@ -29,16 +29,16 @@ router = APIRouter(prefix="/api/inventory-engine", tags=["Inventory Engine"])
 ACC = {
     "inventory":        "121",  # مخزون البضاعة
     "inventory_wip":    "122",  # إنتاج تحت التشغيل
-    "cogs":             "321",  # تكلفة البضاعة المباعة
-    "shortage_allowed": "332",  # مصروف عجز مسموح به
-    "shortage_denied":  "432",  # مطالبات / عجز غير مسموح (مدين من المسؤول)
+    "cogs":             "314",  # تكلفة البضاعة المباعة   # كان 321
+    "shortage_allowed": "3353",  # عجز نقدية مسموح به (كان 332: مصروفات خدمية)
+    "shortage_denied":  "1313",  # مطالبات / عجز غير مسموح (مدين من المسؤول)   # كان 432
     "surplus":          "423",  # إيراد زيادة مخزون
-    "landed_clearing":  "241",  # حساب تكاليف الاستيراد مقيدة
+    "landed_clearing":  "251",  # حساب تكاليف الاستيراد مقيدة   # كان 241
     "bank":             "162",
     "ap":               "251",
-    "customs":          "254",  # رسوم جمركية مستحقة
-    "freight_exp":      "332",  # مصاريف شحن
-    "insurance_exp":    "332",  # مصاريف تأمين
+    "customs":          "3374",  # رسوم جمركية مستحقة
+    "freight_exp":      "3372",  # مصاريف شحن
+    "insurance_exp":    "3373",  # مصاريف تأمين
 }
 
 
@@ -384,8 +384,8 @@ async def apply_landed_costs(req: LandedCostRequest,
         cr_acc = {
             "freight":   "251",    # شحن مستحق
             "insurance": "251",    # تأمين شحنة
-            "customs":   "254",    # رسوم جمركية
-            "clearance": "251",    # تخليص جمركي
+            "customs":   "3374",    # رسوم جمركية
+            "clearance": "3375",    # تخليص جمركي
         }.get(cost.get("type","other"), "251")
 
         je_lines_cr.append(await je_line(
