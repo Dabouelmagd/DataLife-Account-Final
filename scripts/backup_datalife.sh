@@ -16,6 +16,11 @@
 # Restore uploaded files:
 #   gunzip -c /opt/datalife-backups/uploads_<date>.tar.gz | docker cp - datalife_backend:/app/
 #
+# Restore from an OFF-SERVER copy (decrypt first):
+#   rclone copy "$DATALIFE_BACKUP_REMOTE/db_<date>.archive.gz.gpg" /tmp/
+#   gpg --batch --passphrase-file /root/.datalife_backup_key \
+#       --decrypt /tmp/db_<date>.archive.gz.gpg > /tmp/db_<date>.archive.gz
+#
 # Off-server copy: a backup on the same server does not survive losing the
 # server. If DATALIFE_BACKUP_REMOTE is set (an rclone remote, e.g.
 # "storagebox:datalife"), each night's files are also copied there.
@@ -46,12 +51,36 @@ mv "$UP_TMP" "$DEST/uploads_$TS.tar.gz"
 # 3) retention
 find "$DEST" -maxdepth 1 \( -name 'db_*.archive.gz' -o -name 'uploads_*.tar.gz' \) -mtime +"$KEEP_DAYS" -delete
 
-# 4) optional off-server copy
+# 4) off-server copy — ENCRYPTED on this server before it leaves
+#    The archives hold customers' payroll, national IDs and bank details, so
+#    the copy that goes to third-party storage is encrypted here first: the
+#    provider only ever holds ciphertext. Local copies stay plain for a fast
+#    restore (anyone on this server already has the database).
+#    KEY_FILE holds the passphrase — WITHOUT IT THE OFF-SERVER COPIES ARE
+#    UNRECOVERABLE. Keep a copy of it somewhere other than this server.
 if [ -n "${DATALIFE_BACKUP_REMOTE:-}" ]; then
   command -v rclone >/dev/null || fail "DATALIFE_BACKUP_REMOTE is set but rclone is not installed"
-  rclone copy "$DEST/db_$TS.archive.gz" "$DATALIFE_BACKUP_REMOTE" && \
-  rclone copy "$DEST/uploads_$TS.tar.gz" "$DATALIFE_BACKUP_REMOTE" || fail "off-server copy failed"
-  log "copied off-server to $DATALIFE_BACKUP_REMOTE"
+  command -v gpg >/dev/null || fail "gpg is not installed"
+  KEY_FILE="${DATALIFE_BACKUP_KEY_FILE:-/root/.datalife_backup_key}"
+  [ -s "$KEY_FILE" ] || fail "encryption key file $KEY_FILE is missing or empty"
+
+  for f in "db_$TS.archive.gz" "uploads_$TS.tar.gz"; do
+    gpg --batch --yes --quiet --symmetric --cipher-algo AES256 \
+        --passphrase-file "$KEY_FILE" --output "$DEST/$f.gpg" "$DEST/$f" || fail "encrypting $f failed"
+    rclone copy "$DEST/$f.gpg" "$DATALIFE_BACKUP_REMOTE" || fail "uploading $f.gpg failed"
+    # confirm it actually landed, and with the same size
+    local_size=$(stat -c%s "$DEST/$f.gpg")
+    remote_size=$(rclone size "$DATALIFE_BACKUP_REMOTE/$f.gpg" --json 2>/dev/null | grep -o '"bytes":[0-9]*' | cut -d: -f2)
+    [ "$local_size" = "$remote_size" ] || fail "uploaded $f.gpg does not match ($local_size vs ${remote_size:-missing})"
+    rm -f "$DEST/$f.gpg"                       # the encrypted copy is only for transit
+  done
+
+  # same retention off-server
+  rclone delete "$DATALIFE_BACKUP_REMOTE" --min-age "${KEEP_DAYS}d" --include 'db_*.archive.gz.gpg' 2>/dev/null || true
+  rclone delete "$DATALIFE_BACKUP_REMOTE" --min-age "${KEEP_DAYS}d" --include 'uploads_*.tar.gz.gpg' 2>/dev/null || true
+  log "copied off-server (encrypted) to $DATALIFE_BACKUP_REMOTE"
+else
+  log "NOTE: no off-server copy (DATALIFE_BACKUP_REMOTE not set) — a backup on this server does not survive losing it"
 fi
 
 log "OK  db $(du -h "$DEST/db_$TS.archive.gz" | cut -f1)  uploads $(du -h "$DEST/uploads_$TS.tar.gz" | cut -f1)  kept: $(ls "$DEST"/db_*.archive.gz | wc -l) nights"
