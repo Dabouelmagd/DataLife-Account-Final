@@ -1,5 +1,5 @@
 import secrets
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from dependencies import get_current_user
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
@@ -146,16 +146,26 @@ async def register_company(
     )
 
 @router.post("/login", response_model=Token)
-async def login(credentials: UserLogin):
+async def login(credentials: UserLogin, request: Request = None):
     """Login with email and password"""
     from services import auth_throttle as _th
+    from services import security_log as _sec
+    from fastapi import HTTPException as _HE
     _lk = _th.k("login_fail", credentials.email)
-    await _th.check(db, _lk, *_th.LOGIN_FAILS)
+    try:
+        await _th.check(db, _lk, *_th.LOGIN_FAILS)
+    except _HE:
+        await _sec.record(db, _sec.LOGIN_LOCKED, email=credentials.email,
+                          ip=_sec.client_ip(request), detail="too many failed attempts")
+        raise
     user = await authenticate_user(db, credentials.email, credentials.password)
     if not user:
         await _th.record(db, _lk)
+        await _sec.record(db, _sec.LOGIN_FAILED, email=credentials.email, ip=_sec.client_ip(request))
     else:
         await _th.clear(db, _lk)
+        await _sec.record(db, _sec.LOGIN_OK, email=credentials.email, user_id=user.id,
+                          company_id=user.company_id, ip=_sec.client_ip(request))
     
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -170,6 +180,9 @@ async def login(credentials: UserLogin):
     if _2fa.required_for(user_doc):
         challenge_id, code = await _2fa.start(db, user_doc)
         sent = await _2fa.send_code_email(user.email, user_doc.get("full_name"), code)
+        await _sec.record(db, _sec.TWO_FACTOR_SENT, email=user.email, user_id=user.id,
+                          company_id=user.company_id, ip=_sec.client_ip(request),
+                          detail=f"email_sent={bool(sent)}")
         return {"requires_2fa": True, "challenge_id": challenge_id,
                 "email_sent": sent, "email": user.email,
                 "message": "أدخل رمز التحقق المُرسل إلى بريدك" if sent
@@ -1195,7 +1208,7 @@ async def accept_portal_invite(data: dict):
     return {"message": "تم تفعيل حسابك — سجّل الدخول ببريدك وكلمة المرور", "email": (user or {}).get("email")}
 
 @router.post("/login/verify")
-async def verify_login_code(data: dict):
+async def verify_login_code(data: dict, request: Request = None):
     """الخطوة الثانية: إدخال رمز التحقق لإصدار رمز الدخول."""
     from services import two_factor as _2fa
     from services import auth_throttle as _th
@@ -1204,10 +1217,13 @@ async def verify_login_code(data: dict):
     ch = await db.login_challenges.find_one({"id": challenge_id}, {"_id": 0, "email": 1}) if challenge_id else None
     if ch:                                    # same daily guessing limit as reset codes
         await _th.check(db, _th.k("2fa_fail", ch.get("email") or ""), *_th.OTP_FAILS_DAY)
+    from services import security_log as _sec
     user_id, reason = await _2fa.verify(db, challenge_id, code)
     if not user_id:
         if ch:
             await _th.record(db, _th.k("2fa_fail", ch.get("email") or ""))
+        await _sec.record(db, _sec.TWO_FACTOR_FAILED, email=(ch or {}).get("email"),
+                          ip=_sec.client_ip(request), detail=reason)
         raise HTTPException(status_code=400, detail=reason)
 
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
@@ -1216,6 +1232,8 @@ async def verify_login_code(data: dict):
     token = create_access_token(data={"user_id": user["id"], "email": user.get("email"),
                                       "company_id": user.get("company_id"), "role": user.get("role")})
     await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}})
+    await _sec.record(db, _sec.TWO_FACTOR_OK, email=user.get("email"), user_id=user["id"],
+                      company_id=user.get("company_id"), ip=_sec.client_ip(request))
     user.pop("password_hash", None)
     resp = JSONResponse({"access_token": token, "token_type": "bearer", "user": user})
     set_file_cookie(resp, user)          # lets <img> load protected files

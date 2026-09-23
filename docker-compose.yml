@@ -24,6 +24,12 @@ services:
       - "8003:8000"
     volumes:
       - uploads_data:/app/uploads
+      - logs_data:/app/logs
+    logging:                    # docker's own logs: bounded so they cannot fill the disk
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
     networks:
       - datalife_net
 
@@ -45,6 +51,7 @@ services:
 
 volumes:
   mongo_dl_data:
+  logs_data:
   uploads_data:
 
 networks:

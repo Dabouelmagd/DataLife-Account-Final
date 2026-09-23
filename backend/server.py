@@ -135,6 +135,9 @@ async def serve_upload(file_path: str, request: _Req):
     _user_id, company_id = await _ua.caller_company(
         _db, request.headers.get("authorization"), request.cookies.get(_ua.COOKIE_NAME))
     if not company_id or not await _ua.may_read(_db, company_id, file_path):
+        from services import security_log as _sec
+        await _sec.record(_db, _sec.FILE_DENIED, user_id=_user_id, company_id=company_id,
+                          ip=_sec.client_ip(request), detail=f"/api/uploads/{file_path}"[:200])
         raise HTTPException(status_code=403, detail="لا تملك صلاحية عرض هذا الملف")
 
     # never let the browser run an uploaded file on our own origin
@@ -423,12 +426,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
+# Logging: to the console AND to a file on a persistent volume.
+# Console output alone goes to the container's log, which docker throws away
+# every time the container is recreated — that is every deploy. After an
+# incident there was nothing left to read.
+_log_dir = os.environ.get("LOG_DIR", "/app/logs")
+_handlers = [logging.StreamHandler()]
+try:
+    os.makedirs(_log_dir, exist_ok=True)
+    from logging.handlers import RotatingFileHandler
+    _handlers.append(RotatingFileHandler(
+        os.path.join(_log_dir, "app.log"),
+        maxBytes=10 * 1024 * 1024, backupCount=7, encoding="utf-8"))   # ~80MB ceiling
+except Exception as _e:                      # a logging problem must not stop the app
+    print(f"file logging unavailable: {_e}")
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=_handlers,
 )
 logger = logging.getLogger(__name__)
+logger.info("logging to %s (rotating, 7 files x 10MB)", _log_dir)
 
 
 @app.on_event("startup")
