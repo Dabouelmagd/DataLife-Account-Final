@@ -9,7 +9,8 @@ import {
   ChevronDown, Edit2, Trash2, Eye, Send, CheckCircle,
   XCircle, Clock, AlertTriangle, DollarSign, TrendingUp,
   Loader2, X, ArrowRight, Repeat, Phone, Mail, MapPin,
-  Star, Filter, Download, MoreVertical, CreditCard
+  Star, Filter, Download, MoreVertical, CreditCard,
+  RotateCcw
 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -714,7 +715,54 @@ function QuotationsTab({ headers, ar, showMsg, setTab, fetchStats }) {
 // INVOICES TAB
 // ════════════════════════════════════════════════════════════════
 function InvoicesTab({ headers, ar, showMsg, fetchStats }) {
+
+  const openCreditNote = async (inv) => {
+    setCreditMode('items'); setCreditBusy(false);
+    setCreditForm({ amount: '', reason: '', restock: true, items: [] });
+    try {   // the note is built from the invoice's own lines
+      const res = await fetch(`${API}/api/sales/invoices/${inv.id}`, { headers });
+      const full = res.ok ? await res.json() : inv;
+      setCreditForm(f => ({ ...f, items: (full.items || []).map(l => ({
+        product_id: l.product_id, description: l.description,
+        max: Number(l.quantity) || 0, quantity: 0,
+        unit_price: Number(l.unit_price) || 0, vat_percent: Number(l.tax_rate ?? 14),
+      })) }));
+      setCreditModal(full);
+    } catch { setCreditModal(inv); }
+  };
+
+  const submitCreditNote = async () => {
+    const body = { reason: creditForm.reason || null, restock: creditForm.restock };
+    if (creditMode === 'items') {
+      const items = creditForm.items.filter(i => Number(i.quantity) > 0)
+        .map(i => ({ product_id: i.product_id, description: i.description,
+                     quantity: Number(i.quantity), unit_price: i.unit_price, vat_percent: i.vat_percent }));
+      if (!items.length) { showMsg('error', ar?'حدد الكميات المرتجعة':'Enter the returned quantities'); return; }
+      body.items = items;
+    } else {
+      if (!(Number(creditForm.amount) > 0)) { showMsg('error', ar?'أدخل مبلغ الإشعار':'Enter the amount'); return; }
+      body.amount = Number(creditForm.amount);
+    }
+    setCreditBusy(true);
+    try {
+      const res = await fetch(`${API}/api/sales/invoices/${creditModal.id}/credit-note`, {
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || '');
+      showMsg('success', `✅ ${d.message}`);
+      setCreditModal(null); fetchInvoices(); fetchStats();
+    } catch (e) {
+      showMsg('error', e.message || (ar?'تعذّر إصدار الإشعار':'Could not issue the credit note'));
+    } finally { setCreditBusy(false); }
+  };
+
   const [invoices, setInvoices] = useState([]);
+  // credit note: the only way to correct a posted invoice
+  const [creditModal, setCreditModal] = useState(null);
+  const [creditMode, setCreditMode] = useState('items');   // items | amount
+  const [creditForm, setCreditForm] = useState({ amount: '', reason: '', restock: true, items: [] });
+  const [creditBusy, setCreditBusy] = useState(false);
   const [total, setTotal]       = useState(0);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState('');
@@ -806,17 +854,101 @@ function InvoicesTab({ headers, ar, showMsg, fetchStats }) {
                     </div>
                   )}
                 </div>
-                {inv.payment_status !== 'paid' && (
-                  <button onClick={() => { setShowPayModal(inv); setPayForm(f=>({...f,amount:inv.balance||inv.total,date:new Date().toISOString().split('T')[0]})); }}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium flex-shrink-0">
-                    <DollarSign className="w-3 h-3" />{ar?'تسجيل دفعة':'Record Payment'}
+                <div className="flex flex-col gap-1.5 flex-shrink-0">
+                  {inv.payment_status !== 'paid' && (
+                    <button onClick={() => { setShowPayModal(inv); setPayForm(f=>({...f,amount:inv.balance||inv.total,date:new Date().toISOString().split('T')[0]})); }}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium">
+                      <DollarSign className="w-3 h-3" />{ar?'تسجيل دفعة':'Record Payment'}
+                    </button>
+                  )}
+                  <button onClick={() => openCreditNote(inv)}
+                    title={ar?'مردود مبيعات أو خصم على فاتورة مُرحّلة':'Sales return or discount on a posted invoice'}
+                    className="flex items-center gap-1 px-3 py-1.5 border border-amber-300 text-amber-800 rounded-lg text-xs font-medium">
+                    <RotateCcw className="w-3 h-3" />{ar?'إشعار دائن':'Credit note'}
                   </button>
-                )}
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>}
+
+      {/* Credit note — corrects a posted invoice */}
+      {creditModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto" dir="rtl">
+            <div className="flex justify-between items-center p-5 border-b">
+              <h3 className="font-bold text-gray-900">{ar?'إشعار دائن':'Credit note'}</h3>
+              <button onClick={()=>setCreditModal(null)} aria-label="إغلاق"><X className="w-5 h-5 text-gray-400" /></button>
+            </div>
+
+            <div className="p-5 space-y-4 text-sm">
+              <div className="bg-amber-50 rounded-xl p-3">
+                <p className="font-bold text-gray-800">{creditModal.invoice_number} — {creditModal.customer_name}</p>
+                <p className="text-gray-600">{ar?'قيمة الفاتورة:':'Invoice:'} {fmt(creditModal.total)} — {ar?'المتبقي بعد الإشعارات السابقة:':'Left to credit:'} {fmt((creditModal.total||0)-(creditModal.credited_amount||0))}</p>
+              </div>
+
+              <div className="flex gap-2">
+                {[['items', ar?'مردود أصناف':'Returned items'], ['amount', ar?'خصم / تسوية بمبلغ':'Discount / settlement']].map(([k,l]) => (
+                  <button key={k} onClick={()=>setCreditMode(k)}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold ${creditMode===k?'bg-amber-600 text-white':'border border-gray-300 text-gray-700'}`}>{l}</button>
+                ))}
+              </div>
+
+              {creditMode === 'items' ? (
+                <>
+                  <p className="text-xs text-gray-500">{ar?'اكتب الكمية المرتجعة من كل صنف — لا يمكن تجاوز كمية الفاتورة.':'Enter the returned quantity per line.'}</p>
+                  <div className="space-y-2">
+                    {creditForm.items.map((it, idx) => (
+                      <div key={idx} className="flex items-center gap-2 border border-gray-200 rounded-lg p-2">
+                        <span className="flex-1 truncate">{it.description}
+                          <span className="text-xs text-gray-400"> ({ar?'بالفاتورة':'on invoice'} {it.max})</span></span>
+                        <input type="number" min="0" max={it.max} step="any" value={it.quantity} dir="ltr"
+                          aria-label={`الكمية المرتجعة من ${it.description}`}
+                          onChange={e=>setCreditForm(f=>({...f, items: f.items.map((x,i)=> i===idx?{...x, quantity: Math.min(Number(e.target.value)||0, x.max)}:x)}))}
+                          className="w-24 px-2 py-1.5 border border-gray-300 rounded-lg tabular-nums" />
+                        <span className="text-xs text-gray-500 w-20 text-left tabular-nums">{fmt((Number(it.quantity)||0)*it.unit_price)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={creditForm.restock}
+                      onChange={e=>setCreditForm(f=>({...f, restock: e.target.checked}))} />
+                    <span>{ar?'إرجاع البضاعة للمخزون':'Return the goods to stock'}</span>
+                  </label>
+                </>
+              ) : (
+                <label className="block">
+                  <span className="text-gray-600">{ar?'مبلغ الإشعار (شامل الضريبة)':'Amount (incl. VAT)'}</span>
+                  <input type="number" min="0" step="0.01" dir="ltr" value={creditForm.amount}
+                    onChange={e=>setCreditForm(f=>({...f, amount: e.target.value}))}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg tabular-nums" />
+                </label>
+              )}
+
+              <label className="block">
+                <span className="text-gray-600">{ar?'السبب':'Reason'}</span>
+                <input value={creditForm.reason} onChange={e=>setCreditForm(f=>({...f, reason: e.target.value}))}
+                  placeholder={ar?'مردود مبيعات، خصم تسوية…':'Sales return, settlement…'}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg" />
+              </label>
+
+              <p className="text-xs text-gray-500">
+                {ar?'يُرحَّل الإشعار فوراً: يقلّل رصيد العميل والمبيعات والضريبة، ويعيد التكلفة والبضاعة عند المردود.'
+                   :'Posted immediately: reduces the customer balance, sales and VAT, and reverses cost and stock on returns.'}
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 p-5 border-t">
+              <button onClick={()=>setCreditModal(null)} className="px-4 py-2 rounded-lg border border-gray-300">{ar?'إلغاء':'Cancel'}</button>
+              <button onClick={submitCreditNote} disabled={creditBusy}
+                className="px-4 py-2 rounded-lg bg-amber-600 text-white font-bold disabled:opacity-50">
+                {creditBusy ? (ar?'جارٍ الإصدار…':'Issuing…') : (ar?'إصدار الإشعار':'Issue credit note')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment Modal */}
       {showPayModal && (
