@@ -481,7 +481,7 @@ class InvoiceService:
         await self.accounting.post_journal_entry(result["id"], user_id)
         
         # ── قيد تكلفة البضاعة المباعة (COGS) — للمبيعات فقط ──────────
-        # من حـ/ تكلفة البضاعة المباعة (م/321) ← إلى حـ/ المخزون (م/131)
+        # من حـ/ تكلفة البضاعة المباعة (321) ← إلى حـ/ المخزون (125 بضائع بغرض البيع)
         if doc_type == DocumentType.SALES_INVOICE.value:
             await self._create_cogs_entry(invoice, user_id)
         
@@ -495,9 +495,9 @@ class InvoiceService:
                 return next((a for a in accounts if a["account_code"] == code), None)
             
             cogs_acc  = find_account("321")   # تكلفة البضاعة المباعة
-            stock_acc = find_account("131")   # المخزون / بضاعة
-            if not stock_acc:
-                stock_acc = find_account("311")  # fallback خامات
+            # 131 is ACCOUNTS RECEIVABLE in this chart, not stock: every sales
+            # invoice was taking its cost out of the customer's balance.
+            stock_acc = find_account("125") or find_account("122") or find_account("121")
             
             if not cogs_acc or not stock_acc:
                 return  # Accounts not in chart — skip COGS entry
@@ -633,7 +633,11 @@ class InvoiceService:
             return next((a for a in accounts if a["account_code"] == code), None)
         
         lines = []
-        cash_acc = find_account("161")   # النقدية بالصندوق
+        # cash only for cash payments; anything else settles through the bank —
+        # bank transfers used to be posted to the treasury account
+        _method = str(getattr(payment, "payment_method", "") or "").lower()
+        _method = getattr(_method, "value", _method)
+        cash_acc = find_account("161") if "cash" in _method and "wallet" not in _method else find_account("162")
         
         if invoice["document_type"] == DocumentType.SALES_INVOICE.value:
             # سداد فاتورة بيع: النقدية (مدين) - العملاء (دائن)

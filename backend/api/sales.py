@@ -11,6 +11,7 @@ from services.audit_helper import log_financial_action
 
 from database import db
 from services.party_store import party_query, normalise, add_type
+from models.invoice import Invoice, InvoiceLine, DocumentType
 import os
 
 router = APIRouter(prefix="/api/sales", tags=["sales"])
@@ -61,10 +62,8 @@ async def list_customers(
 
     # Aggregate totals per customer
     for c in customers:
-        inv_agg = await db.sales_invoices.find_one(
-            {"company_id": company_id, "customer_id": c["id"]},
-            {"_id": 0}
-        )
+        inv_agg = await db.invoices.find_one(
+            {**sales_query(company_id), "party_id": c["id"]}, {"_id": 0, "id": 1})
         c["has_invoices"] = inv_agg is not None
 
     return {"customers": customers, "total": total, "page": page, "pages": -(-total // limit)}
@@ -126,10 +125,11 @@ async def get_customer(customer_id: str, authorization: Optional[str] = Header(N
     if not customer: raise HTTPException(404, "Customer not found")
 
     # Get invoices
-    invoices = await db.sales_invoices.find(
-        {"company_id": company_id, "customer_id": customer_id},
-        {"_id": 0, "invoice_number": 1, "date": 1, "total": 1, "status": 1}
-    ).sort("date", -1).limit(10).to_list(length=10)
+    invoices = [as_sales_invoice(r) for r in await db.invoices.find(
+        {**sales_query(company_id), "party_id": customer_id},
+        {"_id": 0, "document_number": 1, "document_date": 1, "grand_total": 1,
+         "settle_amount": 1, "amount_paid": 1, "status": 1, "party_id": 1, "party_name": 1}
+    ).sort("document_date", -1).limit(10).to_list(length=10)]
 
     # Get quotes
     quotes = await db.sales_quotations.find(
@@ -158,7 +158,7 @@ async def delete_customer(customer_id: str, authorization: Optional[str] = Heade
     user = await get_user(authorization)
     company_id = user.get("company_id")
     # Check no invoices
-    inv_count = await db.sales_invoices.count_documents({"company_id": company_id, "customer_id": customer_id})
+    inv_count = await db.invoices.count_documents({**sales_query(company_id), "party_id": customer_id})
     if inv_count > 0:
         raise HTTPException(400, "لا يمكن حذف عميل لديه فواتير")
     await db.parties.delete_one({"id": customer_id, **party_query(company_id, "customer")})
@@ -301,62 +301,25 @@ async def update_quotation(quote_id: str, data: dict, authorization: Optional[st
 
 @router.post("/quotations/{quote_id}/convert")
 async def convert_quotation_to_invoice(quote_id: str, authorization: Optional[str] = Header(None)):
-    """تحويل عرض السعر لفاتورة مبيعات"""
+    """تحويل عرض سعر إلى فاتورة — through the same shared path as any sales invoice."""
     user = await get_user(authorization)
     company_id = user.get("company_id")
-    q = await db.sales_quotations.find_one({"id": quote_id, "company_id": company_id})
-    if not q: raise HTTPException(404, "Quotation not found")
-    if q.get("status") == "converted":
-        raise HTTPException(400, "عرض السعر محوّل بالفعل لفاتورة")
+    q = await db.sales_quotations.find_one({"id": quote_id, "company_id": company_id}, {"_id": 0})
+    if not q:
+        raise HTTPException(404, "عرض السعر غير موجود")
+    if q.get("converted_invoice_id"):
+        raise HTTPException(400, "تم تحويل هذا العرض من قبل")
 
-    # Create invoice from quote
-    inv_count = await db.sales_invoices.count_documents({"company_id": company_id})
-    invoice_number = f"INV-{datetime.now().year}-{inv_count+1:04d}"
-
-    invoice = {
-        "id": str(uuid.uuid4()),
-        "company_id": company_id,
-        "invoice_number": invoice_number,
-        "date": datetime.now().strftime("%Y-%m-%d"),
-        "due_date": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
-        "customer_id": q.get("customer_id"),
-        "customer_name": q.get("customer_name"),
-        "customer_tax_number": q.get("customer_tax_number"),
-        "customer_address": q.get("customer_address"),
-        "items": q.get("items", []),
-        "subtotal": q.get("subtotal"),
-        "discount_percent": q.get("discount_percent"),
-        "discount_amount": q.get("discount_amount"),
-        "after_discount": q.get("after_discount"),
-        "vat_percent": q.get("vat_percent"),
-        "vat_amount": q.get("vat_amount"),
-        "total": q.get("total"),
-        "paid_amount": 0,
-        "balance": q.get("total"),
-        "currency": q.get("currency", "EGP"),
-        "status": "draft",         # draft | sent | partial | paid | overdue | cancelled
-        "payment_status": "unpaid",
-        "notes": q.get("notes"),
-        "terms": q.get("terms"),
-        "sales_rep": q.get("sales_rep"),
-        "from_quote": quote_id,
-        "quote_number": q.get("quote_number"),
-        "payments": [],
-        "created_by": user.get("user_id"),
-        "created_at": now_iso(),
-        "updated_at": now_iso(),
-    }
-
-    invoice["journal_entry_id"] = await post_sales_invoice(invoice, user.get("user_id"))  # had no entry at all
-    await db.sales_invoices.insert_one(invoice)
-    invoice.pop("_id", None)
-    await db.sales_quotations.update_one(
-        {"id": quote_id},
-        {"$set": {"status": "converted", "converted_invoice": invoice_number, "updated_at": now_iso()}}
-    )
-    invoice.pop("_id", None)
-    return {"message": f"تم تحويل عرض السعر لفاتورة {invoice_number}", "invoice": invoice}
-
+    created = await create_sales_invoice({
+        "customer_id": q.get("customer_id"), "items": q.get("items", []),
+        "discount_percent": q.get("discount_percent", 0), "vat_percent": q.get("vat_percent", 14),
+        "notes": q.get("notes"), "date": datetime.now().strftime("%Y-%m-%d"),
+    }, authorization)
+    invoice = created["invoice"]
+    await db.sales_quotations.update_one({"id": quote_id, "company_id": company_id},
+                                         {"$set": {"status": "converted", "converted_invoice_id": invoice["id"],
+                                                   "converted_at": now_iso()}})
+    return {"message": f"تم تحويل العرض إلى الفاتورة {invoice['document_number']}", "invoice": invoice}
 
 @router.delete("/quotations/{quote_id}")
 async def delete_quotation(quote_id: str, authorization: Optional[str] = Header(None)):
@@ -370,6 +333,50 @@ async def delete_quotation(quote_id: str, authorization: Optional[str] = Header(
 # SALES INVOICES — فواتير المبيعات
 # ══════════════════════════════════════════
 
+
+# ══════════════════════════════════════════
+# SALES INVOICES LIVE IN THE SHARED `invoices` STORE
+# ══════════════════════════════════════════
+# They used to be their own collection, invisible to e-invoicing (mandatory
+# for B2B sales in Egypt), to credit notes and to the shared party store.
+# Storage is unified; these helpers translate to the field names the Sales
+# screen already uses, so the UI is unchanged.
+
+SALES_DOC = {"document_type": DocumentType.SALES_INVOICE.value}
+# the Sales screen's payment words -> the shared model's values
+PAYMENT_METHODS = {"bank": "bank_transfer", "transfer": "bank_transfer", "bank_transfer": "bank_transfer",
+                   "cheque": "check", "check": "check", "card": "credit_card", "credit_card": "credit_card",
+                   "wallet": "mobile_wallet", "mobile_wallet": "mobile_wallet", "instapay": "mobile_wallet",
+                   "vodafone_cash": "mobile_wallet", "cash": "cash"}
+LIVE_STATUSES = ["approved", "partially_paid", "paid"]
+
+
+def sales_query(company_id: str, **extra) -> dict:
+    return {"company_id": company_id, **SALES_DOC, **extra}
+
+
+def as_sales_invoice(inv: dict) -> dict:
+    """Shared invoice document -> the shape the Sales screen reads."""
+    if not inv:
+        return inv
+    base = float(inv.get("settle_amount") or inv.get("grand_total") or 0)
+    paid = float(inv.get("amount_paid") or 0)
+    status = inv.get("status", "")
+    return {**inv,
+            "invoice_number": inv.get("document_number"),
+            "date": inv.get("document_date"),
+            "customer_id": inv.get("party_id"),
+            "customer_name": inv.get("party_name"),
+            "customer_tax_number": inv.get("party_tax_id"),
+            "items": inv.get("lines", []),
+            "subtotal": inv.get("subtotal", 0),
+            "vat_amount": inv.get("total_tax", 0),
+            "total": round(base, 2),
+            "paid_amount": round(paid, 2),
+            "balance": round(base - paid, 2),
+            "payment_status": ("paid" if status == "paid" else
+                               "partial" if status == "partially_paid" else "unpaid")}
+
 @router.get("/invoices")
 async def list_sales_invoices(
     search: str = "", status: str = "", payment_status: str = "",
@@ -379,298 +386,184 @@ async def list_sales_invoices(
 ):
     user = await get_user(authorization)
     company_id = user.get("company_id")
-    q = {"company_id": company_id}
+    q = sales_query(company_id)
     if search: q["$or"] = [
-        {"invoice_number": {"$regex": search, "$options": "i"}},
-        {"customer_name":  {"$regex": search, "$options": "i"}},
+        {"document_number": {"$regex": search, "$options": "i"}},
+        {"party_name":      {"$regex": search, "$options": "i"}},
     ]
     if status:         q["status"] = status
-    if payment_status: q["payment_status"] = payment_status
-    if customer_id:    q["customer_id"] = customer_id
-    if date_from:      q["date"] = {"$gte": date_from}
-    if date_to:        q.setdefault("date", {})["$lte"] = date_to
+    if payment_status: q["status"] = {"paid": "paid", "partial": "partially_paid",
+                                      "unpaid": {"$in": ["approved", "draft"]}}.get(payment_status, status or None) or q.get("status")
+    if customer_id:    q["party_id"] = customer_id
+    if date_from:      q["document_date"] = {"$gte": date_from}
+    if date_to:        q.setdefault("document_date", {})["$lte"] = date_to
 
-    total = await db.sales_invoices.count_documents(q)
+    total = await db.invoices.count_documents(q)
     skip  = (page - 1) * limit
-    invoices = await db.sales_invoices.find(q, {"_id": 0, "items": 0}).skip(skip).limit(limit).sort("date", -1).to_list(length=limit)
-    return {"invoices": invoices, "total": total, "page": page}
+    rows = await db.invoices.find(q, {"_id": 0, "lines": 0}).skip(skip).limit(limit).sort("document_date", -1).to_list(length=limit)
+    return {"invoices": [as_sales_invoice(r) for r in rows], "total": total, "page": page}
 
 
 @router.post("/invoices")
 async def create_sales_invoice(data: dict, authorization: Optional[str] = Header(None)):
+    """إنشاء فاتورة مبيعات.
+
+    Sales invoices are documents in the shared `invoices` store, not a
+    collection of their own. They used to live in sales_invoices, which the
+    e-invoicing module never reads — so no sales invoice could be submitted to
+    the ETA, although that is mandatory for B2B sales in Egypt. Credit notes,
+    the party store and the customer statement are on the same store too.
+
+    The request shape is unchanged: the Sales screen keeps sending items,
+    discount and VAT as before.
+    """
     user = await get_user(authorization)
     company_id = user.get("company_id")
+    customer_id = (data.get("customer_id") or "").strip()
+    items = data.get("items") or []
+    if not customer_id or not items:
+        raise HTTPException(400, "العميل والأصناف مطلوبة")
 
-    count = await db.sales_invoices.count_documents({"company_id": company_id})
-    invoice_number = data.get("invoice_number", f"INV-{datetime.now().year}-{count+1:04d}")
+    customer = await db.parties.find_one({"id": customer_id, **party_query(company_id, "customer")}, {"_id": 0})
+    if not customer:
+        raise HTTPException(404, "العميل غير موجود")
 
-    items = data.get("items", [])
-    subtotal = sum(i.get("quantity", 0) * i.get("unit_price", 0) for i in items)
-    discount_percent = data.get("discount_percent", 0)
-    discount_amount = data.get("discount_amount", subtotal * discount_percent / 100)
-    after_discount = subtotal - discount_amount
-    vat_percent = data.get("vat_percent", 14)
-    vat_amount = after_discount * vat_percent / 100
-    total = after_discount + vat_amount
+    date_str = data.get("date") or datetime.now().strftime("%Y-%m-%d")
+    terms_days = int(data.get("payment_terms", 30) or 0)
+    due_date = data.get("due_date") or (datetime.fromisoformat(date_str) + timedelta(days=terms_days)).strftime("%Y-%m-%d")
+    vat_percent = float(data.get("vat_percent", 14) or 0)
+    discount_percent = float(data.get("discount_percent", 0) or 0)
 
-    date_str = data.get("date", datetime.now().strftime("%Y-%m-%d"))
-    payment_terms = data.get("payment_terms", 30)
-    due_date = (datetime.fromisoformat(date_str) + timedelta(days=payment_terms)).strftime("%Y-%m-%d")
+    lines = []
+    for n, it in enumerate(items, 1):
+        qty = float(it.get("quantity", 1) or 0)
+        price = float(it.get("unit_price", 0) or 0)
+        if qty <= 0 or price < 0:
+            raise HTTPException(400, f"كمية أو سعر غير صحيح في السطر {n}")
+        lines.append(InvoiceLine(
+            line_number=n, product_id=it.get("product_id"), product_code=it.get("product_code"),
+            description=(it.get("description") or it.get("name") or "صنف")[:300],
+            unit=it.get("unit", "unit"), quantity=qty, unit_price=price,
+            discount_percent=float(it.get("discount_percent", discount_percent) or 0),
+            tax_rate=float(it.get("vat_percent", vat_percent) or 0)))
 
-    invoice = {
-        "id": str(uuid.uuid4()),
-        "company_id": company_id,
-        "invoice_number": invoice_number,
-        "date": date_str,
-        "due_date": data.get("due_date", due_date),
-        "customer_id": data.get("customer_id", ""),
-        "customer_name": data.get("customer_name", ""),
-        "customer_tax_number": data.get("customer_tax_number", ""),
-        "customer_address": data.get("customer_address", ""),
-        "items": items,
-        "subtotal": round(subtotal, 2),
-        "discount_percent": discount_percent,
-        "discount_amount": round(discount_amount, 2),
-        "after_discount": round(after_discount, 2),
-        "vat_percent": vat_percent,
-        "vat_amount": round(vat_amount, 2),
-        "total": round(total, 2),
-        "paid_amount": 0,
-        "balance": round(total, 2),
-        "currency": data.get("currency", "EGP"),
-        "status": "draft",
-        "payment_status": "unpaid",
-        "notes": data.get("notes", ""),
-        "terms": data.get("terms", ""),
-        "sales_rep": data.get("sales_rep", user.get("full_name", "")),
-        "from_quote": data.get("from_quote"),
-        "payments": [],
-        "created_by": user.get("user_id"),
-        "created_at": now_iso(),
-        "updated_at": now_iso(),
-    }
+    invoice = Invoice(
+        company_id=company_id, document_type=DocumentType.SALES_INVOICE,
+        document_number=data.get("invoice_number") or "",       # the service numbers it
+        document_date=date_str, due_date=due_date,
+        party_id=customer_id, party_name=customer.get("name", ""),
+        party_tax_id=customer.get("tax_number") or customer.get("tax_id"),
+        party_address=customer.get("address"),
+        lines=lines, notes=data.get("notes"), created_by=user.get("user_id"))
 
-    # post first; the invoice is saved only once its entry is in the ledger
-    invoice["journal_entry_id"] = await post_sales_invoice(invoice, user.get("user_id"))
-    await db.sales_invoices.insert_one(invoice)
-    invoice.pop("_id", None)
-
-    return {"message": f"تم إنشاء الفاتورة {invoice_number}", "invoice": invoice}
-
+    from services.invoice_service import InvoiceService
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1}) or {}
+    created = await InvoiceService(db).create_invoice(invoice, company.get("name", ""))
+    return {"message": f"تم إنشاء الفاتورة {created['document_number']}", "invoice": created}
 
 @router.get("/invoices/{invoice_id}")
 async def get_sales_invoice(invoice_id: str, authorization: Optional[str] = Header(None)):
     user = await get_user(authorization)
     company_id = user.get("company_id")
-    inv = await db.sales_invoices.find_one(
-        {"$or": [{"id": invoice_id}, {"invoice_number": invoice_id}], "company_id": company_id},
-        {"_id": 0}
-    )
-    if not inv: raise HTTPException(404, "Invoice not found")
-    return inv
+    inv = await _find_sales_invoice(company_id, invoice_id)
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    payments = await db.payments.find({"invoice_id": inv["id"], "company_id": company_id},
+                                      {"_id": 0}).sort("payment_date", 1).to_list(100)
+    return {**as_sales_invoice(inv), "payments": payments}
+
+
+async def _find_sales_invoice(company_id: str, invoice_id: str):
+    return await db.invoices.find_one(
+        {"$or": [{"id": invoice_id}, {"document_number": invoice_id}], **sales_query(company_id)}, {"_id": 0})
 
 
 @router.put("/invoices/{invoice_id}")
 async def update_sales_invoice(invoice_id: str, data: dict, authorization: Optional[str] = Header(None)):
     user = await get_user(authorization)
     company_id = user.get("company_id")
-    allowed = ["status","payment_status","notes","terms","due_date","items","discount_percent","vat_percent"]
-    update = {k: v for k, v in data.items() if k in allowed}
+    inv = await _find_sales_invoice(company_id, invoice_id)
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    # amounts of an approved (posted) invoice are fixed — correct with a credit note
+    money = {"items", "lines", "subtotal", "discount_percent", "discount_amount",
+             "vat_percent", "vat_amount", "total", "grand_total"}
+    if inv.get("journal_entry_id") and money & set(data or {}):
+        raise HTTPException(400, "لا يمكن تعديل مبالغ فاتورة مُرحّلة — أصدر إشعاراً دائناً")
+    allowed = {"notes", "terms", "due_date", "reference"}
+    update = {k: v for k, v in (data or {}).items() if k in allowed}
+    if not update:
+        raise HTTPException(400, "لا توجد حقول قابلة للتعديل")
     update["updated_at"] = now_iso()
-    _cur = await db.sales_invoices.find_one({"$or": [{"id": invoice_id}, {"invoice_number": invoice_id}], "company_id": company_id}, {"_id": 0})
-    _money = {"items", "subtotal", "discount_percent", "discount_amount", "after_discount", "vat_percent", "vat_amount", "total"}
-    if _cur and _cur.get("journal_entry_id") and _money & set(data or {}):
-        raise HTTPException(400, "لا يمكن تعديل مبالغ فاتورة مُرحّلة — أصدر إشعاراً دائناً أو فاتورة جديدة")
-    await db.sales_invoices.update_one(
-        {"$or": [{"id": invoice_id}, {"invoice_number": invoice_id}], "company_id": company_id},
-        {"$set": update}
-    )
+    await db.invoices.update_one({"id": inv["id"], "company_id": company_id}, {"$set": update})
     return {"message": "تم تحديث الفاتورة"}
+
+
+@router.post("/invoices/{invoice_id}/approve")
+async def approve_sales_invoice(invoice_id: str, authorization: Optional[str] = Header(None)):
+    """اعتماد الفاتورة وترحيلها — the shared service posts the entry."""
+    user = await get_user(authorization)
+    company_id = user.get("company_id")
+    inv = await _find_sales_invoice(company_id, invoice_id)
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    from services.invoice_service import InvoiceService
+    try:
+        result = await InvoiceService(db).approve_invoice(inv["id"], user.get("user_id"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"message": "تم اعتماد الفاتورة وترحيلها", "invoice": as_sales_invoice(result or inv)}
 
 
 @router.post("/invoices/{invoice_id}/payment")
 async def record_payment(invoice_id: str, data: dict, authorization: Optional[str] = Header(None)):
-    """تسجيل دفعة على فاتورة"""
+    """تسجيل تحصيل على فاتورة — through the shared service: one posting path."""
     user = await get_user(authorization)
     company_id = user.get("company_id")
-    inv = await db.sales_invoices.find_one(
-        {"$or": [{"id": invoice_id}, {"invoice_number": invoice_id}], "company_id": company_id}
-    )
-    if not inv: raise HTTPException(404, "Invoice not found")
+    inv = await _find_sales_invoice(company_id, invoice_id)
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    amount = float(data.get("amount", 0) or 0)
+    if amount <= 0:
+        raise HTTPException(400, "المبلغ يجب أن يكون أكبر من صفر")
+    from services.invoice_service import InvoiceService
+    from models.invoice import Payment
+    try:
+        await InvoiceService(db).record_payment(Payment(
+            company_id=company_id, invoice_id=inv["id"], amount=amount,
+            payment_date=data.get("date") or datetime.now().strftime("%Y-%m-%d"),
+            payment_method=PAYMENT_METHODS.get(str(data.get("method", "cash")).strip().lower(), "cash"),
+            reference=data.get("reference", ""),
+            notes=data.get("notes", ""), created_by=user.get("user_id")), user.get("user_id"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    updated = await _find_sales_invoice(company_id, inv["id"]) or inv
+    out = as_sales_invoice(updated)
+    return {"message": "تم تسجيل التحصيل", "paid_amount": out["paid_amount"],
+            "balance": out["balance"], "payment_status": out["payment_status"]}
 
-    amount = float(data.get("amount", 0))
-    if amount <= 0: raise HTTPException(400, "المبلغ يجب أن يكون أكبر من صفر")
-
-    payment = {
-        "id": str(uuid.uuid4()),
-        "date": data.get("date", datetime.now().strftime("%Y-%m-%d")),
-        "amount": amount,
-        "method": data.get("method", "cash"),
-        "reference": data.get("reference", ""),
-        "notes": data.get("notes", ""),
-        "created_at": now_iso(),
-    }
-
-    outstanding = round((inv.get("total", 0) or 0) - (inv.get("paid_amount", 0) or 0), 2)
-    if amount > outstanding + 0.005:
-        raise HTTPException(400, f"المبلغ ({amount:,.2f}) أكبر من المتبقي على الفاتورة ({outstanding:,.2f})")
-    # payments never reached the ledger: cash/bank and receivables stayed wrong
-    payment["journal_entry_id"] = await post_customer_payment(inv, payment, user.get("user_id"))
-
-    new_paid = round((inv.get("paid_amount", 0) or 0) + amount, 2)
-    new_balance = round((inv.get("total", 0) or 0) - new_paid, 2)
-    payment_status = "paid" if new_balance <= 0 else ("partial" if new_paid > 0 else "unpaid")
-
-    await db.sales_invoices.update_one(
-        {"id": inv["id"]},
-        {"$push": {"payments": payment},
-         "$set": {"paid_amount": new_paid, "balance": new_balance,
-                  "payment_status": payment_status, "updated_at": now_iso()}}
-    )
-    return {"message": "تم تسجيل الدفعة", "paid_amount": new_paid, "balance": new_balance, "payment_status": payment_status}
-
-
-
-# ══════════════════════════════════════════
-# LEDGER POSTING — one path for every sales document
-# ══════════════════════════════════════════
-# Direct invoices used to create their entry with status=POSTED and then call
-# post_journal_entry, which refuses an entry that is already posted; the error
-# was swallowed (`except: pass`), so the entry said "posted" while the ledger
-# had nothing. Invoices converted from quotations or generated from
-# subscriptions, and customer payments, created no entry at all.
-
-MONEY_ACCOUNT = {"cash": "161"}          # anything else (bank, transfer, card, cheque) -> 162
-
-
-async def _ledger_accounts(company_id: str, codes):
-    accs = {a["account_code"]: a async for a in db.chart_of_accounts.find(
-        {"company_id": company_id, "account_code": {"$in": list(codes)}}, {"_id": 0})}
-    missing = [c for c in codes if c not in accs]
-    if missing:
-        raise HTTPException(400, f"حسابات غير موجودة في شجرة الحسابات: {', '.join(missing)}")
-    return accs
-
-
-async def _post_entry(company_id, user_id, date, description, lines, source_id, source_type="sales_invoice"):
-    from services.accounting_service import AccountingService
-    from models.accounting import JournalEntry, JournalEntryLine
-    svc = AccountingService(db)
-    je = await svc.create_journal_entry(JournalEntry(
-        company_id=company_id, entry_date=date, description=description,
-        source_document_type=source_type, source_document_id=source_id,
-        created_by=user_id or "system",
-        lines=[JournalEntryLine(**l) for l in lines]))          # created as a DRAFT...
-    await svc.post_journal_entry(je["id"], user_id or "system")  # ...then posted: rows reach the ledger
-    return je["id"]
-
-
-async def post_sales_invoice(invoice: dict, user_id: str) -> str:
-    """من ح/ العملاء 131  ←  إلى ح/ المبيعات 411 + ضريبة المخرجات 260"""
-    company_id = invoice["company_id"]
-    total = round(float(invoice.get("total") or 0), 2)
-    vat = round(float(invoice.get("vat_amount") or 0), 2)
-    revenue = round(total - vat, 2)          # keeps the entry balanced to the cent
-    if total <= 0:
-        raise HTTPException(400, "إجمالي الفاتورة يجب أن يكون أكبر من صفر")
-    accs = await _ledger_accounts(company_id, ["131", "411"] + (["260"] if vat > 0 else []))
-    num = invoice.get("invoice_number", "")
-    L = lambda c, d, cr, desc: {"account_id": accs[c]["id"], "account_code": c,
-                                "account_name": accs[c]["account_name"], "debit": d, "credit": cr, "description": desc}
-    lines = [L("131", total, 0, f"فاتورة مبيعات {num}"), L("411", 0, revenue, f"فاتورة {num}")]
-    if vat > 0:
-        lines.append(L("260", 0, vat, f"ضريبة فاتورة {num}"))
-    return await _post_entry(company_id, user_id, invoice.get("date") or datetime.now().strftime("%Y-%m-%d"),
-                             f"فاتورة مبيعات {num} — {invoice.get('customer_name', '')}", lines, invoice["id"])
-
-
-async def post_customer_payment(inv: dict, payment: dict, user_id: str) -> str:
-    """من ح/ الخزينة 161 أو البنك 162  ←  إلى ح/ العملاء 131"""
-    money = MONEY_ACCOUNT.get(payment.get("method"), "162")
-    accs = await _ledger_accounts(inv["company_id"], [money, "131"])
-    amt = round(float(payment["amount"]), 2)
-    desc = f"تحصيل فاتورة {inv.get('invoice_number', '')} — {inv.get('customer_name', '')}"
-    lines = [{"account_id": accs[money]["id"], "account_code": money, "account_name": accs[money]["account_name"],
-              "debit": amt, "credit": 0, "description": desc},
-             {"account_id": accs["131"]["id"], "account_code": "131", "account_name": accs["131"]["account_name"],
-              "debit": 0, "credit": amt, "description": desc}]
-    return await _post_entry(inv["company_id"], user_id, payment["date"], desc, lines, payment["id"], "sales_invoice")
-
-
-
-# ══════════════════════════════════════════
-# INCOMING CHEQUES → INVOICES
-# ══════════════════════════════════════════
-# Receiving a customer cheque posts Dr 132 / Cr 131: the ledger considers the
-# customer paid from that moment. So the cheque is applied to the customer's
-# open invoices (oldest first) on receipt — with NO further entry — and the
-# application is undone if the cheque bounces (bouncing posts Dr 131 back).
-
-def _invoice_totals(inv, payments):
-    paid = round(sum(float(p.get("amount") or 0) for p in payments), 2)
-    bal = round(float(inv.get("total") or 0) - paid, 2)
-    return {"payments": payments, "paid_amount": paid, "balance": bal,
-            "payment_status": "paid" if bal <= 0 else ("partial" if paid > 0 else "unpaid"),
-            "updated_at": now_iso()}
-
-
-async def allocate_cheque_to_invoices(company_id: str, cheque: dict):
-    left = round(float(cheque.get("amount") or 0), 2)
-    applied = []
-    invs = await db.sales_invoices.find(
-        {"company_id": company_id, "customer_id": cheque.get("customer_id"),
-         "journal_entry_id": {"$exists": True, "$ne": None},
-         "status": {"$nin": ["cancelled", "void", "voided"]}, "balance": {"$gt": 0.004}},
-        {"_id": 0}).sort("date", 1).to_list(None)
-    for inv in invs:
-        if left <= 0.004:
-            break
-        part = round(min(left, float(inv.get("balance") or 0)), 2)
-        pay = {"id": str(uuid.uuid4()), "date": cheque.get("receive_date"), "amount": part, "method": "cheque",
-               "reference": cheque.get("cheque_number", ""), "source": "cheque", "cheque_id": cheque["id"],
-               "journal_entry_id": cheque.get("receive_je_id")}   # the receipt entry already settled it
-        await db.sales_invoices.update_one({"id": inv["id"]},
-                                           {"$set": _invoice_totals(inv, (inv.get("payments") or []) + [pay])})
-        applied.append({"invoice_id": inv["id"], "invoice_number": inv.get("invoice_number"), "amount": part})
-        left = round(left - part, 2)
-    await db.cheques.update_one({"id": cheque["id"]},
-                                {"$set": {"allocations": applied, "unallocated": left}})
-    return applied, left
-
-
-async def unallocate_cheque(company_id: str, cheque_id: str):
-    async for inv in db.sales_invoices.find({"company_id": company_id, "payments.cheque_id": cheque_id}, {"_id": 0}):
-        kept = [p for p in inv.get("payments") or [] if p.get("cheque_id") != cheque_id]
-        await db.sales_invoices.update_one({"id": inv["id"]}, {"$set": _invoice_totals(inv, kept)})
-    await db.cheques.update_one({"id": cheque_id}, {"$set": {"allocations": [], "unallocated": 0}})
-
-# ══════════════════════════════════════════
-# CUSTOMER BALANCES, STATEMENT & RECEIPTS
-# ══════════════════════════════════════════
-# Mirrors what the ledger put on 131 العملاء for this customer:
-#   + each posted sales invoice (its total)
-#   - each posted payment against those invoices
-#   - each incoming cheque when received (Dr 132 / Cr 131)
-#   + the same cheque again if it bounced  (Dr 131)
-# The `balance` stored on the customer record was never updated; it is not used.
 
 async def _customer_movements(company_id: str, customer_id: str):
+    """What the ledger put on 131 for this customer, from the shared store:
+       + each approved sales invoice (net of withholding)
+       - each recorded payment
+       - each incoming cheque on receipt, + the same cheque again if it bounced
+    """
     rows = []
-    invs = await db.sales_invoices.find(
-        {"company_id": company_id, "customer_id": customer_id,
-         "status": {"$nin": ["cancelled", "void", "voided"]}, "journal_entry_id": {"$exists": True, "$ne": None}},
-        {"_id": 0}).to_list(length=None)
+    invs = await db.invoices.find(
+        {**sales_query(company_id), "party_id": customer_id,
+         "status": {"$in": LIVE_STATUSES}, "journal_entry_id": {"$exists": True, "$ne": None}},
+        {"_id": 0}).to_list(None)
+    inv_ids = [i["id"] for i in invs]
     for inv in invs:
-        rows.append({"date": inv.get("date"), "type": "invoice", "reference": inv.get("invoice_number"),
-                     "description": "فاتورة مبيعات", "debit": round(float(inv.get("total") or 0), 2), "credit": 0.0,
-                     "due_date": inv.get("due_date"), "invoice_id": inv["id"]})
-        for pay in inv.get("payments") or []:
-            if pay.get("source") == "cheque":
-                continue            # represented by the cheque row below; counting it again would double it
-            if pay.get("journal_entry_id"):
-                rows.append({"date": pay.get("date"), "type": "payment", "reference": inv.get("invoice_number"),
-                             "description": "تحصيل نقدي" if pay.get("method") == "cash" else "تحصيل بنكي",
-                             "debit": 0.0, "credit": round(float(pay.get("amount") or 0), 2)})
+        rows.append({"date": inv.get("document_date"), "type": "invoice",
+                     "reference": inv.get("document_number"), "description": "فاتورة مبيعات",
+                     "debit": round(float(inv.get("settle_amount") or inv.get("grand_total") or 0), 2),
+                     "credit": 0.0, "due_date": inv.get("due_date"), "invoice_id": inv["id"]})
+    async for pay in db.payments.find({"company_id": company_id, "invoice_id": {"$in": inv_ids}}, {"_id": 0}):
+        rows.append({"date": (pay.get("payment_date") or "")[:10], "type": "payment",
+                     "reference": pay.get("reference") or "", "description": "تحصيل",
+                     "debit": 0.0, "credit": round(float(pay.get("amount") or 0), 2)})
     async for chq in db.cheques.find({"company_id": company_id, "customer_id": customer_id,
                                       "direction": "incoming"}, {"_id": 0}):
         amt = round(float(chq.get("amount") or 0), 2)
@@ -694,6 +587,15 @@ def _overdue(rows, today):
             overdue += open_amt
     return round(overdue, 2)
 
+
+async def _open_sales_invoices(company_id: str, customer_id: str):
+    rows = await db.invoices.find(
+        {**sales_query(company_id), "party_id": customer_id, "status": {"$in": LIVE_STATUSES},
+         "journal_entry_id": {"$exists": True, "$ne": None}, "amount_due": {"$gt": 0.004}},
+        {"_id": 0}).sort("document_date", 1).to_list(None)
+    return [{"id": r["id"], "invoice_number": r.get("document_number"), "date": r.get("document_date"),
+             "due_date": r.get("due_date"), "total": round(float(r.get("settle_amount") or r.get("grand_total") or 0), 2),
+             "balance": round(float(r.get("amount_due") or 0), 2)} for r in rows]
 
 @router.get("/customers-balances")
 async def customers_with_balances(authorization: Optional[str] = Header(None)):
@@ -725,10 +627,7 @@ async def customer_statement(customer_id: str, authorization: Optional[str] = He
     for r in rows:
         running = round(running + r["debit"] - r["credit"], 2)
         r["balance"] = running
-    open_invoices = await db.sales_invoices.find(
-        {"company_id": company_id, "customer_id": customer_id, "journal_entry_id": {"$exists": True, "$ne": None},
-         "status": {"$nin": ["cancelled", "void", "voided"]}, "balance": {"$gt": 0.004}},
-        {"_id": 0, "id": 1, "invoice_number": 1, "date": 1, "due_date": 1, "total": 1, "balance": 1}).sort("date", 1).to_list(None)
+    open_invoices = await _open_sales_invoices(company_id, customer_id)
     return {"customer": cust, "entries": rows, "balance": running,
             "overdue": _overdue(rows, datetime.now().strftime("%Y-%m-%d")), "open_invoices": open_invoices}
 
@@ -746,10 +645,7 @@ async def receive_from_customer(customer_id: str, data: dict, authorization: Opt
     amount = round(float(data.get("amount") or 0), 2)
     if amount <= 0:
         raise HTTPException(400, "المبلغ يجب أن يكون أكبر من صفر")
-    open_invs = await db.sales_invoices.find(
-        {"company_id": company_id, "customer_id": customer_id, "journal_entry_id": {"$exists": True, "$ne": None},
-         "status": {"$nin": ["cancelled", "void", "voided"]}, "balance": {"$gt": 0.004}},
-        {"_id": 0}).sort("date", 1).to_list(None)
+    open_invs = await _open_sales_invoices(company_id, customer_id)
     outstanding = round(sum(float(i.get("balance") or 0) for i in open_invs), 2)
     if amount > outstanding + 0.005:
         raise HTTPException(400, f"المبلغ ({amount:,.2f}) أكبر من المستحق على فواتير العميل ({outstanding:,.2f})")
@@ -777,25 +673,28 @@ async def sales_stats(authorization: Optional[str] = Header(None)):
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0).isoformat()
 
-    total_invoices  = await db.sales_invoices.count_documents({"company_id": company_id})
+    total_invoices  = await db.invoices.count_documents(sales_query(company_id))
     total_quotes    = await db.sales_quotations.count_documents({"company_id": company_id})
     total_customers = await db.parties.count_documents(party_query(company_id, "customer"))
-    unpaid          = await db.sales_invoices.count_documents({"company_id": company_id, "payment_status": "unpaid"})
-    overdue         = await db.sales_invoices.count_documents({"company_id": company_id, "status": "overdue"})
+    unpaid          = await db.invoices.count_documents({**sales_query(company_id), "status": "approved"})
+    today_str       = now.strftime("%Y-%m-%d")
+    overdue         = await db.invoices.count_documents({**sales_query(company_id),
+                                                         "status": {"$in": ["approved", "partially_paid"]},
+                                                         "due_date": {"$lt": today_str}})
 
     # Monthly revenue
-    month_invoices = await db.sales_invoices.find(
-        {"company_id": company_id, "date": {"$gte": month_start[:7]}, "payment_status": {"$in": ["paid","partial"]}},
-        {"_id": 0, "paid_amount": 1}
+    month_invoices = await db.invoices.find(
+        {**sales_query(company_id), "document_date": {"$gte": month_start[:7]}},
+        {"_id": 0, "amount_paid": 1}
     ).to_list(length=None)
-    monthly_revenue = sum(i.get("paid_amount", 0) for i in month_invoices)
+    monthly_revenue = sum(float(i.get("amount_paid") or 0) for i in month_invoices)
 
     # Outstanding balance
-    all_invoices = await db.sales_invoices.find(
-        {"company_id": company_id, "payment_status": {"$in": ["unpaid","partial"]}},
-        {"_id": 0, "balance": 1}
+    all_invoices = await db.invoices.find(
+        {**sales_query(company_id), "status": {"$in": ["approved", "partially_paid"]}},
+        {"_id": 0, "amount_due": 1}
     ).to_list(length=None)
-    outstanding = sum(i.get("balance", 0) for i in all_invoices)
+    outstanding = sum(float(i.get("amount_due") or 0) for i in all_invoices)
 
     # Quote conversion rate
     converted = await db.sales_quotations.count_documents({"company_id": company_id, "status": "converted"})
@@ -893,30 +792,17 @@ async def generate_subscription_invoice(sub_id: str, authorization: Optional[str
     if not sub: raise HTTPException(404, "Subscription not found")
 
     # Create invoice
-    count = await db.sales_invoices.count_documents({"company_id": company_id})
-    invoice_number = f"INV-{datetime.now().year}-{count+1:04d}"
     amount = sub.get("amount", 0)
     vat = round(amount * 0.14, 2)
     total = round(amount + vat, 2)
 
-    invoice = {
-        "id": str(uuid.uuid4()), "company_id": company_id,
-        "invoice_number": invoice_number,
-        "date": datetime.now().strftime("%Y-%m-%d"),
-        "due_date": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
-        "customer_id": sub.get("customer_id"), "customer_name": sub.get("customer_name"),
-        "items": [{"description": sub.get("service_name"), "quantity": 1,
-                   "unit_price": amount, "total": amount}],
-        "subtotal": amount, "discount_percent": 0, "discount_amount": 0,
-        "after_discount": amount, "vat_percent": 14, "vat_amount": vat,
-        "total": total, "paid_amount": 0, "balance": total,
-        "currency": sub.get("currency", "EGP"), "status": "draft", "payment_status": "unpaid",
-        "from_subscription": sub_id, "payments": [],
-        "created_by": user.get("user_id"), "created_at": now_iso(), "updated_at": now_iso(),
-    }
-    invoice["journal_entry_id"] = await post_sales_invoice(invoice, user.get("user_id"))  # had no entry at all
-    await db.sales_invoices.insert_one(invoice)
-    invoice.pop("_id", None)
+    created = await create_sales_invoice({
+        "customer_id": sub.get("customer_id"),
+        "items": sub.get("items") or [{"description": sub.get("description") or "اشتراك",
+                                       "quantity": 1, "unit_price": float(sub.get("amount", 0) or 0)}],
+        "vat_percent": sub.get("vat_percent", 14), "notes": f"اشتراك: {sub.get('name', '')}",
+    }, authorization)
+    invoice = created["invoice"]
 
     # Update subscription next billing date
     cycle_days = {"monthly": 30, "quarterly": 90, "semi-annual": 180, "annual": 365}.get(sub.get("billing_cycle","monthly"), 30)
@@ -925,8 +811,7 @@ async def generate_subscription_invoice(sub_id: str, authorization: Optional[str
         {"id": sub_id},
         {"$set": {"next_billing_date": next_billing, "invoices_generated": sub.get("invoices_generated",0)+1}}
     )
-    invoice.pop("_id", None)
-    return {"message": f"تم توليد الفاتورة {invoice_number}", "invoice": invoice}
+    return {"message": f"تم توليد الفاتورة {invoice['document_number']}", "invoice": invoice}
 
 
 @router.post("/quotations/{quote_id}/send-email")
