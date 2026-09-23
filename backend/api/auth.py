@@ -1,5 +1,6 @@
 import secrets
 from fastapi import APIRouter, HTTPException, Depends, Header
+from dependencies import get_current_user
 from motor.motor_asyncio import AsyncIOMotorClient
 from models.user import UserCreate, UserLogin, Token, User, UserResponse, UserPermissionsUpdate, ALL_PERMISSIONS
 from models.company import CompanyCreate, CompanyResponse
@@ -158,7 +159,19 @@ async def login(credentials: UserLogin):
     
     if not user.is_active:
         raise HTTPException(status_code=403, detail="User account is deactivated")
-    
+
+    # Two-step verification: the password alone does not issue a token.
+    # A Super Admin's password controls every company, so it is not enough.
+    from services import two_factor as _2fa
+    user_doc = await db.users.find_one({"id": user.id}, {"_id": 0}) or {}
+    if _2fa.required_for(user_doc):
+        challenge_id, code = await _2fa.start(db, user_doc)
+        sent = await _2fa.send_code_email(user.email, user_doc.get("full_name"), code)
+        return {"requires_2fa": True, "challenge_id": challenge_id,
+                "email_sent": sent, "email": user.email,
+                "message": "أدخل رمز التحقق المُرسل إلى بريدك" if sent
+                           else "تعذّر إرسال رمز التحقق — راجع إعدادات البريد على الخادم"}
+
     # Create access token
     access_token = create_access_token(
         data={
@@ -1169,3 +1182,76 @@ async def accept_portal_invite(data: dict):
                                   {"$set": {"portal_status": "active"}})
     user = await db.users.find_one({"id": inv["user_id"]}, {"_id": 0, "email": 1})
     return {"message": "تم تفعيل حسابك — سجّل الدخول ببريدك وكلمة المرور", "email": (user or {}).get("email")}
+
+@router.post("/login/verify")
+async def verify_login_code(data: dict):
+    """الخطوة الثانية: إدخال رمز التحقق لإصدار رمز الدخول."""
+    from services import two_factor as _2fa
+    from services import auth_throttle as _th
+    challenge_id = (data or {}).get("challenge_id")
+    code = (data or {}).get("code")
+    ch = await db.login_challenges.find_one({"id": challenge_id}, {"_id": 0, "email": 1}) if challenge_id else None
+    if ch:                                    # same daily guessing limit as reset codes
+        await _th.check(db, _th.k("2fa_fail", ch.get("email") or ""), *_th.OTP_FAILS_DAY)
+    user_id, reason = await _2fa.verify(db, challenge_id, code)
+    if not user_id:
+        if ch:
+            await _th.record(db, _th.k("2fa_fail", ch.get("email") or ""))
+        raise HTTPException(status_code=400, detail=reason)
+
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user or not user.get("is_active", True):
+        raise HTTPException(status_code=403, detail="الحساب غير مفعّل")
+    token = create_access_token(data={"user_id": user["id"], "email": user.get("email"),
+                                      "company_id": user.get("company_id"), "role": user.get("role")})
+    await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}})
+    user.pop("password_hash", None)
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+
+@router.post("/2fa/enable")
+async def enable_two_factor(data: dict, current_user: dict = Depends(get_current_user)):
+    """تفعيل التحقق بخطوتين — يتطلب كلمة المرور الحالية وتأكيد رمز."""
+    from services import two_factor as _2fa
+    from services.auth_service import verify_password
+    user = await db.users.find_one({"id": current_user["user_id"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="الحساب غير موجود")
+    password = (data or {}).get("password") or ""
+    if not verify_password(password, user.get("password_hash") or ""):
+        raise HTTPException(status_code=400, detail="كلمة المرور غير صحيحة")
+
+    code = (data or {}).get("code")
+    if not code:                              # step 1: send a code to prove the mailbox works
+        challenge_id, plain = await _2fa.start(db, user)
+        sent = await _2fa.send_code_email(user.get("email"), user.get("full_name"), plain)
+        if not sent:
+            raise HTTPException(status_code=400,
+                                detail="تعذّر إرسال رمز التحقق إلى بريدك — لا يمكن تفعيل الخطوتين قبل أن يعمل البريد")
+        return {"challenge_id": challenge_id, "message": "أدخل الرمز المُرسل إلى بريدك لإتمام التفعيل"}
+
+    user_id, reason = await _2fa.verify(db, (data or {}).get("challenge_id"), code)
+    if not user_id or user_id != user["id"]:
+        raise HTTPException(status_code=400, detail=reason or "رمز غير صحيح")
+    await db.users.update_one({"id": user["id"]}, {"$set": {
+        "two_factor_enabled": True, "two_factor_enabled_at": datetime.now(timezone.utc).isoformat()}})
+    return {"message": "تم تفعيل التحقق بخطوتين", "two_factor_enabled": True}
+
+
+@router.post("/2fa/disable")
+async def disable_two_factor(data: dict, current_user: dict = Depends(get_current_user)):
+    """إلغاء التحقق بخطوتين — يتطلب كلمة المرور."""
+    from services.auth_service import verify_password
+    user = await db.users.find_one({"id": current_user["user_id"]}, {"_id": 0})
+    if not user or not verify_password((data or {}).get("password") or "", user.get("password_hash") or ""):
+        raise HTTPException(status_code=400, detail="كلمة المرور غير صحيحة")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"two_factor_enabled": False}})
+    return {"message": "تم إلغاء التحقق بخطوتين", "two_factor_enabled": False}
+
+
+@router.get("/2fa/status")
+async def two_factor_status(current_user: dict = Depends(get_current_user)):
+    from services import two_factor as _2fa
+    user = await db.users.find_one({"id": current_user["user_id"]}, {"_id": 0}) or {}
+    return {"two_factor_enabled": bool(user.get("two_factor_enabled")),
+            "enforced": _2fa.required_for(user) and not user.get("two_factor_enabled")}

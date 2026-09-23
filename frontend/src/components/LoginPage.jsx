@@ -6,7 +6,7 @@ import CompanyLogo from './CompanyLogo';
 import { LogIn, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const LoginPage = () => {
-  const { login } = useAuth();
+  const { login, verifyLoginCode } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
   
@@ -15,6 +15,9 @@ const LoginPage = () => {
     password: ''
   });
   const [error, setError] = useState('');
+  // two-step verification (a password alone does not sign a platform admin in)
+  const [challenge, setChallenge] = useState(null);   // { id, email, emailSent, message }
+  const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -74,13 +77,37 @@ const LoginPage = () => {
 
   const t = translations[language];
 
+  const routeByRole = (user) => {
+    const role = user?.role;
+    if (role === 'Super Admin' || role === 'مدير النظام') navigate('/admin');
+    else if (role === 'Employee' || role === 'موظف') navigate('/my-portal');
+    else navigate('/dashboard');
+  };
+
+  const submitCode = async (e) => {
+    e.preventDefault();
+    setError(''); setLoading(true);
+    const result = await verifyLoginCode(challenge.id, code.trim());
+    if (result.success) routeByRole(result.user);
+    else setError(result.error);
+    setLoading(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     const result = await login(formData.email, formData.password);
-    
+
+    if (result.requires2fa) {
+      setChallenge({ id: result.challengeId, email: result.email,
+                     emailSent: result.emailSent, message: result.message });
+      setCode('');
+      setLoading(false);
+      return;
+    }
+
     if (result.success) {
       const role = result.user?.role;
       // Super Admin → admin dashboard
@@ -167,6 +194,71 @@ const LoginPage = () => {
             </div>
           )}
 
+
+          {challenge ? (
+
+            <form onSubmit={submitCode} className="space-y-4" dir="rtl">
+
+              <div className="text-center">
+
+                <h2 className="text-lg font-bold text-gray-900">
+
+                  {language === 'ar' ? 'رمز التحقق' : 'Verification code'}
+
+                </h2>
+
+                <p className="mt-1 text-sm text-gray-600">
+
+                  {challenge.emailSent
+
+                    ? (language === 'ar'
+
+                        ? `أرسلنا رمزاً من 6 أرقام إلى ${challenge.email} — صالح 10 دقائق`
+
+                        : `We sent a 6-digit code to ${challenge.email} — valid for 10 minutes`)
+
+                    : challenge.message}
+
+                </p>
+
+              </div>
+
+              <input
+
+                type="text" inputMode="numeric" autoFocus maxLength={6} dir="ltr"
+
+                value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+
+                aria-label={language === 'ar' ? 'رمز التحقق' : 'Verification code'}
+
+                className="w-full text-center text-2xl tracking-[0.5em] font-mono px-4 py-3 border border-gray-300 rounded-xl"
+
+                placeholder="••••••"
+
+              />
+
+              {error && <p className="text-sm text-red-700 text-center" role="alert">{error}</p>}
+
+              <button type="submit" disabled={loading || code.length < 6}
+
+                className="w-full py-3 rounded-xl bg-[#1e3a8a] text-white font-bold disabled:opacity-50">
+
+                {loading ? (language === 'ar' ? 'جارٍ التحقق…' : 'Verifying…') : (language === 'ar' ? 'تأكيد الدخول' : 'Confirm sign-in')}
+
+              </button>
+
+              <button type="button" onClick={() => { setChallenge(null); setError(''); }}
+
+                className="w-full text-sm text-gray-500">
+
+                {language === 'ar' ? 'رجوع' : 'Back'}
+
+              </button>
+
+            </form>
+
+          ) : (
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -231,6 +323,9 @@ const LoginPage = () => {
               </button>
             </div>
           </form>
+
+          )}
+
 
           <div className="mt-6 text-center space-y-4">
             <p className="text-sm text-gray-600">

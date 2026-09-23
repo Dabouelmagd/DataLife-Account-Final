@@ -53,18 +53,41 @@ export const AuthProvider = ({ children }) => {
         password
       });
 
+      // two-step verification: the password alone issues no token
+      if (response.data?.requires_2fa) {
+        return { success: false, requires2fa: true, challengeId: response.data.challenge_id,
+                 emailSent: response.data.email_sent, email: response.data.email,
+                 message: response.data.message };
+      }
+
       const { access_token, user: userData } = response.data;
       setToken(access_token);
       setUser(userData);
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
-      
+
       return { success: true, user: userData };
     } catch (error) {
       return { 
         success: false, 
         error: error.response?.data?.detail || 'Login failed' 
       };
+    }
+  };
+
+  const verifyLoginCode = async (challengeId, code) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/auth/login/verify`, {
+        challenge_id: challengeId, code,
+      });
+      const { access_token, user: userData } = response.data;
+      setToken(access_token);
+      setUser(userData);
+      localStorage.setItem('token', access_token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      return { success: true, user: userData };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.detail || 'رمز غير صحيح' };
     }
   };
 
@@ -174,6 +197,7 @@ export const AuthProvider = ({ children }) => {
     token,
     loading,
     login,
+    verifyLoginCode,
     registerCompany,
     logout,
     hasModule,
