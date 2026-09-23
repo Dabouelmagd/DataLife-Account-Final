@@ -400,6 +400,8 @@ DEFAULT_ACCOUNTS = [
     {"code": "311", "name": "تكلفة الخامات والمواد المستهلكة", "name_en": "Cost of Raw Materials Consumed", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
     {"code": "312", "name": "أجور تشغيلية مباشرة", "name_en": "Direct Labor Cost", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
     {"code": "313", "name": "مصروفات وإهلاكات تشغيلية", "name_en": "Operating Expenses & Depreciation", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
+    # مفقود من الشجرة: كانت تكلفة البضاعة المباعة تُرحّل على 321 (فوائد بنكية)
+    {"code": "314", "name": "تكلفة البضاعة المباعة", "name_en": "Cost of Goods Sold", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
     
     # 33 - المصروفات الإدارية والعمومية (G&A Expenses)
     {"code": "33", "name": "المصروفات الإدارية والعمومية", "name_en": "General & Administrative Expenses", "type": AccountType.EXPENSE, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "3"},

@@ -416,7 +416,12 @@ class InvoiceService:
             
             # حسابات المشتريات
             suppliers_acc = find_account("251")   # الموردون — دائن
-            purchases_acc = find_account("311")   # مخزون بضاعة / مواد خام — مدين
+            # periodic: purchases are an expense (311) and the period-end count
+            # adjusts. perpetual: they capitalise into stock (125) and each sale
+            # posts its own cost. Mixing the two counted cost twice.
+            _method = await self.inventory_method(invoice["company_id"])
+            purchases_acc = (find_account("125") or find_account("311")) if _method == "perpetual" \
+                else find_account("311")
             # ✅ VAT مدخلات = أصل (قابل للخصم من VAT مخرجات)
             vat_in_acc   = find_account("137")    # ضريبة القيمة المضافة مدخلات
             if not vat_in_acc:
@@ -508,33 +513,121 @@ class InvoiceService:
         
         # ── قيد تكلفة البضاعة المباعة (COGS) — للمبيعات فقط ──────────
         # من حـ/ تكلفة البضاعة المباعة (321) ← إلى حـ/ المخزون (125 بضائع بغرض البيع)
+        # Cost of sales is posted per invoice only under the perpetual method.
+        # Under the periodic method purchases are already an expense (311) and
+        # the period-end count adjusts — posting both counted cost twice.
+        method = await self.inventory_method(invoice["company_id"])
+        if doc_type == DocumentType.PURCHASE_INVOICE.value:
+            await self._receive_purchase_stock(invoice)
         if doc_type == DocumentType.SALES_INVOICE.value:
-            await self._create_cogs_entry(invoice, user_id)
+            await self._create_cogs_entry(invoice, user_id, post_entry=(method == "perpetual"))
         elif doc_type == DocumentType.CREDIT_NOTE.value and invoice.get("restock", True):
-            await self._create_cogs_entry(invoice, user_id, reverse=True)
+            await self._create_cogs_entry(invoice, user_id, reverse=True, post_entry=(method == "perpetual"))
         
         return result["id"]
     
-    async def _create_cogs_entry(self, invoice: dict, user_id: str, reverse: bool = False) -> None:
-        """قيد تكلفة البضاعة المباعة — أو عكسه عند مردود مبيعات (reverse)."""
+    async def _receive_purchase_stock(self, invoice: dict) -> None:
+        """بضاعة مشتراة تدخل المخزون وتحدّث متوسط التكلفة المتحرك.
+
+        weighted average: (old qty x old cost + received qty x price) / total qty.
+        Purchased goods used to change no quantity at all, so stock only ever
+        fell with sales.
+        """
+        company_id = invoice["company_id"]
+        for line in invoice.get("lines", []):
+            product_id, qty = line.get("product_id"), float(line.get("quantity", 0) or 0)
+            if not product_id or qty <= 0:
+                continue
+            price = float(line.get("unit_price", 0) or 0)
+            warehouse = line.get("warehouse_id", "main")
+            stock = await self.db.stocks.find_one(
+                {"company_id": company_id, "product_id": product_id, "warehouse_id": warehouse},
+                {"_id": 0}) or {}
+            old_qty = float(stock.get("quantity") or 0)
+            old_cost = float(stock.get("unit_cost") or 0)
+            new_qty = old_qty + qty
+            # a negative or zero opening balance cannot be averaged into
+            new_cost = round(((max(old_qty, 0) * old_cost) + (qty * price)) / new_qty, 4) \
+                if new_qty > 0 else price
+            await self.db.stocks.update_one(
+                {"company_id": company_id, "product_id": product_id, "warehouse_id": warehouse},
+                {"$set": {"quantity": round(new_qty, 3), "unit_cost": new_cost,
+                          "last_purchase_price": price}}, upsert=True)
+
+    async def inventory_method(self, company_id: str) -> str:
+        """"periodic" (الجرد الدوري) or "perpetual" (الجرد المستمر).
+
+        Both are accepted in Egypt. Periodic is the default, and it is what the
+        purchase posting and the periodic count screen assume: purchases are an
+        expense (311) and the count at period end adjusts. Under perpetual,
+        purchases capitalise into stock (125) and each sale posts its own cost.
+
+        These must never be mixed: cost was being counted twice — purchases were
+        expensed AND every sale posted a cost entry as well.
+        """
+        company = await self.db.companies.find_one({"id": company_id}, {"_id": 0, "inventory_method": 1}) or {}
+        return "perpetual" if company.get("inventory_method") == "perpetual" else "periodic"
+
+    async def moving_average_cost(self, company_id: str, product_id: str) -> float:
+        """Weighted average cost held on the stock record (0 if unknown)."""
+        rows = await self.db.stocks.find(
+            {"company_id": company_id, "product_id": product_id}, {"_id": 0}).to_list(None)
+        qty = sum(float(r.get("quantity") or 0) for r in rows)
+        value = sum(float(r.get("quantity") or 0) * float(r.get("unit_cost") or 0) for r in rows)
+        if qty > 0:
+            return round(value / qty, 4)
+        return round(float(next((r.get("unit_cost") for r in rows if r.get("unit_cost")), 0) or 0), 4)
+
+    async def _create_cogs_entry(self, invoice: dict, user_id: str, reverse: bool = False,
+                                 post_entry: bool = True) -> None:
+        """قيد تكلفة البضاعة المباعة (الجرد المستمر) وحركة المخزون.
+
+        post_entry=False: quantities still move (the warehouse is the same
+        either way) but no cost entry is posted — that is the periodic method.
+        """
+        # Stock moves whichever method is in use — a sale takes the goods out,
+        # a return puts them back. This happens before any accounting decision
+        # so an unknown cost can never leave the warehouse count wrong.
+        sign = 1.0 if reverse else -1.0
+        for line in invoice.get("lines", []):
+            if line.get("product_id") and float(line.get("quantity", 0) or 0):
+                await self.db.stocks.update_one(
+                    {"company_id": invoice["company_id"], "product_id": line["product_id"],
+                     "warehouse_id": line.get("warehouse_id", "main")},
+                    {"$inc": {"quantity": sign * float(line["quantity"])}}, upsert=True)
+        if not post_entry:
+            return                      # periodic: quantities only, no cost entry
+
         try:
             accounts = await self.accounting.get_all_accounts(invoice["company_id"])
             def find_account(code):
                 return next((a for a in accounts if a["account_code"] == code), None)
             
-            cogs_acc  = find_account("321")   # تكلفة البضاعة المباعة
+            # 321 is "فوائد وعمولات بنكية مدينة" in this chart — every sale's cost
+            # was being posted to bank charges. 314 is cost of goods sold.
+            cogs_acc  = find_account("314") or find_account("311")
             # 131 is ACCOUNTS RECEIVABLE in this chart, not stock: every sales
             # invoice was taking its cost out of the customer's balance.
             stock_acc = find_account("125") or find_account("122") or find_account("121")
             
-            if not cogs_acc or not stock_acc:
+            if post_entry and not (cogs_acc and stock_acc):
                 return  # Accounts not in chart — skip COGS entry
             
             # حساب إجمالي التكلفة من بنود الفاتورة
             total_cost = 0.0
             for line in invoice.get("lines", []):
                 qty      = float(line.get("quantity", 0))
-                cost     = float(line.get("unit_cost", 0) or line.get("unit_price", 0) * 0.7)
+                # was: unit_price * 0.7 — a 30% margin invented and posted to the
+                # ledger. Cost comes from the stock's moving average, or the
+                # product's cost price; an unknown cost posts nothing.
+                cost = float(line.get("unit_cost") or 0)
+                if not cost and line.get("product_id"):
+                    cost = await self.moving_average_cost(invoice["company_id"], line["product_id"])
+                if not cost and line.get("product_id"):
+                    prod = await self.db.products.find_one(
+                        {"id": line["product_id"], "company_id": invoice["company_id"]},
+                        {"_id": 0, "cost_price": 1}) or {}
+                    cost = float(prod.get("cost_price") or 0)
                 total_cost += qty * cost
             
             total_cost = round(total_cost, 2)
@@ -569,18 +662,10 @@ class InvoiceService:
                 lines=cogs_lines,
                 created_by=user_id
             )
-            cogs_result = await self.accounting.create_journal_entry(cogs_entry)
-            await self.accounting.post_journal_entry(cogs_result["id"], user_id)
+            if post_entry:
+                cogs_result = await self.accounting.create_journal_entry(cogs_entry)
+                await self.accounting.post_journal_entry(cogs_result["id"], user_id)
 
-            # stock follows the goods: a sale takes them out, a return puts them
-            # back. Only returns moved stock, so quantities grew and never fell.
-            sign = 1.0 if reverse else -1.0
-            for line in invoice.get("lines", []):
-                if line.get("product_id") and float(line.get("quantity", 0) or 0):
-                    await self.db.stocks.update_one(
-                        {"company_id": invoice["company_id"], "product_id": line["product_id"],
-                         "warehouse_id": line.get("warehouse_id", "main")},
-                        {"$inc": {"quantity": sign * float(line["quantity"])}}, upsert=True)
 
         except Exception as e:
             # a cost entry must never block the invoice itself
