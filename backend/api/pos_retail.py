@@ -15,7 +15,7 @@ import uuid, asyncio
 from datetime import datetime, timezone, date
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from database import db
 from api.users import get_current_user
@@ -86,6 +86,7 @@ async def post_je(company_id: str, user_id: str, date_str: str,
 # ══════════════════════════════════════════════════════════════
 
 class OpenShiftRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")   # a misspelled field would silently open with 0 float
     cashier_id:      str
     cashier_name:    str
     terminal_id:     str = "POS-01"
@@ -236,7 +237,17 @@ async def close_shift(shift_id: str, data: dict,
     if shift["status"] != "open":
         raise HTTPException(400, "الوردية مغلقة بالفعل")
 
-    actual_cash    = float(data.get("actual_cash", 0))     # الرصيد الفعلي عند الجرد
+    # A missing key used to default to 0, which closed the shift as if the
+    # drawer were empty and charged the whole day's cash to the cashier as a
+    # shortage — silently. The counted cash must be stated.
+    if data is None or data.get("actual_cash") in (None, ""):
+        raise HTTPException(400, "الرصيد النقدي المعدود (actual_cash) مطلوب لإقفال الوردية")
+    try:
+        actual_cash = float(data["actual_cash"])
+    except (TypeError, ValueError):
+        raise HTTPException(400, "الرصيد النقدي المعدود غير صحيح")
+    if actual_cash < 0:
+        raise HTTPException(400, "الرصيد النقدي المعدود لا يمكن أن يكون سالباً")
     date_str       = data.get("date", shift["shift_date"])
     tolerance      = float(data.get("shortage_tolerance", CASH_SHORTAGE_TOLERANCE))
 
