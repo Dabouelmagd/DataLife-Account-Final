@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import SecurityTab from './settings/SecurityTab';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
@@ -356,6 +357,7 @@ const CompanySettings = () => {
     ...(canManageEmployees ? [{ id: 'permissions', label: language === 'ar' ? 'الصلاحيات' : 'Permissions', icon: Shield }] : []),
     ...(canManageEmployees ? [{ id: 'activity', label: language === 'ar' ? 'سجل النشاطات' : 'Activity Log', icon: ClipboardList }] : []),
     { id: 'subscription', label: language === 'ar' ? 'الاشتراك' : 'Subscription', icon: Key },
+    { id: 'security', label: language === 'ar' ? 'الأمان' : 'Security', icon: Shield },
     { id: 'language', label: language === 'ar' ? 'اللغة' : 'Language', icon: Globe },
   ];
 
@@ -458,6 +460,13 @@ const CompanySettings = () => {
             onRefresh={fetchCompanyData}
           />
         )}
+
+        {activeTab === 'security' && (
+
+          <SecurityTab language={language} canManageCompany={canManageEmployees} />
+
+        )}
+
 
         {activeTab === 'language' && (
           <LanguageTab

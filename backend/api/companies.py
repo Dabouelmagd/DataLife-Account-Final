@@ -49,6 +49,33 @@ async def get_current_company(
     
     return company
 
+@router.put("/inventory-method")
+async def set_inventory_method(data: dict, current_user: dict = Depends(get_current_user)):
+    """طريقة الجرد للشركة: دوري أو مستمر.
+
+    Both are accepted in Egypt; they differ in WHEN cost is recognised, not how
+    much. Periodic expenses purchases and recognises cost at the period-end
+    count; perpetual capitalises purchases into stock and posts each sale's
+    cost at moving average. Mixing them counts cost twice, so this is one
+    setting and the posting follows it.
+    """
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=403, detail="الحساب غير مرتبط بشركة")
+    allowed_roles = ["رئيس مجلس الإدارة", "Board Chairman", "مدير عام", "General Manager", "CEO",
+                     "المدير التنفيذي", "المدير المالي", "CFO", "رئيس الحسابات", "Chief Accountant", "Super Admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="تغيير طريقة الجرد مقصور على الإدارة والإدارة المالية")
+    method = (data or {}).get("inventory_method")
+    if method not in ("periodic", "perpetual"):
+        raise HTTPException(status_code=400, detail="طريقة غير صحيحة")
+    await db.companies.update_one({"id": company_id}, {"$set": {
+        "inventory_method": method,
+        "inventory_method_changed_at": datetime.now(timezone.utc).isoformat(),
+        "inventory_method_changed_by": current_user.get("user_id")}})
+    return {"message": "تم حفظ طريقة الجرد", "inventory_method": method}
+
+
 @router.get("/{company_id}", response_model=CompanyResponse)
 async def get_company(
     company_id: str,
