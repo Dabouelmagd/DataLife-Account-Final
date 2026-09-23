@@ -18,3 +18,5 @@ treasury.py:334  # a bounced-cheque fee is a bank charge
 trade_finance.py:1361  # guarantee cover held with a related party
 pos_retail.py:412  # a restaurant service charge is service revenue
 pos_retail.py:125  # food and beverage stock is goods held for sale
+petty_cash.py:3366  # two names for the same petty-expense account; never used on opposite sides
+treasury.py:334  # bank charges and bounce fees are both bank charges; never in one entry

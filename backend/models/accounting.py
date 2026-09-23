@@ -543,6 +543,8 @@ DEFAULT_ACCOUNTS = [
      "type": AccountType.REVENUE, "category": AccountCategory.OPERATING_REVENUE, "parent_code": "41"},
     # ── Accounts the automated postings require (added after an audit found
     #    modules posting to codes that did not exist in this chart) ──
+    # لم يكن للإنتاج تحت التشغيل حساب، فاستُخدم 122 (الإنتاج التام) لكليهما
+    {"code": "126", "name": "إنتاج تحت التشغيل", "name_en": "Work in Progress", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "12"},
     {"code": "125", "name": "مخزون بضائع بغرض البيع", "name_en": "Merchandise Inventory (Goods for Resale)",
      "type": AccountType.ASSET, "category": AccountCategory.INVENTORY, "parent_code": "12"},
     {"code": "139", "name": "أصول ضريبية مؤجلة", "name_en": "Deferred Tax Assets",

@@ -13,7 +13,7 @@ from datetime import datetime, timezone, date
 from dateutil.relativedelta import relativedelta
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Field
 
 from database import db
 from api.users import get_current_user
@@ -29,7 +29,10 @@ router = APIRouter(prefix="/api/manufacturing", tags=["Manufacturing & Accruals"
 # ══════════════════════════════════════════════════════════════
 ACC = {
     "raw_materials":    "121",   # مخزون خامات ومواد أولية
-    "wip":              "122",   # إنتاج تحت التشغيل
+    # 122 is finished goods; WIP had no account of its own, so completing an
+    # order debited and credited the SAME account — a zero-effect entry, and
+    # finished production never reached the ledger.
+    "wip":              "126",   # إنتاج تحت التشغيل
     # 123 is "مخزون بضاعة بالطريق / اعتمادات" — goods in transit under an LC.
     # Finished production belongs in 122, which is exactly that account.
     "finished_goods":   "122",   # مخزون الإنتاج التام
@@ -95,13 +98,25 @@ async def post_je(company_id: str, user_id: str, date_str: str,
 # أوامر الإنتاج وتكاليف التصنيع
 # ══════════════════════════════════════════════════════════════
 
+class ProductionMaterial(BaseModel):
+    """صنف مصروف على أمر الإنتاج.
+
+    materials was a free List[dict]: a missing key raised a 500 half-way
+    through building the entry, and a zero or negative quantity was accepted.
+    """
+    name: str = Field(min_length=1, max_length=200)
+    qty: float = Field(gt=0)
+    unit_cost: float = Field(ge=0)
+    product_id: Optional[str] = None
+
+
 class ProductionOrderRequest(BaseModel):
-    order_number:    str
+    order_number:    str = Field(min_length=1, max_length=60)
     product_id:      str
-    product_name:    str
-    planned_qty:     float
+    product_name:    str = Field(min_length=1, max_length=200)
+    planned_qty:     float = Field(gt=0)
     start_date:      str
-    materials: List[dict]  # [{product_id, name, qty, unit_cost}]
+    materials: List[ProductionMaterial] = Field(min_length=1)
     notes:           Optional[str] = None
 
 
@@ -117,8 +132,9 @@ async def create_production_order(req: ProductionOrderRequest,
     """
     company_id = current_user["company_id"]
 
+    materials = [m.dict() for m in req.materials]
     total_materials = sum(
-        float(m["qty"]) * float(m["unit_cost"]) for m in req.materials
+        float(m["qty"]) * float(m["unit_cost"]) for m in materials
     )
 
     # ── قيد صرف المواد الخام ──────────────────────────────────
@@ -127,7 +143,7 @@ async def create_production_order(req: ProductionOrderRequest,
         desc=f"صرف خامات لأمر إنتاج {req.order_number} — {req.product_name}"
     )]
 
-    for mat in req.materials:
+    for mat in materials:
         mat_cost = round(float(mat["qty"]) * float(mat["unit_cost"]), 2)
         lines.append(await je_line(
             company_id, ACC["raw_materials"], credit=mat_cost,
@@ -149,7 +165,7 @@ async def create_production_order(req: ProductionOrderRequest,
         "product_id": req.product_id, "product_name": req.product_name,
         "planned_qty": req.planned_qty, "actual_qty": 0,
         "status": "open",
-        "materials": req.materials,
+        "materials": materials,
         "total_materials_cost": total_materials,
         "total_labor_cost":  0.0,
         "total_foh_applied": 0.0,

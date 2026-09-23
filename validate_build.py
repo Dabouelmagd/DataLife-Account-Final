@@ -562,6 +562,47 @@ def check_account_comments():
                 errors.append(f"{f.relative_to(ROOT)}:{n}: account {code} is \"{real}\" in the chart, "
                               f"but the code calls it \"{comment}\" — entries would post to the wrong account")
 
+# ── Mode 16: two keys of one account map pointing at the same code (blocking) ─
+# Manufacturing mapped both "wip" and "finished_goods" to 122, because work in
+# progress had no account of its own. Completing a production order then
+# debited and credited the SAME account: a balanced entry with no effect, and
+# finished production never reached the ledger. Two keys on one code are only
+# safe when they are never used on opposite sides of an entry, which is not
+# something the code can promise, so they must be distinct.
+def check_duplicate_account_keys():
+    import re
+    entry = re.compile(r'^\s*["\'](\w+)["\']\s*:\s*["\'](\d{3,5})["\']')
+    SIDES = ("wip", "finished", "raw", "stock", "inventory", "applied", "variance",
+             "expense", "exp", "revenue", "rev", "payable", "receivable", "cash", "bank")
+    for folder in ("api", "services"):
+        for f in sorted((ROOT / "backend" / folder).glob("*.py")):
+            text = f.read_text(encoding="utf-8", errors="ignore")
+            if "ACC = {" not in text and "ACCOUNTS = {" not in text and "ACCOUNT_MAP = {" not in text:
+                continue
+            reviewed_dupes = set()
+            rf = ROOT / "backend" / "scripts" / "reviewed_account_comments.txt"
+            if rf.exists():
+                for rline in rf.read_text(encoding="utf-8").splitlines():
+                    rline = rline.split("#")[0].strip()
+                    if rline:
+                        reviewed_dupes.add(rline)
+            seen = {}
+            for n, line in enumerate(text.splitlines(), 1):
+                m = entry.match(line)
+                if not m:
+                    continue
+                key, code = m.group(1), m.group(2)
+                if code in seen:
+                    other = seen[code]
+                    # only flag when the two keys describe opposite roles
+                    if f"{f.name}:{code}" in reviewed_dupes:
+                        continue
+                    if any(s in key.lower() for s in SIDES) and any(s in other.lower() for s in SIDES):
+                        errors.append(f"{f.relative_to(ROOT)}:{n}: \"{key}\" and \"{other}\" both map to {code} — "
+                                      f"an entry using both would debit and credit the same account and do nothing")
+                else:
+                    seen[code] = key
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -577,6 +618,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 16: Duplicate account key check...")
+check_duplicate_account_keys()
 
 print(f"Mode 15: Account comment check...")
 check_account_comments()
