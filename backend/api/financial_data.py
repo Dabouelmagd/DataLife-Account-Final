@@ -5,6 +5,7 @@ from models.financial_data import JournalEntry, TreasuryTransaction, BankTransac
 from services.auth_service import verify_token
 from typing import Optional, List
 from database import get_database
+from services.party_store import party_query, normalise, add_type
 
 router = APIRouter(prefix="/api/financial", tags=["financial"])
 db = get_database()
@@ -153,8 +154,8 @@ async def get_customers(
     company_id = current_user.get("company_id")
     skip = (page - 1) * limit
     
-    total = await db.customers.count_documents({"company_id": company_id})
-    customers = await db.customers.find(
+    total = await db.parties.count_documents(party_query(company_id, "customer"))
+    customers = await db.parties.find(
         {"company_id": company_id},
         {"_id": 0}
     ).skip(skip).limit(limit).to_list(length=limit)
@@ -173,7 +174,7 @@ async def create_customer(customer: Customer, current_user: dict = Depends(get_c
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     customer.company_id = current_user.get("company_id")
-    await db.customers.insert_one(customer.dict())
+    await db.parties.insert_one(normalise(add_type(customer.dict(), "customer")))
     return {"message": "Customer created successfully", "id": customer.id}
 
 # Suppliers
@@ -187,8 +188,8 @@ async def get_suppliers(
     company_id = current_user.get("company_id")
     skip = (page - 1) * limit
     
-    total = await db.suppliers_extended.count_documents({"company_id": company_id})
-    suppliers = await db.suppliers_extended.find(
+    total = await db.parties.count_documents(party_query(company_id, "supplier"))
+    suppliers = await db.parties.find(
         {"company_id": company_id},
         {"_id": 0}
     ).skip(skip).limit(limit).to_list(length=limit)
@@ -209,7 +210,7 @@ async def create_supplier(supplier: Supplier, current_user: dict = Depends(get_c
     supplier.company_id = current_user.get("company_id")
     doc = {**supplier.dict(), "is_active": True}   # one supplier store: suppliers_extended
     doc.pop("balance", None)                       # balance is derived from the ledger, never stored
-    await db.suppliers_extended.insert_one(doc)
+    await db.parties.insert_one(normalise(add_type(doc, "supplier")))
     return {"message": "Supplier created successfully", "id": supplier.id}
 
 

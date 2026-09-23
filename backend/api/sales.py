@@ -10,6 +10,7 @@ import uuid
 from services.audit_helper import log_financial_action
 
 from database import db
+from services.party_store import party_query, normalise, add_type
 import os
 
 router = APIRouter(prefix="/api/sales", tags=["sales"])
@@ -54,9 +55,9 @@ async def list_customers(
     if status: q["status"] = status
     if type:   q["type"] = type
 
-    total = await db.sales_customers.count_documents(q)
+    total = await db.parties.count_documents({**q, **party_query(company_id, "customer")})
     skip  = (page - 1) * limit
-    customers = await db.sales_customers.find(q, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(length=limit)
+    customers = await db.parties.find({**q, **party_query(company_id, "customer")}, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(length=limit)
 
     # Aggregate totals per customer
     for c in customers:
@@ -75,7 +76,7 @@ async def create_customer(data: dict, authorization: Optional[str] = Header(None
     company_id = user.get("company_id")
 
     # Auto-generate customer code
-    count = await db.sales_customers.count_documents({"company_id": company_id})
+    count = await db.parties.count_documents(party_query(company_id, "customer"))
     code = f"CUS-{count + 1:04d}"
 
     customer = {
@@ -112,7 +113,7 @@ async def create_customer(data: dict, authorization: Optional[str] = Header(None
         "created_at": now_iso(),
         "updated_at": now_iso(),
     }
-    await db.sales_customers.insert_one(customer)
+    await db.parties.insert_one(normalise(add_type(customer, "customer")))
     customer.pop("_id", None)
     return {"message": "تم إضافة العميل بنجاح", "customer": customer}
 
@@ -121,7 +122,7 @@ async def create_customer(data: dict, authorization: Optional[str] = Header(None
 async def get_customer(customer_id: str, authorization: Optional[str] = Header(None)):
     user = await get_user(authorization)
     company_id = user.get("company_id")
-    customer = await db.sales_customers.find_one({"id": customer_id, "company_id": company_id}, {"_id": 0})
+    customer = await db.parties.find_one({"id": customer_id, **party_query(company_id, "customer")}, {"_id": 0})
     if not customer: raise HTTPException(404, "Customer not found")
 
     # Get invoices
@@ -148,7 +149,7 @@ async def update_customer(customer_id: str, data: dict, authorization: Optional[
                "discount_percent","price_list","sales_rep","notes","tags","source","stage"]
     update = {k: v for k, v in data.items() if k in allowed}
     update["updated_at"] = now_iso()
-    await db.sales_customers.update_one({"id": customer_id, "company_id": company_id}, {"$set": update})
+    await db.parties.update_one({"id": customer_id, **party_query(company_id, "customer")}, {"$set": normalise(update, "customer")})
     return {"message": "تم تحديث العميل"}
 
 
@@ -160,7 +161,7 @@ async def delete_customer(customer_id: str, authorization: Optional[str] = Heade
     inv_count = await db.sales_invoices.count_documents({"company_id": company_id, "customer_id": customer_id})
     if inv_count > 0:
         raise HTTPException(400, "لا يمكن حذف عميل لديه فواتير")
-    await db.sales_customers.delete_one({"id": customer_id, "company_id": company_id})
+    await db.parties.delete_one({"id": customer_id, **party_query(company_id, "customer")})
     return {"message": "تم حذف العميل"}
 
 
@@ -168,10 +169,10 @@ async def delete_customer(customer_id: str, authorization: Optional[str] = Heade
 async def customer_stats(authorization: Optional[str] = Header(None)):
     user = await get_user(authorization)
     company_id = user.get("company_id")
-    total = await db.sales_customers.count_documents({"company_id": company_id})
-    active = await db.sales_customers.count_documents({"company_id": company_id, "status": "active"})
-    leads  = await db.sales_customers.count_documents({"company_id": company_id, "stage": "lead"})
-    vip    = await db.sales_customers.count_documents({"company_id": company_id, "stage": "vip"})
+    total = await db.parties.count_documents(party_query(company_id, "customer"))
+    active = await db.parties.count_documents({**party_query(company_id, "customer"), "status": "active"})
+    leads  = await db.parties.count_documents({**party_query(company_id, "customer"), "stage": "lead"})
+    vip    = await db.parties.count_documents({**party_query(company_id, "customer"), "stage": "vip"})
     return {"total": total, "active": active, "leads": leads, "vip": vip}
 
 
@@ -699,7 +700,7 @@ async def customers_with_balances(authorization: Optional[str] = Header(None)):
     user = await get_user(authorization)
     company_id = user.get("company_id")
     today = datetime.now().strftime("%Y-%m-%d")
-    customers = await db.sales_customers.find({"company_id": company_id}, {"_id": 0}).sort("name", 1).to_list(length=None)
+    customers = await db.parties.find(party_query(company_id, "customer"), {"_id": 0}).sort("name", 1).to_list(length=None)
     for c in customers:
         rows = await _customer_movements(company_id, c["id"])
         c["balance"] = round(sum(r["debit"] - r["credit"] for r in rows), 2)
@@ -716,7 +717,7 @@ async def customers_with_balances(authorization: Optional[str] = Header(None)):
 async def customer_statement(customer_id: str, authorization: Optional[str] = Header(None)):
     user = await get_user(authorization)
     company_id = user.get("company_id")
-    cust = await db.sales_customers.find_one({"id": customer_id, "company_id": company_id}, {"_id": 0})
+    cust = await db.parties.find_one({"id": customer_id, **party_query(company_id, "customer")}, {"_id": 0})
     if not cust:
         raise HTTPException(404, "Customer not found")
     rows = await _customer_movements(company_id, customer_id)
@@ -739,7 +740,7 @@ async def receive_from_customer(customer_id: str, data: dict, authorization: Opt
     payment status is right and every part posts its own entry."""
     user = await get_user(authorization)
     company_id = user.get("company_id")
-    cust = await db.sales_customers.find_one({"id": customer_id, "company_id": company_id}, {"_id": 0})
+    cust = await db.parties.find_one({"id": customer_id, **party_query(company_id, "customer")}, {"_id": 0})
     if not cust:
         raise HTTPException(404, "Customer not found")
     amount = round(float(data.get("amount") or 0), 2)
@@ -778,7 +779,7 @@ async def sales_stats(authorization: Optional[str] = Header(None)):
 
     total_invoices  = await db.sales_invoices.count_documents({"company_id": company_id})
     total_quotes    = await db.sales_quotations.count_documents({"company_id": company_id})
-    total_customers = await db.sales_customers.count_documents({"company_id": company_id})
+    total_customers = await db.parties.count_documents(party_query(company_id, "customer"))
     unpaid          = await db.sales_invoices.count_documents({"company_id": company_id, "payment_status": "unpaid"})
     overdue         = await db.sales_invoices.count_documents({"company_id": company_id, "status": "overdue"})
 

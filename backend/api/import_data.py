@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import io
 import uuid
+from services.party_store import party_query, normalise, add_type
 
 router = APIRouter(prefix="/api/import", tags=["import"])
 db = get_database()
@@ -298,7 +299,7 @@ async def import_customers(
             if not customer['name']:
                 raise ValueError("Name is required")
             
-            await db.customers.insert_one(customer)
+            await db.parties.insert_one(normalise(add_type(customer, "customer")))
             success_count += 1
         except Exception as e:
             error_count += 1
@@ -386,7 +387,7 @@ async def import_suppliers(
             if not supplier['name']:
                 raise ValueError("Name is required")
             
-            await db.suppliers_extended.insert_one(supplier)
+            await db.parties.insert_one(normalise(add_type(supplier, "supplier")))
             success_count += 1
         except Exception as e:
             error_count += 1

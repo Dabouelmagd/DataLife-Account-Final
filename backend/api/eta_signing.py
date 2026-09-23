@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from database import db
+from services.party_store import party_query, normalise, add_type
 from api.users import get_current_user
 from dependencies import get_current_user
 
@@ -419,7 +420,7 @@ async def sign_and_submit_invoice(
     # Resolve receiver (customer)
     receiver = {}
     if invoice.get("party_id"):
-        receiver = await db.customers.find_one(
+        receiver = await db.parties.find_one(
             {"id": invoice["party_id"], "company_id": company_id}, {"_id": 0}
         ) or {}
 
@@ -575,7 +576,7 @@ async def preview_eta_document(
     company  = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
     receiver = {}
     if invoice.get("party_id"):
-        receiver = await db.customers.find_one(
+        receiver = await db.parties.find_one(
             {"id": invoice["party_id"], "company_id": company_id}, {"_id": 0}
         ) or {}
 

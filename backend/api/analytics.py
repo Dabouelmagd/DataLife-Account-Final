@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Header
 from typing import Optional
 from services.auth_service import verify_token
 from database import db
+from services.party_store import party_query, normalise, add_type
 from datetime import datetime, timedelta
 import asyncio
 from collections import defaultdict
@@ -57,8 +58,8 @@ async def get_analytics_overview(
     total_leaves = await db.leaves.count_documents({"company_id": company_id})
     
     # Financial Analytics
-    total_customers = await db.customers.count_documents({"company_id": company_id})
-    total_suppliers = await db.suppliers_extended.count_documents({"company_id": company_id})
+    total_customers = await db.parties.count_documents(party_query(company_id, "customer"))
+    total_suppliers = await db.parties.count_documents(party_query(company_id, "supplier"))
     
     # Journal Entries for revenue/expenses
     journal_entries = await db.journal_entries.find({"company_id": company_id}).to_list(length=None)
@@ -123,8 +124,8 @@ async def get_financial_analytics(
         db.journal_entries.find({"company_id": company_id}).to_list(length=None),
         db.treasury.find({"company_id": company_id}).to_list(length=None),
         db.bank.find({"company_id": company_id}).to_list(length=None),
-        db.customers.find({"company_id": company_id}).to_list(length=None),
-        db.suppliers_extended.find({"company_id": company_id}).to_list(length=None),
+        db.parties.find(party_query(company_id, "customer")).to_list(length=None),
+        db.parties.find(party_query(company_id, "supplier")).to_list(length=None),
     )
     
     # Calculate revenue by month
@@ -640,7 +641,7 @@ async def get_sales_analytics(period: str = "monthly", authorization: Optional[s
     company_id = user_data.get("company_id")
     start_date = _start_date(period)
 
-    customers = await db.customers.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+    customers = await db.parties.find(party_query(company_id, "customer"), {"_id": 0}).to_list(None)
     invoices  = await db.invoices.find(
         {"company_id": company_id, "created_at": {"$gte": start_date.isoformat()}},
         {"_id": 0}
@@ -764,7 +765,7 @@ async def get_purchases_analytics(period: str = "monthly", authorization: Option
 
     purchases  = await db.purchases.find(q, {"_id": 0}).to_list(None)
     pos        = await db.purchase_orders.find(q, {"_id": 0}).to_list(None)
-    suppliers  = await db.suppliers_extended.find({"company_id": company_id}, {"_id": 0}).to_list(None)
+    suppliers  = await db.parties.find(party_query(company_id, "supplier"), {"_id": 0}).to_list(None)
 
     total_purch  = sum(p.get("total", p.get("total_amount", 0)) for p in purchases)
     total_pos    = sum(po.get("total", 0) for po in pos)

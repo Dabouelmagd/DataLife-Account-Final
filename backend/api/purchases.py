@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 import secrets
 import string
+from services.party_store import party_query, normalise, add_type
 
 router = APIRouter(prefix="/api/purchases", tags=["purchases"])
 
@@ -298,7 +299,7 @@ async def create_supplier(
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
-    await db.suppliers_extended.insert_one(supplier)
+    await db.parties.insert_one(normalise(add_type(supplier, "supplier")))
     if "_id" in supplier:
         del supplier["_id"]
     
@@ -321,7 +322,7 @@ async def get_suppliers(
     if is_active is not None:
         query["is_active"] = is_active
     
-    suppliers = await db.suppliers_extended.find(query, {"_id": 0}).sort("name", 1).to_list(length=None)
+    suppliers = await db.parties.find({**query, **party_query(company_id, "supplier")}, {"_id": 0}).sort("name", 1).to_list(length=None)
     
     return suppliers
 
@@ -340,13 +341,9 @@ SUPPLIER_TYPES = ["supplier", "both"]
 
 
 async def _find_supplier(company_id: str, supplier_id: str):
-    """Suppliers live in `parties` — the store the invoice page picks from, so
-    purchase invoices carry these ids as party_id. suppliers_extended (used by
-    purchase orders) is still read so older records keep working."""
-    sup = await db.parties.find_one(
+    """Suppliers live in `parties`, the one party store (see services/party_store)."""
+    return await db.parties.find_one(
         {"id": supplier_id, "company_id": company_id, "party_type": {"$in": SUPPLIER_TYPES}}, {"_id": 0})
-    return sup or await db.suppliers_extended.find_one(
-        {"id": supplier_id, "company_id": company_id}, {"_id": 0})
 
 
 async def _supplier_movements(company_id: str, supplier_id: str):
@@ -402,9 +399,6 @@ async def get_suppliers_with_balances(authorization: Optional[str] = Header(None
     company_id = user_data.get("company_id")
     suppliers = await db.parties.find(
         {"company_id": company_id, "party_type": {"$in": SUPPLIER_TYPES}}, {"_id": 0}).to_list(length=None)
-    seen = {x["id"] for x in suppliers}
-    suppliers += [x for x in await db.suppliers_extended.find({"company_id": company_id}, {"_id": 0}).to_list(length=None)
-                  if x["id"] not in seen]
     suppliers.sort(key=lambda x: x.get("name") or "")
     for sup in suppliers:
         rows = await _supplier_movements(company_id, sup["id"])
@@ -510,10 +504,7 @@ async def get_supplier(
     user_data = await verify_token(authorization)
     company_id = user_data.get("company_id")
     
-    supplier = await db.suppliers_extended.find_one(
-        {"id": supplier_id, "company_id": company_id},
-        {"_id": 0}
-    )
+    supplier = await _find_supplier(company_id, supplier_id)
     
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
@@ -545,9 +536,9 @@ async def update_supplier(
     update_fields = {k: v for k, v in update_data.items() if k in allowed_fields}
     update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     
-    result = await db.suppliers_extended.update_one(
-        {"id": supplier_id, "company_id": company_id},
-        {"$set": update_fields}
+    result = await db.parties.update_one(
+        {"id": supplier_id, **party_query(company_id, "supplier")},
+        {"$set": normalise(update_fields, "supplier")}
     )
     
     if result.matched_count == 0:
