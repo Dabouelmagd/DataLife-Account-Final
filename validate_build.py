@@ -487,6 +487,22 @@ def check_upload_paths():
                 errors.append(f"{f.relative_to(ROOT)}:{n}: writes uploads to {m.group(1)} — outside the /app/uploads "
                               f"volume, so files are lost on every deploy")
 
+# ── Mode 14: Uploaded files must not be served by a public mount (blocking) ──
+# Uploads were a plain StaticFiles mount: anyone with a link could open an ID
+# card or a contract, with no login, for ever. They are served through an
+# authenticated route now (services/upload_access).
+def check_public_uploads():
+    server = ROOT / "backend" / "server.py"
+    if not server.exists():
+        return
+    for n, line in enumerate(server.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if "StaticFiles(" in stripped and "uploads" in stripped:
+            errors.append(f"backend/server.py:{n}: uploads served by a public static mount — "
+                          f"anyone with the link could read personal documents")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -502,6 +518,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 14: Public upload mount check...")
+check_public_uploads()
 
 print(f"Mode 13: Upload path check...")
 check_upload_paths()

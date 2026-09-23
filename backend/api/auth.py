@@ -1,6 +1,9 @@
 import secrets
 from fastapi import APIRouter, HTTPException, Depends, Header
 from dependencies import get_current_user
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
+from services.upload_access import set_file_cookie
 from motor.motor_asyncio import AsyncIOMotorClient
 from models.user import UserCreate, UserLogin, Token, User, UserResponse, UserPermissionsUpdate, ALL_PERMISSIONS
 from models.company import CompanyCreate, CompanyResponse
@@ -211,11 +214,19 @@ async def login(credentials: UserLogin):
         }
     )
     
-    return Token(
+    from fastapi.responses import JSONResponse
+    
+    _tok = Token(
         access_token=access_token,
         token_type="bearer",
         user=user_response
     )
+    
+    _resp = JSONResponse(jsonable_encoder(_tok))
+    
+    set_file_cookie(_resp, {"id": user.id, "company_id": user.company_id})   # lets <img> load protected files
+    
+    return _resp
 
 
 @router.post("/logout")
@@ -1206,7 +1217,9 @@ async def verify_login_code(data: dict):
                                       "company_id": user.get("company_id"), "role": user.get("role")})
     await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}})
     user.pop("password_hash", None)
-    return {"access_token": token, "token_type": "bearer", "user": user}
+    resp = JSONResponse({"access_token": token, "token_type": "bearer", "user": user})
+    set_file_cookie(resp, user)          # lets <img> load protected files
+    return resp
 
 
 @router.post("/2fa/enable")

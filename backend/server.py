@@ -113,7 +113,39 @@ from database import db, client
 app = FastAPI()
 
 # Mount static files for uploads - using /api/uploads for ingress compatibility
-app.mount("/api/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
+# Uploads are NOT a public static mount any more: anyone with a link could
+# open an ID card, a contract or a receipt, with no login, for ever.
+# Served through a route that checks who is asking and whether their company
+# owns the file (services/upload_access).
+from fastapi import Request as _Req, HTTPException
+from fastapi.responses import FileResponse as _FileResponse
+
+
+@app.get("/api/uploads/{file_path:path}")
+async def serve_upload(file_path: str, request: _Req):
+    import os as _os
+    from services import upload_access as _ua
+    from database import db as _db
+
+    root = "/app/uploads"
+    full = _os.path.normpath(_os.path.join(root, file_path))
+    if not full.startswith(root + _os.sep) or not _os.path.isfile(full):
+        raise HTTPException(status_code=404, detail="الملف غير موجود")
+
+    _user_id, company_id = await _ua.caller_company(
+        _db, request.headers.get("authorization"), request.cookies.get(_ua.COOKIE_NAME))
+    if not company_id or not await _ua.may_read(_db, company_id, file_path):
+        raise HTTPException(status_code=403, detail="لا تملك صلاحية عرض هذا الملف")
+
+    # never let the browser run an uploaded file on our own origin
+    import mimetypes as _mt
+    guessed = _mt.guess_type(full)[0] or "application/octet-stream"
+    risky = guessed in ("text/html", "image/svg+xml", "application/xhtml+xml") or guessed.startswith("text/x")
+    headers = {"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=300"}
+    if risky:
+        headers["Content-Disposition"] = f'attachment; filename="{_os.path.basename(full)}"'
+        guessed = "application/octet-stream"
+    return _FileResponse(full, media_type=guessed, headers=headers)
 # /api/uploads/employees used to be a second mount on /app/backend/uploads/employees.
 # It was shadowed by the /api/uploads mount above (so every employee file 404'd) and
 # that directory was outside the persistent volume (wiped on every deploy).
