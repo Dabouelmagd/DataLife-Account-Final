@@ -336,26 +336,21 @@ async def record_overhead_variance(data: dict,
     if abs_var < 0.01:
         return {"message": "لا فروق تحميل — التكاليف المحملة مساوية للفعلية", "variance": 0}
 
-    if is_over:
-        # Over-absorbed: محمَّل أكثر من الفعلي → ربح
-        lines = await asyncio.gather(
-            je_line(company_id, ACC["foh_exp"], debit=actual_foh,
-                    desc=f"إغلاق تكاليف صناعية فعلية — {period}"),
-            je_line(company_id, ACC["foh_applied"], credit=applied_foh,
-                    desc=f"إغلاق تكاليف محملة — {period}"),
-            je_line(company_id, ACC["foh_variance"], credit=abs_var,
-                    desc=f"ربح انحراف تحميل (over-absorbed) — {period}"),
-        )
-    else:
-        # Under-absorbed: محمَّل أقل من الفعلي → خسارة
-        lines = await asyncio.gather(
-            je_line(company_id, ACC["foh_exp"], debit=actual_foh,
-                    desc=f"إغلاق تكاليف صناعية فعلية — {period}"),
-            je_line(company_id, ACC["foh_applied"], credit=applied_foh,
-                    desc=f"إغلاق تكاليف محملة — {period}"),
-            je_line(company_id, ACC["foh_variance"], debit=abs_var,
-                    desc=f"خسارة انحراف تحميل (under-absorbed) — {period}"),
-        )
+    # Closing reverses each account's own balance: the applied account carries a
+    # CREDIT balance, so it is closed by a DEBIT; actual overhead carries a
+    # DEBIT balance, so it is closed by a CREDIT. The code had both the wrong
+    # way round, so the entry never balanced and this route always failed.
+    lines = await asyncio.gather(
+        je_line(company_id, ACC["foh_applied"], debit=applied_foh,
+                desc=f"إغلاق التكاليف المحملة — {period}"),
+        je_line(company_id, ACC["foh_exp"], credit=actual_foh,
+                desc=f"إغلاق التكاليف الصناعية الفعلية — {period}"),
+        je_line(company_id, ACC["foh_variance"],
+                credit=abs_var if is_over else 0.0,
+                debit=0.0 if is_over else abs_var,
+                desc=(f"ربح انحراف تحميل (زيادة تحميل) — {period}" if is_over
+                      else f"خسارة انحراف تحميل (نقص تحميل) — {period}")),
+    )
 
     je_id = await post_je(company_id, current_user["user_id"], date_str,
         f"تسوية فروق التحميل — {period} — {'زيادة' if is_over else 'نقص'} {abs_var:,.2f}",
