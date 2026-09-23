@@ -240,6 +240,12 @@ class Invoice(BaseModel):
     # References
     reference: Optional[str] = None        # مرجع خارجي
     converted_from_id: Optional[str] = None  # محول من (عرض سعر)
+    # إشعار دائن/مدين: الفاتورة الأصلية وسببه
+    original_invoice_id: Optional[str] = None
+    original_invoice_number: Optional[str] = None
+    credit_reason: Optional[str] = None
+    restock: bool = True                     # ترجع البضاعة للمخزون؟
+    credited_amount: float = 0.0             # ما صدر مقابل هذه الفاتورة من إشعارات
     journal_entry_id: Optional[str] = None   # قيد اليومية
     
     # ══ ETA E-Invoicing — Egyptian Tax Authority (مصلحة الضرائب) ══════

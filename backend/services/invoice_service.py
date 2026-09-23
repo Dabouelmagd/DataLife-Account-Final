@@ -384,6 +384,32 @@ class InvoiceService:
                     description=f"ضريبة القيمة المضافة 14% مخرجات"
                 ))
         
+        elif doc_type in (DocumentType.CREDIT_NOTE.value, DocumentType.DEBIT_NOTE.value):
+            # إشعار دائن: عكس فاتورة البيع — من ح/ المبيعات + ضريبة المخرجات ← إلى ح/ العملاء
+            # إشعار مدين: العكس (زيادة على العميل)
+            credit_note = doc_type == DocumentType.CREDIT_NOTE.value
+            customers = find_account("131")
+            revenue = find_account("411") or find_account("412")
+            vat_out = find_account("260")
+            if not (customers and revenue):
+                raise ValueError("حسابات العملاء أو المبيعات غير موجودة في شجرة الحسابات")
+            net = round(float(invoice.get("total_after_discount") or 0), 2)
+            tax = round(float(invoice.get("total_tax") or 0), 2)
+            total = round(float(invoice.get("grand_total") or 0), 2)
+
+            def line(acc, amount, debit: bool, text: str):
+                return JournalEntryLine(
+                    account_id=acc["id"], account_code=acc["account_code"], account_name=acc["account_name"],
+                    debit=amount if debit else 0.0, credit=0.0 if debit else amount, description=text)
+
+            label = "إشعار دائن" if credit_note else "إشعار مدين"
+            ref = invoice.get("original_invoice_number") or invoice.get("document_number")
+            if net:
+                lines.append(line(revenue, net, credit_note, f"{label} — مردودات/خصم على الفاتورة {ref}"))
+            if tax and vat_out:
+                lines.append(line(vat_out, tax, credit_note, f"ضريبة {label} — {ref}"))
+            lines.append(line(customers, total, not credit_note, f"{label} — {invoice.get('party_name', '')}"))
+
         elif doc_type == DocumentType.PURCHASE_INVOICE.value:
             # فاتورة شراء — الدورة المستندية المصرية (مبيعات ومشتريات)
             # قانون 91/2005 م.59: خصم وتحصيل = 1% توريدات | 3% خدمات
@@ -468,7 +494,7 @@ class InvoiceService:
             entry_number=0,
             entry_date=invoice["document_date"],
             reference=invoice["document_number"],
-            description=f"{'فاتورة بيع' if doc_type == DocumentType.SALES_INVOICE.value else 'فاتورة شراء'} - {invoice['party_name']}",
+            description=f"{ {'sales_invoice': 'فاتورة بيع', 'purchase_invoice': 'فاتورة شراء', 'credit_note': 'إشعار دائن', 'debit_note': 'إشعار مدين'}.get(doc_type, 'مستند') } - {invoice['party_name']}",
             lines=lines,
             source_document_type="invoice",
             source_document_id=invoice.get("id"),
@@ -484,11 +510,13 @@ class InvoiceService:
         # من حـ/ تكلفة البضاعة المباعة (321) ← إلى حـ/ المخزون (125 بضائع بغرض البيع)
         if doc_type == DocumentType.SALES_INVOICE.value:
             await self._create_cogs_entry(invoice, user_id)
+        elif doc_type == DocumentType.CREDIT_NOTE.value and invoice.get("restock", True):
+            await self._create_cogs_entry(invoice, user_id, reverse=True)
         
         return result["id"]
     
-    async def _create_cogs_entry(self, invoice: dict, user_id: str) -> None:
-        """إنشاء قيد تكلفة البضاعة المباعة عند إصدار فاتورة البيع"""
+    async def _create_cogs_entry(self, invoice: dict, user_id: str, reverse: bool = False) -> None:
+        """قيد تكلفة البضاعة المباعة — أو عكسه عند مردود مبيعات (reverse)."""
         try:
             accounts = await self.accounting.get_all_accounts(invoice["company_id"])
             def find_account(code):
@@ -518,16 +546,16 @@ class InvoiceService:
                     account_id=cogs_acc["id"],
                     account_code=cogs_acc["account_code"],
                     account_name=cogs_acc["account_name"],
-                    debit=total_cost,
-                    credit=0,
+                    debit=0 if reverse else total_cost,
+                    credit=total_cost if reverse else 0,
                     description=f"تكلفة البضاعة المباعة — فاتورة {invoice['document_number']}"
                 ),
                 JournalEntryLine(
                     account_id=stock_acc["id"],
                     account_code=stock_acc["account_code"],
                     account_name=stock_acc["account_name"],
-                    debit=0,
-                    credit=total_cost,
+                    debit=total_cost if reverse else 0,
+                    credit=0 if reverse else total_cost,
                     description=f"إقفال بضاعة مباعة — فاتورة {invoice['document_number']}"
                 ),
             ]
@@ -543,52 +571,25 @@ class InvoiceService:
             )
             cogs_result = await self.accounting.create_journal_entry(cogs_entry)
             await self.accounting.post_journal_entry(cogs_result["id"], user_id)
-        except Exception:
-            pass  # COGS is supplementary — never block invoice creation
-    
-    # ==========================================
-    # Payment Operations
-    # ==========================================
-    
-    async def record_payment(self, payment: Payment, user_id: str) -> Dict:
-        """تسجيل سداد للفاتورة"""
-        invoice = await self.get_invoice(payment.invoice_id)
-        if not invoice:
-            raise ValueError("Invoice not found")
-        
-        if invoice["status"] == DocumentStatus.CANCELLED.value:
-            raise ValueError("Cannot record payment for cancelled invoice")
-        
-        if payment.amount > invoice["amount_due"]:
-            raise ValueError("Payment amount exceeds amount due")
-        
-        # إنشاء قيد السداد
-        journal_entry_id = await self._create_payment_journal_entry(invoice, payment, user_id)
-        payment.journal_entry_id = journal_entry_id
-        
-        # حفظ السداد
-        payment_dict = payment.dict()
-        await self.db.payments.insert_one(payment_dict)
-        payment_dict.pop("_id", None)
-        
-        # تحديث الفاتورة
-        new_amount_paid = invoice["amount_paid"] + payment.amount
-        new_amount_due = round((invoice.get("settle_amount") or invoice["grand_total"]) - new_amount_paid, 2)
-        new_status = DocumentStatus.PAID.value if new_amount_due <= 0 else DocumentStatus.PARTIALLY_PAID.value
-        
-        await self.db.invoices.update_one(
-            {"id": payment.invoice_id},
-            {"$set": {
-                "amount_paid": new_amount_paid,
-                "amount_due": new_amount_due,
-                "status": new_status,
-                "updated_at": datetime.utcnow().isoformat()
-            }}
-        )
-        
-        return payment_dict
-    
+
+            # stock follows the goods: a sale takes them out, a return puts them
+            # back. Only returns moved stock, so quantities grew and never fell.
+            sign = 1.0 if reverse else -1.0
+            for line in invoice.get("lines", []):
+                if line.get("product_id") and float(line.get("quantity", 0) or 0):
+                    await self.db.stocks.update_one(
+                        {"company_id": invoice["company_id"], "product_id": line["product_id"],
+                         "warehouse_id": line.get("warehouse_id", "main")},
+                        {"$inc": {"quantity": sign * float(line["quantity"])}}, upsert=True)
+
+        except Exception as e:
+            # a cost entry must never block the invoice itself
+            logger.error(f"COGS entry failed for {invoice.get('document_number')}: {e}")
+
     async def _settle_amount(self, je_id: str, doc_type: str, fallback: float) -> float:
+        """What is actually owed: the net the entry put on 131 (sales) or 251
+        (purchases) — net of withholding, so a fully settled invoice does not
+        stay 'partially paid' with a phantom remainder."""
         je = await self.db.journal_entries.find_one({"id": je_id}, {"_id": 0, "lines": 1}) or {}
         code = "131" if doc_type == DocumentType.SALES_INVOICE.value else "251"
         net = sum((l.get("debit", 0) - l.get("credit", 0)) if code == "131" else (l.get("credit", 0) - l.get("debit", 0))

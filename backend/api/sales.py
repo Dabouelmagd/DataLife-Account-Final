@@ -552,7 +552,7 @@ async def _customer_movements(company_id: str, customer_id: str):
     rows = []
     invs = await db.invoices.find(
         {**sales_query(company_id), "party_id": customer_id,
-         "status": {"$in": LIVE_STATUSES}, "journal_entry_id": {"$exists": True, "$ne": None}},
+         "status": {"$in": LIVE_STATUSES + ["credited"]}, "journal_entry_id": {"$exists": True, "$ne": None}},
         {"_id": 0}).to_list(None)
     inv_ids = [i["id"] for i in invs]
     for inv in invs:
@@ -572,6 +572,13 @@ async def _customer_movements(company_id: str, customer_id: str):
         if chq.get("status") == "bounced":
             rows.append({"date": chq.get("bounce_date"), "type": "bounce", "reference": chq.get("cheque_number"),
                          "description": f"ارتداد الشيك رقم {chq.get('cheque_number', '')}", "debit": amt, "credit": 0.0})
+    async for note in db.invoices.find(
+            {"company_id": company_id, "document_type": DocumentType.CREDIT_NOTE.value,
+             "party_id": customer_id, "journal_entry_id": {"$exists": True, "$ne": None}}, {"_id": 0}):
+        rows.append({"date": note.get("document_date"), "type": "credit_note",
+                     "reference": note.get("document_number"),
+                     "description": f"إشعار دائن على الفاتورة {note.get('original_invoice_number', '')}",
+                     "debit": 0.0, "credit": round(float(note.get("grand_total") or 0), 2)})
     rows.sort(key=lambda r: (r["date"] or "", {"invoice": 0, "bounce": 1}.get(r["type"], 2)))
     return rows
 
@@ -868,3 +875,109 @@ async def send_quotation_email(
         print(f"Email send error: {e}")
     
     return {"success": True, "message": "تم إرسال عرض السعر بنجاح", "status": "sent"}
+
+# ══════════════════════════════════════════
+# CREDIT NOTES — the only way to correct a posted invoice
+# ══════════════════════════════════════════
+# Amounts on an approved invoice are fixed (its entry is in the ledger), so a
+# correction is a new document that reverses part or all of it: Dr sales +
+# Dr VAT output / Cr customer, plus the cost reversal and restock when goods
+# come back. The type existed but nothing posted it — approving one produced
+# no entry at all.
+
+@router.post("/invoices/{invoice_id}/credit-note")
+async def create_credit_note(invoice_id: str, data: dict, authorization: Optional[str] = Header(None)):
+    """إصدار إشعار دائن على فاتورة مبيعات (كلي أو جزئي)."""
+    user = await get_user(authorization)
+    company_id = user.get("company_id")
+    inv = await _find_sales_invoice(company_id, invoice_id)
+    if not inv:
+        raise HTTPException(404, "الفاتورة غير موجودة")
+    if not inv.get("journal_entry_id") or inv.get("status") not in LIVE_STATUSES:
+        raise HTTPException(400, "الإشعار الدائن يصدر على فاتورة معتمدة ومرحّلة فقط")
+
+    settle = round(float(inv.get("settle_amount") or inv.get("grand_total") or 0), 2)
+    already = round(float(inv.get("credited_amount") or 0), 2)
+    remaining = round(settle - already, 2)
+    if remaining <= 0:
+        raise HTTPException(400, "تم رد قيمة هذه الفاتورة بالكامل")
+
+    # lines: either the returned items, or a flat amount
+    requested = data.get("items")
+    lines, restock = [], bool(data.get("restock", True))
+    if requested:
+        for n, it in enumerate(requested, 1):
+            qty = float(it.get("quantity", 0) or 0)
+            price = float(it.get("unit_price", 0) or 0)
+            if qty <= 0:
+                continue
+            original = next((l for l in inv.get("lines", [])
+                             if l.get("description") == it.get("description")
+                             or (it.get("product_id") and l.get("product_id") == it.get("product_id"))), {})
+            max_qty = float(original.get("quantity", 0) or 0)
+            if original and qty > max_qty + 0.001:
+                raise HTTPException(400, f"الكمية المرتجعة ({qty}) أكبر من كمية الفاتورة ({max_qty}) للصنف {it.get('description', '')}")
+            lines.append(InvoiceLine(
+                line_number=n, product_id=it.get("product_id") or original.get("product_id"),
+                description=(it.get("description") or original.get("description") or "مردود")[:300],
+                unit=original.get("unit", "unit"), quantity=qty,
+                unit_price=price or float(original.get("unit_price", 0) or 0),
+                tax_rate=float(it.get("vat_percent", original.get("tax_rate", 14)) or 0)))
+    else:
+        amount = round(float(data.get("amount") or 0), 2)
+        if amount <= 0:
+            raise HTTPException(400, "حدد الأصناف المرتجعة أو مبلغ الإشعار")
+        vat_rate = float(data.get("vat_percent", 14) or 0)
+        net = round(amount / (1 + vat_rate / 100), 2) if vat_rate else amount
+        restock = False                      # a plain amount returns no goods
+        lines.append(InvoiceLine(line_number=1, description=data.get("reason") or "خصم/تسوية على الفاتورة",
+                                 quantity=1, unit_price=net, tax_rate=vat_rate))
+
+    if not lines:
+        raise HTTPException(400, "لا توجد بنود في الإشعار")
+
+    note = Invoice(
+        company_id=company_id, document_type=DocumentType.CREDIT_NOTE,
+        document_number="", document_date=data.get("date") or datetime.now().strftime("%Y-%m-%d"),
+        party_id=inv["party_id"], party_name=inv.get("party_name", ""),
+        party_tax_id=inv.get("party_tax_id"), lines=lines,
+        original_invoice_id=inv["id"], original_invoice_number=inv.get("document_number"),
+        credit_reason=data.get("reason"), restock=restock,
+        notes=data.get("notes"), created_by=user.get("user_id"))
+
+    from services.invoice_service import InvoiceService
+    service = InvoiceService(db)
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1}) or {}
+    created = await service.create_invoice(note, company.get("name", ""))
+
+    total = round(float(created.get("grand_total") or 0), 2)
+    if total > remaining + 0.005:
+        await db.invoices.delete_one({"id": created["id"]})       # never leave a half-made note
+        raise HTTPException(400, f"قيمة الإشعار ({total:,.2f}) أكبر من المتبقي على الفاتورة ({remaining:,.2f})")
+
+    approved = await service.approve_invoice(created["id"], user.get("user_id"))
+    # the invoice keeps the value it was posted with — the ledger has it that
+    # way, and each note is its own entry. Only what is still collectable moves.
+    new_credited = round(already + total, 2)
+    await db.invoices.update_one({"id": inv["id"], "company_id": company_id}, {"$set": {
+        "credited_amount": new_credited,
+        "amount_due": round(max(settle - new_credited - float(inv.get("amount_paid") or 0), 0), 2),
+        "status": "credited" if new_credited >= settle - 0.005 else inv.get("status"),
+        "updated_at": now_iso()}})
+    return {"message": f"تم إصدار الإشعار الدائن {created['document_number']} وترحيله",
+            "credit_note": approved or created, "invoice_remaining": round(remaining - total, 2)}
+
+
+@router.get("/invoices/{invoice_id}/credit-notes")
+async def list_credit_notes(invoice_id: str, authorization: Optional[str] = Header(None)):
+    user = await get_user(authorization)
+    company_id = user.get("company_id")
+    inv = await _find_sales_invoice(company_id, invoice_id)
+    if not inv:
+        raise HTTPException(404, "الفاتورة غير موجودة")
+    notes = await db.invoices.find(
+        {"company_id": company_id, "document_type": DocumentType.CREDIT_NOTE.value,
+         "original_invoice_id": inv["id"]}, {"_id": 0}).sort("document_date", 1).to_list(100)
+    settle = round(float(inv.get("settle_amount") or inv.get("grand_total") or 0), 2)
+    return {"credit_notes": notes, "credited_amount": round(float(inv.get("credited_amount") or 0), 2),
+            "invoice_remaining": settle}
