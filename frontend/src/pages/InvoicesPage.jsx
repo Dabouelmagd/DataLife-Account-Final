@@ -30,8 +30,10 @@ import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { 
   Plus, Search, Filter, FileText, Download, Eye,
   CheckCircle, Clock, XCircle, DollarSign, FileCheck, Send, Trash2, Minus,
-  Building, Upload, Percent
-} from 'lucide-react';
+  Building, Upload, Percent,
+  RotateCcw
+,
+  X} from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api/invoice`;
@@ -51,6 +53,11 @@ const InvoicesPage = () => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [parties, setParties] = useState([]);
   const [activeTab, setActiveTab] = useState('sales_invoice');
+  // debit note: the way to correct a posted purchase invoice
+  const [debitNote, setDebitNote] = useState(null);      // the invoice being corrected
+  const [dnMode, setDnMode] = useState('items');         // items | amount
+  const [dnForm, setDnForm] = useState({ items: [], amount: '', reason: '' });
+  const [dnBusy, setDnBusy] = useState(false);
   const [currencies, setCurrencies] = useState([]);
   const [baseCurrency, setBaseCurrency] = useState('EGP');
   const [adjustmentCategories, setAdjustmentCategories] = useState(null);
@@ -378,6 +385,45 @@ const InvoicesPage = () => {
       console.error('Error creating invoice:', error);
       toast.error(text.error);
     }
+  };
+
+  const openDebitNote = async (invoice) => {
+    setDnMode('items'); setDnBusy(false);
+    setDnForm({ amount: '', reason: '', items: (invoice.lines || []).map((l) => ({
+      product_id: l.product_id, description: l.description,
+      max: Number(l.quantity) || 0, quantity: 0,
+      unit_price: Number(l.unit_price) || 0, vat_percent: Number(l.tax_rate ?? 14),
+    })) });
+    setDebitNote(invoice);
+  };
+
+  const submitDebitNote = async () => {
+    const body = { reason: dnForm.reason || null };
+    if (dnMode === 'items') {
+      const items = dnForm.items.filter((i) => Number(i.quantity) > 0).map((i) => ({
+        product_id: i.product_id, description: i.description,
+        quantity: Number(i.quantity), unit_price: i.unit_price, vat_percent: i.vat_percent,
+      }));
+      if (!items.length) { alert(isRTL ? 'حدد الكميات المرتجعة' : 'Enter the returned quantities'); return; }
+      body.items = items;
+    } else {
+      if (!(Number(dnForm.amount) > 0)) { alert(isRTL ? 'أدخل مبلغ الإشعار' : 'Enter the amount'); return; }
+      body.amount = Number(dnForm.amount);
+    }
+    setDnBusy(true);
+    try {
+      const res = await fetch(`${API}/purchase-invoices/${debitNote.id}/debit-note`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(body),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || '');
+      alert(d.message);
+      setDebitNote(null); fetchInvoices();
+    } catch (e) {
+      alert(e.message || (isRTL ? 'تعذّر إصدار الإشعار' : 'Could not issue the note'));
+    } finally { setDnBusy(false); }
   };
 
   const handleApproveInvoice = async (invoiceId) => {
@@ -865,6 +911,16 @@ const InvoicesPage = () => {
                           </Button>
                         )}
 
+                        {/* Debit note — a posted purchase invoice cannot be edited */}
+                        {['approved', 'partially_paid', 'paid'].includes(invoice.status) &&
+                         invoice.document_type === 'purchase_invoice' && (
+                          <Button variant="ghost" size="icon" onClick={() => openDebitNote(invoice)}
+                            title={isRTL ? 'إشعار مدين (مردود مشتريات)' : 'Debit note (purchase return)'}
+                            className="text-amber-600 hover:text-amber-700">
+                            <RotateCcw className="w-4 h-4" />
+                          </Button>
+                        )}
+
                         {/* Submit to ETA button - Only for approved sales invoices */}
                         {invoice.status === 'approved' && 
                          invoice.document_type === 'sales_invoice' && 
@@ -1266,6 +1322,65 @@ const InvoicesPage = () => {
       {/* View Invoice Modal */}
       <Dialog open={!!selectedInvoice} onOpenChange={() => setSelectedInvoice(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          {/* Debit note — correcting a posted purchase invoice */}
+          {debitNote && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+                <div className="flex justify-between items-center p-5 border-b">
+                  <h3 className="font-bold text-gray-900">{isRTL ? 'إشعار مدين — مردود مشتريات' : 'Debit note — purchase return'}</h3>
+                  <Button variant="ghost" size="icon" onClick={() => setDebitNote(null)}><X className="w-5 h-5" /></Button>
+                </div>
+                <div className="p-5 space-y-4 text-sm">
+                  <div className="bg-amber-50 rounded-xl p-3">
+                    <p className="font-bold text-gray-800">{debitNote.document_number} — {debitNote.party_name}</p>
+                    <p className="text-gray-600">{isRTL ? 'قيمة الفاتورة:' : 'Invoice:'} {Number(debitNote.grand_total || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {[['items', isRTL ? 'مردود أصناف' : 'Returned items'], ['amount', isRTL ? 'خصم بمبلغ' : 'Discount']].map(([k, l]) => (
+                      <button key={k} onClick={() => setDnMode(k)}
+                        className={`px-3 py-2 rounded-lg text-xs font-semibold ${dnMode === k ? 'bg-amber-600 text-white' : 'border border-gray-300 text-gray-700'}`}>{l}</button>
+                    ))}
+                  </div>
+                  {dnMode === 'items' ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-500">{isRTL ? 'الكمية المرتجعة لا تتجاوز كمية الفاتورة، وتخرج من المخزون.' : 'Returned quantities leave stock.'}</p>
+                      {dnForm.items.map((it, idx) => (
+                        <div key={idx} className="flex items-center gap-2 border border-gray-200 rounded-lg p-2">
+                          <span className="flex-1 truncate">{it.description}
+                            <span className="text-xs text-gray-400"> ({isRTL ? 'بالفاتورة' : 'on invoice'} {it.max})</span></span>
+                          <input type="number" min="0" max={it.max} step="any" value={it.quantity} dir="ltr"
+                            aria-label={it.description}
+                            onChange={(e) => setDnForm((f) => ({ ...f, items: f.items.map((x, i) => i === idx ? { ...x, quantity: Math.min(Number(e.target.value) || 0, x.max) } : x) }))}
+                            className="w-24 px-2 py-1.5 border border-gray-300 rounded-lg tabular-nums" />
+                          <span className="text-xs text-gray-500 w-20 text-left tabular-nums">{((Number(it.quantity) || 0) * it.unit_price).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <label className="block"><span className="text-gray-600">{isRTL ? 'مبلغ الإشعار (شامل الضريبة)' : 'Amount (incl. VAT)'}</span>
+                      <input type="number" min="0" step="0.01" dir="ltr" value={dnForm.amount}
+                        onChange={(e) => setDnForm((f) => ({ ...f, amount: e.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg tabular-nums" /></label>
+                  )}
+                  <label className="block"><span className="text-gray-600">{isRTL ? 'السبب' : 'Reason'}</span>
+                    <input value={dnForm.reason} onChange={(e) => setDnForm((f) => ({ ...f, reason: e.target.value }))}
+                      placeholder={isRTL ? 'تالف، خطأ في الصنف، خصم…' : 'Damaged, wrong item, discount…'}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg" /></label>
+                  <p className="text-xs text-gray-500">
+                    {isRTL ? 'يُرحَّل فوراً: يقلّل رصيد المورد والمشتريات وضريبة المدخلات، وتخرج البضاعة من المخزون.'
+                            : 'Posted immediately: reduces the supplier balance, purchases and input VAT; goods leave stock.'}
+                  </p>
+                </div>
+                <div className="flex justify-end gap-2 p-5 border-t">
+                  <Button variant="outline" onClick={() => setDebitNote(null)}>{isRTL ? 'إلغاء' : 'Cancel'}</Button>
+                  <Button onClick={submitDebitNote} disabled={dnBusy} className="bg-amber-600 hover:bg-amber-700 text-white">
+                    {dnBusy ? (isRTL ? 'جارٍ الإصدار…' : 'Issuing…') : (isRTL ? 'إصدار الإشعار' : 'Issue note')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {selectedInvoice && (
             <>
               <DialogHeader>
