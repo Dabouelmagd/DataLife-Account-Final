@@ -8,7 +8,7 @@ from models.subscription import (
 )
 from api.users import get_current_user
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 import string
 from dependencies import get_current_user
@@ -500,3 +500,79 @@ async def redeem_activation_code(
         "end_date": end_date.isoformat(),
         "amount": 0
     }
+
+# ══════════════════════════════════════════
+# INDUSTRY PACKS — حسابات وشاشات حسب النشاط
+# ══════════════════════════════════════════
+# A pack's accounts are injected into the company's chart when it subscribes,
+# and never removed automatically: an account that has been posted to must
+# stay, or its entries would point at nothing.
+
+@router.get("/industry-packs")
+async def list_industry_packs(current_user: dict = Depends(get_current_user)):
+    """الباقات المتاحة، وأيها مفعّل لهذه الشركة."""
+    from services.industry_packs import list_packs
+    company_id = current_user.get("company_id")
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "industry_packs": 1}) or {}
+    active = set(company.get("industry_packs") or [])
+    packs = []
+    for p in list_packs():
+        packs.append({**p, "active": p["key"] in active})
+    return {"packs": packs, "active_count": len(active)}
+
+
+@router.post("/industry-packs/{pack_key}/activate")
+async def activate_industry_pack(pack_key: str, current_user: dict = Depends(get_current_user)):
+    """تفعيل باقة نشاط: تُضاف حساباتها إلى شجرة الشركة."""
+    from services.industry_packs import PACKS, pack_accounts
+    allowed_roles = ["رئيس مجلس الإدارة", "Board Chairman", "مدير عام", "General Manager", "CEO",
+                     "المدير التنفيذي", "المدير المالي", "CFO", "رئيس الحسابات", "Chief Accountant",
+                     "Super Admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="تفعيل الباقات مقصور على الإدارة والإدارة المالية")
+    if pack_key not in PACKS:
+        raise HTTPException(status_code=404, detail="الباقة غير موجودة")
+
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=403, detail="الحساب غير مرتبط بشركة")
+
+    existing = {a["account_code"] async for a in db.chart_of_accounts.find(
+        {"company_id": company_id}, {"_id": 0, "account_code": 1})}
+    to_add = [a for a in pack_accounts(pack_key, company_id) if a["account_code"] not in existing]
+    if to_add:
+        await db.chart_of_accounts.insert_many(to_add)
+    await db.companies.update_one({"id": company_id}, {
+        "$addToSet": {"industry_packs": pack_key},
+        "$set": {f"industry_pack_dates.{pack_key}": datetime.now(timezone.utc).isoformat()}})
+    return {"message": f"تم تفعيل {PACKS[pack_key]['name_ar']}",
+            "accounts_added": len(to_add),
+            "accounts_already_present": len(PACKS[pack_key]["accounts"]) - len(to_add)}
+
+
+@router.post("/industry-packs/{pack_key}/deactivate")
+async def deactivate_industry_pack(pack_key: str, current_user: dict = Depends(get_current_user)):
+    """إيقاف باقة: تختفي شاشاتها، وتبقى الحسابات التي تحرّكت عليها قيود."""
+    from services.industry_packs import PACKS
+    if current_user.get("role") not in ["رئيس مجلس الإدارة", "مدير عام", "المدير المالي",
+                                        "Board Chairman", "General Manager", "CFO", "Super Admin"]:
+        raise HTTPException(status_code=403, detail="إيقاف الباقات مقصور على الإدارة")
+    if pack_key not in PACKS:
+        raise HTTPException(status_code=404, detail="الباقة غير موجودة")
+    company_id = current_user.get("company_id")
+
+    codes = [c for c, *_ in PACKS[pack_key]["accounts"]]
+    used = {a["account_code"] async for a in db.chart_of_accounts.find(
+        {"company_id": company_id, "account_code": {"$in": codes},
+         "current_balance": {"$ne": 0}}, {"_id": 0, "account_code": 1})}
+    # unused accounts can go; anything with a balance stays, its entries need it
+    removable = [c for c in codes if c not in used]
+    if removable:
+        await db.chart_of_accounts.delete_many(
+            {"company_id": company_id, "account_code": {"$in": removable},
+             "industry_pack": pack_key, "current_balance": 0})
+    await db.companies.update_one({"id": company_id}, {"$pull": {"industry_packs": pack_key}})
+    return {"message": f"تم إيقاف {PACKS[pack_key]['name_ar']}",
+            "accounts_removed": len(removable),
+            "accounts_kept": len(used),
+            "note": "حسابات تحرّكت عليها قيود بقيت في الشجرة" if used else None}
