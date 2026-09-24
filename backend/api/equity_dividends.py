@@ -36,6 +36,9 @@ ACC = {
     "general_reserve":"217",   # الاحتياطي العام
     "div_payable":    "256",  # أرباح مستحقة للمساهمين (صافي)
     "div_tax":        "2542",  # ضريبة توزيعات مستحقة
+    # التزامات قانون 159/1981 عند التوزيع — لم تكن مسجَّلة إطلاقاً
+    "emp_share":      "267",   # حصة العاملين في الأرباح
+    "board_rem":      "268",   # مكافآت أعضاء مجلس الإدارة
     "paid_in_capital":"211",   # رأس المال المدفوع
     "partners_cur":   "212",   # جاري الشركاء
     "bank":           "162",
@@ -118,6 +121,9 @@ class GeneralReserveRequest(BaseModel):
 class DividendRequest(BaseModel):
     fiscal_year:     int
     gross_dividend:  float        # إجمالي الأرباح المقرر توزيعها
+    # التزامات قانون 159/1981 تُخصم قبل حصة المساهمين — لم تكن مسجَّلة إطلاقاً
+    employees_share: float = 0.0      # حصة العاملين في الأرباح
+    board_remuneration: float = 0.0   # مكافآت أعضاء مجلس الإدارة
     is_listed:       bool = False # مقيدة بالبورصة؟ (5% vs 10%)
     declaration_date: str
     payment_date:    Optional[str] = None
@@ -293,8 +299,16 @@ async def declare_dividends(
     company_id = current_user["company_id"]
 
     tax_rate   = DIVIDEND_TAX_LISTED if req.is_listed else DIVIDEND_TAX_NORMAL
-    tax_amount = round(req.gross_dividend * tax_rate, 2)
-    net_div    = round(req.gross_dividend - tax_amount, 2)
+    emp_share = round(float(req.employees_share or 0), 2)
+    board_rem = round(float(req.board_remuneration or 0), 2)
+    if emp_share < 0 or board_rem < 0:
+        raise HTTPException(400, "حصة العاملين ومكافآت المجلس لا يمكن أن تكون سالبة")
+    if emp_share + board_rem > req.gross_dividend:
+        raise HTTPException(400, "حصة العاملين ومكافآت المجلس تتجاوز إجمالي المُوزَّع")
+    # الضريبة على حصة المساهمين وحدها — الحصة والمكافآت ليستا توزيعات أرباح
+    shareholders = round(req.gross_dividend - emp_share - board_rem, 2)
+    tax_amount = round(shareholders * tax_rate, 2)
+    net_div    = round(shareholders - tax_amount, 2)
     div_id     = str(uuid.uuid4())
 
     lines = await asyncio.gather(
@@ -304,6 +318,10 @@ async def declare_dividends(
                 desc=f"أرباح أسهم مستحقة للمساهمين (بعد الضريبة)"),
         je_line(company_id, ACC["div_tax"], credit=tax_amount,
                 desc=f"ضريبة توزيعات أرباح {tax_rate*100:.0f}% — مستحقة لمصلحة الضرائب"),
+        *([je_line(company_id, ACC["emp_share"], credit=emp_share,
+                   desc="حصة العاملين في الأرباح — قانون 159/1981")] if emp_share else []),
+        *([je_line(company_id, ACC["board_rem"], credit=board_rem,
+                   desc="مكافآت أعضاء مجلس الإدارة")] if board_rem else []),
     )
     je_id = await post_je(company_id, current_user["user_id"], req.declaration_date,
         f"إقرار توزيعات أرباح {req.fiscal_year}", list(lines), div_id)
@@ -313,6 +331,9 @@ async def declare_dividends(
     div_rec = {
         "id": div_id, "company_id": company_id,
         "type": "dividend_declaration", "fiscal_year": req.fiscal_year,
+        "employees_share": emp_share,
+        "board_remuneration": board_rem,
+        "shareholders_share": shareholders,
         "gross_dividend": req.gross_dividend,
         "tax_rate":       tax_rate,
         "tax_amount":     tax_amount,
@@ -334,6 +355,9 @@ async def declare_dividends(
         "div_id":    div_id,
         "calculation": {
             "gross_dividend": req.gross_dividend,
+            "employees_share": emp_share,
+            "board_remuneration": board_rem,
+            "shareholders_share": shareholders,
             "tax_rate":       f"{tax_rate*100:.0f}%",
             "tax_type":       "5% — شركات مقيدة بالبورصة" if req.is_listed
                               else "10% — شركات غير مقيدة",

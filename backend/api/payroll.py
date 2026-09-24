@@ -4,6 +4,7 @@ Payroll API with Accounting Integration
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Response
+import os
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
@@ -473,9 +474,27 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
             description="صندوق إعانة الطوارئ مستحق"
         ))
 
+    # مدين + دائن: صندوق دعم الأشخاص ذوي الإعاقة — قانون 10/2018
+    # كان غير مسجَّل إطلاقاً رغم أنه استقطاع واجب على المنشأة
+    disability_rate = float(os.environ.get("DISABILITY_FUND_RATE", "0.0005"))
+    disability_amount = round(emergency_basic * disability_rate, 2)
+    dis_exp_id, dis_exp_code, dis_exp_name = get_account_info(None, "3383")
+    dis_pay_id, dis_pay_code, dis_pay_name = get_account_info(None, "269")
+    if disability_amount > 0 and dis_exp_id and dis_pay_id:
+        lines.append(JournalEntryLine(
+            account_id=dis_exp_id, account_code=dis_exp_code, account_name=dis_exp_name,
+            debit=disability_amount, credit=0,
+            description="مصروف صندوق دعم ذوي الإعاقة — حصة المنشأة"))
+        lines.append(JournalEntryLine(
+            account_id=dis_pay_id, account_code=dis_pay_code, account_name=dis_pay_name,
+            debit=0, credit=disability_amount,
+            description="صندوق دعم ذوي الإعاقة مستحق"))
+
     # مدين + دائن: صندوق تكريم الشهداء والمفقودين 0.05% — قانون 148/2019
     martyrs_amount = round(emergency_basic * 0.0005, 2)
-    mrt_exp_id, mrt_exp_code, mrt_exp_name = get_account_info(None, "338")  # مصروف صندوق الشهداء
+    # 338 is "مصروفات تأمين" in this chart — the martyrs fund was being posted
+    # to insurance expenses. 3382 is the fund's own account.
+    mrt_exp_id, mrt_exp_code, mrt_exp_name = get_account_info(None, "3382")
     if martyrs_amount > 0:
         # مدين: مصروف صندوق تكريم الشهداء
         if mrt_exp_id:

@@ -401,6 +401,29 @@ DEFAULT_ACCOUNTS = [
     {"code": "312", "name": "أجور تشغيلية مباشرة", "name_en": "Direct Labor Cost", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
     {"code": "313", "name": "مصروفات وإهلاكات تشغيلية", "name_en": "Operating Expenses & Depreciation", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
     # مفقود من الشجرة: كانت تكلفة البضاعة المباعة تُرحّل على 321 (فوائد بنكية)
+    # ── التزامات قانون الشركات 159/1981 عند توزيع الأرباح ────────
+    {"code": "267", "name": "حصة العاملين في الأرباح المستحقة", "name_en": "Employees' Profit Share Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
+    {"code": "268", "name": "مكافآت أعضاء مجلس الإدارة المستحقة", "name_en": "Board Remuneration Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
+    # ── الصناديق والرسوم السيادية (كان صندوق الشهداء فقط) ────────
+    {"code": "269", "name": "صندوق دعم الأشخاص ذوي الإعاقة — قادرون باختلاف", "name_en": "Disability Support Fund Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
+    {"code": "2544", "name": "رسم تنمية الموارد المالية للدولة المستحق", "name_en": "State Resource Development Levy Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "254"},
+    {"code": "2545", "name": "ضريبة الجدول المستحقة", "name_en": "Schedule Tax Payable", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "254"},
+    {"code": "3382", "name": "مصروف صندوق تكريم الشهداء — حصة المنشأة", "name_en": "Martyrs Fund Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "338"},
+    {"code": "3383", "name": "مصروف صندوق دعم ذوي الإعاقة — حصة المنشأة", "name_en": "Disability Fund Expense", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "338"},
+    # ── معيار المحاسبة المصري 48 (الإيراد من العقود) ─────────────
+    {"code": "152", "name": "أصول العقود — أعمال منجزة غير مفوترة", "name_en": "Contract Assets", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "15"},
+    {"code": "2431", "name": "التزامات العقود — مقابل أعمال لم تُنفَّذ", "name_en": "Contract Liabilities", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "243"},
+    # ── الحسابات النظامية والرقابية (خارج الميزانية) ─────────────
+    # الكود كان يرحّل خطابات الضمان على 9111/9112 وهما غير موجودين أصلاً
+    {"code": "9", "name": "حسابات نظامية ورقابية (خارج الميزانية)", "name_en": "Memorandum & Off-Balance-Sheet", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "parent_code": None},
+    {"code": "91", "name": "خطابات الضمان", "name_en": "Letters of Guarantee", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "parent_code": "9"},
+    {"code": "9111", "name": "التزامات البنوك عن خطابات ضمان صادرة", "name_en": "Bank LG Obligations (Memo Dr)", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "91"},
+    {"code": "9112", "name": "التزامات الشركة تجاه البنوك عن خطابات الضمان", "name_en": "Company LG Obligations (Memo Cr)", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "91"},
+    {"code": "92", "name": "أوراق وبضائع لدى الغير", "name_en": "Instruments & Goods Held by Others", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "parent_code": "9"},
+    {"code": "9211", "name": "أوراق قبض برسم التحصيل لدى البنوك", "name_en": "Notes Sent for Collection", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "92"},
+    {"code": "9212", "name": "أوراق قبض برسم التأمين لدى البنوك", "name_en": "Notes Pledged as Security", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "92"},
+    {"code": "9213", "name": "بضاعة أمانة أو تحت التشغيل لدى الغير", "name_en": "Goods on Consignment with Others", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "92"},
+    {"code": "9214", "name": "مقابل بضاعة وأوراق لدى الغير", "name_en": "Contra — Held by Others", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "92"},
     {"code": "314", "name": "تكلفة البضاعة المباعة", "name_en": "Cost of Goods Sold", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
     # التصنيع: كانت هذه البنود تُرحّل على حسابات مخزون ومصروفات لا تخصّها
     {"code": "3181", "name": "تكاليف صناعية غير مباشرة محملة", "name_en": "Factory Overhead Applied", "type": AccountType.EXPENSE, "category": AccountCategory.COGS, "parent_code": "31"},
