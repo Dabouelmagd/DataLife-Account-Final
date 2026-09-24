@@ -493,6 +493,10 @@ const PricingSection = () => {
               { key:'education',    icon:'🎓', name:ar?'التعليم والمدارس':'Education',        price:199, tags:ar?['الطلاب','الرسوم','جداول']:['Students','Fees','Schedules'] },
               { key:'retail',       icon:'🛒', name:ar?'التجزئة والمتاجر':'Retail',           price:249, tags:ar?['POS','باركود','نقاط ولاء']:['POS','Barcode','Loyalty'] },
               { key:'logistics',    icon:'🚚', name:ar?'اللوجستيات والشحن':'Logistics',       price:399, tags:ar?['أسطول','شحنات','جمارك']:['Fleet','Shipments','Customs'] },
+              // كانت هذه الباقات موجودة في النظام بحساباتها ولا تُعرض للبيع
+              { key:'import',       icon:'🚢', name:ar?'الاستيراد':'Import',                  price:349, tags:ar?['اعتمادات','جمارك','شحن دولي']:['LCs','Customs','Freight'] },
+              { key:'export',       icon:'🌍', name:ar?'التصدير':'Export',                    price:349, tags:ar?['عملاء بالعملات','مساندة الصادرات','شهادات منشأ']:['FX Customers','Export Support','Origin Certs'] },
+              { key:'professional', icon:'⚖️', name:ar?'المكاتب المهنية':'Professional Services', price:249, tags:ar?['أتعاب','ساعات غير مفوترة','عملاء']:['Fees','Unbilled WIP','Clients'] },
             ].map(addon => (
               <div key={addon.key} style={{ border:'2px solid #e2e8f0', borderRadius:14, padding:'16px', background:'#fff', position:'relative', overflow:'hidden' }}>
                 <div style={{ position:'absolute', top:10, left:ar?'auto':10, right:ar?10:'auto', background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:8, padding:'2px 8px', fontSize:10, color:'#92400e', fontWeight:700 }}>+ {ar?'إضافة':'Add-on'}</div>

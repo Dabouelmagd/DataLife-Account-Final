@@ -24,3 +24,4 @@ subscriptions.py:/validate-code  # checks an activation code during sign-up
 auth.py:/portal-invite  # activation page: needs a 256-bit one-time token
 auth.py:/portal-invite/accept  # sets the password: needs the one-time token, spent atomically
 auth.py:/login/verify  # second step of login: needs a live challenge id and its code
+subscriptions.py:/industry-packs/public  # the pricing page's catalogue: names and counts only, no company data

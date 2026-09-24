@@ -603,6 +603,29 @@ def check_duplicate_account_keys():
                 else:
                     seen[code] = key
 
+# ── Mode 17: the website must sell only packs that exist (blocking) ─────────
+# The pricing page carried its own hard-coded list and drifted from the
+# system: it sold education, retail, logistics and advertising, none of which
+# existed as packs — a customer could pay for one and have nothing injected —
+# while import, export, professional services and media existed and were
+# never offered.
+def check_industry_pack_catalogue():
+    import re
+    packs_file = ROOT / "backend" / "services" / "industry_packs.py"
+    pricing = ROOT / "frontend" / "src" / "components" / "PricingSection.jsx"
+    if not packs_file.exists() or not pricing.exists():
+        return
+    text = packs_file.read_text(encoding="utf-8")
+    body = text[text.index("PACKS = {"):] if "PACKS = {" in text else text
+    known = set(re.findall(r'^    "([a-z_]+)":\s*\{', body, re.M))
+    sold = set(re.findall(r"key:'([a-z_]+)'", pricing.read_text(encoding="utf-8")))
+    if not known or not sold:
+        return
+    for key in sorted(sold - known):
+        errors.append(f"frontend/src/components/PricingSection.jsx: sells industry pack \"{key}\" "
+                      f"which does not exist in backend/services/industry_packs.py — "
+                      f"a customer could pay for it and get no accounts")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -618,6 +641,9 @@ if result is None:
 
 print(f"Mode 3: Backend import check...")
 check_backend()
+
+print(f"Mode 17: Industry pack catalogue check...")
+check_industry_pack_catalogue()
 
 print(f"Mode 16: Duplicate account key check...")
 check_duplicate_account_keys()

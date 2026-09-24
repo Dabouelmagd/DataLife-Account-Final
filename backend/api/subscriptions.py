@@ -508,6 +508,20 @@ async def redeem_activation_code(
 # and never removed automatically: an account that has been posted to must
 # stay, or its entries would point at nothing.
 
+@router.get("/industry-packs/public")
+async def public_industry_packs():
+    """الباقات المعروضة في الموقع — نفس مصدر التطبيق.
+
+    The pricing page used to carry its own hard-coded list. It drifted: the
+    site sold education, retail, logistics and advertising, none of which
+    existed in the system — a customer could pay for a pack that injected
+    nothing — while import, export, professional services and media existed
+    and were never offered. One source now.
+    """
+    from services.industry_packs import list_packs
+    return {"packs": list_packs()}
+
+
 @router.get("/industry-packs")
 async def list_industry_packs(current_user: dict = Depends(get_current_user)):
     """الباقات المتاحة، وأيها مفعّل لهذه الشركة."""
