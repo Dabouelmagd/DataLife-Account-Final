@@ -693,3 +693,41 @@ async def _next_receipt_number(company_id: str) -> str:
     )
     year = date.today().year
     return f"RCP-{year}-{counter['last']:06d}"
+
+# ══════════════════════════════════════════
+# التكليف العكسي — REVERSE CHARGE (مادة 32)
+# ══════════════════════════════════════════
+# خدمة مستوردة (إعلانات Google/Meta، اشتراكات AWS/Microsoft، استشارات أجنبية)
+# لا يفرض عليها المورد الأجنبي ضريبة مصرية، والقانون يُلزم المشتري باحتسابها
+# وتوريدها. لم يكن النظام يسجّلها إطلاقاً.
+
+@router.post("/reverse-charge")
+async def record_reverse_charge(data: dict, current_user: dict = Depends(get_current_user)):
+    """تسجيل التكليف العكسي على خدمة مستوردة."""
+    from services import reverse_charge as _rc
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=403, detail="الحساب غير مرتبط بشركة")
+    try:
+        rec = await _rc.record(db, company_id, current_user.get("user_id"), data or {})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": f"تم تسجيل التكليف العكسي — ضريبة {rec['vat_amount']:,.2f}",
+            "record": rec,
+            "note": "مستحقة السداد ومخصومة في نفس الإقرار" if rec["deductible"]
+                    else "مستحقة السداد ومحمّلة على تكلفة الخدمة (غير قابلة للخصم)"}
+
+
+@router.get("/reverse-charge")
+async def list_reverse_charge(period: Optional[str] = None,
+                              current_user: dict = Depends(get_current_user)):
+    """سجل التكليف العكسي — للإقرار الشهري."""
+    company_id = current_user.get("company_id")
+    q = {"company_id": company_id}
+    if period:
+        q["period"] = period
+    rows = await db.reverse_charge_records.find(q, {"_id": 0}).sort("date", -1).to_list(500)
+    return {"records": rows, "total": len(rows),
+            "vat_total": round(sum(float(r.get("vat_amount") or 0) for r in rows), 2),
+            "deductible_total": round(sum(float(r.get("vat_amount") or 0)
+                                          for r in rows if r.get("deductible")), 2)}

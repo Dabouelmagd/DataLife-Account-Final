@@ -231,6 +231,15 @@ def calc_accounting_dep(asset: dict, months: int = 12) -> float:
     method  = asset.get("dep_method", "straight_line")
     rate    = float(asset.get("accounting_rate") or 0)
     life    = float(asset.get("useful_life_years") or 0)
+    # An asset saved without a rate or a useful life depreciated by ZERO,
+    # silently, for ever — it simply never appeared in any run. Fall back to
+    # the tax rule for its own type; land and WIP have no rule and stay at 0,
+    # which is correct for them (the law forbids depreciating land).
+    if not rate and not life:
+        _rule = TAX_DEPRECIATION_RULES.get(asset.get("asset_type", ""), (None, 0.0, None))
+        if _rule[0]:
+            method = _rule[0]
+            rate = float(_rule[1] or 0)
     nbv     = float(asset.get("net_book_value", base))
     accum   = float(asset.get("accumulated_dep_accounting", 0))
 
