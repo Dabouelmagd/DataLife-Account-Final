@@ -707,6 +707,44 @@ class InvoiceService:
             # a cost entry must never block the invoice itself
             logger.error(f"COGS entry failed for {invoice.get('document_number')}: {e}")
 
+    async def record_payment(self, payment: Payment, user_id: str) -> Dict:
+        """تسجيل سداد للفاتورة"""
+        invoice = await self.get_invoice(payment.invoice_id)
+        if not invoice:
+            raise ValueError("Invoice not found")
+        
+        if invoice["status"] == DocumentStatus.CANCELLED.value:
+            raise ValueError("Cannot record payment for cancelled invoice")
+        
+        if payment.amount > invoice["amount_due"]:
+            raise ValueError("Payment amount exceeds amount due")
+        
+        # إنشاء قيد السداد
+        journal_entry_id = await self._create_payment_journal_entry(invoice, payment, user_id)
+        payment.journal_entry_id = journal_entry_id
+        
+        # حفظ السداد
+        payment_dict = payment.dict()
+        await self.db.payments.insert_one(payment_dict)
+        payment_dict.pop("_id", None)
+        
+        # تحديث الفاتورة
+        new_amount_paid = invoice["amount_paid"] + payment.amount
+        new_amount_due = round((invoice.get("settle_amount") or invoice["grand_total"]) - new_amount_paid, 2)
+        new_status = DocumentStatus.PAID.value if new_amount_due <= 0 else DocumentStatus.PARTIALLY_PAID.value
+        
+        await self.db.invoices.update_one(
+            {"id": payment.invoice_id},
+            {"$set": {
+                "amount_paid": new_amount_paid,
+                "amount_due": new_amount_due,
+                "status": new_status,
+                "updated_at": datetime.utcnow().isoformat()
+            }}
+        )
+        
+        return payment_dict
+
     async def _settle_amount(self, je_id: str, doc_type: str, fallback: float) -> float:
         """What is actually owed: the net the entry put on 131 (sales) or 251
         (purchases) — net of withholding, so a fully settled invoice does not

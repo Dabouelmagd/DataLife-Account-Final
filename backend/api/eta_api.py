@@ -178,10 +178,20 @@ def format_invoice_for_eta(invoice: dict, settings: dict) -> dict:
         }
     }
     
-    # بناء بيانات المستلم (العميل)
+    # بناء بيانات المستلم (العميل) — بعد التدقيق
+    # كان يُرسَل الرقم كما هو مهما كان طوله أو شكله، ولم يكن الرقم القومي
+    # يُطلب إطلاقاً. المصلحة ترفض ذلك، والرفض يظهر متأخراً بعد أن تكون
+    # الفاتورة في يد العميل وفي الدفاتر.
+    from services.eta_validation import validate_party
+    _party = await db.parties.find_one(
+        {"id": invoice.get("party_id"), "company_id": invoice.get("company_id")}, {"_id": 0}) or {}
+    _check = validate_party(invoice, _party)
+    if not _check["ok"]:
+        raise HTTPException(status_code=400, detail=_check["error"])
+
     receiver = {
-        "type": "B" if invoice.get("party_tax_id") else "P",
-        "id": invoice.get("party_tax_id", ""),
+        "type": _check["type"],
+        "id": _check["id"],
         "name": invoice.get("party_name", ""),
     }
     

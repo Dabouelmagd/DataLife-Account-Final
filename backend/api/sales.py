@@ -526,6 +526,11 @@ async def record_payment(invoice_id: str, data: dict, authorization: Optional[st
     amount = float(data.get("amount", 0) or 0)
     if amount <= 0:
         raise HTTPException(400, "المبلغ يجب أن يكون أكبر من صفر")
+    from services.cash_limit import check as _cash_check
+    try:
+        _cash_check(amount, data.get("method"), "هذه الفاتورة")
+    except ValueError as _e:
+        raise HTTPException(400, str(_e))
     from services.invoice_service import InvoiceService
     from models.invoice import Payment
     try:

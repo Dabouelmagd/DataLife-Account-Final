@@ -511,6 +511,13 @@ async def record_payment(
     current_user: dict = Depends(get_current_user)
 ):
     """تسجيل سداد"""
+    # قانون 18/2019: السداد النقدي فوق الحد لا يُعتمد كمصروف عند الفحص
+    from services.cash_limit import check as _cash_check
+    try:
+        _cash_check(request.amount, request.payment_method, "هذه الفاتورة")
+    except ValueError as _e:
+        raise HTTPException(status_code=400, detail=str(_e))
+
     service = InvoiceService(db)
     
     payment = Payment(
