@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { IndustryPacksTab, SubscriptionInvoicesTab } from './subscription/IndustryPacksTab';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -19,6 +20,7 @@ const SubscriptionPage = () => {
   const navigate = useNavigate();
   const isRTL = language === 'ar';
   
+  const [pageTab, setPageTab] = useState('plans');   // plans | packs | invoices
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -266,6 +268,21 @@ const SubscriptionPage = () => {
           <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
         </div>
 
+        <div className="flex flex-wrap gap-2 mb-6" role="tablist">
+          {[['plans', isRTL ? 'الاشتراك والتجديد' : 'Subscription'],
+            ['packs', isRTL ? 'باقات القطاعات' : 'Industry packs'],
+            ['invoices', isRTL ? 'الفواتير الضريبية' : 'Tax invoices']].map(([k, l]) => (
+            <button key={k} role="tab" aria-selected={pageTab === k} onClick={() => setPageTab(k)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold ${pageTab === k ? 'bg-[#1e3a8a] text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {pageTab === 'packs' && <IndustryPacksTab language={language} />}
+        {pageTab === 'invoices' && <SubscriptionInvoicesTab language={language} />}
+        <div style={{ display: pageTab === 'plans' ? 'block' : 'none' }}>
+
         {/* Current Subscription */}
         {currentSubscription && currentSubscription.status !== 'no_subscription' && (
           <Card className="mb-8 border-2 border-green-200 bg-green-50" data-testid="current-subscription-card">
@@ -508,6 +525,7 @@ const SubscriptionPage = () => {
               </>
             )}
           </Button>
+        </div>
         </div>
       </div>
     </div>
