@@ -182,10 +182,9 @@ def format_invoice_for_eta(invoice: dict, settings: dict) -> dict:
     # كان يُرسَل الرقم كما هو مهما كان طوله أو شكله، ولم يكن الرقم القومي
     # يُطلب إطلاقاً. المصلحة ترفض ذلك، والرفض يظهر متأخراً بعد أن تكون
     # الفاتورة في يد العميل وفي الدفاتر.
+    # this builder is synchronous, so the party's details come from the invoice
     from services.eta_validation import validate_party
-    _party = await db.parties.find_one(
-        {"id": invoice.get("party_id"), "company_id": invoice.get("company_id")}, {"_id": 0}) or {}
-    _check = validate_party(invoice, _party)
+    _check = validate_party(invoice, invoice.get("party") or {})
     if not _check["ok"]:
         raise HTTPException(status_code=400, detail=_check["error"])
 

@@ -110,6 +110,26 @@ console.log('DONE:'+files.length+':'+errs);
             print(f"  Babel parsed {total} files, {errs} errors")
     return True
 
+# ── Mode 3b: every backend file must actually compile (blocking) ───────────
+# Mode 3 reads imports as text, so it passed a file containing `await` inside a
+# plain def — a SyntaxError that only appeared when the server tried to start,
+# and the container then restarted in a loop with the whole app down.
+def check_backend_compiles():
+    import py_compile, tempfile
+    for folder in ("api", "services", "models", "scripts", "."):
+        base = BACKEND / folder if folder != "." else BACKEND
+        if not base.exists():
+            continue
+        for f in sorted(base.glob("*.py")):
+            try:
+                py_compile.compile(str(f), cfile=tempfile.mktemp(), doraise=True)
+            except py_compile.PyCompileError as e:
+                first = str(e).strip().splitlines()[-1][:160]
+                errors.append(f"{f.relative_to(ROOT)}: does not compile — {first}")
+            except Exception as e:
+                errors.append(f"{f.relative_to(ROOT)}: could not be checked — {str(e)[:120]}")
+
+
 # ── Mode 3: Backend import checks ────────────────────────────
 def check_backend():
     if not BACKEND.exists():
@@ -640,6 +660,7 @@ if result is None:
     print("  (skipped — node_modules not available)")
 
 print(f"Mode 3: Backend import check...")
+check_backend_compiles()
 check_backend()
 
 print(f"Mode 17: Industry pack catalogue check...")
