@@ -63,8 +63,8 @@ export function IndustryPacksTab({ language = 'ar' }) {
           {ar ? 'باقات القطاعات' : 'Industry packs'}
         </h3>
         <p className="mt-1 text-sm text-slate-600 max-w-2xl">
-          {ar ? 'كل باقة تضيف حسابات نشاطها إلى شجرة الحسابات. فعّل ما يخص نشاطك فقط — الحسابات غير المستخدمة تُربك الشجرة والتقارير.'
-              : 'Each pack adds its sector accounts to your chart. Activate only what your business does.'}
+          {ar ? 'اشتراكك الأساسي يشغّل الشركة بالكامل — والتخصص إضافة اختيارية فوقه، تضيف حسابات نشاطك وشاشاته. فعّل ما يخص نشاطك فقط، فالحسابات غير المستخدمة تُربك الشجرة والتقارير، ويمكنك الإضافة أو الإيقاف في أي وقت.'
+              : 'Your base subscription runs the whole business; an add-on sits on top of it and brings your sector’s accounts and screens. Activate only what you do — unused accounts clutter the chart — and add or stop them at any time.'}
         </p>
       </div>
 

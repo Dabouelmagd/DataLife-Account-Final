@@ -342,6 +342,24 @@ const PricingSection = () => {
       {/* ══════════════════ PLANS TAB ══════════════════ */}
       {activeTab === 'plans' && (
         <>
+          {/* الاشتراك الأساسي هو الأصل، والتخصص إضافة اختيارية فوقه */}
+          <div style={{ maxWidth:820, margin:'0 auto 22px', padding:'14px 18px', borderRadius:12,
+                        background:'#f8fafc', border:'1px solid #e2e8f0', textAlign:'center' }}>
+            <p style={{ margin:'0 0 4px', fontSize:14, fontWeight:700, color:'#0f1729' }}>
+              {ar?'اشترك في الخطة التي تناسب حجمك — وهي وحدها تشغّل الشركة بالكامل.'
+                 :'Pick the plan that fits your size — it runs the whole business on its own.'}
+            </p>
+            <p style={{ margin:0, fontSize:13, color:'#475569' }}>
+              {ar?'وإن كان لنشاطك تخصص (مقاولات، مصانع، مطاعم، عيادات…) تضيفه فوق اشتراكك في أي وقت من داخل البرنامج، وتوقفه متى شئت.'
+                 :'If your sector needs one (construction, manufacturing, restaurants, clinics…) add it on top at any time from inside the app.'}
+              {' '}
+              <button onClick={() => setActiveTab('industry')}
+                style={{ background:'none', border:'none', padding:0, color:'#1e3a8a', fontWeight:700, cursor:'pointer', fontSize:13 }}>
+                {ar?'اطّلع على التخصصات ←':'See the add-ons →'}
+              </button>
+            </p>
+          </div>
+
           {/* Billing toggle */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12, marginBottom:28 }}>
             <button onClick={() => setBillingCycle('monthly')} style={{ padding:'6px 16px', borderRadius:8, border:'1px solid', fontSize:13, fontWeight:600, cursor:'pointer', background: billingCycle==='monthly'?'#0f1729':'transparent', color: billingCycle==='monthly'?'#fff':'#64748b', borderColor: billingCycle==='monthly'?'#0f1729':'#cbd5e1' }}>
@@ -477,8 +495,15 @@ const PricingSection = () => {
           {/* Header */}
           <div style={{ textAlign:'center', marginBottom:28, padding:'20px 24px', background:'linear-gradient(135deg,#fef3c7,#fde68a)', borderRadius:16, border:'1px solid #f59e0b' }}>
             <div style={{ fontSize:28, marginBottom:8 }}>🏭</div>
-            <h3 style={{ fontSize:20, fontWeight:800, color:'#92400e', margin:'0 0 6px' }}>{ar?'إضافات قطاعية — يُضاف على خطتك':'Industry Add-ons — Stacked on Your Plan'}</h3>
-            <p style={{ fontSize:13, color:'#78350f', margin:0 }}>{ar?'النظام الأساسي يشمل كل الوحدات · التخصصات القطاعية إضافات اختيارية تُضاف على فاتورتك الشهرية · يمكن اختيار أكثر من تخصص':'Base system includes all modules · Industry add-ons are optional · Billed monthly on top of your plan'}</p>
+            <h3 style={{ fontSize:20, fontWeight:800, color:'#92400e', margin:'0 0 6px' }}>{ar?'التخصصات القطاعية — إضافة اختيارية فوق اشتراكك':'Industry Add-ons — Optional, on top of your subscription'}</h3>
+            <p style={{ fontSize:13, color:'#78350f', margin:'0 0 10px', fontWeight:700 }}>
+              {ar?'الاشتراك الأساسي هو الأصل — وهو وحده كافٍ لتشغيل الشركة بالكامل.'
+                 :'The base subscription is the product — on its own it runs the whole business.'}
+            </p>
+            <p style={{ fontSize:13, color:'#78350f', margin:0 }}>
+              {ar?'التخصص إضافة لمن يحتاجها: تُضيف حسابات وشاشات نشاطك إلى النظام. تشترك فيها من داخل البرنامج في أي وقت — عند الاشتراك أو بعده بشهور — وتوقفها متى شئت، ويمكن اختيار أكثر من تخصص معاً.'
+                 :'An add-on is for those who need it: it adds your sector’s accounts and screens. Subscribe from inside the app at any time — at sign-up or months later — stop it whenever you like, and combine as many as you need.'}
+            </p>
           </div>
 
           {/* Addons grid */}
