@@ -576,3 +576,48 @@ async def deactivate_industry_pack(pack_key: str, current_user: dict = Depends(g
             "accounts_removed": len(removable),
             "accounts_kept": len(used),
             "note": "حسابات تحرّكت عليها قيود بقيت في الشجرة" if used else None}
+
+# ══════════════════════════════════════════
+# الفواتير الضريبية للاشتراك
+# ══════════════════════════════════════════
+
+@router.get("/invoices")
+async def my_subscription_invoices(current_user: dict = Depends(get_current_user)):
+    """فواتير اشتراك الشركة الضريبية."""
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=403, detail="الحساب غير مرتبط بشركة")
+    rows = await db.subscription_invoices.find(
+        {"company_id": company_id}, {"_id": 0}).sort("issued_at", -1).to_list(200)
+    return {"invoices": rows, "total": len(rows),
+            "total_paid": round(sum(float(r.get("total_amount") or 0) for r in rows), 2)}
+
+
+@router.get("/invoices/{invoice_number}")
+async def subscription_invoice_html(invoice_number: str,
+                                    current_user: dict = Depends(get_current_user)):
+    """الفاتورة جاهزة للطباعة أو الحفظ."""
+    from fastapi.responses import HTMLResponse
+    from services.subscription_invoices import render_html
+    company_id = current_user.get("company_id")
+    inv = await db.subscription_invoices.find_one(
+        {"invoice_number": invoice_number, "company_id": company_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+    return HTMLResponse(render_html(inv))
+
+
+@router.post("/invoices/{invoice_number}/resend")
+async def resend_subscription_invoice(invoice_number: str,
+                                      current_user: dict = Depends(get_current_user)):
+    """إعادة إرسال الفاتورة بالبريد — لا تصدر رقماً جديداً."""
+    from services.subscription_invoices import email_invoice
+    company_id = current_user.get("company_id")
+    inv = await db.subscription_invoices.find_one(
+        {"invoice_number": invoice_number, "company_id": company_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+    sent = await email_invoice(inv)
+    if not sent:
+        raise HTTPException(status_code=400, detail="تعذّر إرسال البريد — راجع البريد المسجّل للشركة")
+    return {"message": f"أُعيد إرسال الفاتورة {invoice_number} إلى {inv.get('buyer', {}).get('email')}"}

@@ -210,6 +210,8 @@ async def update_subscription_payment(
         payment_record["id"] = f"pay_{secrets.token_hex(8)}"
         payment_record["created_at"] = get_current_timestamp()
         await db.subscription_payments.insert_one(payment_record)
+        from services.subscription_invoices import issue_and_send
+        invoice_info = await issue_and_send(db, payment_record, payment_record.get("company_id"))
     
     # Log audit
     await log_admin_audit(
@@ -285,6 +287,10 @@ async def record_payment(
     }
     
     await db.subscription_payments.insert_one(payment_record)
+    
+    from services.subscription_invoices import issue_and_send
+    
+    invoice_info = await issue_and_send(db, payment_record, payment_record.get("company_id"))
     
     # Log audit
     await log_admin_audit(
