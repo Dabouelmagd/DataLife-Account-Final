@@ -221,8 +221,17 @@ async def get_admin_dashboard(authorization: Optional[str] = Header(None)):
         )
 
     # Active subscriptions: paid subs + trial companies
+    # A company with no subscription fields at all used to default to
+    # plan=trial, status=active — so merely creating a company counted as an
+    # active subscription, and the dashboard reported four while nobody had
+    # subscribed. A trial is now counted only when it is actually recorded.
     active_paid  = len([s for s in subscriptions if s.get('status') == 'active'])
-    trial_active = len([c for c in companies if c.get('subscription_plan', 'trial') == 'trial' and c.get('subscription_status', 'active') == 'active'])
+    trial_active = len([c for c in companies
+                        if c.get('subscription_plan') == 'trial'
+                        and c.get('subscription_status') == 'active'])
+    no_subscription = len([c for c in companies
+                           if not c.get('subscription_plan')
+                           and c.get('id') not in {s.get('company_id') for s in subscriptions}])
     active_subs  = active_paid + trial_active
 
     # Plan breakdown across both sources
@@ -231,7 +240,7 @@ async def get_admin_dashboard(authorization: Optional[str] = Header(None)):
         if s.get('status') == 'active':
             plan_breakdown[s.get('plan', 'unknown')] += 1
     for c in companies:
-        if c.get('subscription_status', 'active') == 'active' and c.get('id') not in {s.get('company_id') for s in subscriptions}:
+        if c.get('subscription_plan') and c.get('subscription_status') == 'active' and c.get('id') not in {s.get('company_id') for s in subscriptions}:
             plan_breakdown[c.get('subscription_plan', 'trial')] += 1
 
     # Recent transactions from multiple sources
@@ -279,6 +288,9 @@ async def get_admin_dashboard(authorization: Optional[str] = Header(None)):
             "total_companies": len(companies),
             "total_users": len(users),
             "active_subscriptions": active_subs,
+            "paid_subscriptions": active_paid,
+            "trial_subscriptions": trial_active,
+            "companies_without_subscription": no_subscription,
             "total_revenue": total_revenue,
             "monthly_revenue": monthly_revenue,
             "active_codes": len([c for c in activation_codes if c.get('is_active', False)])
