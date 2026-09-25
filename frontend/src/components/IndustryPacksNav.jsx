@@ -73,7 +73,11 @@ export default function IndustryPacksNav({ language = 'ar', onNavigate }) {
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200">
               <span className="opacity-60" aria-hidden>{ICONS[p.key] || '📁'}</span>
               <span className="flex-1 text-start truncate">{ar ? p.name_ar : p.name_en}</span>
-              {p.price_egp != null && (
+              {p.pending_payment ? (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 whitespace-nowrap">
+                  {ar ? 'بانتظار السداد' : 'Awaiting payment'}
+                </span>
+              ) : p.price_egp != null && (
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 whitespace-nowrap tabular-nums">
                   {p.price_egp} {ar ? 'ج/شهر' : 'EGP/mo'}
                 </span>

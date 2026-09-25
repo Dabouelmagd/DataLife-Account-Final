@@ -9,6 +9,7 @@ from models.subscription import (
 from api.users import get_current_user
 import os
 from datetime import datetime, timedelta, timezone
+import uuid
 import secrets
 import string
 from dependencies import get_current_user
@@ -529,16 +530,110 @@ async def list_industry_packs(current_user: dict = Depends(get_current_user)):
     company_id = current_user.get("company_id")
     company = await db.companies.find_one({"id": company_id}, {"_id": 0, "industry_packs": 1}) or {}
     active = set(company.get("industry_packs") or [])
+    pending = {r["pack_key"]: r async for r in db.pack_subscriptions.find(
+        {"company_id": company_id, "status": "pending_payment"}, {"_id": 0})}
     packs = []
     for p in list_packs():
-        packs.append({**p, "active": p["key"] in active})
-    return {"packs": packs, "active_count": len(active)}
+        request = pending.get(p["key"])
+        packs.append({**p, "active": p["key"] in active,
+                      "pending_payment": bool(request),
+                      "amount_due": (request or {}).get("total_amount")})
+    return {"packs": packs, "active_count": len(active),
+            "pending_count": len(pending)}
+
+
+@router.post("/industry-packs/{pack_key}/request")
+async def request_industry_pack(pack_key: str, data: dict = None,
+                                current_user: dict = Depends(get_current_user)):
+    """طلب الاشتراك في باقة نشاط — لا تُفعَّل قبل السداد.
+
+    Activation used to happen on the spot and for free: the button injected
+    the accounts and nothing was ever billed. A pack is a paid add-on, so the
+    request is recorded, the company is told what to pay and how, and the
+    accounts are injected only once the payment is confirmed.
+    """
+    from services.industry_packs import PACKS
+    if pack_key not in PACKS:
+        raise HTTPException(status_code=404, detail="الباقة غير موجودة")
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=403, detail="الحساب غير مرتبط بشركة")
+
+    pack = PACKS[pack_key]
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "industry_packs": 1}) or {}
+    if pack_key in (company.get("industry_packs") or []):
+        raise HTTPException(status_code=400, detail="الباقة مفعّلة بالفعل")
+
+    existing = await db.pack_subscriptions.find_one(
+        {"company_id": company_id, "pack_key": pack_key, "status": "pending_payment"}, {"_id": 0})
+    if existing:
+        return {"message": "لديك طلب قائم لهذه الباقة في انتظار تأكيد السداد",
+                "request": existing, "already_requested": True}
+
+    months = int((data or {}).get("months") or 1)
+    if months not in (1, 3, 6, 12):
+        raise HTTPException(status_code=400, detail="مدة الاشتراك يجب أن تكون 1 أو 3 أو 6 أو 12 شهراً")
+    price = float(pack.get("price_egp") or 0)
+    request = {
+        "id": str(uuid.uuid4()), "company_id": company_id, "pack_key": pack_key,
+        "pack_name": pack["name_ar"], "months": months,
+        "monthly_price": price, "total_amount": round(price * months, 2),
+        "status": "pending_payment",
+        "requested_by": current_user.get("user_id"),
+        "requested_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.pack_subscriptions.insert_one(dict(request))
+    return {"message": f"تم تسجيل طلب {pack['name_ar']} — تُفعَّل بعد تأكيد السداد",
+            "request": request,
+            "amount_due": request["total_amount"],
+            "next_step": "أرسل قيمة الاشتراك عبر إنستاباي أو فودافون كاش وارفع الإيصال من صفحة الاشتراك، "
+                         "أو استخدم كود تفعيل إن كان لديك."}
+
+
+@router.post("/industry-packs/{pack_key}/confirm-payment")
+async def confirm_pack_payment(pack_key: str, data: dict = None,
+                               current_user: dict = Depends(get_current_user)):
+    """تأكيد سداد باقة وتفعيلها — للإدارة فقط بعد التحقق من التحويل."""
+    from services.industry_packs import PACKS, pack_accounts
+    if current_user.get("role") not in ("Super Admin", "مدير النظام"):
+        raise HTTPException(status_code=403, detail="تأكيد السداد مقصور على إدارة المنصة")
+    if pack_key not in PACKS:
+        raise HTTPException(status_code=404, detail="الباقة غير موجودة")
+
+    company_id = (data or {}).get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="حدد الشركة")
+    request = await db.pack_subscriptions.find_one(
+        {"company_id": company_id, "pack_key": pack_key, "status": "pending_payment"}, {"_id": 0})
+    if not request:
+        raise HTTPException(status_code=404, detail="لا يوجد طلب في انتظار السداد لهذه الشركة")
+
+    existing = {a["account_code"] async for a in db.chart_of_accounts.find(
+        {"company_id": company_id}, {"_id": 0, "account_code": 1})}
+    to_add = [a for a in pack_accounts(pack_key, company_id) if a["account_code"] not in existing]
+    if to_add:
+        await db.chart_of_accounts.insert_many(to_add)
+
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=30 * int(request.get("months", 1)))
+    await db.pack_subscriptions.update_one({"id": request["id"]}, {"$set": {
+        "status": "active", "activated_at": now.isoformat(), "expires_at": expires.isoformat(),
+        "confirmed_by": current_user.get("user_id"),
+        "payment_reference": (data or {}).get("payment_reference")}})
+    await db.companies.update_one({"id": company_id}, {
+        "$addToSet": {"industry_packs": pack_key},
+        "$set": {f"industry_pack_dates.{pack_key}": now.isoformat()}})
+    return {"message": f"تم تأكيد السداد وتفعيل {PACKS[pack_key]['name_ar']}",
+            "accounts_added": len(to_add), "expires_at": expires.isoformat()}
 
 
 @router.post("/industry-packs/{pack_key}/activate")
 async def activate_industry_pack(pack_key: str, current_user: dict = Depends(get_current_user)):
-    """تفعيل باقة نشاط: تُضاف حساباتها إلى شجرة الشركة."""
+    """تفعيل مباشر — لإدارة المنصة فقط (تجربة، أو تسوية يدوية بعد سداد مؤكَّد)."""
     from services.industry_packs import PACKS, pack_accounts
+    if current_user.get("role") not in ("Super Admin", "مدير النظام"):
+        raise HTTPException(status_code=403, detail=(
+            "الباقة تُفعَّل بعد سداد اشتراكها — استخدم «اشترك الآن» لتسجيل الطلب"))
     allowed_roles = ["رئيس مجلس الإدارة", "Board Chairman", "مدير عام", "General Manager", "CEO",
                      "المدير التنفيذي", "المدير المالي", "CFO", "رئيس الحسابات", "Chief Accountant",
                      "Super Admin"]

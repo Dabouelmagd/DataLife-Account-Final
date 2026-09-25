@@ -32,20 +32,25 @@ export function IndustryPacksTab({ language = 'ar' }) {
   }, [ar]);
   useEffect(() => { load(); }, [load]);
 
+  const [months, setMonths] = useState(1);
+
   const toggle = async (pack) => {
-    const action = pack.active ? 'deactivate' : 'activate';
+    // a pack is a paid add-on: subscribing records a request, and the accounts
+    // are injected only after the payment is confirmed
+    const action = pack.active ? 'deactivate' : 'request';
     if (pack.active && !window.confirm(ar
       ? `إيقاف ${pack.name_ar}؟ ستختفي شاشاتها، وتبقى الحسابات التي تحرّكت عليها قيود.`
       : `Deactivate ${pack.name_en}? Accounts with entries against them stay.`)) return;
     setBusy(pack.key); setMsg({ type: '', text: '' });
     try {
       const { data } = await axios.post(
-        `${API}/api/subscriptions/industry-packs/${pack.key}/${action}`, {}, auth());
+        `${API}/api/subscriptions/industry-packs/${pack.key}/${action}`,
+        pack.active ? {} : { months }, auth());
       const detail = pack.active
         ? (ar ? `حُذف ${data.accounts_removed} حساب، وبقي ${data.accounts_kept} عليه قيود`
               : `${data.accounts_removed} removed, ${data.accounts_kept} kept`)
-        : (ar ? `أُضيف ${data.accounts_added} حساب إلى شجرة الحسابات`
-              : `${data.accounts_added} accounts added`);
+        : (ar ? `المستحق ${Number(data.amount_due || 0).toLocaleString()} ج.م — ${data.next_step || ''}`
+              : `Due: ${data.amount_due}`);
       setMsg({ type: 'ok', text: `${data.message} — ${detail}` });
       load();
     } catch (e) {
@@ -68,6 +73,18 @@ export function IndustryPacksTab({ language = 'ar' }) {
         </p>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-slate-600">{ar ? 'مدة الاشتراك:' : 'Duration:'}</span>
+        {[[1, ar ? 'شهر' : '1 mo'], [3, ar ? '3 شهور' : '3 mo'],
+          [6, ar ? '6 شهور' : '6 mo'], [12, ar ? 'سنة' : '1 yr']].map(([m, label]) => (
+          <button key={m} onClick={() => setMonths(m)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${months === m
+              ? 'bg-[#1e3a8a] text-white' : 'border border-slate-300 text-slate-600'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
       {msg.text && (
         <p className={`text-sm ${msg.type === 'err' ? 'text-red-700' : 'text-emerald-700'}`} role="status">{msg.text}</p>
       )}
@@ -85,14 +102,31 @@ export function IndustryPacksTab({ language = 'ar' }) {
               )}
             </div>
             <p className="mt-1 text-xs text-slate-600 flex-1">{p.note_ar}</p>
-            <p className="mt-2 text-xs text-slate-500">
-              {ar ? `${p.accounts_count} حساب` : `${p.accounts_count} accounts`}
-            </p>
-            <button onClick={() => toggle(p)} disabled={busy === p.key}
-              className={`mt-3 w-full py-2 rounded-lg text-sm font-semibold disabled:opacity-50 ${
-                p.active ? 'border border-red-300 text-red-700' : 'bg-[#1e3a8a] text-white'}`}>
-              {busy === p.key ? '…' : p.active ? (ar ? 'إيقاف' : 'Deactivate') : (ar ? 'تفعيل' : 'Activate')}
-            </button>
+            <div className="mt-2 flex items-end justify-between gap-2">
+              <p className="text-xs text-slate-500">
+                {ar ? `${p.accounts_count} حساب` : `${p.accounts_count} accounts`}
+              </p>
+              {p.price_egp != null && !p.active && (
+                <p className="text-lg font-extrabold text-[#1e3a8a] tabular-nums">
+                  {p.price_egp}
+                  <span className="text-xs font-normal text-slate-500 ms-1">{ar ? 'ج.م/شهر' : 'EGP/mo'}</span>
+                </p>
+              )}
+            </div>
+
+            {p.pending_payment ? (
+              <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-800">
+                {ar ? `طلب قائم — المستحق ${Number(p.amount_due || 0).toLocaleString()} ج.م. تُفعَّل بعد تأكيد السداد.`
+                    : `Requested — ${p.amount_due} due. Activates once payment is confirmed.`}
+              </div>
+            ) : (
+              <button onClick={() => toggle(p)} disabled={busy === p.key}
+                className={`mt-3 w-full py-2 rounded-lg text-sm font-semibold disabled:opacity-50 ${
+                  p.active ? 'border border-red-300 text-red-700' : 'bg-[#1e3a8a] text-white'}`}>
+                {busy === p.key ? '…' : p.active ? (ar ? 'إيقاف' : 'Deactivate')
+                  : (ar ? `اشترك — ${p.price_egp} ج.م/شهر` : `Subscribe — ${p.price_egp}/mo`)}
+              </button>
+            )}
           </div>
         ))}
       </div>
