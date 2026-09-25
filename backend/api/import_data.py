@@ -187,13 +187,33 @@ async def import_financial(
         'payment_method': ['payment_method', 'طريقة السداد', 'طريقة الدفع', 'السداد']
     }
     
+    def _norm(text):
+        return " ".join(str(text).replace("\u00a0", " ").split()).strip().lower()
+
+    normalised = {_norm(c): c for c in df.columns}
     mapped_cols = {}
     for key, variations in column_map.items():
         for var in variations:
-            if var.lower() in df.columns:
-                mapped_cols[key] = var.lower()
+            actual = normalised.get(_norm(var))
+            if actual is not None:
+                mapped_cols[key] = actual
                 break
-    
+
+    # A sheet whose amount column cannot be found used to import
+    # "successfully": every row was written with amount 0 and an empty
+    # description — 116 of them in one case — and nothing said the file had
+    # not been understood. Refuse it, and name what was seen and what is
+    # expected so the sheet can be fixed in one go.
+    if "amount" not in mapped_cols or "description" not in mapped_cols:
+        seen = "، ".join(str(c) for c in list(df.columns)[:12]) or "(لا توجد أعمدة)"
+        missing = [ar for key, ar in (("amount", "المبلغ"), ("description", "الوصف"))
+                   if key not in mapped_cols]
+        raise HTTPException(status_code=400, detail=(
+            f"تعذّر فهم الملف: لم يُعثر على عمود {' و'.join(missing)}. "
+            f"الأعمدة الموجودة: {seen}. الأسماء المقبولة — "
+            f"المبلغ: amount / المبلغ / القيمة، الوصف: description / الوصف / البيان، "
+            f"التاريخ: date / التاريخ، الحساب: account / الحساب."))
+
     success_count = 0
     error_count = 0
     errors = []

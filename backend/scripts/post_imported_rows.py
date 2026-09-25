@@ -100,6 +100,26 @@ async def main():
                 print(f"      • {desc or '(بلا وصف)'} — {reason}")
         grand[collection] = posted
 
+    # rows written by a failed import: no amount, no description, no entry.
+    # They are not data, and leaving them makes every later count wrong.
+    empty_query = {"journal_entry_id": {"$exists": False},
+                   "$or": [{"amount": {"$in": [0, 0.0, None]}}, {"amount": {"$exists": False}}],
+                   "$and": [{"$or": [{"description": ""}, {"description": None},
+                                     {"description": {"$exists": False}}]}]}
+    if only_company:
+        empty_query["company_id"] = only_company
+    for collection in ("expenses", "revenues"):
+        empty = await db[collection].count_documents(empty_query)
+        if not empty:
+            continue
+        print(f"\n  {collection}: {empty} صف فارغ تماماً (بلا مبلغ وبلا وصف وبلا قيد)")
+        print("     هذه ليست بيانات — كتبها استيراد فشل في قراءة الملف.")
+        if "--clean-empty" in sys.argv and apply:
+            result = await db[collection].delete_many(empty_query)
+            print(f"     حُذف {result.deleted_count} صف")
+        else:
+            print("     لحذفها: أضف --clean-empty --apply")
+
     total = sum(grand.values())
     print(f"\n{'تم ترحيل' if apply else 'سيُرحَّل'} {total} صف إجمالاً")
     if not apply and total:
