@@ -404,8 +404,21 @@ const ModuleRenderer = ({
     )
   };
 
+  // A sub-module was only reachable through its parent section: the maps for
+  // HR and Finance were consulted inside those branches, so arriving at
+  // ?tab=inventory directly — from a link, a bookmark, a pack screen, or a
+  // refresh — found nothing and showed "this page is unavailable". They are
+  // looked up by name too now, which is what makes the URL shareable.
   if (simpleModuleMap[activeModule]) {
     return simpleModuleMap[activeModule];
+  }
+
+  if (financialSubModuleMap[activeModule]) {
+    return financialSubModuleMap[activeModule];
+  }
+
+  if (hrSubModuleMap[activeModule]) {
+    return hrSubModuleMap[activeModule];
   }
 
   // Coupon Management - redirect
