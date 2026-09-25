@@ -123,6 +123,22 @@ from fastapi import Request as _Req, HTTPException
 from fastapi.responses import FileResponse as _FileResponse
 
 
+# A platform account (Super Admin) has no company of its own. Hundreds of
+# routes read current_user["company_id"] directly, and with no company that
+# raised a KeyError — which surfaced as a 500 and a screen stuck on "loading",
+# looking like a broken server rather than a missing context. One handler
+# turns that into an answer the screen can show.
+@app.exception_handler(KeyError)
+async def _missing_context(request, exc):
+    from fastapi.responses import JSONResponse as _JR
+    key = str(exc).strip("'\"")
+    if key == "company_id":
+        return _JR(status_code=400, content={
+            "detail": "هذا الحساب غير مرتبط بشركة — اختر شركة من لوحة الإدارة أو استخدم حساباً تابعاً لها"})
+    logging.getLogger("server").exception("unexpected KeyError on %s", request.url.path)
+    return _JR(status_code=500, content={"detail": "حدث خطأ غير متوقع"})
+
+
 @app.get("/api/uploads/{file_path:path}")
 async def serve_upload(file_path: str, request: _Req):
     import os as _os

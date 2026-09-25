@@ -29,6 +29,7 @@ const CompanySettings = () => {
   const { language, toggleLanguage } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const [company, setCompany] = useState(null);
+  const [companyMissing, setCompanyMissing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('success');
@@ -77,6 +78,13 @@ const CompanySettings = () => {
   }, []);
 
   const fetchCompanyData = async () => {
+    // A platform account has no company, so this was requesting
+    // /api/companies/null — a 403 every time, and `company` stayed null, which
+    // the screen renders as "جاري التحميل…" for ever.
+    if (!user?.company_id) {
+      setCompanyMissing(true);
+      return;
+    }
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
@@ -341,6 +349,35 @@ const CompanySettings = () => {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  if (companyMissing) {
+
+    return (
+
+      <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="max-w-lg mx-auto p-10 text-center">
+
+        <p className="text-lg font-bold text-slate-800">
+
+          {language === 'ar' ? 'هذا الحساب غير مرتبط بشركة' : 'This account has no company'}
+
+        </p>
+
+        <p className="mt-2 text-sm text-slate-600 leading-7">
+
+          {language === 'ar'
+
+            ? 'حساب إدارة المنصة لا يملك شركة خاصة به، ولذلك لا توجد إعدادات شركة هنا. لإدارة الشركات افتح لوحة الإدارة، أو سجّل الدخول بحساب تابع لإحدى الشركات.'
+
+            : 'A platform account has no company of its own. Use the admin panel, or sign in with a company account.'}
+
+        </p>
+
+      </div>
+
+    );
+
+  }
+
 
   if (!company) {
     return (

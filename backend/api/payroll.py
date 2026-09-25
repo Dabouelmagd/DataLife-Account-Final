@@ -597,6 +597,13 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
 @router.get("/settings")
 async def get_settings(current_user: dict = Depends(get_current_user)):
     """الحصول على إعدادات الرواتب"""
+    # A platform account has no company of its own. Reading company_id blindly
+    # raised a 500 that read as a broken server; it is a missing context, and
+    # the screen should say so.
+    if not current_user.get("company_id"):
+        raise HTTPException(status_code=400,
+                            detail="هذا الحساب غير مرتبط بشركة — اختر شركة أو استخدم حساباً تابعاً لها")
+
     settings = await get_payroll_settings(current_user["company_id"])
     settings.pop("_id", None)
     
