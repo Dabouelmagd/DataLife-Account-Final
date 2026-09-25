@@ -71,13 +71,24 @@ def check_frontend(path):
 
 # ── Mode 2: Babel JSX parse ───────────────────────────────────
 def babel_parse():
-    babel = Path("frontend/node_modules/@babel/parser/lib/index.js")
-    if not babel.exists():
-        return None  # not on server
+    # The parser normally lives in the frontend's own node_modules. It is also
+    # looked for elsewhere so a machine without a full npm install still
+    # checks JSX syntax — a broken file slipping through because the checker
+    # was absent is how an unparseable import once reached a commit.
+    import os as _os
+    candidates = [
+        Path("frontend/node_modules/@babel/parser"),
+        Path(_os.environ.get("BABEL_PARSER_PATH", "")) if _os.environ.get("BABEL_PARSER_PATH") else None,
+        Path("/tmp/babelcheck/node_modules/@babel/parser"),
+        Path(_os.path.expanduser("~/node_modules/@babel/parser")),
+    ]
+    babel_dir = next((c for c in candidates if c and (c / "lib" / "index.js").exists()), None)
+    if babel_dir is None:
+        return None  # nothing to parse with; the runner prints why
 
     script = """
 const fs=require('fs'),path=require('path');
-const parser=require('./frontend/node_modules/@babel/parser');
+const parser=require(PARSER_PATH);
 function walk(d){
   return fs.readdirSync(d).flatMap(f=>{
     const full=path.join(d,f);
@@ -100,7 +111,18 @@ for(const f of files){
 }
 console.log('DONE:'+files.length+':'+errs);
 """
+    script = f"const PARSER_PATH={str(babel_dir.resolve())!r};\n" + script
     r = subprocess.run(['node','-e',script], capture_output=True, text=True)
+    # A missing parser, a missing node, or a crashed script used to be ignored
+    # silently: the mode printed nothing and the build passed with a file that
+    # could not parse at all. Silence here is not "no errors" — it is "not
+    # checked", and the two must never look the same.
+    if 'DONE:' not in (r.stdout or ''):
+        reason = (r.stderr or '').strip().splitlines()
+        detail = reason[-1][:160] if reason else 'no output from the parser'
+        errors.append(f"Mode 2 (Babel JSX parse) did not run — frontend syntax was NOT checked: {detail}. "
+                      f"Install it with: cd frontend && npm install @babel/parser")
+        return False
     for line in r.stdout.strip().split('\n'):
         if line.startswith('ERR:'):
             parts = line.split('|')

@@ -7,10 +7,11 @@
  * from the candidate and the job profile — HR only changes what differs.
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import CandidateReportDashboard from '../components/hr/CandidateReportDashboard';
 import axios from 'axios';
 import {
   Briefcase, Users, Star, Plus, X, Loader2, CheckCircle, UserPlus, ArrowRight,
-  Sparkles, AlertTriangle, Scale, Trophy,
+  Sparkles, AlertTriangle, Scale, Trophy, FileText,
 } from 'lucide-react';
 import InterviewScorecard from '../components/InterviewScorecard';
 import QuestionBank from '../components/QuestionBank';
@@ -62,7 +63,9 @@ export default function RecruitmentPage() {
   const [hireForm, setHireForm] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
-  const [tab, setTab] = useState('jobs');   // jobs | questions
+  const [tab, setTab] = useState('jobs');   // jobs | questions | report
+  // the report is about one candidate, so the tab remembers which
+  const [reportCandidate, setReportCandidate] = useState(null);
 
   const loadJobs = useCallback(async () => {
     try {
@@ -204,6 +207,10 @@ export default function RecruitmentPage() {
       {msg.text && <p className={`text-sm ${msg.type === 'err' ? 'text-red-700' : 'text-emerald-700'}`} role="status">{msg.text}</p>}
 
       <div className="flex flex-wrap gap-2">
+        <button onClick={() => { setReportCandidate(candidate.id); setTab('report'); }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold">
+          <FileText className="w-4 h-4" aria-hidden />التقرير الشامل
+        </button>
         <button onClick={() => setScoring(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1e3a8a] text-white font-semibold">
           <Star className="w-4 h-4" aria-hidden />تقييم المقابلة
         </button>
@@ -402,7 +409,7 @@ export default function RecruitmentPage() {
         </h1>
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5" role="tablist">
-            {[['jobs', 'الوظائف'], ['questions', 'بنك الأسئلة']].map(([k, l]) => (
+            {[['jobs', 'الوظائف'], ['questions', 'بنك الأسئلة'], ['report', 'تقارير المرشحين']].map(([k, l]) => (
               <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
                 className={`px-3.5 py-2 rounded-lg text-sm font-semibold ${tab === k ? 'bg-[#1e3a8a] text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>{l}</button>
             ))}
@@ -417,6 +424,18 @@ export default function RecruitmentPage() {
       </header>
 
       {tab === 'questions' && <QuestionBank jobs={jobs || []} />}
+
+      {tab === 'report' && (
+        reportCandidate ? (
+          <div className="space-y-3">
+            <button onClick={() => setReportCandidate(null)}
+              className="text-sm font-semibold text-[#1e3a8a]">→ كل التقارير</button>
+            <CandidateReportDashboard candidateId={reportCandidate} />
+          </div>
+        ) : (
+          <CandidateReportDashboard candidateId={null} />
+        )
+      )}
 
       {msg.text && <p className={`text-sm ${msg.type === 'err' ? 'text-red-700' : 'text-emerald-700'}`} role="status">{msg.text}</p>}
 
