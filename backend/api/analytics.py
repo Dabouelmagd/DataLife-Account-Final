@@ -1035,3 +1035,30 @@ async def get_leaves_analytics(period: str = "monthly", authorization: Optional[
         "by_department": [{"department": k, **v} for k, v in by_dept.items()],
         "monthly_trend": monthly_trend,
     }
+
+@router.get("/executive-dashboard")
+async def executive_dashboard(authorization: Optional[str] = Header(None)):
+    """أرقام القرار: النقدية والمديونيات والضرائب والربح — من الدفتر مباشرة."""
+    from services.executive_dashboard import build
+    from services.route_permissions import effective_permissions
+
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="سجّل الدخول")
+    current_user = verify_token(authorization.split(" ", 1)[1])
+    if not current_user:
+        raise HTTPException(status_code=401, detail="انتهت الجلسة — سجّل الدخول من جديد")
+
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=403, detail="الحساب غير مرتبط بشركة")
+
+    user = await db.users.find_one({"id": current_user.get("user_id")}, {"_id": 0}) or {}
+    manager_roles = ("Super Admin", "مدير النظام", "رئيس مجلس الإدارة", "Board Chairman",
+                     "مدير عام", "General Manager", "المدير المالي", "CFO")
+    is_manager = user.get("role") in manager_roles or bool(user.get("is_platform_admin"))
+    try:
+        permissions = effective_permissions(user)
+    except Exception:
+        permissions = set(user.get("permissions") or [])
+
+    return await build(db, company_id, permissions, is_manager)

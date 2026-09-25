@@ -1,4 +1,5 @@
 import React from 'react';
+import ExecutiveDashboard from './ExecutiveDashboard';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -218,6 +219,10 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
 
   return (
     <div className="space-y-6 pb-6" data-testid="dashboard-content">
+      {/* أرقام القرار قبل العدّادات: النقدية والمديونيات والضرائب والنتيجة.
+          العدّادات وحدها (كم موظفاً، كم فاتورة) لا تُبنى عليها قرارات. */}
+      <ExecutiveDashboard language={language} onNavigate={(m) => onNavigate?.(m)} />
+
       {/* Welcome Header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white">
         <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
