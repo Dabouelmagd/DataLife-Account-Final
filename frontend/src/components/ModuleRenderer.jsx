@@ -249,9 +249,18 @@ const ModuleRenderer = ({
   // On a refresh the user arrives a moment after the first render. Until then
   // this list is empty, every screen looked forbidden, and the app bounced
   // back to the dashboard — which is why a refresh never stayed where it was.
-  const permissionsReady = Boolean(user || storedUser);
-  const effectiveRole = user?.role || storedUser?.role || userRole || '';
-  const isSuperAdmin = effectiveRole === 'Super Admin' || effectiveRole === 'رئيس مجلس الإدارة';
+  // `Boolean(storedUser)` was true for an empty {} — JavaScript objects always
+  // are — so a refresh read "permissions loaded, and they are none", and every
+  // screen was refused. Readiness means the user actually carries a role or a
+  // permission list, not merely that an object exists.
+  const permissionsReady = Boolean(
+    (user && (user.role || user.id || user.permissions)) ||
+    (storedUser && (storedUser.role || storedUser.id || storedUser.permissions))
+  );
+  const effectiveRole = String(user?.role || storedUser?.role || userRole || '').trim();
+  const FULL_ACCESS_ROLES = ['Super Admin', 'مدير النظام', 'رئيس مجلس الإدارة',
+                             'Board Chairman', 'مدير عام', 'General Manager'];
+  const isSuperAdmin = FULL_ACCESS_ROLES.includes(effectiveRole);
 
   const hasPermission = (requiredPermission) => {
     if (isSuperAdmin) return true;
