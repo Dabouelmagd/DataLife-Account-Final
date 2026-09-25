@@ -31,7 +31,39 @@ const RealDashboard = () => {
   const token = localStorage.getItem('token');
   
   // Module states
-  const [activeModule, setActiveModule] = useState('dashboard');
+  // The open screen lived in React state only, so every refresh dropped the
+  // user back on the dashboard — mid-invoice, mid-report, every time. It is
+  // remembered per browser, and reflected in the URL so a screen can be
+  // bookmarked, shared, and reached with the back button.
+  const [activeModule, setActiveModule] = useState(() => {
+    try {
+      const fromUrl = new URLSearchParams(window.location.search).get('tab');
+      return fromUrl || sessionStorage.getItem('activeModule') || 'dashboard';
+    } catch { return 'dashboard'; }
+  });
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('activeModule', activeModule);
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('tab') !== activeModule) {
+        url.searchParams.set('tab', activeModule);
+        window.history.replaceState({ module: activeModule }, '', url);
+      }
+    } catch { /* a private-mode browser must not break navigation */ }
+  }, [activeModule]);
+
+  // the browser's back button should move between screens, not leave the app
+  useEffect(() => {
+    const onPop = () => {
+      try {
+        const tab = new URLSearchParams(window.location.search).get('tab');
+        if (tab) setActiveModule(tab);
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sidebar toggle
   const [idleWarning, setIdleWarning] = useState(false);
 

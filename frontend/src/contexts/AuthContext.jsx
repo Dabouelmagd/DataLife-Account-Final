@@ -75,6 +75,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // The token lasts 8 hours with no renewal, so a long working day ended in a
+  // silent sign-out — usually noticed by a refresh landing on the login page
+  // with work lost. While the tab is in use the session is extended quietly;
+  // if the server refuses, the normal expiry takes over and the user signs in
+  // again, which is the correct outcome for a revoked or deactivated account.
+  useEffect(() => {
+    if (!token) return undefined;
+    let cancelled = false;
+
+    const renew = async () => {
+      if (document.hidden) return;          // don't renew a tab nobody is using
+      try {
+        const { data } = await axios.post(`${API_URL}/api/auth/refresh`, {}, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        if (cancelled || !data?.access_token) return;
+        localStorage.setItem('token', data.access_token);
+        if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+        setToken(data.access_token);
+      } catch { /* leave the existing token alone; expiry will handle it */ }
+    };
+
+    const timer = setInterval(renew, 30 * 60 * 1000);   // every half hour
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [token, API_URL]);
+
   const verifyLoginCode = async (challengeId, code) => {
     try {
       const response = await axios.post(`${API_URL}/api/auth/login/verify`, {

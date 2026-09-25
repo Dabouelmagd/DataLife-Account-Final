@@ -1286,3 +1286,24 @@ async def two_factor_status(current_user: dict = Depends(get_current_user)):
     user = await db.users.find_one({"id": current_user["user_id"]}, {"_id": 0}) or {}
     return {"two_factor_enabled": bool(user.get("two_factor_enabled")),
             "enforced": _2fa.required_for(user) and not user.get("two_factor_enabled")}
+
+@router.post("/refresh")
+async def refresh_access_token(current_user: dict = Depends(get_current_user)):
+    """تجديد جلسة مستخدم نشط.
+
+    The token lasts 8 hours and there was no way to extend it, so anyone
+    working a long day was signed out mid-task and lost whatever screen they
+    were on. This issues a fresh one for a session that is still valid —
+    an expired or revoked token cannot reach here, and a deactivated account
+    is refused, so a session cannot outlive the account behind it.
+    """
+    user = await db.users.find_one({"id": current_user.get("user_id")}, {"_id": 0})
+    if not user or not user.get("is_active", True):
+        raise HTTPException(status_code=403, detail="الحساب غير مفعّل")
+
+    token = create_access_token(data={"user_id": user["id"], "email": user.get("email"),
+                                      "company_id": user.get("company_id"), "role": user.get("role")})
+    user.pop("password_hash", None)
+    resp = JSONResponse({"access_token": token, "token_type": "bearer", "user": jsonable_encoder(user)})
+    set_file_cookie(resp, user)      # the uploads cookie is renewed with it
+    return resp
