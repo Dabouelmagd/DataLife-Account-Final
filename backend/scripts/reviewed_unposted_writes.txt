@@ -32,3 +32,4 @@ sales.py:/customers  # master data
 sales.py:/subscriptions  # contract; generate-invoice posts
 subscriptions.py:/redeem-code  # platform subscription
 consolidation.py:/eliminations/intercompany-balances  # a consolidation adjustment, recorded in working papers only — posting it would distort the companies' own books
+assessments.py:/submit  # test scores, not money — an aptitude result out of 10 has no ledger side
