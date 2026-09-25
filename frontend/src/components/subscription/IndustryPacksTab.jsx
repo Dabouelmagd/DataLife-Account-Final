@@ -18,7 +18,6 @@ const money = (n) => (Number(n) || 0).toLocaleString('ar-EG', { minimumFractionD
 export function IndustryPacksTab({ language = 'ar' }) {
   const ar = language === 'ar';
   const [packs, setPacks] = useState(null);
-  const [included, setIncluded] = useState(false);   // the plan already covers them
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState({ type: '', text: '' });
 
@@ -26,7 +25,6 @@ export function IndustryPacksTab({ language = 'ar' }) {
     try {
       const { data } = await axios.get(`${API}/api/subscriptions/industry-packs`, auth());
       setPacks(data.packs || []);
-      setIncluded(Boolean(data.included_in_plan));
     } catch (e) {
       setPacks([]);
       setMsg({ type: 'err', text: e.response?.data?.detail || (ar ? 'تعذّر تحميل الباقات' : 'Could not load packs') });
@@ -39,7 +37,7 @@ export function IndustryPacksTab({ language = 'ar' }) {
   const toggle = async (pack) => {
     // a pack is a paid add-on: subscribing records a request, and the accounts
     // are injected only after the payment is confirmed
-    const action = pack.active ? 'deactivate' : (included ? 'activate' : 'request');
+    const action = pack.active ? 'deactivate' : 'request';
     if (pack.active && !window.confirm(ar
       ? `إيقاف ${pack.name_ar}؟ ستختفي شاشاتها، وتبقى الحسابات التي تحرّكت عليها قيود.`
       : `Deactivate ${pack.name_en}? Accounts with entries against them stay.`)) return;
@@ -75,14 +73,6 @@ export function IndustryPacksTab({ language = 'ar' }) {
         </p>
       </div>
 
-      {included && (
-        <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-          {ar ? 'باقتك الحالية تشمل التخصصات القطاعية — فعّل ما يخص نشاطك دون رسوم إضافية.'
-              : 'Your plan includes the sector add-ons — activate what you need at no extra cost.'}
-        </p>
-      )}
-
-      {!included && (
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-slate-600">{ar ? 'مدة الاشتراك:' : 'Duration:'}</span>
         {[[1, ar ? 'شهر' : '1 mo'], [3, ar ? '3 شهور' : '3 mo'],
@@ -94,7 +84,6 @@ export function IndustryPacksTab({ language = 'ar' }) {
           </button>
         ))}
       </div>
-      )}
 
       {msg.text && (
         <p className={`text-sm ${msg.type === 'err' ? 'text-red-700' : 'text-emerald-700'}`} role="status">{msg.text}</p>
@@ -117,7 +106,7 @@ export function IndustryPacksTab({ language = 'ar' }) {
               <p className="text-xs text-slate-500">
                 {ar ? `${p.accounts_count} حساب` : `${p.accounts_count} accounts`}
               </p>
-              {p.price_egp != null && !p.active && !included && (
+              {p.price_egp != null && !p.active && (
                 <p className="text-end">
                   <span className="text-lg font-extrabold text-[#1e3a8a] tabular-nums">
                     {(p.price_egp * months).toLocaleString()}
@@ -144,7 +133,6 @@ export function IndustryPacksTab({ language = 'ar' }) {
                 className={`mt-3 w-full py-2 rounded-lg text-sm font-semibold disabled:opacity-50 ${
                   p.active ? 'border border-red-300 text-red-700' : 'bg-[#1e3a8a] text-white'}`}>
                 {busy === p.key ? '…' : p.active ? (ar ? 'إيقاف' : 'Deactivate')
-                  : included ? (ar ? 'تفعيل — مشمول في باقتك' : 'Activate — included')
                   : (ar ? `اشترك — ${(p.price_egp * months).toLocaleString()} ج.م`
                         : `Subscribe — ${p.price_egp * months}`)}
               </button>

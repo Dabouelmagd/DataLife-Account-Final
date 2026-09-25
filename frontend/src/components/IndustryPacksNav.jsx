@@ -41,44 +41,33 @@ export default function IndustryPacksNav({ language = 'ar', onNavigate }) {
 
   if (!summary) return null;
 
-  // A full plan includes the sector packs, so nothing about buying them is
-  // shown: the customer sees the ones they have switched on and nothing else.
-  if (summary.included) {
-    if (summary.active.length === 0) return null;
-    return (
-      <div className="mt-2" dir={ar ? 'rtl' : 'ltr'}>
+  // The menu shows what the company has, plus one way in to add another. The
+  // catalogue with the twelve packs and their prices belongs on the
+  // subscription page — a sidebar full of priced items is a price list, not
+  // navigation.
+  return (
+    <div className="mt-2" dir={ar ? 'rtl' : 'ltr'}>
+      {summary.active.length > 0 && (
         <p className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           {ar ? 'التخصصات القطاعية' : 'Industry'}
         </p>
-        {summary.active.map((p) => (
-          <button key={p.key} onClick={() => onNavigate?.(`pack_${p.key}`)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800">
-            <span aria-hidden>{ICONS[p.key] || '📁'}</span>
-            <span className="flex-1 text-start truncate">{ar ? p.name_ar : p.name_en}</span>
-            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
-          </button>
-        ))}
-      </div>
-    );
-  }
+      )}
 
-  // One entry in the menu. The catalogue with every pack and its price lives
-  // on the facing page — a sidebar listing twelve priced items is a price
-  // list, not navigation.
-  return (
-    <div className="mt-2" dir={ar ? 'rtl' : 'ltr'}>
+      {summary.active.map((p) => (
+        <button key={p.key} onClick={() => onNavigate?.(`pack_${p.key}`)}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <span aria-hidden>{ICONS[p.key] || '📁'}</span>
+          <span className="flex-1 text-start truncate">{ar ? p.name_ar : p.name_en}</span>
+          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
+        </button>
+      ))}
+
       <button onClick={() => onNavigate?.('subscription')}
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800">
-        <span className="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0" aria-hidden>
-          <Layers className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-        </span>
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700">
+        <Layers className="w-4 h-4 shrink-0" aria-hidden />
         <span className="flex-1 text-start">
-          <span className="block font-medium">{ar ? 'التخصصات القطاعية' : 'Industry add-ons'}</span>
-          <span className="block text-[11px] text-gray-500 dark:text-gray-400">
-            {summary.active.length > 0
-              ? (ar ? `${summary.active.length} مفعّل من ${summary.total}` : `${summary.active.length} of ${summary.total} active`)
-              : (ar ? `${summary.total} تخصصاً متاحاً` : `${summary.total} available`)}
-          </span>
+          {summary.active.length > 0 ? (ar ? 'إضافة تخصص آخر' : 'Add another')
+                                     : (ar ? 'إضافة تخصص قطاعي' : 'Add an industry pack')}
         </span>
         {summary.pending > 0 && (
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 whitespace-nowrap">
@@ -86,16 +75,6 @@ export default function IndustryPacksNav({ language = 'ar', onNavigate }) {
           </span>
         )}
       </button>
-
-      {/* an active pack opens its own screen directly */}
-      {summary.active.map((p) => (
-        <button key={p.key} onClick={() => onNavigate?.(`pack_${p.key}`)}
-          className="w-full flex items-center gap-2 ps-10 pe-3 py-1.5 rounded-lg text-[13px] text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
-          <span aria-hidden>{ICONS[p.key] || '📁'}</span>
-          <span className="flex-1 text-start truncate">{ar ? p.name_ar : p.name_en}</span>
-          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
-        </button>
-      ))}
     </div>
   );
 }
