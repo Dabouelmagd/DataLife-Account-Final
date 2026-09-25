@@ -33,12 +33,34 @@ export default function IndustryPacksNav({ language = 'ar', onNavigate }) {
         active: (data.packs || []).filter((p) => p.active),
         pending: data.pending_count || 0,
         total: (data.packs || []).length,
+        included: Boolean(data.included_in_plan),
       });
     } catch { setSummary({ active: [], pending: 0, total: 0 }); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
   if (!summary) return null;
+
+  // A full plan includes the sector packs, so nothing about buying them is
+  // shown: the customer sees the ones they have switched on and nothing else.
+  if (summary.included) {
+    if (summary.active.length === 0) return null;
+    return (
+      <div className="mt-2" dir={ar ? 'rtl' : 'ltr'}>
+        <p className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          {ar ? 'التخصصات القطاعية' : 'Industry'}
+        </p>
+        {summary.active.map((p) => (
+          <button key={p.key} onClick={() => onNavigate?.(`pack_${p.key}`)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800">
+            <span aria-hidden>{ICONS[p.key] || '📁'}</span>
+            <span className="flex-1 text-start truncate">{ar ? p.name_ar : p.name_en}</span>
+            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
+          </button>
+        ))}
+      </div>
+    );
+  }
 
   // One entry in the menu. The catalogue with every pack and its price lives
   // on the facing page — a sidebar listing twelve priced items is a price

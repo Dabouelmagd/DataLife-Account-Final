@@ -529,6 +529,14 @@ async def list_industry_packs(current_user: dict = Depends(get_current_user)):
     from services.industry_packs import list_packs
     company_id = current_user.get("company_id")
     company = await db.companies.find_one({"id": company_id}, {"_id": 0, "industry_packs": 1}) or {}
+    # A full plan includes the sector packs: they are not sold to that customer,
+    # so nothing about buying them is shown. `included` tells the screens to
+    # offer activation rather than a price.
+    FULL_PLANS = ("starter", "professional", "enterprise")
+    sub = await db.subscriptions.find_one(
+        {"company_id": company_id, "status": "active"}, {"_id": 0, "plan": 1})
+    included = str((sub or {}).get("plan") or "").lower() in FULL_PLANS
+
     active = set(company.get("industry_packs") or [])
     pending = {r["pack_key"]: r async for r in db.pack_subscriptions.find(
         {"company_id": company_id, "status": "pending_payment"}, {"_id": 0})}
@@ -539,7 +547,8 @@ async def list_industry_packs(current_user: dict = Depends(get_current_user)):
                       "pending_payment": bool(request),
                       "amount_due": (request or {}).get("total_amount")})
     return {"packs": packs, "active_count": len(active),
-            "pending_count": len(pending)}
+            "pending_count": len(pending), "included_in_plan": included,
+            "plan": (sub or {}).get("plan")}
 
 
 @router.get("/industry-packs/{pack_key}/accounts")
@@ -672,7 +681,11 @@ async def confirm_pack_payment(pack_key: str, data: dict = None,
 async def activate_industry_pack(pack_key: str, current_user: dict = Depends(get_current_user)):
     """تفعيل مباشر — لإدارة المنصة فقط (تجربة، أو تسوية يدوية بعد سداد مؤكَّد)."""
     from services.industry_packs import PACKS, pack_accounts
-    if current_user.get("role") not in ("Super Admin", "مدير النظام"):
+    company_id_check = current_user.get("company_id")
+    _sub = await db.subscriptions.find_one(
+        {"company_id": company_id_check, "status": "active"}, {"_id": 0, "plan": 1})
+    _included = str((_sub or {}).get("plan") or "").lower() in ("starter", "professional", "enterprise")
+    if not _included and current_user.get("role") not in ("Super Admin", "مدير النظام"):
         raise HTTPException(status_code=403, detail=(
             "الباقة تُفعَّل بعد سداد اشتراكها — استخدم «اشترك الآن» لتسجيل الطلب"))
     allowed_roles = ["رئيس مجلس الإدارة", "Board Chairman", "مدير عام", "General Manager", "CEO",
