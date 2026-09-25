@@ -2,7 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
+# carries Arabic glyphs. The slim image ships no fonts at
+# all, so every Arabic PDF — invoices, payslips, reports — came out as rows of
+# identical boxes: the text was reshaped correctly and then drawn with a font
+# that cannot draw it.
+RUN apt-get update && apt-get install -y gcc fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 
 # Force cache bust BEFORE everything so all layers rebuild
 ARG CACHE_BUST=1

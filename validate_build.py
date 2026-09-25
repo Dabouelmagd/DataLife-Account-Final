@@ -646,6 +646,23 @@ def check_industry_pack_catalogue():
                       f"which does not exist in backend/services/industry_packs.py — "
                       f"a customer could pay for it and get no accounts")
 
+# ── Mode 18: the image must carry a font that can draw Arabic (blocking) ────
+# The backend image shipped no fonts, so every Arabic PDF the system produced
+# rendered as rows of identical boxes. ReportLab's built-ins have no Arabic
+# glyphs; without a font installed there is nothing to fall back to.
+def check_arabic_font_available():
+    dockerfile = ROOT / "backend" / "Dockerfile"
+    helper = ROOT / "backend" / "services" / "arabic_pdf.py"
+    if not dockerfile.exists() or not helper.exists():
+        return
+    text = dockerfile.read_text(encoding="utf-8", errors="ignore")
+    installs = any(pkg in text for pkg in
+                   ("fonts-dejavu", "fonts-liberation", "fonts-noto", "fonts-freefont"))
+    bundles = "assets/fonts" in text or (ROOT / "backend" / "assets" / "fonts").exists()
+    if not (installs or bundles):
+        errors.append("backend/Dockerfile: no Arabic-capable font installed — every Arabic PDF "
+                      "(invoices, payslips, reports) would render as empty boxes")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -662,6 +679,9 @@ if result is None:
 print(f"Mode 3: Backend import check...")
 check_backend_compiles()
 check_backend()
+
+print(f"Mode 18: Arabic PDF font check...")
+check_arabic_font_available()
 
 print(f"Mode 17: Industry pack catalogue check...")
 check_industry_pack_catalogue()
