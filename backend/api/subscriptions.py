@@ -623,8 +623,21 @@ async def confirm_pack_payment(pack_key: str, data: dict = None,
     await db.companies.update_one({"id": company_id}, {
         "$addToSet": {"industry_packs": pack_key},
         "$set": {f"industry_pack_dates.{pack_key}": now.isoformat()}})
+    # A confirmed pack payment is a taxable supply like any other: the customer
+    # is owed a tax invoice for it, not only for the base subscription.
+    from services.subscription_invoices import issue_and_send
+    invoice = await issue_and_send(db, {
+        "id": request["id"], "company_id": company_id,
+        "amount": request.get("total_amount"),
+        "plan": f"industry_pack:{pack_key}",
+        "period": f"{request.get('months', 1)} شهر",
+        "description": f"اشتراك {PACKS[pack_key]['name_ar']} — {request.get('months', 1)} شهر",
+        "payment_method": (data or {}).get("payment_method") or "تحويل",
+    }, company_id)
+
     return {"message": f"تم تأكيد السداد وتفعيل {PACKS[pack_key]['name_ar']}",
-            "accounts_added": len(to_add), "expires_at": expires.isoformat()}
+            "accounts_added": len(to_add), "expires_at": expires.isoformat(),
+            "invoice": invoice}
 
 
 @router.post("/industry-packs/{pack_key}/activate")
