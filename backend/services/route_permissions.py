@@ -38,7 +38,8 @@ PREFIX_PERMISSIONS = [
     ("/api/sales", {"sales", "invoices", FIN}),
     ("/api/purchases", {"purchases", FIN}),
     ("/api/inventory", {"inventory", "sales", "purchases", FIN}),
-    ("/api/interviews", {"hr"}),      # recruitment lives with HR
+    ("/api/interviews", {"hr"}),
+    ("/api/assessments", {"hr"}),   # التقييمات مع التوظيف      # recruitment lives with HR
     ("/api/payroll", {"hr"}),
     ("/api/hr", {"hr"}),
     ("/api/employees", {"hr"}),

@@ -68,6 +68,7 @@ from api.inventory_pro import router as inventory_pro_router
 from api.payroll import router as payroll_router
 from api.employees_extended import router as employees_extended_router
 from api.interviews import router as interviews_router
+from api.assessments import router as assessments_router
 from api.attendance_api import router as attendance_api_router
 from api.eta_api import router as eta_router
 from api.activity_log import router as activity_router
@@ -248,6 +249,7 @@ app.include_router(inventory_pro_router)
 app.include_router(payroll_router)
 app.include_router(employees_extended_router)
 app.include_router(interviews_router)
+app.include_router(assessments_router)
 app.include_router(attendance_api_router)
 app.include_router(eta_router)
 app.include_router(activity_router)
