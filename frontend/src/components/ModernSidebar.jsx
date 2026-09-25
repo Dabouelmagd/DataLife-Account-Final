@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import IndustryPacksNav from './IndustryPacksNav';
 
 /* ── Sidebar item for app-updates with live pending badge ── */
 const API_URL = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
@@ -637,46 +638,10 @@ const ModernSidebar = ({
               })}
 
               {/* ── INDUSTRY ADDONS SECTION ── */}
-              {company?.industry_addons?.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-900/40">
-                  <p className="text-[9px] font-bold uppercase tracking-widest px-1 mb-1.5 text-amber-600 dark:text-amber-500 flex items-center gap-1">
-                    <span>🏭</span>
-                    {language === 'ar' ? 'تخصصات قطاعية' : 'INDUSTRY'}
-                  </p>
-                  {company.industry_addons.map((addon) => {
-                    const addonIcons = {
-                      'ads': '📢', 'advertising': '📢',
-                      'construction': '🏗️', 'مقاولات': '🏗️',
-                      'manufacturing': '🏭', 'مصانع': '🏭',
-                      'medical': '🏥', 'طبية': '🏥',
-                      'real_estate': '🏠', 'عقارات': '🏠',
-                      'restaurants': '🍽️', 'مطاعم': '🍽️',
-                      'education': '🎓', 'تعليم': '🎓',
-                      'retail': '🛒', 'تجزئة': '🛒',
-                      'logistics': '🚚', 'لوجستيات': '🚚',
-                    };
-                    const icon = addonIcons[addon.key] || '🔷';
-                    const displayName = language === 'ar' ? (addon.name_ar || addon.name) : addon.name;
-                    return (
-                      <div key={addon.key}
-                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg mb-0.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30"
-                      >
-                        <span className="w-6 h-6 flex items-center justify-center rounded-md bg-amber-100 dark:bg-amber-800/40 text-sm flex-shrink-0">{icon}</span>
-                        <span className="text-xs font-medium text-amber-800 dark:text-amber-300 flex-1">{displayName}</span>
-                        <span className="text-[9px] bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-100 px-1.5 py-0.5 rounded-full font-bold">
-                          {language === 'ar' ? 'مفعّل' : 'Active'}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  <button
-                    onClick={() => setActiveModule?.('settings')}
-                    className="w-full mt-1 py-1 text-[10px] text-amber-600 dark:text-amber-500 hover:text-amber-800 text-center rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                  >
-                    {language === 'ar' ? '+ إضافة تخصص جديد' : '+ Add Industry'}
-                  </button>
-                </div>
-              )}
+              {/* التخصصات القطاعية — تقرأ الباقات الحقيقية من الخادم بأسعارها.
+                  كان هذا القسم يقرأ حقلاً قديماً (industry_addons) لا يملؤه شيء،
+                  فلم يظهر للعميل أن التخصصات موجودة أصلاً، ولا كم تكلّف. */}
+              <IndustryPacksNav language={language} onNavigate={(id) => setActiveModule?.(id)} />
             </div>
           )}
         </nav>
