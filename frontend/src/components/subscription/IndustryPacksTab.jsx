@@ -107,9 +107,18 @@ export function IndustryPacksTab({ language = 'ar' }) {
                 {ar ? `${p.accounts_count} حساب` : `${p.accounts_count} accounts`}
               </p>
               {p.price_egp != null && !p.active && (
-                <p className="text-lg font-extrabold text-[#1e3a8a] tabular-nums">
-                  {p.price_egp}
-                  <span className="text-xs font-normal text-slate-500 ms-1">{ar ? 'ج.م/شهر' : 'EGP/mo'}</span>
+                <p className="text-end">
+                  <span className="text-lg font-extrabold text-[#1e3a8a] tabular-nums">
+                    {(p.price_egp * months).toLocaleString()}
+                  </span>
+                  <span className="text-xs font-normal text-slate-500 ms-1">
+                    {ar ? `ج.م / ${months === 12 ? 'سنة' : months === 1 ? 'شهر' : `${months} شهور`}` : `EGP / ${months}mo`}
+                  </span>
+                  {months > 1 && (
+                    <span className="block text-[11px] text-slate-400 tabular-nums">
+                      {ar ? `${p.price_egp} ج.م شهرياً` : `${p.price_egp}/mo`}
+                    </span>
+                  )}
                 </p>
               )}
             </div>
@@ -124,7 +133,8 @@ export function IndustryPacksTab({ language = 'ar' }) {
                 className={`mt-3 w-full py-2 rounded-lg text-sm font-semibold disabled:opacity-50 ${
                   p.active ? 'border border-red-300 text-red-700' : 'bg-[#1e3a8a] text-white'}`}>
                 {busy === p.key ? '…' : p.active ? (ar ? 'إيقاف' : 'Deactivate')
-                  : (ar ? `اشترك — ${p.price_egp} ج.م/شهر` : `Subscribe — ${p.price_egp}/mo`)}
+                  : (ar ? `اشترك — ${(p.price_egp * months).toLocaleString()} ج.م`
+                        : `Subscribe — ${p.price_egp * months}`)}
               </button>
             )}
           </div>

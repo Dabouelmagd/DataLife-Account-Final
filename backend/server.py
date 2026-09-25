@@ -5,6 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import json
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List
@@ -386,6 +387,35 @@ class PermissionMiddleware:
                     payload = _vt(auth[7:]) if auth.startswith("Bearer ") else None
                     if payload and payload.get("user_id") and payload.get("role") not in PLATFORM_ROLES:
                         user = await self._user(payload["user_id"])
+
+                        # A single-module plan ("inventory only", "HR only") was
+                        # priced, sold, and enforced nowhere: the plan decided
+                        # what the pricing page showed and nothing else, so a
+                        # customer paying for one module had the whole system.
+                        if user and not user.get("is_platform_admin"):
+                            try:
+                                from services.plan_limits import covers, refusal_message
+                                from database import db as _db
+                                sub = await _db.subscriptions.find_one(
+                                    {"company_id": user.get("company_id"), "status": "active"},
+                                    {"_id": 0, "plan": 1})
+                                plan = (sub or {}).get("plan")
+                                module = next(iter(need[1]), None)
+                                if plan and module and not covers(plan, module):
+                                    if os.environ.get("PLAN_ENFORCEMENT", "log") == "enforce":
+                                        body = json.dumps({"detail": refusal_message(plan, module)},
+                                                          ensure_ascii=False).encode()
+                                        await send({"type": "http.response.start", "status": 403,
+                                                    "headers": [(b"content-type", b"application/json; charset=utf-8"),
+                                                                (b"content-length", str(len(body)).encode())]})
+                                        await send({"type": "http.response.body", "body": body})
+                                        return
+                                    logging.getLogger("plan_limits").info(
+                                        "plan %s does not cover %s (company %s) — logging only",
+                                        plan, module, user.get("company_id"))
+                            except Exception:
+                                pass      # a plan lookup failure must never lock a company out
+
                         if user and not user.get("is_platform_admin") and not (effective_permissions(user) & need[1]):
                             await self._record(scope, user, need)
                             if os.environ.get("PERMISSION_ENFORCEMENT", "log") == "enforce":

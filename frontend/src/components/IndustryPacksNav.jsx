@@ -11,7 +11,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Layers, Plus, Check, ChevronDown, Loader2 } from 'lucide-react';
+import { Layers, Check } from 'lucide-react';
 
 const API = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -24,83 +24,56 @@ const ICONS = {
 
 export default function IndustryPacksNav({ language = 'ar', onNavigate }) {
   const ar = language === 'ar';
-  const [packs, setPacks] = useState(null);
-  const [open, setOpen] = useState(true);
-  const [showAll, setShowAll] = useState(false);
+  const [summary, setSummary] = useState(null);
 
   const load = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/api/subscriptions/industry-packs`, auth());
-      setPacks(data.packs || []);
-    } catch { setPacks([]); }
+      setSummary({
+        active: (data.packs || []).filter((p) => p.active),
+        pending: data.pending_count || 0,
+        total: (data.packs || []).length,
+      });
+    } catch { setSummary({ active: [], pending: 0, total: 0 }); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  if (packs === null) {
-    return <div className="px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>;
-  }
-  if (packs.length === 0) return null;
+  if (!summary) return null;
 
-  const active = packs.filter((p) => p.active);
-  const available = packs.filter((p) => !p.active);
-  const shown = showAll ? available : available.slice(0, 3);
-
+  // One entry in the menu. The catalogue with every pack and its price lives
+  // on the facing page — a sidebar listing twelve priced items is a price
+  // list, not navigation.
   return (
-    <div className="mt-4" dir={ar ? 'rtl' : 'ltr'}>
-      <button onClick={() => setOpen((v) => !v)} aria-expanded={open}
-        className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-        <span className="flex items-center gap-1.5">
-          <Layers className="w-3.5 h-3.5" aria-hidden />
-          {ar ? 'التخصصات القطاعية' : 'Industry add-ons'}
+    <div className="mt-2" dir={ar ? 'rtl' : 'ltr'}>
+      <button onClick={() => onNavigate?.('subscription')}
+        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800">
+        <span className="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0" aria-hidden>
+          <Layers className="w-4 h-4 text-gray-600 dark:text-gray-300" />
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? '' : 'rotate-180'}`} aria-hidden />
+        <span className="flex-1 text-start">
+          <span className="block font-medium">{ar ? 'التخصصات القطاعية' : 'Industry add-ons'}</span>
+          <span className="block text-[11px] text-gray-500 dark:text-gray-400">
+            {summary.active.length > 0
+              ? (ar ? `${summary.active.length} مفعّل من ${summary.total}` : `${summary.active.length} of ${summary.total} active`)
+              : (ar ? `${summary.total} تخصصاً متاحاً` : `${summary.total} available`)}
+          </span>
+        </span>
+        {summary.pending > 0 && (
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 whitespace-nowrap">
+            {ar ? 'بانتظار السداد' : 'Pending'}
+          </span>
+        )}
       </button>
 
-      {open && (
-        <div className="mt-1 space-y-0.5">
-          {active.map((p) => (
-            <button key={p.key} onClick={() => onNavigate?.(`pack_${p.key}`)}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800">
-              <span aria-hidden>{ICONS[p.key] || '📁'}</span>
-              <span className="flex-1 text-start truncate">{ar ? p.name_ar : p.name_en}</span>
-              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
-            </button>
-          ))}
-
-          {shown.map((p) => (
-            <button key={p.key} onClick={() => onNavigate?.('subscription')}
-              title={p.note_ar}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200">
-              <span className="opacity-60" aria-hidden>{ICONS[p.key] || '📁'}</span>
-              <span className="flex-1 text-start truncate">{ar ? p.name_ar : p.name_en}</span>
-              {p.pending_payment ? (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 whitespace-nowrap">
-                  {ar ? 'بانتظار السداد' : 'Awaiting payment'}
-                </span>
-              ) : p.price_egp != null && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 whitespace-nowrap tabular-nums">
-                  {p.price_egp} {ar ? 'ج/شهر' : 'EGP/mo'}
-                </span>
-              )}
-              <Plus className="w-3.5 h-3.5 shrink-0" aria-hidden />
-            </button>
-          ))}
-
-          {available.length > shown.length && (
-            <button onClick={() => setShowAll(true)}
-              className="w-full px-3 py-1.5 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 text-start">
-              {ar ? `عرض ${available.length - shown.length} تخصصاً آخر…` : `${available.length - shown.length} more…`}
-            </button>
-          )}
-
-          {active.length === 0 && (
-            <p className="px-3 pt-1 text-[11px] leading-5 text-gray-400 dark:text-gray-500">
-              {ar ? 'اشتراكك الأساسي يشغّل الشركة بالكامل — التخصص إضافة اختيارية فوقه.'
-                  : 'Your base subscription runs everything; an add-on is optional.'}
-            </p>
-          )}
-        </div>
-      )}
+      {/* an active pack opens its own screen directly */}
+      {summary.active.map((p) => (
+        <button key={p.key} onClick={() => onNavigate?.(`pack_${p.key}`)}
+          className="w-full flex items-center gap-2 ps-10 pe-3 py-1.5 rounded-lg text-[13px] text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <span aria-hidden>{ICONS[p.key] || '📁'}</span>
+          <span className="flex-1 text-start truncate">{ar ? p.name_ar : p.name_en}</span>
+          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
+        </button>
+      ))}
     </div>
   );
 }
