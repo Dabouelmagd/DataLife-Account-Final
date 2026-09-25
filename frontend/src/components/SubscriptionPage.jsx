@@ -21,6 +21,8 @@ const SubscriptionPage = () => {
   const isRTL = language === 'ar';
   
   const FULL_PLANS = ['starter', 'professional', 'enterprise'];
+  // a signed-in user can still reach them deliberately, but they are not shown
+  const [showPartialPlans, setShowPartialPlans] = useState(false);
   const PLAN_NAMES = isRTL ? {
     starter: 'الباقة الأساسية', professional: 'الباقة الاحترافية', enterprise: 'باقة المؤسسات',
     'hr-only': 'الموارد البشرية فقط', 'financial-only': 'المالية فقط',
@@ -469,7 +471,15 @@ const SubscriptionPage = () => {
         {/* Module-only Plans */}
         {/* حزم الوحدات الفردية — تُخفى عمّن يملك باقة كاملة: عرض «المخزون فقط»
             على مشترك في باقة شاملة هو عرض بتخفيض ما يملكه بالفعل. */}
-        {!FULL_PLANS.includes(currentSubscription?.plan) && (<>
+        {/* Hidden from anyone already working inside the app. The earlier rule
+            keyed on holding a FULL plan, which showed these to a company with
+            no subscription record at all — including the platform's own.
+            Someone signed in already has a working system; offering them
+            "inventory only" is offering a downgrade, not a choice. They belong
+            on the public pricing page, for people choosing a first plan. */}
+        {(!currentSubscription || currentSubscription.status === 'no_subscription')
+          && !FULL_PLANS.includes(currentSubscription?.plan)
+          && showPartialPlans && (<>
         <h3 className="text-lg font-semibold mb-4">{isRTL ? 'حزم الوحدات الفردية' : 'Individual Module Packages'}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {['hr-only', 'financial-only', 'inventory-only'].map((planId) => {
@@ -511,6 +521,14 @@ const SubscriptionPage = () => {
         </div>
 
         </>)}
+
+        {!showPartialPlans && (!currentSubscription || currentSubscription.status === 'no_subscription') && (
+          <button onClick={() => setShowPartialPlans(true)}
+            className="mb-8 text-sm text-gray-500 hover:text-gray-700 underline">
+            {isRTL ? 'أحتاج وحدة واحدة فقط (الموارد البشرية أو المالية أو المخزون)'
+                   : 'I only need a single module'}
+          </button>
+        )}
 
         {/* Error/Success Messages */}
         {error && (
