@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import IndustryPackScreen from './IndustryPackScreen';
 import RecruitmentPage from '../pages/RecruitmentPage';
 import UnauthorizedPage from './UnauthorizedPage';
 
@@ -288,6 +289,14 @@ const ModuleRenderer = ({
   };
 
   // Check permission for current module
+  // an activated pack opens its own screen: pack_<key>
+  if (typeof activeModule === 'string' && activeModule.startsWith('pack_')) {
+    return (
+      <IndustryPackScreen packKey={activeModule.slice(5)} language={language}
+        onNavigate={setActiveModule} />
+    );
+  }
+
   const requiredPerm = modulePermissions[activeModule];
   if (!permissionsReady) {
     return (

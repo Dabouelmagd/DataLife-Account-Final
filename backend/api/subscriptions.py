@@ -542,6 +542,25 @@ async def list_industry_packs(current_user: dict = Depends(get_current_user)):
             "pending_count": len(pending)}
 
 
+@router.get("/industry-packs/{pack_key}/accounts")
+async def industry_pack_accounts(pack_key: str, current_user: dict = Depends(get_current_user)):
+    """حسابات الباقة كما هي في شجرة الشركة — بأرصدتها."""
+    from services.industry_packs import PACKS
+    if pack_key not in PACKS:
+        raise HTTPException(status_code=404, detail="الباقة غير موجودة")
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=403, detail="الحساب غير مرتبط بشركة")
+
+    codes = [c for c, *_ in PACKS[pack_key]["accounts"]]
+    rows = await db.chart_of_accounts.find(
+        {"company_id": company_id, "account_code": {"$in": codes}},
+        {"_id": 0, "account_code": 1, "account_name": 1, "account_type": 1,
+         "current_balance": 1}).sort("account_code", 1).to_list(200)
+    return {"pack": pack_key, "name_ar": PACKS[pack_key]["name_ar"],
+            "accounts": rows, "expected": len(codes), "present": len(rows)}
+
+
 @router.post("/industry-packs/{pack_key}/request")
 async def request_industry_pack(pack_key: str, data: dict = None,
                                 current_user: dict = Depends(get_current_user)):
