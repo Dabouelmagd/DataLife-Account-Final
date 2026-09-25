@@ -37,7 +37,7 @@ export default function IndustryPacksNav({ language = 'ar', onNavigate }) {
   useEffect(() => { load(); }, [load]);
 
   if (packs === null) {
-    return <div className="px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-white/40" /></div>;
+    return <div className="px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>;
   }
   if (packs.length === 0) return null;
 
@@ -48,7 +48,7 @@ export default function IndustryPacksNav({ language = 'ar', onNavigate }) {
   return (
     <div className="mt-4" dir={ar ? 'rtl' : 'ltr'}>
       <button onClick={() => setOpen((v) => !v)} aria-expanded={open}
-        className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white/50 hover:text-white/70">
+        className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
         <span className="flex items-center gap-1.5">
           <Layers className="w-3.5 h-3.5" aria-hidden />
           {ar ? 'التخصصات القطاعية' : 'Industry add-ons'}
@@ -60,21 +60,21 @@ export default function IndustryPacksNav({ language = 'ar', onNavigate }) {
         <div className="mt-1 space-y-0.5">
           {active.map((p) => (
             <button key={p.key} onClick={() => onNavigate?.(`pack_${p.key}`)}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/90 hover:bg-white/10">
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800">
               <span aria-hidden>{ICONS[p.key] || '📁'}</span>
               <span className="flex-1 text-start truncate">{ar ? p.name_ar : p.name_en}</span>
-              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden />
+              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
             </button>
           ))}
 
           {shown.map((p) => (
             <button key={p.key} onClick={() => onNavigate?.('subscription')}
               title={p.note_ar}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/50 hover:bg-white/10 hover:text-white/80">
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200">
               <span className="opacity-60" aria-hidden>{ICONS[p.key] || '📁'}</span>
               <span className="flex-1 text-start truncate">{ar ? p.name_ar : p.name_en}</span>
               {p.price_egp != null && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 whitespace-nowrap tabular-nums">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 whitespace-nowrap tabular-nums">
                   {p.price_egp} {ar ? 'ج/شهر' : 'EGP/mo'}
                 </span>
               )}
@@ -84,13 +84,13 @@ export default function IndustryPacksNav({ language = 'ar', onNavigate }) {
 
           {available.length > shown.length && (
             <button onClick={() => setShowAll(true)}
-              className="w-full px-3 py-1.5 text-[11px] text-white/50 hover:text-white/80 text-start">
+              className="w-full px-3 py-1.5 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 text-start">
               {ar ? `عرض ${available.length - shown.length} تخصصاً آخر…` : `${available.length - shown.length} more…`}
             </button>
           )}
 
           {active.length === 0 && (
-            <p className="px-3 pt-1 text-[11px] leading-5 text-white/40">
+            <p className="px-3 pt-1 text-[11px] leading-5 text-gray-400 dark:text-gray-500">
               {ar ? 'اشتراكك الأساسي يشغّل الشركة بالكامل — التخصص إضافة اختيارية فوقه.'
                   : 'Your base subscription runs everything; an add-on is optional.'}
             </p>

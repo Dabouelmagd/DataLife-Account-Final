@@ -245,12 +245,17 @@ const ModuleRenderer = ({
   // Get user permissions from prop OR from localStorage (in case prop is stale)
   const storedUser = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
   const userPermissions = user?.permissions || storedUser?.permissions || [];
+  // On a refresh the user arrives a moment after the first render. Until then
+  // this list is empty, every screen looked forbidden, and the app bounced
+  // back to the dashboard — which is why a refresh never stayed where it was.
+  const permissionsReady = Boolean(user || storedUser);
   const effectiveRole = user?.role || storedUser?.role || userRole || '';
   const isSuperAdmin = effectiveRole === 'Super Admin' || effectiveRole === 'رئيس مجلس الإدارة';
 
   const hasPermission = (requiredPermission) => {
     if (isSuperAdmin) return true;
     if (!requiredPermission) return true;
+    if (!permissionsReady) return true;   // not yet known ≠ not allowed
     return userPermissions.includes(requiredPermission);
   };
 
@@ -284,6 +289,13 @@ const ModuleRenderer = ({
 
   // Check permission for current module
   const requiredPerm = modulePermissions[activeModule];
+  if (!permissionsReady) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="w-8 h-8 border-2 border-slate-300 border-t-[#1e3a8a] rounded-full animate-spin" />
+      </div>
+    );
+  }
   if (requiredPerm && !hasPermission(requiredPerm)) {
     return <UnauthorizedPage moduleName={activeModule} />;
   }
