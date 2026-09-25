@@ -20,6 +20,16 @@ const SubscriptionPage = () => {
   const navigate = useNavigate();
   const isRTL = language === 'ar';
   
+  const FULL_PLANS = ['starter', 'professional', 'enterprise'];
+  const PLAN_NAMES = isRTL ? {
+    starter: 'الباقة الأساسية', professional: 'الباقة الاحترافية', enterprise: 'باقة المؤسسات',
+    'hr-only': 'الموارد البشرية فقط', 'financial-only': 'المالية فقط',
+    'inventory-only': 'المخزون فقط', trial: 'فترة تجريبية',
+  } : {
+    starter: 'Starter', professional: 'Professional', enterprise: 'Enterprise',
+    'hr-only': 'HR only', 'financial-only': 'Financial only',
+    'inventory-only': 'Inventory only', trial: 'Trial',
+  };
   const [pageTab, setPageTab] = useState('plans');   // plans | packs | invoices
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -301,7 +311,14 @@ const SubscriptionPage = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-gray-600">{isRTL ? 'الخطة' : 'Plan'}</p>
-                  <p className="font-semibold text-lg capitalize">{currentSubscription.plan?.replace('-', ' ')}</p>
+                  {/* the raw plan id was shown as-is ("financial-only"), which
+                      means nothing to an Arabic-speaking customer */}
+                  <p className="font-semibold text-lg">{PLAN_NAMES[currentSubscription.plan] || currentSubscription.plan}</p>
+                  {['hr-only', 'financial-only', 'inventory-only'].includes(currentSubscription.plan) && (
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      {isRTL ? 'باقة وحدة واحدة — الوحدات الأخرى غير مشمولة' : 'Single-module plan'}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">{isRTL ? 'المدة' : 'Duration'}</p>
@@ -450,6 +467,9 @@ const SubscriptionPage = () => {
         </div>
 
         {/* Module-only Plans */}
+        {/* حزم الوحدات الفردية — تُخفى عمّن يملك باقة كاملة: عرض «المخزون فقط»
+            على مشترك في باقة شاملة هو عرض بتخفيض ما يملكه بالفعل. */}
+        {!FULL_PLANS.includes(currentSubscription?.plan) && (<>
         <h3 className="text-lg font-semibold mb-4">{isRTL ? 'حزم الوحدات الفردية' : 'Individual Module Packages'}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {['hr-only', 'financial-only', 'inventory-only'].map((planId) => {
@@ -489,6 +509,8 @@ const SubscriptionPage = () => {
             );
           })}
         </div>
+
+        </>)}
 
         {/* Error/Success Messages */}
         {error && (

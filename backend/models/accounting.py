@@ -644,6 +644,7 @@ DEFAULT_ACCOUNTS = [
      "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
     {"code": "3211", "name": "تكلفة الوحدات العقارية المباعة", "name_en": "Cost of Real Estate Units Sold",
      "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "31"},
+    {"code": "3322", "name": "اشتراكات برامج وخدمات سحابية", "name_en": "Software & Cloud Subscriptions", "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "332"},
     {"code": "3321", "name": "عمولات إصدار خطابات الضمان", "name_en": "Letter of Guarantee Fees",
      "type": AccountType.EXPENSE, "category": AccountCategory.OPERATING_EXPENSE, "parent_code": "32"},
     {"code": "3351", "name": "مصروف ضريبة الدخل الجارية", "name_en": "Current Income Tax Expense",

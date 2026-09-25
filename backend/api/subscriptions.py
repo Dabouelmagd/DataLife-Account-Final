@@ -654,9 +654,18 @@ async def confirm_pack_payment(pack_key: str, data: dict = None,
         "payment_method": (data or {}).get("payment_method") or "تحويل",
     }, company_id)
 
+    # the same payment on both sets of books: the customer's expense and the
+    # platform's revenue, with VAT on the right side of each
+    from services.subscription_posting import post_subscription_payment
+    posting = await post_subscription_payment(
+        db, customer_company_id=company_id, user_id=current_user.get("user_id"),
+        net=invoice.get("net_amount"), vat=invoice.get("vat_amount"),
+        description=f"{PACKS[pack_key]['name_ar']} — {request.get('months', 1)} شهر",
+        invoice_number=invoice.get("invoice_number"))
+
     return {"message": f"تم تأكيد السداد وتفعيل {PACKS[pack_key]['name_ar']}",
             "accounts_added": len(to_add), "expires_at": expires.isoformat(),
-            "invoice": invoice}
+            "invoice": invoice, "posting": posting}
 
 
 @router.post("/industry-packs/{pack_key}/activate")
