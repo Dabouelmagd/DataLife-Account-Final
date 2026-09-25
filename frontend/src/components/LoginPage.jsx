@@ -177,8 +177,21 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="max-w-md w-full">
-        <div className="flex justify-center mb-8">
-          <CompanyLogo size="default" style={{ maxWidth: 200, display: "block", margin: "0 auto" }} />
+        {/* هوية البرنامج — الشعار والاسم قبل نموذج الدخول.
+            تُستخدم الأيقونة وحدها لأن الشعار الكامل يحتوي كلمة بيضاء تختفي
+            على الخلفية الفاتحة — والاسم مكتوب نصاً تحتها فيظهر دائماً. */}
+        <div className="flex flex-col items-center mb-8">
+          <img src="/logos/logo_icon.png" alt=""
+            className="h-24 w-auto drop-shadow-md rounded-2xl" aria-hidden />
+          <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold tracking-tight text-[#1e3a8a]">
+            {language === 'ar' ? 'داتا لايف أكونت' : 'DataLife Account'}
+          </h1>
+          <p className="mt-1.5 text-sm sm:text-base text-slate-600 text-center max-w-sm">
+            {language === 'ar'
+              ? 'نظام المحاسبة والموارد البشرية للشركات المصرية'
+              : 'Accounting and HR for Egyptian businesses'}
+          </p>
+          <span className="mt-3 h-1 w-16 rounded-full bg-gradient-to-l from-[#1e3a8a] to-emerald-500" aria-hidden />
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
