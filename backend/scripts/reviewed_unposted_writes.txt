@@ -34,3 +34,4 @@ subscriptions.py:/redeem-code  # platform subscription
 consolidation.py:/eliminations/intercompany-balances  # a consolidation adjustment, recorded in working papers only — posting it would distort the companies' own books
 assessments.py:/submit  # test scores, not money — an aptitude result out of 10 has no ledger side
 subscriptions.py:/industry-packs/{pack_key}/request  # a request is an intention to buy, not a supply — the entry and the tax invoice follow the confirmed payment
+subscriptions.py:/industry-packs/{pack_key}/confirm-payment  # platform revenue, not the tenant's books — posting it into the customer's ledger would record our income as theirs; the customer gets a tax invoice and books it as an expense themselves
