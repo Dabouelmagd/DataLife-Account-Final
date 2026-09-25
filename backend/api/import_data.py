@@ -130,7 +130,7 @@ async def import_employees(
             success_count += 1
         except Exception as e:
             error_count += 1
-            errors.append(f"Row {idx + 2}: {str(e)}")
+            errors.append(f"صف {idx + 2}: {str(e)}")
     
     # Save import history
     import_record = {
@@ -183,7 +183,8 @@ async def import_financial(
         'description': ['description', 'الوصف', 'البيان', 'notes'],
         'amount': ['amount', 'المبلغ', 'القيمة', 'value'],
         'category': ['category', 'الفئة', 'التصنيف', 'type', 'النوع'],
-        'account': ['account', 'الحساب']
+        'account': ['account', 'الحساب', 'رقم الحساب', 'كود الحساب'],
+        'payment_method': ['payment_method', 'طريقة السداد', 'طريقة الدفع', 'السداد']
     }
     
     mapped_cols = {}
@@ -196,7 +197,9 @@ async def import_financial(
     success_count = 0
     error_count = 0
     errors = []
+    user_id = current_user.get("user_id")
     collection = "revenues" if data_type == "revenue" else "expenses"
+    defaulted = 0
     
     for idx, row in df.iterrows():
         try:
@@ -207,9 +210,26 @@ async def import_financial(
                 "description": str(row.get(mapped_cols.get('description', ''), '')).strip(),
                 "amount": float(row.get(mapped_cols.get('amount', ''), 0) or 0),
                 "category": str(row.get(mapped_cols.get('category', ''), '')).strip() or None,
+                # the sheet's account column was mapped but never read, so every
+                # row was posted to the default account even when it named one
+                "account": str(row.get(mapped_cols.get('account', ''), '')).strip() or None,
+                "payment_method": str(row.get(mapped_cols.get('payment_method', ''), '')).strip() or None,
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             
+            # Post it. A row stored with no entry behind it is exactly the
+            # problem this fixes: the expense screen would show money the
+            # trial balance knows nothing about.
+            from services.import_posting import post_row
+            posted = await post_row(db, company_id, user_id, record, data_type)
+            record.update({
+                "journal_entry_id": posted["journal_entry_id"],
+                "entry_number": posted["entry_number"],
+                "account_code": posted["account_code"],
+                "used_default_account": posted["used_default_account"],
+            })
+            if posted["used_default_account"]:
+                defaulted += 1
             await db[collection].insert_one(record)
             success_count += 1
         except Exception as e:
@@ -217,6 +237,8 @@ async def import_financial(
             errors.append(f"Row {idx + 2}: {str(e)}")
     
     type_name = "الإيرادات" if data_type == "revenue" else "المصروفات"
+    posting_note = (f"رُحّل {success_count} قيداً إلى دفتر الأستاذ"
+                    + (f" — منها {defaulted} على الحساب الافتراضي لعدم تحديد حساب في الملف" if defaulted else ""))
     import_record = {
         "id": str(uuid.uuid4()),
         "company_id": company_id,
@@ -233,9 +255,11 @@ async def import_financial(
     await db.import_history.insert_one(import_record)
     
     return {
-        "message": "Import completed",
+        "message": f"تم الاستيراد — {posting_note}",
         "total": len(df),
         "success": success_count,
+        "posted_to_ledger": success_count,
+        "used_default_account": defaulted,
         "errors": error_count,
         "error_details": errors[:10]
     }

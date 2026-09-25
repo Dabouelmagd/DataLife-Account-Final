@@ -685,6 +685,21 @@ def check_arabic_font_available():
         errors.append("backend/Dockerfile: no Arabic-capable font installed — every Arabic PDF "
                       "(invoices, payslips, reports) would render as empty boxes")
 
+# ── Mode 19: imported money must reach the ledger (blocking) ───────────────
+# An imported expense sheet landed in its own collection and stopped there:
+# the expense screen showed money the trial balance knew nothing about, and
+# neither side said which was right.
+def check_import_posts():
+    imp = ROOT / "backend" / "api" / "import_data.py"
+    if not imp.exists():
+        return
+    text = imp.read_text(encoding="utf-8", errors="ignore")
+    if "revenues" not in text and "expenses" not in text:
+        return
+    if "import_posting" not in text and "create_journal_entry" not in text:
+        errors.append("backend/api/import_data.py: imported revenue/expense rows are stored but never "
+                      "posted — the money would exist in the system and not in the books")
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -701,6 +716,9 @@ if result is None:
 print(f"Mode 3: Backend import check...")
 check_backend_compiles()
 check_backend()
+
+print(f"Mode 19: Imported money posting check...")
+check_import_posts()
 
 print(f"Mode 18: Arabic PDF font check...")
 check_arabic_font_available()
