@@ -376,6 +376,12 @@ const ModuleRenderer = ({
 
   // Simple modules (no sub-modules)
   const simpleModuleMap = {
+    // Reachable by their own URL. These screens also appear inside the Finance
+    // section, whose map belongs to a DIFFERENT component — reading it from
+    // here threw "financialSubModuleMap is not defined" and took the page
+    // down. They are listed here, in this component's own scope.
+    'inventory': <InventoryPage language={language} />,
+    'products': <ProductsPage language={language} />,
     'sales': <SalesModule language={language} />,
     'assets': <AssetsModule />,
     'taxes': <TaxesModule />,
@@ -411,14 +417,6 @@ const ModuleRenderer = ({
   // looked up by name too now, which is what makes the URL shareable.
   if (simpleModuleMap[activeModule]) {
     return simpleModuleMap[activeModule];
-  }
-
-  if (financialSubModuleMap[activeModule]) {
-    return financialSubModuleMap[activeModule];
-  }
-
-  if (hrSubModuleMap[activeModule]) {
-    return hrSubModuleMap[activeModule];
   }
 
   // Coupon Management - redirect

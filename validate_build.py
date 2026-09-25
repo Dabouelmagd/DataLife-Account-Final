@@ -700,6 +700,29 @@ def check_import_posts():
         errors.append("backend/api/import_data.py: imported revenue/expense rows are stored but never "
                       "posted — the money would exist in the system and not in the books")
 
+# ── Mode 20: a lookup table read from another component's scope (blocking) ──
+# ModuleRenderer read financialSubModuleMap, which belongs to a DIFFERENT
+# component. Babel parsed it, every other mode passed, and the page crashed at
+# runtime with "financialSubModuleMap is not defined" — the error boundary
+# replaced the screen with "something went wrong".
+def check_frontend_scope():
+    script = ROOT / "scripts" / "scope_check.js"
+    src = ROOT / "frontend" / "src"
+    if not script.exists() or not src.exists():
+        return
+    import subprocess as _sp
+    try:
+        r = _sp.run(["node", str(script), str(src)], capture_output=True, text=True, timeout=120)
+    except Exception:
+        return                      # no node here: Mode 2 already reports that
+    out = (r.stdout or "").strip()
+    if out.startswith("SCOPE_ERRORS:"):
+        seen = set()
+        for item in out[len("SCOPE_ERRORS:"):].split("|"):
+            if item and item not in seen:
+                seen.add(item)
+                errors.append(item)
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -716,6 +739,9 @@ if result is None:
 print(f"Mode 3: Backend import check...")
 check_backend_compiles()
 check_backend()
+
+print(f"Mode 20: Frontend scope check...")
+check_frontend_scope()
 
 print(f"Mode 19: Imported money posting check...")
 check_import_posts()
