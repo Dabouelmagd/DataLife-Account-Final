@@ -59,14 +59,15 @@ export default function ExecutiveDashboard({ language = 'ar', onNavigate }) {
       {fin && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Figure icon={Wallet} tone="blue" label={ar ? 'النقدية والبنوك' : 'Cash & banks'}
-                  value={money(fin.cash_and_banks)} onClick={() => onNavigate?.('financial')} />
+                  value={money(fin.cash_and_banks)} onClick={() => onNavigate?.('bank')} />
           <Figure icon={ArrowDownRight} tone="emerald" label={ar ? 'مستحق لنا (عملاء)' : 'Receivables'}
-                  value={money(fin.receivables)} onClick={() => onNavigate?.('invoices')} />
+                  value={money(fin.receivables)} onClick={() => onNavigate?.('parties')} />
           <Figure icon={ArrowUpRight} tone="rose" label={ar ? 'مستحق علينا (موردون)' : 'Payables'}
-                  value={money(fin.payables)} onClick={() => onNavigate?.('purchases')} />
+                  value={money(fin.payables)} onClick={() => onNavigate?.('parties')} />
           <Figure icon={fin.month_profit >= 0 ? TrendingUp : TrendingDown}
                   tone={fin.month_profit >= 0 ? 'emerald' : 'rose'}
                   label={ar ? 'نتيجة الشهر' : 'This month'}
+                  onClick={() => onNavigate?.('income-statement')}
                   value={money(fin.month_profit)}
                   hint={ar ? `إيراد ${money(fin.month_revenue)} · مصروف ${money(fin.month_expenses)}`
                            : `Rev ${money(fin.month_revenue)} · Exp ${money(fin.month_expenses)}`} />
@@ -76,7 +77,8 @@ export default function ExecutiveDashboard({ language = 'ar', onNavigate }) {
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* net position */}
         {fin && (
-          <Panel title={ar ? 'المركز النقدي' : 'Net position'} icon={Landmark}>
+          <Panel title={ar ? 'المركز النقدي' : 'Net position'} icon={Landmark}
+                 onClick={() => onNavigate?.('trial-balance')}>
             <Row label={ar ? 'نقدية + مستحق لنا' : 'Cash + receivables'}
                  value={money(fin.cash_and_banks + fin.receivables)} />
             <Row label={ar ? 'ناقص المستحق علينا' : 'Less payables'} value={`(${money(fin.payables)})`} />
@@ -129,7 +131,8 @@ export default function ExecutiveDashboard({ language = 'ar', onNavigate }) {
 
         {/* banks, one line each */}
         {sections.banks?.length > 0 && (
-          <Panel title={ar ? 'الحسابات النقدية' : 'Cash accounts'} icon={Wallet}>
+          <Panel title={ar ? 'الحسابات النقدية' : 'Cash accounts'} icon={Wallet}
+                 onClick={() => onNavigate?.('bank')}>
             {sections.banks.map((b) => (
               <Row key={b.code} label={b.name} value={money(b.balance)}
                    tone={b.balance < 0 ? 'rose' : undefined} />

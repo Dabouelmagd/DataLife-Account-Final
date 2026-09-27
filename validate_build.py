@@ -723,6 +723,28 @@ def check_frontend_scope():
                 seen.add(item)
                 errors.append(item)
 
+# ── Mode 21: every navigation target must exist (blocking) ─────────────────
+# Dashboard figures linked to screens the renderer does not handle, and the
+# Finance screen's "عميل جديد" / "مورد جديد" buttons pointed at "customers"
+# and "suppliers", which are one screen called "parties". A dead link shows
+# "هذه الصفحة غير متاحة" with an internal id — a broken product, not a
+# missing page.
+def check_nav_targets():
+    script = ROOT / "scripts" / "nav_check.js"
+    src = ROOT / "frontend" / "src"
+    if not script.exists() or not src.exists():
+        return
+    import subprocess as _sp
+    try:
+        r = _sp.run(["node", str(script), str(src)], capture_output=True, text=True, timeout=120)
+    except Exception:
+        return
+    out = (r.stdout or "").strip()
+    if out.startswith("NAV_ERRORS:"):
+        for item in dict.fromkeys(out[len("NAV_ERRORS:"):].split("|")):
+            if item:
+                errors.append(item)
+
 # ── Run all modes ─────────────────────────────────────────────
 files = [f for f in SRC.rglob("*") if f.suffix in ('.jsx','.js')
          and 'node_modules' not in str(f) and '.test.' not in str(f)]
@@ -739,6 +761,9 @@ if result is None:
 print(f"Mode 3: Backend import check...")
 check_backend_compiles()
 check_backend()
+
+print(f"Mode 21: Navigation target check...")
+check_nav_targets()
 
 print(f"Mode 20: Frontend scope check...")
 check_frontend_scope()

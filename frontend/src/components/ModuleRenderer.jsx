@@ -379,9 +379,16 @@ const ModuleRenderer = ({
     // Reachable by their own URL. These screens also appear inside the Finance
     // section, whose map belongs to a DIFFERENT component — reading it from
     // here threw "financialSubModuleMap is not defined" and took the page
-    // down. They are listed here, in this component's own scope.
+    // down. They are listed here, in this component's own scope, so a link
+    // from the dashboard or a bookmark reaches the screen it names.
     'inventory': <InventoryPage language={language} />,
     'products': <ProductsPage language={language} />,
+    'parties': <PartiesPage language={language} />,
+    'bank': <BankManagementPage language={language} />,
+    'general-ledger': <GeneralLedgerPage language={language} />,
+    'trial-balance': <TrialBalancePage language={language} />,
+    'income-statement': <IncomeStatementPage language={language} />,
+    'invoices': <InvoicesPage language={language} />,
     'sales': <SalesModule language={language} />,
     'assets': <AssetsModule />,
     'taxes': <TaxesModule />,

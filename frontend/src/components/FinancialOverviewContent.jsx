@@ -96,13 +96,13 @@ const FinancialOverviewContent = ({
       title: language === 'ar' ? 'عميل جديد' : 'New Customer',
       icon: Users,
       color: 'bg-blue-500 hover:bg-blue-600',
-      action: () => onNavigate('customers')
+      action: () => onNavigate('parties')   // العملاء والموردون شاشة واحدة
     },
     {
       title: language === 'ar' ? 'مورد جديد' : 'New Supplier',
       icon: Building2,
       color: 'bg-amber-500 hover:bg-amber-600',
-      action: () => onNavigate('suppliers')
+      action: () => onNavigate('parties')   // العملاء والموردون شاشة واحدة
     },
     {
       title: language === 'ar' ? 'التقارير' : 'Reports',
