@@ -9,7 +9,7 @@ Error Monitor & Auto-Healer — نظام مراقبة الأخطاء والإص�
 """
 
 import os, time, psutil, asyncio, logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Header, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import Optional
@@ -17,10 +17,11 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/monitor", tags=["monitor"])
 
-MONGO_URL = os.environ.get('MONGO_URL')
-DB_NAME   = os.environ.get('DB_NAME', 'multi_tenant_erp')
-client    = AsyncIOMotorClient(MONGO_URL)
-db        = client[DB_NAME]
+# This module used to open its own MongoDB connection — a second pool on a
+# server with little memory to spare, and a different handle from the one the
+# rest of the app writes through, so its counts were of another connection's
+# view. It shares the application's client now.
+from database import db
 
 ADMIN_EMAIL = os.environ.get('ADMIN_ALERT_EMAIL', 'dalia@datalifeai.com')
 
@@ -59,10 +60,13 @@ async def get_system_stats() -> dict:
         users     = await db.users.count_documents({})
         
         # Count errors from logs collection
-        one_hour_ago = datetime.now(timezone.utc).timestamp() - 3600
+        # Timestamps are written as ISO strings elsewhere in this module, and
+        # this compared them against a float — so the count was always zero and
+        # the monitor reported a healthy system while errors piled up.
+        one_hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         errors_1h = await db.error_logs.count_documents({
             'timestamp': {'$gte': one_hour_ago}
-        }) if await db.list_collection_names().__aiter__().__anext__() else 0
+        }) if "error_logs" in await db.list_collection_names() else 0
 
         return {
             'cpu_pct':      cpu,
@@ -75,7 +79,10 @@ async def get_system_stats() -> dict:
             'db_status':    'ok' if db_lag < THRESHOLDS['db_lag_ms'] else 'slow',
             'companies':    companies,
             'users':        users,
-            'errors_1h':    0,  # simplified
+            # was hard-coded to 0 with a "simplified" note, so the monitor
+            # reported a healthy system no matter how many errors were logged —
+            # the computed value above was discarded
+            'errors_1h':    errors_1h,
             'timestamp':    datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
