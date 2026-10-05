@@ -151,9 +151,12 @@ async def ess_check_in(
         "date":          today,
         "check_in":      now,
         "check_out":     None,
+        # The privacy policy promises employees that exact coordinates are not
+        # stored — only whether they were inside the allowed area and how far
+        # from the office. The record kept latitude and longitude anyway, and
+        # nothing ever read them. They are used for the distance check above
+        # and then discarded, so the record now matches the promise.
         "check_in_location": {
-            "latitude":   req.latitude,
-            "longitude":  req.longitude,
             "distance_from_office_m": distance_m,
             "geofence_status": geofence_status,
         },

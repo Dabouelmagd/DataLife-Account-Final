@@ -37,6 +37,7 @@ import { PermissionsProvider } from "./contexts/PermissionsContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import AboutPage from "./components/AboutPage";
 import PrivacyPage from "./components/PrivacyPage";
+import PoliciesPage from "./components/PoliciesPage";
 import TermsPage from "./components/TermsPage";
 import ContactPage from "./components/ContactPage";
 import PartnersPage from "./components/PartnersPage";
@@ -236,6 +237,7 @@ function App() {
               />
                       <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/policies" element={<PoliciesPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/guide" element={<GuideWebPage />} />
         <Route path="/contact" element={<ContactPage />} />

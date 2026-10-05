@@ -78,6 +78,11 @@ async def check_in(
             allowed_radius = float(gps_settings.get("radius_meters", 200))
             location["distance_from_office"] = round(distance, 1)
             location["within_geofence"] = distance <= allowed_radius
+            # used for the check above, then dropped — the privacy policy
+            # promises that exact coordinates are not kept
+            location.pop("latitude", None)
+            location.pop("longitude", None)
+            location.pop("accuracy", None)
             
             if not location["within_geofence"]:
                 raise HTTPException(

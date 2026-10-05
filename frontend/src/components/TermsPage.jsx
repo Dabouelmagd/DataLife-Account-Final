@@ -48,8 +48,8 @@ export default function TermsPage() {
 
     { icon: '❌', title: ar ? 'إنهاء الخدمة وتصدير البيانات' : 'Service Termination & Data Export',
       content: ar
-        ? 'يحق لنا إنهاء حسابك عند:\n• انتهاك هذه الشروط بشكل جسيم\n• عدم سداد رسوم الاشتراك خلال 14 يوم من تاريخ الاستحقاق\n• طلبك الصريح لإلغاء الاشتراك\n\nحقوقك عند الإنهاء:\n• يمكنك تصدير جميع بياناتك (موظفين، قيود محاسبية، فواتير) خلال 30 يوم من تاريخ الإلغاء\n• بعد 30 يوم يتم حذف البيانات نهائياً من الخوادم'
-        : 'We reserve the right to terminate your account in case of:\n• Serious violation of these terms\n• Failure to pay subscription fees within 14 days of due date\n• Your explicit request to cancel the subscription\n\nYour rights upon termination:\n• You can export all your data (employees, journal entries, invoices) within 30 days of cancellation\n• After 30 days, data is permanently deleted from servers' },
+        ? 'يحق لنا إنهاء حسابك عند:\n• انتهاك هذه الشروط بشكل جسيم\n• عدم سداد رسوم الاشتراك خلال 14 يوم من تاريخ الاستحقاق\n• طلبك الصريح لإلغاء الاشتراك\n\nحقوقك عند الإنهاء:\\n• يمكنك طلب نسخة من بياناتك (موظفين، قيود محاسبية، فواتير) بمراسلتنا\\n• يمكنك طلب حذف بياناتك، مع مراعاة ما يلزم القانون الاحتفاظ به من سجلات محاسبية وضريبية'
+        : 'We reserve the right to terminate your account in case of:\n• Serious violation of these terms\n• Failure to pay subscription fees within 14 days of due date\n• Your explicit request to cancel the subscription\n\nYour rights upon termination:\\n• You may request a copy of your data (employees, journal entries, invoices) by writing to us\\n• You may request deletion of your data, subject to the accounting and tax records the law requires us to keep' },
 
     { icon: '⚖️', title: ar ? 'القانون المطبق والنزاعات' : 'Applicable Law & Disputes',
       content: ar

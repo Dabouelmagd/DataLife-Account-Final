@@ -56,6 +56,23 @@ const AppFooter = () => {
             </p>
           </div>
         </div>
+
+        {/* سطر التواصل وصفحة السياسات — فوق سطر الحقوق كما على inmisr */}
+        <div className="mt-5 pt-4 border-t border-slate-700/50 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-xs text-slate-400">
+          <a href="https://www.google.com/maps/search/?api=1&query=59%20Lebanon%20Mohandessein%20Giza%20Egypt"
+             target="_blank" rel="noopener noreferrer"
+             className="hover:text-white inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">
+            {language === 'ar' ? '٥٩ لبنان المهندسين الجيزة مصر' : '59 Lebanon Mohandessein Giza Egypt'}
+          </a>
+          <a href="tel:+201006008552" dir="ltr"
+             className="hover:text-white inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">
+            +20 100 600 8552
+          </a>
+          <a href="/policies"
+             className="hover:text-white inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">
+            {language === 'ar' ? 'الدفع والاسترداد وحماية البيانات' : 'Payment, Refund & Data Protection'}
+          </a>
+        </div>
       </div>
     </footer>
   );

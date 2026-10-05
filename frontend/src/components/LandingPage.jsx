@@ -452,7 +452,7 @@ export default function LandingPage() {
               <DataLifeLogo className="h-32 mb-4"/>
               <p className="text-xs text-gray-600 leading-relaxed mb-4">{ar?'نظام ERP المحاسبي المصري المتكامل — فاتورة ETA · رواتب · ESS · AI · تنبيهات ذكية':'Egyptian integrated accounting ERP — ETA · Payroll · ESS · AI · Smart alerts'}</p>
               <div className="flex flex-wrap gap-2">
-                {['InstaPay','Vodafone Cash','PayPal',ar?'تحويل بنكي':'Bank Transfer'].map((p,i)=>(
+                {['InstaPay','Vodafone Cash',ar?'تحويل بنكي':'Bank Transfer'].map((p,i)=>(
                   <span key={i} className="text-xs px-2 py-1 rounded-md bg-white/4 text-gray-600 border border-white/5">{p}</span>
                 ))}
               </div>
@@ -468,22 +468,25 @@ export default function LandingPage() {
             <div>
               <div className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-4">{ar?'قانوني':'Legal'}</div>
               <ul className="space-y-2.5">
-                {[ar?'سياسة الخصوصية':'Privacy Policy',ar?'سياسة الموقع':'Terms',ar?'شروط الاشتراك':'Subscription Terms','SLA',ar?'الأمان':'Security'].map((l,i)=>(
-                  <li key={i}><a href="#" className="text-xs text-gray-600 hover:text-white transition-colors">{l}</a></li>
+                {/* every link had href="#" and went nowhere; SLA and Security had no page at all */}
+                {[{l:ar?'الدفع والاسترداد وحماية البيانات':'Payment, Refund & Data Protection',h:'/policies'},
+                  {l:ar?'سياسة الخصوصية':'Privacy Policy',h:'/privacy'},
+                  {l:ar?'شروط الاستخدام':'Terms',h:'/terms'}].map((l,i)=>(
+                  <li key={i}><a href={l.h} className="text-xs text-gray-600 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">{l.l}</a></li>
                 ))}
               </ul>
             </div>
             <div>
               <div className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-4">{ar?'للتواصل':'Contact'}</div>
               <ul className="space-y-2.5">
-                {['info@datalifeai.com','support@datalifeai.com','01006008552 واتساب','datalifeaccount.com'].map((l,i)=>(
-                  <li key={i}><span className="text-xs text-gray-600">{l}</span></li>
-                ))}
+                <li><a href="https://www.google.com/maps/search/?api=1&query=59%20Lebanon%20Mohandessein%20Giza%20Egypt" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">{ar?'٥٩ لبنان المهندسين الجيزة مصر':'59 Lebanon Mohandessein Giza Egypt'}</a></li>
+                <li><a href="tel:+201006008552" dir="ltr" className="text-xs text-gray-600 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">+20 100 600 8552</a></li>
+                <li><a href="mailto:info@datalifeai.com" dir="ltr" className="text-xs text-gray-600 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">info@datalifeai.com</a></li>
               </ul>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <p className="text-xs text-gray-700">© 2026 DataLife AI — {ar?'جميع الحقوق محفوظة | القاهرة، مصر':'All rights reserved | Cairo, Egypt'}</p>
+            <p className="text-xs text-gray-700">© 2026 DataLife AI — {ar?'جميع الحقوق محفوظة | الجيزة، مصر':'All rights reserved | Giza, Egypt'}</p>
             <p className="text-xs text-gray-700">{ar?'المحتوى القانوني قيد المراجعة القانونية النهائية':'Legal content pending final legal review'}</p>
           </div>
         </div>
