@@ -1075,11 +1075,11 @@ Employee statuses:
         a: ar ? `datalifeaccount.com ← الأسعار ← اختر خطتك
 
 طرق الدفع المتاحة:
-💳 فيزا / ماستركارد
 📱 InstaPay: 00201006008552
 📲 فودافون كاش: 00201012625529
 🏦 تحويل بنكي (بيانات التحويل في صفحة الدفع)
-🔑 كود تفعيل مجاني
+🔑 كود تفعيل
+💳 الدفع بالبطاقة قريباً
 
 بعد الدفع:
 ← ارفع صورة الإيصال في صفحة الدفع
@@ -1087,11 +1087,11 @@ Employee statuses:
 ← الحساب يُفعَّل فور التأكيد` : `datalifeaccount.com → Pricing → Choose plan
 
 Available payment methods:
-💳 Visa / Mastercard
 📱 InstaPay: 00201006008552
 📲 Vodafone Cash: 00201012625529
 🏦 Bank transfer (details on payment page)
-🔑 Free activation code
+🔑 Activation code
+💳 Card payment coming soon
 
 After payment:
 ← Upload receipt screenshot on payment page

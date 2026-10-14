@@ -82,7 +82,7 @@ async def get_payment_methods():
         "methods": [
             {"id": "activation_code", "name_ar": "كود تفعيل",      "name_en": "Activation Code",  "icon": "🔑", "available": True},
             {"id": "instapay",        "name_ar": "InstaPay",        "name_en": "InstaPay",         "icon": "📱", "available": True, "details": "00201006008552"},
-            {"id": "vodafone_cash",   "name_ar": "Vodafون Cash",    "name_en": "Vodafone Cash",    "icon": "📲", "available": True, "details": "00201012625529"},
+            {"id": "vodafone_cash",   "name_ar": "فودافون كاش",    "name_en": "Vodafone Cash",    "icon": "📲", "available": True, "details": "00201012625529"},
             {"id": "bank_transfer",   "name_ar": "تحويل بنكي",      "name_en": "Bank Transfer",    "icon": "🏦", "available": True},
             {"id": "stripe",          "name_ar": "بطاقة ائتمان",    "name_en": "Credit Card",      "icon": "💳", "available": False, "coming_soon": True},
             {"id": "paypal",          "name_ar": "PayPal",          "name_en": "PayPal",           "icon": "🅿️", "available": False, "coming_soon": True},

@@ -184,8 +184,8 @@ export const translations = {
     // Contact Information
     contact: {
       title: "Contact Information",
-      address: "59 Lebanon Street, Mohandessin, Giza, Egypt",
-      phone: "(+2) 01012625529",
+      address: "59 Lebanon Mohandessein Giza Egypt",
+      phone: "+20 100 600 8552",
       email: "info@datalifeai.com",
       businessHours: "Sunday - Thursday: 9:00 AM - 5:00 PM",
       getInTouch: "Get in Touch",
@@ -973,8 +973,8 @@ export const translations = {
     // Contact Information
     contact: {
       title: "معلومات الاتصال",
-      address: "59 شارع لبنان، المهندسين، الجيزة، مصر",
-      phone: "(+2) 01012625529",
+      address: "٥٩ لبنان المهندسين الجيزة مصر",
+      phone: "+20 100 600 8552",
       email: "info@datalifeai.com",
       businessHours: "الأحد - الخميس: 9:00 صباحاً - 5:00 مساءً",
       getInTouch: "تواصل معنا",

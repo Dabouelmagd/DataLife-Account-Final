@@ -305,7 +305,7 @@ class TrialService:
                 
                 <div style="background-color: #f0f0f0; padding: 15px; text-align: center; font-size: 12px; color: #666;">
                     <p>DataLife Account - 59 Lebanon Street, Mohandessin, Giza, Egypt</p>
-                    <p>Phone: (+2) 01012625529 | Email: info@datalifeai.com</p>
+                    <p>Phone: +20 100 600 8552 | Email: info@datalifeai.com</p>
                 </div>
             </body>
             </html>

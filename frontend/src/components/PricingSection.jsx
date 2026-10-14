@@ -252,7 +252,7 @@ const PricingSection = () => {
     { q: ar?'هل الأسعار شاملة ضريبة القيمة المضافة؟':'Are prices VAT inclusive?',
       a: ar?'نعم، جميع الأسعار المعروضة شاملة ضريبة القيمة المضافة (14%).':'Yes, all displayed prices include 14% VAT.' },
     { q: ar?'ما هي طرق الدفع المتاحة؟':'What payment methods are available?',
-      a: ar?'فيزا / ماستركارد، InstaPay، فودافون كاش، تحويل بنكي، أو كود تفعيل.':'Visa/Mastercard, InstaPay, Vodafone Cash, bank transfer, or activation code.' },
+      a: ar?'InstaPay، فودافون كاش، تحويل بنكي، أو كود تفعيل. والدفع بالبطاقة قريباً.':'InstaPay, Vodafone Cash, bank transfer, or activation code. Card payment is coming soon.' },
     { q: ar?'هل بياناتي آمنة؟':'Is my data secure?',
       a: ar?'نعم، نستخدم تشفير SSL/TLS 1.3 وقواعد بيانات معزولة لكل شركة.':'Yes, we use SSL/TLS 1.3 encryption and isolated databases per company.' },
     { q: ar?'كيف يعمل نظام الرواتب وفق القانون المصري؟':'How does payroll work with Egyptian law?',
