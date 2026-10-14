@@ -7,6 +7,7 @@
  *     methods are InstaPay, Vodafone Cash, bank transfer and activation codes;
  *   - a subscription or sector add-on is activated only after the platform
  *     confirms the transfer, and a tax invoice is issued for it;
+ *   - full refund within 7 days of activation (Dalia's decision, Oct 2026);
  *   - nothing renews or charges automatically, and expiry reminders are a
  *     manual admin action, not a schedule — so none is promised;
  *   - no job deletes data after a fixed period, so no such period is promised;
@@ -199,14 +200,21 @@ export default function PoliciesPage() {
         <Section id="refund" title={ar ? 'ثالثاً: سياسة الاسترداد' : 'Third: Refund Policy'}>
           <H>{ar ? 'الاشتراكات والتخصصات القطاعية' : 'Subscriptions and sector add-ons'}</H>
           <Ul items={ar ? [
-            'لا يُسترد مقابل فترة اشتراك بدأت بالفعل.',
+            'إذا طلبت الإلغاء خلال ٧ أيام من تاريخ تفعيل الاشتراك، يُرد لك المبلغ كاملاً.',
+            'بعد مرور ٧ أيام من التفعيل، لا يُسترد مقابل فترة الاشتراك التي بدأت، إلا في الحالتين التاليتين.',
             'يُرد المبلغ كاملاً في حالة الدفع الخاطئ أو المكرر.',
             'إذا تعذّر علينا تقديم الخدمة، يُرد المبلغ بما يتناسب مع المدة المتبقية.',
           ] : [
-            'No refund is given for a subscription period that has already started.',
+            'If you ask to cancel within 7 days of the date your subscription was activated, you receive a full refund.',
+            'After 7 days from activation, no refund is given for a subscription period that has started, except in the two cases below.',
             'Mistaken or duplicate payments are refunded in full.',
             'If we are unable to provide the service, the amount is refunded in proportion to the remaining period.',
           ]} />
+
+          <H>{ar ? 'الإلغاء والتجديد' : 'Cancellation and renewal'}</H>
+          <P>{ar
+            ? 'لا يوجد تجديد تلقائي، فلا تحتاج إلى إيقاف أي شيء ولا توجد رسوم إلغاء. ينتهي الاشتراك في آخر مدته ويظل يعمل حتى ذلك التاريخ، ولا يتجدد إلا بطلب ودفعة جديدة منك.'
+            : 'There is no automatic renewal, so there is nothing to switch off and no cancellation fee. A subscription ends at the end of its term and keeps working until then, and it renews only when you request it and make a new payment.'}</P>
 
           <H>{ar ? 'طريقة الرد' : 'How refunds are made'}</H>
           <P>{ar
