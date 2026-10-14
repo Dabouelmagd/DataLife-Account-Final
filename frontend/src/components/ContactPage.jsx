@@ -29,14 +29,14 @@ export default function ContactPage() {
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-400/10 border border-green-400/20 text-green-400 text-sm font-semibold mb-6">💬 {t('تواصل معنا','Contact Us')}</div>
           <h1 className="text-4xl font-black text-white mb-4">{t('نحن هنا لمساعدتك','We\'re Here to Help')}</h1>
-          <p className="text-gray-400">{t('فريق الدعم متاح 24/7','Support team available 24/7')}</p>
+          <p className="text-gray-400">{t('راسلنا أو اتصل بنا وسنرد عليك في أقرب وقت ممكن','Write or call us and we will reply as soon as possible')}</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-4">
-            {[{icon:'✉️',label:t('البريد الإلكتروني','Email'),value:'support@datalifeai.com'},{icon:'📍',label:t('العنوان','Address'),value:t('القاهرة، مصر','Cairo, Egypt')},{icon:'🕒',label:t('أوقات الدعم','Support Hours'),value:'24/7'}].map((item,i)=>(
+            {[{icon:'✉️',label:t('البريد الإلكتروني','Email'),value:'info@datalifeai.com',href:'mailto:info@datalifeai.com',ltr:true},{icon:'📍',label:t('العنوان','Address'),value:t('٥٩ لبنان المهندسين الجيزة مصر','59 Lebanon Mohandessein Giza Egypt'),href:'https://www.google.com/maps/search/?api=1&query=59%20Lebanon%20Mohandessein%20Giza%20Egypt'},{icon:'📞',label:t('الهاتف','Phone'),value:'+20 100 600 8552',href:'tel:+201006008552',ltr:true}].map((item,i)=>(
               <div key={i} className="flex items-start gap-3 bg-white/5 border border-white/10 rounded-xl p-4">
                 <span className="text-2xl">{item.icon}</span>
-                <div><p className="text-gray-400 text-xs">{item.label}</p><p className="text-white font-medium text-sm">{item.value}</p></div>
+                <div><p className="text-gray-400 text-xs">{item.label}</p><a href={item.href} dir={item.ltr?'ltr':undefined} target={item.href.startsWith('http')?'_blank':undefined} rel="noopener noreferrer" className="text-white font-medium text-sm hover:text-green-400 inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">{item.value}</a></div>
               </div>
             ))}
           </div>
