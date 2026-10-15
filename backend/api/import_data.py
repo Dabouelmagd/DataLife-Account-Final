@@ -121,12 +121,34 @@ async def _finish(current_user: dict, import_type: str, type_ar: str, filename: 
             "error_details": errors[:20], "notes": notes, **(extra or {})}
 
 
+# ── whole-file checking ─────────────────────────────────────────────────────
+
+def _reject(check, total: int):
+    """Nothing is written when any row is wrong — every problem is listed."""
+    if check.errors:
+        raise HTTPException(status_code=422, detail={
+            "message": (f"لم يُستورد الملف — عدد المشاكل: {len(check.errors)} (الملف فيه {total} صف). "
+                        "صحّح الملف وارفعه مرة أخرى؛ لن يُضاف أي صف حتى يكون الملف كله سليماً."),
+            "errors": check.errors[:200],
+            "error_count": len(check.errors),
+        })
+
+
+def _partial_failure(done: int, total: int, n, e):
+    """A row that passed every check and still failed while writing (a server
+    problem, not the file). Say exactly how far it got so nothing is guessed."""
+    return HTTPException(status_code=500, detail={
+        "message": (f"توقف الاستيراد عند الصف {n} بسبب خطأ في الخادم بعد إضافة {done} من {total}. "
+                    "لا ترفع الملف مرة أخرى قبل مراجعة ما أُضيف — تواصل مع الدعم."),
+        "errors": [f"صف {n}: {e}"]})
+
+
 # ── employees ───────────────────────────────────────────────────────────────
 
 @router.post("/employees")
 async def import_employees(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     """Import employees from Excel/CSV file"""
-    from services.import_documents import cell, num, date_cell, map_columns
+    from services.import_documents import Check, map_columns
     df, digest = await _read_upload(file, current_user, "employees")
     company_id = current_user.get("company_id")
     cols = map_columns(df, {
@@ -140,46 +162,56 @@ async def import_employees(file: UploadFile = File(...), current_user: dict = De
         'hire_date': ['hire_date', 'تاريخ التعيين', 'تاريخ الالتحاق', 'start_date'],
         'basic_salary': ['basic_salary', 'الراتب الأساسي', 'الراتب', 'salary'],
     })
-    _require(cols, {"name": "الاسم", "basic_salary": "الراتب الأساسي"}, df)
+    _require(cols, {"name": "الاسم", "basic_salary": "الراتب الأساسي", "position": "الوظيفة",
+                    "hire_date": "تاريخ التعيين"}, df)
+
+    ck, rows, seen_names, seen_ids, seen_codes = Check(), [], {}, {}, {}
+    for idx, row in df.iterrows():
+        n = idx + 2
+        r = {"n": n,
+             "name": ck.text(row, n, cols.get('name'), "الاسم", required=True),
+             "position": ck.text(row, n, cols.get('position'), "الوظيفة", required=True),
+             "salary": ck.number(row, n, cols.get('basic_salary'), "الراتب الأساسي", required=True, positive=True),
+             "hire_date": ck.date(row, n, cols.get('hire_date'), "تاريخ التعيين", required=True),
+             "national_id": ck.digits(row, n, cols.get('national_id'), "الرقم القومي", 14),
+             "email": ck.email(row, n, cols.get('email')),
+             "code": ck.text(row, n, cols.get('code'), "كود الموظف", max_len=30),
+             "department": ck.text(row, n, cols.get('department'), "القسم"),
+             "phone": ck.text(row, n, cols.get('phone'), "الهاتف", max_len=30)}
+        ck.once(seen_ids, r["national_id"], n, "الرقم القومي")
+        ck.once(seen_codes, r["code"], n, "كود الموظف")
+        if not r["national_id"]:
+            ck.once(seen_names, r["name"], n, "الاسم")
+        if r["national_id"] and await db.employees.find_one(
+                {"company_id": company_id, "national_id": r["national_id"]}, {"_id": 0, "id": 1}):
+            ck.err(n, "الرقم القومي", f"موظف بهذا الرقم مسجّل بالفعل ({r['name']})")
+        elif r["name"] and not r["national_id"] and await db.employees.find_one(
+                {"company_id": company_id, "name": r["name"]}, {"_id": 0, "id": 1}):
+            ck.err(n, "الاسم", f"«{r['name']}» مسجّل بالفعل — أضف الرقم القومي إن كان شخصاً آخر")
+        if r["code"] and await db.employees.find_one(
+                {"company_id": company_id, "employee_code": r["code"]}, {"_id": 0, "id": 1}):
+            ck.err(n, "كود الموظف", f"«{r['code']}» مستخدم لموظف آخر")
+        rows.append(r)
+    _reject(ck, len(df))
 
     count = await db.employees.count_documents({"company_id": company_id})
-    success, errors, skipped = 0, [], 0
-    for idx, row in df.iterrows():
+    done = 0
+    for r in rows:
         try:
-            name = cell(row, cols.get('name'))
-            if not name:
-                raise ValueError("الاسم فارغ")
-            national_id = cell(row, cols.get('national_id'))
-            dup = {"company_id": company_id, "name": name}
-            if national_id:
-                dup = {"company_id": company_id, "national_id": national_id}
-            if await db.employees.find_one(dup, {"_id": 0, "id": 1}):
-                skipped += 1
-                raise ValueError(f"الموظف {name} موجود بالفعل — لم يُضف مرة ثانية")
-            salary = num(row, cols.get('basic_salary'))
-            if salary < 0:
-                raise ValueError("الراتب سالب")
             count += 1
             await db.employees.insert_one({
-                "id": str(uuid.uuid4()), "company_id": company_id, "name": name,
-                "employee_code": cell(row, cols.get('code')) or f"EMP-{count:04d}",
-                "national_id": national_id or None,
-                "position": cell(row, cols.get('position')) or "غير محدد",
-                "job_title": cell(row, cols.get('position')) or None,
-                "department": cell(row, cols.get('department')) or None,
-                "email": cell(row, cols.get('email')) or None,
-                "phone": cell(row, cols.get('phone')) or None,
-                "hire_date": date_cell(row, cols.get('hire_date')) or datetime.now().strftime('%Y-%m-%d'),
-                "basic_salary": round(salary, 2), "is_active": True, "status": "active",
+                "id": str(uuid.uuid4()), "company_id": company_id, "name": r["name"],
+                "employee_code": r["code"] or f"EMP-{count:04d}", "national_id": r["national_id"] or None,
+                "position": r["position"], "job_title": r["position"],
+                "department": r["department"] or None, "email": r["email"] or None,
+                "phone": r["phone"] or None, "hire_date": r["hire_date"],
+                "basic_salary": round(r["salary"], 2), "is_active": True, "status": "active",
                 "source": "import", "created_at": datetime.now(timezone.utc).isoformat()})
-            success += 1
+            done += 1
         except Exception as e:
-            errors.append(f"صف {idx + 2}: {e}")
-    notes = ["الموظفون يظهرون في شؤون العاملين ويدخلون مسير الرواتب القادم"]
-    if skipped:
-        notes.append(f"{skipped} موجودون بالفعل")
-    return await _finish(current_user, "employees", "الموظفين", file.filename, digest,
-                         len(df), success, errors, notes)
+            raise _partial_failure(done, len(rows), r["n"], e)
+    return await _finish(current_user, "employees", "الموظفين", file.filename, digest, len(df), done, [],
+                         ["الموظفون يظهرون في شؤون العاملين ويدخلون مسير الرواتب القادم"])
 
 
 # ── revenues / expenses ─────────────────────────────────────────────────────
@@ -188,8 +220,8 @@ async def import_employees(file: UploadFile = File(...), current_user: dict = De
 async def import_financial(file: UploadFile = File(...), data_type: str = Form(...),
                            current_user: dict = Depends(get_current_user)):
     """Import revenues or expenses; every row is posted to the ledger."""
-    from services.import_documents import cell, num, date_cell, map_columns
-    from services.import_posting import post_row
+    from services.import_documents import Check, map_columns
+    from services.import_posting import post_row, resolve_account, PAYMENT_ACCOUNTS
     if data_type not in ("revenue", "expense"):
         raise HTTPException(status_code=400, detail="data_type must be revenue or expense")
     df, digest = await _read_upload(file, current_user, data_type)
@@ -202,50 +234,61 @@ async def import_financial(file: UploadFile = File(...), data_type: str = Form(.
         'account': ['account', 'الحساب', 'رقم الحساب', 'كود الحساب'],
         'payment_method': ['payment_method', 'طريقة السداد', 'طريقة الدفع', 'السداد'],
     })
-    _require(cols, {"amount": "المبلغ", "description": "الوصف"}, df)
+    _require(cols, {"date": "التاريخ", "amount": "المبلغ", "description": "الوصف"}, df)
+
+    accepted_methods = "، ".join(sorted(PAYMENT_ACCOUNTS))
+    ck, rows = Check(), []
+    for idx, row in df.iterrows():
+        n = idx + 2
+        r = {"n": n,
+             "date": ck.date(row, n, cols.get('date'), "التاريخ", required=True),
+             "description": ck.text(row, n, cols.get('description'), "الوصف", required=True),
+             "amount": ck.number(row, n, cols.get('amount'), "المبلغ", required=True, positive=True),
+             "account": ck.text(row, n, cols.get('account'), "الحساب", max_len=60),
+             "category": ck.text(row, n, cols.get('category'), "الفئة", max_len=60),
+             "payment_method": ck.text(row, n, cols.get('payment_method'), "طريقة السداد", max_len=30)}
+        if r["account"]:
+            _, fell_back = await resolve_account(db, company_id, r["account"], "")
+            if fell_back:
+                ck.err(n, "الحساب", f"«{r['account']}» غير موجود في شجرة الحسابات — اكتب كود حساب موجوداً أو اترك الخانة فارغة")
+        if r["payment_method"] and r["payment_method"].lower() not in PAYMENT_ACCOUNTS:
+            ck.err(n, "طريقة السداد", f"«{r['payment_method']}» غير معروفة — المقبول: {accepted_methods}")
+        rows.append(r)
+    _reject(ck, len(df))
 
     user_id = current_user.get("user_id")
     collection = "revenues" if data_type == "revenue" else "expenses"
-    success, errors, defaulted, total_amount = 0, [], 0, 0.0
-    for idx, row in df.iterrows():
+    done, defaulted, total_amount = 0, 0, 0.0
+    for r in rows:
         try:
-            amount = num(row, cols.get('amount'))
-            if amount <= 0:
-                raise ValueError("المبلغ فارغ أو صفر أو سالب")
-            record = {
-                "id": str(uuid.uuid4()), "company_id": company_id,
-                "date": date_cell(row, cols.get('date')) or datetime.now().strftime('%Y-%m-%d'),
-                "description": cell(row, cols.get('description')),
-                "amount": round(amount, 2),
-                "category": cell(row, cols.get('category')) or None,
-                "account": cell(row, cols.get('account')) or None,
-                "payment_method": cell(row, cols.get('payment_method')) or None,
-                "source": "import", "created_at": datetime.now(timezone.utc).isoformat()}
+            record = {"id": str(uuid.uuid4()), "company_id": company_id, "date": r["date"],
+                      "description": r["description"], "amount": round(r["amount"], 2),
+                      "category": r["category"] or None, "account": r["account"] or None,
+                      "payment_method": r["payment_method"] or None, "source": "import",
+                      "created_at": datetime.now(timezone.utc).isoformat()}
             posted = await post_row(db, company_id, user_id, record, data_type)
-            record.update({"journal_entry_id": posted["journal_entry_id"],
-                           "entry_number": posted["entry_number"],
+            record.update({"journal_entry_id": posted["journal_entry_id"], "entry_number": posted["entry_number"],
                            "account_code": posted["account_code"],
                            "used_default_account": posted["used_default_account"]})
             defaulted += 1 if posted["used_default_account"] else 0
             await db[collection].insert_one(record)
-            success += 1
-            total_amount += amount
+            done += 1
+            total_amount += r["amount"]
         except Exception as e:
-            errors.append(f"صف {idx + 2}: {e}")
-    notes = [f"رُحّل {success} قيداً إلى دفتر الأستاذ بإجمالي {total_amount:,.2f} ج.م"]
+            raise _partial_failure(done, len(rows), r["n"], e)
+    notes = [f"رُحّل {done} قيداً إلى دفتر الأستاذ بإجمالي {total_amount:,.2f} ج.م"]
     if defaulted:
-        notes.append(f"{defaulted} منها على الحساب الافتراضي لعدم تحديد حساب في الملف")
+        notes.append(f"{defaulted} منها على الحساب الافتراضي لأن خانة الحساب فارغة")
     return await _finish(current_user, data_type, "الإيرادات" if data_type == "revenue" else "المصروفات",
-                         file.filename, digest, len(df), success, errors, notes,
-                         {"posted_to_ledger": success, "used_default_account": defaulted,
+                         file.filename, digest, len(df), done, [], notes,
+                         {"posted_to_ledger": done, "used_default_account": defaulted,
                           "total_amount": round(total_amount, 2)})
 
 
 # ── customers / suppliers ───────────────────────────────────────────────────
 
 async def _import_parties(file: UploadFile, current_user: dict, kind: str):
-    from services.import_documents import cell, num, date_cell, map_columns, \
-        find_or_create_party, post_party_opening
+    from services.import_documents import Check, map_columns, find_or_create_party, post_party_opening
     import_type = "customers" if kind == "customer" else "suppliers"
     df, digest = await _read_upload(file, current_user, import_type)
     company_id = current_user.get("company_id")
@@ -261,41 +304,51 @@ async def _import_parties(file: UploadFile, current_user: dict, kind: str):
     })
     _require(cols, {"name": "الاسم"}, df)
 
+    ck, rows, seen = Check(), [], {}
+    for idx, row in df.iterrows():
+        n = idx + 2
+        r = {"n": n,
+             "name": " ".join(ck.text(row, n, cols.get('name'), "الاسم", required=True).split()),
+             "email": ck.email(row, n, cols.get('email')),
+             "phone": ck.text(row, n, cols.get('phone'), "الهاتف", max_len=30),
+             "address": ck.text(row, n, cols.get('address'), "العنوان", max_len=300),
+             "tax_id": ck.digits(row, n, cols.get('tax_id'), "الرقم الضريبي", 9),
+             "balance": ck.number(row, n, cols.get('balance'), "الرصيد الافتتاحي"),
+             "balance_date": ck.date(row, n, cols.get('balance_date'), "تاريخ الرصيد")}
+        ck.once(seen, r["name"], n, "الاسم")
+        if r["balance"] and not r["balance_date"] and "balance_date" in cols:
+            ck.err(n, "تاريخ الرصيد", "فارغ والرصيد غير صفر")
+        if r["name"] and r["balance"] and await db.parties.find_one(
+                {"company_id": company_id, "name": r["name"]}, {"_id": 0, "id": 1}):
+            ck.err(n, "الرصيد الافتتاحي", f"«{r['name']}» مسجّل بالفعل — رصيده الافتتاحي لا يُضاف مرة ثانية؛ احذف الرصيد من الصف أو أدخله يدوياً")
+        rows.append(r)
+    _reject(ck, len(df))
+
     user_id = current_user.get("user_id")
     today = datetime.now().strftime('%Y-%m-%d')
-    success, errors, existed, openings, opening_total = 0, [], 0, 0, 0.0
-    for idx, row in df.iterrows():
+    done, existed, openings, opening_total = 0, 0, 0, 0.0
+    for r in rows:
         try:
-            name = cell(row, cols.get('name'))
-            if not name:
-                raise ValueError("الاسم فارغ")
-            balance = num(row, cols.get('balance'))
-            tax_id = cell(row, cols.get('tax_id'))
-            party, created = await find_or_create_party(db, company_id, name, kind, {
-                "email": cell(row, cols.get('email')) or None,
-                "phone": cell(row, cols.get('phone')) or None,
-                "address": cell(row, cols.get('address')) or None,
-                "tax_id": tax_id or None})
-            if not created:
-                existed += 1
-                if balance:
-                    raise ValueError(f"{name} موجود بالفعل — لم يُسجَّل رصيده الافتتاحي مرة ثانية")
-            if balance:
-                await post_party_opening(db, company_id, user_id, party, kind, balance,
-                                         date_cell(row, cols.get('balance_date')) or today)
+            party, created = await find_or_create_party(db, company_id, r["name"], kind, {
+                "email": r["email"] or None, "phone": r["phone"] or None,
+                "address": r["address"] or None, "tax_id": r["tax_id"] or None})
+            existed += 0 if created else 1
+            if r["balance"]:
+                await post_party_opening(db, company_id, user_id, party, kind, r["balance"],
+                                         r["balance_date"] or today)
                 openings += 1
-                opening_total += balance
-            success += 1
+                opening_total += r["balance"]
+            done += 1
         except Exception as e:
-            errors.append(f"صف {idx + 2}: {e}")
+            raise _partial_failure(done, len(rows), r["n"], e)
     acc = "العملاء 131" if kind == "customer" else "الموردين 251"
     notes = []
     if openings:
         notes.append(f"{openings} رصيد افتتاحي بإجمالي {opening_total:,.2f} ج.م رُحّل إلى حساب {acc} مقابل الأرباح المرحلة 213")
     if existed:
-        notes.append(f"{existed} كانوا مسجلين من قبل")
+        notes.append(f"{existed} كانوا مسجلين من قبل وحُدّثت بياناتهم دون تكرار")
     return await _finish(current_user, import_type, "العملاء" if kind == "customer" else "الموردين",
-                         file.filename, digest, len(df), success, errors, notes,
+                         file.filename, digest, len(df), done, [], notes,
                          {"opening_balances": openings, "opening_total": round(opening_total, 2)})
 
 
@@ -316,7 +369,7 @@ async def import_suppliers(file: UploadFile = File(...), current_user: dict = De
 @router.post("/inventory")
 async def import_inventory(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     """Items into the inventory screens, opening stock posted Dr stock / Cr 213."""
-    from services.import_documents import cell, num, date_cell, map_columns, import_item, stock_account
+    from services.import_documents import Check, map_columns, import_item, stock_account
     df, digest = await _read_upload(file, current_user, "inventory")
     company_id = current_user.get("company_id")
     cols = map_columns(df, {
@@ -326,65 +379,76 @@ async def import_inventory(file: UploadFile = File(...), current_user: dict = De
         'quantity': ['quantity', 'الكمية', 'qty'],
         'unit': ['unit', 'الوحدة'],
         'cost': ['cost_price', 'سعر التكلفة', 'التكلفة', 'cost'],
-        'sale_price': ['sale_price', 'سعر البيع'],
-        'unit_price': ['unit_price', 'سعر الوحدة', 'price', 'السعر'],
+        'sale_price': ['sale_price', 'سعر البيع', 'unit_price', 'سعر الوحدة', 'price', 'السعر'],
         'min_stock': ['min_stock', 'الحد الأدنى', 'minimum', 'min'],
         'date': ['date', 'تاريخ الرصيد', 'التاريخ'],
     })
-    _require(cols, {"name": "الاسم"}, df)
-    if "cost" not in cols and "unit_price" not in cols:
-        raise HTTPException(status_code=400, detail="لم يُعثر على عمود سعر التكلفة (أو سعر الوحدة) — لا يمكن تقييم المخزون بدونه")
-
+    # the cost is what the stock is worth in the books — it cannot be guessed
+    # from a selling price, so the column is required
+    _require(cols, {"name": "الاسم", "quantity": "الكمية", "cost": "سعر التكلفة",
+                    "unit": "الوحدة"}, df)
     stock_code = await stock_account(db, company_id)
+
+    ck, rows, seen_names, seen_codes = Check(), [], {}, {}
+    for idx, row in df.iterrows():
+        n = idx + 2
+        r = {"n": n,
+             "name": ck.text(row, n, cols.get('name'), "الاسم", required=True),
+             "code": ck.text(row, n, cols.get('code'), "كود الصنف", max_len=40),
+             "unit": ck.text(row, n, cols.get('unit'), "الوحدة", required=True, max_len=30),
+             "category": ck.text(row, n, cols.get('category'), "الفئة", max_len=60),
+             "quantity": ck.number(row, n, cols.get('quantity'), "الكمية", required=True),
+             "cost": ck.number(row, n, cols.get('cost'), "سعر التكلفة", required=True),
+             "sale_price": ck.number(row, n, cols.get('sale_price'), "سعر البيع"),
+             "min_stock": ck.number(row, n, cols.get('min_stock'), "الحد الأدنى"),
+             "date": ck.date(row, n, cols.get('date'), "تاريخ الرصيد")}
+        if r["quantity"] and r["cost"] == 0:
+            ck.err(n, "سعر التكلفة", "صفر وفي كمية — المخزون لا يُقيَّم بصفر")
+        ck.once(seen_names, r["name"], n, "الاسم")
+        ck.once(seen_codes, r["code"], n, "كود الصنف")
+        or_ = [{"name": r["name"]}] + ([{"code": r["code"]}] if r["code"] else [])
+        if r["name"] and await db.products.find_one({"company_id": company_id, "$or": or_}, {"_id": 0, "id": 1}):
+            ck.err(n, "الاسم/الكود", f"الصنف «{r['name']}» أو كوده مسجّل بالفعل")
+        rows.append(r)
+    _reject(ck, len(df))
+
     user_id = current_user.get("user_id")
     today = datetime.now().strftime('%Y-%m-%d')
     seq = await db.products.count_documents({"company_id": company_id})
-    success, errors, total_value, cost_from_unit_price = 0, [], 0.0, 0
-    for idx, row in df.iterrows():
+    done, total_value = 0, 0.0
+    for r in rows:
         try:
-            name = cell(row, cols.get('name'))
-            if not name:
-                raise ValueError("الاسم فارغ")
-            qty = num(row, cols.get('quantity'))
-            if qty < 0:
-                raise ValueError("الكمية سالبة")
-            if "cost" in cols and cell(row, cols['cost']):
-                cost = num(row, cols['cost'])
-            else:
-                cost = num(row, cols.get('unit_price'))
-                cost_from_unit_price += 1
-            sale = num(row, cols.get('sale_price')) if "sale_price" in cols else num(row, cols.get('unit_price'))
             seq += 1
             result = await import_item(db, company_id, user_id, {
-                "name": name, "code": cell(row, cols.get('code')) or f"ITM-{seq:05d}",
-                "category": cell(row, cols.get('category')), "unit": cell(row, cols.get('unit')),
-                "quantity": qty, "cost": cost, "sale_price": sale or cost,
-                "min_stock": num(row, cols.get('min_stock'))},
-                date_cell(row, cols.get('date')) or today, stock_code)
+                "name": r["name"], "code": r["code"] or f"ITM-{seq:05d}", "category": r["category"],
+                "unit": r["unit"], "quantity": r["quantity"], "cost": r["cost"],
+                "sale_price": r["sale_price"] or r["cost"], "min_stock": r["min_stock"] or 0},
+                r["date"] or today, stock_code)
             total_value += result["value"]
-            success += 1
+            done += 1
         except Exception as e:
-            errors.append(f"صف {idx + 2}: {e}")
+            raise _partial_failure(done, len(rows), r["n"], e)
     notes = [f"قيمة المخزون الافتتاحي {total_value:,.2f} ج.م رُحّلت إلى حساب المخزون {stock_code} مقابل الأرباح المرحلة 213"]
-    if cost_from_unit_price:
-        notes.append(f"{cost_from_unit_price} صنف قُيّم بعمود سعر الوحدة لعدم وجود سعر التكلفة — راجعه")
     return await _finish(current_user, "inventory", "المخزون", file.filename, digest,
-                         len(df), success, errors, notes, {"stock_value": round(total_value, 2)})
+                         len(df), done, [], notes, {"stock_value": round(total_value, 2)})
 
 
 # ── sales invoices / purchase invoices ──────────────────────────────────────
 
+VALID_TAX_RATES = {0.0, 5.0, 10.0, 14.0}
+
+
 async def _import_invoices(file: UploadFile, current_user: dict, kind: str):
-    from services.import_documents import cell, num, date_cell, map_columns, import_invoice, PAID_WORDS
+    from services.import_documents import Check, cell, map_columns, import_invoice, PAID_WORDS
     import_type = "invoices" if kind == "sales" else "purchases"
     df, digest = await _read_upload(file, current_user, import_type)
     company_id = current_user.get("company_id")
-    party_names = (['customer_name', 'اسم العميل', 'customer', 'العميل'] if kind == "sales"
-                   else ['supplier_name', 'اسم المورد', 'supplier', 'المورد'])
+    party_label = "اسم العميل" if kind == "sales" else "اسم المورد"
     cols = map_columns(df, {
         'number': (['invoice_number', 'رقم الفاتورة', 'invoice_no', 'number'] if kind == "sales"
                    else ['purchase_number', 'رقم الشراء', 'رقم الفاتورة', 'po_number', 'invoice_number', 'number']),
-        'party': party_names,
+        'party': (['customer_name', 'اسم العميل', 'customer', 'العميل'] if kind == "sales"
+                  else ['supplier_name', 'اسم المورد', 'supplier', 'المورد']),
         'date': ['date', 'التاريخ', 'invoice_date', 'purchase_date', 'تاريخ الفاتورة'],
         'due_date': ['due_date', 'تاريخ الاستحقاق'],
         'subtotal': ['subtotal', 'المبلغ قبل الضريبة', 'قبل الضريبة', 'الصافي'],
@@ -394,55 +458,79 @@ async def _import_invoices(file: UploadFile, current_user: dict, kind: str):
         'method': ['payment_method', 'طريقة السداد', 'طريقة الدفع'],
         'description': ['description', 'البيان', 'الوصف'],
     })
-    _require(cols, {"party": "اسم العميل" if kind == "sales" else "اسم المورد", "date": "التاريخ"}, df)
-    if "subtotal" not in cols and "amount" not in cols:
-        _require(cols, {"amount": "المبلغ (الإجمالي) أو المبلغ قبل الضريبة"}, df)
+    _require(cols, {"number": "رقم الفاتورة", "party": party_label, "date": "التاريخ",
+                    "subtotal": "المبلغ قبل الضريبة", "tax_rate": "نسبة الضريبة", "status": "الحالة"}, df)
+
+    unpaid_words = {"unpaid", "pending", "غير مدفوعة", "غير مدفوع", "آجل", "اجل", "مستحقة", "غير مسددة"}
+    cash_words = {"cash", "نقدي", "نقدا", "نقداً", "خزينة"}
+    bank_words = {"bank", "بنك", "تحويل", "تحويل بنكي", "شيك", "انستاباي", "instapay", "فودافون كاش"}
+    doc_type = "sales_invoice" if kind == "sales" else "purchase_invoice"
+    ck, rows, seen = Check(), [], {}
+    for idx, row in df.iterrows():
+        n = idx + 2
+        r = {"n": n,
+             "number": ck.text(row, n, cols.get('number'), "رقم الفاتورة", required=True, max_len=40),
+             "party": " ".join(ck.text(row, n, cols.get('party'), party_label, required=True).split()),
+             "date": ck.date(row, n, cols.get('date'), "التاريخ", required=True),
+             "due_date": ck.date(row, n, cols.get('due_date'), "تاريخ الاستحقاق"),
+             "subtotal": ck.number(row, n, cols.get('subtotal'), "المبلغ قبل الضريبة", required=True, positive=True),
+             "rate": ck.number(row, n, cols.get('tax_rate'), "نسبة الضريبة", required=True),
+             "description": ck.text(row, n, cols.get('description'), "البيان"),
+             "status": cell(row, cols.get('status')).lower(),
+             "method": cell(row, cols.get('method')).lower()}
+        if r["rate"] is not None:
+            if 0 < r["rate"] < 1:
+                r["rate"] = round(r["rate"] * 100, 2)          # 0.14 written as a fraction
+            if r["rate"] not in VALID_TAX_RATES:
+                ck.err(n, "نسبة الضريبة", f"{r['rate']:g}% غير معتادة — المقبول: 0 أو 5 أو 10 أو 14")
+        if r["due_date"] and r["date"] and r["due_date"] < r["date"]:
+            ck.err(n, "تاريخ الاستحقاق", "قبل تاريخ الفاتورة")
+        if "amount" in cols and cell(row, cols['amount']) and r["subtotal"] and r["rate"] is not None:
+            gross = ck.number(row, n, cols['amount'], "الإجمالي")
+            expected = round(r["subtotal"] * (1 + r["rate"] / 100), 2)
+            if gross is not None and abs(gross - expected) > 1:
+                ck.err(n, "الإجمالي", f"{gross:,.2f} لا يساوي المبلغ قبل الضريبة + الضريبة ({expected:,.2f})")
+        if not r["status"]:
+            ck.err(n, "الحالة", "فارغة — اكتب مدفوعة أو غير مدفوعة")
+        elif r["status"] not in PAID_WORDS and r["status"] not in unpaid_words:
+            ck.err(n, "الحالة", f"«{r['status']}» غير مفهومة — اكتب مدفوعة أو غير مدفوعة")
+        r["paid"] = r["status"] in PAID_WORDS
+        if r["paid"]:
+            if not r["method"]:
+                ck.err(n, "طريقة السداد", "فارغة والفاتورة مدفوعة — اكتب نقدي أو بنك")
+            elif r["method"] not in cash_words | bank_words:
+                ck.err(n, "طريقة السداد", f"«{r['method']}» غير مفهومة — اكتب نقدي أو بنك")
+        ck.once(seen, r["number"], n, "رقم الفاتورة")
+        if r["number"] and await db.invoices.find_one(
+                {"company_id": company_id, "document_type": doc_type, "document_number": r["number"]},
+                {"_id": 0, "id": 1}):
+            ck.err(n, "رقم الفاتورة", f"«{r['number']}» مسجّلة بالفعل في البرنامج")
+        rows.append(r)
+    _reject(ck, len(df))
 
     user_id = current_user.get("user_id")
-    success, errors, total, paid_total, from_gross = 0, [], 0.0, 0.0, 0
-    for idx, row in df.iterrows():
+    done, total, paid_total = 0, 0.0, 0.0
+    for r in rows:
         try:
-            party = cell(row, cols.get('party'))
-            if not party:
-                raise ValueError("اسم العميل/المورد فارغ")
-            date = date_cell(row, cols.get('date'))
-            if not date:
-                raise ValueError("التاريخ فارغ")
-            rate = num(row, cols.get('tax_rate'), 14.0) if "tax_rate" in cols else 14.0
-            if rate and rate < 1:
-                rate *= 100                       # 0.14 written as a fraction
-            if "subtotal" in cols and cell(row, cols['subtotal']):
-                subtotal = num(row, cols['subtotal'])
-            else:
-                # the sheet gives the total including VAT; take the tax out of it
-                subtotal = num(row, cols.get('amount')) / (1 + rate / 100)
-                from_gross += 1
-            if subtotal <= 0:
-                raise ValueError("المبلغ فارغ أو صفر")
-            status = cell(row, cols.get('status')).lower()
-            method_text = cell(row, cols.get('method')).lower()
             result = await import_invoice(db, company_id, user_id, kind, {
-                "number": cell(row, cols.get('number')), "party_name": party, "date": date,
-                "due_date": date_cell(row, cols.get('due_date')), "subtotal": subtotal,
-                "tax_rate": rate, "description": cell(row, cols.get('description')),
-                "paid": status in PAID_WORDS,
-                "method": "cash" if method_text in ("cash", "نقدي", "نقدا", "نقداً", "خزينة") else "bank"})
+                "number": r["number"], "party_name": r["party"], "date": r["date"],
+                "due_date": r["due_date"], "subtotal": r["subtotal"], "tax_rate": r["rate"],
+                "description": r["description"], "paid": r["paid"],
+                "method": "cash" if r["method"] in cash_words else "bank"})
             total += float(result["grand_total"] or 0)
             paid_total += result["paid"]
-            success += 1
+            done += 1
         except Exception as e:
-            errors.append(f"صف {idx + 2}: {e}")
+            raise _partial_failure(done, len(rows), r["n"], e)
     if kind == "sales":
-        notes = [f"{success} فاتورة بيع بإجمالي {total:,.2f} ج.م: مدين العملاء 131 / دائن المبيعات وضريبة القيمة المضافة 260"]
+        notes = [f"{done} فاتورة بيع بإجمالي {total:,.2f} ج.م: مدين العملاء 131 / دائن المبيعات وضريبة القيمة المضافة 260"]
     else:
-        notes = [f"{success} فاتورة شراء بإجمالي {total:,.2f} ج.م: مدين المشتريات/المخزون وضريبة المدخلات / دائن الموردين 251"
+        notes = [f"{done} فاتورة شراء بإجمالي {total:,.2f} ج.م: مدين المشتريات/المخزون وضريبة المدخلات / دائن الموردين 251"
                  " (مع خصم وتحصيل 1% على ما يزيد عن 300 ج.م كما في شاشة الفواتير)"]
     if paid_total:
-        notes.append(f"سُجّل سداد {paid_total:,.2f} ج.م للفواتير المكتوب حالتها مدفوعة")
-    if from_gross:
-        notes.append(f"{from_gross} فاتورة حُسبت ضريبتها من الإجمالي ({'نسبة الملف' if 'tax_rate' in cols else '14%'})")
+        notes.append(f"سُجّل سداد {paid_total:,.2f} ج.م للفواتير المدفوعة")
     return await _finish(current_user, import_type, "الفواتير" if kind == "sales" else "المشتريات",
-                         file.filename, digest, len(df), success, errors, notes,
+                         file.filename, digest, len(df), done, [], notes,
                          {"grand_total": round(total, 2), "paid_total": round(paid_total, 2)})
 
 

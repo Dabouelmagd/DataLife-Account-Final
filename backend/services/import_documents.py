@@ -82,7 +82,11 @@ def num(row, col, default: float = 0.0) -> float:
 
 
 def date_cell(row, col) -> str:
-    """YYYY-MM-DD from a date cell, a text date or an Excel serial; '' if empty."""
+    """YYYY-MM-DD from a date cell, a text date or an Excel serial; '' if empty.
+
+    Text dates are read day-first (15/02/2026), the way they are written in
+    Egypt; ISO dates (2026-02-15) are unambiguous either way.
+    """
     if not col:
         return ""
     v = row.get(col)
@@ -90,14 +94,100 @@ def date_cell(row, col) -> str:
         return ""
     if isinstance(v, (int, float)) and 20000 < float(v) < 80000:      # Excel serial
         return (pd.Timestamp("1899-12-30") + pd.Timedelta(days=float(v))).strftime("%Y-%m-%d")
+    if hasattr(v, "strftime"):
+        return v.strftime("%Y-%m-%d")
+    text = str(v).strip().translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
+    if not text or text.lower() in ("nan", "nat", "none"):
+        return ""
+    iso = len(text) >= 8 and text[:4].isdigit() and text[4] in "-/."
     try:
-        ts = pd.to_datetime(str(v).strip(), dayfirst=False, errors="raise")
-        return ts.strftime("%Y-%m-%d")
+        return pd.to_datetime(text, dayfirst=not iso, errors="raise").strftime("%Y-%m-%d")
     except Exception:
+        raise ValueError(f"تاريخ غير مفهوم: {v}")
+
+
+class Check:
+    """Collects every problem in a file before anything is written.
+
+    A file is imported whole or not at all: one bad row used to be skipped
+    while the rest went in, leaving a half-imported sheet that nobody could
+    tell apart from a complete one. Now each problem is named — row, column,
+    reason — and the user fixes the file and uploads it again.
+    """
+    def __init__(self):
+        self.errors = []
+
+    def err(self, n, label, msg):
+        self.errors.append(f"صف {n} — {label}: {msg}")
+
+    def text(self, row, n, col, label, required=False, max_len=200):
+        v = cell(row, col)
+        if required and not v:
+            self.err(n, label, "فارغ")
+        elif len(v) > max_len:
+            self.err(n, label, f"أطول من {max_len} حرفاً")
+        return v
+
+    def number(self, row, n, col, label, required=False, positive=False, default=0.0):
+        raw = cell(row, col)
+        if not raw:
+            if required:
+                self.err(n, label, "فارغ")
+                return None
+            return default
         try:
-            return pd.to_datetime(str(v).strip(), dayfirst=True).strftime("%Y-%m-%d")
-        except Exception:
-            raise ValueError(f"تاريخ غير مفهوم: {v}")
+            v = num(row, col)
+        except ValueError:
+            self.err(n, label, f"«{raw}» ليس رقماً")
+            return None
+        if positive and v <= 0:
+            self.err(n, label, "يجب أن يكون أكبر من صفر")
+            return None
+        if v < 0:
+            self.err(n, label, "لا يقبل قيمة سالبة")
+            return None
+        return v
+
+    def date(self, row, n, col, label, required=False):
+        raw = cell(row, col)
+        if not raw:
+            if required:
+                self.err(n, label, "فارغ")
+            return ""
+        try:
+            d = date_cell(row, col)
+        except ValueError:
+            self.err(n, label, f"«{raw}» ليس تاريخاً صحيحاً (اكتبه 2026-02-15 أو 15/02/2026)")
+            return ""
+        if not ("2000" <= d[:4] <= "2100"):
+            self.err(n, label, f"سنة غير منطقية ({d[:4]})")
+            return ""
+        return d
+
+    def email(self, row, n, col, label="البريد الإلكتروني"):
+        v = cell(row, col)
+        if v and ("@" not in v or "." not in v.split("@")[-1] or " " in v):
+            self.err(n, label, f"«{v}» ليس بريداً صحيحاً")
+            return ""
+        return v
+
+    def digits(self, row, n, col, label, length):
+        v = cell(row, col).replace(" ", "").replace("-", "")
+        v = v.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
+        if v and (not v.isdigit() or len(v) != length):
+            self.err(n, label, f"«{cell(row, col)}» يجب أن يكون {length} رقماً")
+            return ""
+        return v
+
+    def once(self, seen: dict, key, n, label):
+        """The same value twice in one file (a duplicated row)."""
+        if not key:
+            return
+        k = str(key).strip().lower()
+        if k in seen:
+            self.err(n, label, f"«{key}» مكرر في الملف (صف {seen[k]})")
+        else:
+            seen[k] = n
 
 
 def blank_row(row) -> bool:

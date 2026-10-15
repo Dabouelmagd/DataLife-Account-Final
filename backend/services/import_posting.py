@@ -22,6 +22,7 @@ this module is fixing.
 """
 
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 
@@ -63,7 +64,7 @@ async def resolve_account(db, company_id: str, wanted, fallback: str) -> Tuple[s
             if found:
                 return found["account_code"], False
         found = await db.chart_of_accounts.find_one(
-            {"company_id": company_id, "account_name": {"$regex": text[:40], "$options": "i"}},
+            {"company_id": company_id, "account_name": {"$regex": re.escape(text[:40]), "$options": "i"}},
             {"_id": 0, "account_code": 1})
         if found:
             return found["account_code"], False

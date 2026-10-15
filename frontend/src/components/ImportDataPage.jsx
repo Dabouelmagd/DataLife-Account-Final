@@ -220,10 +220,12 @@ const ImportDataPage = ({ language }) => {
         });
         fetchHistory();
       } else {
-        setUploadResult({
-          ok: false,
-          message: result.detail || 'Import failed'
-        });
+        // a rejected file comes back as {message, errors: [...]}: every
+        // problem in the file, so it can be fixed in one pass
+        const detail = result.detail;
+        setUploadResult(detail && typeof detail === 'object'
+          ? { ok: false, message: detail.message, error_details: detail.errors || [], rejected: true }
+          : { ok: false, message: detail || 'Import failed' });
       }
     } catch (error) {
       setUploadResult({
@@ -635,6 +637,9 @@ const ImportDataPage = ({ language }) => {
                         ? (language === 'ar' ? 'تم الاستيراد' : 'Import completed')
                         : (language === 'ar' ? 'لم يُستورد شيء' : 'Nothing was imported')}
                     </p>
+                    {uploadResult.rejected && uploadResult.message && (
+                      <p className="mt-1 text-sm text-red-700">{uploadResult.message}</p>
+                    )}
                     {uploadResult.total !== undefined && (
                       <div className="mt-2 text-sm text-gray-600 space-y-0.5">
                         <p>{language === 'ar' ? 'صفوف الملف:' : 'Rows in file:'} {uploadResult.total}</p>
@@ -650,11 +655,11 @@ const ImportDataPage = ({ language }) => {
                       </ul>
                     )}
                     {(uploadResult.error_details || []).length > 0 && (
-                      <ul className="mt-2 text-xs text-red-600 list-disc ps-5 space-y-0.5 max-h-40 overflow-y-auto">
+                      <ul className="mt-2 text-xs text-red-600 list-disc ps-5 space-y-0.5 max-h-64 overflow-y-auto">
                         {uploadResult.error_details.map((e, i) => <li key={i}>{e}</li>)}
                       </ul>
                     )}
-                    {uploadResult.total === undefined && uploadResult.message && (
+                    {uploadResult.total === undefined && !uploadResult.rejected && uploadResult.message && (
                       <p className="mt-1 text-sm text-red-600">{uploadResult.message}</p>
                     )}
                   </div>
