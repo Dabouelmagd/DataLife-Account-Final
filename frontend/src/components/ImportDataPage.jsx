@@ -211,20 +211,23 @@ const ImportDataPage = ({ language }) => {
       const result = await response.json();
       
       if (response.ok) {
+        // the API's `success` is a row count; keep it apart from the ok flag
+        // (a count of 0 used to render as a failed import)
         setUploadResult({
-          success: true,
-          ...result
+          ...result,
+          ok: result.success > 0,
+          imported: result.success,
         });
         fetchHistory();
       } else {
         setUploadResult({
-          success: false,
+          ok: false,
           message: result.detail || 'Import failed'
         });
       }
     } catch (error) {
       setUploadResult({
-        success: false,
+        ok: false,
         message: error.message
       });
     } finally {
@@ -618,30 +621,40 @@ const ImportDataPage = ({ language }) => {
             {/* Upload Result */}
             {uploadResult && (
               <div className={`rounded-lg p-4 mb-4 ${
-                uploadResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                uploadResult.ok ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
               }`}>
                 <div className="flex items-start gap-3">
-                  {uploadResult.success ? (
-                    <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                  {uploadResult.ok ? (
+                    <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
                   ) : (
-                    <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
+                    <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
                   )}
-                  <div className="flex-1">
-                    <p className={`font-medium ${uploadResult.success ? 'text-green-700' : 'text-red-700'}`}>
-                      {uploadResult.success 
-                        ? (language === 'ar' ? 'تم الاستيراد بنجاح!' : 'Import completed!')
-                        : (language === 'ar' ? 'فشل الاستيراد' : 'Import failed')}
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium ${uploadResult.ok ? 'text-green-700' : 'text-red-700'}`}>
+                      {uploadResult.ok
+                        ? (language === 'ar' ? 'تم الاستيراد' : 'Import completed')
+                        : (language === 'ar' ? 'لم يُستورد شيء' : 'Nothing was imported')}
                     </p>
-                    {uploadResult.success && (
-                      <div className="mt-2 text-sm text-gray-600">
-                        <p>{language === 'ar' ? 'الإجمالي:' : 'Total:'} {uploadResult.total}</p>
-                        <p className="text-green-600">{language === 'ar' ? 'نجح:' : 'Success:'} {uploadResult.success}</p>
+                    {uploadResult.total !== undefined && (
+                      <div className="mt-2 text-sm text-gray-600 space-y-0.5">
+                        <p>{language === 'ar' ? 'صفوف الملف:' : 'Rows in file:'} {uploadResult.total}</p>
+                        <p className="text-green-700">{language === 'ar' ? 'استُورد:' : 'Imported:'} {uploadResult.imported}</p>
                         {uploadResult.errors > 0 && (
-                          <p className="text-red-600">{language === 'ar' ? 'أخطاء:' : 'Errors:'} {uploadResult.errors}</p>
+                          <p className="text-red-600">{language === 'ar' ? 'لم يُستورد:' : 'Not imported:'} {uploadResult.errors}</p>
                         )}
                       </div>
                     )}
-                    {!uploadResult.success && uploadResult.message && (
+                    {(uploadResult.notes || []).length > 0 && (
+                      <ul className="mt-2 text-sm text-gray-700 list-disc ps-5 space-y-0.5">
+                        {uploadResult.notes.map((n, i) => <li key={i}>{n}</li>)}
+                      </ul>
+                    )}
+                    {(uploadResult.error_details || []).length > 0 && (
+                      <ul className="mt-2 text-xs text-red-600 list-disc ps-5 space-y-0.5 max-h-40 overflow-y-auto">
+                        {uploadResult.error_details.map((e, i) => <li key={i}>{e}</li>)}
+                      </ul>
+                    )}
+                    {uploadResult.total === undefined && uploadResult.message && (
                       <p className="mt-1 text-sm text-red-600">{uploadResult.message}</p>
                     )}
                   </div>
