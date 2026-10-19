@@ -14,7 +14,7 @@ import JobDetails from '../components/hr/JobDetails';
 import axios from 'axios';
 import {
   Briefcase, Users, Star, Plus, X, Loader2, CheckCircle, UserPlus, ArrowRight,
-  Sparkles, AlertTriangle, Scale, Trophy, FileText,
+  Sparkles, AlertTriangle, Scale, Trophy, FileText, Pencil,
 } from 'lucide-react';
 import InterviewScorecard from '../components/InterviewScorecard';
 import QuestionBank from '../components/QuestionBank';
@@ -45,6 +45,7 @@ const CATEGORIES = [
 const LEVELS = [['junior', 'مبتدئ'], ['mid', 'متوسط'], ['senior', 'خبير']];
 const EMPTY_JOB = {
   title: '', department: '', level: 'mid', passing_score: 70, salary_range_min: '', salary_range_max: '',
+  description: '', requirements: '', responsibilities: '', is_open: true,
   criteria: [
     { key: 'tech', label: 'المهارات الفنية', category: 'technical', weight: 40 },
     { key: 'soft', label: 'المهارات الشخصية', category: 'soft_skills', weight: 30 },
@@ -113,16 +114,31 @@ export default function RecruitmentPage() {
     if (!jobForm.title.trim()) { setMsg({ type: 'err', text: 'اسم الوظيفة مطلوب' }); return; }
     if (Math.round(weightTotal * 100) / 100 !== 100) { setMsg({ type: 'err', text: `مجموع الأوزان ${weightTotal}% — يجب أن يساوي 100%` }); return; }
     setBusy(true); setMsg({ type: '', text: '' });
+    // requirements / responsibilities are typed one per line
+    const lines = (t) => String(t || '').split('\n').map((x) => x.replace(/^[-•*\d.)\s]+/, '').trim()).filter(Boolean);
+    const num = (v) => (v === '' || v === null || v === undefined ? null : Number(v));
+    const body = {
+      company_id: 'from-token', title: jobForm.title.trim(), department: jobForm.department || null,
+      level: jobForm.level, passing_score: Number(jobForm.passing_score) || 70,
+      salary_range_min: num(jobForm.salary_range_min), salary_range_max: num(jobForm.salary_range_max),
+      description: (jobForm.description || '').trim() || null,
+      requirements: lines(jobForm.requirements), responsibilities: lines(jobForm.responsibilities),
+      is_open: jobForm.is_open !== false,
+      criteria: jobForm.criteria.map((c) => ({ ...c, weight: Number(c.weight) })),
+    };
     try {
-      await axios.post(`${API}/api/interviews/job-profiles`, {
-        company_id: 'from-token', title: jobForm.title.trim(), department: jobForm.department || null,
-        level: jobForm.level, passing_score: Number(jobForm.passing_score) || 70,
-        salary_range_min: jobForm.salary_range_min === '' ? null : Number(jobForm.salary_range_min),
-        salary_range_max: jobForm.salary_range_max === '' ? null : Number(jobForm.salary_range_max),
-        criteria: jobForm.criteria.map((c) => ({ ...c, weight: Number(c.weight) })),
-      }, auth());
+      if (jobForm.id) {
+        const { data } = await axios.put(`${API}/api/interviews/job-profiles/${jobForm.id}`, body, auth());
+        if (job && job.id === jobForm.id) setJob(data.job_profile);
+        setMsg({ type: 'ok', text: 'تم حفظ تعديلات الوظيفة' });
+      } else {
+        await axios.post(`${API}/api/interviews/job-profiles`, body, auth());
+      }
       setJobForm(null); await loadJobs();
-    } catch (e) { setMsg({ type: 'err', text: e.response?.data?.detail?.[0]?.msg || e.response?.data?.detail || 'تعذّر حفظ الوظيفة' }); }
+    } catch (e) {
+      const d = e.response?.data?.detail;
+      setMsg({ type: 'err', text: (Array.isArray(d) ? d[0]?.msg : d) || 'تعذّر حفظ الوظيفة' });
+    }
     finally { setBusy(false); }
   };
 
@@ -173,6 +189,96 @@ export default function RecruitmentPage() {
 
   const card = 'bg-white rounded-2xl border border-slate-200 shadow-sm';
   const input = 'mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm';
+
+  // the job form is used from the jobs list (new) and from a job's page (edit)
+  const jobModal = (
+    <>
+      {jobForm && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <h3 className="font-extrabold">{jobForm.id ? `تعديل الوظيفة — ${jobForm.title}` : 'وظيفة جديدة'}</h3>
+              <button onClick={() => setJobForm(null)} aria-label="إغلاق" className="p-1 rounded hover:bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 grid sm:grid-cols-2 gap-3 text-sm">
+              <label><span className="text-slate-600">المسمى الوظيفي *</span>
+                <input autoFocus value={jobForm.title} onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })} className={input} /></label>
+              <label><span className="text-slate-600">القسم</span>
+                <input value={jobForm.department} onChange={(e) => setJobForm({ ...jobForm, department: e.target.value })} className={input} /></label>
+              <label><span className="text-slate-600">المستوى</span>
+                <select value={jobForm.level} onChange={(e) => setJobForm({ ...jobForm, level: e.target.value })} className={`${input} bg-white`}>
+                  {LEVELS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select></label>
+              <label><span className="text-slate-600">حد النجاح (من 100)</span>
+                <input type="number" min="0" max="100" dir="ltr" value={jobForm.passing_score}
+                  onChange={(e) => setJobForm({ ...jobForm, passing_score: e.target.value })} className={`${input} tabular-nums`} /></label>
+              <label><span className="text-slate-600">الراتب من</span>
+                <input type="number" min="0" dir="ltr" value={jobForm.salary_range_min}
+                  onChange={(e) => setJobForm({ ...jobForm, salary_range_min: e.target.value })} className={`${input} tabular-nums`} /></label>
+              <label><span className="text-slate-600">إلى</span>
+                <input type="number" min="0" dir="ltr" value={jobForm.salary_range_max}
+                  onChange={(e) => setJobForm({ ...jobForm, salary_range_max: e.target.value })} className={`${input} tabular-nums`} /></label>
+
+              <label className="sm:col-span-2"><span className="text-slate-600">وصف الوظيفة</span>
+                <textarea rows={3} value={jobForm.description} onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
+                  placeholder="نبذة عن الدور وأهدافه" className={input} /></label>
+              <label><span className="text-slate-600">المتطلبات</span>
+                <textarea rows={4} value={jobForm.requirements} onChange={(e) => setJobForm({ ...jobForm, requirements: e.target.value })}
+                  placeholder={'متطلب في كل سطر\nمثال: بكالوريوس تجارة\nخبرة 3 سنوات'} className={input} /></label>
+              <label><span className="text-slate-600">المسؤوليات</span>
+                <textarea rows={4} value={jobForm.responsibilities} onChange={(e) => setJobForm({ ...jobForm, responsibilities: e.target.value })}
+                  placeholder={'مسؤولية في كل سطر\nمثال: إعداد القوائم المالية'} className={input} /></label>
+              <label className="sm:col-span-2 flex items-center gap-2">
+                <input type="checkbox" checked={jobForm.is_open !== false} onChange={(e) => setJobForm({ ...jobForm, is_open: e.target.checked })} />
+                <span className="text-slate-700">الوظيفة مفتوحة لاستقبال مرشحين</span></label>
+
+              <div className="sm:col-span-2 mt-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold">معايير التقييم وأوزانها</p>
+                  <span className={`text-sm font-bold tabular-nums ${Math.round(weightTotal * 100) / 100 === 100 ? 'text-emerald-600' : 'text-red-700'}`}>
+                    المجموع {weightTotal}%
+                  </span>
+                </div>
+                <div className="mt-2 space-y-2">
+                  {jobForm.criteria.map((c, i) => (
+                    <div key={i} className="flex flex-wrap items-center gap-2">
+                      <input value={c.label} aria-label="اسم المعيار"
+                        onChange={(e) => setJobForm({ ...jobForm, criteria: jobForm.criteria.map((x, j) => j === i ? { ...x, label: e.target.value } : x) })}
+                        className="flex-1 min-w-[140px] px-3 py-2 border border-slate-300 rounded-lg" />
+                      <select value={c.category} aria-label="تصنيف المعيار"
+                        onChange={(e) => setJobForm({ ...jobForm, criteria: jobForm.criteria.map((x, j) => j === i ? { ...x, category: e.target.value } : x) })}
+                        className="px-2 py-2 border border-slate-300 rounded-lg bg-white">
+                        {CATEGORIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      </select>
+                      <input type="number" min="1" max="100" dir="ltr" value={c.weight} aria-label="الوزن"
+                        onChange={(e) => setJobForm({ ...jobForm, criteria: jobForm.criteria.map((x, j) => j === i ? { ...x, weight: e.target.value } : x) })}
+                        className="w-20 px-2 py-2 border border-slate-300 rounded-lg tabular-nums" />
+                      <span className="text-slate-500">%</span>
+                      <button onClick={() => setJobForm({ ...jobForm, criteria: jobForm.criteria.filter((_, j) => j !== i) })}
+                        aria-label="حذف المعيار" className="p-1.5 text-slate-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => setJobForm({ ...jobForm, criteria: [...jobForm.criteria, { key: `c${jobForm.criteria.length + 1}`, label: '', category: 'other', weight: 0 }] })}
+                  className="mt-2 flex items-center gap-1.5 text-sm text-[#1e3a8a] font-semibold">
+                  <Plus className="w-4 h-4" aria-hidden />إضافة معيار
+                </button>
+                <p className="mt-2 text-xs text-slate-500 flex items-start gap-1.5">
+                  <Sparkles className="w-4 h-4 mt-0.5 shrink-0" aria-hidden />
+                  الأوزان هي ما يُحتسب به تقييم كل مُقيِّم، ويجب أن يكون مجموعها 100%.
+                </p>
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-white flex flex-wrap items-center justify-end gap-2 px-5 py-4 border-t border-slate-200">
+              {msg.type === 'err' && msg.text && <p className="me-auto text-sm text-red-700" role="alert">{msg.text}</p>}
+              <button onClick={() => setJobForm(null)} className="px-4 py-2 rounded-lg border border-slate-300">إلغاء</button>
+              <button onClick={saveJob} disabled={busy} className="px-4 py-2 rounded-lg bg-[#1e3a8a] text-white font-bold disabled:opacity-50">{jobForm.id ? 'حفظ التعديلات' : 'حفظ الوظيفة'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   // ══ candidate summary ═══════════════════════════════════════════════════
   if (candidate && scoring) return (
@@ -347,11 +453,26 @@ export default function RecruitmentPage() {
             {job.salary_range_min ? ` · النطاق ${money(job.salary_range_min)} – ${money(job.salary_range_max)}` : ''}</p>
           <p className="mt-1 text-xs text-slate-500">{job.criteria.map((c) => `${c.label} ${c.weight}%`).join(' · ')}</p>
         </div>
-        <button onClick={() => setCandForm({ name: '', email: '', phone: '', expected_salary: '', source: '' })}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1e3a8a] text-white font-semibold">
-          <Plus className="w-4 h-4" aria-hidden />إضافة مرشح
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => {
+            setMsg({ type: '', text: '' });
+            setJobForm({
+              ...EMPTY_JOB, ...job,
+              department: job.department || '', description: job.description || '',
+              requirements: (job.requirements || []).join('\n'), responsibilities: (job.responsibilities || []).join('\n'),
+              salary_range_min: job.salary_range_min ?? '', salary_range_max: job.salary_range_max ?? '',
+              criteria: job.criteria.map((c) => ({ ...c })),
+            });
+          }} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#1e3a8a] text-[#1e3a8a] font-semibold">
+            <Pencil className="w-4 h-4" aria-hidden />تعديل الوظيفة
+          </button>
+          <button onClick={() => setCandForm({ name: '', email: '', phone: '', expected_salary: '', source: '' })}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1e3a8a] text-white font-semibold">
+            <Plus className="w-4 h-4" aria-hidden />إضافة مرشح
+          </button>
+        </div>
       </header>
+      {jobModal}
 
       <JobDetails job={job} onManageQuestions={() => { setJob(null); setTab('questions'); setBankTab('interview'); }} />
 
@@ -490,76 +611,7 @@ export default function RecruitmentPage() {
         </div>
       )}
 
-      {jobForm && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-slate-200">
-              <h3 className="font-extrabold">وظيفة جديدة</h3>
-              <button onClick={() => setJobForm(null)} aria-label="إغلاق" className="p-1 rounded hover:bg-slate-100"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-5 grid sm:grid-cols-2 gap-3 text-sm">
-              <label><span className="text-slate-600">المسمى الوظيفي *</span>
-                <input autoFocus value={jobForm.title} onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })} className={input} /></label>
-              <label><span className="text-slate-600">القسم</span>
-                <input value={jobForm.department} onChange={(e) => setJobForm({ ...jobForm, department: e.target.value })} className={input} /></label>
-              <label><span className="text-slate-600">المستوى</span>
-                <select value={jobForm.level} onChange={(e) => setJobForm({ ...jobForm, level: e.target.value })} className={`${input} bg-white`}>
-                  {LEVELS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select></label>
-              <label><span className="text-slate-600">حد النجاح (من 100)</span>
-                <input type="number" min="0" max="100" dir="ltr" value={jobForm.passing_score}
-                  onChange={(e) => setJobForm({ ...jobForm, passing_score: e.target.value })} className={`${input} tabular-nums`} /></label>
-              <label><span className="text-slate-600">الراتب من</span>
-                <input type="number" min="0" dir="ltr" value={jobForm.salary_range_min}
-                  onChange={(e) => setJobForm({ ...jobForm, salary_range_min: e.target.value })} className={`${input} tabular-nums`} /></label>
-              <label><span className="text-slate-600">إلى</span>
-                <input type="number" min="0" dir="ltr" value={jobForm.salary_range_max}
-                  onChange={(e) => setJobForm({ ...jobForm, salary_range_max: e.target.value })} className={`${input} tabular-nums`} /></label>
-
-              <div className="sm:col-span-2 mt-2">
-                <div className="flex items-center justify-between">
-                  <p className="font-bold">معايير التقييم وأوزانها</p>
-                  <span className={`text-sm font-bold tabular-nums ${Math.round(weightTotal * 100) / 100 === 100 ? 'text-emerald-600' : 'text-red-700'}`}>
-                    المجموع {weightTotal}%
-                  </span>
-                </div>
-                <div className="mt-2 space-y-2">
-                  {jobForm.criteria.map((c, i) => (
-                    <div key={i} className="flex flex-wrap items-center gap-2">
-                      <input value={c.label} aria-label="اسم المعيار"
-                        onChange={(e) => setJobForm({ ...jobForm, criteria: jobForm.criteria.map((x, j) => j === i ? { ...x, label: e.target.value } : x) })}
-                        className="flex-1 min-w-[140px] px-3 py-2 border border-slate-300 rounded-lg" />
-                      <select value={c.category} aria-label="تصنيف المعيار"
-                        onChange={(e) => setJobForm({ ...jobForm, criteria: jobForm.criteria.map((x, j) => j === i ? { ...x, category: e.target.value } : x) })}
-                        className="px-2 py-2 border border-slate-300 rounded-lg bg-white">
-                        {CATEGORIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                      </select>
-                      <input type="number" min="1" max="100" dir="ltr" value={c.weight} aria-label="الوزن"
-                        onChange={(e) => setJobForm({ ...jobForm, criteria: jobForm.criteria.map((x, j) => j === i ? { ...x, weight: e.target.value } : x) })}
-                        className="w-20 px-2 py-2 border border-slate-300 rounded-lg tabular-nums" />
-                      <span className="text-slate-500">%</span>
-                      <button onClick={() => setJobForm({ ...jobForm, criteria: jobForm.criteria.filter((_, j) => j !== i) })}
-                        aria-label="حذف المعيار" className="p-1.5 text-slate-400 hover:text-red-600"><X className="w-4 h-4" /></button>
-                    </div>
-                  ))}
-                </div>
-                <button onClick={() => setJobForm({ ...jobForm, criteria: [...jobForm.criteria, { key: `c${jobForm.criteria.length + 1}`, label: '', category: 'other', weight: 0 }] })}
-                  className="mt-2 flex items-center gap-1.5 text-sm text-[#1e3a8a] font-semibold">
-                  <Plus className="w-4 h-4" aria-hidden />إضافة معيار
-                </button>
-                <p className="mt-2 text-xs text-slate-500 flex items-start gap-1.5">
-                  <Sparkles className="w-4 h-4 mt-0.5 shrink-0" aria-hidden />
-                  الأوزان هي ما يُحتسب به تقييم كل مُقيِّم، ويجب أن يكون مجموعها 100%.
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-200">
-              <button onClick={() => setJobForm(null)} className="px-4 py-2 rounded-lg border border-slate-300">إلغاء</button>
-              <button onClick={saveJob} disabled={busy} className="px-4 py-2 rounded-lg bg-[#1e3a8a] text-white font-bold disabled:opacity-50">حفظ الوظيفة</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {jobModal}
     </div>
   );
 }
