@@ -220,25 +220,18 @@ const QuickEntryModal = ({ isOpen, onClose, entryType, onSuccess }) => {
       }
 
       // Create journal entry
-      const response = await axios.post(
+      await axios.post(
         `${API_URL}/api/accounting/journal-entries`,
         {
           entry_date: new Date().toISOString().split('T')[0],
           reference: formData.reference,
           description: formData.description || config?.title,
-          lines
+          lines,
+          submit_for_review: true   // posted after the financial manager reviews it
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Auto-post the entry
-      if (response.data.entry?.id) {
-        await axios.post(
-          `${API_URL}/api/accounting/journal-entries/${response.data.entry.id}/post`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
 
       setSuccess(t.success);
       setTimeout(() => {

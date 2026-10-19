@@ -58,6 +58,41 @@ class CreateJournalEntryRequest(BaseModel):
     reference: Optional[str] = None
     description: str
     lines: List[JournalLineRequest]
+    # a manual entry goes to the financial manager for review; it is posted
+    # only after the review (usually at month end)
+    submit_for_review: bool = False
+
+
+# ── مراجعة القيود — maker / checker ──────────────────────────────────────────
+REVIEWER_ROLES = {"المدير المالي", "CFO", "Financial Manager", "financial_manager",
+                  "رئيس الحسابات", "Chief Accountant", "chief_accountant",
+                  "رئيس مجلس الإدارة", "Board Chairman", "مدير عام", "General Manager",
+                  "general_manager", "Super Admin", "مدير النظام", "owner", "ceo"}
+# may review an entry they wrote themselves (a small company has one manager)
+TOP_ROLES = {"رئيس مجلس الإدارة", "Board Chairman", "Super Admin", "مدير النظام", "owner"}
+
+
+async def _reviewer(current_user: dict) -> dict:
+    """The signed-in user, if they may review and post entries; else 403."""
+    u = await db.users.find_one({"id": current_user.get("user_id")}, {"_id": 0, "password": 0}) or {}
+    role = u.get("role") or current_user.get("role") or ""
+    perms = set(u.get("permissions") or [])
+    if role in REVIEWER_ROLES or u.get("is_platform_admin") or "journal_review" in perms:
+        return {**u, "role": role}
+    raise HTTPException(status_code=403,
+                        detail="مراجعة القيود وترحيلها للمدير المالي أو رئيس الحسابات")
+
+
+def _review_label(e: dict) -> str:
+    st, rv = e.get("status"), e.get("review_status")
+    if st == "posted":
+        return "مرحّل"
+    if st == "reversed":
+        return "معكوس"
+    if st == "canceled":
+        return "ملغي"
+    return {"pending_review": "تحت المراجعة", "reviewed": "تمت المراجعة — بانتظار الترحيل",
+            "rejected": "مرفوض — يحتاج تعديل"}.get(rv, "مسودة")
 
 
 class CreateFiscalYearRequest(BaseModel):
@@ -279,10 +314,17 @@ async def get_journal_entries(
 ):
     """الحصول على القيود اليومية"""
     service = AccountingService(db)
+    review = None
+    if status in ("pending_review", "reviewed", "rejected"):
+        review, status = status, "draft"
     entries = await service.get_journal_entries(
         current_user["company_id"],
         start_date, end_date, status, limit, skip
     )
+    if review:
+        entries = [e for e in entries if e.get("review_status") == review]
+    for e in entries:
+        e["status_label"] = _review_label(e)
     return {"entries": entries, "total": len(entries)}
 
 
@@ -344,9 +386,15 @@ async def create_journal_entry(
     
     try:
         result = await service.create_journal_entry(entry)
-        return {"message": "تم إنشاء القيد بنجاح", "entry": result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    if request.submit_for_review:
+        review = {"review_required": True, "review_status": "pending_review",
+                  "submitted_at": datetime.utcnow().isoformat(), "submitted_by": current_user["user_id"]}
+        await db.journal_entries.update_one({"id": result["id"]}, {"$set": review})
+        result.update(review)
+        return {"message": "تم حفظ القيد — تحت المراجعة، ويُرحَّل بعد اعتماد المدير المالي", "entry": result}
+    return {"message": "تم إنشاء القيد بنجاح", "entry": result}
 
 
 @router.post("/journal-entries/{entry_id}/post")
@@ -359,8 +407,15 @@ async def post_journal_entry(
     service = AccountingService(db)
     
     try:
-        if not await db.journal_entries.find_one({"id": entry_id, "company_id": current_user["company_id"]}, {"_id": 1}):
+        own = await db.journal_entries.find_one({"id": entry_id, "company_id": current_user["company_id"]},
+                                                {"_id": 0, "review_required": 1, "review_status": 1})
+        if not own:
             raise HTTPException(status_code=404, detail="Journal entry not found")   # could post another company's draft
+        if own.get("review_required"):
+            await _reviewer(current_user)
+            if own.get("review_status") != "reviewed":
+                raise HTTPException(status_code=400,
+                                    detail="القيد تحت المراجعة — يُرحَّل بعد أن يعتمده المدير المالي أو رئيس الحسابات")
         await service.post_journal_entry(entry_id, current_user["user_id"])
         return {"message": "تم ترحيل القيد بنجاح"}
     except ValueError as e:
@@ -459,6 +514,21 @@ async def update_journal_entry(
     if not update:
         raise HTTPException(status_code=400, detail="لا توجد حقول قابلة للتعديل")
     if "lines" in update:
+        # keep each line's account code and name (the list and the ledger show them)
+        fixed = []
+        for l in update["lines"]:
+            acc = await db.chart_of_accounts.find_one(
+                {"company_id": current_user["company_id"], "id": l.get("account_id")}, {"_id": 0})
+            if not acc:
+                raise HTTPException(status_code=400, detail="أحد الحسابات غير موجود")
+            if acc.get("is_header") or acc.get("account_category") == "header":
+                raise HTTPException(status_code=400, detail=f"«{acc['account_name']}» حساب تجميعي")
+            d, c = float(l.get("debit") or 0), float(l.get("credit") or 0)
+            if (d > 0) == (c > 0):
+                raise HTTPException(status_code=400, detail="كل سطر مدين أو دائن فقط")
+            fixed.append({**l, "account_code": acc["account_code"], "account_name": acc["account_name"],
+                          "debit": d, "credit": c})
+        update["lines"] = fixed
         td = sum(float(l.get("debit",  0)) for l in update["lines"])
         tc = sum(float(l.get("credit", 0)) for l in update["lines"])
         if abs(td - tc) > 0.01:
@@ -468,8 +538,102 @@ async def update_journal_entry(
         update["total_credit"] = round(tc, 2)
     from datetime import datetime as _dt, timezone as _tz
     update["updated_at"] = _dt.now(_tz.utc).isoformat()
+    if entry.get("review_required"):
+        # a change after review voids the review — the reviewer approved other figures
+        update.update({"review_status": "pending_review", "reviewed_by": None,
+                       "reviewed_by_name": None, "reviewed_at": None})
     await db.journal_entries.update_one({"id": entry_id}, {"$set": update})
-    return {"message": "تم تعديل القيد بنجاح"}
+    return {"message": "تم تعديل القيد" + (" — عاد للمراجعة" if entry.get("review_required") else " بنجاح")}
+
+
+class ReviewIn(BaseModel):
+    action: str                       # approve | reject
+    note: Optional[str] = None
+
+
+@router.put("/journal-entries/{entry_id}/review")
+async def review_journal_entry(entry_id: str, body: ReviewIn,
+                               current_user: dict = Depends(get_current_user)):
+    """مراجعة قيد: اعتماد (يصبح جاهزاً للترحيل) أو رفض مع سبب (يعود لكاتبه)."""
+    reviewer = await _reviewer(current_user)
+    entry = await db.journal_entries.find_one(
+        {"id": entry_id, "company_id": current_user["company_id"]}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="القيد غير موجود")
+    if entry.get("status") != "draft":
+        raise HTTPException(status_code=400, detail=f"القيد {_review_label(entry)} — لا يُراجَع")
+    if body.action not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="الإجراء: approve أو reject")
+    if body.action == "reject" and not (body.note or "").strip():
+        raise HTTPException(status_code=400, detail="اكتب سبب الرفض حتى يعرف كاتب القيد ما يعدّله")
+    if (entry.get("created_by") == current_user["user_id"] and body.action == "approve"
+            and reviewer.get("role") not in TOP_ROLES and not reviewer.get("is_platform_admin")):
+        raise HTTPException(status_code=403, detail="لا يراجع كاتب القيد قيده — يراجعه مسؤول آخر")
+    now = datetime.utcnow().isoformat()
+    upd = {"review_required": True,
+           "review_status": "reviewed" if body.action == "approve" else "rejected",
+           "reviewed_by": current_user["user_id"], "reviewed_by_name": reviewer.get("name") or reviewer.get("full_name"),
+           "reviewed_at": now, "review_note": (body.note or "").strip() or None}
+    await db.journal_entries.update_one({"id": entry_id}, {"$set": upd})
+    await db.audit_logs.insert_one({
+        "company_id": current_user["company_id"], "user_id": current_user["user_id"],
+        "action": f"journal_entry.review.{body.action}", "entity_id": entry_id,
+        "details": f"{entry.get('entry_number_str') or entry.get('entry_number')} — {upd['review_note'] or ''}",
+        "timestamp": now})
+    return {"message": "تمت مراجعة القيد واعتماده — جاهز للترحيل" if body.action == "approve"
+            else "تم رفض القيد وإعادته لكاتبه", "review_status": upd["review_status"]}
+
+
+class PostPeriodIn(BaseModel):
+    period: str                       # YYYY-MM
+
+
+@router.post("/journal-entries/post-reviewed")
+async def post_reviewed_entries(body: PostPeriodIn, current_user: dict = Depends(get_current_user)):
+    """ترحيل قيود الشهر المعتمدة دفعة واحدة — آخر الشهر بعد المراجعة."""
+    await _reviewer(current_user)
+    import re as _re
+    if not _re.fullmatch(r"\d{4}-\d{2}", body.period or ""):
+        raise HTTPException(status_code=400, detail="الشهر بصيغة YYYY-MM")
+    cid = current_user["company_id"]
+    month = {"company_id": cid, "status": "draft", "entry_date": {"$regex": f"^{body.period}"}}
+    ready = await db.journal_entries.find({**month, "review_status": "reviewed"},
+                                          {"_id": 0, "id": 1, "entry_number_str": 1}).to_list(None)
+    waiting = await db.journal_entries.count_documents({**month, "review_status": "pending_review"})
+    rejected = await db.journal_entries.count_documents({**month, "review_status": "rejected"})
+    service = AccountingService(db)
+    posted, failed = [], []
+    for e in ready:
+        try:
+            await service.post_journal_entry(e["id"], current_user["user_id"])
+            posted.append(e.get("entry_number_str"))
+        except ValueError as ex:
+            failed.append({"entry": e.get("entry_number_str"), "error": str(ex)})
+    msg = f"تم ترحيل {len(posted)} قيد لشهر {body.period}"
+    if waiting:
+        msg += f" — {waiting} قيد ما زال تحت المراجعة ولم يُرحَّل"
+    if rejected:
+        msg += f" — {rejected} قيد مرفوض بانتظار التعديل"
+    return {"message": msg, "posted": posted, "failed": failed,
+            "still_pending": waiting, "rejected": rejected}
+
+
+@router.get("/journal-entries/review/summary")
+async def review_summary(current_user: dict = Depends(get_current_user)):
+    """عدد القيود في كل مرحلة، لكل شهر — لزر «ترحيل قيود الشهر»."""
+    rows = await db.journal_entries.aggregate([
+        {"$match": {"company_id": current_user["company_id"], "status": "draft", "review_required": True}},
+        {"$group": {"_id": {"m": {"$substr": ["$entry_date", 0, 7]}, "s": "$review_status"}, "n": {"$sum": 1}}},
+    ]).to_list(None)
+    out = {}
+    for r in rows:
+        out.setdefault(r["_id"]["m"], {})[r["_id"]["s"] or "pending_review"] = r["n"]
+    can_review = True
+    try:
+        await _reviewer(current_user)
+    except HTTPException:
+        can_review = False
+    return {"months": out, "can_review": can_review}
 
 
 @router.post("/journal-entries/{entry_id}/reverse")

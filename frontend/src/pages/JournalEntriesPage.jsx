@@ -39,6 +39,19 @@ const JournalEntriesPage = () => {
 
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [review, setReview] = useState({ months: {}, can_review: false });
+  const [notice, setNotice] = useState(null);       // {type, text}
+  const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+  const blankEntry = () => ({
+    entry_date: new Date().toISOString().split('T')[0], reference: '', description: '',
+    lines: [{ account_id: '', debit: 0, credit: 0, description: '' }, { account_id: '', debit: 0, credit: 0, description: '' }],
+  });
+  const fetchReview = async () => {
+    try { setReview((await axios.get(`${API_URL}/api/accounting/journal-entries/review/summary`, auth())).data); }
+    catch { /* the month bar is optional */ }
+  };
+  const errMsg = (e, f) => (typeof e?.response?.data?.detail === 'string' ? e.response.data.detail : f);
 
   const translations = {
     ar: {
@@ -140,6 +153,7 @@ const JournalEntriesPage = () => {
   useEffect(() => {
     fetchEntries();
     fetchAccounts();
+    fetchReview();
   }, [filters]);
 
   const fetchEntries = async () => {
@@ -202,26 +216,17 @@ const JournalEntriesPage = () => {
 
     try {
       setSubmitting(true);
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_URL}/api/accounting/journal-entries`,
-        newEntry,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
+      const lines = newEntry.lines.map((l) => ({ ...l, debit: parseFloat(l.debit) || 0, credit: parseFloat(l.credit) || 0 }));
+      const { data } = editingId
+        ? await axios.put(`${API_URL}/api/accounting/journal-entries/${editingId}`, { ...newEntry, lines }, auth())
+        : await axios.post(`${API_URL}/api/accounting/journal-entries`, { ...newEntry, lines, submit_for_review: true }, auth());
       setShowCreateModal(false);
-      setNewEntry({
-        entry_date: new Date().toISOString().split('T')[0],
-        reference: '',
-        description: '',
-        lines: [
-          { account_id: '', debit: 0, credit: 0, description: '' },
-          { account_id: '', debit: 0, credit: 0, description: '' }
-        ]
-      });
-      fetchEntries();
+      setEditingId(null);
+      setNewEntry(blankEntry());
+      setNotice({ type: 'ok', text: data.message });
+      fetchEntries(); fetchReview();
     } catch (error) {
-      setFormError(error.response?.data?.detail || 'Error creating entry');
+      setFormError(errMsg(error, 'Error saving entry'));
     } finally {
       setSubmitting(false);
     }
@@ -229,18 +234,46 @@ const JournalEntriesPage = () => {
 
   const handlePostEntry = async (entryId) => {
     if (!window.confirm(t.confirmPost)) return;
-    
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_URL}/api/accounting/journal-entries/${entryId}/post`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      fetchEntries();
+      await axios.post(`${API_URL}/api/accounting/journal-entries/${entryId}/post`, {}, auth());
+      setNotice({ type: 'ok', text: t.entryPosted });
+      fetchEntries(); fetchReview();
     } catch (error) {
-      alert(error.response?.data?.detail || 'Error posting entry');
+      setNotice({ type: 'err', text: errMsg(error, 'Error posting entry') });
     }
+  };
+
+  const handleReview = async (entry, action) => {
+    let note = '';
+    if (action === 'reject') {
+      note = window.prompt('سبب الرفض — سيظهر لكاتب القيد ليعدّله:') || '';
+      if (!note.trim()) return;
+    }
+    try {
+      const { data } = await axios.put(`${API_URL}/api/accounting/journal-entries/${entry.id}/review`, { action, note }, auth());
+      setNotice({ type: 'ok', text: data.message });
+      fetchEntries(); fetchReview();
+    } catch (e) { setNotice({ type: 'err', text: errMsg(e, 'تعذّرت المراجعة') }); }
+  };
+
+  const postMonth = async (period) => {
+    if (!window.confirm(`ترحيل كل القيود المعتمدة لشهر ${period} إلى دفتر الأستاذ؟ بعد الترحيل لا يُعدَّل القيد إلا بقيد عكسي.`)) return;
+    try {
+      const { data } = await axios.post(`${API_URL}/api/accounting/journal-entries/post-reviewed`, { period }, auth());
+      const fails = (data.failed || []).map((f) => `${f.entry}: ${f.error}`).join(' · ');
+      setNotice({ type: fails ? 'err' : 'ok', text: data.message + (fails ? ` — تعذّر: ${fails}` : '') });
+      fetchEntries(); fetchReview();
+    } catch (e) { setNotice({ type: 'err', text: errMsg(e, 'تعذّر الترحيل') }); }
+  };
+
+  const openEdit = (entry) => {
+    setEditingId(entry.id);
+    setNewEntry({
+      entry_date: (entry.entry_date || '').slice(0, 10), reference: entry.reference || '', description: entry.description || '',
+      lines: (entry.lines || []).map((l) => ({ account_id: l.account_id, debit: l.debit || 0, credit: l.credit || 0, description: l.description || '' })),
+    });
+    setFormError('');
+    setShowCreateModal(true);
   };
 
   const handleReverseEntry = async (entryId) => {
@@ -282,20 +315,24 @@ const JournalEntriesPage = () => {
     });
   };
 
-  const getStatusBadge = (status) => {
+  const stage = (e) => (e.status === 'draft' && e.review_status ? e.review_status : e.status);
+  const getStatusBadge = (entry) => {
+    const st = stage(entry);
     const styles = {
-      draft: 'bg-yellow-100 text-yellow-800',
+      draft: 'bg-slate-100 text-slate-700',
+      pending_review: 'bg-amber-100 text-amber-800',
+      reviewed: 'bg-blue-100 text-blue-800',
+      rejected: 'bg-red-100 text-red-800',
       posted: 'bg-green-100 text-green-800',
-      reversed: 'bg-red-100 text-red-800'
+      reversed: 'bg-gray-200 text-gray-700',
+      canceled: 'bg-gray-200 text-gray-500',
     };
-    const labels = {
-      draft: t.draft,
-      posted: t.posted,
-      reversed: t.reversed
-    };
+    const labels = language === 'ar'
+      ? { draft: t.draft, pending_review: 'تحت المراجعة', reviewed: 'تمت المراجعة', rejected: 'مرفوض', posted: t.posted, reversed: t.reversed, canceled: 'ملغي' }
+      : { draft: 'Draft', pending_review: 'Under review', reviewed: 'Reviewed', rejected: 'Rejected', posted: 'Posted', reversed: 'Reversed', canceled: 'Canceled' };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.draft}`}>
-        {labels[status] || status}
+      <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${styles[st] || styles.draft}`}>
+        {labels[st] || st}
       </span>
     );
   };
@@ -358,12 +395,44 @@ const JournalEntriesPage = () => {
               className="border rounded-lg px-3 py-2 text-sm"
             >
               <option value="">{t.all}</option>
+              <option value="pending_review">{language === 'ar' ? 'تحت المراجعة' : 'Under review'}</option>
+              <option value="reviewed">{language === 'ar' ? 'تمت المراجعة' : 'Reviewed'}</option>
+              <option value="rejected">{language === 'ar' ? 'مرفوض' : 'Rejected'}</option>
               <option value="draft">{t.draft}</option>
               <option value="posted">{t.posted}</option>
               <option value="reversed">{t.reversed}</option>
             </select>
           </div>
         </div>
+
+        {/* مراجعة وترحيل آخر الشهر */}
+        {Object.keys(review.months || {}).length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm p-4 mb-6 space-y-2" data-testid="month-review-bar">
+            <h3 className="text-sm font-bold text-[#28376B]">
+              {review.can_review ? 'مراجعة القيود وترحيل الشهر' : 'قيود بانتظار مراجعة المدير المالي / رئيس الحسابات'}
+            </h3>
+            {Object.entries(review.months).sort(([a], [b]) => a.localeCompare(b)).map(([m, c]) => (
+              <div key={m} className="flex flex-wrap items-center gap-3 text-sm">
+                <span className="font-semibold tabular-nums w-20" dir="ltr">{m}</span>
+                {c.pending_review > 0 && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">{c.pending_review} تحت المراجعة</span>}
+                {c.reviewed > 0 && <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">{c.reviewed} تمت مراجعته</span>}
+                {c.rejected > 0 && <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-800">{c.rejected} مرفوض</span>}
+                {review.can_review && c.reviewed > 0 && (
+                  <button onClick={() => postMonth(m)} className="ms-auto px-3 py-1.5 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700">
+                    ترحيل قيود {m} المعتمدة ({c.reviewed})
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {notice && (
+          <div className={`mb-4 rounded-lg p-3 text-sm flex items-start justify-between gap-3 ${notice.type === 'err' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-800'}`} role="status">
+            <span>{notice.text}</span>
+            <button onClick={() => setNotice(null)} aria-label="إغلاق"><X className="w-4 h-4" /></button>
+          </div>
+        )}
 
         {/* Entries Table */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -397,7 +466,7 @@ const JournalEntriesPage = () => {
                       className="border-b hover:bg-gray-50 cursor-pointer"
                       onClick={() => setExpandedEntry(expandedEntry === entry.id ? null : entry.id)}
                     >
-                      <td className="px-4 py-3 font-medium">#{entry.entry_number}</td>
+                      <td className="px-4 py-3 font-medium whitespace-nowrap" dir="ltr">{entry.entry_number_str || `#${entry.entry_number}`}</td>
                       <td className="px-4 py-3">{entry.entry_date}</td>
                       <td className="px-4 py-3">{entry.reference || '-'}</td>
                       <td className="px-4 py-3">{entry.description}</td>
@@ -407,10 +476,34 @@ const JournalEntriesPage = () => {
                       <td className="px-4 py-3 font-medium text-red-600">
                         {entry.total_credit?.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3">{getStatusBadge(entry.status)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                          {entry.status === 'draft' && (
+                        {getStatusBadge(entry)}
+                        {entry.review_status === 'rejected' && entry.review_note && (
+                          <p className="mt-1 text-xs text-red-700 max-w-[200px]">السبب: {entry.review_note}</p>
+                        )}
+                        {entry.reviewed_by_name && ['reviewed', 'rejected'].includes(entry.review_status) && (
+                          <p className="mt-0.5 text-[11px] text-gray-500">بواسطة {entry.reviewed_by_name}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                          {entry.status === 'draft' && entry.review_required && review.can_review
+                            && ['pending_review', 'rejected'].includes(entry.review_status) && (
+                            <button onClick={() => handleReview(entry, 'approve')}
+                              className="px-2 py-1 text-xs font-semibold text-blue-700 border border-blue-200 hover:bg-blue-50 rounded">
+                              اعتماد</button>
+                          )}
+                          {entry.status === 'draft' && entry.review_required && review.can_review && entry.review_status === 'pending_review' && (
+                            <button onClick={() => handleReview(entry, 'reject')}
+                              className="px-2 py-1 text-xs font-semibold text-red-700 border border-red-200 hover:bg-red-50 rounded">
+                              رفض</button>
+                          )}
+                          {entry.status === 'draft' && entry.review_status !== 'reviewed' && (
+                            <button onClick={() => openEdit(entry)}
+                              className="px-2 py-1 text-xs font-semibold text-gray-700 border border-gray-200 hover:bg-gray-50 rounded">
+                              تعديل</button>
+                          )}
+                          {entry.status === 'draft' && (!entry.review_required || (entry.review_status === 'reviewed' && review.can_review)) && (
                             <button
                               onClick={() => handlePostEntry(entry.id)}
                               className="p-1 text-green-600 hover:bg-green-50 rounded"
@@ -478,7 +571,10 @@ const JournalEntriesPage = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b sticky top-0 bg-white">
-              <h2 className="text-xl font-bold text-[#28376B]">{t.createEntry}</h2>
+              <h2 className="text-xl font-bold text-[#28376B]">{editingId ? (language === 'ar' ? 'تعديل القيد' : 'Edit entry') : t.createEntry}</h2>
+              <p className="text-xs text-gray-500 mt-1">
+                {language === 'ar' ? 'يُحفظ القيد «تحت المراجعة»، ويُرحَّل لدفتر الأستاذ بعد اعتماد المدير المالي أو رئيس الحسابات.' : 'Saved for review; posted after approval.'}
+              </p>
             </div>
             
             <div className="p-6 space-y-4">
@@ -636,7 +732,7 @@ const JournalEntriesPage = () => {
 
             <div className="p-6 border-t flex justify-end gap-3 sticky bottom-0 bg-white">
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => { setShowCreateModal(false); setEditingId(null); setNewEntry(blankEntry()); }}
                 className="px-4 py-2 border rounded-lg hover:bg-gray-50"
               >
                 {t.cancel}
@@ -647,7 +743,7 @@ const JournalEntriesPage = () => {
                 className="px-4 py-2 bg-[#28376B] text-white rounded-lg hover:bg-[#1e2a52] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {t.save}
+                {language === 'ar' ? (editingId ? 'حفظ التعديل وإرساله للمراجعة' : 'حفظ وإرسال للمراجعة') : t.save}
               </button>
             </div>
           </div>
