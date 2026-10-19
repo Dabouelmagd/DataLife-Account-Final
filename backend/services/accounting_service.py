@@ -501,7 +501,7 @@ class AccountingService:
 
         reversed_entry = JournalEntry(
             company_id=original["company_id"],
-            entry_number=await self.get_next_entry_number(original["company_id"]),
+            entry_number=0,
             entry_date=reversal_date,
             reference=f"REV-{original['entry_number']}",
             description=f"عكس القيد رقم {original['entry_number']}",

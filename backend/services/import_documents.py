@@ -240,7 +240,7 @@ async def post_two_line_entry(db, company_id: str, user_id: str, date: str, debi
 
     svc = AccountingService(db)
     entry = JournalEntry(
-        company_id=company_id, entry_number=await svc.get_next_entry_number(company_id),
+        company_id=company_id, entry_number=0,
         entry_date=date, description=description[:200],
         lines=[line(debit_code, amount, 0), line(credit_code, 0, amount)],
         total_debit=amount, total_credit=amount, status=JournalEntryStatus.DRAFT,

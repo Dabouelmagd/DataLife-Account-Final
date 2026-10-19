@@ -159,10 +159,9 @@ async def add_project_expense(
         ))
     
     if je_lines:
-        next_num = await _svc.get_next_entry_number(company_id)
         je_obj = JournalEntry(
             company_id=company_id,
-            entry_number=next_num,
+            entry_number=0,
             entry_date=expense.get("date"),
             description=f"مصروف مشروع ({project_name}): {expense.get('description', cat_name)}",
             lines=je_lines,
@@ -374,10 +373,9 @@ async def add_project_revenue(
         ))
     
     if rev_lines:
-        next_num2 = await _svc2.get_next_entry_number(company_id)
         rev_je_obj = JournalEntry(
             company_id=company_id,
-            entry_number=next_num2,
+            entry_number=0,
             entry_date=revenue.get("date"),
             description=f"إيراد مشروع ({project_name}): {revenue.get('description', rev_name)}",
             lines=rev_lines,

@@ -70,7 +70,7 @@ async def _post(db, company_id: str, user_id: str, date_str: str, description: s
     service = AccountingService(db)
     entry = JournalEntry(
         company_id=company_id,
-        entry_number=await service.get_next_entry_number(company_id),
+        entry_number=0,
         entry_date=date_str, description=description[:200], lines=lines,
         total_debit=round(total, 2), total_credit=round(total, 2),
         status=JournalEntryStatus.DRAFT,

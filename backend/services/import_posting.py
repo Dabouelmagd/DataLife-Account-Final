@@ -111,7 +111,7 @@ async def post_row(db, company_id: str, user_id: str, row: dict, data_type: str)
     label = "مصروف" if is_expense else "إيراد"
     entry = JournalEntry(
         company_id=company_id,
-        entry_number=await service.get_next_entry_number(company_id),
+        entry_number=0,
         entry_date=date_str,
         description=f"{label} مستورد — {(row.get('description') or '')[:120]}".strip(" —"),
         lines=lines, total_debit=amount, total_credit=amount,

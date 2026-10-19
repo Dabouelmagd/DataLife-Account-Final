@@ -104,7 +104,7 @@ async def record(db, company_id: str, user_id: str, data: dict) -> dict:
     service = AccountingService(db)
     entry = JournalEntry(
         company_id=company_id,
-        entry_number=await service.get_next_entry_number(company_id),
+        entry_number=0,
         entry_date=date_str,
         description=f"تكليف عكسي — {description}" + (f" ({supplier})" if supplier else ""),
         lines=[JournalEntryLine(**line) for line in raw_lines],
