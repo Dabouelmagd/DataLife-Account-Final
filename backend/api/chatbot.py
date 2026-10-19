@@ -4,10 +4,11 @@ Support chatbot — the floating chat bubble shown on every page.
 Previously a stub: /chat returned "coming soon" and the four routes the
 widget calls did not exist, so every message failed.
 
-There is no AI model wired in, so this does not pretend to be one. It
-answers common questions from a small knowledge base, and anything it
-can't answer is routed to a human: requests land in db.support_tickets
-and are emailed to the support inbox.
+Answers come from the AI provider configured on the server (see
+services/support_ai.py), capped per visitor; without a key, over the cap or
+on any error it falls back to a small keyword knowledge base. Anything it
+can't answer is routed to a human: requests land in db.support_tickets and
+are emailed to the support inbox.
 
 The widget is public (it runs on the landing page, before login), so
 these routes are unauthenticated. Inputs are length-capped and sessions
@@ -20,7 +21,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+import html as _html
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -109,10 +111,39 @@ class HumanSupportIn(BaseModel):
 
 # ── Routes ─────────────────────────────────────────────────
 
+AI_PER_IP_HOUR = int(os.environ.get("CHATBOT_AI_PER_IP_HOUR", "40"))
+AI_PER_SESSION = 40
+
+
+async def _ai_allowed(ip: str, session: dict) -> bool:
+    """The widget is public — cap model calls per visitor so it cannot be
+    used as a free AI endpoint. Over the cap it falls back to the keyword answers."""
+    if sum(1 for m in (session or {}).get("messages", []) if m.get("role") == "user") >= AI_PER_SESSION:
+        return False
+    hour = datetime.now(timezone.utc).strftime("%Y%m%d%H")
+    doc = await db.chatbot_rate.find_one_and_update(
+        {"_id": f"{ip}:{hour}"}, {"$inc": {"n": 1}, "$setOnInsert": {"created_at": _now()}},
+        upsert=True, return_document=True)
+    return (doc or {}).get("n", 1) <= AI_PER_IP_HOUR
+
+
 @router.post("/send")
-async def send_message(data: SendIn):
+async def send_message(data: SendIn, request: Request = None):
+    from services import support_ai
     session_id = data.session_id or str(uuid.uuid4())
-    reply = _answer(data.message, data.language)
+    session = await db.chatbot_sessions.find_one({"session_id": session_id}, {"_id": 0, "messages": 1}) \
+        if data.session_id else None
+    reply = None
+    if support_ai.available():
+        ip = (request.headers.get("x-real-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+              or (request.client.host if request.client else "?")) if request else "?"
+        if await _ai_allowed(ip, session):
+            history = [{"role": m.get("role"), "content": m.get("content")}
+                       for m in (session or {}).get("messages", [])]
+            history.append({"role": "user", "content": data.message})
+            reply = await support_ai.answer(history)
+    if not reply:
+        reply = _answer(data.message, data.language)
     ts = _now()
 
     await db.chatbot_sessions.update_one(
@@ -135,8 +166,8 @@ async def send_message(data: SendIn):
 
 # kept so older callers of /chat don't break
 @router.post("/chat")
-async def chat(data: SendIn):
-    return await send_message(data)
+async def chat(data: SendIn, request: Request = None):
+    return await send_message(data, request)
 
 
 @router.delete("/session/{session_id}")
@@ -158,9 +189,9 @@ async def email_transcript(data: TranscriptIn):
 
     ar = data.language == "ar"
     rows = "".join(
-        f'<p style="margin:6px 0"><b>{"أنت" if m["role"]=="user" else "الدعم"}:</b> {m["content"]}</p>'
+        f'<p style="margin:6px 0"><b>{"أنت" if m["role"]=="user" else "الدعم"}:</b> {_html.escape(str(m["content"]))}</p>'
         if ar else
-        f'<p style="margin:6px 0"><b>{"You" if m["role"]=="user" else "Support"}:</b> {m["content"]}</p>'
+        f'<p style="margin:6px 0"><b>{"You" if m["role"]=="user" else "Support"}:</b> {_html.escape(str(m["content"]))}</p>'
         for m in messages
     )
     html = f'<div dir="{"rtl" if ar else "ltr"}" style="font-family:sans-serif">{rows}</div>'
@@ -201,9 +232,9 @@ async def request_human_support(data: HumanSupportIn):
         SUPPORT_EMAIL,
         f"طلب دعم جديد — {data.user_name}",
         f'<div dir="rtl" style="font-family:sans-serif">'
-        f'<p><b>الاسم:</b> {data.user_name}</p>'
-        f'<p><b>البريد:</b> {data.user_email}</p>'
-        f'<p><b>المشكلة:</b> {data.issue_summary}</p>'
+        f'<p><b>الاسم:</b> {_html.escape(data.user_name)}</p>'
+        f'<p><b>البريد:</b> {_html.escape(data.user_email)}</p>'
+        f'<p><b>المشكلة:</b> {_html.escape(data.issue_summary)}</p>'
         f'<p style="color:#888">رقم الطلب: {ticket["id"]}</p></div>',
     )
 

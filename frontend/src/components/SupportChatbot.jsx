@@ -13,6 +13,11 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
+// the assistant answers in short markdown — show **bold** as bold, drop stray heading marks
+const renderBold = (text) => String(text || '').replace(/^#{1,6}\s*/gm, '').split(/(\*\*[^*]+\*\*)/g)
+  .map((part, i) => (part.startsWith('**') && part.endsWith('**')
+    ? <strong key={i}>{part.slice(2, -2)}</strong> : part));
+
 const SupportChatbot = () => {
   const { language, isRTL } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
@@ -365,7 +370,7 @@ const SupportChatbot = () => {
                             ? 'bg-red-100 text-red-700 rounded-tl-sm'
                             : 'bg-white text-gray-800 shadow-sm rounded-tl-sm'
                         }`}>
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          <p className="text-sm whitespace-pre-wrap leading-6">{renderBold(msg.content)}</p>
                           <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-blue-200' : 'text-gray-400'}`}>
                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
