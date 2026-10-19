@@ -69,7 +69,7 @@ class BankTransactionCreate(BaseModel):
 
 class BankSettings(BaseModel):
     """إعدادات البنك للشركة"""
-    auto_post_journal: bool = Field(default=False, description="ترحيل القيود تلقائياً")
+    auto_post_journal: bool = Field(default=True, description="ترحيل القيود تلقائياً")
     default_deposit_account: str = Field(default="161", description="حساب الإيداع الافتراضي")
     default_withdrawal_account: str = Field(default="332", description="حساب السحب الافتراضي (مصروفات متنوعة)")
     default_check_deposit_account: str = Field(default="131", description="حساب الشيكات الواردة الافتراضي")
@@ -153,11 +153,41 @@ async def create_bank_account(
     account_dict["created_by"] = current_user["user_id"]
     
     result = await db.bank_accounts.insert_one(account_dict)
-    
+    bank_id = str(result.inserted_id)
+
+    # الرصيد الافتتاحي يدخل الدفتر: البنك مدين / أرباح مرحّلة (213) دائن.
+    # It was only stored on the bank record, so the bank page showed money the
+    # ledger, trial balance, balance sheet and dashboard never knew about.
+    opening_note = None
+    if round(float(account.opening_balance or 0), 2) != 0:
+        try:
+            entry = await post_bank_opening(company_id, current_user["user_id"], bank_id, account_dict)
+            await db.bank_accounts.update_one({"_id": result.inserted_id},
+                                              {"$set": {"opening_entry_id": entry["id"]}})
+        except Exception as e:
+            logger.error(f"فشل قيد الرصيد الافتتاحي للبنك {bank_id}: {e}")
+            opening_note = f"تم إنشاء الحساب لكن لم يُسجَّل قيد الرصيد الافتتاحي: {e}"
+
     return {
         "message": "تم إنشاء الحساب البنكي بنجاح",
-        "id": str(result.inserted_id)
+        "id": bank_id,
+        **({"warning": opening_note} if opening_note else {}),
     }
+
+
+async def post_bank_opening(company_id: str, user_id: str, bank_id: str, bank: dict) -> dict:
+    """Opening balance of a bank account as a posted entry against 213."""
+    from services.import_documents import post_two_line_entry
+    amount = round(float(bank.get("opening_balance") or 0), 2)
+    code = bank.get("linked_account_code") or "162"
+    date = (bank.get("created_at") or datetime.now(timezone.utc))
+    date = date.strftime("%Y-%m-%d") if hasattr(date, "strftime") else str(date)[:10]
+    desc = f"رصيد افتتاحي — {bank.get('bank_name', '')} {bank.get('account_number', '')}".strip()
+    if amount > 0:
+        return await post_two_line_entry(db, company_id, user_id, date, code, "213", amount,
+                                         desc, "bank_opening", bank_id)
+    return await post_two_line_entry(db, company_id, user_id, date, "213", code, -amount,
+                                     desc, "bank_opening", bank_id)
 
 @router.put("/bank-accounts/{account_id}")
 async def update_bank_account(
@@ -366,7 +396,9 @@ async def create_auto_journal_entry(
     
     # جلب إعدادات البنك للشركة
     bank_settings = await get_company_bank_settings(company_id)
-    auto_post = bank_settings.get("auto_post_journal", False)
+    # a bank movement has already happened — its entry is posted unless the
+    # company explicitly chose to review bank entries first
+    auto_post = bank_settings.get("auto_post_journal", True)
     
     # الحصول على حساب البنك من دليل الحسابات
     bank_account = await service.get_account_by_code(company_id, bank_account_code)
@@ -437,7 +469,7 @@ async def create_auto_journal_entry(
     
     # إنشاء القيد اليومي
     # تحديد حالة القيد بناءً على إعدادات الترحيل التلقائي
-    entry_status = JournalEntryStatus.POSTED if auto_post else JournalEntryStatus.DRAFT
+    entry_status = JournalEntryStatus.DRAFT        # post_journal_entry posts it below
     
     entry = JournalEntry(
         company_id=company_id,
@@ -447,7 +479,9 @@ async def create_auto_journal_entry(
         description=f"قيد تلقائي - {get_transaction_type_label(transaction_type)}: {description}",
         lines=lines,
         created_by=user_id,
-        status=entry_status
+        status=entry_status,
+        source_document_type="bank_transaction",
+        source_document_id=reference,
     )
     
     try:
@@ -462,8 +496,9 @@ async def create_auto_journal_entry(
                 result['status'] = 'posted'
                 result['auto_posted'] = True
             except Exception as post_error:
-                logger.warning(f"فشل ترحيل القيد تلقائياً: {post_error}")
+                logger.error(f"فشل ترحيل قيد الحركة البنكية {reference}: {post_error}")
                 result['auto_posted'] = False
+                result['post_error'] = str(post_error)
         
         return result
     except Exception as e:
@@ -808,7 +843,7 @@ async def get_bank_settings(current_user: dict = Depends(get_current_user)):
     if not settings:
         # إرجاع الإعدادات الافتراضية
         return {
-            "auto_post_journal": False,
+            "auto_post_journal": True,
             "default_deposit_account": "161",
             "default_withdrawal_account": "332",
             "default_check_deposit_account": "131",
@@ -819,7 +854,7 @@ async def get_bank_settings(current_user: dict = Depends(get_current_user)):
         }
     
     return {
-        "auto_post_journal": settings.get("auto_post_journal", False),
+        "auto_post_journal": settings.get("auto_post_journal", True),
         "default_deposit_account": settings.get("default_deposit_account", "161"),
         "default_withdrawal_account": settings.get("default_withdrawal_account", "332"),
         "default_check_deposit_account": settings.get("default_check_deposit_account", "131"),
@@ -864,7 +899,7 @@ async def get_company_bank_settings(company_id: str) -> dict:
     
     if not settings:
         return {
-            "auto_post_journal": False,
+            "auto_post_journal": True,
             "default_deposit_account": "161",
             "default_withdrawal_account": "332",
             "default_check_deposit_account": "131",

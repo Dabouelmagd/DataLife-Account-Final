@@ -38,39 +38,72 @@ def _now():
     return datetime.now(timezone.utc)
 
 
-async def _balances(db, company_id: str) -> dict:
-    """account_code → balance, from the chart (kept current by posting)."""
-    rows = await db.chart_of_accounts.find(
-        {"company_id": company_id}, {"_id": 0, "account_code": 1, "current_balance": 1,
-                                     "account_name": 1, "account_type": 1}).to_list(None)
-    return {r["account_code"]: r for r in rows}
+DEBIT_TYPES = {"asset", "expense", "contra_liability", "contra_equity"}
 
 
-def _sum_prefix(balances: dict, prefixes: tuple, absolute: bool = True) -> float:
-    total = 0.0
-    for code, row in balances.items():
-        if code.startswith(prefixes):
-            value = float(row.get("current_balance") or 0)
-            total += abs(value) if absolute else value
-    return round(total, 2)
+def _kind(t) -> str:
+    """account type as its plain value, whether stored as text or as the enum."""
+    return str(getattr(t, "value", t) or "").lower()
 
 
-async def _period_movement(db, company_id: str, prefixes: tuple, since: str) -> float:
-    """Movement on a group of accounts since a date, from posted entries only."""
-    pipeline = [
-        {"$match": {"company_id": company_id, "status": {"$in": ["posted", "POSTED"]},
-                    "entry_date": {"$gte": since}}},
-        {"$unwind": "$lines"},
-        {"$group": {"_id": "$lines.account_code",
-                    "debit": {"$sum": "$lines.debit"}, "credit": {"$sum": "$lines.credit"}}},
-    ]
-    rows = await db.journal_entries.aggregate(pipeline).to_list(None)
-    total = 0.0
-    for row in rows:
-        code = str(row.get("_id") or "")
-        if code.startswith(prefixes):
-            total += float(row.get("credit", 0)) - float(row.get("debit", 0))
-    return round(abs(total), 2)
+async def _balances(db, company_id: str, upto: str = None) -> dict:
+    """account_code → {balance, name, type} from the GENERAL LEDGER.
+
+    The same arithmetic as the trial balance and balance sheet: opening
+    balance plus posted ledger movement, signed by the account's nature, header
+    accounts skipped. It used to read chart_of_accounts.current_balance — a
+    running counter that drifts whenever an entry is half-posted — and summed
+    headers together with their children, so the dashboard could disagree
+    with the statements.
+    """
+    accounts = await db.chart_of_accounts.find(
+        {"company_id": company_id}, {"_id": 0, "id": 1, "account_code": 1, "account_name": 1,
+                                     "account_type": 1, "account_category": 1, "is_header": 1,
+                                     "opening_balance": 1}).to_list(None)
+    match = {"company_id": company_id}
+    if upto:
+        match["entry_date"] = {"$lte": upto + "\uffff"}
+    movement = {r["_id"]: r async for r in db.general_ledger.aggregate([
+        {"$match": match},
+        {"$group": {"_id": "$account_id", "d": {"$sum": "$debit"}, "c": {"$sum": "$credit"}}}])}
+    out = {}
+    for a in accounts:
+        if a.get("is_header") or a.get("account_category") == "header":
+            continue
+        code = str(a.get("account_code") or "")
+        mv = movement.get(a.get("id"), {"d": 0, "c": 0})
+        opening = float(a.get("opening_balance") or 0)
+        if _kind(a.get("account_type")) in DEBIT_TYPES:
+            bal = opening + float(mv["d"] or 0) - float(mv["c"] or 0)
+        else:
+            bal = opening + float(mv["c"] or 0) - float(mv["d"] or 0)
+        out[code] = {"balance": round(bal, 2), "account_name": a.get("account_name"),
+                     "account_type": a.get("account_type")}
+    return out
+
+
+def _sum_prefix(balances: dict, prefixes: tuple) -> float:
+    """Signed total of the leaf accounts under these codes (an overdrawn bank
+    reduces the cash total instead of being added to it)."""
+    return round(sum(r["balance"] for code, r in balances.items() if code.startswith(prefixes)), 2)
+
+
+async def _result(db, company_id: str, since: str) -> tuple:
+    """(revenue, expenses) since a date — the income statement's arithmetic:
+    general-ledger movement on revenue and expense accounts, by account type."""
+    types = {a["id"]: a.get("account_type") async for a in db.chart_of_accounts.find(
+        {"company_id": company_id, "account_type": {"$in": ["revenue", "expense"]}},
+        {"_id": 0, "id": 1, "account_type": 1})}
+    revenue = expenses = 0.0
+    async for r in db.general_ledger.aggregate([
+            {"$match": {"company_id": company_id, "entry_date": {"$gte": since},
+                        "account_id": {"$in": list(types)}}},
+            {"$group": {"_id": "$account_id", "d": {"$sum": "$debit"}, "c": {"$sum": "$credit"}}}]):
+        if _kind(types.get(r["_id"])) == "revenue":
+            revenue += float(r["c"] or 0) - float(r["d"] or 0)
+        else:
+            expenses += float(r["d"] or 0) - float(r["c"] or 0)
+    return round(revenue, 2), round(expenses, 2)
 
 
 async def build(db, company_id: str, permissions: set, is_manager: bool) -> dict:
@@ -84,8 +117,8 @@ async def build(db, company_id: str, permissions: set, is_manager: bool) -> dict
     today = now.strftime("%Y-%m-%d")
 
     balances = await _balances(db, company_id)
-    has_ledger = await db.journal_entries.count_documents(
-        {"company_id": company_id, "status": {"$in": ["posted", "POSTED"]}}) > 0
+    has_ledger = (await db.general_ledger.count_documents({"company_id": company_id}, limit=1) > 0
+                  or any(r["balance"] for r in balances.values()))
 
     out = {"as_of": now.isoformat(), "has_data": has_ledger, "sections": {}}
     if not has_ledger:
@@ -94,10 +127,8 @@ async def build(db, company_id: str, permissions: set, is_manager: bool) -> dict
 
     # ── cash and what it owes / is owed ──────────────────────────
     if may("financial"):
-        revenue = await _period_movement(db, company_id, ("41", "42", "43"), month_start)
-        expenses = await _period_movement(db, company_id, ("31", "32", "33", "34"), month_start)
-        revenue_ytd = await _period_movement(db, company_id, ("41", "42", "43"), year_start)
-        expenses_ytd = await _period_movement(db, company_id, ("31", "32", "33", "34"), year_start)
+        revenue, expenses = await _result(db, company_id, month_start)
+        revenue_ytd, expenses_ytd = await _result(db, company_id, year_start)
         cash = _sum_prefix(balances, CASH)
         receivables = _sum_prefix(balances, RECEIVABLES)
         payables = _sum_prefix(balances, PAYABLES)
@@ -117,8 +148,8 @@ async def build(db, company_id: str, permissions: set, is_manager: bool) -> dict
         }
 
         # banks, one line each — a total hides an overdrawn account
-        banks = [{"code": c, "name": r.get("account_name"), "balance": round(float(r.get("current_balance") or 0), 2)}
-                 for c, r in sorted(balances.items()) if c.startswith(("161", "162", "164"))]
+        banks = [{"code": c, "name": r.get("account_name"), "balance": r["balance"]}
+                 for c, r in sorted(balances.items()) if c.startswith(CASH)]
         out["sections"]["banks"] = [b for b in banks if b["balance"] or b["code"] in ("161", "162")]
 
     # ── tax position ─────────────────────────────────────────────

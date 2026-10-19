@@ -226,7 +226,7 @@ class AccountingService:
             # where an entry came from in audits and reports
             "petty_cash", "letter_of_credit", "equity", "sales_invoice",
             "project_expense", "project_revenue", "supplier_payment",
-            "inventory_count",
+            "inventory_count", "bank_opening", "bank_transaction",
         }
         if entry.source_document_type not in VALID_SOURCE_TYPES:
             entry.source_document_type = "manual"
@@ -234,6 +234,15 @@ class AccountingService:
         # Populate entry_id on each line (FK equivalent)
         for line in entry.lines:
             line.entry_id = entry.id
+
+        # An entry is only "posted" once post_journal_entry has written it to
+        # the general ledger. Callers that built it with status=POSTED (bank
+        # movements, project expenses) then called post_journal_entry, which
+        # refused it as "already posted" — the entry said posted while the
+        # ledger, trial balance and balance sheet never saw it. Store it as a
+        # draft; posting makes it posted.
+        if str(getattr(entry.status, "value", entry.status)).lower() == "posted":
+            entry.status = JournalEntryStatus.DRAFT
         
         entry_dict = entry.dict()
         await self.db.journal_entries.insert_one(entry_dict)
