@@ -98,7 +98,11 @@ export default function QuestionBank({ jobs = [] }) {
         })),
       }, auth());
       setSuggested(null); setAi(null); setMsg({ type: 'ok', text: data.message }); await load();
-    } catch (e) { setMsg({ type: 'err', text: e.response?.data?.detail?.[0]?.msg || e.response?.data?.detail || 'تعذّر حفظ الأسئلة' }); }
+    } catch (e) {
+      const d = e.response?.data?.detail;
+      setMsg({ type: 'err', text: (Array.isArray(d) ? d[0]?.msg : typeof d === 'string' ? d : null)
+        || (e.response ? `تعذّر حفظ الأسئلة (خطأ ${e.response.status})` : 'تعذّر الاتصال بالخادم') });
+    }
     finally { setBusy(false); }
   };
 
@@ -289,7 +293,11 @@ export default function QuestionBank({ jobs = [] }) {
             )}
 
             <div className="sticky bottom-0 bg-white flex justify-between items-center gap-2 px-5 py-4 border-t border-slate-200">
-              <span className="text-xs text-slate-500">{suggested ? `${suggested.filter((q) => q.keep).length} من ${suggested.length} مختارة` : ''}</span>
+              {/* the error also shows here, beside the button — at the top of a
+                  long list it was out of sight when saving */}
+              {suggested && msg.type === 'err' && msg.text
+                ? <span className="text-xs text-red-700 flex items-center gap-1" role="alert"><AlertTriangle className="w-4 h-4 shrink-0" aria-hidden />{msg.text}</span>
+                : <span className="text-xs text-slate-500">{suggested ? `${suggested.filter((q) => q.keep).length} من ${suggested.length} مختارة` : ''}</span>}
               <div className="flex gap-2">
                 <button onClick={() => { setAi(null); setSuggested(null); }} className="px-4 py-2 rounded-lg border border-slate-300">إغلاق</button>
                 {suggested && (

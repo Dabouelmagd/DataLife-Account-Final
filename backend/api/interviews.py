@@ -114,7 +114,11 @@ async def add_questions_bulk(payload: dict, current_user: dict = Depends(get_cur
     if len(items) > 50:
         raise HTTPException(status_code=400, detail="الحد الأقصى 50 سؤالاً في المرة")
     from pydantic import ValidationError
-    docs, skipped = [], []
+    # the same question saved twice is skipped — the save used to fail after
+    # writing, so every retry added another copy
+    existing = {(d.get("question") or "").strip() async for d in db.interview_questions.find(
+        {"company_id": company_id, "is_active": True}, {"_id": 0, "question": 1})}
+    docs, skipped, duplicates = [], [], 0
     for raw in items:
         if not isinstance(raw, dict):
             continue
@@ -125,11 +129,21 @@ async def add_questions_bulk(payload: dict, current_user: dict = Depends(get_cur
             skipped.append({"question": str(raw.get("question", ""))[:60],
                             "reason": e.errors()[0].get("msg", "غير صالح")})
             continue
-        docs.append(q.model_dump())
+        if q.question in existing:
+            duplicates += 1
+            continue
+        existing.add(q.question)
+        docs.append(q.model_dump(mode="json"))
     if not docs:
+        if duplicates:
+            return {"message": "هذه الأسئلة محفوظة بالفعل في البنك", "questions": [], "skipped": skipped}
         raise HTTPException(status_code=400, detail="لا توجد أسئلة صالحة للحفظ")
-    await db.interview_questions.insert_many(docs)
+    # insert copies: insert_many writes a Mongo _id into the dicts it is given,
+    # and returning those made the response fail AFTER the questions were saved
+    await db.interview_questions.insert_many([dict(d) for d in docs])
     message = f"تم حفظ {len(docs)} سؤالاً"
+    if duplicates:
+        message += f" — و{duplicates} كانت محفوظة من قبل"
     if skipped:
         message += f" — وتم تخطي {len(skipped)} غير صالح"
     return {"message": message, "questions": docs, "skipped": skipped}
