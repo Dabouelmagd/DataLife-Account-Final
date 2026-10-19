@@ -247,6 +247,7 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'products',         name: isArabic ? '📦 المنتجات'          : '📦 Products' },
   { id: 'inventory',        name: isArabic ? '🗄️ المخزون'           : '🗄️ Inventory' },
   { id: 'bank',             name: isArabic ? '🏧 البنوك والخزائن'    : '🏧 Banks & Cash' },
+  { id: 'treasury',         name: isArabic ? '💵 الخزينة والشيكات'  : '💵 Cash & Cheques' },
   { id: 'currencies',       name: isArabic ? '💱 العملات'           : '💱 Currencies' },
   { id: 'reports',          name: isArabic ? '📊 التقارير المالية'  : '📊 Financial Reports' },
 ];

@@ -226,7 +226,7 @@ class AccountingService:
             # where an entry came from in audits and reports
             "petty_cash", "letter_of_credit", "equity", "sales_invoice",
             "project_expense", "project_revenue", "supplier_payment",
-            "inventory_count", "bank_opening", "bank_transaction",
+            "inventory_count", "bank_opening", "bank_transaction", "payment_voucher",
         }
         if entry.source_document_type not in VALID_SOURCE_TYPES:
             entry.source_document_type = "manual"

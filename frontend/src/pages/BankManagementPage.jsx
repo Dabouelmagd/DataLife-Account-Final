@@ -9,6 +9,7 @@ import {
   BookOpen, Link2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import PaymentVouchersList, { PaymentVoucherForm } from '../components/PaymentVouchers';
 
 const BankManagementPage = ({ language: propLanguage }) => {
   const { language: contextLanguage } = useLanguage();
@@ -22,6 +23,9 @@ const BankManagementPage = ({ language: propLanguage }) => {
   const [summary, setSummary] = useState({});
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [activeTab, setActiveTab] = useState('accounts');
+  const [voucherSource, setVoucherSource] = useState(null);   // null = closed; '' = default source
+  const [voucherKey, setVoucherKey] = useState(0);
+  const [voucherMsg, setVoucherMsg] = useState(null);
   const [transactionTypeFilter, setTransactionTypeFilter] = useState('all');
   const [counterAccounts, setCounterAccounts] = useState([]);
   const [recommendedAccounts, setRecommendedAccounts] = useState([]);
@@ -272,12 +276,17 @@ const BankManagementPage = ({ language: propLanguage }) => {
             </div>
             <div>
               <h1 className="text-2xl font-bold mb-1">{language === 'ar' ? 'إدارة البنوك' : 'Bank Management'}</h1>
-              <p className="text-blue-200 text-sm">{language === 'ar' ? 'إدارة الحسابات البنكية والحركات المالية' : 'Manage bank accounts and transactions'}</p>
+              <p className="text-blue-200 text-sm">{language === 'ar' ? 'الحسابات البنكية والخزينة — الحركات وسندات الصرف' : 'Bank accounts, cash box and payment vouchers'}</p>
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => { fetchAccounts(); fetchTransactions(); }} className="bg-white/10 border-white/20 hover:bg-white/20 text-white">
               <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button size="sm" className="bg-rose-600 hover:bg-rose-700 text-white" onClick={() => { setVoucherMsg(null); setVoucherSource(''); }}
+              data-testid="payment-voucher-btn">
+              <ArrowDownCircle className="h-4 w-4 me-1" />
+              {language === 'ar' ? 'سند صرف' : 'Payment voucher'}
             </Button>
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setShowAddAccountModal(true)}>
               <Plus className="h-4 w-4 mr-1" />
@@ -363,7 +372,40 @@ const BankManagementPage = ({ language: propLanguage }) => {
           <FileText className="w-4 h-4 inline-block mr-2" />
           {language === 'ar' ? 'الحركات البنكية' : 'Transactions'}
         </button>
+        <button
+          onClick={() => setActiveTab('vouchers')}
+          className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${
+            activeTab === 'vouchers'
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
+          }`}
+        >
+          <ArrowDownCircle className="w-4 h-4 inline-block me-2" />
+          {language === 'ar' ? 'سندات الصرف' : 'Payment vouchers'}
+        </button>
       </div>
+
+      {voucherMsg && (
+        <div className={`rounded-xl border p-3 text-sm ${voucherMsg.warning ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`} role="status">
+          {voucherMsg.message}{voucherMsg.warning ? ` — ${voucherMsg.warning}` : ''}
+        </div>
+      )}
+
+      {activeTab === 'vouchers' && <PaymentVouchersList refreshKey={voucherKey} />}
+
+      {voucherSource !== null && (
+        <PaymentVoucherForm
+          defaultSource={voucherSource || undefined}
+          onClose={() => setVoucherSource(null)}
+          onSaved={(data) => {
+            setVoucherSource(null);
+            setVoucherMsg({ message: data.message, warning: data.warning });
+            setVoucherKey((k) => k + 1);
+            setActiveTab('vouchers');
+            fetchAccounts(); fetchTransactions();
+          }}
+        />
+      )}
 
       {/* Bank Accounts Tab */}
       {activeTab === 'accounts' && (
@@ -415,6 +457,10 @@ const BankManagementPage = ({ language: propLanguage }) => {
                       <Button size="sm" variant="outline" className="flex-1" onClick={(e) => { e.stopPropagation(); setSelectedAccount(account); setNewTransaction({ ...newTransaction, bank_account_id: account.id }); setShowAddTransactionModal(true); }}>
                         <Plus className="w-3 h-3 mr-1" />
                         {language === 'ar' ? 'حركة' : 'Transaction'}
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-rose-700 border-rose-200" onClick={(e) => { e.stopPropagation(); setVoucherMsg(null); setVoucherSource(account.id); }}>
+                        <ArrowDownCircle className="w-3 h-3 me-1" />
+                        {language === 'ar' ? 'صرف' : 'Pay'}
                       </Button>
                       <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setDeleteTarget(account); setShowDeleteModal(true); }}>
                         <Trash2 className="w-3 h-3 text-red-500" />
