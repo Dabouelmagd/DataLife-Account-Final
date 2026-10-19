@@ -18,7 +18,9 @@ import {
 
 const API = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
-const money = (n) => (Number(n) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+// English digits, minus sign on the left: -2,500,000 (not ٢,٥٠٠,٠٠٠-)
+const money = (n) => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const Num = ({ children }) => <bdi dir="ltr" className="tabular-nums">{children}</bdi>;
 
 export default function ExecutiveDashboard({ language = 'ar', onNavigate }) {
   const ar = language === 'ar';
@@ -69,8 +71,7 @@ export default function ExecutiveDashboard({ language = 'ar', onNavigate }) {
                   label={ar ? 'نتيجة الشهر' : 'This month'}
                   onClick={() => onNavigate?.('income-statement')}
                   value={money(fin.month_profit)}
-                  hint={ar ? `إيراد ${money(fin.month_revenue)} · مصروف ${money(fin.month_expenses)}`
-                           : `Rev ${money(fin.month_revenue)} · Exp ${money(fin.month_expenses)}`} />
+                  hint={<>{ar ? 'إيراد ' : 'Rev '}<Num>{money(fin.month_revenue)}</Num>{ar ? ' · مصروف ' : ' · Exp '}<Num>{money(fin.month_expenses)}</Num></>} />
         </div>
       )}
 
@@ -186,12 +187,12 @@ const TONES = {
 function Figure({ icon: Icon, label, value, hint, tone = 'blue', onClick }) {
   return (
     <button onClick={onClick} disabled={!onClick}
-      className={`text-start rounded-2xl border p-4 ${TONES[tone]} ${onClick ? 'hover:brightness-95' : ''}`}>
+      className={`text-start rounded-2xl border p-4 min-h-[112px] ${TONES[tone]} ${onClick ? 'hover:brightness-95' : ''}`}>
       <p className="text-xs font-semibold flex items-center gap-1.5 opacity-80">
         <Icon className="w-4 h-4" aria-hidden />{label}
       </p>
-      <p className="mt-1 text-2xl font-extrabold tabular-nums">{value}</p>
-      {hint && <p className="mt-0.5 text-[11px] opacity-70 tabular-nums">{hint}</p>}
+      <p className="mt-2 text-2xl font-extrabold"><Num>{value}</Num></p>
+      {hint && <p className="mt-1 text-xs opacity-75">{hint}</p>}
     </button>
   );
 }
@@ -216,7 +217,7 @@ function Row({ label, value, strong, tone, small }) {
   return (
     <div className={`flex items-center justify-between gap-3 ${small ? 'text-xs' : 'text-sm'}`}>
       <span className={`${small ? 'text-slate-500' : 'text-slate-600'} truncate`}>{label}</span>
-      <span className={`tabular-nums shrink-0 ${strong ? 'font-extrabold' : 'font-semibold'} ${colour}`}>{value}</span>
+      <span className={`shrink-0 ${strong ? 'font-extrabold' : 'font-semibold'} ${colour}`}><Num>{value}</Num></span>
     </div>
   );
 }

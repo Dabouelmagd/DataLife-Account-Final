@@ -3,7 +3,6 @@ import ExecutiveDashboard from './ExecutiveDashboard';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
 import { 
   Users, DollarSign, FileText, Calendar, TrendingUp, Building2,
   ArrowUp, ArrowDown, AlertCircle, Clock, Target, Wallet,
@@ -18,7 +17,6 @@ import DashboardCharts from './DashboardCharts';
 import HRAlerts from './HRAlerts';
 
 const DashboardContent = ({ language, stats, employees, onNavigate }) => {
-  const isRTL = language === 'ar';
   
   // Module color themes matching sidebar
   const moduleColors = {
@@ -64,139 +62,40 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
     }
   };
 
-  // Stats cards with matching sidebar colors
+  const ar = language === 'ar';
+  const n = (v) => (Number(v) || 0).toLocaleString('en-US');
+
+  // العدّادات — counts only, no invented trend percentages
   const statsCards = [
-    {
-      id: 'employees',
-      title: language === 'ar' ? 'الموظفين' : 'Employees',
-      value: stats.totalEmployees,
-      change: '+12%',
-      trend: 'up',
-      icon: UsersThree,
-      color: moduleColors.hr,
-      module: 'hr'
-    },
-    {
-      id: 'revenue',
-      title: language === 'ar' ? 'إيرادات الشهر' : 'Monthly Revenue',
-      value: `${stats.monthlyRevenue?.toLocaleString() || 0}`,
-      suffix: language === 'ar' ? 'ج.م' : 'EGP',
-      trend: stats.monthlyRevenue > 0 ? 'up' : 'neutral',
-      icon: ChartLineUp,
-      color: moduleColors.financial,
-      module: 'financial'
-    },
-    {
-      id: 'expenses',
-      title: language === 'ar' ? 'مصروفات الشهر' : 'Monthly Expenses',
-      value: `${stats.monthlyExpenses?.toLocaleString() || 0}`,
-      suffix: language === 'ar' ? 'ج.م' : 'EGP',
-      trend: stats.monthlyExpenses > 0 ? 'down' : 'neutral',
-      icon: Receipt,
-      color: '#ef4444',
-      module: 'financial'
-    },
-    {
-      id: 'invoices',
-      title: language === 'ar' ? 'الفواتير' : 'Invoices',
-      value: stats.invoiceCount || 0,
-      trend: 'up',
-      icon: Receipt,
-      color: moduleColors.invoices,
-      module: 'invoices'
-    },
-    {
-      id: 'inventory',
-      title: language === 'ar' ? 'أصناف المخزون' : 'Inventory Items',
-      value: stats.inventoryCount || 0,
-      trend: stats.lowStockCount > 0 ? 'down' : 'up',
-      icon: Cube,
-      color: moduleColors.inventory,
-      module: 'financial',
-      subModule: 'inventory'
-    }
+    { id: 'employees', title: ar ? 'الموظفون' : 'Employees', value: n(stats.totalEmployees), icon: UsersThree, color: moduleColors.hr, module: 'hr' },
+    { id: 'customers', title: ar ? 'العملاء' : 'Customers', value: n(stats.totalCustomers), icon: Users, color: moduleColors.projects, module: 'sales' },
+    { id: 'suppliers', title: ar ? 'الموردون' : 'Suppliers', value: n(stats.totalSuppliers), icon: ShoppingCart, color: moduleColors.inventory, module: 'purchases' },
+    { id: 'invoices', title: ar ? 'الفواتير' : 'Invoices', value: n(stats.invoiceCount), icon: Receipt, color: moduleColors.invoices, module: 'invoices', subModule: 'invoices' },
+    { id: 'inventory', title: ar ? 'أصناف المخزون' : 'Inventory items', value: n(stats.inventoryCount), icon: Cube, color: moduleColors.inventory, module: 'financial', subModule: 'inventory',
+      note: stats.lowStockCount > 0 ? (ar ? `${n(stats.lowStockCount)} قارب النفاد` : `${n(stats.lowStockCount)} low`) : null },
+    { id: 'projects', title: ar ? 'مشاريع نشطة' : 'Active projects', value: n(stats.activeProjects), icon: FolderKanban, color: moduleColors.projects, module: 'projects' },
   ];
 
   // Quick actions — all main entry points
   const quickActions = [
-    { title: language === 'ar' ? 'إضافة موظف' : 'Add Employee',    icon: Users,        color: moduleColors.hr,        action: () => onNavigate?.('hr', 'employees') },
-    { title: language === 'ar' ? 'قيد جديد' : 'New Journal Entry', icon: FileText,     color: moduleColors.financial,  action: () => onNavigate?.('financial', 'journal-entries') },
-    { title: language === 'ar' ? 'فاتورة جديدة' : 'New Invoice',   icon: Receipt,      color: moduleColors.invoices,   action: () => onNavigate?.('invoices', 'invoices') },
-    { title: language === 'ar' ? 'مشروع جديد' : 'New Project',     icon: FolderKanban, color: moduleColors.projects,   action: () => onNavigate?.('projects') },
-    { title: language === 'ar' ? 'عميل جديد' : 'New Customer',     icon: Users,        color: moduleColors.hr,        action: () => onNavigate?.('sales') },
-    { title: language === 'ar' ? 'التحليلات' : 'Analytics',         icon: BarChart3,    color: moduleColors.financial,  action: () => onNavigate?.('analytics') },
+    { title: ar ? 'إضافة موظف' : 'Add Employee',    icon: Users,        color: moduleColors.hr,        action: () => onNavigate?.('hr', 'employees') },
+    { title: ar ? 'قيد جديد' : 'New Journal Entry', icon: FileText,     color: moduleColors.financial,  action: () => onNavigate?.('financial', 'journal-entries') },
+    { title: ar ? 'فاتورة جديدة' : 'New Invoice',   icon: Receipt,      color: moduleColors.invoices,   action: () => onNavigate?.('invoices', 'invoices') },
+    { title: ar ? 'مشروع جديد' : 'New Project',     icon: FolderKanban, color: moduleColors.projects,   action: () => onNavigate?.('projects') },
+    { title: ar ? 'عميل جديد' : 'New Customer',     icon: Users,        color: moduleColors.hr,        action: () => onNavigate?.('sales') },
+    { title: ar ? 'التحليلات' : 'Analytics',         icon: BarChart3,    color: moduleColors.financial,  action: () => onNavigate?.('analytics') },
   ];
 
-  // Recent activities — real data from stats
-  const recentActivities = [
-    {
-      title: language === 'ar' ? `${stats.totalEmployees} موظف في النظام` : `${stats.totalEmployees} employees`,
-      time: language === 'ar' ? 'HR' : 'HR',
-      type: 'hr',
-      icon: Users
-    },
-    {
-      title: language === 'ar' 
-        ? `الإيرادات: ${stats.monthlyRevenue?.toLocaleString() || 0} ج.م` 
-        : `Revenue: ${stats.monthlyRevenue?.toLocaleString() || 0} EGP`,
-      time: language === 'ar' ? 'هذا الشهر' : 'This month',
-      type: 'financial',
-      icon: DollarSign
-    },
-    {
-      title: language === 'ar' 
-        ? `المصروفات: ${stats.monthlyExpenses?.toLocaleString() || 0} ج.م` 
-        : `Expenses: ${stats.monthlyExpenses?.toLocaleString() || 0} EGP`,
-      time: language === 'ar' ? 'هذا الشهر' : 'This month',
-      type: 'financial',
-      icon: DollarSign
-    },
-    {
-      title: language === 'ar' ? `${stats.activeProjects} مشاريع نشطة` : `${stats.activeProjects} active projects`,
-      time: language === 'ar' ? 'المشاريع' : 'Projects',
-      type: 'projects',
-      icon: Building2
-    },
-    {
-      title: language === 'ar' ? `${stats.totalCustomers} عميل | ${stats.totalSuppliers} مورد` : `${stats.totalCustomers} customers | ${stats.totalSuppliers} suppliers`,
-      time: language === 'ar' ? 'المالية' : 'Financial',
-      type: 'financial',
-      icon: Package
-    },
-    {
-      title: language === 'ar' ? `${stats.invoiceCount} فاتورة` : `${stats.invoiceCount} invoices`,
-      time: language === 'ar' ? 'الفواتير' : 'Invoices',
-      type: 'invoices',
-      icon: Package
-    },
-  ];
-
-  // Upcoming tasks — dynamic based on real data
+  // تنبيهات حقيقية فقط — no placeholder tasks with made-up progress
   const upcomingTasks = [
     ...(stats.pendingApprovals > 0 ? [{
-      title: language === 'ar' ? `${stats.pendingApprovals} طلب موافقة معلق` : `${stats.pendingApprovals} pending approvals`,
-      dueDate: language === 'ar' ? 'عاجل' : 'Urgent',
-      priority: 'high',
-      progress: 0
+      title: ar ? `${n(stats.pendingApprovals)} طلب موافقة معلق` : `${n(stats.pendingApprovals)} pending approvals`,
+      dueDate: ar ? 'عاجل' : 'Urgent', priority: 'high', go: () => onNavigate?.('approvals'),
     }] : []),
     ...(stats.lowStockCount > 0 ? [{
-      title: language === 'ar' ? `${stats.lowStockCount} صنف مخزون منخفض` : `${stats.lowStockCount} low stock items`,
-      dueDate: language === 'ar' ? 'تنبيه' : 'Alert',
-      priority: 'medium',
-      progress: 0
+      title: ar ? `${n(stats.lowStockCount)} صنف مخزون منخفض` : `${n(stats.lowStockCount)} low stock items`,
+      dueDate: ar ? 'تنبيه' : 'Alert', priority: 'medium', go: () => onNavigate?.('financial', 'inventory'),
     }] : []),
-    {
-      title: language === 'ar' ? 'مراجعة التقارير الشهرية' : 'Review monthly reports',
-      dueDate: language === 'ar' ? 'نهاية الشهر' : 'End of month',
-      priority: 'medium',
-      progress: 50
-    },
-    {
-      title: language === 'ar' ? 'تحديث بيانات الموظفين' : 'Update employee data',
-      dueDate: language === 'ar' ? 'أسبوعياً' : 'Weekly',
-      priority: 'low',
-      progress: 70
-    }
   ];
 
   const getPriorityColor = (priority) => {
@@ -208,243 +107,116 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
     }
   };
 
-  const getActivityColor = (type) => {
-    switch (type) {
-      case 'hr': return moduleColors.hr;
-      case 'financial': return moduleColors.financial;
-      case 'invoices': return moduleColors.invoices;
-      default: return moduleColors.projects;
-    }
-  };
-
   return (
-    <div className="space-y-6 pb-6" data-testid="dashboard-content">
-      {/* أرقام القرار قبل العدّادات: النقدية والمديونيات والضرائب والنتيجة.
-          العدّادات وحدها (كم موظفاً، كم فاتورة) لا تُبنى عليها قرارات. */}
-      <ExecutiveDashboard language={language} onNavigate={(m) => onNavigate?.(m)} />
-
-      {/* Welcome Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-        
-        <div className="relative z-10">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold mb-1">
-                {language === 'ar' ? 'مرحباً بك في لوحة التحكم' : 'Welcome to Dashboard'}
-              </h1>
-              <p className="text-slate-300 text-sm">
-                {language === 'ar' 
-                  ? 'نظرة عامة على أداء الأعمال والإحصائيات الرئيسية'
-                  : 'Overview of business performance and key statistics'
-                }
-              </p>
-            </div>
-            <div className="hidden md:flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2">
-              <CalendarCheck weight="duotone" className="w-5 h-5 text-cyan-400" />
-              <span className="text-sm">
-                {new Date().toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </span>
-            </div>
+    <div className="space-y-6 pb-6" data-testid="dashboard-content" dir={ar ? 'rtl' : 'ltr'}>
+      {/* الترحيب والتاريخ — أول الصفحة */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-6 py-5 text-white">
+        <div className="absolute top-0 end-0 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl -translate-y-1/2" aria-hidden></div>
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold">{ar ? 'لوحة التحكم' : 'Dashboard'}</h1>
+            <p className="text-slate-300 text-sm mt-0.5">
+              {ar ? 'الأرقام المالية من دفتر الأستاذ مباشرةً — اضغط أي رقم لفتح تفاصيله' : 'Figures come straight from the ledger — click any to open it'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2 text-sm">
+            <CalendarCheck weight="duotone" className="w-5 h-5 text-cyan-400" aria-hidden />
+            {new Date().toLocaleDateString(ar ? 'ar-EG' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </div>
         </div>
       </div>
 
-      {/* Stats Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statsCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Card 
-              key={card.id}
-              className={`group relative overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer ${card.color.light}`}
-              onClick={() => onNavigate?.(card.module, card.subModule)}
-              data-testid={`stat-card-${card.id}`}
-            >
-              {/* Gradient accent line */}
-              <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${card.color.gradient}`}></div>
-              
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
-                      {card.title}
-                    </p>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {card.value}
-                      </span>
-                      {card.suffix && (
-                        <span className="text-sm text-slate-500 dark:text-slate-400">
-                          {card.suffix}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 mt-2">
-                      {card.trend === 'up' ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-emerald-500" />
-                      ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-red-500" />
-                      )}
-                      <span className={`text-xs font-medium ${card.trend === 'up' ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {card.change}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        {language === 'ar' ? 'هذا الشهر' : 'this month'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className={`w-12 h-12 rounded-xl ${card.color.iconBg} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                    <Icon weight="fill" className="w-6 h-6 text-white" />
-                  </div>
+      {/* أرقام القرار: النقدية والمديونيات والضرائب والنتيجة */}
+      <ExecutiveDashboard language={language} onNavigate={(m) => onNavigate?.(m)} />
+
+      {/* العدّادات */}
+      <section aria-label={ar ? 'العدّادات' : 'Counts'}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {statsCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <button key={card.id} type="button" onClick={() => onNavigate?.(card.module, card.subModule)}
+                data-testid={`stat-card-${card.id}`}
+                className="text-start bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md hover:border-slate-300 transition">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-slate-500">{card.title}</span>
+                  <span className={`w-8 h-8 rounded-lg ${card.color.iconBg} flex items-center justify-center`}>
+                    <Icon weight="fill" className="w-4 h-4 text-white" aria-hidden />
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                <p className="mt-2 text-2xl font-extrabold tabular-nums text-slate-900 dark:text-white">{card.value}</p>
+                {card.note && <p className="text-[11px] text-amber-700 mt-0.5">{card.note}</p>}
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
-      {/* Quick Actions */}
-      <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center">
-              <Lightning weight="fill" className="w-4 h-4 text-amber-400" />
-            </div>
-            <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">
-              {language === 'ar' ? 'إجراءات سريعة' : 'Quick Actions'}
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {quickActions.map((action, index) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={index}
-                  onClick={action.action}
-                  className={`group relative p-4 rounded-xl ${action.color.light} border ${action.color.border} hover:border-opacity-60 transition-all duration-300 hover:shadow-md`}
-                  data-testid={`quick-action-${index}`}
-                >
-                  <div className="flex flex-col items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl ${action.color.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                      <Icon className="w-5 h-5 text-white" />
-                    </div>
-                    <span className={`text-sm font-medium ${action.color.text}`}>
-                      {action.title}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Main Content Grid */}
+      {/* إجراءات سريعة + التنبيهات */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Activity */}
-        <Card className="lg:col-span-2 border-0 shadow-sm bg-white dark:bg-slate-900">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                  <Activity className="w-4 h-4 text-white" />
-                </div>
-                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">
-                  {language === 'ar' ? 'النشاط الأخير' : 'Recent Activity'}
-                </CardTitle>
-              </div>
-              <Button variant="ghost" size="sm" className="text-slate-500 hover:text-slate-900 dark:hover:text-white">
-                {language === 'ar' ? 'عرض الكل' : 'View All'}
-                <ChevronRight className="w-4 h-4 ms-1" />
-              </Button>
-            </div>
+        <Card className="lg:col-span-2 border border-slate-200 shadow-none bg-white dark:bg-slate-900">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Lightning weight="fill" className="w-4 h-4 text-amber-500" aria-hidden />
+              {ar ? 'إجراءات سريعة' : 'Quick Actions'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {recentActivities.map((activity, index) => {
-                const color = getActivityColor(activity.type);
-                const Icon = activity.icon;
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {quickActions.map((action, index) => {
+                const Icon = action.icon;
                 return (
-                  <div
-                    key={index}
-                    className={`flex items-center gap-4 p-3 rounded-xl ${color.light} transition-colors duration-200`}
-                  >
-                    <div className={`w-10 h-10 rounded-lg ${color.iconBg} flex items-center justify-center`}>
-                      <Icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                        {activity.title}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {activity.time}
-                      </p>
-                    </div>
-                    <Badge 
-                      variant="outline" 
-                      className={`${color.text} ${color.border} border text-xs`}
-                    >
-                      {activity.type === 'hr' 
-                        ? (language === 'ar' ? 'موارد بشرية' : 'HR')
-                        : (language === 'ar' ? 'مالية' : 'Financial')
-                      }
-                    </Badge>
-                  </div>
+                  <button key={index} type="button" onClick={action.action} data-testid={`quick-action-${index}`}
+                    className={`flex items-center gap-3 p-3 rounded-xl ${action.color.light} border ${action.color.border} hover:shadow-sm transition`}>
+                    <span className={`w-9 h-9 rounded-lg ${action.color.iconBg} flex items-center justify-center shrink-0`}>
+                      <Icon className="w-4 h-4 text-white" aria-hidden />
+                    </span>
+                    <span className={`text-sm font-semibold ${action.color.text}`}>{action.title}</span>
+                  </button>
                 );
               })}
             </div>
           </CardContent>
         </Card>
 
-        {/* HR Alerts & Upcoming Tasks Column */}
         <div className="space-y-6">
-          {/* HR Alerts */}
           <HRAlerts language={language} onNavigate={onNavigate} />
-          
-          {/* Upcoming Tasks */}
-          <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
-                  <Target className="w-4 h-4 text-white" />
-                </div>
-                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">
-                  {language === 'ar' ? 'المهام القادمة' : 'Upcoming Tasks'}
-                </CardTitle>
-              </div>
+          <Card className="border border-slate-200 shadow-none bg-white dark:bg-slate-900">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Target className="w-4 h-4 text-rose-500" aria-hidden />
+                {ar ? 'يحتاج انتباهك' : 'Needs attention'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {upcomingTasks.map((task, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${getPriorityColor(task.priority)}`}></div>
-                        <span className="text-sm font-medium text-slate-900 dark:text-white">
+              {upcomingTasks.length === 0 ? (
+                <p className="text-sm text-slate-500 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-500" aria-hidden />
+                  {ar ? 'لا توجد موافقات معلقة ولا أصناف قاربت النفاد.' : 'Nothing pending.'}
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {upcomingTasks.map((task, index) => (
+                    <li key={index}>
+                      <button type="button" onClick={task.go}
+                        className="w-full flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-slate-50 text-start">
+                        <span className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-white">
+                          <span className={`w-2 h-2 rounded-full ${getPriorityColor(task.priority)}`} aria-hidden></span>
                           {task.title}
                         </span>
-                      </div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {task.dueDate}
-                      </span>
-                    </div>
-                    <Progress value={task.progress} className="h-1.5" />
-                  </div>
-                ))}
-              </div>
+                        <span className="text-xs text-slate-500">{task.dueDate}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Charts Section */}
+      <DashboardCharts language={language} stats={stats} />
 
       {/* Module Navigation Cards — All Modules */}
       <div>
@@ -494,8 +266,6 @@ const DashboardContent = ({ language, stats, employees, onNavigate }) => {
         </div>
       </div>
 
-      {/* Charts Section */}
-      <DashboardCharts language={language} stats={stats} />
     </div>
   );
 };

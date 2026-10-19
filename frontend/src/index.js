@@ -1,3 +1,4 @@
+import "./utils/latinDigits";   // English digits everywhere — first, before anything formats
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
