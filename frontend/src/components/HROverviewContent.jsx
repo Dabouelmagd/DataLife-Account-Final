@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { 
   Users, Plus, Eye, Edit, TrendingUp, Briefcase, Clock,
   DollarSign, UserCheck, UserMinus, Calendar, ChevronRight,
-  ArrowUp, ArrowDown,
+
   UserPlus
 } from 'lucide-react';
 import { 
@@ -41,8 +41,7 @@ const HROverviewContent = ({
       id: 'employees',
       title: language === 'ar' ? 'إجمالي الموظفين' : 'Total Employees',
       value: stats?.totalEmployees || 0,
-      change: '+12%',
-      trend: 'up',
+      note: language === 'ar' ? 'المسجلون في النظام' : 'on record',
       icon: UsersThree,
       bgColor: 'bg-cyan-50 dark:bg-cyan-950/50',
       iconColor: 'bg-cyan-500'
@@ -52,8 +51,7 @@ const HROverviewContent = ({
       title: language === 'ar' ? 'إجمالي البدلات' : 'Total Allowances',
       value: stats?.totalAllowances?.toLocaleString() || 0,
       suffix: language === 'ar' ? 'ج.م' : 'EGP',
-      change: '+8%',
-      trend: 'up',
+      note: language === 'ar' ? 'كل البدلات المسجلة' : 'all recorded allowances',
       icon: Wallet,
       bgColor: 'bg-emerald-50 dark:bg-emerald-950/50',
       iconColor: 'bg-emerald-500'
@@ -63,18 +61,18 @@ const HROverviewContent = ({
       title: language === 'ar' ? 'إجمالي الخصومات' : 'Total Deductions',
       value: stats?.totalDeductions?.toLocaleString() || 0,
       suffix: language === 'ar' ? 'ج.م' : 'EGP',
-      change: '-3%',
-      trend: 'down',
+      note: language === 'ar' ? 'كل الخصومات المسجلة' : 'all recorded deductions',
       icon: Money,
       bgColor: 'bg-amber-50 dark:bg-amber-950/50',
       iconColor: 'bg-amber-500'
     },
     {
-      id: 'attendance',
-      title: language === 'ar' ? 'نسبة الحضور' : 'Attendance Rate',
-      value: '94%',
-      change: '+2%',
-      trend: 'up',
+      // was a fixed '94%' with no attendance data behind it
+      id: 'payroll',
+      title: language === 'ar' ? 'الرواتب الأساسية' : 'Basic Salaries',
+      value: stats?.totalPayroll?.toLocaleString() || 0,
+      suffix: language === 'ar' ? 'ج.م' : 'EGP',
+      note: language === 'ar' ? 'شهرياً للموظفين الحاليين' : 'monthly, current staff',
       icon: CalendarCheck,
       bgColor: 'bg-violet-50 dark:bg-violet-950/50',
       iconColor: 'bg-violet-500'
@@ -178,19 +176,7 @@ const HROverviewContent = ({
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 mt-2">
-                      {card.trend === 'up' ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-emerald-500" />
-                      ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-red-500" />
-                      )}
-                      <span className={`text-xs font-medium ${card.trend === 'up' ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {card.change}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        {language === 'ar' ? 'هذا الشهر' : 'this month'}
-                      </span>
-                    </div>
+                    <p className="mt-2 text-xs text-slate-500">{card.note}</p>
                   </div>
                   <div className={`w-12 h-12 rounded-xl ${card.iconColor} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                     <Icon weight="fill" className="w-6 h-6 text-white" />
