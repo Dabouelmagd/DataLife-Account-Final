@@ -8,7 +8,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Search, Plus, X, Loader2, Sparkles, Check, AlertTriangle, MessageSquareQuote } from 'lucide-react';
+import { Search, Plus, X, Loader2, Sparkles, Check, AlertTriangle, MessageSquareQuote, Trash2 } from 'lucide-react';
 
 const API = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -38,6 +38,23 @@ export default function QuestionBank({ jobs = [] }) {
     } catch (e) { setQuestions([]); setMsg({ type: 'err', text: e.response?.data?.detail || 'تعذّر تحميل الأسئلة' }); }
   }, [filters]);
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
+
+  const loadDefaults = async () => {
+    setBusy(true);
+    try {
+      const { data } = await axios.post(`${API}/api/interviews/questions/load-defaults`, {}, auth());
+      setMsg({ type: 'ok', text: data.message }); await load();
+    } catch (e) { setMsg({ type: 'err', text: e.response?.data?.detail || 'تعذّر إضافة الأسئلة' }); }
+    finally { setBusy(false); }
+  };
+
+  const removeOne = async (q) => {
+    if (!window.confirm('حذف هذا السؤال من البنك؟')) return;
+    try {
+      await axios.delete(`${API}/api/interviews/questions/${q.id}`, auth());
+      setMsg({ type: 'ok', text: 'تم حذف السؤال' }); await load();
+    } catch (e) { setMsg({ type: 'err', text: e.response?.data?.detail || 'تعذّر الحذف' }); }
+  };
 
   const saveOne = async () => {
     if (form.question.trim().length < 5) { setMsg({ type: 'err', text: 'اكتب نص السؤال' }); return; }
@@ -136,12 +153,22 @@ export default function QuestionBank({ jobs = [] }) {
       {questions === null ? (
         <div className="flex justify-center py-12"><Loader2 className="w-7 h-7 animate-spin text-slate-400" /></div>
       ) : questions.length === 0 ? (
-        <p className={`${card} p-10 text-center text-slate-600`}>لا توجد أسئلة مطابقة — أضف سؤالاً أو اطلب اقتراحات.</p>
+        <div className={`${card} p-10 text-center text-slate-600 space-y-3`}>
+          <p>لا توجد أسئلة مطابقة — أضف سؤالاً أو اطلب اقتراحات، أو ابدأ بالأسئلة العامة التي تصلح لأي وظيفة.</p>
+          {!Object.values(filters).some(Boolean) && (
+            <button onClick={loadDefaults} disabled={busy}
+              className="px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold disabled:opacity-50">إضافة الأسئلة العامة (14 سؤالاً)</button>
+          )}
+        </div>
       ) : (
         <ul className="space-y-2">
           {questions.map((q) => (
             <li key={q.id} className={`${card} p-4`}>
-              <p className="font-semibold text-slate-900">{q.question}</p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold text-slate-900">{q.question}</p>
+                <button onClick={() => removeOne(q)} className="p-1.5 rounded-lg hover:bg-red-50 shrink-0" aria-label="حذف السؤال">
+                  <Trash2 className="w-4 h-4 text-red-500" aria-hidden /></button>
+              </div>
               <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
                 <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{label(CATEGORIES, q.category)}</span>
                 <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{label(LEVELS, q.difficulty)}</span>

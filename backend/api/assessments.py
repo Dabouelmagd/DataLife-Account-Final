@@ -97,6 +97,7 @@ async def add_questions_bulk(payload: dict, current_user: dict = Depends(get_cur
 async def list_questions(kind: Optional[QuestionKind] = None, job_profile_id: Optional[str] = None,
                          limit: int = Query(200, ge=1, le=500),
                          current_user: dict = Depends(get_current_user)):
+    _require_hr(current_user)          # the list carries the answer key
     q = {"company_id": _cid(current_user), "is_active": True}
     if kind:
         q["kind"] = kind.value
@@ -137,6 +138,38 @@ async def load_default_questions(current_user: dict = Depends(get_current_user))
     if not added:
         return {"message": "الأسئلة موجودة بالفعل — لم يُضف شيء", "added": {}}
     return {"message": "تمت إضافة الأسئلة الافتراضية", "added": added}
+
+
+@router.put("/questions/{question_id}")
+async def update_question(question_id: str, payload: dict, current_user: dict = Depends(get_current_user)):
+    """Edit a question. Validated as a whole question so a personality item
+    cannot lose its poles or an aptitude item its correct answer."""
+    _require_hr(current_user)
+    company_id = _cid(current_user)
+    current = await db.assessment_questions.find_one({"id": question_id, "company_id": company_id}, {"_id": 0})
+    if not current:
+        raise HTTPException(status_code=404, detail="السؤال غير موجود")
+    from pydantic import ValidationError
+    editable = {k: v for k, v in (payload or {}).items()
+                if k in ("text", "options", "dichotomy", "area", "correct_option", "weight", "job_profile_id")}
+    try:
+        updated = AssessmentQuestion(**{**current, **editable}).model_dump(mode="json")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.errors()[0].get("msg", "بيانات غير صالحة"))
+    await db.assessment_questions.update_one({"id": question_id}, {"$set": {**{k: updated[k] for k in editable},
+                                                                            "updated_at": _now()}})
+    return {"message": "تم تعديل السؤال", "question": updated}
+
+
+@router.delete("/questions/{question_id}")
+async def remove_question(question_id: str, current_user: dict = Depends(get_current_user)):
+    """Retire a question; past answer sheets that used it keep scoring the same."""
+    _require_hr(current_user)
+    res = await db.assessment_questions.update_one(
+        {"id": question_id, "company_id": _cid(current_user)}, {"$set": {"is_active": False, "updated_at": _now()}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="السؤال غير موجود")
+    return {"message": "تم حذف السؤال"}
 
 
 @router.get("/paper/{candidate_id}")

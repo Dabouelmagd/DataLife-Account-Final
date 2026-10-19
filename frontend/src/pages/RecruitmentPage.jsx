@@ -9,6 +9,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import CandidateReportDashboard from '../components/hr/CandidateReportDashboard';
 import CandidateAssessments from '../components/hr/CandidateAssessments';
+import AssessmentQuestionBank from '../components/hr/AssessmentQuestionBank';
 import axios from 'axios';
 import {
   Briefcase, Users, Star, Plus, X, Loader2, CheckCircle, UserPlus, ArrowRight,
@@ -68,6 +69,7 @@ export default function RecruitmentPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
   const [tab, setTab] = useState('jobs');   // jobs | questions | report
+  const [bankTab, setBankTab] = useState('interview');   // interview | assessment
   // the report is about one candidate, so the tab remembers which
   const [reportCandidate, setReportCandidate] = useState(null);
 
@@ -438,7 +440,17 @@ export default function RecruitmentPage() {
         </div>
       </header>
 
-      {tab === 'questions' && <QuestionBank jobs={jobs || []} />}
+      {tab === 'questions' && (
+        <div className="space-y-3">
+          <div className="flex gap-1.5" role="tablist" aria-label="نوع الأسئلة">
+            {[['interview', 'أسئلة المقابلات'], ['assessment', 'أسئلة التقييم النفسي والقدرات']].map(([k, l]) => (
+              <button key={k} role="tab" aria-selected={bankTab === k} onClick={() => setBankTab(k)}
+                className={`px-3.5 py-2 rounded-lg text-sm font-semibold border ${bankTab === k ? 'border-[#1e3a8a] text-[#1e3a8a] bg-blue-50' : 'border-slate-200 bg-white text-slate-600'}`}>{l}</button>
+            ))}
+          </div>
+          {bankTab === 'interview' ? <QuestionBank jobs={jobs || []} /> : <AssessmentQuestionBank />}
+        </div>
+      )}
 
       {tab === 'report' && (
         reportCandidate ? (

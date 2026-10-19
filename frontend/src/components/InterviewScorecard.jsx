@@ -9,7 +9,7 @@
  */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
-import { User, Star, CheckCircle, Loader2, AlertTriangle, Briefcase, Calendar, Scale } from 'lucide-react';
+import { User, Star, CheckCircle, Loader2, AlertTriangle, Briefcase, Calendar, Scale, MessageSquareText, ChevronDown } from 'lucide-react';
 
 const API = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -38,6 +38,12 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
   const [form, setForm] = useState({ round_name: 'technical', interview_date: today(), strengths: '', concerns: '', recommendation: 'neutral' });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
+  // the question bank, shown under the criterion each question tests —
+  // it used to be built on its own tab and never shown in the interview
+  const [questions, setQuestions] = useState([]);
+  const [openQs, setOpenQs] = useState({});           // criterion key -> expanded
+  const [showAnswer, setShowAnswer] = useState({});   // question id -> model answer shown
+  const [qBusy, setQBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError('');
@@ -48,6 +54,12 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
       ]);
       setCandidate((c.data.candidates || []).find((x) => x.id === candidateId) || null);
       setProfile(p.data);
+      try {
+        const q = await axios.get(`${API}/api/interviews/questions`, { ...auth(), params: { limit: 500 } });
+        // general questions (no role/department) fit every job; specific ones only theirs
+        setQuestions((q.data.questions || []).filter((x) =>
+          (!x.role || x.role === p.data.title) && (!x.department || x.department === p.data.department)));
+      } catch { setQuestions([]); }
     } catch (e) {
       setLoadError(e.response?.data?.detail || 'تعذّر تحميل بيانات المقابلة');
     }
@@ -71,6 +83,49 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
   }, [profile, scores]);
 
   const criteria = profile?.criteria || [];
+  const byCategory = useMemo(() => {
+    const m = {};
+    questions.forEach((q) => { (m[q.category] = m[q.category] || []).push(q); });
+    return m;
+  }, [questions]);
+  const usedCategories = new Set(criteria.map((c) => c.category));
+  const otherQuestions = questions.filter((q) => !usedCategories.has(q.category));
+
+  const loadDefaultQuestions = async () => {
+    setQBusy(true);
+    try {
+      const { data } = await axios.post(`${API}/api/interviews/questions/load-defaults`, {}, auth());
+      setMsg({ type: 'ok', text: data.message });
+      await load();
+    } catch (e) {
+      setMsg({ type: 'err', text: e.response?.data?.detail || 'تعذّر إضافة الأسئلة' });
+    } finally { setQBusy(false); }
+  };
+
+  const QuestionList = ({ list }) => (
+    <ol className="mt-2 space-y-2 list-decimal ps-5 text-sm">
+      {list.map((q) => (
+        <li key={q.id} className="leading-7">
+          <span className="text-slate-800">{q.question}</span>
+          {(q.expected_answer || (q.evaluation_criteria || []).length > 0) && (
+            <button type="button" onClick={() => setShowAnswer((a) => ({ ...a, [q.id]: !a[q.id] }))}
+              className="ms-2 text-xs text-[#1e3a8a] font-semibold">
+              {showAnswer[q.id] ? 'إخفاء الإجابة النموذجية' : 'الإجابة النموذجية'}
+            </button>
+          )}
+          {showAnswer[q.id] && (
+            <div className="mt-1 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-6">
+              {q.expected_answer && <p>{q.expected_answer}</p>}
+              {(q.evaluation_criteria || []).length > 0 && (
+                <p className="mt-1"><b>ما يبيّنه الجواب الجيد:</b> {q.evaluation_criteria.join('، ')}</p>
+              )}
+            </div>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+
   const allRated = criteria.length > 0 && criteria.every((c) => scores[c.key]);
   const passing = profile?.passing_score ?? 70;
 
@@ -132,6 +187,27 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
         </div>
       </header>
 
+      {/* Question guide */}
+      {questions.length === 0 ? (
+        <section className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-sm text-amber-900">
+          <span className="flex items-center gap-2"><MessageSquareText className="w-4 h-4 shrink-0" aria-hidden />
+            لا توجد أسئلة مقابلة لهذه الوظيفة بعد. أضف المجموعة العامة (14 سؤالاً) أو أضف أسئلة خاصة من «بنك الأسئلة».</span>
+          <button onClick={loadDefaultQuestions} disabled={qBusy}
+            className="px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold disabled:opacity-50 min-h-[44px]">
+            {qBusy ? 'جارٍ الإضافة…' : 'إضافة الأسئلة العامة'}
+          </button>
+        </section>
+      ) : otherQuestions.length > 0 && (
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
+          <button type="button" onClick={() => setOpenQs((o) => ({ ...o, __other: !o.__other }))}
+            className="w-full flex items-center justify-between font-bold text-slate-900">
+            <span className="flex items-center gap-2"><MessageSquareText className="w-4 h-4 text-[#1e3a8a]" aria-hidden />أسئلة عامة ({otherQuestions.length})</span>
+            <ChevronDown className={`w-4 h-4 transition ${openQs.__other ? 'rotate-180' : ''}`} aria-hidden />
+          </button>
+          {openQs.__other && <QuestionList list={otherQuestions} />}
+        </section>
+      )}
+
       {/* Criteria */}
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm divide-y divide-slate-100">
         <h2 className="px-5 py-3 font-bold text-slate-900 flex items-center gap-2">
@@ -147,6 +223,15 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
                   <span className="ms-2 text-xs text-slate-500 tabular-nums">الوزن {c.weight}%</span>
                 </p>
                 {c.guidance && <p className="text-xs text-slate-500 mt-0.5">{c.guidance}</p>}
+                {(byCategory[c.category] || []).length > 0 && (
+                  <button type="button" onClick={() => setOpenQs((o) => ({ ...o, [c.key]: !o[c.key] }))}
+                    aria-expanded={!!openQs[c.key]}
+                    className="mt-1 text-xs font-semibold text-[#1e3a8a] flex items-center gap-1">
+                    <MessageSquareText className="w-3.5 h-3.5" aria-hidden />
+                    أسئلة مقترحة ({byCategory[c.category].length})
+                    <ChevronDown className={`w-3.5 h-3.5 transition ${openQs[c.key] ? 'rotate-180' : ''}`} aria-hidden />
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-1" role="radiogroup" aria-label={c.label}>
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -165,6 +250,7 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
             <input value={notes[c.key] || ''} onChange={(e) => setNotes((n) => ({ ...n, [c.key]: e.target.value }))}
               placeholder="ملاحظة (اختياري)" aria-label={`ملاحظة على ${c.label}`}
               className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+            {openQs[c.key] && <QuestionList list={byCategory[c.category] || []} />}
           </div>
         ))}
       </section>

@@ -156,6 +156,29 @@ async def list_questions(department: Optional[str] = None, role: Optional[str] =
     return {"questions": questions, "total": len(questions)}
 
 
+@router.post("/questions/load-defaults")
+async def load_default_interview_questions(current_user: dict = Depends(get_current_user)):
+    """Starter set of general interview questions — loaded once; a second
+    press adds nothing because questions with source=default already exist."""
+    company_id = _cid(current_user)
+    if await db.interview_questions.count_documents({"company_id": company_id, "source": "default"}):
+        return {"message": "الأسئلة العامة موجودة بالفعل — لم يُضف شيء", "added": 0}
+    from services.interview_defaults import default_interview_questions
+    docs = default_interview_questions(company_id, current_user.get("user_id"))
+    await db.interview_questions.insert_many([dict(d) for d in docs])
+    return {"message": f"تمت إضافة {len(docs)} سؤالاً عاماً", "added": len(docs)}
+
+
+@router.delete("/questions/{question_id}")
+async def remove_interview_question(question_id: str, current_user: dict = Depends(get_current_user)):
+    """Retire a question (kept for evaluations that referenced it)."""
+    res = await db.interview_questions.update_one(
+        {"id": question_id, "company_id": _cid(current_user)}, {"$set": {"is_active": False}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="السؤال غير موجود")
+    return {"message": "تم حذف السؤال"}
+
+
 @router.post("/questions/suggest")
 async def suggest_questions_ai(payload: dict, current_user: dict = Depends(get_current_user)):
     """اقتراح أسئلة بالذكاء الاصطناعي — suggestions only, nothing is saved."""
