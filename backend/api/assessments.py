@@ -106,6 +106,39 @@ async def list_questions(kind: Optional[QuestionKind] = None, job_profile_id: Op
     return {"questions": rows, "total": len(rows)}
 
 
+@router.get("/questions/summary")
+async def questions_summary(current_user: dict = Depends(get_current_user)):
+    """How many active questions of each kind the company has."""
+    company_id = _cid(current_user)
+    out = {}
+    for kind in QuestionKind:
+        out[kind.value] = await db.assessment_questions.count_documents(
+            {"company_id": company_id, "is_active": True, "kind": kind.value})
+    return out
+
+
+@router.post("/questions/load-defaults")
+async def load_default_questions(current_user: dict = Depends(get_current_user)):
+    """Load the starter set (20 personality + 15 aptitude). Only the kinds the
+    company has no questions for are loaded, so pressing it twice adds nothing."""
+    _require_hr(current_user)
+    from services.assessment_defaults import default_questions
+    company_id = _cid(current_user)
+    docs = default_questions(company_id, current_user.get("user_id"))
+    added = {}
+    for kind in QuestionKind:
+        if await db.assessment_questions.count_documents(
+                {"company_id": company_id, "is_active": True, "kind": kind.value}):
+            continue
+        batch = [d for d in docs if d["kind"] == kind.value]
+        if batch:
+            await db.assessment_questions.insert_many(batch)
+            added[kind.value] = len(batch)
+    if not added:
+        return {"message": "الأسئلة موجودة بالفعل — لم يُضف شيء", "added": {}}
+    return {"message": "تمت إضافة الأسئلة الافتراضية", "added": added}
+
+
 @router.get("/paper/{candidate_id}")
 async def assessment_paper(candidate_id: str, kind: QuestionKind,
                            current_user: dict = Depends(get_current_user)):

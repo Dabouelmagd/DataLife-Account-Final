@@ -8,6 +8,7 @@
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import CandidateReportDashboard from '../components/hr/CandidateReportDashboard';
+import CandidateAssessments from '../components/hr/CandidateAssessments';
 import axios from 'axios';
 import {
   Briefcase, Users, Star, Plus, X, Loader2, CheckCircle, UserPlus, ArrowRight,
@@ -58,6 +59,9 @@ export default function RecruitmentPage() {
   const [summary, setSummary] = useState(null);
   const [evaluations, setEvaluations] = useState([]);
   const [scoring, setScoring] = useState(false);     // scorecard open
+  // the full report opened from a candidate's page (it used to switch a tab
+  // the candidate page was still covering, so nothing appeared)
+  const [showReport, setShowReport] = useState(false);
   const [jobForm, setJobForm] = useState(null);
   const [candForm, setCandForm] = useState(null);
   const [hireForm, setHireForm] = useState(null);
@@ -179,9 +183,18 @@ export default function RecruitmentPage() {
     </div>
   );
 
+  if (candidate && showReport) return (
+    <div dir="rtl" className="min-h-full bg-slate-50 p-4 md:p-6 space-y-4 text-slate-800">
+      <button onClick={() => setShowReport(false)} className="flex items-center gap-1.5 text-sm text-[#1e3a8a] font-semibold">
+        <ArrowRight className="w-4 h-4" aria-hidden />رجوع لملف المرشح
+      </button>
+      <CandidateReportDashboard candidateId={candidate.id} />
+    </div>
+  );
+
   if (candidate) return (
     <div dir="rtl" className="min-h-full bg-slate-50 p-4 md:p-6 space-y-4 text-slate-800">
-      <button onClick={() => { setCandidate(null); setSummary(null); }} className="flex items-center gap-1.5 text-sm text-[#1e3a8a] font-semibold">
+      <button onClick={() => { setCandidate(null); setSummary(null); setShowReport(false); }} className="flex items-center gap-1.5 text-sm text-[#1e3a8a] font-semibold">
         <ArrowRight className="w-4 h-4" aria-hidden />رجوع لقائمة المرشحين
       </button>
 
@@ -207,7 +220,7 @@ export default function RecruitmentPage() {
       {msg.text && <p className={`text-sm ${msg.type === 'err' ? 'text-red-700' : 'text-emerald-700'}`} role="status">{msg.text}</p>}
 
       <div className="flex flex-wrap gap-2">
-        <button onClick={() => { setReportCandidate(candidate.id); setTab('report'); }}
+        <button onClick={() => setShowReport(true)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold">
           <FileText className="w-4 h-4" aria-hidden />التقرير الشامل
         </button>
@@ -228,6 +241,8 @@ export default function RecruitmentPage() {
           </>
         )}
       </div>
+
+      <CandidateAssessments candidate={candidate} onOpenReport={() => setShowReport(true)} />
 
       {summary?.interviewers > 0 && (
         <section className={`${card} overflow-hidden`}>
