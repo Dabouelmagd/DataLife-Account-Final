@@ -88,7 +88,7 @@ def _sum_prefix(balances: dict, prefixes: tuple) -> float:
     return round(sum(r["balance"] for code, r in balances.items() if code.startswith(prefixes)), 2)
 
 
-async def _result(db, company_id: str, since: str) -> tuple:
+async def _result(db, company_id: str, since: str, until: str) -> tuple:
     """(revenue, expenses) since a date — the income statement's arithmetic:
     general-ledger movement on revenue and expense accounts, by account type."""
     types = {a["id"]: a.get("account_type") async for a in db.chart_of_accounts.find(
@@ -96,7 +96,9 @@ async def _result(db, company_id: str, since: str) -> tuple:
         {"_id": 0, "id": 1, "account_type": 1})}
     revenue = expenses = 0.0
     async for r in db.general_ledger.aggregate([
-            {"$match": {"company_id": company_id, "entry_date": {"$gte": since},
+            {"$match": {"company_id": company_id,
+                        # up to today: a future-dated entry is not this month's result
+                        "entry_date": {"$gte": since, "$lte": until + "\uffff"},
                         "account_id": {"$in": list(types)}}},
             {"$group": {"_id": "$account_id", "d": {"$sum": "$debit"}, "c": {"$sum": "$credit"}}}]):
         if _kind(types.get(r["_id"])) == "revenue":
@@ -116,7 +118,7 @@ async def build(db, company_id: str, permissions: set, is_manager: bool) -> dict
     year_start = now.replace(month=1, day=1).strftime("%Y-%m-%d")
     today = now.strftime("%Y-%m-%d")
 
-    balances = await _balances(db, company_id)
+    balances = await _balances(db, company_id, today)   # as of today, like the trial balance
     has_ledger = (await db.general_ledger.count_documents({"company_id": company_id}, limit=1) > 0
                   or any(r["balance"] for r in balances.values()))
 
@@ -127,17 +129,23 @@ async def build(db, company_id: str, permissions: set, is_manager: bool) -> dict
 
     # ── cash and what it owes / is owed ──────────────────────────
     if may("financial"):
-        revenue, expenses = await _result(db, company_id, month_start)
-        revenue_ytd, expenses_ytd = await _result(db, company_id, year_start)
+        revenue, expenses = await _result(db, company_id, month_start, today)
+        revenue_ytd, expenses_ytd = await _result(db, company_id, year_start, today)
         cash = _sum_prefix(balances, CASH)
         receivables = _sum_prefix(balances, RECEIVABLES)
-        payables = _sum_prefix(balances, PAYABLES)
+        # a "جاري" (current account) of a partner or the chairman sits under the
+        # payables codes but is not owed to suppliers — shown on its own line
+        owners = round(sum(r["balance"] for c, r in balances.items()
+                           if c.startswith(PAYABLES + ("212",)) and "جاري" in str(r.get("account_name") or "")), 2)
+        payables = round(_sum_prefix(balances, PAYABLES) - sum(
+            r["balance"] for c, r in balances.items()
+            if c.startswith(PAYABLES) and "جاري" in str(r.get("account_name") or "")), 2)
 
         out["sections"]["financial"] = {
             "cash_and_banks": cash,
             "receivables": receivables,
             "payables": payables,
-            "net_position": round(cash + receivables - payables, 2),
+            "net_position": round(cash + receivables - payables - owners, 2),
             "month_revenue": revenue,
             "month_expenses": expenses,
             "month_profit": round(revenue - expenses, 2),
@@ -145,6 +153,7 @@ async def build(db, company_id: str, permissions: set, is_manager: bool) -> dict
             "ytd_expenses": expenses_ytd,
             "ytd_profit": round(revenue_ytd - expenses_ytd, 2),
             "loans_outstanding": _sum_prefix(balances, LOANS),
+            "owners_current": owners,
         }
 
         # banks, one line each — a total hides an overdrawn account
@@ -199,7 +208,10 @@ async def build(db, company_id: str, permissions: set, is_manager: bool) -> dict
     # ── what is waiting on someone ───────────────────────────────
     pending_invoices = await db.invoices.count_documents(
         {"company_id": company_id, "status": "draft"})
+    future = await db.journal_entries.count_documents(
+        {"company_id": company_id, "entry_date": {"$gt": today + "\uffff"}})
     out["sections"]["attention"] = {
+        "future_entries": future,
         "draft_invoices": pending_invoices,
         "unposted_entries": await db.journal_entries.count_documents(
             {"company_id": company_id, "status": {"$in": ["draft", "DRAFT"]}}),

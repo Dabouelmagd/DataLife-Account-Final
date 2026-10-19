@@ -82,7 +82,10 @@ export default function ExecutiveDashboard({ language = 'ar', onNavigate }) {
                  onClick={() => onNavigate?.('trial-balance')}>
             <Row label={ar ? 'نقدية + مستحق لنا' : 'Cash + receivables'}
                  value={money(fin.cash_and_banks + fin.receivables)} />
-            <Row label={ar ? 'ناقص المستحق علينا' : 'Less payables'} value={`(${money(fin.payables)})`} />
+            <Row label={ar ? 'ناقص المستحق للموردين' : 'Less payables'} value={`(${money(fin.payables)})`} />
+            {fin.owners_current > 0 && (
+              <Row label={ar ? 'ناقص جاري الشركاء والإدارة' : 'Less owners’ current accounts'} value={`(${money(fin.owners_current)})`} />
+            )}
             <Row label={ar ? 'الصافي' : 'Net'} value={money(fin.net_position)} strong
                  tone={fin.net_position >= 0 ? 'emerald' : 'rose'} />
             {fin.loans_outstanding > 0 && (
@@ -163,10 +166,16 @@ export default function ExecutiveDashboard({ language = 'ar', onNavigate }) {
         )}
       </div>
 
-      {(sections.attention?.draft_invoices > 0 || sections.attention?.unposted_entries > 0) && (
+      {(sections.attention?.draft_invoices > 0 || sections.attention?.unposted_entries > 0 || sections.attention?.future_entries > 0) && (
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-700 flex flex-wrap gap-4">
           {sections.attention.draft_invoices > 0 && (
             <span>{ar ? `${sections.attention.draft_invoices} فاتورة مسوّدة لم تُعتمد` : `${sections.attention.draft_invoices} draft invoices`}</span>
+          )}
+          {sections.attention.future_entries > 0 && (
+            <button onClick={() => onNavigate?.('journal-entries')} className="text-amber-800 font-semibold">
+              {ar ? `⚠ ${sections.attention.future_entries} قيد بتاريخ مستقبلي — لا يدخل أرقام اليوم، راجع التاريخ`
+                  : `${sections.attention.future_entries} future-dated entries`}
+            </button>
           )}
           {sections.attention.unposted_entries > 0 && (
             <span>{ar ? `${sections.attention.unposted_entries} قيد لم يُرحَّل` : `${sections.attention.unposted_entries} unposted entries`}</span>
