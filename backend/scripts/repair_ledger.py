@@ -115,7 +115,7 @@ async def company(cid, name, apply):
                 fixes += 1
 
     # 3 ── bank movements with no entry / draft entry
-    txns = await db.bank_transactions.find({"company_id": cid}).to_list(None)
+    txns = await db.bank_transactions.find({"company_id": cid, "status": {"$ne": "cancelled"}}).to_list(None)
     bank_by_id = {str(b["_id"]): b for b in banks}
     no_entry = [t for t in txns if not t.get("journal_entry_id")]
     je_ids = [t["journal_entry_id"] for t in txns if t.get("journal_entry_id")]

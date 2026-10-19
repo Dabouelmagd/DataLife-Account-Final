@@ -136,10 +136,10 @@ async def build(db, company_id: str, permissions: set, is_manager: bool) -> dict
         # a "جاري" (current account) of a partner or the chairman sits under the
         # payables codes but is not owed to suppliers — shown on its own line
         owners = round(sum(r["balance"] for c, r in balances.items()
-                           if c.startswith(PAYABLES + ("212",)) and "جاري" in str(r.get("account_name") or "")), 2)
+                           if c.startswith(PAYABLES + ("212",)) and str(r.get("account_name") or "").startswith("جاري ")), 2)
         payables = round(_sum_prefix(balances, PAYABLES) - sum(
             r["balance"] for c, r in balances.items()
-            if c.startswith(PAYABLES) and "جاري" in str(r.get("account_name") or "")), 2)
+            if c.startswith(PAYABLES) and str(r.get("account_name") or "").startswith("جاري ")), 2)
 
         out["sections"]["financial"] = {
             "cash_and_banks": cash,

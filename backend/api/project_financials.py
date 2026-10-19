@@ -70,125 +70,118 @@ async def _posted_entry_for(company_id: str, doc_type: str, doc_id: str):
         {"_id": 0, "id": 1, "entry_number": 1})
 
 
+async def _add_item(kind: str, project_id: str, data: dict, authorization: Optional[str]):
+    """Save a project expense / revenue together with its posted journal entry."""
+    from services.project_posting import post_item
+    user_data = await verify_token_from_header(authorization)
+    company_id = user_data.get("company_id")
+    project = await db.projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    try:
+        amount = float(data.get("amount") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="المبلغ غير صحيح")
+    item = {
+        "id": generate_id("exp_" if kind == "expense" else "rev_"),
+        "project_id": project_id, "company_id": company_id,
+        "category": data.get("category") or ("other" if kind == "expense" else "payment"),
+        "description": str(data.get("description") or "").strip(),
+        "amount": amount,
+        "date": str(data.get("date") or datetime.now(timezone.utc).date().isoformat())[:10],
+        "vendor": data.get("vendor", "") if kind == "expense" else None,
+        "customer": data.get("customer", "") if kind == "revenue" else None,
+        "reference_number": data.get("reference_number", ""),
+        "invoice_number": data.get("invoice_number", "") if kind == "revenue" else None,
+        "notes": data.get("notes", ""),
+        "created_by": user_data.get("user_id"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    # older clients sent payment_method cash / bank
+    source = data.get("paid_from") or {"cash": "cash", "bank": "account:162"}.get(data.get("payment_method"), "")
+    try:
+        posting = await post_item(db, company_id, user_data.get("user_id"), kind=kind, project=project,
+                                  item=item, source=source, account_id=data.get("account_id") or None)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    item.update(posting)
+    item["payment_method"] = "cash" if posting["paid_from_code"] == "161" else \
+        ("bank" if posting["paid_from_code"].startswith("16") else "account")
+    await (db.project_expenses if kind == "expense" else db.project_revenues).insert_one(dict(item))
+    await update_project_financials(project_id)
+    return {**item, "message": f"تم التسجيل وترحيل القيد {posting['journal_entry_number']}"}
+
+
+@router.get("/{project_id}/money-options")
+async def project_money_options(project_id: str, kind: str = "expense",
+                                authorization: Optional[str] = Header(None)):
+    """Choices for the add form: where money comes from / goes, and the
+    account each category books to in this company's chart."""
+    from services.project_posting import money_options, chart, account_for, EXPENSE_ACCOUNTS, REVENUE_ACCOUNTS
+    user_data = await verify_token_from_header(authorization)
+    cid = user_data.get("company_id")
+    if not await db.projects.find_one({"id": project_id, "company_id": cid}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    kind = "revenue" if kind == "revenue" else "expense"
+    ch = await chart(db, cid)
+    cats = {}
+    for cat in (EXPENSE_ACCOUNTS if kind == "expense" else REVENUE_ACCOUNTS):
+        a = account_for(ch, kind, cat)
+        if a:
+            cats[cat] = {"account_id": a["id"], "account_code": a["account_code"], "account_name": a["account_name"]}
+    want = kind
+    accounts = [{"id": a["id"], "account_code": c, "account_name": a["account_name"]}
+                for c, a in sorted(ch.items())
+                if str(getattr(a.get("account_type"), "value", a.get("account_type"))) == want
+                and not (a.get("is_header") or a.get("account_category") == "header")]
+    return {"sources": await money_options(db, cid, kind), "categories": cats, "accounts": accounts}
+
+
+async def _cancel_item(kind: str, project_id: str, item_id: str, body: Optional[dict],
+                       authorization: Optional[str]):
+    from services.project_posting import cancel_item
+    user_data = await verify_token_from_header(authorization)
+    cid = user_data.get("company_id")
+    coll = db.project_expenses if kind == "expense" else db.project_revenues
+    item = await coll.find_one({"id": item_id, "project_id": project_id, "company_id": cid}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="غير موجود")
+    if item.get("status") == "cancelled":
+        raise HTTPException(status_code=400, detail="مُلغى من قبل")
+    reason = str((body or {}).get("reason") or "").strip()
+    if len(reason) < 3:
+        raise HTTPException(status_code=400, detail="اكتب سبب الإلغاء")
+    try:
+        r = await cancel_item(db, cid, user_data.get("user_id"), kind, item, reason)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    await update_project_financials(project_id)
+    return {"message": "تم الإلغاء" + (f" بقيد عكسي {r['reversal_entry_number']}" if r["reversal_entry_number"] else ""), **r}
+
+
+@router.post("/{project_id}/expenses/{expense_id}/cancel")
+async def cancel_project_expense(project_id: str, expense_id: str, body: Optional[dict] = None,
+                                 authorization: Optional[str] = Header(None)):
+    """إلغاء مصروف مرحّل بقيد عكسي بنفس تاريخه."""
+    return await _cancel_item("expense", project_id, expense_id, body, authorization)
+
+
+@router.post("/{project_id}/revenues/{revenue_id}/cancel")
+async def cancel_project_revenue(project_id: str, revenue_id: str, body: Optional[dict] = None,
+                                 authorization: Optional[str] = Header(None)):
+    """إلغاء إيراد مرحّل بقيد عكسي بنفس تاريخه."""
+    return await _cancel_item("revenue", project_id, revenue_id, body, authorization)
+
+
 @router.post("/{project_id}/expenses")
 async def add_project_expense(
     project_id: str,
     expense_data: dict,
     authorization: Optional[str] = Header(None)
 ):
-    """Add expense to a project"""
-    user_data = await verify_token_from_header(authorization)
-    company_id = user_data.get("company_id")
-    
-    # Verify project exists
-    project = await db.projects.find_one({"id": project_id, "company_id": company_id})
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    expense = {
-        "id": generate_id("exp_"),
-        "project_id": project_id,
-        "company_id": company_id,
-        "category": expense_data.get("category", "other"),
-        "description": expense_data.get("description", ""),
-        "amount": float(expense_data.get("amount", 0)),
-        "date": expense_data.get("date", datetime.now(timezone.utc).date().isoformat()),
-        "reference_number": expense_data.get("reference_number", ""),
-        "vendor": expense_data.get("vendor", ""),
-        "payment_method": expense_data.get("payment_method", "cash"),  # cash, bank, check
-        "notes": expense_data.get("notes", ""),
-        "attachments": expense_data.get("attachments", []),
-        "created_by": user_data.get("user_id"),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    await db.project_expenses.insert_one(expense)
-    if "_id" in expense:
-        del expense["_id"]
-    
-    # Create journal entry for expense — يظهر في دفتر الأستاذ والميزانية
-    project = await db.projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
-    project_name = project.get("name", project_id) if project else project_id
-    cat_info = EXPENSE_CATEGORIES.get(expense.get("category", "other"), {})
-    cat_name = cat_info.get("name_ar", "مصروف مشروع")
-    credit_account = "البنك" if expense.get("payment_method", "cash") == "bank" else "الخزينة"
-    import uuid as _uuid_exp
-    # Map expense category to account code
-    # The chart has accounts made for contracting — 315 subcontractors, 316 site
-    # materials, 317 site labour — and none of them were used: subcontractor
-    # costs were booked as direct wages, which hides the split that project
-    # costing exists to show.
-    exp_account_map = {
-        "labor":       "317",   # أجور عمال الموقع
-        "materials":   "316",   # مواد ومستلزمات الموقع
-        "subcontract": "315",   # تكلفة مقاولي الباطن
-        "equipment":   "313",   # مصروفات وإهلاكات تشغيلية
-        "overhead":    "313",
-        "travel":      "337",   # بدل سفر وانتقالات
-        "utilities":   "332",   # مصروفات خدمية
-        "other":       "332",
-    }
-    exp_code = exp_account_map.get(expense.get("category","other"), "332")
-    credit_code = "162" if expense.get("payment_method","cash") == "bank" else "161"
-    import uuid as _uuid_exp2
-    from services.accounting_service import AccountingService as _ACS
-    from models.accounting import JournalEntry, JournalEntryLine, JournalEntryStatus
-    _svc = _ACS(db)
-    exp_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": exp_code})
-    cre_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": credit_code})
-    
-    # Build proper lines[] format — posts to General Ledger + Trial Balance
-    exp_amount = expense.get("amount", 0)
-    je_lines = []
-    if exp_acc:
-        je_lines.append(JournalEntryLine(
-            account_id=exp_acc["id"], account_code=exp_code,
-            account_name=exp_acc.get("account_name", cat_name),
-            debit=exp_amount, credit=0,
-            description=f"مصروف مشروع: {expense.get('description', cat_name)}",
-            project_id=project_id
-        ))
-    if cre_acc:
-        je_lines.append(JournalEntryLine(
-            account_id=cre_acc["id"], account_code=credit_code,
-            account_name=cre_acc.get("account_name", credit_account),
-            debit=0, credit=exp_amount,
-            description=f"سداد مصروف مشروع ({credit_account})",
-            project_id=project_id
-        ))
-    
-    if je_lines:
-        je_obj = JournalEntry(
-            company_id=company_id,
-            entry_number=0,
-            entry_date=expense.get("date"),
-            description=f"مصروف مشروع ({project_name}): {expense.get('description', cat_name)}",
-            lines=je_lines,
-            total_debit=exp_amount,
-            total_credit=exp_amount,
-            status=JournalEntryStatus.POSTED,
-            source_document_type="project_expense",
-            source_document_id=expense.get("id"),
-            created_by=user_data.get("user_id","system"),
-            fiscal_year=expense.get("date","")[:4],
-            period=expense.get("date","")[:7],
-        )
-        je_dict = await _svc.create_journal_entry(je_obj)
-        # Post to general_ledger — يظهر في الأستاذ العام + ميزان المراجعة + الميزانية
-        try:
-            await _svc.post_journal_entry(je_dict["id"], user_data.get("user_id","system"))
-        except Exception as e:
-            # If already posted or error, update balances manually
-            try:
-                if exp_acc: await _svc.update_account_balance(exp_acc["id"], exp_amount, 0)
-                if cre_acc: await _svc.update_account_balance(cre_acc["id"], 0, exp_amount)
-            except: pass
-
-    # Update project total expenses
-    await update_project_financials(project_id)
-    
-    return expense
+    """إضافة مصروف للمشروع — يُرحَّل قيده في نفس اللحظة."""
+    return await _add_item("expense", project_id, expense_data, authorization)
 
 
 @router.get("/categories/expenses")
@@ -308,100 +301,8 @@ async def add_project_revenue(
     revenue_data: dict,
     authorization: Optional[str] = Header(None)
 ):
-    """Add revenue to a project"""
-    user_data = await verify_token_from_header(authorization)
-    company_id = user_data.get("company_id")
-    
-    # Verify project exists
-    project = await db.projects.find_one({"id": project_id, "company_id": company_id})
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    revenue = {
-        "id": generate_id("rev_"),
-        "project_id": project_id,
-        "company_id": company_id,
-        "category": revenue_data.get("category", "payment"),
-        "description": revenue_data.get("description", ""),
-        "amount": float(revenue_data.get("amount", 0)),
-        "date": revenue_data.get("date", datetime.now(timezone.utc).date().isoformat()),
-        "invoice_number": revenue_data.get("invoice_number", ""),
-        "payment_method": revenue_data.get("payment_method", "bank"),  # cash, bank, check
-        "notes": revenue_data.get("notes", ""),
-        "attachments": revenue_data.get("attachments", []),
-        "created_by": user_data.get("user_id"),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    await db.project_revenues.insert_one(revenue)
-    if "_id" in revenue:
-        del revenue["_id"]
-    
-    # Create journal entry for revenue — يظهر في دفتر الأستاذ والميزانية
-    project = await db.projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
-    project_name = project.get("name", project_id) if project else project_id
-    rev_cat = REVENUE_CATEGORIES.get(revenue.get("category", "other"), {})
-    rev_name = rev_cat.get("name_ar", "إيراد مشروع")
-    debit_account = "البنك" if revenue.get("payment_method", "bank") == "bank" else "الخزينة"
-    import uuid as _uuid_rev
-    debit_code = "162" if revenue.get("payment_method","bank") == "bank" else "161"
-    from services.accounting_service import AccountingService as _ACS2
-    from models.accounting import JournalEntry, JournalEntryLine, JournalEntryStatus
-    _svc2 = _ACS2(db)
-    deb_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": debit_code})
-    rev_acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "412"})
-    
-    # Build proper lines[] format — posts to General Ledger + Trial Balance + Balance Sheet
-    rev_amount = revenue.get("amount", 0)
-    rev_lines = []
-    if deb_acc:
-        rev_lines.append(JournalEntryLine(
-            account_id=deb_acc["id"], account_code=debit_code,
-            account_name=deb_acc.get("account_name", debit_account),
-            debit=rev_amount, credit=0,
-            description=f"تحصيل إيراد مشروع ({debit_account})",
-            project_id=project_id
-        ))
-    if rev_acc:
-        rev_lines.append(JournalEntryLine(
-            account_id=rev_acc["id"], account_code="412",
-            account_name=rev_acc.get("account_name", "إيرادات المشاريع"),
-            debit=0, credit=rev_amount,
-            description=f"إيراد مشروع: {revenue.get('description', rev_name)}",
-            project_id=project_id
-        ))
-    
-    if rev_lines:
-        rev_je_obj = JournalEntry(
-            company_id=company_id,
-            entry_number=0,
-            entry_date=revenue.get("date"),
-            description=f"إيراد مشروع ({project_name}): {revenue.get('description', rev_name)}",
-            lines=rev_lines,
-            total_debit=rev_amount,
-            total_credit=rev_amount,
-            status=JournalEntryStatus.POSTED,
-            source_document_type="project_revenue",
-            source_document_id=revenue.get("id"),
-            created_by=user_data.get("user_id","system"),
-            fiscal_year=revenue.get("date","")[:4],
-            period=revenue.get("date","")[:7],
-        )
-        rev_je_dict = await _svc2.create_journal_entry(rev_je_obj)
-        # Post to general_ledger — يظهر في الأستاذ العام + ميزان المراجعة + الميزانية
-        try:
-            await _svc2.post_journal_entry(rev_je_dict["id"], user_data.get("user_id","system"))
-        except Exception as e:
-            try:
-                if deb_acc: await _svc2.update_account_balance(deb_acc["id"], rev_amount, 0)
-                if rev_acc: await _svc2.update_account_balance(rev_acc["id"], 0, rev_amount)
-            except: pass
-
-    # Update project total revenues
-    await update_project_financials(project_id)
-    
-    return revenue
+    """إضافة إيراد للمشروع — يُرحَّل قيده في نفس اللحظة."""
+    return await _add_item("revenue", project_id, revenue_data, authorization)
 
 
 @router.get("/categories/revenues")
@@ -573,6 +474,21 @@ async def get_project_financials(
         {"_id": 0}
     ).sort("date", -1).to_list(length=None)
     
+    # cancelled items stay listed (with their reversal) but count for nothing
+    all_expenses, all_revenues = expenses, revenues
+    expenses = [e for e in expenses if e.get("status") != "cancelled"]
+    revenues = [r for r in revenues if r.get("status") != "cancelled"]
+
+    # does the ledger agree? the project's posted entries, net of reversals
+    ledger = {"project_expense": 0.0, "project_revenue": 0.0}
+    posted_ids = set()
+    async for je in db.journal_entries.find(
+            {"company_id": company_id, "source_document_type": {"$in": list(ledger)},
+             "status": "posted", "source_document_id": {"$in": [i["id"] for i in all_expenses + all_revenues]}},
+            {"_id": 0, "source_document_type": 1, "total_debit": 1, "source_document_id": 1}):
+        ledger[je["source_document_type"]] += float(je.get("total_debit") or 0)
+        posted_ids.add(je.get("source_document_id"))
+
     # Calculate totals
     total_expenses = sum(e.get("amount", 0) for e in expenses)
     total_revenues = sum(r.get("amount", 0) for r in revenues)
@@ -624,14 +540,19 @@ async def get_project_financials(
             "budget_remaining": budget_remaining,
             "budget_usage_percent": round(budget_usage_percent, 2)
         },
+        "ledger_check": {
+            "expenses_in_ledger": round(ledger["project_expense"], 2),
+            "revenues_in_ledger": round(ledger["project_revenue"], 2),
+            "unposted": [i["id"] for i in expenses + revenues if i["id"] not in posted_ids],
+        },
         "expenses": {
-            "items": expenses,
+            "items": all_expenses,
             "by_category": expenses_by_category,
             "total": total_expenses,
             "categories": EXPENSE_CATEGORIES
         },
         "revenues": {
-            "items": revenues,
+            "items": all_revenues,
             "by_category": revenues_by_category,
             "total": total_revenues,
             "categories": REVENUE_CATEGORIES

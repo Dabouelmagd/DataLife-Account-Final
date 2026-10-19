@@ -98,7 +98,7 @@ async def get_bank_accounts(current_user: dict = Depends(get_current_user)):
         
         # Get sum of transactions
         pipeline = [
-            {"$match": {"company_id": company_id, "bank_account_id": acc["id"]}},
+            {"$match": {"company_id": company_id, "bank_account_id": acc["id"], "status": {"$ne": "cancelled"}}},
             {"$group": {
                 "_id": None,
                 "total_deposits": {"$sum": {"$cond": [{"$in": ["$transaction_type", ["deposit", "check_deposit", "transfer_in"]]}, "$amount", 0]}},

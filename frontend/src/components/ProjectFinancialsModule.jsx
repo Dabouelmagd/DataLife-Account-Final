@@ -3,16 +3,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from './ui/card';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Textarea } from './ui/textarea';
 import { Progress } from './ui/progress';
 import { toast } from 'sonner';
 import axios from 'axios';
+import ProjectMoneyDialog, { EXPENSE_CATS, REVENUE_CATS } from './ProjectMoneyDialog';
 import { 
   FolderKanban, Plus, DollarSign, TrendingUp, TrendingDown, 
   Receipt, CreditCard, Wallet, PieChart, BarChart3, 
@@ -31,31 +27,7 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
   const [financials, setFinancials] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  const [showExpenseDialog, setShowExpenseDialog] = useState(false);
-  const [showRevenueDialog, setShowRevenueDialog] = useState(false);
-  const [editingExpense, setEditingExpense] = useState(null);
-  const [editingRevenue, setEditingRevenue] = useState(null);
-
-  const [expenseForm, setExpenseForm] = useState({
-    category: 'other',
-    description: '',
-    amount: '',
-    date: new Date().toISOString().split('T')[0],
-    vendor: '',
-    reference_number: '',
-    payment_method: 'cash',
-    notes: ''
-  });
-
-  const [revenueForm, setRevenueForm] = useState({
-    category: 'payment',
-    description: '',
-    amount: '',
-    date: new Date().toISOString().split('T')[0],
-    invoice_number: '',
-    payment_method: 'bank',
-    notes: ''
-  });
+  const [moneyKind, setMoneyKind] = useState(null);   // 'expense' | 'revenue' while the form is open
 
   const t = {
     overview: isRTL ? 'نظرة عامة' : 'Overview',
@@ -93,25 +65,10 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
     monthlyBreakdown: isRTL ? 'التفصيل الشهري' : 'Monthly Breakdown'
   };
 
-  const expenseCategories = {
-    materials: { name: isRTL ? 'مواد خام' : 'Raw Materials', color: 'bg-blue-500' },
-    labor: { name: isRTL ? 'أجور عمالة' : 'Labor Costs', color: 'bg-green-500' },
-    equipment: { name: isRTL ? 'معدات وأدوات' : 'Equipment & Tools', color: 'bg-purple-500' },
-    administrative: { name: isRTL ? 'مصاريف إدارية' : 'Administrative', color: 'bg-amber-500' },
-    transport: { name: isRTL ? 'نقل ومواصلات' : 'Transportation', color: 'bg-cyan-500' },
-    subcontractor: { name: isRTL ? 'مقاول من الباطن' : 'Subcontractor', color: 'bg-pink-500' },
-    utilities: { name: isRTL ? 'مرافق (كهرباء/ماء)' : 'Utilities', color: 'bg-indigo-500' },
-    other: { name: isRTL ? 'مصاريف أخرى' : 'Other Expenses', color: 'bg-gray-500' }
-  };
-
-  const revenueCategories = {
-    payment: { name: isRTL ? 'دفعة من العميل' : 'Client Payment', color: 'bg-green-500' },
-    advance: { name: isRTL ? 'دفعة مقدمة' : 'Advance Payment', color: 'bg-blue-500' },
-    milestone: { name: isRTL ? 'دفعة مستخلص' : 'Milestone Payment', color: 'bg-purple-500' },
-    final: { name: isRTL ? 'دفعة ختامية' : 'Final Payment', color: 'bg-amber-500' },
-    retention: { name: isRTL ? 'إفراج عن ضمان' : 'Retention Release', color: 'bg-cyan-500' },
-    other: { name: isRTL ? 'إيرادات أخرى' : 'Other Revenue', color: 'bg-gray-500' }
-  };
+  const COLORS = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-amber-500', 'bg-cyan-500', 'bg-pink-500',
+    'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-rose-500', 'bg-lime-600', 'bg-gray-500'];
+  const expenseCategories = Object.fromEntries(Object.entries(EXPENSE_CATS).map(([k, name], i) => [k, { name, color: COLORS[i % COLORS.length] }]));
+  const revenueCategories = Object.fromEntries(Object.entries(REVENUE_CATS).map(([k, name], i) => [k, { name, color: COLORS[i % COLORS.length] }]));
 
   useEffect(() => {
     if (projectId) {
@@ -135,160 +92,21 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
     }
   };
 
-  const handleAddExpense = async () => {
+  const cancelItem = async (kind, item) => {
+    const reason = window.prompt(isRTL ? 'سبب الإلغاء — سيُعكس القيد بنفس تاريخه ويبقى ظاهراً للمراجعة:' : 'Reason for cancelling:');
+    if (!reason || reason.trim().length < 3) return;
     try {
-      if (!expenseForm.amount || !expenseForm.description) {
-        toast.error(isRTL ? 'يرجى ملء الحقول المطلوبة' : 'Please fill required fields');
-        return;
-      }
-
-      if (editingExpense) {
-        await axios.put(
-          `${API_URL}/api/projects/${projectId}/expenses/${editingExpense.id}`,
-          expenseForm,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        toast.success(isRTL ? 'تم تحديث المصروف' : 'Expense updated');
-      } else {
-        await axios.post(
-          `${API_URL}/api/projects/${projectId}/expenses`,
-          expenseForm,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        toast.success(isRTL ? 'تم إضافة المصروف' : 'Expense added');
-      }
-
-      setShowExpenseDialog(false);
-      setEditingExpense(null);
-      resetExpenseForm();
+      const { data } = await axios.post(`${API_URL}/api/projects/${projectId}/${kind === 'expense' ? 'expenses' : 'revenues'}/${item.id}/cancel`,
+        { reason: reason.trim() }, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success(data.message);
       fetchFinancials();
     } catch (error) {
-      console.error('Error saving expense:', error);
-      toast.error(isRTL ? 'خطأ في حفظ المصروف' : 'Error saving expense');
+      toast.error(error?.response?.data?.detail || (isRTL ? 'تعذّر الإلغاء' : 'Could not cancel'));
     }
-  };
-
-  const handleAddRevenue = async () => {
-    try {
-      if (!revenueForm.amount || !revenueForm.description) {
-        toast.error(isRTL ? 'يرجى ملء الحقول المطلوبة' : 'Please fill required fields');
-        return;
-      }
-
-      if (editingRevenue) {
-        await axios.put(
-          `${API_URL}/api/projects/${projectId}/revenues/${editingRevenue.id}`,
-          revenueForm,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        toast.success(isRTL ? 'تم تحديث الإيراد' : 'Revenue updated');
-      } else {
-        await axios.post(
-          `${API_URL}/api/projects/${projectId}/revenues`,
-          revenueForm,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        toast.success(isRTL ? 'تم إضافة الإيراد' : 'Revenue added');
-      }
-
-      setShowRevenueDialog(false);
-      setEditingRevenue(null);
-      resetRevenueForm();
-      fetchFinancials();
-    } catch (error) {
-      console.error('Error saving revenue:', error);
-      toast.error(isRTL ? 'خطأ في حفظ الإيراد' : 'Error saving revenue');
-    }
-  };
-
-  const handleDeleteExpense = async (expenseId) => {
-    if (!window.confirm(isRTL ? 'هل أنت متأكد من الحذف؟' : 'Are you sure you want to delete?')) return;
-    
-    try {
-      await axios.delete(
-        `${API_URL}/api/projects/${projectId}/expenses/${expenseId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success(isRTL ? 'تم حذف المصروف' : 'Expense deleted');
-      fetchFinancials();
-    } catch (error) {
-      console.error('Error deleting expense:', error);
-      toast.error(isRTL ? 'خطأ في حذف المصروف' : 'Error deleting expense');
-    }
-  };
-
-  const handleDeleteRevenue = async (revenueId) => {
-    if (!window.confirm(isRTL ? 'هل أنت متأكد من الحذف؟' : 'Are you sure you want to delete?')) return;
-    
-    try {
-      await axios.delete(
-        `${API_URL}/api/projects/${projectId}/revenues/${revenueId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success(isRTL ? 'تم حذف الإيراد' : 'Revenue deleted');
-      fetchFinancials();
-    } catch (error) {
-      console.error('Error deleting revenue:', error);
-      toast.error(isRTL ? 'خطأ في حذف الإيراد' : 'Error deleting revenue');
-    }
-  };
-
-  const resetExpenseForm = () => {
-    setExpenseForm({
-      category: 'other',
-      description: '',
-      amount: '',
-      date: new Date().toISOString().split('T')[0],
-      vendor: '',
-      reference_number: '',
-      payment_method: 'cash',
-      notes: ''
-    });
-  };
-
-  const resetRevenueForm = () => {
-    setRevenueForm({
-      category: 'payment',
-      description: '',
-      amount: '',
-      date: new Date().toISOString().split('T')[0],
-      invoice_number: '',
-      payment_method: 'bank',
-      notes: ''
-    });
-  };
-
-  const editExpense = (expense) => {
-    setEditingExpense(expense);
-    setExpenseForm({
-      category: expense.category,
-      description: expense.description,
-      amount: expense.amount.toString(),
-      date: expense.date,
-      vendor: expense.vendor || '',
-      reference_number: expense.reference_number || '',
-      payment_method: expense.payment_method || 'cash',
-      notes: expense.notes || ''
-    });
-    setShowExpenseDialog(true);
-  };
-
-  const editRevenue = (revenue) => {
-    setEditingRevenue(revenue);
-    setRevenueForm({
-      category: revenue.category,
-      description: revenue.description,
-      amount: revenue.amount.toString(),
-      date: revenue.date,
-      invoice_number: revenue.invoice_number || '',
-      payment_method: revenue.payment_method || 'bank',
-      notes: revenue.notes || ''
-    });
-    setShowRevenueDialog(true);
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat(isRTL ? 'ar-EG' : 'en-US', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'EGP',
       minimumFractionDigits: 0
@@ -318,10 +136,26 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
           </h2>
           <p className="text-gray-500">{projectName}</p>
         </div>
-        <Button variant="outline" onClick={onClose}>
-          {isRTL ? 'إغلاق' : 'Close'}
-        </Button>
+        <div className="flex gap-2">
+          <Button className="bg-rose-600 hover:bg-rose-700 text-white" onClick={() => setMoneyKind('expense')}>
+            <Plus className="h-4 w-4 me-1" />{isRTL ? 'مصروف' : 'Expense'}
+          </Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setMoneyKind('revenue')}>
+            <Plus className="h-4 w-4 me-1" />{isRTL ? 'إيراد' : 'Revenue'}
+          </Button>
+          <Button variant="outline" onClick={onClose}>
+            {isRTL ? 'إغلاق' : 'Close'}
+          </Button>
+        </div>
       </div>
+
+      {(financials?.ledger_check?.unposted || []).length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+          {isRTL
+            ? `${financials.ledger_check.unposted.length} بند في هذا المشروع ليس له قيد مرحّل — لا يظهر في الحسابات. ألغِه وأعد تسجيله.`
+            : `${financials.ledger_check.unposted.length} items have no posted entry.`}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -467,7 +301,7 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
         <TabsContent value="expenses" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{t.expenses}</h3>
-            <Button onClick={() => { resetExpenseForm(); setEditingExpense(null); setShowExpenseDialog(true); }}>
+            <Button onClick={() => setMoneyKind('expense')}>
               <Plus className="h-4 w-4 mr-2" />
               {t.addExpense}
             </Button>
@@ -489,7 +323,16 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
                           <Receipt className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="font-medium">{expense.description}</p>
+                          <p className="font-medium">{expense.description}
+                            {expense.status === 'cancelled' && <span className="ms-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">ملغى{expense.cancel_reason ? ` — ${expense.cancel_reason}` : ''}</span>}
+                          </p>
+                          {(expense.account_code || expense.journal_entry_number) && (
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {expense.account_code && <span>{expense.account_code} {expense.account_name}</span>}
+                              {expense.paid_from_name && <span> · {'expense' === 'expense' ? 'من' : 'إلى'} {expense.paid_from_name}</span>}
+                              {expense.journal_entry_number && <span dir="ltr" className="ms-1 px-1.5 rounded bg-blue-50 text-blue-700">{expense.journal_entry_number}</span>}
+                            </p>
+                          )}
                           <div className="flex items-center gap-2 text-sm text-gray-500">
                             <span>{expenseCategories[expense.category]?.name}</span>
                             <span>•</span>
@@ -504,14 +347,13 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className="text-lg font-bold text-red-600">{formatCurrency(expense.amount)}</span>
+                        <span className={`text-lg font-bold ${expense.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-red-600'}`}>{formatCurrency(expense.amount)}</span>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => editExpense(expense)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteExpense(expense.id)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
+                          {expense.status !== 'cancelled' && (
+                            <Button variant="ghost" size="sm" title={isRTL ? 'إلغاء بقيد عكسي' : 'Cancel'} onClick={() => cancelItem('expense', expense)}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -526,7 +368,7 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
         <TabsContent value="revenues" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{t.revenues}</h3>
-            <Button onClick={() => { resetRevenueForm(); setEditingRevenue(null); setShowRevenueDialog(true); }}>
+            <Button onClick={() => setMoneyKind('revenue')}>
               <Plus className="h-4 w-4 mr-2" />
               {t.addRevenue}
             </Button>
@@ -548,7 +390,16 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
                           <Banknote className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="font-medium">{revenue.description}</p>
+                          <p className="font-medium">{revenue.description}
+                            {revenue.status === 'cancelled' && <span className="ms-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">ملغى{revenue.cancel_reason ? ` — ${revenue.cancel_reason}` : ''}</span>}
+                          </p>
+                          {(revenue.account_code || revenue.journal_entry_number) && (
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {revenue.account_code && <span>{revenue.account_code} {revenue.account_name}</span>}
+                              {revenue.paid_from_name && <span> · {'revenue' === 'expense' ? 'من' : 'إلى'} {revenue.paid_from_name}</span>}
+                              {revenue.journal_entry_number && <span dir="ltr" className="ms-1 px-1.5 rounded bg-blue-50 text-blue-700">{revenue.journal_entry_number}</span>}
+                            </p>
+                          )}
                           <div className="flex items-center gap-2 text-sm text-gray-500">
                             <span>{revenueCategories[revenue.category]?.name}</span>
                             <span>•</span>
@@ -563,14 +414,13 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className="text-lg font-bold text-green-600">{formatCurrency(revenue.amount)}</span>
+                        <span className={`text-lg font-bold ${revenue.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-green-600'}`}>{formatCurrency(revenue.amount)}</span>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => editRevenue(revenue)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteRevenue(revenue.id)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
+                          {revenue.status !== 'cancelled' && (
+                            <Button variant="ghost" size="sm" title={isRTL ? 'إلغاء بقيد عكسي' : 'Cancel'} onClick={() => cancelItem('revenue', revenue)}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -582,187 +432,14 @@ const ProjectFinancialsModule = ({ projectId, projectName, onClose }) => {
         </TabsContent>
       </Tabs>
 
-      {/* Add/Edit Expense Dialog */}
-      <Dialog open={showExpenseDialog} onOpenChange={setShowExpenseDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingExpense ? (isRTL ? 'تعديل مصروف' : 'Edit Expense') : t.addExpense}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>{t.category}</Label>
-              <Select value={expenseForm.category} onValueChange={(v) => setExpenseForm({...expenseForm, category: v})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(expenseCategories).map(([key, val]) => (
-                    <SelectItem key={key} value={key}>{val.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{t.description} *</Label>
-              <Input 
-                value={expenseForm.description} 
-                onChange={(e) => setExpenseForm({...expenseForm, description: e.target.value})}
-                placeholder={isRTL ? 'وصف المصروف...' : 'Expense description...'}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{t.amount} *</Label>
-                <Input 
-                  type="number"
-                  value={expenseForm.amount} 
-                  onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label>{t.date}</Label>
-                <Input 
-                  type="date"
-                  value={expenseForm.date} 
-                  onChange={(e) => setExpenseForm({...expenseForm, date: e.target.value})}
-                />
-              </div>
-            </div>
-            <div>
-              <Label>{t.vendor}</Label>
-              <Input 
-                value={expenseForm.vendor} 
-                onChange={(e) => setExpenseForm({...expenseForm, vendor: e.target.value})}
-                placeholder={isRTL ? 'اسم المورد...' : 'Vendor name...'}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{t.reference}</Label>
-                <Input 
-                  value={expenseForm.reference_number} 
-                  onChange={(e) => setExpenseForm({...expenseForm, reference_number: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label>{t.paymentMethod}</Label>
-                <Select value={expenseForm.payment_method} onValueChange={(v) => setExpenseForm({...expenseForm, payment_method: v})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">{t.cash}</SelectItem>
-                    <SelectItem value="bank">{t.bank}</SelectItem>
-                    <SelectItem value="check">{t.check}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>{t.notes}</Label>
-              <Textarea 
-                value={expenseForm.notes} 
-                onChange={(e) => setExpenseForm({...expenseForm, notes: e.target.value})}
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowExpenseDialog(false)}>{t.cancel}</Button>
-            <Button onClick={handleAddExpense}>{t.save}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add/Edit Revenue Dialog */}
-      <Dialog open={showRevenueDialog} onOpenChange={setShowRevenueDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingRevenue ? (isRTL ? 'تعديل إيراد' : 'Edit Revenue') : t.addRevenue}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>{t.category}</Label>
-              <Select value={revenueForm.category} onValueChange={(v) => setRevenueForm({...revenueForm, category: v})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(revenueCategories).map(([key, val]) => (
-                    <SelectItem key={key} value={key}>{val.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{t.description} *</Label>
-              <Input 
-                value={revenueForm.description} 
-                onChange={(e) => setRevenueForm({...revenueForm, description: e.target.value})}
-                placeholder={isRTL ? 'وصف الإيراد...' : 'Revenue description...'}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{t.amount} *</Label>
-                <Input 
-                  type="number"
-                  value={revenueForm.amount} 
-                  onChange={(e) => setRevenueForm({...revenueForm, amount: e.target.value})}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label>{t.date}</Label>
-                <Input 
-                  type="date"
-                  value={revenueForm.date} 
-                  onChange={(e) => setRevenueForm({...revenueForm, date: e.target.value})}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{t.invoice}</Label>
-                <Input 
-                  value={revenueForm.invoice_number} 
-                  onChange={(e) => setRevenueForm({...revenueForm, invoice_number: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label>{t.paymentMethod}</Label>
-                <Select value={revenueForm.payment_method} onValueChange={(v) => setRevenueForm({...revenueForm, payment_method: v})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">{t.cash}</SelectItem>
-                    <SelectItem value="bank">{t.bank}</SelectItem>
-                    <SelectItem value="check">{t.check}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>{t.notes}</Label>
-              <Textarea 
-                value={revenueForm.notes} 
-                onChange={(e) => setRevenueForm({...revenueForm, notes: e.target.value})}
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRevenueDialog(false)}>{t.cancel}</Button>
-            <Button onClick={handleAddRevenue}>{t.save}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {moneyKind && (
+        <ProjectMoneyDialog
+          projectId={projectId}
+          kind={moneyKind}
+          onClose={() => setMoneyKind(null)}
+          onSaved={(data) => { setMoneyKind(null); toast.success(data.message); fetchFinancials(); }}
+        />
+      )}
     </div>
   );
 };
