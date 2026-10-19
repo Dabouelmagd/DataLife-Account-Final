@@ -34,6 +34,9 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
   const [profile, setProfile] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [scores, setScores] = useState({});          // { criterion_key: 1..5 }
+  // per-question ratings; a criterion with rated questions takes their
+  // average (the server recomputes it the same way)
+  const [qScores, setQScores] = useState({});        // { question_id: 1..5 }
   const [notes, setNotes] = useState({});
   const [form, setForm] = useState({ round_name: 'technical', interview_date: today(), strengths: '', concerns: '', recommendation: 'neutral' });
   const [busy, setBusy] = useState(false);
@@ -66,21 +69,30 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
   }, [candidateId, jobProfileId]);
   useEffect(() => { load(); }, [load]);
 
+  // a criterion's score: the average of its rated questions, or the stars
+  const fromQuestions = (c) => {
+    const rated = questions.filter((q) => q.category === c.category && qScores[q.id]);
+    if (!rated.length) return null;
+    const avg = rated.reduce((s, q) => s + qScores[q.id], 0) / rated.length;
+    return { avg: Math.round(avg * 100) / 100, n: rated.length };
+  };
+  const effective = (c) => fromQuestions(c)?.avg ?? scores[c.key];
+
   // live weighted score — same rule as the server: rescale over rated criteria
   const { total, ratedWeight, contributions } = useMemo(() => {
     const criteria = profile?.criteria || [];
-    const rated = criteria.filter((c) => scores[c.key]);
+    const rated = criteria.filter((c) => effective(c));
     const w = rated.reduce((s, c) => s + c.weight, 0);
     const contrib = {};
     let t = 0;
     rated.forEach((c) => {
       const share = w ? (c.weight / w) * 100 : 0;
-      const value = share * (scores[c.key] / 5);
+      const value = share * (effective(c) / 5);
       contrib[c.key] = Math.round(value * 10) / 10;
       t += value;
     });
     return { total: Math.round(t * 10) / 10, ratedWeight: w, contributions: contrib };
-  }, [profile, scores]);
+  }, [profile, scores, qScores, questions]);
 
   const criteria = profile?.criteria || [];
   const byCategory = useMemo(() => {
@@ -102,11 +114,30 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
     } finally { setQBusy(false); }
   };
 
-  const QuestionList = ({ list }) => (
+  // called as a function, not <QuestionList/>: a component defined inside the
+  // render is a new type each time, which remounts it and drops input focus
+  const QuestionList = ({ list, counted = true }) => (
     <ol className="mt-2 space-y-2 list-decimal ps-5 text-sm">
+      {!counted && <p className="text-xs text-slate-500 -ms-5">تقييم هذه الأسئلة يُحفظ في البطاقة ولا يدخل في الدرجة، لأن الوظيفة ليس لها معيار من نوعها.</p>}
       {list.map((q) => (
         <li key={q.id} className="leading-7">
-          <span className="text-slate-800">{q.question}</span>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+          <span className="text-slate-800 flex-1 min-w-[200px]">{q.question}</span>
+          <span className="flex items-center gap-1 shrink-0" role="radiogroup" aria-label={`درجة السؤال: ${q.question}`}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} type="button" role="radio" aria-checked={qScores[q.id] === n} title={SCALE[n]}
+                onClick={() => setQScores((s) => {
+                  const next = { ...s };
+                  if (next[q.id] === n) delete next[q.id]; else next[q.id] = n;   // press again to clear
+                  return next;
+                })}
+                className={`w-7 h-7 rounded-md text-xs font-bold tabular-nums border transition ${qScores[q.id] === n
+                  ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 text-slate-600 hover:border-amber-400'}`}>
+                {n}
+              </button>
+            ))}
+          </span>
+          </div>
           {(q.expected_answer || (q.evaluation_criteria || []).length > 0) && (
             <button type="button" onClick={() => setShowAnswer((a) => ({ ...a, [q.id]: !a[q.id] }))}
               className="ms-2 text-xs text-[#1e3a8a] font-semibold">
@@ -121,12 +152,17 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
               )}
             </div>
           )}
+          {qScores[q.id] && (
+            <input value={notes[`q:${q.id}`] || ''} onChange={(e) => setNotes((x) => ({ ...x, [`q:${q.id}`]: e.target.value }))}
+              placeholder="ملاحظة على الإجابة (اختياري)" aria-label="ملاحظة على الإجابة"
+              className="mt-1 w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+          )}
         </li>
       ))}
     </ol>
   );
 
-  const allRated = criteria.length > 0 && criteria.every((c) => scores[c.key]);
+  const allRated = criteria.length > 0 && criteria.every((c) => effective(c));
   const passing = profile?.passing_score ?? 70;
 
   const submit = async () => {
@@ -141,7 +177,12 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
         strengths: form.strengths || null,
         concerns: form.concerns || null,
         recommendation: form.recommendation,
-        scores: criteria.map((c) => ({ criterion_key: c.key, score: scores[c.key], note: notes[c.key] || null })),
+        scores: criteria.map((c) => ({ criterion_key: c.key, score: effective(c), note: notes[c.key] || null })),
+        question_scores: questions.filter((q) => qScores[q.id]).map((q) => ({
+          question_id: q.id, question: q.question, category: q.category,
+          criterion_key: (criteria.find((c) => c.category === q.category) || {}).key || null,
+          score: qScores[q.id], note: notes[`q:${q.id}`] || null,
+        })),
       }, auth());
       setMsg({ type: 'ok', text: `${data.message} — درجتك ${data.evaluation.weighted_score}` });
       onSubmitted?.(data.evaluation);
@@ -204,7 +245,7 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
             <span className="flex items-center gap-2"><MessageSquareText className="w-4 h-4 text-[#1e3a8a]" aria-hidden />أسئلة عامة ({otherQuestions.length})</span>
             <ChevronDown className={`w-4 h-4 transition ${openQs.__other ? 'rotate-180' : ''}`} aria-hidden />
           </button>
-          {openQs.__other && <QuestionList list={otherQuestions} />}
+          {openQs.__other && QuestionList({ list: otherQuestions, counted: false })}
         </section>
       )}
 
@@ -233,6 +274,12 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
                   </button>
                 )}
               </div>
+              {fromQuestions(c) ? (
+                <div className="text-end">
+                  <p className="text-2xl font-extrabold text-amber-600 tabular-nums">{fromQuestions(c).avg.toFixed(1)}<span className="text-sm text-slate-400"> / 5</span></p>
+                  <p className="text-xs text-slate-500">متوسط {fromQuestions(c).n} {fromQuestions(c).n === 1 ? 'سؤال' : 'أسئلة'} · +{contributions[c.key] ?? 0}</p>
+                </div>
+              ) : (
               <div className="flex items-center gap-1" role="radiogroup" aria-label={c.label}>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button key={n} type="button" role="radio" aria-checked={scores[c.key] === n}
@@ -246,11 +293,12 @@ export default function InterviewScorecard({ candidateId, jobProfileId, onSubmit
                   {scores[c.key] ? `${SCALE[scores[c.key]]} · +${contributions[c.key] ?? 0}` : 'لم يُقيَّم'}
                 </span>
               </div>
+              )}
             </div>
             <input value={notes[c.key] || ''} onChange={(e) => setNotes((n) => ({ ...n, [c.key]: e.target.value }))}
               placeholder="ملاحظة (اختياري)" aria-label={`ملاحظة على ${c.label}`}
               className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
-            {openQs[c.key] && <QuestionList list={byCategory[c.category] || []} />}
+            {openQs[c.key] && QuestionList({ list: byCategory[c.category] || [] })}
           </div>
         ))}
       </section>

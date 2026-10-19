@@ -396,6 +396,20 @@ export default function RecruitmentPage() {
                 <p className="tabular-nums font-bold">{e.weighted_score}
                   <span className={`ms-3 text-xs font-semibold ${RECOMMENDATION[e.recommendation]?.[1]}`}>{RECOMMENDATION[e.recommendation]?.[0]}</span></p>
               </div>
+              {(e.question_scores || []).length > 0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs font-semibold text-[#1e3a8a]">درجات الأسئلة ({e.question_scores.length})</summary>
+                  <ol className="mt-2 space-y-1 list-decimal ps-5">
+                    {e.question_scores.map((q) => (
+                      <li key={q.question_id}>
+                        <span className="text-slate-700">{q.question}</span>
+                        <b className="ms-2 tabular-nums text-amber-600">{q.score}/5</b>
+                        {q.note && <span className="block text-xs text-slate-500">{q.note}</span>}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              )}
               {e.strengths && <p className="mt-2 text-emerald-800"><b>قوة:</b> {e.strengths}</p>}
               {e.concerns && <p className="mt-1 text-red-800"><b>تحفظ:</b> {e.concerns}</p>}
             </div>

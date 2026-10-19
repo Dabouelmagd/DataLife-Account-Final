@@ -279,6 +279,23 @@ async def set_candidate_stage(candidate_id: str, payload: dict,
 # ══════════════════════════════════════════
 # SCORECARDS
 # ══════════════════════════════════════════
+def _with_question_averages(scores, question_scores, weights):
+    """A criterion with scored questions takes their average, computed here
+    rather than trusted from the browser, so the card and the questions on it
+    can never disagree."""
+    by_crit = {}
+    for q in question_scores or []:
+        if q.criterion_key in weights:
+            by_crit.setdefault(q.criterion_key, []).append(q.score)
+    out = []
+    for s in scores:
+        vals = by_crit.get(s.criterion_key)
+        if vals:
+            s = s.model_copy(update={"score": round(sum(vals) / len(vals), 2), "from_questions": len(vals)})
+        out.append(s)
+    return out
+
+
 @router.post("/evaluations")
 async def submit_evaluation(payload: EvaluationIn, current_user: dict = Depends(get_current_user)):
     """تسليم بطاقة تقييم — one card per interviewer, per candidate, per round."""
@@ -314,7 +331,8 @@ async def submit_evaluation(payload: EvaluationIn, current_user: dict = Depends(
         interviewer_name=current_user.get("full_name") or current_user.get("email"),
         round_name=payload.round_name,
         interview_date=payload.interview_date or _now()[:10],
-        scores=payload.scores,
+        scores=_with_question_averages(payload.scores, payload.question_scores, weights),
+        question_scores=payload.question_scores,
         strengths=payload.strengths,
         concerns=payload.concerns,
         recommendation=payload.recommendation,

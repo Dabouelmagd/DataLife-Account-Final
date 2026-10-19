@@ -146,8 +146,23 @@ class InterviewQuestion(BaseModel):
 
 # ── Candidate evaluation (the scorecard) ──────────────────────────────────
 class CriterionScore(BaseModel):
-    """درجة معيار واحد — 1 إلى 5 كما أدخلها المُقيِّم"""
+    """درجة معيار واحد — 1 إلى 5.
+
+    Entered directly, or the average of the questions the interviewer scored
+    under this criterion (so it can be fractional, e.g. 3.7).
+    """
     criterion_key: str = Field(min_length=1, max_length=40)
+    score: float = Field(ge=1, le=5)
+    note: Optional[str] = Field(default=None, max_length=1000)
+    from_questions: int = Field(default=0, ge=0, description="questions averaged into this score")
+
+
+class QuestionScore(BaseModel):
+    """درجة سؤال واحد في المقابلة — 1 إلى 5"""
+    question_id: str = Field(min_length=1, max_length=60)
+    question: str = Field(min_length=1, max_length=1000)          # text as asked, kept with the card
+    category: Optional[str] = Field(default=None, max_length=40)
+    criterion_key: Optional[str] = Field(default=None, max_length=40)  # None: rated but not in the score
     score: int = Field(ge=1, le=5)
     note: Optional[str] = Field(default=None, max_length=1000)
 
@@ -168,6 +183,7 @@ class CandidateEvaluation(BaseModel):
                             description="screening / technical / hr / final")
     interview_date: str = Field(default_factory=lambda: _now()[:10])
     scores: List[CriterionScore] = Field(min_length=1)
+    question_scores: List[QuestionScore] = Field(default_factory=list)
     strengths: Optional[str] = Field(default=None, max_length=2000)
     concerns: Optional[str] = Field(default=None, max_length=2000)
     recommendation: Recommendation = Recommendation.NEUTRAL
@@ -217,6 +233,7 @@ class EvaluationIn(BaseModel):
     round_name: str = Field(default="technical", max_length=60)
     interview_date: Optional[str] = None
     scores: List[CriterionScore] = Field(min_length=1)
+    question_scores: List[QuestionScore] = Field(default_factory=list)
     strengths: Optional[str] = Field(default=None, max_length=2000)
     concerns: Optional[str] = Field(default=None, max_length=2000)
     recommendation: Recommendation = Recommendation.NEUTRAL
