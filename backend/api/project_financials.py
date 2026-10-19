@@ -515,14 +515,14 @@ async def update_project_financials(project_id: str):
     """Update project's financial totals"""
     # Calculate total expenses
     expenses = await db.project_expenses.find(
-        {"project_id": project_id},
+        {"project_id": project_id, "status": {"$ne": "cancelled"}},   # a cancelled item is reversed in the books
         {"amount": 1}
     ).to_list(length=None)
     total_expenses = sum(e.get("amount", 0) for e in expenses)
     
     # Calculate total revenues
     revenues = await db.project_revenues.find(
-        {"project_id": project_id},
+        {"project_id": project_id, "status": {"$ne": "cancelled"}},   # a cancelled item is reversed in the books
         {"amount": 1}
     ).to_list(length=None)
     total_revenues = sum(r.get("amount", 0) for r in revenues)

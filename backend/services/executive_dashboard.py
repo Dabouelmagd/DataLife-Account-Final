@@ -209,7 +209,8 @@ async def build(db, company_id: str, permissions: set, is_manager: bool) -> dict
     pending_invoices = await db.invoices.count_documents(
         {"company_id": company_id, "status": "draft"})
     future = await db.journal_entries.count_documents(
-        {"company_id": company_id, "entry_date": {"$gt": today + "\uffff"}})
+        {"company_id": company_id, "entry_date": {"$gt": today + "\uffff"},
+         "status": {"$in": ["posted", "POSTED"]}, "is_reversal": {"$ne": True}})
     out["sections"]["attention"] = {
         "future_entries": future,
         "draft_invoices": pending_invoices,
