@@ -10,6 +10,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import CandidateReportDashboard from '../components/hr/CandidateReportDashboard';
 import CandidateAssessments from '../components/hr/CandidateAssessments';
 import AssessmentQuestionBank from '../components/hr/AssessmentQuestionBank';
+import JobDetails from '../components/hr/JobDetails';
 import axios from 'axios';
 import {
   Briefcase, Users, Star, Plus, X, Loader2, CheckCircle, UserPlus, ArrowRight,
@@ -351,6 +352,10 @@ export default function RecruitmentPage() {
           <Plus className="w-4 h-4" aria-hidden />إضافة مرشح
         </button>
       </header>
+
+      <JobDetails job={job} onManageQuestions={() => { setJob(null); setTab('questions'); setBankTab('interview'); }} />
+
+      <h2 className="text-lg font-extrabold text-slate-900 pt-2">المرشحون ({candidates.length})</h2>
 
       {msg.text && <p className={`text-sm ${msg.type === 'err' ? 'text-red-700' : 'text-emerald-700'}`} role="status">{msg.text}</p>}
 
