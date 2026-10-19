@@ -125,3 +125,34 @@ def score_aptitude(questions: List[dict], answers: List[dict]) -> Dict:
 
     return {"score": out_of_ten(earned, possible), "correct": correct,
             "attempted": attempted, "area_scores": areas}
+
+
+POLE_NAMES = {"E": "انبساط", "I": "انطواء", "S": "حسّي", "N": "حدسي",
+              "T": "تفكير", "F": "وجدان", "J": "حاسم", "P": "مرن"}
+UNCLEAR_BELOW = 40.0   # average clarity under this: the letters are mostly 3-2 splits
+
+
+def axis_summary(counts: Dict[str, int], clarity: Dict[str, float]) -> List[Dict]:
+    """Per axis: which way the answers lean and by how much, in words.
+
+    A bare "20%" said how decided an axis was but not in which direction, and
+    a 3-to-2 split read the same as a 5-to-0 one in the type code.
+    """
+    out = []
+    for axis, (first, second) in POLES.items():
+        a, b = int(counts.get(first, 0) or 0), int(counts.get(second, 0) or 0)
+        if a == b:
+            lean, strength = None, "غير محسوم"
+        else:
+            lean = first if a > b else second
+            pct = float(clarity.get(axis, 0) or 0)
+            strength = "واضح" if pct >= 60 else "متوسط" if pct >= 40 else "ضعيف"
+        out.append({"axis": axis, "first": first, "second": second, "first_count": a, "second_count": b,
+                    "lean": lean, "lean_name": POLE_NAMES.get(lean, "—"), "strength": strength,
+                    "clarity": float(clarity.get(axis, 0) or 0)})
+    return out
+
+
+def is_unclear(clarity: Dict[str, float]) -> bool:
+    values = [float(v or 0) for v in (clarity or {}).values()]
+    return bool(values) and sum(values) / len(values) < UNCLEAR_BELOW

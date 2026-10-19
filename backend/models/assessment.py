@@ -194,6 +194,7 @@ class FinalCandidateReport(BaseModel):
     personality_label: Optional[str] = None
     personality_traits: List[str] = Field(default_factory=list)
     personality_clarity: Dict[str, float] = Field(default_factory=dict)
+    personality_counts: Dict[str, int] = Field(default_factory=dict)   # answers per pole, e.g. {"I": 3, "E": 2}
     advisory_only: bool = True                    # never part of any threshold
 
     ai_summary: Optional[str] = None
@@ -209,6 +210,11 @@ class FinalCandidateReport(BaseModel):
         """التوصية — من المقابلات والقدرات فقط، ولا أثر للنمط فيها."""
         if self.interview_score is None and self.aptitude_score is None:
             return "لا توجد بيانات كافية"
+        # the job's passing score is an interview score; with no interview
+        # there is nothing to compare it with, so no hiring verdict is given
+        # (a strong aptitude test alone used to read as "recommended")
+        if self.interview_score is None:
+            return "التقييم غير مكتمل — لم تُجرَ مقابلة بعد"
         interview_ok = self.interview_score is not None and self.interview_score >= self.passing_score
         aptitude_ok = self.aptitude_score is None or self.aptitude_score >= 6
         negatives = self.recommendations.get("no", 0) + self.recommendations.get("strong_no", 0)

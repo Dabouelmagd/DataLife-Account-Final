@@ -25,6 +25,10 @@ const AREA_LABELS = {
   attention: 'دقة ملاحظة', situational: 'مواقف عملية',
 };
 const AXIS_LABELS = { EI: 'انبساط / انطواء', SN: 'حسّي / حدسي', TF: 'تفكير / وجدان', JP: 'حاسم / مرن' };
+const AXIS_POLES = { EI: ['E', 'I'], SN: ['S', 'N'], TF: ['T', 'F'], JP: ['J', 'P'] };
+const POLE_NAMES = { E: 'انبساط', I: 'انطواء', S: 'حسّي', N: 'حدسي', T: 'تفكير', F: 'وجدان', J: 'حاسم', P: 'مرن' };
+const REC_LABELS = { strong_yes: 'يرشّح بقوة', yes: 'يرشّح', neutral: 'محايد', no: 'لا يرشّح', strong_no: 'يرفض بقوة' };
+const TEN_TICKS = [0, 2, 4, 6, 8, 10];   // even steps; 0-3-6-10 read as uneven
 
 const verdictStyle = (verdict = '') => {
   if (verdict.includes('لا يُرشَّح')) return { cls: 'bg-red-50 text-red-700 border-red-200', Icon: XCircle };
@@ -116,6 +120,10 @@ export default function CandidateReportDashboard({ candidateId, language = 'ar' 
 
   const { cls: verdictCls, Icon: VerdictIcon } = verdictStyle(report.recommendation);
   const card = 'bg-white rounded-2xl border border-slate-200 p-5';
+  // same rule as the PDF: mostly 3-2 splits means the type is not settled
+  const clarityValues = Object.values(report.personality_clarity || {}).map(Number);
+  const unclearType = clarityValues.length > 0
+    && clarityValues.reduce((a, b) => a + b, 0) / clarityValues.length < 40;
 
   return (
     <div dir={ar ? 'rtl' : 'ltr'} className="space-y-4 text-slate-800">
@@ -172,8 +180,8 @@ export default function CandidateReportDashboard({ candidateId, language = 'ar' 
               value={report.aptitude_score != null ? `${report.aptitude_score}` : '—'}
               suffix={ar ? 'من 10' : '/10'} />
         <Stat icon={ClipboardList} label={ar ? 'التوصيات' : 'Recommendations'}
-              value={Object.entries(report.recommendations || {}).map(([k, v]) => `${v}`).join(' / ') || '—'}
-              suffix={Object.keys(report.recommendations || {}).join(' / ') || ''} />
+              value={Object.values(report.recommendations || {}).reduce((a, b) => a + b, 0) || '—'}
+              suffix={Object.entries(report.recommendations || {}).map(([k, v]) => `${REC_LABELS[k] || k} ${v}`).join(' · ')} />
       </div>
 
       {/* comparison across areas */}
@@ -182,10 +190,10 @@ export default function CandidateReportDashboard({ candidateId, language = 'ar' 
           <h3 className="font-bold mb-2">{ar ? 'المقارنة بين المجالات (من 10)' : 'Across areas (out of 10)'}</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData} outerRadius="72%">
+              <RadarChart data={radarData} outerRadius="62%">
                 <PolarGrid stroke="#e2e8f0" />
                 <PolarAngleAxis dataKey="area" tick={{ fontSize: 12, fill: '#475569' }} />
-                <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                <PolarRadiusAxis domain={[0, 10]} ticks={TEN_TICKS} angle={90} tick={{ fontSize: 10, fill: '#94a3b8' }} />
                 <Radar name={report.candidate_name} dataKey="score"
                        stroke="#1e3a8a" fill="#1e3a8a" fillOpacity={0.25} />
                 <Tooltip formatter={(v) => [`${v} / 10`, ar ? 'الدرجة' : 'Score']} />
@@ -208,7 +216,7 @@ export default function CandidateReportDashboard({ candidateId, language = 'ar' 
                 area: AREA_LABELS[k] || k, score: Number(v) }))}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
                 <XAxis dataKey="area" tick={{ fontSize: 12, fill: '#475569' }} />
-                <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <YAxis domain={[0, 10]} ticks={TEN_TICKS} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                 <Tooltip formatter={(v) => [`${v} / 10`, ar ? 'الدرجة' : 'Score']} />
                 <Bar dataKey="score" fill="#1e3a8a" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -228,10 +236,17 @@ export default function CandidateReportDashboard({ candidateId, language = 'ar' 
                 {ar ? 'استرشادي' : 'Advisory'}
               </span>
             </h3>
-            <span className="font-mono text-2xl font-extrabold text-slate-700 tracking-widest">
+            <span className={`font-mono text-2xl font-extrabold tracking-widest ${unclearType ? 'text-slate-400' : 'text-slate-700'}`}>
               {report.personality_type}
             </span>
           </div>
+          {unclearType && (
+            <p className="mt-2 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden />
+              {ar ? 'النمط غير محسوم: الإجابات انقسمت تقريباً بالتساوي في معظم المحاور، فالحروف أعلاه لا تصف المرشح بثقة. يُفضَّل إعادة الاختبار أو تجاهل هذا القسم.'
+                  : 'Unsettled: answers split almost evenly on most axes.'}
+            </p>
+          )}
           <p className="mt-1 text-slate-700 font-semibold">{report.personality_label}</p>
           {report.personality_traits?.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -242,18 +257,37 @@ export default function CandidateReportDashboard({ candidateId, language = 'ar' 
           )}
           {Object.keys(report.personality_clarity || {}).length > 0 && (
             <div className="mt-3 space-y-1.5">
-              {Object.entries(report.personality_clarity).map(([axis, pct]) => (
-                <div key={axis} className="flex items-center gap-2 text-xs">
-                  <span className="w-32 text-slate-500 shrink-0">{AXIS_LABELS[axis] || axis}</span>
-                  <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-slate-400" style={{ width: `${Math.min(pct, 100)}%` }} />
+              {Object.entries(report.personality_clarity).map(([axis, pct]) => {
+                const [p1, p2] = AXIS_POLES[axis] || [];
+                const c1 = Number(report.personality_counts?.[p1] || 0);
+                const c2 = Number(report.personality_counts?.[p2] || 0);
+                const total = c1 + c2;
+                const lean = c1 === c2 ? null : (c1 > c2 ? p1 : p2);
+                const strength = !lean ? 'غير محسوم' : pct >= 60 ? 'واضح' : pct >= 40 ? 'متوسط' : 'ضعيف';
+                return (
+                  <div key={axis} className="text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-slate-600">{AXIS_LABELS[axis] || axis}</span>
+                      <span className="text-slate-700">
+                        {lean ? <>يميل إلى <b>{POLE_NAMES[lean]}</b></> : <b>متعادل</b>}
+                        <span className={`ms-1.5 px-1.5 py-0.5 rounded ${strength === 'واضح' ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>{strength}</span>
+                      </span>
+                    </div>
+                    {/* two-sided bar: share of answers for each pole */}
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="w-14 text-slate-500 tabular-nums">{POLE_NAMES[p1]} {c1}</span>
+                      <div className="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden flex" aria-hidden>
+                        <div className="h-full bg-slate-500" style={{ width: total ? `${(c1 / total) * 100}%` : '50%' }} />
+                        <div className="h-full bg-slate-300" style={{ width: total ? `${(c2 / total) * 100}%` : '50%' }} />
+                      </div>
+                      <span className="w-14 text-end text-slate-500 tabular-nums">{c2} {POLE_NAMES[p2]}</span>
+                    </div>
                   </div>
-                  <span className="w-12 text-end tabular-nums text-slate-500">{pct}%</span>
-                </div>
-              ))}
+                );
+              })}
               <p className="text-xs text-slate-500 pt-1">
-                {ar ? 'النسبة تعني مدى حسم الإجابات لهذا المحور — النسبة المنخفضة تعني أن الحرف شبه عشوائي.'
-                    : 'How decisively the answers settled each axis.'}
+                {ar ? 'الأرقام هي عدد الإجابات التي مالت لكل جانب من 5 أسئلة لكل محور. فرق 3 مقابل 2 «ضعيف»، و4 مقابل 1 «متوسط»، و5 مقابل 0 «واضح».'
+                    : 'Answers per side, out of the questions on each axis.'}
               </p>
             </div>
           )}

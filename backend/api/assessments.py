@@ -347,6 +347,7 @@ async def _build_report(company_id: str, candidate_id: str, user_id: str = None)
         personality_label=described.get("label"),
         personality_traits=described.get("traits") or [],
         personality_clarity=(psych or {}).get("clarity") or {},
+        personality_counts=(psych or {}).get("dichotomy_scores") or {},
         passing_score=float(profile.get("passing_score", 70) or 70),
         generated_by=user_id)
     return report.model_dump(mode="json")
@@ -463,10 +464,21 @@ def _render_pdf(report: dict, company_name: str) -> bytes:
 
     if report.get("personality_type"):
         flow.append(Paragraph(ar("ملف الشخصية (استرشادي)"), head))
-        flow.append(table([
-            [ar("النمط"), ar(f"{report['personality_type']} — {report.get('personality_label') or ''}")],
+        from services.assessment_scoring import axis_summary, is_unclear
+        unclear = is_unclear(report.get("personality_clarity") or {})
+        rows_p = [
+            [ar("النمط"), ar(f"{report['personality_type']} — {report.get('personality_label') or ''}"
+                            + (" · غير محسوم" if unclear else ""))],
             [ar("سمات مرتبطة"), ar("، ".join(report.get("personality_traits") or []) or "—")],
-        ], [50 * mm, 120 * mm]))
+        ]
+        for ax in axis_summary(report.get("personality_counts") or {}, report.get("personality_clarity") or {}):
+            from services.assessment_scoring import POLE_NAMES as _PN
+            rows_p.append([ar(f"{_PN[ax['first']]} / {_PN[ax['second']]}"),
+                           ar(f"{_PN[ax['first']]} {ax['first_count']} — {_PN[ax['second']]} {ax['second_count']}"
+                              f" · يميل إلى {ax['lean_name']} ({ax['strength']})")])
+        flow.append(table(rows_p, [50 * mm, 120 * mm]))
+        if unclear:
+            flow.append(Paragraph(ar("الإجابات لم تحسم معظم المحاور، فالنمط أعلاه غير واضح ولا يُعتمد عليه."), note))
         flow.append(Spacer(1, 4))
         flow.append(Paragraph(ar(
             "هذه النتيجة استرشادية لفهم أسلوب العمل المفضّل، ولم تدخل في أي درجة أو توصية. "
