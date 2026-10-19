@@ -8,6 +8,12 @@ import {
 import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
+const DOC_TYPE_AR = {
+  cv: 'السيرة الذاتية', appointment_letter: 'خطاب التعيين', contract: 'عقد العمل',
+  national_id: 'البطاقة الشخصية', passport: 'جواز السفر', certificate: 'شهادة علمية',
+  insurance_card: 'كارنيه التأمين', medical_report: 'تقرير طبي', bank_account: 'بيانات الحساب البنكي',
+  criminal_record: 'صحيفة الحالة الجنائية', other: 'أخرى',
+};
 
 const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
   const [employee, setEmployee] = useState(null);
@@ -386,9 +392,54 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
       if (response.ok) {
         toast.success(language === 'ar' ? 'تم رفع الصورة بنجاح' : 'Photo uploaded successfully');
         fetchEmployee();
+      } else {
+        const err = await response.json().catch(() => ({}));
+        toast.error(typeof err.detail === 'string' ? err.detail
+          : (language === 'ar' ? 'تعذّر رفع الصورة — المسموح JPG أو PNG أو WEBP' : 'Photo upload failed'));
       }
     } catch (error) {
       toast.error(language === 'ar' ? 'خطأ في رفع الصورة' : 'Error uploading photo');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  // السيرة الذاتية — one current CV per employee; a new upload replaces the old one
+  const [cvBusy, setCvBusy] = useState(false);
+  const handleCvUpload = async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error(language === 'ar' ? 'حجم الملف أكبر من 10 ميجا' : 'File is larger than 10 MB');
+      return;
+    }
+    const oldCvs = (employee?.documents || []).filter((d) => d.document_type === 'cv');
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', 'cv');
+    formData.append('name', `${language === 'ar' ? 'السيرة الذاتية' : 'CV'} — ${employee?.name || ''}`.trim());
+    setCvBusy(true);
+    try {
+      const response = await fetch(`${API_URL}/api/employees/${employeeId}/documents`, {
+        method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: formData,
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        toast.error(typeof err.detail === 'string' ? err.detail : (language === 'ar' ? 'تعذّر رفع السيرة الذاتية' : 'CV upload failed'));
+        return;
+      }
+      for (const d of oldCvs) {
+        await fetch(`${API_URL}/api/employees/${employeeId}/documents/${d.id}`, {
+          method: 'DELETE', headers: getAuthHeader(),
+        }).catch(() => {});
+      }
+      toast.success(language === 'ar' ? 'تم رفع السيرة الذاتية' : 'CV uploaded');
+      fetchEmployee();
+    } catch (error) {
+      toast.error(language === 'ar' ? 'خطأ في رفع السيرة الذاتية' : 'Error uploading CV');
+    } finally {
+      setCvBusy(false);
     }
   };
 
@@ -405,6 +456,9 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
         toast.success(language === 'ar' ? 'تم رفع المستند بنجاح' : 'Document uploaded successfully');
         setShowDocumentModal(false);
         fetchEmployee();
+      } else {
+        const err = await response.json().catch(() => ({}));
+        toast.error(typeof err.detail === 'string' ? err.detail : (language === 'ar' ? 'تعذّر رفع المستند' : 'Upload failed'));
       }
     } catch (error) {
       toast.error(language === 'ar' ? 'خطأ في رفع المستند' : 'Error uploading document');
@@ -593,8 +647,9 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
               <input 
                 type="file" 
                 className="hidden" 
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 onChange={handlePhotoUpload}
+                aria-label={language === 'ar' ? 'رفع صورة الموظف' : 'Upload photo'}
               />
             </label>
           </div>
@@ -661,6 +716,26 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
                 </span>
               )}
             </div>
+            {(() => {
+              const cv = (employee.documents || []).filter((d) => d.document_type === 'cv').slice(-1)[0];
+              return (
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm" data-testid="employee-cv">
+                  <FileText className="h-4 w-4 text-blue-500" aria-hidden />
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{language === 'ar' ? 'السيرة الذاتية:' : 'CV:'}</span>
+                  {cv ? (
+                    <a href={`${API_URL}${cv.file_url}`} target="_blank" rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline">{cv.file_name || (language === 'ar' ? 'عرض' : 'View')}</a>
+                  ) : (
+                    <span className="text-gray-500">{language === 'ar' ? 'لم تُرفع بعد' : 'not uploaded'}</span>
+                  )}
+                  <label className={`px-3 py-1 rounded-lg border border-blue-300 text-blue-700 font-semibold cursor-pointer hover:bg-blue-50 ${cvBusy ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {cvBusy ? '…' : cv ? (language === 'ar' ? 'تغيير' : 'Replace') : (language === 'ar' ? 'رفع السيرة الذاتية' : 'Upload CV')}
+                    <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleCvUpload} />
+                  </label>
+                  <span className="text-xs text-gray-400">PDF / Word · 10MB</span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Salary Summary */}
@@ -1179,7 +1254,7 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
                         <FileText className="h-10 w-10 text-blue-500" />
                         <div>
                           <p className="font-medium">{doc.name}</p>
-                          <p className="text-sm text-gray-500">{doc.document_type}</p>
+                          <p className="text-sm text-gray-500">{DOC_TYPE_AR[doc.document_type] || doc.document_type}</p>
                           {doc.expiry_date && (
                             <p className="text-xs text-gray-400">{t.expiry_date}: {doc.expiry_date}</p>
                           )}
@@ -1298,6 +1373,7 @@ const DocumentUploadModal = ({ onClose, onUpload, t, language }) => {
   const [expiryDate, setExpiryDate] = useState('');
 
   const documentTypes = [
+    { value: 'cv', label: language === 'ar' ? '👤 السيرة الذاتية' : '👤 CV / Resume' },
     { value: 'appointment_letter', label: language === 'ar' ? '📄 خطاب التعيين' : '📄 Appointment Letter' },
     { value: 'contract', label: language === 'ar' ? '📝 عقد العمل' : '📝 Employment Contract' },
     { value: 'national_id', label: language === 'ar' ? '🪪 البطاقة الشخصية' : '🪪 National ID' },

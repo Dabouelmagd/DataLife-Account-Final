@@ -21,6 +21,7 @@ class DocumentType(str, Enum):
     MEDICAL_REPORT = "medical_report"          # تقرير طبي
     BANK_ACCOUNT = "bank_account"              # بيانات الحساب البنكي
     CRIMINAL_RECORD = "criminal_record"        # صحيفة الحالة الجنائية
+    CV = "cv"                                  # السيرة الذاتية
     OTHER = "other"                            # أخرى
 
 

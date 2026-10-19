@@ -363,10 +363,13 @@ async def upload_employee_photo(
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="نوع الملف غير مدعوم")
     
-    # حفظ الملف
-    ext = file.filename.split(".")[-1]
-    filename = f"{employee_id}_photo.{ext}"
+    # حفظ الملف — the extension follows the checked content type, never the
+    # client's file name, and every upload gets a new name so the browser does
+    # not keep showing the old picture from its cache
+    ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[file.content_type]
+    filename = f"{employee_id}_photo_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = os.path.join(UPLOAD_DIR, filename)
+    old_photo = employee.get("photo_url") or ""
     
     async with aiofiles.open(filepath, "wb") as f:
         from services.upload_limits import read_limited as _rl, PHOTO_LIMIT as _LIM
@@ -379,6 +382,11 @@ async def upload_employee_photo(
         {"id": employee_id},
         {"$set": {"photo_url": photo_url, "updated_at": datetime.utcnow()}}
     )
+    if old_photo.startswith("/api/uploads/employees/") and old_photo != photo_url:
+        try:                               # the replaced picture is no longer served
+            os.remove(os.path.join(UPLOAD_DIR, os.path.basename(old_photo)))
+        except OSError:
+            pass
     
     return {"message": "تم رفع الصورة بنجاح", "photo_url": photo_url}
 
@@ -423,6 +431,11 @@ async def upload_employee_document(
     if not employee:
         raise HTTPException(status_code=404, detail="الموظف غير موجود")
     
+    try:
+        doc_type = DocumentType(document_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="نوع المستند غير معروف")
+
     # حفظ الملف
     doc_id = str(uuid.uuid4())
     # the extension came straight from the client: "contract.html" was stored and
@@ -442,7 +455,7 @@ async def upload_employee_document(
     
     document = EmployeeDocument(
         id=doc_id,
-        document_type=DocumentType(document_type),
+        document_type=doc_type,
         name=name,
         file_url=file_url,
         file_name=file.filename,

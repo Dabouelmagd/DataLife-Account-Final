@@ -526,24 +526,28 @@ export const SalariesModule = ({ language, userRole, onNavigateToEmployees }) =>
                   }
 
                   // Upload appointment documents
-                  for (const [docKey, docType] of [['appointment_letter','appointment_letter'],['national_id_doc','national_id'],['contract_doc','contract']]) {
+                  const failedDocs = [];
+                  for (const [docKey, docType] of [['cv_doc','cv'],['appointment_letter','appointment_letter'],['national_id_doc','national_id'],['contract_doc','contract']]) {
                     const docFile = formData.get(docKey);
                     if (docFile && docFile.size > 0 && employeeId) {
                       const docForm = new FormData();
                       docForm.append('file', docFile);
                       docForm.append('document_type', docType);
-                      docForm.append('document_name', docFile.name);
-                      await fetch(`${API_URL}/api/employees/${employeeId}/documents`, {
+                      docForm.append('name', docFile.name);   // the API reads "name"; "document_name" was rejected
+                      const up = await fetch(`${API_URL}/api/employees/${employeeId}/documents`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` },
                         body: docForm,
-                      }).catch(() => {});
+                      }).catch(() => null);
+                      if (!up || !up.ok) failedDocs.push(docFile.name);
                     }
                   }
 
                   setSalaries(prev => [...prev, { ...saved, name: saved.full_name, basicSalary: saved.basic_salary }]);
                   setShowAddModal(false);
-                  setSuccessMessage(language === 'ar' ? 'تم إضافة الموظف بنجاح مع الصورة والمستندات!' : 'Employee added successfully with photo & documents!');
+                  setSuccessMessage(failedDocs.length
+                    ? (language === 'ar' ? `تم إضافة الموظف — لكن لم تُرفع: ${failedDocs.join('، ')}. ارفعها من ملف الموظف.` : `Employee added — not uploaded: ${failedDocs.join(', ')}`)
+                    : (language === 'ar' ? 'تم إضافة الموظف بنجاح مع الصورة والمستندات!' : 'Employee added successfully with photo & documents!'));
                   setShowSuccessModal(true);
                   setTimeout(() => setShowSuccessModal(false), 3000);
                 } else {
@@ -563,7 +567,7 @@ export const SalariesModule = ({ language, userRole, onNavigateToEmployees }) =>
                 <input
                   type="file"
                   name="photo"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600"
                 />
                 <p className="text-xs text-gray-500 mt-2">{language === 'ar' ? 'صيغ مدعومة: JPG, PNG, JPEG (حد أقصى 5MB)' : 'Supported formats: JPG, PNG, JPEG (Max 5MB)'}</p>
@@ -1028,7 +1032,20 @@ export const SalariesModule = ({ language, userRole, onNavigateToEmployees }) =>
                     {language === 'ar' ? 'أوراق التعيين (اختياري)' : 'Appointment Documents (Optional)'}
                   </h4>
                 </div>
-                <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* CV */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">
+                      👤 {language === 'ar' ? 'السيرة الذاتية (CV)' : 'CV / Resume'}
+                    </label>
+                    <input
+                      type="file"
+                      name="cv_doc"
+                      accept=".pdf,.doc,.docx"
+                      className="w-full text-xs border border-dashed border-indigo-300 rounded-lg p-2 bg-white file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-indigo-500 file:text-white hover:file:bg-indigo-600 cursor-pointer"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">PDF, DOC</p>
+                  </div>
                   {/* Appointment Letter */}
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-2">
