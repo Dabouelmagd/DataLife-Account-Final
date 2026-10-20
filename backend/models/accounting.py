@@ -343,6 +343,7 @@ DEFAULT_ACCOUNTS = [
     {"code": "133", "name": "عهد الموظفين النقدية", "name_en": "Employee Cash Custody", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "13"},
     {"code": "134", "name": "سلف الموظفين", "name_en": "Employee Advances", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "13"},
     {"code": "135", "name": "مصروفات مدفوعة مقدماً", "name_en": "Prepaid Expenses", "type": AccountType.ASSET, "category": AccountCategory.PREPAYMENT, "parent_code": "13"},
+    {"code": "1351", "name": "دفعات مقدمة لمقاولي الباطن والموردين", "name_en": "Advances to Subcontractors & Suppliers", "type": AccountType.ASSET, "category": AccountCategory.PREPAYMENT, "parent_code": "13"},
     {"code": "136", "name": "إيرادات مستحقة", "name_en": "Accrued Revenue", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "13"},
     
     # 14 - مشروعات تحت التنفيذ

@@ -135,130 +135,133 @@ async def get_progress_claims(project_id: str, current_user: dict = Depends(get_
     ).sort("claim_number", 1).to_list(length=100)
     return {"claims": claims}
 
+# ── rates ────────────────────────────────────────────────────
+# Law 91/2005 art. 59 (withholding on payments to residents):
+#   contracts & supplies 1% | services 3% | professional fees / commissions 5%
+WHT_RATES = {"none": 0.0, "contracts": 0.01, "services": 0.03, "professional": 0.05}
+# VAT on contracting: 5% table tax (Law 67/2016 schedule) or the 14% general rate
+VAT_RATES = (0.0, 0.05, 0.14)
+
+
+def _rate(value, allowed, label):
+    """Accept 0.05 or 5 for 5%; refuse anything the law does not use."""
+    r = float(value)
+    if r >= 1:            # 1, 3, 5, 14 mean percent; no rate here is 100%
+        r = r / 100
+    r = round(r, 4)
+    if r not in allowed:
+        pct = "، ".join(f"{a*100:g}%" for a in allowed)
+        raise HTTPException(400, f"نسبة {label} غير صحيحة — المسموح: {pct}")
+    return r
+
+
+def _wht_rate(data: dict, default_type: str) -> tuple:
+    if data.get("withholding_tax_rate") not in (None, ""):
+        r = _rate(data["withholding_tax_rate"], tuple(WHT_RATES.values()), "الخصم والتحصيل")
+        kind = next(k for k, v in WHT_RATES.items() if v == r)
+        return r, kind
+    kind = data.get("wht_type") or default_type
+    if kind not in WHT_RATES:
+        raise HTTPException(400, "wht_type: none | contracts | services | professional")
+    return WHT_RATES[kind], kind
+
+
+async def _post_claim_entry(company_id: str, user_id: str, date: str, description: str,
+                            spec: list, source_type: str, source_id: str) -> dict:
+    """spec: [(codes, debit, credit, text, extra)] — codes is a tuple of
+    acceptable account codes, first found wins. Every line must find its
+    account and the entry must balance, or nothing is saved: the old code
+    skipped any line whose account was missing (521, a code that does not
+    exist) and saved unbalanced drafts."""
+    from models.accounting import JournalEntry, JournalEntryLine
+    from services.accounting_service import AccountingService
+    svc = AccountingService(db)
+    by_code = {a["account_code"]: a for a in await svc.get_all_accounts(company_id, True)}
+    lines = []
+    for codes, debit, credit, text, extra in spec:
+        debit, credit = round(debit or 0, 2), round(credit or 0, 2)
+        if not debit and not credit:
+            continue
+        acc = next((by_code[c] for c in codes if c in by_code), None)
+        if not acc:
+            raise HTTPException(400, f"الحساب {' أو '.join(codes)} غير موجود في دليل الحسابات — "
+                                     "أضفه أو شغّل مزامنة الحسابات الافتراضية")
+        lines.append(JournalEntryLine(account_id=acc["id"], account_code=acc["account_code"],
+                                      account_name=acc["account_name"], debit=debit, credit=credit,
+                                      description=text, **(extra or {})))
+    dr = round(sum(l.debit for l in lines), 2)
+    cr = round(sum(l.credit for l in lines), 2)
+    if abs(dr - cr) > 0.01:
+        raise HTTPException(400, f"القيد غير متوازن (مدين {dr} / دائن {cr}) — راجع الأرقام")
+    entry = JournalEntry(company_id=company_id, entry_number=0, entry_date=date, description=description,
+                         lines=lines, source_document_type=source_type, source_document_id=source_id,
+                         created_by=user_id)
+    je = await svc.create_journal_entry(entry)
+    await svc.post_journal_entry(je["id"], user_id)
+    return {"id": je["id"], "debit": dr, "credit": cr}
+
+
 @router.post("/progress-claims")
 async def create_progress_claim(data: dict, current_user: dict = Depends(get_user)):
+    """مستخلص للمالك (claim_type=owner) — المعيار المصري 8.
+
+    من مذكورين:  العملاء (الصافي + VAT) | ضمان محتجز لدى العميل | خصم وتحصيل محتجز
+                 | الدفعات المقدمة المستلمة (تُستهلك من المستخلص)
+    إلى مذكورين: إيرادات المقاولات (قيمة المستخلص الحالي) | VAT مخرجات
+
+    The advance deducted used to be CREDITED to 257, so the entry was out by
+    twice the advance. Using the advance reduces what the customer paid in
+    advance — a debit to 257.
+    """
     company_id = current_user.get("company_id")
+    user_id = current_user.get("user_id", "system")
     data["company_id"] = company_id
     data["id"] = str(uuid.uuid4())
     data["created_at"] = datetime.now(timezone.utc).isoformat()
+    data.setdefault("claim_date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
 
-    # Auto-calculate amounts
-    gross   = float(data.get("gross_amount", 0))
-    prev    = float(data.get("previous_claims", 0))
-    current = gross - prev
-    ret_pct = float(data.get("retention_percentage", 10)) / 100
-    ret_amt = round(current * ret_pct, 2)
-    adv_ded = float(data.get("advance_payment_deducted", 0))
-    # قانون VAT المصري: المادة 54 — خدمات المقاولات تخضع لجدول 5% (ليس 14%)
-    # إلا إذا كانت مقاولات خاصة معينة تخضع 14% — يمكن التغيير حسب طبيعة العقد
-    vat_rate = float(data.get("vat_rate", 0.05))   # 5% جدول مقاولات (default)
-    # قانون 91/2005 م.59: خصم وتحصيل = 1% مقاولات/توريدات | 3% خدمات
-    wht_rate = float(data.get("withholding_tax_rate", 0.01))  # 1% مقاولات (default)
+    gross = float(data.get("gross_amount", 0) or 0)
+    prev = float(data.get("previous_claims", 0) or 0)
+    current = round(gross - prev, 2)
+    if current <= 0:
+        raise HTTPException(400, "قيمة المستخلص الحالي (الإجمالي − السابق) يجب أن تكون أكبر من صفر")
+    ret_pct = float(data.get("retention_percentage", 10) or 0)
+    ret_amt = round(current * ret_pct / 100, 2)
+    adv_ded = round(float(data.get("advance_payment_deducted", 0) or 0), 2)
+    vat_rate = _rate(data.get("vat_rate", 0.05), VAT_RATES, "ضريبة القيمة المضافة")
+    wht_rate, wht_kind = _wht_rate(data, "contracts")
     vat_amt = round(current * vat_rate, 2)
     wht_amt = round(current * wht_rate, 2)
-    # المعيار المحاسبي المصري رقم 8: صافي المستحق = القيمة - المحتجزات - الخصومات
-    # VAT is a SEPARATE obligation — not added to net receivable
-    net     = round(current - ret_amt - adv_ded - wht_amt, 2)
-    # Total invoice (AR): net + VAT
+    net = round(current - ret_amt - adv_ded - wht_amt, 2)
+    if net < 0:
+        raise HTTPException(400, "المحتجزات والدفعة المقدمة والخصم أكبر من قيمة المستخلص")
     ar_amount = round(net + vat_amt, 2)
 
-    data.update({
-        "current_claim": round(current, 2),
-        "retention_amount": ret_amt,
-        "vat_amount": vat_amt,
-        "withholding_tax_amount": wht_amt,
-        "net_payable": net,
-    })
+    data.update({"current_claim": current, "retention_amount": ret_amt, "vat_rate": vat_rate,
+                 "vat_amount": vat_amt, "withholding_tax_rate": wht_rate, "wht_type": wht_kind,
+                 "withholding_tax_amount": wht_amt, "net_payable": net, "ar_amount": ar_amount})
+
+    je = None
+    if data.get("claim_type", "owner") == "owner":
+        data["claim_type"] = "owner"
+        no, party = data.get("claim_number", ""), data.get("partner_name", "")
+        proj = {"project_id": data.get("project_id")}
+        je = await _post_claim_entry(company_id, user_id, data["claim_date"],
+            f"مستخلص أعمال رقم {no} — {party} (المعيار المصري 8)", [
+                (("131",), ar_amount, 0, f"مستخلص رقم {no} — صافي مستحق القبض",
+                 {**proj, "partner_type": "customer", "partner_id": data.get("partner_id")}),
+                (("141",), ret_amt, 0, f"ضمان حسن التنفيذ محتجز {ret_pct:g}%", proj),
+                (("138",), wht_amt, 0, f"خصم وتحصيل {wht_rate*100:g}% محتجز لدى المالك", proj),
+                (("257",), adv_ded, 0, "استهلاك دفعة مقدمة مستلمة من المالك", proj),
+                (("414", "431", "412"), 0, current, f"إيراد مستخلص أعمال رقم {no} — {party}", proj),
+                (("260",), 0, vat_amt, f"ضريبة القيمة المضافة {vat_rate*100:g}% على المستخلص", proj),
+            ], "claim", data["id"])
+        data["journal_entry_id"] = je["id"]
 
     await db.progress_claims.insert_one(data)
     data.pop("_id", None)
-
-    # Auto-post journal entry for owner claim
-    if data.get("claim_type") == "owner":
-        from services.accounting_service import AccountingService
-        svc = AccountingService(db)
-        accounts = await svc.get_all_accounts(company_id, True)
-        acc_map = {a["account_code"]: a for a in accounts}
-
-        def acc(code):
-            return acc_map.get(code, {})
-
-        recv_acc = acc("131")  # العملاء — مستخلصات جارية
-        ret_acc  = acc("141")  # أصول ضمان محتجزة
-        wht_acc  = acc("138")  # ضريبة خصم محتجزة
-        rev_acc  = acc("414")  # إيرادات مقاولات
-        vat_acc  = acc("260")  # VAT مخرجات
-
-        # ══ القيد المحاسبي — المعيار المصري رقم 8 ══════════════════
-        # مدين: ح/العملاء (صافي + VAT) | ح/ضمان محتجز | ح/خصم وتحصيل
-        # دائن: ح/إيرادات مقاولات (القيمة قبل الضرائب) | ح/VAT مخرجات
-        adv_pay_acc = acc_map.get("257")  # ح/مقبوضات مقدمة (استرداد الدفعة المقدمة)
-        
-        lines = []
-        # مدين 1: ح/العملاء - مستخلصات جارية (صافي + VAT)
-        if recv_acc:
-            lines.append({"account_id":recv_acc["id"],"account_code":"131",
-                "account_name":recv_acc.get("account_name","العملاء — مستخلصات جارية"),
-                "debit":ar_amount,"credit":0,
-                "description":f"مستخلص رقم {data.get('claim_number')} — صافي مستحق القبض",
-                "project_id":data.get("project_id"),
-                "partner_type":"customer","partner_id":data.get("partner_id")})
-        # مدين 2: ح/أصول — تأمين أعمال لدى الغير (محتجز ضمان)
-        if ret_acc and ret_amt > 0:
-            lines.append({"account_id":ret_acc["id"],"account_code":"141",
-                "account_name":ret_acc.get("account_name","تأمين أعمال لدى الغير"),
-                "debit":ret_amt,"credit":0,
-                "description":f"ضمان حسن التنفيذ محتجز {data.get('retention_percentage')}%",
-                "project_id":data.get("project_id")})
-        # مدين 3: ح/مصلحة الضرائب — خصم وتحصيل (1% محتجز من المالك)
-        if wht_acc and wht_amt > 0:
-            lines.append({"account_id":wht_acc["id"],"account_code":"138",
-                "account_name":wht_acc.get("account_name","مصلحة الضرائب — خصم وتحصيل"),
-                "debit":wht_amt,"credit":0,
-                "description":f"ضريبة خصم وتحصيل {round(wht_rate*100,1)}% على المقاولات",
-                "project_id":data.get("project_id")})
-        # مدين 4: ح/مقبوضات مقدمة (استرداد دفعة مقدمة إن وجدت)
-        if adv_ded > 0 and adv_pay_acc:
-            lines.append({"account_id":adv_pay_acc["id"],"account_code":"257",
-                "account_name":"مقبوضات مقدمة — استرداد",
-                "debit":0,"credit":adv_ded,
-                "description":"استرداد دفعة مقدمة من المستخلص",
-                "project_id":data.get("project_id")})
-        # دائن 1: ح/إيرادات أعمال المقاولات (قيمة المستخلص الحالي قبل الضرائب)
-        if rev_acc:
-            lines.append({"account_id":rev_acc["id"],"account_code":"414",
-                "account_name":rev_acc.get("account_name","إيرادات أعمال المقاولات"),
-                "debit":0,"credit":current,
-                "description":f"إيراد مستخلص أعمال رقم {data.get('claim_number')} — {data.get('partner_name','')}",
-                "project_id":data.get("project_id")})
-        # دائن 2: ح/مصلحة الضرائب — ضريبة القيمة المضافة مخرجات
-        if vat_acc and vat_amt > 0:
-            lines.append({"account_id":vat_acc["id"],"account_code":"260",
-                "account_name":vat_acc.get("account_name","ضريبة القيمة المضافة — مخرجات"),
-                "debit":0,"credit":vat_amt,
-                "description":f"VAT مخرجات {round(vat_rate*100,0)}% على مستخلص المقاولات",
-                "project_id":data.get("project_id")})
-        
-        # التحقق من التوازن: مدين = دائن
-        total_d = round(sum(l["debit"]  for l in lines), 2)
-        total_c = round(sum(l["credit"] for l in lines), 2)
-        
-        if lines:
-            je = {
-                "id": str(uuid.uuid4()), "company_id": company_id,
-                "entry_date": data.get("claim_date"), "entry_number": 0,
-                "description": f"مستخلص أعمال رقم {data.get('claim_number')} — {data.get('partner_name','')} (المعيار المصري 8)",
-                "lines": lines, "total_debit": total_d, "total_credit": total_c,
-                "status": "draft", "source_document_type": "claim", "source_document_id": data["id"],
-                "created_by": current_user.get("user_id","system"),
-            }
-            await db.journal_entries.insert_one(je)
-            je_id = je["id"]
-            await db.progress_claims.update_one({"id": data["id"]}, {"$set": {"journal_entry_id": je_id}})
-
-    return {"message": "Progress claim created", "claim": data}
-
-
+    return {"message": "Progress claim created", "claim": data,
+            "journal_entry_id": je["id"] if je else None}
 
 
 # ══════════════════════════════════════════════════════════════
@@ -269,189 +272,75 @@ async def create_progress_claim(data: dict, current_user: dict = Depends(get_use
 @router.post("/subcontractor-claims")
 async def create_subcontractor_claim(data: dict, current_user: dict = Depends(get_user)):
     """
-    إثبات مستخلص مقاول الباطن (Subcontractor Claim)
-    
-    القيد المحاسبي:
-    من مذكورين:
-       حـ/ تكاليف المقاولات — مقاولي الباطن   (gross_amount)
-       حـ/ مصلحة الضرائب — VAT مدخلات       (vat_amount — قابل للخصم)
-    إلى مذكورين:
-       حـ/ أرصدة دائنة — مقاولي الباطن       (net_payable)
-       حـ/ مصلحة الضرائب — خصم وتحصيل       (wht_amount — 1% أو 3%)
-       حـ/ خصومات دائنة — تأمين حسن التنفيذ  (retention_amount)
+    إثبات مستخلص مقاول الباطن
+
+    من مذكورين:  تكلفة مقاولي الباطن 315 (قيمة المستخلص) | VAT مدخلات 137
+    إلى مذكورين: مقاولو الباطن — دائنون 243/251 (الصافي + VAT)
+                 | خصم وتحصيل مستحق للمصلحة 261 | ضمان محتجز لمقاولي الباطن 263
+                 | دفعات مقدمة لمقاولي الباطن 1351 (استرداد)
+
+    Fixed: the cost went to 521 (no such account, so the line was dropped),
+    the amount owed to the subcontractor went to 212 — the PARTNERS' current
+    account — retention to 259 (the martyrs' fund) and the advance recovery
+    to 257 (advances received from customers).
     """
     company_id = current_user.get("company_id")
+    user_id = current_user.get("user_id", "system")
     data["company_id"] = company_id
     data["id"] = str(uuid.uuid4())
     data["created_at"] = datetime.now(timezone.utc).isoformat()
     data["claim_type"] = "subcontractor"
-    
-    # ── الحسابات المالية ──────────────────────────────────
-    gross      = float(data.get("gross_amount", 0))
-    prev_claims= float(data.get("previous_claims", 0))
-    current_claim = gross - prev_claims  # قيمة المستخلص الحالي
-    
-    # نسبة ضمان حسن التنفيذ (عادة 5–10% من المقاول الباطن)
-    ret_pct    = float(data.get("retention_percentage", 10)) / 100
-    ret_amt    = round(current_claim * ret_pct, 2)
-    
-    # الدفعة المقدمة للاسترداد إن وجدت
-    adv_recovery = float(data.get("advance_recovery", 0))
-    
-    # VAT — قانون VAT المادة 54: 5% جدول أو 14% حسب طبيعة العقد
-    vat_rate   = float(data.get("vat_rate", 0.05))   # 5% جدول مقاولات
-    vat_amt    = round(current_claim * vat_rate, 2)
-    
-    # خصم وتحصيل — قانون 91/2005 م.59:
-    #   1% للمقاولات والتوريدات
-    #   3% للخدمات
-    wht_type   = data.get("wht_type", "contracts")  # contracts | services
-    wht_rate   = 0.03 if wht_type == "services" else 0.01
-    if data.get("withholding_tax_rate"):
-        wht_rate = float(data.get("withholding_tax_rate"))
-    wht_amt    = round(current_claim * wht_rate, 2)
-    
-    # صافي المستحق للمقاول الباطن
+    data.setdefault("claim_date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+
+    gross = float(data.get("gross_amount", 0) or 0)
+    prev_claims = float(data.get("previous_claims", 0) or 0)
+    current_claim = round(gross - prev_claims, 2)
+    if current_claim <= 0:
+        raise HTTPException(400, "قيمة المستخلص الحالي (الإجمالي − السابق) يجب أن تكون أكبر من صفر")
+    ret_pct = float(data.get("retention_percentage", 10) or 0)
+    ret_amt = round(current_claim * ret_pct / 100, 2)
+    adv_recovery = round(float(data.get("advance_recovery", 0) or 0), 2)
+    vat_rate = _rate(data.get("vat_rate", 0.05), VAT_RATES, "ضريبة القيمة المضافة")
+    vat_amt = round(current_claim * vat_rate, 2)
+    wht_rate, wht_type = _wht_rate(data, "contracts")
+    wht_amt = round(current_claim * wht_rate, 2)
     net_payable = round(current_claim - ret_amt - adv_recovery - wht_amt, 2)
-    
-    data.update({
-        "current_claim":          round(current_claim, 2),
-        "retention_amount":       ret_amt,
-        "vat_amount":             vat_amt,
-        "withholding_tax_amount": wht_amt,
-        "withholding_tax_rate":   wht_rate,
-        "advance_recovery":       adv_recovery,
-        "net_payable":            net_payable,
-        "ar_amount":              round(net_payable + vat_amt, 2),
-    })
-    
+    if net_payable < 0:
+        raise HTTPException(400, "المحتجزات والدفعة المقدمة والخصم أكبر من قيمة المستخلص")
+    sub_ap = round(net_payable + vat_amt, 2)
+
+    data.update({"current_claim": current_claim, "retention_amount": ret_amt, "vat_rate": vat_rate,
+                 "vat_amount": vat_amt, "withholding_tax_amount": wht_amt, "withholding_tax_rate": wht_rate,
+                 "wht_type": wht_type, "advance_recovery": adv_recovery, "net_payable": net_payable,
+                 "ar_amount": sub_ap})
+
+    no, party = data.get("claim_number", ""), data.get("partner_name", "")
+    proj = {"project_id": data.get("project_id")}
+    je = await _post_claim_entry(company_id, user_id, data["claim_date"],
+        f"مستخلص مقاول الباطن رقم {no} — {party} (المعيار المصري 8)", [
+            (("315",), current_claim, 0, f"تكلفة مستخلص مقاول الباطن رقم {no} — {party}",
+             {**proj, "partner_type": "vendor", "partner_id": data.get("partner_id")}),
+            (("137",), vat_amt, 0, f"ضريبة مدخلات {vat_rate*100:g}% على مستخلص مقاول الباطن", proj),
+            (("243", "251"), 0, sub_ap, f"مستحق لمقاول الباطن {party} (الصافي + الضريبة)",
+             {**proj, "partner_type": "vendor", "partner_id": data.get("partner_id")}),
+            (("261",), 0, wht_amt, f"خصم وتحصيل {wht_rate*100:g}% مستحق لمصلحة الضرائب", proj),
+            (("263",), 0, ret_amt, f"ضمان حسن التنفيذ محتجز {ret_pct:g}% من مقاول الباطن", proj),
+            (("1351", "135"), 0, adv_recovery, "استرداد دفعة مقدمة لمقاول الباطن", proj),
+        ], "subcontractor_claim", data["id"])
+    data["journal_entry_id"] = je["id"]
+    data["je_balanced"] = True
+
     await db.progress_claims.insert_one(data)
     data.pop("_id", None)
-    
-    # ── القيد المحاسبي ────────────────────────────────────
-    from services.accounting_service import AccountingService
-    svc       = AccountingService(db)
-    accounts  = await svc.get_all_accounts(company_id, True)
-    acc_map   = {a["account_code"]: a for a in accounts}
-    
-    def acc(code, name_default):
-        a = acc_map.get(code, {})
-        return a.get("id"), code, a.get("account_name", name_default)
-    
-    cost_id,  cost_code,  cost_name  = acc("521", "تكاليف مقاولات — مقاولي الباطن")
-    vat_in_id,vatin_code, vatin_name = acc("137", "ضريبة القيمة المضافة — مدخلات")
-    pay_id,   pay_code,   pay_name   = acc("212", "أرصدة دائنة — مقاولو الباطن")
-    wht_id,   wht_code,   wht_name   = acc("261", "مصلحة الضرائب — خصم وتحصيل")
-    ret_id,   ret_code,   ret_name   = acc("259", "خصومات دائنة — ضمان حسن التنفيذ")
-    adv_id,   adv_code,   adv_name   = acc("257", "مقبوضات مقدمة — استرداد")
-    
-    lines_je = []
-    
-    # ── مدين ──────────────────────────────────────────────
-    # مدين 1: ح/تكاليف المقاولات — مقاولي الباطن
-    if cost_id:
-        lines_je.append({
-            "account_id": cost_id, "account_code": cost_code, "account_name": cost_name,
-            "debit": round(current_claim, 2), "credit": 0,
-            "description": f"تكلفة مستخلص مقاول الباطن رقم {data.get('claim_number','')} — {data.get('partner_name','')}",
-            "project_id": data.get("project_id"),
-            "partner_type": "subcontractor", "partner_id": data.get("partner_id")
-        })
-    
-    # مدين 2: ح/مصلحة الضرائب — VAT مدخلات (قابل للخصم)
-    if vat_in_id and vat_amt > 0:
-        lines_je.append({
-            "account_id": vat_in_id, "account_code": vatin_code, "account_name": vatin_name,
-            "debit": vat_amt, "credit": 0,
-            "description": f"VAT مدخلات {round(vat_rate*100,0)}% على مستخلص مقاول الباطن",
-            "project_id": data.get("project_id")
-        })
-    
-    # ── دائن ──────────────────────────────────────────────
-    # دائن 1: ح/أرصدة دائنة — مقاولو الباطن (صافي المستحق + VAT)
-    # المقاول الباطن يُصدر فاتورة بسعر + VAT — لذا المطلوب له = صافي + VAT
-    sub_ap = round(net_payable + vat_amt, 2)
-    if pay_id:
-        lines_je.append({
-            "account_id": pay_id, "account_code": pay_code, "account_name": pay_name,
-            "debit": 0, "credit": sub_ap,
-            "description": f"مستحق لمقاول الباطن {data.get('partner_name','')} (صافي + VAT)",
-            "project_id": data.get("project_id"),
-            "partner_type": "subcontractor", "partner_id": data.get("partner_id")
-        })
-    
-    # دائن 2: ح/مصلحة الضرائب — خصم وتحصيل (1% أو 3%)
-    if wht_id and wht_amt > 0:
-        lines_je.append({
-            "account_id": wht_id, "account_code": wht_code, "account_name": wht_name,
-            "debit": 0, "credit": wht_amt,
-            "description": f"ضريبة خصم وتحصيل {round(wht_rate*100,0)}% — {'مقاولات' if wht_type=='contracts' else 'خدمات'}",
-            "project_id": data.get("project_id")
-        })
-    
-    # دائن 3: ح/خصومات دائنة — تأمين حسن التنفيذ محتجز
-    if ret_id and ret_amt > 0:
-        lines_je.append({
-            "account_id": ret_id, "account_code": ret_code, "account_name": ret_name,
-            "debit": 0, "credit": ret_amt,
-            "description": f"ضمان حسن التنفيذ محتجز {data.get('retention_percentage',10)}% من مقاول الباطن",
-            "project_id": data.get("project_id")
-        })
-    
-    # دائن 4: ح/مقبوضات مقدمة — استرداد دفعة مقدمة إن وجدت
-    if adv_id and adv_recovery > 0:
-        lines_je.append({
-            "account_id": adv_id, "account_code": adv_code, "account_name": adv_name,
-            "debit": 0, "credit": adv_recovery,
-            "description": "استرداد دفعة مقدمة من مقاول الباطن",
-            "project_id": data.get("project_id")
-        })
-    
-    # ── التحقق من التوازن والحفظ ──────────────────────────
-    if lines_je:
-        total_d = round(sum(l["debit"]  for l in lines_je), 2)
-        total_c = round(sum(l["credit"] for l in lines_je), 2)
-        diff = abs(total_d - total_c)
-        
-        if diff > 0.01:
-            import logging
-            logging.warning(f"Subcontractor claim imbalance: debit={total_d}, credit={total_c}")
-        
-        je = {
-            "id": str(uuid.uuid4()), "company_id": company_id,
-            "entry_date": data.get("claim_date", datetime.now().strftime("%Y-%m-%d")),
-            "entry_number": 0,
-            "description": (
-                f"مستخلص مقاول الباطن رقم {data.get('claim_number','')} — "
-                f"{data.get('partner_name','')} (المعيار المصري 8)"
-            ),
-            "lines": lines_je,
-            "total_debit": total_d, "total_credit": total_c,
-            "status": "draft",
-            "source_document_type": "subcontractor_claim",
-            "source_document_id": data["id"],
-            "created_by": current_user.get("user_id", "system"),
-        }
-        je_id = (await db.journal_entries.insert_one(je)).inserted_id
-        await db.progress_claims.update_one(
-            {"id": data["id"]},
-            {"$set": {"journal_entry_id": je["id"], "je_balanced": diff <= 0.01}}
-        )
-    
     return {
         "message": "تم إثبات مستخلص مقاول الباطن بنجاح",
         "claim": data,
         "journal_summary": {
-            "debit_cost":        round(current_claim, 2),
-            "debit_vat_input":   vat_amt,
-            "credit_payable":    net_payable,
-            "credit_wht":        wht_amt,
-            "credit_retention":  ret_amt,
-            "credit_adv_recovery": adv_recovery,
-            "balanced":          diff <= 0.01 if lines_je else True,
-            "wht_type":          wht_type,
-            "wht_rate_pct":      round(wht_rate * 100, 1)
-        }
+            "debit_cost": current_claim, "debit_vat_input": vat_amt,
+            "credit_payable": sub_ap, "credit_wht": wht_amt, "credit_retention": ret_amt,
+            "credit_adv_recovery": adv_recovery, "balanced": True,
+            "wht_type": wht_type, "wht_rate_pct": round(wht_rate * 100, 1),
+        },
     }
 
 
