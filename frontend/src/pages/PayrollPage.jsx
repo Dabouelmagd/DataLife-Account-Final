@@ -16,6 +16,65 @@ const API = process.env.REACT_APP_BACKEND_URL + '/api/payroll';
 const getToken = () => localStorage.getItem('token');
 
 
+
+/** إعدادات الضريبة والتأمينات: الشرائح والنسب بحكم القانون (للعرض)،
+ *  وحدود أجر الاشتراك تتغير كل يناير فتُعدَّل هنا. */
+function PayrollLawSettings({ settings, onSaved }) {
+  const [lo, setLo] = React.useState(settings.social_insurance_min_wage);
+  const [hi, setHi] = React.useState(settings.social_insurance_max_wage);
+  const [year, setYear] = React.useState(settings.insurance_year);
+  const [msg, setMsg] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const n = (v) => Number(v || 0).toLocaleString('en-US');
+  const save = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const res = await fetch(`${API}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ social_insurance_min_wage: Number(lo), social_insurance_max_wage: Number(hi), insurance_year: Number(year) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'تعذّر الحفظ');
+      setMsg({ ok: true, text: 'تم الحفظ — يُطبَّق على المسيرات الجديدة' });
+      onSaved && onSaved();
+    } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
+  };
+  const input = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm tabular-nums';
+  return (
+    <div className="grid md:grid-cols-2 gap-6" dir="rtl">
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <h3 className="font-bold">التأمينات الاجتماعية — قانون 148/2019</h3>
+        <p className="text-sm text-slate-600">حصة الموظف <b>{settings.employee_social_insurance_rate}%</b> · حصة الشركة <b>{settings.company_social_insurance_rate}%</b> من أجر الاشتراك.</p>
+        <div className="grid grid-cols-3 gap-3 text-sm">
+          <label>الحد الأدنى لأجر الاشتراك<input type="number" dir="ltr" value={lo} onChange={(e) => setLo(e.target.value)} className={`${input} mt-1`} /></label>
+          <label>الحد الأقصى<input type="number" dir="ltr" value={hi} onChange={(e) => setHi(e.target.value)} className={`${input} mt-1`} /></label>
+          <label>سنة الحدود<input type="number" dir="ltr" value={year} onChange={(e) => setYear(e.target.value)} className={`${input} mt-1`} /></label>
+        </div>
+        <p className="text-xs text-amber-700">الحدود تزيد كل يناير بقرار الهيئة القومية للتأمين الاجتماعي — حدّثها هنا عند صدور القرار.</p>
+        {msg && <p className={`text-sm ${msg.ok ? 'text-emerald-700' : 'text-red-700'}`} role="status">{msg.text}</p>}
+        <button onClick={save} disabled={busy} className="px-4 py-2 rounded-lg bg-[#1e3a8a] text-white text-sm font-semibold disabled:opacity-50">{busy ? '…' : 'حفظ الحدود'}</button>
+      </div>
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+        <h3 className="font-bold">ضريبة كسب العمل</h3>
+        <p className="text-sm text-slate-600">{settings.tax_law} — إعفاء شخصي <b dir="ltr">{n(settings.personal_exemption)}</b> جنيه سنوياً، بعد خصم حصة الموظف في التأمينات.</p>
+        <table className="w-full text-sm">
+          <thead><tr className="text-slate-500"><th className="text-start py-1">الدخل السنوي الخاضع (ج.م)</th><th className="text-end py-1">السعر</th></tr></thead>
+          <tbody>
+            {(settings.income_tax_brackets || []).map((b, i) => (
+              <tr key={i} className="border-t border-slate-100">
+                <td className="py-1.5 tabular-nums" dir="ltr">{n(b.from)} – {b.to >= 999999999 ? '∞' : n(b.to)}</td>
+                <td className="py-1.5 text-end font-semibold tabular-nums">{b.rate}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-xs text-slate-500">فوق 600,000 جنيه سنوياً تسقط الشرائح الأولى تدريجياً كما ينص القانون، وفوق 1,200,000 يُحسب أول 1,200,000 بسعر 25% والباقي 27.5%.</p>
+      </div>
+    </div>
+  );
+}
+
 export default function PayrollPage() {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('runs');
@@ -814,41 +873,7 @@ export default function PayrollPage() {
 
         {/* Settings Tab */}
         {activeTab === 'settings' && settings && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{text.socialInsurance}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{text.employeeRate} %</label>
-                    <Input type="number" value={settings.employee_social_insurance_rate || 11} readOnly />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{text.companyRate} %</label>
-                    <Input type="number" value={settings.company_social_insurance_rate || 18.75} readOnly />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{text.incomeTax}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm space-y-1">
-                    {settings.income_tax_brackets?.map((bracket, i) => (
-                      <div key={i} className="flex justify-between">
-                        <span>{bracket.from?.toLocaleString()} - {bracket.to === Infinity ? '∞' : bracket.to?.toLocaleString()}</span>
-                        <span className="font-medium">{bracket.rate}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          <PayrollLawSettings settings={settings} onSaved={fetchSettings} />
         )}
       </div>
 

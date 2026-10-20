@@ -90,105 +90,24 @@ async def get_payroll_settings(company_id: str) -> dict:
 
 
 async def calculate_social_insurance(basic_salary: float, settings: dict) -> tuple:
-    """حساب التأمينات الاجتماعية"""
-    insurable_salary = min(
-        max(basic_salary, settings.get("social_insurance_min_wage", 1400)),
-        settings.get("social_insurance_max_wage", 12600)
-    )
-    
-    employee_share = insurable_salary * (settings.get("employee_social_insurance_rate", 11) / 100)
-    company_share = insurable_salary * (settings.get("company_social_insurance_rate", 18.75) / 100)
-    
-    return round(employee_share, 2), round(company_share, 2)
+    """حساب التأمينات الاجتماعية — قانون 148/2019 (services/egypt_payroll)."""
+    from services.egypt_payroll import social_insurance
+    r = social_insurance(basic_salary, settings)
+    return r["employee"], r["employer"]
 
 
 async def calculate_income_tax(annual_taxable_income: float, settings: dict,
                                company_id: str = None, tax_year: int = None) -> float:
+    """ضريبة كسب العمل الشهرية — قانون 91/2005 معدلاً بالقانون 7/2024.
+
+    annual_taxable_income = (pay − employee insurance − exempt items) × 12.
+    One calculator for the whole program (services/egypt_payroll); the old
+    DB / settings bracket tables gave three different answers and none was
+    the law's.
     """
-    حساب ضريبة كسب العمل — قانون 91/2005 وتعديلاته
-    
-    الأولوية في قراءة الشرائح:
-    1. DB collection: payroll_tax_brackets (قابل للتعديل بدون كود)
-    2. settings["income_tax_brackets"] (إعدادات الشركة)
-    3. DEFAULT_TAX_BRACKETS_2024 (الافتراضي)
-    
-    الحساب: tax = annual_income × rate - bracket_discount
-    (O(1) بعد إيجاد الشريحة الصحيحة)
-    """
-    if tax_year is None:
-        tax_year = settings.get("tax_year", 2024)
-    
-    # ── 1. الإعفاء الشخصي (21,000 ج.م بعد تعديل 2023) ──────────
-    personal_exemption = settings.get("personal_exemption", 21000)
-    taxable = annual_taxable_income - personal_exemption
-    if taxable <= 0:
-        return 0.0
-    
-    # ── 2. جلب الشرائح من DB أولاً ──────────────────────────────
-    db_brackets = None
-    if company_id:
-        try:
-            db_brackets = await db.payroll_tax_brackets.find(
-                {"tax_year": tax_year, "is_active": True,
-                 "$or": [{"company_id": company_id}, {"company_id": None}]},
-                {"_id": 0}
-            ).sort("bracket_order", 1).to_list(length=10)
-        except Exception:
-            db_brackets = None
-    
-    if not db_brackets:
-        # ── 3. Fallback: settings → DEFAULT ──────────────────────
-        settings_brackets = settings.get("income_tax_brackets")
-        if settings_brackets:
-            db_brackets = [{"range_min": b.get("from", 0),
-                            "range_max": b.get("to"),
-                            "rate":      b.get("rate", 0) / 100,  # convert % to decimal
-                            "bracket_discount": 0}
-                           for b in settings_brackets]
-        else:
-            from models.enterprise_accounting import DEFAULT_TAX_BRACKETS_2024
-            db_brackets = [b.dict() for b in DEFAULT_TAX_BRACKETS_2024]
-    
-    # ── 4. Seed DB if empty (first run) ──────────────────────────
-    if company_id and not await db.payroll_tax_brackets.count_documents(
-            {"tax_year": tax_year, "company_id": None}):
-        from models.enterprise_accounting import DEFAULT_TAX_BRACKETS_2024
-        import uuid as _uuid
-        for b in DEFAULT_TAX_BRACKETS_2024:
-            d = b.dict(); d["id"] = str(_uuid.uuid4())
-            await db.payroll_tax_brackets.insert_one(d)
-    
-    # ── 5. Find the correct bracket and compute tax ───────────────
-    annual_tax = 0.0
-    remaining  = taxable
-    
-    for b in db_brackets:
-        b_min  = float(b.get("range_min", 0))
-        b_max  = b.get("range_max")
-        b_max  = float(b_max) if b_max is not None else float("inf")
-        rate   = float(b.get("rate", 0))  # already decimal (0.025 not 2.5)
-        disc   = float(b.get("bracket_discount", 0))
-        
-        if taxable < b_min:
-            break  # income below this bracket
-        
-        if b_max == float("inf") or taxable <= b_max:
-            # ── O(1) calculation using bracket_discount ──────────
-            if disc > 0:
-                annual_tax = taxable * rate - disc
-            else:
-                # Standard iterative for zero-discount brackets
-                bracket_amt = min(remaining, b_max - b_min)
-                annual_tax += bracket_amt * rate
-                remaining  -= bracket_amt
-            break
-        else:
-            bracket_amt = b_max - b_min
-            annual_tax += bracket_amt * rate
-            remaining  -= bracket_amt
-    
-    monthly_tax = max(annual_tax, 0) / 12
-    return round(monthly_tax, 2)
+    from services.egypt_payroll import annual_tax, exemption_from
+    taxable = annual_taxable_income - exemption_from(settings)
+    return round(annual_tax(taxable) / 12, 2) if taxable > 0 else 0.0
 
 
 async def get_employee_loans(employee_id: str, month: str) -> List[dict]:
@@ -428,7 +347,11 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
         ))
     
     # مدين: تأمينات حصة الشركة 18.75% (قانون 148/2019)
-    company_si = payroll["total_basic_salary"] * (settings.get("company_social_insurance_rate", 18.75) / 100)
+    # employer share as computed per employee on the capped insurable wage — it
+    # was 18.75% of the whole basic payroll, overstating it for every salary above the cap
+    company_si = payroll.get("total_company_social_insurance")
+    if company_si is None:
+        company_si = payroll["total_basic_salary"] * (settings.get("company_social_insurance_rate", 18.75) / 100)
     if company_si > 0 and si_exp_id:
         lines.append(JournalEntryLine(
             account_id=si_exp_id, account_code=si_exp_code, account_name=si_exp_name,
@@ -604,15 +527,20 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400,
                             detail="هذا الحساب غير مرتبط بشركة — اختر شركة أو استخدم حساباً تابعاً لها")
 
+    from services import egypt_payroll as ep
     settings = await get_payroll_settings(current_user["company_id"])
     settings.pop("_id", None)
-    
-    # Convert float('inf') to a large number for JSON serialization
-    if "income_tax_brackets" in settings:
-        for bracket in settings["income_tax_brackets"]:
-            if bracket.get("to") == float('inf') or (isinstance(bracket.get("to"), float) and bracket.get("to") > 1e308):
-                bracket["to"] = 999999999
-    
+    # what the payroll actually uses — not the old defaults a settings row may hold
+    lo, hi = ep.insurance_limits(settings)
+    settings.update({
+        "social_insurance_min_wage": lo, "social_insurance_max_wage": hi,
+        "insurance_year": settings.get("insurance_year") or ep.INSURANCE_YEAR,
+        "personal_exemption": ep.exemption_from(settings),
+        "income_tax_brackets": [{"from": b["from"], "to": b["to"] or 999999999, "rate": round(b["rate"] * 100, 2)}
+                                for b in ep.brackets_table()],
+        "employee_social_insurance_rate": ep.EMPLOYEE_RATE, "company_social_insurance_rate": ep.EMPLOYER_RATE,
+        "tax_law": "قانون 91/2005 معدلاً بالقانون 7/2024 — يُطبَّق تلقائياً",
+    })
     return settings
 
 
@@ -621,12 +549,35 @@ async def update_settings(
     settings: dict,
     current_user: dict = Depends(get_current_user)
 ):
-    """تحديث إعدادات الرواتب"""
-    settings["updated_at"] = datetime.utcnow()
+    """تحديث إعدادات الرواتب — only the fields a company may set.
+
+    It wrote the whole body into the settings row, so any field (rates, the
+    company id...) could be changed. The tax brackets and insurance rates are
+    the law's and are not settings; the insurable-wage limits change every
+    January and are."""
+    allowed = {"social_insurance_min_wage", "social_insurance_max_wage", "insurance_year",
+               "overtime_rate", "overtime_rate_holiday", "working_days_per_month", "working_hours_per_day"}
+    clean = {k: v for k, v in (settings or {}).items() if k in allowed}
+    for k in ("social_insurance_min_wage", "social_insurance_max_wage"):
+        if k in clean:
+            try:
+                clean[k] = float(clean[k])
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="قيمة غير صحيحة لحد أجر الاشتراك")
+            if clean[k] <= 0:
+                raise HTTPException(status_code=400, detail="حد أجر الاشتراك يجب أن يكون أكبر من صفر")
+    lo = clean.get("social_insurance_min_wage")
+    hi = clean.get("social_insurance_max_wage")
+    if lo and hi and lo >= hi:
+        raise HTTPException(status_code=400, detail="الحد الأدنى لأجر الاشتراك يجب أن يكون أقل من الحد الأقصى")
+    if not clean:
+        raise HTTPException(status_code=400, detail="لا توجد إعدادات قابلة للتعديل")
+    clean["updated_at"] = datetime.utcnow()
+    clean["updated_by"] = current_user.get("user_id")
     
     await db.payroll_settings.update_one(
         {"company_id": current_user["company_id"]},
-        {"$set": settings},
+        {"$set": clean},
         upsert=True
     )
     
@@ -986,6 +937,7 @@ async def calculate_payroll(
                 amount=emp_si
             ))
             totals["social_insurance"] += emp_si
+        totals["company_social_insurance"] = totals.get("company_social_insurance", 0) + company_si
         
         # 2. ضريبة كسب العمل
         # قانون 91/2005 م.38: الوعاء الضريبي =
@@ -1075,6 +1027,10 @@ async def calculate_payroll(
             "total_deductions": total_deductions,
             "gross_salary": gross_salary,
         "insured_salary": insured_salary,          # أجر الاشتراك التأميني
+        "employee_social_insurance": emp_si,
+        "social_insurance": emp_si,
+        "company_social_insurance": company_si,
+        "income_tax": monthly_tax,
         "allowances_exempt": allowances_exempt,     # بدلات معفاة ضريبياً
         "medical_deduction": medical_deduction,    # تأمين طبي خاص
         "bank_iban": bank_iban,                    # IBAN للصرف
@@ -1111,6 +1067,8 @@ async def calculate_payroll(
         "total_deductions": round(totals["deductions"], 2),
         "total_net_salary": round(totals["net_salary"], 2),
         "total_social_insurance": round(totals["social_insurance"], 2),
+        # employer share: the sum of each employee's share on his capped wage
+        "total_company_social_insurance": round(totals.get("company_social_insurance", 0), 2),
         "total_income_tax": round(totals["income_tax"], 2),
         "total_loans": round(totals["loans"], 2),
         "total_other_deductions": round(totals["other_deductions"], 2),
@@ -2183,8 +2141,10 @@ async def disburse_payroll(
     # من حـ/ مذكورين → إلى حـ/ البنك
     # ════════════════════════════════════════════════════
     lines_b = []
-    company_si = round(run.get("total_basic_salary", 0) *
-                       (settings.get("company_social_insurance_rate", 18.75) / 100), 2)
+    company_si = run.get("total_company_social_insurance")
+    if company_si is None:                       # runs made before the per-employee share was kept
+        company_si = run.get("total_basic_salary", 0) * (settings.get("company_social_insurance_rate", 18.75) / 100)
+    company_si = round(company_si, 2)
     total_si   = round(run.get("total_social_insurance", 0) + company_si, 2)
     total_tax  = run.get("total_income_tax", 0)
     

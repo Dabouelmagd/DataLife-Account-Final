@@ -266,22 +266,23 @@ class PayrollSettings(BaseModel):
     company_social_insurance_rate: float = 18.75    # نسبة التأمينات على الشركة
     
     # حدود التأمينات
-    social_insurance_min_wage: float = 1400.0       # الحد الأدنى للأجر التأميني
-    social_insurance_max_wage: float = 12600.0      # الحد الأقصى للأجر التأميني
+    social_insurance_min_wage: float = 2700.0       # الحد الأدنى لأجر الاشتراك (يناير 2026)
+    social_insurance_max_wage: float = 16700.0      # الحد الأقصى لأجر الاشتراك (يناير 2026)
     
-    # ضريبة كسب العمل (شرائح)
+    # ضريبة كسب العمل — القانون 7/2024. للعرض فقط: الحساب في services/egypt_payroll
     income_tax_brackets: List[dict] = [
-        {"from": 0, "to": 15000, "rate": 0},
-        {"from": 15000, "to": 30000, "rate": 2.5},
-        {"from": 30000, "to": 45000, "rate": 10},
-        {"from": 45000, "to": 60000, "rate": 15},
-        {"from": 60000, "to": 200000, "rate": 20},
+        {"from": 0, "to": 40000, "rate": 0},
+        {"from": 40000, "to": 55000, "rate": 10},
+        {"from": 55000, "to": 70000, "rate": 15},
+        {"from": 70000, "to": 200000, "rate": 20},
         {"from": 200000, "to": 400000, "rate": 22.5},
-        {"from": 400000, "to": 999999999, "rate": 25}
+        {"from": 400000, "to": 1200000, "rate": 25},
+        {"from": 1200000, "to": 999999999, "rate": 27.5}
     ]
     
-    # الإعفاء الضريبي الشخصي
-    personal_exemption: float = 15000.0
+    # الإعفاء الضريبي الشخصي (القانون 7/2024)
+    personal_exemption: float = 20000.0
+    tax_year: int = 2026
     
     # معدل الساعة الإضافية
     overtime_rate: float = 1.5                      # 150% من الساعة العادية

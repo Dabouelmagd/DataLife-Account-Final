@@ -457,59 +457,32 @@ async def get_depreciation_schedule(asset_id: str, current_user: dict = Depends(
             "accumulated": round(accumulated, 2), "closing_value": round(book_value, 2)})
     return {"asset": asset["name"], "asset_code": asset["asset_code"], "schedule": schedule}
 
-# ══ Egyptian Tax ══
-EGYPTIAN_INCOME_TAX_BRACKETS = [
-    {"from": 0,        "to": 40000,     "rate": 0.00},
-    {"from": 40000,    "to": 55000,     "rate": 0.025},
-    {"from": 55000,    "to": 70000,     "rate": 0.10},
-    {"from": 70000,    "to": 200000,    "rate": 0.15},
-    {"from": 200000,   "to": 400000,    "rate": 0.20},
-    {"from": 400000,   "to": 1200000,   "rate": 0.225},
-    {"from": 1200000,  "to": 999999999, "rate": 0.275},
-]
-PERSONAL_EXEMPTION_ANNUAL = 15000
-SOCIAL_INSURANCE_EMPLOYEE_RATE = 0.11
-SOCIAL_INSURANCE_EMPLOYER_RATE = 0.185
-INSURANCE_MIN_WAGE = 2700
-INSURANCE_MAX_WAGE = 11800
-STAMP_DUTY_RATE = 0.0025
-
-def _calc_income_tax_annual(annual_income: float) -> dict:
-    taxable = max(0, annual_income - PERSONAL_EXEMPTION_ANNUAL)
-    tax = 0.0; breakdown = []
-    for bracket in EGYPTIAN_INCOME_TAX_BRACKETS:
-        if taxable <= 0: break
-        portion = min(taxable, bracket["to"] - bracket["from"])
-        bracket_tax = portion * bracket["rate"]
-        tax += bracket_tax
-        breakdown.append({"from": bracket["from"], "to": bracket["to"],
-            "rate": bracket["rate"], "taxable_portion": round(portion, 2), "tax": round(bracket_tax, 2)})
-        taxable -= portion
-    return {"annual_tax": round(tax, 2), "monthly_tax": round(tax/12, 2), "breakdown": breakdown}
+# ══ Egyptian Tax ══ — one calculator for the program (services/egypt_payroll)
+from services import egypt_payroll as _ep
 
 @router.post("/tax/payroll-calculate")
 async def calculate_payroll_tax(employee_data: dict, current_user: dict = Depends(get_current_user)):
     gross_monthly = float(employee_data.get("gross_monthly_salary", 0))
     allowances = float(employee_data.get("fixed_allowances", 0))
     variable = float(employee_data.get("variable_pay", 0))
+    insurable = float(employee_data.get("insurable_wage") or gross_monthly)
     total_gross = gross_monthly + allowances + variable
-    annual_gross = total_gross * 12
-    insurance_base = max(INSURANCE_MIN_WAGE, min(gross_monthly, INSURANCE_MAX_WAGE))
-    employee_insurance = round(insurance_base * SOCIAL_INSURANCE_EMPLOYEE_RATE, 2)
-    employer_insurance = round(insurance_base * SOCIAL_INSURANCE_EMPLOYER_RATE, 2)
-    tax_base_annual = annual_gross - (employee_insurance * 12)
-    income_tax = _calc_income_tax_annual(tax_base_annual)
-    stamp_duty = round(total_gross * STAMP_DUTY_RATE, 2)
-    net_monthly = total_gross - employee_insurance - income_tax["monthly_tax"] - stamp_duty
+    settings = await db.payroll_settings.find_one({"company_id": current_user.get("company_id")}, {"_id": 0}) or {}
+    si = _ep.social_insurance(insurable, settings)
+    exemption = _ep.exemption_from(settings)
+    tax_base_annual = max((total_gross - si["employee"]) * 12 - exemption, 0)
+    annual = _ep.annual_tax(tax_base_annual)
+    monthly_tax = round(annual / 12, 2)
+    net_monthly = total_gross - si["employee"] - monthly_tax
     return {
-        "gross_monthly": round(total_gross, 2), "annual_gross": round(annual_gross, 2),
-        "social_insurance": {"employee_contribution": employee_insurance, "employer_contribution": employer_insurance, "insurance_base": insurance_base},
-        "income_tax": {"annual_tax": income_tax["annual_tax"], "monthly_tax": income_tax["monthly_tax"],
-            "tax_base_annual": round(tax_base_annual, 2), "bracket_breakdown": income_tax["breakdown"]},
-        "stamp_duty": {"monthly": stamp_duty},
+        "gross_monthly": round(total_gross, 2), "annual_gross": round(total_gross * 12, 2),
+        "social_insurance": {"employee_contribution": si["employee"], "employer_contribution": si["employer"],
+                             "insurance_base": si["insurable_wage"], "min_wage": si["min"], "max_wage": si["max"]},
+        "income_tax": {"annual_tax": annual, "monthly_tax": monthly_tax,
+                       "personal_exemption": exemption, "tax_base_annual": round(tax_base_annual, 2)},
         "net_monthly": round(net_monthly, 2),
-        "total_employer_cost": round(total_gross + employer_insurance, 2),
-        "legal_reference": "قانون 91/2005 معدلاً بالقانون 26/2023 · قانون التأمين الاجتماعي 148/2019",
+        "total_employer_cost": round(total_gross + si["employer"], 2),
+        "legal_reference": "قانون 91/2005 معدلاً بالقانون 7/2024 · قانون التأمينات 148/2019",
     }
 
 @router.post("/tax/calculate-vat")
@@ -547,10 +520,9 @@ async def calculate_withholding_tax(data: dict, current_user: dict = Depends(get
 
 @router.get("/tax/income-tax-brackets")
 async def get_income_tax_brackets(current_user: dict = Depends(get_current_user)):
-    return {"brackets": EGYPTIAN_INCOME_TAX_BRACKETS,
-            "personal_exemption_annual": PERSONAL_EXEMPTION_ANNUAL,
-            "social_insurance_rates": {"employee": SOCIAL_INSURANCE_EMPLOYEE_RATE,
-                "employer": SOCIAL_INSURANCE_EMPLOYER_RATE,
-                "min_wage": INSURANCE_MIN_WAGE, "max_wage": INSURANCE_MAX_WAGE},
-            "stamp_duty_rate": STAMP_DUTY_RATE,
-            "legal_reference": "قانون 91/2005 معدلاً بالقانون 26/2023"}
+    return {"brackets": _ep.brackets_table(),
+            "personal_exemption_annual": _ep.PERSONAL_EXEMPTION,
+            "social_insurance_rates": {"employee": _ep.EMPLOYEE_RATE / 100, "employer": _ep.EMPLOYER_RATE / 100,
+                                       "min_wage": _ep.INSURABLE_MIN, "max_wage": _ep.INSURABLE_MAX,
+                                       "year": _ep.INSURANCE_YEAR},
+            "legal_reference": "قانون 91/2005 معدلاً بالقانون 7/2024"}
