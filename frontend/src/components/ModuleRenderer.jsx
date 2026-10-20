@@ -33,6 +33,7 @@ import HREmployeesList from '../components/HREmployeesList';
 import { ProgressClaimsPage, GuaranteesPage, TaxFormsPage } from '../components/ContractsFinance';
 import { BudgetPage, DeferredTaxPage, EquityPage } from '../components/FinanceExtras';
 import { FraudControlPage, DataProtectionPage, ConsolidationPage } from '../components/ControlExtras';
+import { PosShiftsPage, ManufacturingPage, RealEstatePage, LettersOfCreditPage, InventoryEngineTools } from '../components/OperationsExtras';
 import { AppraisalsPage, HRToolsPage, EndOfServicePage, LoansCustodyPage, CommissionsPage, GovPaymentsPage } from '../components/HRExtras';
 import ShiftsPage from '../pages/ShiftsPage';
 import AttendancePage from '../pages/AttendancePage';
@@ -202,6 +203,11 @@ export const renderFinancialContent = ({
     'equity': <EquityPage />,
     'fraud-control': <FraudControlPage />,
     'consolidation': <ConsolidationPage />,
+    'inventory-tools': <InventoryEngineTools />,
+    'pos-shifts': <PosShiftsPage />,
+    'manufacturing': <ManufacturingPage />,
+    'real-estate': <RealEstatePage />,
+    'letters-of-credit': <LettersOfCreditPage />,
     'gov-payments': <GovPaymentsPage />,
     'bank-settings': <BankSettingsPage language={language} />,
     'trial-balance': <TrialBalancePage language={language} />,

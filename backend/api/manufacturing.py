@@ -11,15 +11,13 @@ Manufacturing & Cost Accounting Engine
 import uuid, asyncio
 from datetime import datetime, timezone, date
 from dateutil.relativedelta import relativedelta
-from typing import Optional, List
+from typing import Optional, List, Literal
 from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from database import db
-from api.users import get_current_user
-from models.accounting import JournalEntry, JournalEntryLine
-from services.accounting_service import AccountingService
 from dependencies import get_current_user
+from services import ops_posting as P
 
 router = APIRouter(prefix="/api/manufacturing", tags=["Manufacturing & Accruals"])
 
@@ -59,44 +57,71 @@ ACC = {
 }
 
 
-async def get_acc(company_id: str, code: str) -> dict:
-    a = await db.chart_of_accounts.find_one(
-        {"company_id": company_id, "account_code": code}, {"_id": 0}
-    )
-    return a or {"id": code, "account_code": code, "account_name": f"حساب {code}"}
-
-
-async def je_line(company_id: str, code: str,
-                  debit=0.0, credit=0.0, desc="") -> dict:
-    acc = await get_acc(company_id, code)
-    return {
-        "line_id": str(uuid.uuid4()), "entry_id": None,
-        "account_id":   acc["id"],
-        "account_code": acc["account_code"],
-        "account_name": acc.get("account_name", f"حساب {code}"),
-        "debit": round(debit, 2), "credit": round(credit, 2),
-        "description": desc,
-    }
+async def je_line(company_id: str, code: str, debit=0.0, credit=0.0, desc="") -> dict:
+    # the old copy fell back to a fake account {"id": code} when the code was
+    # missing; ops_posting raises a readable 400 instead
+    return await P.je_line(db, company_id, code, debit=debit, credit=credit, desc=desc)
 
 
 async def post_je(company_id: str, user_id: str, date_str: str,
                   description: str, lines: list, src_id: str = None) -> str:
-    svc = AccountingService(db)
-    entry = JournalEntry(
-        company_id=company_id, entry_number=0, entry_date=date_str,
-        description=description, lines=lines,
-        source_document_type="manual", source_document_id=src_id,
-        created_by=user_id,
-    )
-    result = await svc.create_journal_entry(entry)
-    await svc.post_journal_entry(result["id"], user_id)
-    return result["id"]
+    return await P.post_je(db, company_id, user_id, date_str, description, list(lines), "manufacturing", src_id)
 
 
 # ══════════════════════════════════════════════════════════════
 # PART A — MANUFACTURING ENGINE
-# أوامر الإنتاج وتكاليف التصنيع
+# قوائم المواد وأوامر الإنتاج: خامات 121 ← تحت التشغيل 126 ← إنتاج تام 122
 # ══════════════════════════════════════════════════════════════
+
+class BomComponent(BaseModel):
+    product_id: str
+    qty: float = Field(gt=0)            # الكمية اللازمة لإنتاج output_qty
+
+
+class BomRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    product_id: str                      # المنتج التام
+    name: Optional[str] = None
+    output_qty: float = Field(1, gt=0)
+    components: List[BomComponent] = Field(min_length=1)
+    notes: Optional[str] = None
+
+
+@router.post("/boms")
+async def create_bom(req: BomRequest, current_user: dict = Depends(get_current_user)):
+    """قائمة مواد (BOM) لمنتج تام — تُستخدم لاقتراح الخامات عند فتح أمر الإنتاج."""
+    company_id = current_user["company_id"]
+    prod = await P.get_product(db, company_id, req.product_id)
+    comps = []
+    for c in req.components:
+        if c.product_id == req.product_id:
+            raise HTTPException(400, "لا يمكن أن يكون المنتج مكوناً لنفسه")
+        cp = await P.get_product(db, company_id, c.product_id)
+        comps.append({"product_id": c.product_id, "name": cp.get("name", ""), "qty": c.qty})
+    bom = {"id": str(uuid.uuid4()), "company_id": company_id, "product_id": req.product_id,
+           "product_name": prod.get("name", ""), "name": req.name or f"قائمة مواد {prod.get('name', '')}",
+           "output_qty": req.output_qty, "components": comps, "notes": req.notes, "is_active": True,
+           "created_by": current_user["user_id"], "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.boms.insert_one(bom); bom.pop("_id", None)
+    return {"message": "تم حفظ قائمة المواد", "bom": bom}
+
+
+@router.get("/boms")
+async def list_boms(product_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    q = {"company_id": current_user["company_id"], "is_active": True}
+    if product_id:
+        q["product_id"] = product_id
+    return {"boms": await db.boms.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)}
+
+
+@router.delete("/boms/{bom_id}")
+async def delete_bom(bom_id: str, current_user: dict = Depends(get_current_user)):
+    r = await db.boms.update_one({"id": bom_id, "company_id": current_user["company_id"]},
+                                 {"$set": {"is_active": False}})
+    if not r.matched_count:
+        raise HTTPException(404, "قائمة المواد غير موجودة")
+    return {"message": "تم إيقاف قائمة المواد"}
+
 
 class ProductionMaterial(BaseModel):
     """صنف مصروف على أمر الإنتاج.
@@ -104,20 +129,67 @@ class ProductionMaterial(BaseModel):
     materials was a free List[dict]: a missing key raised a 500 half-way
     through building the entry, and a zero or negative quantity was accepted.
     """
-    name: str = Field(min_length=1, max_length=200)
+    name: str = Field("", max_length=200)
     qty: float = Field(gt=0)
-    unit_cost: float = Field(ge=0)
+    unit_cost: float = Field(0, ge=0)     # يُستبدل بمتوسط التكلفة إن كان للصنف رصيد
     product_id: Optional[str] = None
 
 
 class ProductionOrderRequest(BaseModel):
     order_number:    str = Field(min_length=1, max_length=60)
     product_id:      str
-    product_name:    str = Field(min_length=1, max_length=200)
+    product_name:    str = Field("", max_length=200)
     planned_qty:     float = Field(gt=0)
     start_date:      str
-    materials: List[ProductionMaterial] = Field(min_length=1)
+    materials: List[ProductionMaterial] = []
+    bom_id:          Optional[str] = None
+    warehouse_id:    Optional[str] = None       # مخزن الخامات
+    # where the materials' cost sits: 121 raw materials (default) or 125 when
+    # they were bought through a perpetual purchase invoice, which posts to 125
+    materials_account: Literal["121", "125"] = "121"
     notes:           Optional[str] = None
+
+
+async def _materials(company_id: str, req: ProductionOrderRequest, wh: str) -> list:
+    mats = list(req.materials)
+    if not mats and req.bom_id:
+        bom = await db.boms.find_one({"id": req.bom_id, "company_id": company_id, "is_active": True}, {"_id": 0})
+        if not bom:
+            raise HTTPException(404, "قائمة المواد غير موجودة")
+        if bom["product_id"] != req.product_id:
+            raise HTTPException(400, "قائمة المواد لا تخص هذا المنتج")
+        factor = req.planned_qty / float(bom.get("output_qty") or 1)
+        mats = [ProductionMaterial(product_id=c["product_id"], name=c.get("name", ""), qty=round(c["qty"] * factor, 4))
+                for c in bom["components"]]
+    if not mats:
+        raise HTTPException(400, "حدد الخامات المصروفة أو اختر قائمة مواد")
+    out = []
+    for m in mats:
+        name, cost = m.name, m.unit_cost
+        if m.product_id:
+            p = await P.get_product(db, company_id, m.product_id)
+            name = name or p.get("name", "")
+            await P.require_stock(db, company_id, m.product_id, wh, m.qty, name)
+            # the ledger already carries this material at its moving average;
+            # issuing it at a typed price left a difference in 121 forever
+            avg = await P.average_cost(db, company_id, m.product_id, wh)
+            cost = avg or cost
+        if not name:
+            raise HTTPException(400, "اسم الخامة مطلوب")
+        out.append({"product_id": m.product_id, "name": name, "qty": m.qty, "unit_cost": cost,
+                    "total_cost": P.r2(m.qty * cost)})
+    return out
+
+
+@router.post("/production-orders/preview")
+async def preview_production_order(req: ProductionOrderRequest, current_user: dict = Depends(get_current_user)):
+    """معاينة الخامات وتكلفتها وقيد الصرف قبل الحفظ (لا يكتب شيئاً)."""
+    company_id = current_user["company_id"]
+    wh = req.warehouse_id or await P.default_warehouse_id(db, company_id)
+    mats = await _materials(company_id, req, wh)
+    raw_acc = "311" if await P.inventory_method(db, company_id) == "periodic" else req.materials_account
+    total = P.r2(sum(m["total_cost"] for m in mats))
+    return {"materials": mats, "total_materials_cost": total, "credit_account": raw_acc, "debit_account": ACC["wip"]}
 
 
 @router.post("/production-orders")
@@ -127,48 +199,49 @@ async def create_production_order(req: ProductionOrderRequest,
     فتح أمر إنتاج وصرف المواد الخام للتشغيل
 
     القيد أ — صرف المواد الخام:
-    Dr م/122 إنتاج تحت التشغيل (أمر #XXX)
-    Cr م/121 مخزون الخامات والمواد الأولية
+    Dr م/126 إنتاج تحت التشغيل (أمر #XXX)
+    Cr م/121 مخزون الخامات (أو 125، أو 311 في الجرد الدوري حيث حُمِّلت المشتريات عليه)
     """
     company_id = current_user["company_id"]
+    if await db.production_orders.find_one({"company_id": company_id, "order_number": req.order_number}, {"_id": 1}):
+        raise HTTPException(400, f"رقم أمر الإنتاج {req.order_number} مستخدم من قبل")
+    prod = await P.get_product(db, company_id, req.product_id)
+    product_name = req.product_name or prod.get("name", "")
+    wh = req.warehouse_id or await P.default_warehouse_id(db, company_id)
+    materials = await _materials(company_id, req, wh)
+    raw_acc = "311" if await P.inventory_method(db, company_id) == "periodic" else req.materials_account
+    # total = sum of the ROUNDED line credits; the unrounded sum used for the
+    # debit could differ by a piastre and the entry was refused as unbalanced
+    total_materials = P.r2(sum(m["total_cost"] for m in materials))
+    if total_materials <= 0:
+        raise HTTPException(400, "تكلفة الخامات صفر — أدخل تكلفة الوحدة للخامات بلا رصيد")
+    order_id = str(uuid.uuid4())
 
-    materials = [m.dict() for m in req.materials]
-    total_materials = sum(
-        float(m["qty"]) * float(m["unit_cost"]) for m in materials
-    )
-
-    # ── قيد صرف المواد الخام ──────────────────────────────────
-    lines = [await je_line(
-        company_id, ACC["wip"], debit=total_materials,
-        desc=f"صرف خامات لأمر إنتاج {req.order_number} — {req.product_name}"
-    )]
-
+    lines = [await je_line(company_id, ACC["wip"], debit=total_materials,
+                           desc=f"صرف خامات لأمر إنتاج {req.order_number} — {product_name}")]
     for mat in materials:
-        mat_cost = round(float(mat["qty"]) * float(mat["unit_cost"]), 2)
-        lines.append(await je_line(
-            company_id, ACC["raw_materials"], credit=mat_cost,
-            desc=f"صرف {mat['name']} ({mat['qty']} وحدة × {mat['unit_cost']})"
-        ))
-        # Reduce raw material stock
-        await db.stocks.update_one(
-            {"product_id": mat.get("product_id"), "company_id": company_id},
-            {"$inc": {"quantity": -float(mat["qty"])}}
-        )
-
+        lines.append(await je_line(company_id, raw_acc, credit=mat["total_cost"],
+                                   desc=f"صرف {mat['name']} ({mat['qty']:g} × {mat['unit_cost']:g})"))
     je_id = await post_je(company_id, current_user["user_id"], req.start_date,
-        f"صرف مواد خام — أمر إنتاج {req.order_number}", lines)
+                          f"صرف مواد خام — أمر إنتاج {req.order_number}", lines, order_id)
 
-    # Save production order
+    # stock moves only after the entry posted, and only for real products —
+    # the old {"product_id": None} filter decremented an arbitrary stock row
+    for mat in materials:
+        if mat["product_id"]:
+            await P.stock_out(db, company_id, mat["product_id"], wh, mat["qty"], mat["unit_cost"],
+                              date_str=req.start_date, source_type="production_order", source_id=order_id,
+                              user_id=current_user["user_id"], mtype="production_out", product_name=mat["name"])
+
     order = {
-        "id": str(uuid.uuid4()), "company_id": company_id,
+        "id": order_id, "company_id": company_id,
         "order_number": req.order_number,
-        "product_id": req.product_id, "product_name": req.product_name,
+        "product_id": req.product_id, "product_name": product_name,
         "planned_qty": req.planned_qty, "actual_qty": 0,
-        "status": "open",
-        "materials": materials,
+        "status": "open", "bom_id": req.bom_id, "warehouse_id": wh,
+        "materials": materials, "materials_account": raw_acc,
         "total_materials_cost": total_materials,
-        "total_labor_cost":  0.0,
-        "total_foh_applied": 0.0,
+        "total_labor_cost": 0.0, "total_foh_applied": 0.0,
         "total_actual_cost": total_materials,
         "start_date": req.start_date, "end_date": None,
         "material_je_id": je_id, "notes": req.notes,
@@ -176,193 +249,193 @@ async def create_production_order(req: ProductionOrderRequest,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.production_orders.insert_one(order); order.pop("_id", None)
-
     return {
-        "message":  f"تم فتح أمر الإنتاج {req.order_number}",
-        "order":    order,
-        "journal":  {"id": je_id,
-                     "debit":  f"م/122 إنتاج تحت التشغيل  {total_materials:,.2f}",
-                     "credit": f"م/121 مخزون خامات         {total_materials:,.2f}"},
+        "message": f"تم فتح أمر الإنتاج {req.order_number}",
+        "order": order,
+        "journal": {"id": je_id,
+                    "debit":  f"م/{ACC['wip']} إنتاج تحت التشغيل  {total_materials:,.2f}",
+                    "credit": f"م/{raw_acc} خامات  {total_materials:,.2f}"},
     }
 
 
+class FohItem(BaseModel):
+    type: str = "other"
+    amount: float = Field(gt=0)
+    description: Optional[str] = None
+
+
+class AllocateCostsRequest(BaseModel):
+    labor_cost: float = Field(0, ge=0)
+    foh_costs: List[FohItem] = []
+    date: Optional[str] = None
+
+
 @router.post("/production-orders/{order_id}/allocate-costs")
-async def allocate_production_costs(order_id: str, data: dict,
+async def allocate_production_costs(order_id: str, data: AllocateCostsRequest,
                                     current_user: dict = Depends(get_current_user)):
     """
-    تحميل الأجور والتكاليف الصناعية غير المباشرة (FOH)
+    تحميل الأجور والتكاليف الصناعية غير المباشرة على أمر الإنتاج
 
-    القيد ب:
-    Dr م/122 إنتاج تحت التشغيل (أمر #XXX)
-    Cr م/312 أجور عمال الإنتاج المباشرة
-    Cr م/313 تكاليف صناعية غير مباشرة (كهرباء/صيانة/إهلاك)
+    Dr م/126 إنتاج تحت التشغيل
+    Cr م/312 أجور تشغيلية مباشرة (نقل الأجر المسجل بالرواتب إلى الأمر)
+    Cr م/3181 تكاليف صناعية غير مباشرة محمّلة
     """
     company_id = current_user["company_id"]
-    order = await db.production_orders.find_one(
-        {"id": order_id, "company_id": company_id}, {"_id": 0})
+    order = await db.production_orders.find_one({"id": order_id, "company_id": company_id}, {"_id": 0})
     if not order:
         raise HTTPException(404, "أمر الإنتاج غير موجود")
     if order.get("status") == "closed":
         raise HTTPException(400, "أمر الإنتاج مُغلَق — لا يمكن إضافة تكاليف")
 
-    labor_cost = float(data.get("labor_cost", 0))
-    foh_costs  = data.get("foh_costs", [])  # [{type, amount, account_code}]
-    date_str   = data.get("date", date.today().isoformat())
+    labor_cost = P.r2(data.labor_cost)
+    total_foh = P.r2(sum(P.r2(f.amount) for f in data.foh_costs))
+    total_added = P.r2(labor_cost + total_foh)
+    if total_added <= 0:
+        raise HTTPException(400, "أدخل أجوراً أو تكاليف صناعية بمبلغ موجب")
+    date_str = data.date or date.today().isoformat()
 
-    total_foh   = sum(float(f["amount"]) for f in foh_costs)
-    total_added = labor_cost + total_foh
-
-    lines = [await je_line(
-        company_id, ACC["wip"], debit=total_added,
-        desc=f"تحميل تكاليف — أمر إنتاج {order['order_number']}"
-    )]
-
+    lines = [await je_line(company_id, ACC["wip"], debit=total_added,
+                           desc=f"تحميل تكاليف — أمر إنتاج {order['order_number']}")]
     if labor_cost > 0:
-        lines.append(await je_line(
-            company_id, ACC["direct_labor_exp"], credit=labor_cost,
-            desc=f"أجور عمال إنتاج مباشرة — أمر {order['order_number']}"))
-
-    FOH_ACCOUNTS = {
-        "electricity": "332", "maintenance": "313",
-        "depreciation": "313", "insurance": "332",
-        "rent": "332", "other": "313"
-    }
-    for foh in foh_costs:
-        foh_acc  = foh.get("account_code") or FOH_ACCOUNTS.get(foh.get("type","other"), "313")
-        foh_amt  = float(foh["amount"])
-        foh_desc = foh.get("description", foh.get("type","تكلفة صناعية"))
-        lines.append(await je_line(
-            company_id, foh_acc, credit=foh_amt,
-            desc=f"تكلفة صناعية غير مباشرة — {foh_desc} — أمر {order['order_number']}"))
-
+        lines.append(await je_line(company_id, ACC["direct_labor_exp"], credit=labor_cost,
+                                   desc=f"أجور عمال إنتاج مباشرة — أمر {order['order_number']}"))
+    # Overhead used to be credited straight to 332/313 (or ANY account_code the
+    # body named). Applied overhead belongs in 3181: actual overhead collects in
+    # 313, and /overhead-variance closes 3181 against 313 — which only works if
+    # the applied side was actually credited to 3181.
+    for foh in data.foh_costs:
+        lines.append(await je_line(company_id, ACC["foh_applied"], credit=foh.amount,
+                                   desc=f"تكاليف صناعية غير مباشرة محملة — {foh.description or foh.type} — أمر {order['order_number']}"))
     je_id = await post_je(company_id, current_user["user_id"], date_str,
-        f"تحميل تكاليف صناعية — أمر {order['order_number']}", lines, order_id)
+                          f"تحميل تكاليف صناعية — أمر {order['order_number']}", lines, order_id)
 
-    new_total = round(order["total_actual_cost"] + total_added, 2)
-    await db.production_orders.update_one({"id": order_id}, {"$set": {
-        "total_labor_cost":  round(order.get("total_labor_cost", 0) + labor_cost, 2),
-        "total_foh_applied": round(order.get("total_foh_applied", 0) + total_foh, 2),
-        "total_actual_cost": new_total,
-    }})
-
+    new_total = P.r2(order["total_actual_cost"] + total_added)
+    await db.production_orders.update_one({"id": order_id, "company_id": company_id}, {
+        "$set": {"total_labor_cost": P.r2(order.get("total_labor_cost", 0) + labor_cost),
+                 "total_foh_applied": P.r2(order.get("total_foh_applied", 0) + total_foh),
+                 "total_actual_cost": new_total},
+        "$push": {"cost_allocations": {"date": date_str, "labor": labor_cost, "foh": total_foh, "je_id": je_id}}})
     return {
-        "message":   f"تم تحميل التكاليف على أمر الإنتاج {order['order_number']}",
+        "message": f"تم تحميل التكاليف على أمر الإنتاج {order['order_number']}",
         "allocated": {"labor": labor_cost, "foh": total_foh, "total": total_added},
-        "new_total_cost": new_total,
-        "journal_entry_id": je_id,
+        "new_total_cost": new_total, "journal_entry_id": je_id,
     }
+
+
+class CompleteOrderRequest(BaseModel):
+    actual_qty: Optional[float] = Field(None, gt=0)
+    date: Optional[str] = None
+    warehouse_id: Optional[str] = None     # مخزن الإنتاج التام
 
 
 @router.post("/production-orders/{order_id}/complete")
-async def complete_production_order(order_id: str, data: dict,
+async def complete_production_order(order_id: str, data: CompleteOrderRequest,
                                     current_user: dict = Depends(get_current_user)):
     """
-    إتمام الإنتاج — نقل من WIP إلى مخزون المنتجات التامة
-
-    القيد ج:
-    Dr م/123 مخزون المنتجات تامة الصنع
-    Cr م/122 إنتاج تحت التشغيل (إغلاق بالتكلفة الفعلية)
+    إتمام الإنتاج — نقل من WIP إلى مخزون الإنتاج التام
+    Dr م/122 مخزون الإنتاج التام
+    Cr م/126 إنتاج تحت التشغيل (إقفال بالتكلفة الفعلية)
     """
-    company_id  = current_user["company_id"]
-    order = await db.production_orders.find_one(
-        {"id": order_id, "company_id": company_id}, {"_id": 0})
+    company_id = current_user["company_id"]
+    order = await db.production_orders.find_one({"id": order_id, "company_id": company_id}, {"_id": 0})
     if not order:
         raise HTTPException(404, "أمر الإنتاج غير موجود")
-    if order.get("status") == "closed":
+    if order.get("status") != "open":
         raise HTTPException(400, "أمر الإنتاج مُغلَق بالفعل")
+    # claim first: two clicks used to post the finished goods twice
+    claimed = await db.production_orders.update_one({"id": order_id, "company_id": company_id, "status": "open"},
+                                                    {"$set": {"status": "closing"}})
+    if not claimed.modified_count:
+        raise HTTPException(409, "جارٍ إغلاق أمر الإنتاج بالفعل")
 
-    actual_qty  = float(data.get("actual_qty", order["planned_qty"]))
-    end_date    = data.get("date", date.today().isoformat())
-    total_cost  = float(order["total_actual_cost"])
-    unit_cost   = round(total_cost / actual_qty, 4) if actual_qty > 0 else 0
+    actual_qty = float(data.actual_qty or order["planned_qty"])
+    end_date = data.date or date.today().isoformat()
+    total_cost = P.r2(order["total_actual_cost"])
+    unit_cost = round(total_cost / actual_qty, 4)
+    fg_wh = data.warehouse_id or order.get("warehouse_id") or await P.default_warehouse_id(db, company_id)
+    try:
+        lines = [
+            await je_line(company_id, ACC["finished_goods"], debit=total_cost,
+                          desc=f"استلام منتج تام — {order['product_name']} ({actual_qty:g} وحدة @ {unit_cost:g})"),
+            await je_line(company_id, ACC["wip"], credit=total_cost,
+                          desc=f"إغلاق أمر إنتاج {order['order_number']} بالتكلفة الفعلية {total_cost:,.2f}"),
+        ]
+        je_id = await post_je(company_id, current_user["user_id"], end_date,
+                              f"إتمام أمر إنتاج {order['order_number']} — {order['product_name']}", lines, order_id)
+    except Exception:
+        await db.production_orders.update_one({"id": order_id, "company_id": company_id}, {"$set": {"status": "open"}})
+        raise
 
-    lines = await asyncio.gather(
-        je_line(company_id, ACC["finished_goods"], debit=total_cost,
-                desc=f"استلام منتج تام — {order['product_name']} ({actual_qty} وحدة @ {unit_cost})"),
-        je_line(company_id, ACC["wip"], credit=total_cost,
-                desc=f"إغلاق أمر إنتاج {order['order_number']} بالتكلفة الفعلية {total_cost:,.2f}"),
-    )
-    je_id = await post_je(company_id, current_user["user_id"], end_date,
-        f"إتمام أمر إنتاج {order['order_number']} — {order['product_name']}", list(lines), order_id)
-
-    # Update finished goods stock
-    await db.stocks.update_one(
-        {"product_id": order["product_id"], "company_id": company_id},
-        {"$inc": {"quantity": actual_qty}, "$set": {"unit_cost": unit_cost}},
-        upsert=True
-    )
-
-    await db.production_orders.update_one({"id": order_id}, {"$set": {
-        "status": "closed", "actual_qty": actual_qty,
-        "unit_cost": unit_cost, "end_date": end_date, "close_je_id": je_id,
-    }})
-
+    # finished goods enter at a weighted average with what is already on hand —
+    # the old $set unit_cost replaced the average of existing stock outright
+    await P.stock_in(db, company_id, order["product_id"], fg_wh, actual_qty, unit_cost, date_str=end_date,
+                     source_type="production_order", source_id=order_id, user_id=current_user["user_id"],
+                     mtype="production_in", product_name=order["product_name"])
+    await db.production_orders.update_one({"id": order_id, "company_id": company_id}, {"$set": {
+        "status": "closed", "actual_qty": actual_qty, "unit_cost": unit_cost,
+        "end_date": end_date, "close_je_id": je_id, "fg_warehouse_id": fg_wh}})
     return {
-        "message":  f"تم إغلاق أمر الإنتاج {order['order_number']}",
-        "product":  order["product_name"],
-        "actual_qty": actual_qty,
-        "total_cost": total_cost,
-        "unit_cost":  unit_cost,
+        "message": f"تم إغلاق أمر الإنتاج {order['order_number']}",
+        "product": order["product_name"], "actual_qty": actual_qty,
+        "total_cost": total_cost, "unit_cost": unit_cost,
         "journal": {"id": je_id,
-                    "debit":  f"م/123 مخزون منتجات تامة {total_cost:,.2f}",
-                    "credit": f"م/122 إنتاج تحت التشغيل {total_cost:,.2f}"},
+                    "debit":  f"م/{ACC['finished_goods']} مخزون الإنتاج التام {total_cost:,.2f}",
+                    "credit": f"م/{ACC['wip']} إنتاج تحت التشغيل {total_cost:,.2f}"},
     }
 
 
+class OverheadVarianceRequest(BaseModel):
+    period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    actual_foh: float = Field(ge=0)
+    applied_foh: Optional[float] = Field(None, ge=0)   # فارغ = مجموع المحمّل على أوامر الفترة
+    date: Optional[str] = None
+
+
 @router.post("/overhead-variance")
-async def record_overhead_variance(data: dict,
+async def record_overhead_variance(data: OverheadVarianceRequest,
                                    current_user: dict = Depends(get_current_user)):
     """
-    تسوية فروق التحميل (Over/Under Absorbed FOH) في نهاية الشهر
-
-    Under-absorbed (فعلي > مُحمَّل):
-    Dr م/124 انحراف تكاليف صناعية (خسارة)
-    Cr م/313 تكاليف صناعية غير مباشرة (إغلاق الفعلي)
-
-    Over-absorbed (مُحمَّل > فعلي):
-    Dr م/313 تكاليف صناعية غير مباشرة
-    Cr م/124 انحراف تكاليف صناعية (ربح)
+    تسوية فروق التحميل في نهاية الشهر — يُقفل 3181 (المحمّل) مقابل 313 (الفعلي)
+    والفرق إلى 3182: مدين = نقص تحميل (خسارة)، دائن = زيادة تحميل.
     """
-    company_id   = current_user["company_id"]
-    period       = data.get("period")  # "2026-01"
-    actual_foh   = float(data.get("actual_foh",   0))
-    applied_foh  = float(data.get("applied_foh",  0))
-    date_str     = data.get("date", date.today().isoformat())
+    company_id = current_user["company_id"]
+    period = data.period
+    if await db.overhead_variances.find_one({"company_id": company_id, "period": period}, {"_id": 1}):
+        raise HTTPException(400, f"تمت تسوية فروق التحميل لفترة {period} من قبل")
+    applied_foh = data.applied_foh
+    if applied_foh is None:
+        applied_foh = 0.0
+        async for o in db.production_orders.find({"company_id": company_id}, {"_id": 0, "cost_allocations": 1}):
+            applied_foh += sum(a.get("foh", 0) for a in o.get("cost_allocations", []) if str(a.get("date", "")).startswith(period))
+    applied_foh, actual_foh = P.r2(applied_foh), P.r2(data.actual_foh)
+    date_str = data.date or date.today().isoformat()
 
-    variance     = round(applied_foh - actual_foh, 2)
-    abs_var      = abs(variance)
-    is_over      = variance > 0  # over-absorbed = applied > actual
-
-    if abs_var < 0.01:
-        return {"message": "لا فروق تحميل — التكاليف المحملة مساوية للفعلية", "variance": 0}
+    variance = P.r2(applied_foh - actual_foh)
+    abs_var = abs(variance)
+    is_over = variance > 0  # over-absorbed = applied > actual
+    if abs_var < 0.01 and applied_foh == 0:
+        return {"message": "لا توجد تكاليف صناعية لتسويتها", "variance": 0}
 
     # Closing reverses each account's own balance: the applied account carries a
     # CREDIT balance, so it is closed by a DEBIT; actual overhead carries a
-    # DEBIT balance, so it is closed by a CREDIT. The code had both the wrong
-    # way round, so the entry never balanced and this route always failed.
-    lines = await asyncio.gather(
-        je_line(company_id, ACC["foh_applied"], debit=applied_foh,
-                desc=f"إغلاق التكاليف المحملة — {period}"),
-        je_line(company_id, ACC["foh_exp"], credit=actual_foh,
-                desc=f"إغلاق التكاليف الصناعية الفعلية — {period}"),
-        je_line(company_id, ACC["foh_variance"],
-                credit=abs_var if is_over else 0.0,
-                debit=0.0 if is_over else abs_var,
-                desc=(f"ربح انحراف تحميل (زيادة تحميل) — {period}" if is_over
-                      else f"خسارة انحراف تحميل (نقص تحميل) — {period}")),
-    )
-
+    # DEBIT balance, so it is closed by a CREDIT.
+    lines = [
+        await je_line(company_id, ACC["foh_applied"], debit=applied_foh, desc=f"إغلاق التكاليف المحملة — {period}"),
+        await je_line(company_id, ACC["foh_exp"], credit=actual_foh, desc=f"إغلاق التكاليف الصناعية الفعلية — {period}"),
+        await je_line(company_id, ACC["foh_variance"],
+                      credit=abs_var if is_over else 0.0, debit=0.0 if is_over else abs_var,
+                      desc=(f"ربح انحراف تحميل (زيادة تحميل) — {period}" if is_over
+                            else f"خسارة انحراف تحميل (نقص تحميل) — {period}")),
+    ]
     je_id = await post_je(company_id, current_user["user_id"], date_str,
-        f"تسوية فروق التحميل — {period} — {'زيادة' if is_over else 'نقص'} {abs_var:,.2f}",
-        [l for l in lines], period)
-
+                          f"تسوية فروق التحميل — {period} — {'زيادة' if is_over else 'نقص'} {abs_var:,.2f}", lines, period)
+    await db.overhead_variances.insert_one({"id": str(uuid.uuid4()), "company_id": company_id, "period": period,
+                                            "applied_foh": applied_foh, "actual_foh": actual_foh,
+                                            "variance": variance, "je_id": je_id, "date": date_str})
     return {
-        "message":      f"تم تسجيل فروق تحميل التكاليف الصناعية — {period}",
-        "period":       period,
-        "actual_foh":   actual_foh,
-        "applied_foh":  applied_foh,
-        "variance":     variance,
-        "variance_type":"over-absorbed (زيادة تحميل)" if is_over else "under-absorbed (نقص تحميل)",
+        "message": f"تم تسجيل فروق تحميل التكاليف الصناعية — {period}",
+        "period": period, "actual_foh": actual_foh, "applied_foh": applied_foh, "variance": variance,
+        "variance_type": "over-absorbed (زيادة تحميل)" if is_over else "under-absorbed (نقص تحميل)",
         "journal_entry_id": je_id,
     }
 
@@ -376,9 +449,10 @@ async def list_production_orders(
     company_id = current_user["company_id"]
     q = {"company_id": company_id}
     if status: q["status"] = status
-    total  = await db.production_orders.count_documents(q)
+    limit = max(1, min(limit, 200))
+    total = await db.production_orders.count_documents(q)
     orders = await db.production_orders.find(q, {"_id": 0}).sort(
-        "created_at", -1).skip((page-1)*limit).limit(limit).to_list(None)
+        "created_at", -1).skip((max(page, 1) - 1) * limit).limit(limit).to_list(None)
     return {"orders": orders, "total": total, "page": page}
 
 
@@ -388,9 +462,9 @@ async def list_production_orders(
 # ══════════════════════════════════════════════════════════════
 
 class PrepaymentRequest(BaseModel):
-    prepayment_type: str  # expense | revenue
-    description:     str
-    total_amount:    float
+    prepayment_type: Literal["expense", "revenue"]
+    description:     str = Field(min_length=1, max_length=200)
+    total_amount:    float = Field(gt=0)
     start_date:      str
     end_date:        str          # فترة الاستحقاق
     payment_date:    str
@@ -416,11 +490,26 @@ async def create_prepayment(req: PrepaymentRequest,
     """
     company_id = current_user["company_id"]
     prepay_id  = str(uuid.uuid4())
-    total      = req.total_amount
+    total      = P.r2(req.total_amount)
+
+    # The three account codes came from the body unchecked: a revenue code as
+    # the "payment account" or a bank as the "expense account" posted happily.
+    if not req.payment_account.startswith("16"):
+        raise HTTPException(400, "حساب السداد/التحصيل يجب أن يكون خزينة أو بنكاً (16x)")
+    if req.prepayment_type == "expense" and not req.expense_account.startswith("3"):
+        raise HTTPException(400, "حساب المصروف يجب أن يكون من حسابات المصروفات (3x)")
+    if req.prepayment_type == "revenue" and not req.revenue_account.startswith("4"):
+        raise HTTPException(400, "حساب الإيراد يجب أن يكون من حسابات الإيرادات (4x)")
+    await P.get_account(db, company_id, req.expense_account if req.prepayment_type == "expense" else req.revenue_account)
 
     # Calculate monthly amount
-    sd = date.fromisoformat(req.start_date)
-    ed = date.fromisoformat(req.end_date)
+    try:
+        sd = date.fromisoformat(req.start_date)
+        ed = date.fromisoformat(req.end_date)
+    except ValueError:
+        raise HTTPException(400, "صيغة التاريخ غير صحيحة (YYYY-MM-DD)")
+    if ed < sd:
+        raise HTTPException(400, "تاريخ النهاية قبل تاريخ البداية")
     months = max((ed.year - sd.year)*12 + (ed.month - sd.month) + 1, 1)
     monthly = round(total / months, 2)
 
@@ -614,17 +703,20 @@ async def create_ecl_provision(data: dict,
         "company_id": company_id,
         "document_type": "sales_invoice",
         "status": {"$nin": ["paid","cancelled"]},
-    }, {"_id": 0, "grand_total":1, "document_date":1, "due_date":1,
+    }, {"_id": 0, "grand_total":1, "amount_paid":1, "document_date":1, "due_date":1,
         "party_name":1, "party_id":1}).to_list(None)
 
     buckets = {k: 0.0 for k in AGING_RATES}
     ar_detail = []
 
     for inv in open_ar:
-        amount   = float(inv.get("grand_total", 0))
+        # was grand_total: a half-paid invoice was provisioned on its full value
+        amount   = P.r2(float(inv.get("grand_total", 0) or 0) - float(inv.get("amount_paid", 0) or 0))
+        if amount <= 0:
+            continue
         due_date_str = inv.get("due_date") or inv.get("document_date", today.isoformat())
         try:
-            due = date.fromisoformat(due_date_str)
+            due = date.fromisoformat(str(due_date_str)[:10])
         except Exception:
             due = today
         days_overdue = max((today - due).days, 0)
@@ -650,8 +742,6 @@ async def create_ecl_provision(data: dict,
         buckets[b] * AGING_RATES[b] for b in AGING_RATES
     ), 2)
 
-    if total_ecl <= 0:
-        return {"message": "لا يوجد رصيد ECL مستحق", "total_ecl": 0}
 
     # Get existing provision balance
     existing = await db.provisions.find_one(
@@ -720,7 +810,9 @@ async def inventory_writedown(data: dict,
     Cr م/226 مخصص هبوط قيمة المخزون (Contra-Asset)
     """
     company_id  = current_user["company_id"]
-    amount      = float(data.get("amount", 0))
+    amount      = P.r2(data.get("amount", 0) or 0)
+    if amount <= 0:
+        raise HTTPException(400, "المبلغ يجب أن يكون أكبر من صفر")
     reason      = data.get("reason", "هبوط قيمة مخزون ركود")
     date_str    = data.get("date", date.today().isoformat())
     product_id  = data.get("product_id")
@@ -755,7 +847,9 @@ async def contingency_provision(data: dict,
     Cr م/227 مخصص قضايا والتزامات محتملة
     """
     company_id = current_user["company_id"]
-    amount     = float(data.get("amount", 0))
+    amount     = P.r2(data.get("amount", 0) or 0)
+    if amount <= 0:
+        raise HTTPException(400, "المبلغ يجب أن يكون أكبر من صفر")
     case_desc  = data.get("description", "مخصص قضايا")
     date_str   = data.get("date", date.today().isoformat())
 

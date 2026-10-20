@@ -1,82 +1,73 @@
 """
 Letter of Credit Engine — محرك الاعتمادات المستندية للاستيراد الخارجي
-LC Documentary Credit Cycle
 
-4 مراحل كاملة:
-1. فتح الاعتماد  — حجز الغطاء + سداد العمولات
-2. تجميع التكاليف — شحن + تأمين بحري + جمارك + تخليص
-3. وصول البضاعة  — إقفال ملف الاعتماد وإثبات المخزون
-4. التسوية النهائية — تسوية الفروق وإغلاق الحساب الوسيط
+الدورة:
+1. فتح الاعتماد      — Dr 165 غطاء محتجز + Dr 3371 عمولة فتح / Cr البنك
+2. تكاليف الاستيراد  — Dr 123 بضاعة بالطريق / Cr البنك أو الخزينة أو الموردين
+   (شحن، تأمين بحري، جمارك، تخليص — كلها جزء من تكلفة البضاعة، المعيار المصري 2)
+3. سداد المستندات    — Dr 123 قيمة البضاعة بسعر صرف السداد / Cr 165 الغطاء + Cr البنك الباقي
+4. وصول البضاعة      — Dr 125 (أو 121 خامات، أو 311 في الجرد الدوري) / Cr 123 كامل رصيد الاعتماد
+                        + دخول الكميات للمخزن بالتكلفة الشاملة (Landed Cost)
+5. الإقفال           — رد ما تبقى من الغطاء: Dr البنك / Cr 165
+                        أو الإلغاء قبل السداد: رد الغطاء وتحميل التكاليف المدفوعة على مصروفاتها
+
+What was wrong (and is fixed here):
+- "receive" debited stock with margin + costs and credited the margin: the
+  supplier was never paid in the books, so with a 20% margin the goods were
+  carried at 20% of their price and 80% of the cost vanished.
+- receive could be called twice (only "closed" was blocked) and costs could be
+  added after receipt, so they sat in 123 forever.
+- "in_transit" as a receive option debited AND credited 123.
+- settle summed 123 across EVERY letter of the company and posted nothing.
+- no quantity ever reached the warehouse.
+- the old helpers posted to a fake account id when a code was missing.
 """
-import uuid, asyncio
-from datetime import datetime, timezone, date
-from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel
+import uuid
+from datetime import datetime, timezone
+from typing import Optional, List, Literal
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
 
 from database import db
-from api.users import get_current_user
-from models.accounting import JournalEntry
-from services.accounting_service import AccountingService
 from dependencies import get_current_user
+from services import ops_posting as P
 
 router = APIRouter(prefix="/api/lc", tags=["Letter of Credit"])
 
-# ── Account codes ─────────────────────────────────────────────
 ACC = {
-    "lc_margin":   "165",  # غطاء نقدي محتجز
-    "lc_costs":    "123",  # تكاليف مرحلية مجمَّعة (الحساب الوسيط الرئيسي)
-    "lc_commis":   "3371",  # عمولات فتح الاعتماد
-    "freight":     "3372",  # شحن دولي
-    "insurance":   "3373",  # تأمين بحري
-    "customs":     "3374",  # رسوم جمركية
-    "clearance":   "3375",  # تخليص جمركي وميناء
-    "inventory_rm":"121",   # مخزون خامات ومواد أولية
-    "inventory_fg":"122",   # مخزون بضاعة جاهزة
-    "inventory_tr":"123",   # بضاعة بالطريق
+    "lc_margin":   "165",   # غطاء اعتمادات مستندية محتجز
+    "in_transit":  "123",   # مخزون بضاعة بالطريق / اعتمادات (الحساب الوسيط)
+    "lc_commis":   "3371",  # عمولات فتح الاعتمادات المستندية
     "bank":        "162",
     "cash":        "161",
+    "ap":          "251",   # الموردون (شركة الشحن / المخلص)
 }
 
-COST_TYPES = {
-    "freight":   (ACC["freight"],   "مصاريف شحن دولي"),
-    "insurance": (ACC["insurance"], "تأمين بحري"),
-    "customs":   (ACC["customs"],   "رسوم جمركية"),
-    "clearance": (ACC["clearance"], "تخليص جمركي وميناء"),
-    "other":     ("332",            "مصاريف استيراد أخرى"),
+COST_TYPES = {   # type → (expense account used only if the LC is cancelled, Arabic label)
+    "freight":   ("3372", "مصاريف شحن دولي"),
+    "insurance": ("3373", "تأمين بحري"),
+    "customs":   ("3374", "رسوم جمركية"),
+    "clearance": ("3375", "تخليص جمركي وميناء"),
+    "bank":      ("334",  "مصروفات وعمولات بنكية"),
+    "other":     ("3375", "مصاريف استيراد أخرى"),
 }
 
 
-async def get_acc(company_id, code):
-    a = await db.chart_of_accounts.find_one(
-        {"company_id": company_id, "account_code": code}, {"_id": 0})
-    return a or {"id": code, "account_code": code, "account_name": f"حساب {code}"}
+def _bank(code: str) -> str:
+    if not code or not code.startswith("16") or code in ("163", "164", "165"):
+        raise HTTPException(400, "حساب البنك/الخزينة غير صحيح — اختر 161 أو 162 أو حساب بنك فرعي")
+    return code
 
 
-async def je_line(company_id, code, debit=0.0, credit=0.0, desc=""):
-    acc = await get_acc(company_id, code)
-    return {"line_id": str(uuid.uuid4()), "entry_id": None,
-            "account_id": acc["id"], "account_code": code,
-            "account_name": acc.get("account_name", f"حساب {code}"),
-            "debit": round(debit,2), "credit": round(credit,2), "description": desc}
+async def _post_je(company_id, user_id, date_str, desc, lines, lc_id, ref):
+    return await P.post_je(db, company_id, user_id, date_str, desc, lines, "letter_of_credit", lc_id, ref)
 
 
-async def post_je(company_id, user_id, date_str, description, lines, src_id=None):
-    svc = AccountingService(db)
-    entry = JournalEntry(
-        company_id=company_id, entry_number=0, entry_date=date_str,
-        description=description, lines=lines,
-        source_document_type="letter_of_credit", source_document_id=src_id,
-        created_by=user_id)
-    r = await svc.create_journal_entry(entry)
-    await svc.post_journal_entry(r["id"], user_id)
-    return r["id"]
-
-
-def balanced(lines):
-    td = round(sum(l["debit"]  for l in lines), 2)
-    tc = round(sum(l["credit"] for l in lines), 2)
-    return abs(td-tc) < 0.01, td, tc
+async def _get(company_id: str, lc_id: str) -> dict:
+    lc = await db.letters_of_credit.find_one({"id": lc_id, "company_id": company_id}, {"_id": 0})
+    if not lc:
+        raise HTTPException(404, "الاعتماد غير موجود")
+    return lc
 
 
 # ══════════════════════════════════════════════════════════════
@@ -84,354 +75,301 @@ def balanced(lines):
 # ══════════════════════════════════════════════════════════════
 
 class OpenLCRequest(BaseModel):
-    lc_number:        str
-    supplier_name:    str
-    supplier_country: str
-    goods_description: str
-    lc_currency:      str = "USD"
-    lc_amount_foreign: float
-    exchange_rate:    float = 1.0
-    margin_amount:    float         # الغطاء النقدي بالجنيه
-    bank_commission:  float         # عمولة البنك
-    open_date:        str
-    expiry_date:      str
-    bank_account:     str = "162"
-    notes:            Optional[str] = None
+    lc_number:         str = Field(min_length=1, max_length=60)
+    supplier_name:     str = Field(min_length=1, max_length=200)
+    supplier_country:  str = ""
+    goods_description: str = ""
+    lc_currency:       str = "USD"
+    lc_amount_foreign: float = Field(gt=0)
+    exchange_rate:     float = Field(1.0, gt=0)
+    margin_amount:     float = Field(0, ge=0)      # الغطاء النقدي بالجنيه
+    bank_commission:   float = Field(0, ge=0)      # عمولة فتح الاعتماد
+    open_date:         str
+    expiry_date:       str
+    bank_account:      str = "162"
+    notes:             Optional[str] = None
 
 
 class CostItem(BaseModel):
-    cost_type:   str   # freight|insurance|customs|clearance|other
-    description: str
-    amount_egp:  float
+    cost_type:   Literal["freight", "insurance", "customs", "clearance", "bank", "other"]
+    description: str = ""
+    amount_egp:  float = Field(gt=0)
     invoice_ref: Optional[str] = None
 
 
 class AddCostsRequest(BaseModel):
-    lc_id:       str
+    lc_id:       Optional[str] = None     # kept for old clients; the path wins
     date_str:    str
-    costs:       list[CostItem]
-    payment_src: str = "bank"   # bank | cash
+    costs:       List[CostItem] = Field(min_length=1)
+    payment_src: Literal["bank", "cash", "supplier"] = "bank"
+    bank_account: Optional[str] = None
     notes:       Optional[str] = None
 
 
+class PayDocumentsRequest(BaseModel):
+    date_str:      str
+    exchange_rate: Optional[float] = Field(None, gt=0)   # سعر الصرف يوم السداد
+    amount_foreign: Optional[float] = Field(None, gt=0)  # فارغ = قيمة الاعتماد
+    bank_account:  Optional[str] = None
+    notes:         Optional[str] = None
+
+
+class ReceiveItem(BaseModel):
+    product_id:    str
+    quantity:      float = Field(gt=0)
+    foreign_value: Optional[float] = Field(None, ge=0)    # لتوزيع التكلفة بالقيمة؛ فارغ = بالكمية
+
+
 class ReceiveGoodsRequest(BaseModel):
-    lc_id:            str
-    date_str:         str
-    goods_received:   str   # raw_material | finished_goods | in_transit
-    quantity_received: Optional[float] = None
-    notes:            Optional[str] = None
+    lc_id:          Optional[str] = None
+    date_str:       str
+    goods_received: Literal["goods", "raw_material", "finished_goods"] = "goods"
+    warehouse_id:   Optional[str] = None
+    items:          List[ReceiveItem] = []
+    quantity_received: Optional[float] = None   # legacy, informational
+    notes:          Optional[str] = None
 
 
 class SettleRequest(BaseModel):
-    lc_id:    str
+    lc_id:    Optional[str] = None
     date_str: str
+    bank_account: Optional[str] = None
     notes:    Optional[str] = None
 
 
 # ══════════════════════════════════════════════════════════════
-# 1. فتح الاعتماد — OPEN LC
+# 1. فتح الاعتماد
 # ══════════════════════════════════════════════════════════════
 
 @router.post("/open")
-async def open_lc(req: OpenLCRequest,
-                  current_user: dict = Depends(get_current_user)):
-    """
-    فتح الاعتماد المستندي وحجز الغطاء البنكي
-
-    القيد:
-    Dr م/1231 اعتمادات مستندية — غطاء نقدي   ← الغطاء المحتجز
-    Dr م/3371 عمولات فتح الاعتماد              ← عمولة البنك
-    Cr م/112  البنك الجاري                     ← إجمالي المدفوع
-    """
+async def open_lc(req: OpenLCRequest, current_user: dict = Depends(get_current_user)):
+    """Dr 165 غطاء + Dr 3371 عمولة / Cr البنك"""
     company_id = current_user["company_id"]
-    lc_id      = str(uuid.uuid4())
-    total_paid = round(req.margin_amount + req.bank_commission, 2)
-    lc_amount_egp = round(req.lc_amount_foreign * req.exchange_rate, 2)
+    bank = _bank(req.bank_account)
+    if await db.letters_of_credit.find_one({"company_id": company_id, "lc_number": req.lc_number}, {"_id": 1}):
+        raise HTTPException(400, f"رقم الاعتماد {req.lc_number} مسجل من قبل")
+    if req.expiry_date < req.open_date:
+        raise HTTPException(400, "تاريخ انتهاء الاعتماد قبل تاريخ فتحه")
+    lc_id = str(uuid.uuid4())
+    margin, commission = P.r2(req.margin_amount), P.r2(req.bank_commission)
+    total_paid = P.r2(margin + commission)
+    lc_amount_egp = P.r2(req.lc_amount_foreign * req.exchange_rate)
 
-    lines = await asyncio.gather(
-        je_line(company_id, ACC["lc_margin"], debit=req.margin_amount,
-                desc=f"غطاء اعتماد {req.lc_number} — {req.supplier_name}"),
-        je_line(company_id, ACC["lc_commis"], debit=req.bank_commission,
-                desc=f"عمولة فتح اعتماد {req.lc_number}"),
-        je_line(company_id, req.bank_account, credit=total_paid,
-                desc=f"خصم بنكي — فتح اعتماد مستندي {req.lc_number}"),
-    )
-    je_id = await post_je(company_id, current_user["user_id"], req.open_date,
-        f"فتح اعتماد مستندي {req.lc_number} — {req.supplier_name}", list(lines), lc_id)
+    lines = [
+        await P.je_line(db, company_id, ACC["lc_margin"], debit=margin, desc=f"غطاء اعتماد {req.lc_number} — {req.supplier_name}"),
+        await P.je_line(db, company_id, ACC["lc_commis"], debit=commission, desc=f"عمولة فتح اعتماد {req.lc_number}"),
+        await P.je_line(db, company_id, bank, credit=total_paid, desc=f"خصم بنكي — فتح اعتماد مستندي {req.lc_number}"),
+    ]
+    je_id = await _post_je(company_id, current_user["user_id"], req.open_date,
+                        f"فتح اعتماد مستندي {req.lc_number} — {req.supplier_name}", lines, lc_id, req.lc_number)
 
-    ok, td, tc = balanced(list(lines))
     lc = {
         "id": lc_id, "company_id": company_id,
-        "lc_number":         req.lc_number,
-        "supplier_name":     req.supplier_name,
-        "supplier_country":  req.supplier_country,
-        "goods_description": req.goods_description,
-        "lc_currency":       req.lc_currency,
-        "lc_amount_foreign": req.lc_amount_foreign,
-        "exchange_rate":     req.exchange_rate,
-        "lc_amount_egp":     lc_amount_egp,
-        "margin_amount":     req.margin_amount,
-        "bank_commission":   req.bank_commission,
+        "lc_number": req.lc_number, "supplier_name": req.supplier_name,
+        "supplier_country": req.supplier_country, "goods_description": req.goods_description,
+        "lc_currency": req.lc_currency, "lc_amount_foreign": req.lc_amount_foreign,
+        "exchange_rate": req.exchange_rate, "lc_amount_egp": lc_amount_egp,
+        "margin_amount": margin, "margin_used": 0.0, "bank_commission": commission,
+        "bank_account": bank,
         "total_paid_on_open": total_paid,
-        "accumulated_costs": 0.0,   # تتراكم مع مراحل الاستيراد
-        "total_lc_cost":     total_paid,
-        "open_date":         req.open_date,
-        "expiry_date":       req.expiry_date,
-        "status":            "open",
-        "cost_entries":      [],
-        "open_je_id":        je_id,
-        "receive_je_id":     None,
-        "settle_je_id":      None,
-        "notes":             req.notes,
-        "created_at":        datetime.now(timezone.utc).isoformat(),
+        "accumulated_costs": 0.0,         # تكاليف الاستيراد المجمعة على 123
+        "goods_value_egp": 0.0,           # قيمة المستندات المسددة
+        "in_transit_balance": 0.0,        # رصيد 123 الخاص بهذا الاعتماد
+        "total_lc_cost": total_paid,
+        "open_date": req.open_date, "expiry_date": req.expiry_date,
+        "status": "open", "cost_entries": [],
+        "open_je_id": je_id, "pay_je_id": None, "receive_je_id": None, "settle_je_id": None,
+        "notes": req.notes, "created_by": current_user["user_id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.letters_of_credit.insert_one(lc); lc.pop("_id", None)
-
-    return {
-        "message":  f"✅ تم فتح الاعتماد المستندي {req.lc_number}",
-        "lc_id":    lc_id,
-        "lc":       lc,
-        "journal": {
-            "id":       je_id,
-            "debit":    [f"م/{ACC['lc_margin']} غطاء اعتماد  {req.margin_amount:,.2f}",
-                         f"م/{ACC['lc_commis']} عمولة بنكية   {req.bank_commission:,.2f}"],
-            "credit":   f"م/{req.bank_account} البنك           {total_paid:,.2f}",
-            "balanced": ok,
-        },
-    }
+    return {"message": f"✅ تم فتح الاعتماد المستندي {req.lc_number}", "lc_id": lc_id, "lc": lc,
+            "journal": {"id": je_id, "balanced": True}}
 
 
 # ══════════════════════════════════════════════════════════════
-# 2. تجميع التكاليف — ADD COSTS (شحن + تأمين + جمارك)
+# 2. تكاليف الاستيراد
 # ══════════════════════════════════════════════════════════════
 
 @router.post("/{lc_id}/costs")
-async def add_lc_costs(lc_id: str, req: AddCostsRequest,
-                       current_user: dict = Depends(get_current_user)):
-    """
-    إضافة تكاليف الاستيراد إلى ملف الاعتماد
-
-    شحن دولي + تأمين بحري + رسوم جمركية + تخليص
-    جميعها تُجمَّع على م/1232 (حساب وسيط) حتى وصول البضاعة
-
-    القيد:
-    Dr م/1232 اعتمادات مستندية — تكاليف مرحلية  ← المصروف
-    Cr م/112  البنك / م/161 الخزينة              ← المصدر
-    """
+async def add_lc_costs(lc_id: str, req: AddCostsRequest, current_user: dict = Depends(get_current_user)):
+    """Dr 123 بضاعة بالطريق / Cr البنك أو الخزينة أو الموردين"""
     company_id = current_user["company_id"]
-    lc = await db.letters_of_credit.find_one(
-        {"id": lc_id, "company_id": company_id}, {"_id": 0})
-    if not lc:
-        raise HTTPException(404, "الاعتماد غير موجود")
-    if lc["status"] == "closed":
-        raise HTTPException(400, "الاعتماد مُغلَق")
+    lc = await _get(company_id, lc_id)
+    if lc["status"] in ("received", "closed", "cancelled"):
+        raise HTTPException(400, "استُلمت البضاعة أو أُغلق الاعتماد — سجّل التكلفة الإضافية من «تكاليف الاستيراد» في محرك المخزون")
+    total = P.r2(sum(P.r2(c.amount_egp) for c in req.costs))
+    src = {"bank": req.bank_account or lc.get("bank_account") or ACC["bank"], "cash": ACC["cash"], "supplier": ACC["ap"]}[req.payment_src]
+    if req.payment_src == "bank":
+        _bank(src)
+    entry_id = str(uuid.uuid4())
+    lines = [await P.je_line(db, company_id, ACC["in_transit"], debit=c.amount_egp,
+                             desc=f"{COST_TYPES[c.cost_type][1]} — اعتماد {lc['lc_number']} {c.description}".strip())
+             for c in req.costs]
+    lines.append(await P.je_line(db, company_id, src, credit=total, desc=f"تكاليف استيراد — اعتماد {lc['lc_number']}"))
+    je_id = await _post_je(company_id, current_user["user_id"], req.date_str,
+                        f"تكاليف اعتماد {lc['lc_number']}", lines, lc_id, lc["lc_number"])
 
-    total_costs = round(sum(float(c.amount_egp) for c in req.costs), 2)
-    src_code    = ACC["bank"] if req.payment_src == "bank" else ACC["cash"]
-    src_name    = "البنك" if req.payment_src == "bank" else "الخزينة"
-    entry_id    = str(uuid.uuid4())
-
-    # Debit: lc_costs account (الحساب الوسيط)
-    lines = [
-        await je_line(company_id, ACC["lc_costs"], debit=total_costs,
-                      desc=f"تكاليف اعتماد {lc['lc_number']} — {len(req.costs)} بند")
-    ]
-    # Credit: source
-    lines.append(await je_line(
-        company_id, src_code, credit=total_costs,
-        desc=f"سداد تكاليف استيراد — اعتماد {lc['lc_number']}"))
-
-    je_id = await post_je(company_id, current_user["user_id"], req.date_str,
-        f"تكاليف اعتماد {lc['lc_number']} — {', '.join(c.cost_type for c in req.costs)}",
-        lines, entry_id)
-
-    # Build cost record detail
-    cost_record = {
-        "id":       entry_id,
-        "date":     req.date_str,
-        "costs":    [{"type": c.cost_type,
-                      "type_ar": COST_TYPES.get(c.cost_type,("",""))[1],
-                      "description": c.description,
-                      "amount_egp": float(c.amount_egp),
-                      "invoice_ref": c.invoice_ref} for c in req.costs],
-        "total":    total_costs,
-        "je_id":    je_id,
-        "notes":    req.notes,
-    }
-
-    new_acc_costs  = round(float(lc.get("accumulated_costs", 0)) + total_costs, 2)
-    new_total_cost = round(float(lc.get("total_lc_cost", 0)) + total_costs, 2)
-
-    await db.letters_of_credit.update_one(
-        {"id": lc_id},
-        {"$set": {"accumulated_costs": new_acc_costs,
-                  "total_lc_cost":    new_total_cost,
-                  "status": "in_transit"},
-         "$push": {"cost_entries": cost_record}}
-    )
-
-    ok, td, tc = balanced(lines)
-    return {
-        "message":          f"✅ تم إضافة تكاليف الاعتماد {lc['lc_number']}",
-        "lc_id":            lc_id,
-        "costs_added":      total_costs,
-        "accumulated_costs": new_acc_costs,
-        "total_lc_cost":    new_total_cost,
-        "cost_breakdown":   [f"{c.cost_type}: {c.amount_egp:,.2f}" for c in req.costs],
-        "journal": {
-            "id":       je_id,
-            "debit":    f"م/{ACC['lc_costs']} اعتمادات مستندية — تكاليف  {total_costs:,.2f}",
-            "credit":   f"م/{src_code} {src_name}                         {total_costs:,.2f}",
-            "balanced": ok,
-        },
-    }
+    cost_record = {"id": entry_id, "date": req.date_str, "payment_src": req.payment_src, "credit_account": src,
+                   "costs": [{"type": c.cost_type, "type_ar": COST_TYPES[c.cost_type][1], "description": c.description,
+                              "amount_egp": P.r2(c.amount_egp), "invoice_ref": c.invoice_ref} for c in req.costs],
+                   "total": total, "je_id": je_id, "notes": req.notes}
+    await db.letters_of_credit.update_one({"id": lc_id, "company_id": company_id}, {
+        "$set": {"in_transit_balance": P.r2(float(lc.get("in_transit_balance", lc.get("accumulated_costs", 0)) or 0) + total)},
+        "$inc": {"accumulated_costs": total, "total_lc_cost": total},
+        "$push": {"cost_entries": cost_record}})
+    lc = await _get(company_id, lc_id)
+    return {"message": f"✅ تم إضافة تكاليف الاعتماد {lc['lc_number']}", "lc_id": lc_id, "costs_added": total,
+            "accumulated_costs": lc["accumulated_costs"], "total_lc_cost": lc["total_lc_cost"],
+            "journal": {"id": je_id, "balanced": True}}
 
 
 # ══════════════════════════════════════════════════════════════
-# 3. وصول البضاعة وإثبات المخزون — RECEIVE GOODS
+# 3. سداد المستندات للمورد الأجنبي
+# ══════════════════════════════════════════════════════════════
+
+@router.post("/{lc_id}/pay")
+async def pay_documents(lc_id: str, req: PayDocumentsRequest, current_user: dict = Depends(get_current_user)):
+    """Dr 123 قيمة البضاعة / Cr 165 الغطاء المستخدم + Cr البنك الباقي"""
+    company_id = current_user["company_id"]
+    lc = await _get(company_id, lc_id)
+    if lc["status"] not in ("open", "in_transit"):
+        raise HTTPException(400, "تم سداد مستندات هذا الاعتماد أو أُغلق")
+    rate = req.exchange_rate or float(lc["exchange_rate"])
+    foreign = req.amount_foreign or float(lc["lc_amount_foreign"])
+    value = P.r2(foreign * rate)
+    margin_used = P.r2(min(float(lc["margin_amount"]), value))
+    bank = _bank(req.bank_account or lc.get("bank_account") or ACC["bank"])
+    lines = [
+        await P.je_line(db, company_id, ACC["in_transit"], debit=value,
+                        desc=f"قيمة مستندات اعتماد {lc['lc_number']} — {foreign:,.2f} {lc['lc_currency']} × {rate:g}"),
+        await P.je_line(db, company_id, ACC["lc_margin"], credit=margin_used, desc=f"استخدام غطاء اعتماد {lc['lc_number']}"),
+        await P.je_line(db, company_id, bank, credit=P.r2(value - margin_used), desc=f"سداد باقي قيمة اعتماد {lc['lc_number']}"),
+    ]
+    je_id = await _post_je(company_id, current_user["user_id"], req.date_str,
+                        f"سداد مستندات اعتماد {lc['lc_number']} — {lc['supplier_name']}", lines, lc_id, lc["lc_number"])
+    await db.letters_of_credit.update_one({"id": lc_id, "company_id": company_id}, {
+        "$set": {"status": "paid", "pay_je_id": je_id, "pay_date": req.date_str, "pay_exchange_rate": rate,
+                 "margin_used": margin_used, "goods_value_egp": value,
+                 # letters opened before this version carry their costs only in accumulated_costs
+                 "in_transit_balance": P.r2(float(lc.get("in_transit_balance", lc.get("accumulated_costs", 0)) or 0) + value)},
+        "$inc": {"total_lc_cost": value}})
+    return {"message": f"✅ تم سداد مستندات الاعتماد {lc['lc_number']}", "goods_value_egp": value,
+            "margin_used": margin_used, "bank_paid": P.r2(value - margin_used), "journal_entry_id": je_id}
+
+
+# ══════════════════════════════════════════════════════════════
+# 4. وصول البضاعة
 # ══════════════════════════════════════════════════════════════
 
 @router.post("/{lc_id}/receive")
-async def receive_goods(lc_id: str, req: ReceiveGoodsRequest,
-                        current_user: dict = Depends(get_current_user)):
-    """
-    إثبات استلام البضاعة وإقفال ملف الاعتماد المستندي
-
-    التكلفة الإجمالية = غطاء الاعتماد + الشحن + التأمين + الجمارك + التخليص
-
-    القيد:
-    Dr م/121 مخزون الخامات / م/122 بضاعة جاهزة  ← التكلفة الكاملة
-    Cr م/1231 اعتمادات مستندية — غطاء نقدي       ← استرداد الغطاء
-    Cr م/1232 اعتمادات مستندية — تكاليف مرحلية   ← إقفال التكاليف
-    """
+async def receive_goods(lc_id: str, req: ReceiveGoodsRequest, current_user: dict = Depends(get_current_user)):
+    """Dr 125/121 (311 في الجرد الدوري) / Cr 123 — بكامل رصيد الاعتماد (قيمة + تكاليف)،
+    والكميات تدخل المخزن مرة واحدة بالتكلفة الشاملة. لا تُسجَّل فاتورة شراء لنفس البضاعة."""
     company_id = current_user["company_id"]
-    lc = await db.letters_of_credit.find_one(
-        {"id": lc_id, "company_id": company_id}, {"_id": 0})
-    if not lc:
-        raise HTTPException(404, "الاعتماد غير موجود")
-    if lc["status"] == "closed":
-        raise HTTPException(400, "الاعتماد مُغلَق بالفعل")
-
-    # Total cost = margin + commission + all accumulated costs
-    margin_amt   = float(lc["margin_amount"])
-    costs_amt    = float(lc.get("accumulated_costs", 0))
-    commission   = float(lc["bank_commission"])
-    # The inventory debit = full landed cost
-    total_inventory_cost = round(margin_amt + costs_amt, 2)
-
-    # Choose inventory account
-    inv_map = {
-        "raw_material":    (ACC["inventory_rm"], "مخزون الخامات والمواد الأولية"),
-        "finished_goods":  (ACC["inventory_fg"], "مخزون البضاعة الجاهزة"),
-        "in_transit":      (ACC["inventory_tr"], "بضاعة بالطريق"),
-    }
-    inv_code, inv_name = inv_map.get(
-        req.goods_received, (ACC["inventory_rm"], "مخزون"))
-
-    # Build lines
-    lines = [
-        # Dr: المخزون ← التكلفة الإجمالية (Landed Cost)
-        await je_line(company_id, inv_code, debit=total_inventory_cost,
-                      desc=f"استلام بضاعة اعتماد {lc['lc_number']} — {lc['goods_description']}"),
-        # Cr: إقفال الغطاء النقدي
-        await je_line(company_id, ACC["lc_margin"], credit=margin_amt,
-                      desc=f"إقفال غطاء اعتماد {lc['lc_number']}"),
-    ]
-    # Cr: إقفال التكاليف المرحلية (إن وجدت)
-    if costs_amt > 0:
-        lines.append(await je_line(
-            company_id, ACC["lc_costs"], credit=costs_amt,
-            desc=f"إقفال تكاليف مرحلية — اعتماد {lc['lc_number']}"))
-
-    je_id = await post_je(company_id, current_user["user_id"], req.date_str,
-        f"استلام بضاعة اعتماد {lc['lc_number']} — {inv_name}", lines, lc_id)
-
-    ok, td, tc = balanced(lines)
-    await db.letters_of_credit.update_one(
-        {"id": lc_id},
-        {"$set": {"status": "received", "receive_je_id": je_id,
-                  "receive_date": req.date_str,
-                  "inventory_account": inv_code,
-                  "total_inventory_cost": total_inventory_cost}}
-    )
-
+    lc = await _get(company_id, lc_id)
+    if lc["status"] in ("received", "closed", "cancelled"):
+        raise HTTPException(400, "تم استلام بضاعة هذا الاعتماد من قبل — لا يُستلم مرتين")
+    if lc["status"] != "paid":
+        raise HTTPException(400, "سجّل سداد المستندات أولاً — قيمة البضاعة لم تُثبت بعد")
+    claimed = await db.letters_of_credit.update_one({"id": lc_id, "company_id": company_id, "status": "paid"},
+                                                    {"$set": {"status": "receiving"}})
+    if not claimed.modified_count:
+        raise HTTPException(409, "جارٍ استلام البضاعة بالفعل")
+    try:
+        kind = {"goods": "goods", "raw_material": "raw", "finished_goods": "goods"}[req.goods_received]
+        inv_code = await P.stock_account(db, company_id, kind)
+        total = P.r2(lc.get("in_transit_balance") or 0)
+        if total <= 0:
+            raise HTTPException(400, "لا يوجد رصيد على هذا الاعتماد لتحويله للمخزون")
+        wh = req.warehouse_id or await P.default_warehouse_id(db, company_id)
+        # allocate the landed cost: by foreign value when every line has one, else by quantity
+        alloc = []
+        if req.items:
+            for it in req.items:
+                await P.get_product(db, company_id, it.product_id)
+            by_value = all(it.foreign_value for it in req.items)
+            base = [it.foreign_value if by_value else it.quantity for it in req.items]
+            tb = sum(base)
+            run = 0.0
+            for i, it in enumerate(req.items):
+                share = P.r2(total - run) if i == len(req.items) - 1 else P.r2(total * base[i] / tb)
+                run += share
+                alloc.append({"product_id": it.product_id, "quantity": it.quantity, "landed_cost": share,
+                              "unit_cost": round(share / it.quantity, 4)})
+        lines = [
+            await P.je_line(db, company_id, inv_code, debit=total,
+                            desc=f"استلام بضاعة اعتماد {lc['lc_number']} — {lc.get('goods_description', '')}"),
+            await P.je_line(db, company_id, ACC["in_transit"], credit=total, desc=f"إقفال بضاعة بالطريق — اعتماد {lc['lc_number']}"),
+        ]
+        je_id = await _post_je(company_id, current_user["user_id"], req.date_str,
+                            f"استلام بضاعة اعتماد {lc['lc_number']}", lines, lc_id, lc["lc_number"])
+    except Exception:
+        await db.letters_of_credit.update_one({"id": lc_id, "company_id": company_id}, {"$set": {"status": "paid"}})
+        raise
+    for a in alloc:
+        await P.stock_in(db, company_id, a["product_id"], wh, a["quantity"], a["unit_cost"], date_str=req.date_str,
+                         source_type="letter_of_credit", source_id=lc_id, user_id=current_user["user_id"], mtype="purchase")
+    await db.letters_of_credit.update_one({"id": lc_id, "company_id": company_id}, {"$set": {
+        "status": "received", "receive_je_id": je_id, "receive_date": req.date_str,
+        "inventory_account": inv_code, "warehouse_id": wh, "received_items": alloc,
+        "total_inventory_cost": total, "in_transit_balance": 0.0}})
     return {
-        "message":   f"✅ تم استلام البضاعة وإقفال ملف الاعتماد {lc['lc_number']}",
-        "lc_id":     lc_id,
-        "inventory_account":     inv_code,
-        "total_inventory_cost":  total_inventory_cost,
-        "cost_breakdown": {
-            "lc_margin_released": margin_amt,
-            "accumulated_costs_closed": costs_amt,
-            "total_landed_cost":  total_inventory_cost,
-        },
-        "journal": {
-            "id":       je_id,
-            "debit":    f"م/{inv_code} {inv_name}  {total_inventory_cost:,.2f}",
-            "credits":  [
-                f"م/{ACC['lc_margin']} غطاء اعتماد   {margin_amt:,.2f}",
-                f"م/{ACC['lc_costs']}  تكاليف مرحلية  {costs_amt:,.2f}",
-            ],
-            "balanced": ok,
-            "note":     "التكلفة الكاملة (Landed Cost) مثبَّتة على المخزون",
-        },
+        "message": f"✅ تم استلام بضاعة الاعتماد {lc['lc_number']}",
+        "lc_id": lc_id, "inventory_account": inv_code, "total_inventory_cost": total,
+        "cost_breakdown": {"goods_value": lc.get("goods_value_egp", 0), "import_costs": lc.get("accumulated_costs", 0),
+                           "total_landed_cost": total},
+        "items": alloc, "journal": {"id": je_id, "balanced": True},
     }
 
 
 # ══════════════════════════════════════════════════════════════
-# 4. التسوية النهائية — FINAL SETTLEMENT
+# 5. الإقفال / الإلغاء
 # ══════════════════════════════════════════════════════════════
 
 @router.post("/{lc_id}/settle")
-async def settle_lc(lc_id: str, req: SettleRequest,
-                    current_user: dict = Depends(get_current_user)):
+async def settle_lc(lc_id: str, req: SettleRequest, current_user: dict = Depends(get_current_user)):
     """
-    تسوية أي فروق وإغلاق ملف الاعتماد نهائياً
-
-    يُستخدَم عند وجود فروق صرف عملة أجنبية
-    أو مبالغ معلقة في الحساب الوسيط
+    بعد الاستلام: رد ما تبقى من الغطاء للبنك (Dr البنك / Cr 165) وإقفال الملف.
+    قبل السداد (إلغاء): رد كامل الغطاء، وتحميل التكاليف المدفوعة على مصروفاتها (Dr 3372..3375 / Cr 123).
     """
     company_id = current_user["company_id"]
-    lc = await db.letters_of_credit.find_one(
-        {"id": lc_id, "company_id": company_id}, {"_id": 0})
-    if not lc:
-        raise HTTPException(404, "الاعتماد غير موجود")
-    if lc["status"] == "closed":
+    lc = await _get(company_id, lc_id)
+    if lc["status"] in ("closed", "cancelled"):
         raise HTTPException(400, "الاعتماد مُغلَق بالفعل")
-
-    # Check for residual balance in lc_costs account
-    pipeline = [
-        {"$match": {"company_id": company_id, "status": "posted"}},
-        {"$unwind": "$lines"},
-        {"$match": {"lines.account_code": ACC["lc_costs"]}},
-        {"$group": {"_id": None,
-                    "debit": {"$sum": "$lines.debit"},
-                    "credit": {"$sum": "$lines.credit"}}},
+    if lc["status"] in ("paid", "receiving"):
+        raise HTTPException(400, "تم سداد المستندات — استلم البضاعة أولاً ثم أغلق الاعتماد")
+    bank = _bank(req.bank_account or lc.get("bank_account") or ACC["bank"])
+    cancel = lc["status"] != "received"
+    margin_left = P.r2(float(lc.get("margin_amount", 0)) - float(lc.get("margin_used", 0)))
+    lines = [
+        await P.je_line(db, company_id, bank, debit=margin_left, desc=f"رد غطاء اعتماد {lc['lc_number']}"),
+        await P.je_line(db, company_id, ACC["lc_margin"], credit=margin_left, desc=f"إقفال غطاء اعتماد {lc['lc_number']}"),
     ]
-    res = await db.journal_entries.aggregate(pipeline).to_list(1)
-    residual = 0.0
-    if res:
-        residual = round(float(res[0]["debit"]) - float(res[0]["credit"]), 2)
-
-    await db.letters_of_credit.update_one(
-        {"id": lc_id},
-        {"$set": {"status": "closed", "settle_je_id": None,
-                  "close_date": req.date_str,
-                  "residual_cleared": residual}}
-    )
+    # letters opened before this version have no in_transit_balance field
+    if cancel and float(lc.get("in_transit_balance", lc.get("accumulated_costs", 0)) or 0) > 0:
+        by_type: dict = {}
+        for e in lc.get("cost_entries", []):
+            for c in e.get("costs", []):
+                acc = COST_TYPES.get(c.get("type"), COST_TYPES["other"])[0]
+                by_type[acc] = P.r2(by_type.get(acc, 0) + float(c.get("amount_egp", 0)))
+        for acc, amt in by_type.items():
+            lines.append(await P.je_line(db, company_id, acc, debit=amt, desc=f"تكاليف اعتماد ملغى {lc['lc_number']}"))
+        lines.append(await P.je_line(db, company_id, ACC["in_transit"], credit=P.r2(sum(by_type.values())),
+                                     desc=f"إقفال تكاليف اعتماد ملغى {lc['lc_number']}"))
+    je_id = await _post_je(company_id, current_user["user_id"], req.date_str,
+                        f"{'إلغاء' if cancel else 'إقفال'} اعتماد {lc['lc_number']}", lines, lc_id, lc["lc_number"])
+    await db.letters_of_credit.update_one({"id": lc_id, "company_id": company_id}, {"$set": {
+        "status": "cancelled" if cancel else "closed", "settle_je_id": je_id, "close_date": req.date_str,
+        "margin_refunded": margin_left, "in_transit_balance": 0.0}})
     return {
-        "message":    f"✅ تم إغلاق ملف الاعتماد {lc['lc_number']} نهائياً",
-        "lc_id":      lc_id,
-        "lc_number":  lc["lc_number"],
-        "status":     "closed",
-        "close_date": req.date_str,
+        "message": f"✅ تم {'إلغاء' if cancel else 'إغلاق'} ملف الاعتماد {lc['lc_number']}",
+        "lc_id": lc_id, "lc_number": lc["lc_number"], "status": "cancelled" if cancel else "closed",
+        "close_date": req.date_str, "margin_refunded": margin_left, "journal_entry_id": je_id,
         "final_summary": {
-            "lc_amount_egp":       lc.get("lc_amount_egp", 0),
-            "margin_paid":         lc["margin_amount"],
-            "bank_commission":     lc["bank_commission"],
-            "accumulated_costs":   lc.get("accumulated_costs", 0),
-            "total_lc_cost":       lc.get("total_lc_cost", 0),
-            "inventory_cost":      lc.get("total_inventory_cost", 0),
+            "lc_amount_egp": lc.get("lc_amount_egp", 0), "margin_paid": lc["margin_amount"],
+            "bank_commission": lc["bank_commission"], "accumulated_costs": lc.get("accumulated_costs", 0),
+            "goods_value_egp": lc.get("goods_value_egp", 0), "inventory_cost": lc.get("total_inventory_cost", 0),
         },
     }
 
@@ -441,37 +379,27 @@ async def settle_lc(lc_id: str, req: SettleRequest,
 # ══════════════════════════════════════════════════════════════
 
 @router.get("/")
-async def list_lcs(status: Optional[str] = None,
-                   current_user: dict = Depends(get_current_user)):
+async def list_lcs(status: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     q = {"company_id": current_user["company_id"]}
     if status: q["status"] = status
-    lcs = await db.letters_of_credit.find(
-        q, {"_id": 0, "cost_entries": 0}
-    ).sort("open_date", -1).to_list(None)
-    total_exposure = round(sum(float(l.get("lc_amount_egp",0))
-                               for l in lcs if l["status"] != "closed"), 2)
+    lcs = await db.letters_of_credit.find(q, {"_id": 0, "cost_entries": 0}).sort("open_date", -1).to_list(None)
+    active = [l for l in lcs if l["status"] not in ("closed", "cancelled")]
     return {
         "letters": lcs, "total": len(lcs),
-        "open_exposure_egp": total_exposure,
-        "by_status": {
-            "open":       sum(1 for l in lcs if l["status"]=="open"),
-            "in_transit": sum(1 for l in lcs if l["status"]=="in_transit"),
-            "received":   sum(1 for l in lcs if l["status"]=="received"),
-            "closed":     sum(1 for l in lcs if l["status"]=="closed"),
-        }
+        "open_exposure_egp": P.r2(sum(float(l.get("lc_amount_egp", 0)) for l in active if l["status"] in ("open", "in_transit"))),
+        "margin_held": P.r2(sum(float(l.get("margin_amount", 0)) - float(l.get("margin_used", 0)) for l in active)),
+        "by_status": {s: sum(1 for l in lcs if l["status"] == s)
+                      for s in ("open", "in_transit", "paid", "received", "closed", "cancelled")},
     }
 
 
 @router.get("/{lc_id}")
 async def get_lc(lc_id: str, current_user: dict = Depends(get_current_user)):
-    lc = await db.letters_of_credit.find_one(
-        {"id": lc_id, "company_id": current_user["company_id"]}, {"_id": 0})
-    if not lc: raise HTTPException(404, "الاعتماد غير موجود")
-    # Compute cost breakdown
+    lc = await _get(current_user["company_id"], lc_id)
     costs_by_type: dict = {}
     for entry in lc.get("cost_entries", []):
         for c in entry.get("costs", []):
             ct = c.get("type", "other")
-            costs_by_type[ct] = round(costs_by_type.get(ct, 0) + float(c.get("amount_egp",0)), 2)
+            costs_by_type[ct] = P.r2(costs_by_type.get(ct, 0) + float(c.get("amount_egp", 0)))
     lc["cost_breakdown_by_type"] = costs_by_type
     return lc

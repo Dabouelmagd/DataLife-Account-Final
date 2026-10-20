@@ -1,548 +1,510 @@
 """
 Real Estate Development Engine — محرك التطوير العقاري
-المعيار المحاسبي المصري رقم 48 (الإيراد من العقود مع العملاء)
-IFRS 15 المصري — الاعتراف بالإيراد عند نقل السيطرة للمشتري
+المعيار المحاسبي المصري رقم 48 — الإيراد يُثبَّت عند نقل السيطرة (تسليم الوحدة)
 
-الدورة المحاسبية الكاملة:
-1. شراء وتطوير أراضي المشروع  → مشروعات تحت التنفيذ
-2. حجز الوحدات وتحصيل المقدم → التزام للعميل (دفعات مقدمة)
-3. إصدار شيكات الأقساط        → أوراق قبض / أقساط مؤجلة
-4. الاعتراف بالإيراد          → عند التسليم الفعلي (م.48)
-5. تكلفة الوحدة المباعة       → COGS عقاري
+الدورة:
+1. تكاليف المشروع              Dr 142 مشروعات عقارية تحت التنفيذ / Cr 251 أو البنك
+2. الحجز وتحصيل المقدم         Dr البنك/الخزينة / Cr 2431 التزامات العقود (لا إيراد بعد)
+3. شيكات الأقساط
+   قبل التسليم                 Dr 144 (باقة العقارات) أو 163 شيكات برسم التحصيل / Cr 2431
+   بعد التسليم                 Dr 144/163 / Cr 1312 عملاء أقساط مؤجلة
+   التحصيل                     Dr البنك / Cr 144/163
+   الارتداد                    قبل التسليم: Dr 2431 / Cr 144/163 — بعده: Dr 1311 شيكات مرتدة / Cr 144/163
+4. التسليم (الاعتراف بالإيراد)  Dr 2431 (ما حُصّل) + Dr 1312 (الباقي) / Cr 4111 إيرادات بيع الوحدات
+5. تكلفة الوحدة المباعة         Dr 3211 / Cr 142
+
+What was wrong (and is fixed here):
+- installment cheques were credited to 1312 BEFORE 1312 was ever debited (it
+  was only debited at delivery), so 1312 ran a credit balance and, at delivery,
+  the cheques' value was counted as receivable a second time.
+- revenue was credited NET of a 2.5% "real estate disposal tax". That tax
+  (Law 91/2005 art. 42) is levied on natural persons disposing of property; a
+  developer company is taxed on its profit. It is now off by default and, when
+  a user turns it on (sole-proprietor developer), it is an expense of the
+  seller (3351 → 2541), not a deduction from revenue.
+- unit cost had to be typed; it is now allocated from the project's
+  accumulated cost by area, and capped at what is left in 142.
+- every helper posted to a fake account id when a code was missing.
 """
-import uuid, asyncio
+import uuid
 from datetime import datetime, timezone, date
-from typing import Optional, List
+from typing import Optional, List, Literal
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 
 from database import db
-from api.users import get_current_user
-from models.accounting import JournalEntry
-from services.accounting_service import AccountingService
 from dependencies import get_current_user
+from services import ops_posting as P
 
 router = APIRouter(prefix="/api/real-estate", tags=["Real Estate"])
 
-# ══════════════════════════════════════════════════════════════
-# ACCOUNT CODES
-# ══════════════════════════════════════════════════════════════
 ACC = {
-    "re_wip":           "142",  # مشروعات عقارية تحت التنفيذ
-    "booking_liability":"257",  # عملاء حجز وتعاقد — دفعات مقدمة
-    "installments_ar":  "1312",  # عملاء أقساط مؤجلة
-    "checks_collection":"163",  # شيكات تحت التحصيل — أقساط عقارية
-    "re_revenue":       "4111",  # إيرادات بيع وحدات عقارية
-    "re_cogs":          "3211",  # تكلفة الوحدات العقارية المباعة
-    "re_tax":           "2541",  # ضريبة التصرفات العقارية
-    "bank":             "162",
-    "ap":               "251",   # موردون / مقاولو باطن
-    "ar":               "131",   # عملاء عاديون
-    "notes_receivable": "132",   # أوراق قبض
+    "re_wip":             "142",   # مشروعات عقارية تحت التنفيذ
+    # 2431 is the EAS 48 contract liability. Bookings made before this change
+    # were credited to 257; each booking remembers its own account.
+    "contract_liability": "2431",
+    "installments_ar":    "1312",  # عملاء أقساط مؤجلة — عقارات
+    "returned_cheques":   "1311",  # شيكات مرتدة
+    "re_revenue":         "4111",  # إيرادات بيع الوحدات العقارية
+    "re_cogs":            "3211",  # تكلفة الوحدات العقارية المباعة
+    "re_tax":             "2541",  # ضريبة التصرفات العقارية المستحقة
+    "re_tax_exp":         "3351",  # مصروف ضريبة الدخل الجارية (ضريبة التصرفات ضريبة دخل نهائية)
+    "bank":               "162",
+    "cash":               "161",
+    "ap":                 "251",
 }
+CHEQUE_ACCOUNTS = ["144", "163"]   # 144 من باقة التطوير العقاري، وإلا 163 من الشجرة الافتراضية
 
-RE_TAX_RATE = 0.025  # 2.5% ضريبة التصرفات العقارية (قانون 91/2005 م.42)
-
-
-async def get_acc(company_id: str, code: str) -> dict:
-    a = await db.chart_of_accounts.find_one(
-        {"company_id": company_id, "account_code": code}, {"_id": 0}
-    )
-    return a or {"id": code, "account_code": code, "account_name": f"حساب {code}"}
+RE_TAX_RATE = 0.025  # 2.5% — قانون 91/2005 م.42 (على الأشخاص الطبيعيين) — اختياري
 
 
-async def je_line(company_id: str, code: str,
-                  debit=0.0, credit=0.0, desc="") -> dict:
-    acc = await get_acc(company_id, code)
-    return {
-        "line_id":      str(uuid.uuid4()), "entry_id": None,
-        "account_id":   acc["id"],
-        "account_code": acc["account_code"],
-        "account_name": acc.get("account_name", f"حساب {code}"),
-        "debit": round(debit, 2), "credit": round(credit, 2),
-        "description": desc,
-    }
+async def _post_je(company_id, user_id, date_str, desc, lines, src_type, src_id):
+    return await P.post_je(db, company_id, user_id, date_str, desc, lines, src_type, src_id)
 
 
-async def post_je(company_id: str, user_id: str, date_str: str,
-                  description: str, lines: list, src_id: str = None) -> str:
-    svc = AccountingService(db)
-    entry = JournalEntry(
-        company_id=company_id, entry_number=0, entry_date=date_str,
-        description=description, lines=lines,
-        source_document_type="manual", source_document_id=src_id,
-        created_by=user_id,
-    )
-    result = await svc.create_journal_entry(entry)
-    await svc.post_journal_entry(result["id"], user_id)
-    return result["id"]
-
-
-def validate_balance(lines: list) -> bool:
-    td = round(sum(l["debit"] for l in lines), 2)
-    tc = round(sum(l["credit"] for l in lines), 2)
-    return abs(td - tc) < 0.01, td, tc
+def _pay_acc(method: str) -> str:
+    return {"bank": ACC["bank"], "cheque": ACC["bank"], "cash": ACC["cash"]}.get(method, ACC["ap"])
 
 
 # ══════════════════════════════════════════════════════════════
-# PROJECT MANAGEMENT
+# PROJECTS
 # ══════════════════════════════════════════════════════════════
+
+class ProjectRequest(BaseModel):
+    name:            str = Field(min_length=1, max_length=200)
+    location:        str = ""
+    project_type:    str = "residential"
+    total_units:     int = Field(0, ge=0)
+    total_area_sqm:  float = Field(0, ge=0)
+    initial_cost:    float = Field(0, ge=0)
+    payment_method:  Literal["credit", "bank", "cash"] = "credit"
+    date:            Optional[str] = None
+    expected_delivery: str = ""
+
 
 @router.post("/projects")
-async def create_re_project(data: dict,
-                             current_user: dict = Depends(get_current_user)):
-    """
-    إنشاء مشروع تطوير عقاري
-
-    القيد — شراء وتطوير الأرض:
-    Dr م/1611 مشروعات عقارية تحت التنفيذ
-    Cr م/251 الموردون / مقاولو الباطن / م/112 البنك
-    """
+async def create_re_project(data: ProjectRequest, current_user: dict = Depends(get_current_user)):
+    """إنشاء مشروع — وإن وُجدت تكلفة أولية: Dr 142 / Cr 251 أو البنك"""
     company_id = current_user["company_id"]
     project_id = str(uuid.uuid4())
-
-    # Initial land/development cost entry
-    total_cost   = float(data.get("initial_cost", 0))
-    payment_method = data.get("payment_method", "credit")  # credit | bank
-    date_str     = data.get("date", date.today().isoformat())
-
+    total_cost = P.r2(data.initial_cost)
+    date_str = data.date or date.today().isoformat()
     je_id = None
     if total_cost > 0:
-        pay_acc  = ACC["bank"] if payment_method == "bank" else ACC["ap"]
-        pay_name = "البنك" if payment_method == "bank" else "الموردون / مقاولو الباطن"
-        lines = await asyncio.gather(
-            je_line(company_id, ACC["re_wip"], debit=total_cost,
-                    desc=f"تكاليف مشروع عقاري — {data.get('name','')}"),
-            je_line(company_id, pay_acc, credit=total_cost,
-                    desc=f"{'سداد' if payment_method=='bank' else 'مستحق'} {pay_name}"),
-        )
-        ok, td, tc = validate_balance(list(lines))
-        je_id = await post_je(company_id, current_user["user_id"], date_str,
-            f"إنشاء مشروع عقاري — {data.get('name','')}", list(lines), project_id)
-
+        pay = _pay_acc(data.payment_method)
+        lines = [
+            await P.je_line(db, company_id, ACC["re_wip"], debit=total_cost, desc=f"تكاليف مشروع عقاري — {data.name}"),
+            await P.je_line(db, company_id, pay, credit=total_cost, desc=f"تكلفة أولية — {data.name}"),
+        ]
+        je_id = await _post_je(company_id, current_user["user_id"], date_str, f"إنشاء مشروع عقاري — {data.name}",
+                            lines, "re_project", project_id)
     project = {
-        "id": project_id, "company_id": company_id,
-        "name":         data.get("name", ""),
-        "location":     data.get("location", ""),
-        "project_type": data.get("project_type", "residential"),
-        "total_units":  int(data.get("total_units", 0)),
-        "total_area_sqm": float(data.get("total_area_sqm", 0)),
-        "total_development_cost": total_cost,
-        "accumulated_cost": total_cost,
-        "status": "under_development",
-        "start_date": date_str,
-        "expected_delivery": data.get("expected_delivery", ""),
-        "initial_je_id": je_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "id": project_id, "company_id": company_id, "name": data.name, "location": data.location,
+        "project_type": data.project_type, "total_units": data.total_units, "total_area_sqm": data.total_area_sqm,
+        "total_development_cost": total_cost, "accumulated_cost": total_cost, "cost_relieved": 0.0,
+        "status": "under_development", "start_date": date_str, "expected_delivery": data.expected_delivery,
+        "initial_je_id": je_id, "cost_entries": [], "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.re_projects.insert_one(project); project.pop("_id", None)
+    return {"message": f"تم إنشاء المشروع العقاري {data.name}", "project": project, "journal_entry_id": je_id}
 
-    return {
-        "message": f"تم إنشاء المشروع العقاري {data.get('name','')}",
-        "project": project,
-        "journal": {"id": je_id,
-                    "debit":  f"م/{ACC['re_wip']} مشروعات عقارية تحت التنفيذ {total_cost:,.2f}",
-                    "credit": f"م/{ACC['ap']} الموردون {total_cost:,.2f}"},
-    }
+
+class AddCostRequest(BaseModel):
+    amount:         float = Field(gt=0)
+    cost_type:      Literal["land", "construction", "finishing", "infra", "design", "other"] = "construction"
+    payment_method: Literal["credit", "bank", "cash"] = "credit"
+    date:           Optional[str] = None
+    description:    Optional[str] = None
 
 
 @router.post("/projects/{project_id}/add-cost")
-async def add_development_cost(project_id: str, data: dict,
-                                current_user: dict = Depends(get_current_user)):
-    """
-    إضافة تكاليف تطوير لمشروع قائم (خرسانة / تشطيب / بنية تحتية)
-
-    Dr م/1611 مشروعات عقارية تحت التنفيذ
-    Cr م/251 مقاولو الباطن / م/112 البنك
-    """
+async def add_development_cost(project_id: str, data: AddCostRequest, current_user: dict = Depends(get_current_user)):
+    """Dr 142 مشروعات عقارية تحت التنفيذ / Cr 251 مقاولو الباطن والموردون أو البنك/الخزينة"""
     company_id = current_user["company_id"]
-    project = await db.re_projects.find_one(
-        {"id": project_id, "company_id": company_id}, {"_id": 0})
+    project = await db.re_projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
     if not project:
         raise HTTPException(404, "المشروع غير موجود")
-
-    amount     = float(data.get("amount", 0))
-    cost_type  = data.get("cost_type", "construction")  # land|construction|finishing|infra
-    pay_method = data.get("payment_method", "credit")
-    date_str   = data.get("date", date.today().isoformat())
-    desc       = data.get("description", cost_type)
-
-    pay_acc  = ACC["bank"] if pay_method == "bank" else ACC["ap"]
-    pay_name = "البنك" if pay_method == "bank" else "مقاول الباطن / مورد"
-
-    lines = await asyncio.gather(
-        je_line(company_id, ACC["re_wip"], debit=amount,
-                desc=f"تكلفة {desc} — {project['name']}"),
-        je_line(company_id, pay_acc, credit=amount,
-                desc=f"{pay_name} — {desc}"),
-    )
-    je_id = await post_je(company_id, current_user["user_id"], date_str,
-        f"تكاليف تطوير — {project['name']} — {desc}", list(lines), project_id)
-
-    new_cost = round(float(project.get("accumulated_cost", 0)) + amount, 2)
-    await db.re_projects.update_one(
-        {"id": project_id},
-        {"$set": {"accumulated_cost": new_cost},
-         "$push": {"cost_entries": {"type": cost_type, "amount": amount,
-                                    "date": date_str, "je_id": je_id}}}
-    )
-    return {
-        "message":          f"تم تسجيل تكلفة {desc} — {amount:,.2f} ج.م",
-        "accumulated_cost": new_cost,
-        "journal_entry_id": je_id,
-    }
+    amount = P.r2(data.amount)
+    date_str = data.date or date.today().isoformat()
+    desc = data.description or data.cost_type
+    lines = [
+        await P.je_line(db, company_id, ACC["re_wip"], debit=amount, desc=f"تكلفة {desc} — {project['name']}"),
+        await P.je_line(db, company_id, _pay_acc(data.payment_method), credit=amount, desc=f"{desc} — {project['name']}"),
+    ]
+    je_id = await _post_je(company_id, current_user["user_id"], date_str, f"تكاليف تطوير — {project['name']} — {desc}",
+                        lines, "re_project", project_id)
+    await db.re_projects.update_one({"id": project_id, "company_id": company_id}, {
+        "$inc": {"accumulated_cost": amount},
+        "$push": {"cost_entries": {"type": data.cost_type, "amount": amount, "date": date_str,
+                                   "description": desc, "je_id": je_id}}})
+    return {"message": f"تم تسجيل تكلفة {desc} — {amount:,.2f} ج.م",
+            "accumulated_cost": P.r2(float(project.get("accumulated_cost", 0)) + amount), "journal_entry_id": je_id}
 
 
 # ══════════════════════════════════════════════════════════════
-# UNIT MANAGEMENT
+# UNITS
 # ══════════════════════════════════════════════════════════════
+
+class UnitRequest(BaseModel):
+    unit_number: str = Field(min_length=1, max_length=60)
+    unit_type:   str = "apartment"
+    floor:       int = 0
+    area_sqm:    float = Field(0, ge=0)
+    sale_price:  float = Field(0, ge=0)
+
 
 @router.post("/projects/{project_id}/units")
-async def create_unit(project_id: str, data: dict,
-                       current_user: dict = Depends(get_current_user)):
+async def create_unit(project_id: str, data: UnitRequest, current_user: dict = Depends(get_current_user)):
     """تسجيل وحدة عقارية في المشروع"""
     company_id = current_user["company_id"]
-    project = await db.re_projects.find_one(
-        {"id": project_id, "company_id": company_id}, {"_id": 0})
+    project = await db.re_projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
     if not project:
         raise HTTPException(404, "المشروع غير موجود")
-
+    if await db.re_units.find_one({"company_id": company_id, "project_id": project_id, "unit_number": data.unit_number}, {"_id": 1}):
+        raise HTTPException(400, f"الوحدة {data.unit_number} مسجلة في هذا المشروع من قبل")
     unit = {
-        "id": str(uuid.uuid4()), "company_id": company_id,
-        "project_id": project_id, "project_name": project["name"],
-        "unit_number":  data.get("unit_number", ""),
-        "unit_type":    data.get("unit_type", "apartment"),
-        "floor":        data.get("floor", 0),
-        "area_sqm":     float(data.get("area_sqm", 0)),
-        "sale_price":   float(data.get("sale_price", 0)),
-        "status":       "available",  # available|reserved|contracted|delivered
-        "cost_allocated": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "id": str(uuid.uuid4()), "company_id": company_id, "project_id": project_id, "project_name": project["name"],
+        "unit_number": data.unit_number, "unit_type": data.unit_type, "floor": data.floor,
+        "area_sqm": data.area_sqm, "sale_price": P.r2(data.sale_price),
+        "status": "available", "cost_allocated": 0.0, "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.re_units.insert_one(unit); unit.pop("_id", None)
     return {"message": f"تم تسجيل الوحدة {unit['unit_number']}", "unit": unit}
 
 
 # ══════════════════════════════════════════════════════════════
-# 2. BOOKING & DEPOSIT — الحجز والدفعة المقدمة
+# BOOKING & DEPOSIT
 # ══════════════════════════════════════════════════════════════
 
 class BookingRequest(BaseModel):
-    unit_id:        str
-    customer_id:    str
-    customer_name:  str
+    unit_id:         str
+    customer_id:     str = ""
+    customer_name:   str = Field(min_length=1, max_length=200)
     customer_tax_id: Optional[str] = None
-    booking_date:   str
-    deposit_amount: float          # الدفعة المقدمة (العربون)
-    contract_price: float          # سعر العقد الإجمالي
-    payment_method: str = "bank"   # bank | cash | cheque
+    booking_date:    str
+    deposit_amount:  float = Field(gt=0)
+    contract_price:  float = Field(gt=0)
+    payment_method:  Literal["bank", "cash", "cheque"] = "bank"
 
 
 @router.post("/bookings")
-async def book_unit(req: BookingRequest,
-                    current_user: dict = Depends(get_current_user)):
-    """
-    حجز وحدة عقارية وتحصيل المقدم
-
-    القيد:
-    Dr م/112 البنك (أو خزينة)
-    Cr م/1471 عملاء حجز وتعاقد — دفعات مقدمة
-
-    ← الإيراد لا يُثبَّت بعد (م.48: حتى نقل السيطرة)
-    """
+async def book_unit(req: BookingRequest, current_user: dict = Depends(get_current_user)):
+    """Dr البنك/الخزينة / Cr 2431 التزامات العقود — الإيراد معلق حتى التسليم (م.48)"""
     company_id = current_user["company_id"]
-
-    unit = await db.re_units.find_one(
-        {"id": req.unit_id, "company_id": company_id}, {"_id": 0})
+    unit = await db.re_units.find_one({"id": req.unit_id, "company_id": company_id}, {"_id": 0})
     if not unit:
         raise HTTPException(404, "الوحدة غير موجودة")
-    if unit["status"] not in ("available",):
+    if unit["status"] != "available":
         raise HTTPException(400, f"الوحدة في حالة '{unit['status']}' — غير متاحة للحجز")
-
-    pay_acc  = ACC["bank"] if req.payment_method != "cash" else "161"
-    pay_name = "البنك" if req.payment_method != "cash" else "الخزينة"
+    if req.deposit_amount > req.contract_price:
+        raise HTTPException(400, "المقدم أكبر من سعر العقد")
+    # claim the unit before posting so two bookings cannot take the same unit
+    claimed = await db.re_units.update_one({"id": req.unit_id, "company_id": company_id, "status": "available"},
+                                           {"$set": {"status": "reserved"}})
+    if not claimed.modified_count:
+        raise HTTPException(409, "تم حجز الوحدة للتو من مستخدم آخر")
     booking_id = str(uuid.uuid4())
-
-    lines = await asyncio.gather(
-        je_line(company_id, pay_acc, debit=req.deposit_amount,
-                desc=f"دفعة حجز وحدة {unit['unit_number']} — {req.customer_name}"),
-        je_line(company_id, ACC["booking_liability"], credit=req.deposit_amount,
-                desc=f"حجز {req.customer_name} — وحدة {unit['unit_number']} (التزام حتى التسليم)"),
-    )
-    je_id = await post_je(company_id, current_user["user_id"], req.booking_date,
-        f"حجز وحدة {unit['unit_number']} — {req.customer_name}", list(lines), booking_id)
-
-    # Update unit status
-    await db.re_units.update_one(
-        {"id": req.unit_id},
-        {"$set": {"status": "reserved", "customer_id": req.customer_id,
-                  "customer_name": req.customer_name, "contract_price": req.contract_price,
-                  "deposit_paid": req.deposit_amount}}
-    )
-
-    # Save booking record
+    deposit = P.r2(req.deposit_amount)
+    pay = _pay_acc(req.payment_method)
+    try:
+        lines = [
+            await P.je_line(db, company_id, pay, debit=deposit, desc=f"دفعة حجز وحدة {unit['unit_number']} — {req.customer_name}"),
+            await P.je_line(db, company_id, ACC["contract_liability"], credit=deposit,
+                            desc=f"حجز {req.customer_name} — وحدة {unit['unit_number']} (التزام حتى التسليم)"),
+        ]
+        je_id = await _post_je(company_id, current_user["user_id"], req.booking_date,
+                            f"حجز وحدة {unit['unit_number']} — {req.customer_name}", lines, "re_booking", booking_id)
+    except Exception:
+        await db.re_units.update_one({"id": req.unit_id, "company_id": company_id}, {"$set": {"status": "available"}})
+        raise
+    await db.re_units.update_one({"id": req.unit_id, "company_id": company_id}, {"$set": {
+        "customer_id": req.customer_id, "customer_name": req.customer_name,
+        "contract_price": P.r2(req.contract_price), "deposit_paid": deposit, "booking_id": booking_id}})
     booking = {
         "id": booking_id, "company_id": company_id,
         "unit_id": req.unit_id, "unit_number": unit["unit_number"],
         "project_id": unit["project_id"], "project_name": unit["project_name"],
-        "customer_id": req.customer_id, "customer_name": req.customer_name,
-        "customer_tax_id": req.customer_tax_id,
-        "booking_date": req.booking_date,
-        "contract_price": req.contract_price,
-        "deposit_amount": req.deposit_amount,
-        "paid_so_far": req.deposit_amount,
-        "status": "booked",
-        "installments": [],
-        "booking_je_id": je_id,
+        "customer_id": req.customer_id, "customer_name": req.customer_name, "customer_tax_id": req.customer_tax_id,
+        "booking_date": req.booking_date, "contract_price": P.r2(req.contract_price),
+        "deposit_amount": deposit,
+        "liability_account": ACC["contract_liability"],
+        "liability_balance": deposit,      # ما في 2431 لهذا الحجز
+        "paid_so_far": deposit,            # نقدية فعلية (المقدم + الشيكات المحصلة)
+        "cheques_in_hand": 0.0,            # شيكات لم تُحصّل بعد
+        "status": "booked", "installments": [], "booking_je_id": je_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.re_bookings.insert_one(booking); booking.pop("_id", None)
-
-    return {
-        "message":   f"تم حجز الوحدة {unit['unit_number']} لـ {req.customer_name}",
-        "booking":   booking,
-        "journal": {
-            "id":     je_id,
-            "debit":  f"م/{pay_acc} {pay_name}  {req.deposit_amount:,.2f}",
-            "credit": f"م/{ACC['booking_liability']} عملاء حجز وتعاقد  {req.deposit_amount:,.2f}",
-            "note":   "الإيراد معلق حتى التسليم الفعلي (م.48 معيار الإيراد)",
-        }
-    }
+    return {"message": f"تم حجز الوحدة {unit['unit_number']} لـ {req.customer_name}", "booking": booking,
+            "journal": {"id": je_id, "note": "الإيراد معلق حتى التسليم الفعلي (م.48)"}}
 
 
 # ══════════════════════════════════════════════════════════════
-# 3. INSTALLMENT CHEQUES — شيكات الأقساط
+# INSTALLMENT CHEQUES
 # ══════════════════════════════════════════════════════════════
+
+class ChequeIn(BaseModel):
+    cheque_number: str = Field(min_length=1, max_length=60)
+    amount:        float = Field(gt=0)
+    due_date:      str
+    bank_name:     Optional[str] = None
+
 
 class InstallmentChequeRequest(BaseModel):
-    booking_id:      str
-    cheques: List[dict]  # [{cheque_number, amount, due_date}]
-    receive_date:    str
+    booking_id:   str
+    cheques:      List[ChequeIn] = Field(min_length=1)
+    receive_date: str
+
+
+def _booking_liability(b: dict) -> tuple:
+    """(account, balance) — bookings from before this version credited only the
+    deposit to 257 (their cheques went to 1312), so their liability is the
+    deposit; delivery then debits 1312 with price − deposit and the old cheque
+    credits net it down to what is really still owed."""
+    acc = b.get("liability_account") or "257"
+    bal = b.get("liability_balance")
+    if bal is None:
+        bal = float(b.get("deposit_amount", 0) or 0)
+    return acc, P.r2(bal)
 
 
 @router.post("/installments/receive-cheques")
-async def receive_installment_cheques(req: InstallmentChequeRequest,
-                                      current_user: dict = Depends(get_current_user)):
-    """
-    استلام شيكات الأقساط من العميل
-
-    القيد:
-    Dr م/1473 شيكات تحت التحصيل — أقساط عقارية
-    Cr م/1472 عملاء أقساط مؤجلة
-
-    ← الشيكات آجلة — لا تذهب للبنك مباشرة
-    """
+async def receive_installment_cheques(req: InstallmentChequeRequest, current_user: dict = Depends(get_current_user)):
+    """قبل التسليم: Dr شيكات برسم التحصيل / Cr 2431 — بعد التسليم: Dr شيكات / Cr 1312"""
     company_id = current_user["company_id"]
-    booking = await db.re_bookings.find_one(
-        {"id": req.booking_id, "company_id": company_id}, {"_id": 0})
+    booking = await db.re_bookings.find_one({"id": req.booking_id, "company_id": company_id}, {"_id": 0})
     if not booking:
         raise HTTPException(404, "الحجز غير موجود")
-
-    total_cheques = sum(float(c["amount"]) for c in req.cheques)
-    lines = await asyncio.gather(
-        je_line(company_id, ACC["checks_collection"], debit=total_cheques,
-                desc=f"شيكات أقساط — {booking['customer_name']} — وحدة {booking['unit_number']}"),
-        je_line(company_id, ACC["installments_ar"], credit=total_cheques,
-                desc=f"أقساط مؤجلة — {booking['customer_name']}"),
-    )
-    je_id = await post_je(company_id, current_user["user_id"], req.receive_date,
-        f"استلام شيكات أقساط — {booking['customer_name']}", list(lines), req.booking_id)
-
-    # Save cheques
-    cheque_records = []
-    for chq in req.cheques:
-        cheque_records.append({
-            "id": str(uuid.uuid4()), "company_id": company_id,
-            "booking_id": req.booking_id,
-            "customer_name": booking["customer_name"],
-            "unit_number": booking["unit_number"],
-            "cheque_number": chq["cheque_number"],
-            "amount": float(chq["amount"]),
-            "due_date": chq["due_date"],
-            "receive_date": req.receive_date,
-            "status": "pending",  # pending|collected|bounced
-        })
-
-    if cheque_records:
-        await db.re_installment_cheques.insert_many(cheque_records)
-
-    # Update booking
-    await db.re_bookings.update_one(
-        {"id": req.booking_id},
-        {"$push": {"installments": {"$each": cheque_records}},
-         "$inc": {"paid_so_far": total_cheques}}
-    )
-
-    return {
-        "message":     f"تم استلام {len(req.cheques)} شيك بإجمالي {total_cheques:,.2f} ج.م",
-        "cheques":     cheque_records,
-        "journal":     {"id": je_id,
-                        "debit":  f"م/{ACC['checks_collection']} شيكات تحت التحصيل {total_cheques:,.2f}",
-                        "credit": f"م/{ACC['installments_ar']} أقساط مؤجلة {total_cheques:,.2f}"},
-        "note": "شيكات آجلة — تُحوَّل للبنك عند استحقاقها عبر POST /installments/collect"
-    }
+    if booking.get("status") == "cancelled":
+        raise HTTPException(400, "الحجز ملغى")
+    delivered = booking.get("status") == "delivered"
+    chq_acc = (await P.first_account(db, company_id, CHEQUE_ACCOUNTS))["account_code"]
+    total = P.r2(sum(P.r2(c.amount) for c in req.cheques))
+    covered = P.r2(float(booking.get("paid_so_far", 0)) + float(booking.get("cheques_in_hand", 0)))
+    if total > P.r2(float(booking["contract_price"]) - covered) + 0.01:
+        raise HTTPException(400, f"إجمالي الشيكات ({total:,.2f}) يتجاوز المتبقي من سعر العقد "
+                                 f"({P.r2(float(booking['contract_price']) - covered):,.2f})")
+    nums = [c.cheque_number for c in req.cheques]
+    if len(set(nums)) != len(nums) or await db.re_installment_cheques.find_one(
+            {"company_id": company_id, "booking_id": req.booking_id, "cheque_number": {"$in": nums}}, {"_id": 1}):
+        raise HTTPException(400, "رقم شيك مكرر")
+    credit_acc = ACC["installments_ar"] if delivered else _booking_liability(booking)[0]
+    lines = [
+        await P.je_line(db, company_id, chq_acc, debit=total,
+                        desc=f"شيكات أقساط — {booking['customer_name']} — وحدة {booking['unit_number']}"),
+        await P.je_line(db, company_id, credit_acc, credit=total,
+                        desc=("أقساط مؤجلة — " if delivered else "دفعات عقد (التزام حتى التسليم) — ") + booking["customer_name"]),
+    ]
+    je_id = await _post_je(company_id, current_user["user_id"], req.receive_date,
+                        f"استلام شيكات أقساط — {booking['customer_name']}", lines, "re_booking", req.booking_id)
+    records = [{
+        "id": str(uuid.uuid4()), "company_id": company_id, "booking_id": req.booking_id,
+        "customer_name": booking["customer_name"], "unit_number": booking["unit_number"],
+        "project_name": booking.get("project_name", ""),
+        "cheque_number": c.cheque_number, "bank_name": c.bank_name, "amount": P.r2(c.amount),
+        "due_date": c.due_date, "receive_date": req.receive_date, "status": "pending",
+        "account_code": chq_acc, "received_after_delivery": delivered, "receive_je_id": je_id,
+    } for c in req.cheques]
+    await db.re_installment_cheques.insert_many([dict(r) for r in records])
+    update = {"$push": {"installments": {"$each": [dict(r) for r in records]}}, "$inc": {"cheques_in_hand": total}}
+    if not delivered:
+        # a booking from before this version has no liability_balance yet: set it
+        # from what it had collected, plus these cheques
+        update["$set"] = {"liability_balance": P.r2(_booking_liability(booking)[1] + total),
+                          "liability_account": credit_acc}
+    await db.re_bookings.update_one({"id": req.booking_id, "company_id": company_id}, update)
+    return {"message": f"تم استلام {len(records)} شيك بإجمالي {total:,.2f} ج.م", "cheques": records,
+            "journal": {"id": je_id, "debit": chq_acc, "credit": credit_acc}}
 
 
-@router.post("/installments/{cheque_id}/collect")
-async def collect_installment_cheque(cheque_id: str, data: dict,
-                                     current_user: dict = Depends(get_current_user)):
-    """
-    تحصيل شيك قسط في البنك
+class ChequeActionRequest(BaseModel):
+    date: Optional[str] = None
+    bank_account: str = "162"
 
-    Dr م/112 البنك
-    Cr م/1473 شيكات تحت التحصيل
-    """
-    company_id = current_user["company_id"]
-    chq = await db.re_installment_cheques.find_one(
-        {"id": cheque_id, "company_id": company_id}, {"_id": 0})
+
+@router.get("/installments/cheques")
+async def list_installment_cheques(status: Optional[str] = None, booking_id: Optional[str] = None,
+                                   current_user: dict = Depends(get_current_user)):
+    q = {"company_id": current_user["company_id"]}
+    if status: q["status"] = status
+    if booking_id: q["booking_id"] = booking_id
+    rows = await db.re_installment_cheques.find(q, {"_id": 0}).sort("due_date", 1).to_list(1000)
+    return {"cheques": rows, "total": len(rows),
+            "pending_total": P.r2(sum(r["amount"] for r in rows if r["status"] == "pending"))}
+
+
+async def _cheque(company_id, cheque_id):
+    chq = await db.re_installment_cheques.find_one({"id": cheque_id, "company_id": company_id}, {"_id": 0})
     if not chq:
         raise HTTPException(404, "الشيك غير موجود")
     if chq["status"] != "pending":
         raise HTTPException(400, f"الشيك في حالة '{chq['status']}'")
+    return chq
 
-    amount   = float(chq["amount"])
-    date_str = data.get("date", date.today().isoformat())
 
-    lines = await asyncio.gather(
-        je_line(company_id, ACC["bank"], debit=amount,
-                desc=f"تحصيل شيك قسط {chq['cheque_number']} — {chq['customer_name']}"),
-        je_line(company_id, ACC["checks_collection"], credit=amount,
-                desc=f"إقفال شيكات تحت التحصيل — {chq['cheque_number']}"),
-    )
-    je_id = await post_je(company_id, current_user["user_id"], date_str,
-        f"تحصيل قسط عقاري — {chq['customer_name']}", list(lines), cheque_id)
+@router.post("/installments/{cheque_id}/collect")
+async def collect_installment_cheque(cheque_id: str, data: ChequeActionRequest,
+                                     current_user: dict = Depends(get_current_user)):
+    """Dr البنك / Cr حساب الشيكات الذي استُلم عليه الشيك"""
+    company_id = current_user["company_id"]
+    chq = await _cheque(company_id, cheque_id)
+    if not data.bank_account.startswith("16") or data.bank_account in ("163", "164", "165"):
+        raise HTTPException(400, "اختر حساب بنك صحيحاً")
+    amount, date_str = P.r2(chq["amount"]), data.date or date.today().isoformat()
+    chq_acc = chq.get("account_code") or "163"
+    lines = [
+        await P.je_line(db, company_id, data.bank_account, debit=amount, desc=f"تحصيل شيك قسط {chq['cheque_number']} — {chq['customer_name']}"),
+        await P.je_line(db, company_id, chq_acc, credit=amount, desc=f"إقفال شيكات برسم التحصيل — {chq['cheque_number']}"),
+    ]
+    je_id = await _post_je(company_id, current_user["user_id"], date_str, f"تحصيل قسط عقاري — {chq['customer_name']}",
+                        lines, "re_cheque", cheque_id)
+    await db.re_installment_cheques.update_one({"id": cheque_id, "company_id": company_id},
+                                               {"$set": {"status": "collected", "collection_date": date_str, "je_id": je_id}})
+    await db.re_bookings.update_one({"id": chq["booking_id"], "company_id": company_id},
+                                    {"$inc": {"paid_so_far": amount, "cheques_in_hand": -amount}})
+    return {"message": f"✅ تم تحصيل الشيك {chq['cheque_number']} — {amount:,.2f} ج.م", "journal_entry_id": je_id}
 
-    await db.re_installment_cheques.update_one(
-        {"id": cheque_id},
-        {"$set": {"status": "collected", "collection_date": date_str, "je_id": je_id}}
-    )
-    return {
-        "message": f"✅ تم تحصيل الشيك {chq['cheque_number']} — {amount:,.2f} ج.م",
-        "journal": {"id": je_id,
-                    "debit":  f"م/112 البنك  {amount:,.2f}",
-                    "credit": f"م/{ACC['checks_collection']} شيكات تحت التحصيل  {amount:,.2f}"},
-    }
+
+@router.post("/installments/{cheque_id}/bounce")
+async def bounce_installment_cheque(cheque_id: str, data: ChequeActionRequest,
+                                    current_user: dict = Depends(get_current_user)):
+    """شيك مرتد — قبل التسليم يُعكس على التزام العقد، وبعده يُحوَّل إلى 1311 شيكات مرتدة على العميل."""
+    company_id = current_user["company_id"]
+    chq = await _cheque(company_id, cheque_id)
+    booking = await db.re_bookings.find_one({"id": chq["booking_id"], "company_id": company_id}, {"_id": 0}) or {}
+    amount, date_str = P.r2(chq["amount"]), data.date or date.today().isoformat()
+    chq_acc = chq.get("account_code") or "163"
+    # a cheque received before delivery credited the contract liability; it is
+    # reversed there — unless the unit has since been delivered, in which case
+    # that liability was already turned into revenue and the customer owes it
+    pre = not chq.get("received_after_delivery") and booking.get("status") != "delivered"
+    debit_acc = _booking_liability(booking)[0] if pre else ACC["returned_cheques"]
+    lines = [
+        await P.je_line(db, company_id, debit_acc, debit=amount, desc=f"ارتداد شيك {chq['cheque_number']} — {chq['customer_name']}"),
+        await P.je_line(db, company_id, chq_acc, credit=amount, desc=f"إقفال شيك مرتد — {chq['cheque_number']}"),
+    ]
+    je_id = await _post_je(company_id, current_user["user_id"], date_str, f"شيك قسط مرتد — {chq['customer_name']}",
+                        lines, "re_cheque", cheque_id)
+    await db.re_installment_cheques.update_one({"id": cheque_id, "company_id": company_id},
+                                               {"$set": {"status": "bounced", "bounce_date": date_str, "bounce_je_id": je_id}})
+    inc = {"cheques_in_hand": -amount}
+    if pre:
+        inc["liability_balance"] = -amount
+    await db.re_bookings.update_one({"id": chq["booking_id"], "company_id": company_id}, {"$inc": inc})
+    return {"message": f"تم تسجيل ارتداد الشيك {chq['cheque_number']}", "journal_entry_id": je_id, "debit_account": debit_acc}
 
 
 # ══════════════════════════════════════════════════════════════
-# 4. REVENUE RECOGNITION — الاعتراف بالإيراد (م.48)
+# DELIVERY — REVENUE RECOGNITION (EAS 48)
 # ══════════════════════════════════════════════════════════════
+
+class DeliverRequest(BaseModel):
+    date: Optional[str] = None
+    unit_cost: Optional[float] = Field(None, ge=0)   # فارغ = تخصيص تلقائي من تكلفة المشروع بالمساحة
+    apply_re_tax: bool = False
+
+
+async def _suggest_cost(company_id: str, booking: dict) -> dict:
+    project = await db.re_projects.find_one({"id": booking["project_id"], "company_id": company_id}, {"_id": 0}) or {}
+    unit = await db.re_units.find_one({"id": booking["unit_id"], "company_id": company_id}, {"_id": 0}) or {}
+    units = await db.re_units.find({"company_id": company_id, "project_id": booking["project_id"]},
+                                   {"_id": 0, "area_sqm": 1}).to_list(None)
+    acc = float(project.get("accumulated_cost", 0) or 0)
+    remaining = P.r2(acc - float(project.get("cost_relieved", 0) or 0))
+    total_area = sum(float(u.get("area_sqm") or 0) for u in units)
+    if total_area > 0 and float(unit.get("area_sqm") or 0) > 0:
+        cost, basis = acc * float(unit["area_sqm"]) / total_area, "area"
+    else:
+        n = max(int(project.get("total_units") or 0), len(units), 1)
+        cost, basis = acc / n, "units"
+    return {"suggested": P.r2(min(cost, max(remaining, 0))), "remaining_wip": remaining, "basis": basis}
+
+
+@router.get("/bookings/{booking_id}/delivery-preview")
+async def delivery_preview(booking_id: str, current_user: dict = Depends(get_current_user)):
+    """الأرقام التي سيُرحَّل بها التسليم — للعرض قبل الحفظ."""
+    company_id = current_user["company_id"]
+    b = await db.re_bookings.find_one({"id": booking_id, "company_id": company_id}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "الحجز غير موجود")
+    acc, bal = _booking_liability(b)
+    price = P.r2(b["contract_price"])
+    return {"contract_price": price, "liability_account": acc, "liability_balance": bal,
+            "receivable": P.r2(price - bal), **(await _suggest_cost(company_id, b))}
+
 
 @router.post("/bookings/{booking_id}/deliver")
-async def deliver_unit(booking_id: str, data: dict,
-                        current_user: dict = Depends(get_current_user)):
+async def deliver_unit(booking_id: str, data: DeliverRequest, current_user: dict = Depends(get_current_user)):
     """
-    تسليم الوحدة للعميل — الاعتراف بالإيراد (م.48)
-
-    القيد الإيراد:
-    Dr م/1471 عملاء حجز وتعاقد (تصفية الدفعات المقدمة)
-    Cr م/4111 إيرادات بيع وحدات عقارية
-    Cr م/2541 ضريبة التصرفات العقارية (2.5%)
-
-    القيد التكلفة (COGS):
-    Dr م/3211 تكلفة الوحدات العقارية المباعة
-    Cr م/1611 مشروعات عقارية تحت التنفيذ
+    تسليم الوحدة — نقل السيطرة (م.48):
+    Dr 2431 ما حُصّل وما استُلم من شيكات + Dr 1312 باقي سعر العقد / Cr 4111 سعر العقد كاملاً
+    Dr 3211 تكلفة الوحدة / Cr 142
     """
-    company_id   = current_user["company_id"]
-    booking = await db.re_bookings.find_one(
-        {"id": booking_id, "company_id": company_id}, {"_id": 0})
+    company_id = current_user["company_id"]
+    booking = await db.re_bookings.find_one({"id": booking_id, "company_id": company_id}, {"_id": 0})
     if not booking:
         raise HTTPException(404, "الحجز غير موجود")
-    if booking.get("status") == "delivered":
-        raise HTTPException(400, "تم التسليم مسبقاً")
+    if booking.get("status") != "booked":
+        raise HTTPException(400, "تم التسليم مسبقاً أو الحجز غير قائم")
+    claimed = await db.re_bookings.update_one({"id": booking_id, "company_id": company_id, "status": "booked"},
+                                              {"$set": {"status": "delivering"}})
+    if not claimed.modified_count:
+        raise HTTPException(409, "جارٍ التسليم بالفعل")
+    try:
+        delivery_date = data.date or date.today().isoformat()
+        price = P.r2(booking["contract_price"])
+        liab_acc, liab_bal = _booking_liability(booking)
+        if liab_bal > price + 0.01:
+            raise HTTPException(400, "المحصّل أكبر من سعر العقد — راجع الحجز")
+        receivable = P.r2(price - liab_bal)
+        sug = await _suggest_cost(company_id, booking)
+        unit_cost = P.r2(data.unit_cost if data.unit_cost is not None else sug["suggested"])
+        if unit_cost > sug["remaining_wip"] + 0.01:
+            raise HTTPException(400, f"تكلفة الوحدة ({unit_cost:,.2f}) أكبر من المتبقي في تكاليف المشروع ({sug['remaining_wip']:,.2f})")
+        re_tax = P.r2(price * RE_TAX_RATE) if data.apply_re_tax else 0.0
 
-    delivery_date  = data.get("date", date.today().isoformat())
-    contract_price = float(booking["contract_price"])
-    deposit_paid   = float(booking.get("deposit_amount", 0))
-    unit_cost      = float(data.get("unit_cost", 0))  # التكلفة الفعلية للوحدة
+        rev_lines = [
+            await P.je_line(db, company_id, liab_acc, debit=liab_bal,
+                            desc=f"تصفية التزام العقد — {booking['customer_name']} وحدة {booking['unit_number']}"),
+            await P.je_line(db, company_id, ACC["installments_ar"], debit=receivable,
+                            desc=f"باقي ثمن الوحدة أقساط مؤجلة — {booking['customer_name']}"),
+            await P.je_line(db, company_id, ACC["re_revenue"], credit=price,
+                            desc=f"إيراد بيع وحدة عقارية — {booking['unit_number']}"),
+        ]
+        if re_tax:
+            rev_lines += [
+                await P.je_line(db, company_id, ACC["re_tax_exp"], debit=re_tax, desc=f"ضريبة تصرفات عقارية 2.5% — {booking['unit_number']}"),
+                await P.je_line(db, company_id, ACC["re_tax"], credit=re_tax, desc=f"ضريبة تصرفات عقارية مستحقة — {booking['unit_number']}"),
+            ]
+        je_rev_id = await _post_je(company_id, current_user["user_id"], delivery_date,
+                                f"اعتراف بإيراد بيع وحدة {booking['unit_number']} — {booking['customer_name']}",
+                                rev_lines, "re_booking", booking_id)
+        je_cogs_id = None
+        if unit_cost > 0:
+            cogs_lines = [
+                await P.je_line(db, company_id, ACC["re_cogs"], debit=unit_cost, desc=f"تكلفة وحدة {booking['unit_number']} المباعة"),
+                await P.je_line(db, company_id, ACC["re_wip"], credit=unit_cost, desc=f"إقفال تكلفة وحدة {booking['unit_number']} من المشروع"),
+            ]
+            je_cogs_id = await _post_je(company_id, current_user["user_id"], delivery_date,
+                                     f"تكلفة وحدة عقارية مباعة — {booking['unit_number']}", cogs_lines, "re_booking", booking_id)
+    except Exception:
+        await db.re_bookings.update_one({"id": booking_id, "company_id": company_id}, {"$set": {"status": "booked"}})
+        raise
 
-    # ── حساب ضريبة التصرفات العقارية ─────────────────────────
-    apply_re_tax   = data.get("apply_re_tax", True)
-    re_tax_amount  = round(contract_price * RE_TAX_RATE, 2) if apply_re_tax else 0
-    net_revenue    = round(contract_price - re_tax_amount, 2)
-
-    # ── القيد أ: الاعتراف بالإيراد ────────────────────────────
-    rev_lines = [
-        await je_line(company_id, ACC["booking_liability"], debit=deposit_paid,
-                      desc=f"تصفية دفعة حجز — {booking['customer_name']} وحدة {booking['unit_number']}"),
-    ]
-    # الفرق بين سعر العقد والمقدم المدفوع = الجزء المتبقي من الإيرادات
-    remaining_rev = round(contract_price - deposit_paid, 2)
-    if remaining_rev > 0:
-        rev_lines.append(await je_line(
-            company_id, ACC["installments_ar"], debit=remaining_rev,
-            desc=f"إيرادات متبقية — {booking['customer_name']}"))
-
-    if apply_re_tax and re_tax_amount > 0:
-        rev_lines.append(await je_line(
-            company_id, ACC["re_revenue"], credit=net_revenue,
-            desc=f"إيراد بيع وحدة عقارية — {booking['unit_number']}"))
-        rev_lines.append(await je_line(
-            company_id, ACC["re_tax"], credit=re_tax_amount,
-            desc=f"ضريبة تصرفات عقارية 2.5% — {booking['unit_number']}"))
-    else:
-        rev_lines.append(await je_line(
-            company_id, ACC["re_revenue"], credit=contract_price,
-            desc=f"إيراد بيع وحدة عقارية — {booking['unit_number']}"))
-
-    td = round(sum(l["debit"]  for l in rev_lines), 2)
-    tc = round(sum(l["credit"] for l in rev_lines), 2)
-    je_rev_id = await post_je(company_id, current_user["user_id"], delivery_date,
-        f"اعتراف بإيراد بيع وحدة {booking['unit_number']} — {booking['customer_name']}",
-        rev_lines, booking_id)
-
-    # ── القيد ب: إثبات التكلفة (COGS) ─────────────────────────
-    je_cogs_id = None
-    if unit_cost > 0:
-        cogs_lines = await asyncio.gather(
-            je_line(company_id, ACC["re_cogs"], debit=unit_cost,
-                    desc=f"تكلفة وحدة {booking['unit_number']} المباعة"),
-            je_line(company_id, ACC["re_wip"], credit=unit_cost,
-                    desc=f"إقفال تكلفة وحدة {booking['unit_number']} من WIP"),
-        )
-        je_cogs_id = await post_je(company_id, current_user["user_id"], delivery_date,
-            f"تكلفة وحدة عقارية مباعة — {booking['unit_number']}", list(cogs_lines), booking_id)
-
-    # Update booking & unit
-    await db.re_bookings.update_one(
-        {"id": booking_id},
-        {"$set": {"status": "delivered", "delivery_date": delivery_date,
-                  "revenue_je_id": je_rev_id, "cogs_je_id": je_cogs_id}}
-    )
-    await db.re_units.update_one(
-        {"id": booking.get("unit_id", "")},
-        {"$set": {"status": "delivered", "delivery_date": delivery_date}}
-    )
-
-    gross_margin = round(contract_price - unit_cost, 2) if unit_cost > 0 else None
-
+    await db.re_bookings.update_one({"id": booking_id, "company_id": company_id}, {"$set": {
+        "status": "delivered", "delivery_date": delivery_date, "revenue_je_id": je_rev_id, "cogs_je_id": je_cogs_id,
+        "liability_balance": 0.0, "receivable_at_delivery": receivable, "unit_cost": unit_cost, "re_tax_amount": re_tax}})
+    await db.re_units.update_one({"id": booking["unit_id"], "company_id": company_id},
+                                 {"$set": {"status": "delivered", "delivery_date": delivery_date, "cost_allocated": unit_cost}})
+    await db.re_projects.update_one({"id": booking["project_id"], "company_id": company_id}, {"$inc": {"cost_relieved": unit_cost}})
+    margin = P.r2(price - unit_cost)
     return {
-        "message":     f"✅ تم تسليم الوحدة {booking['unit_number']} لـ {booking['customer_name']}",
+        "message": f"✅ تم تسليم الوحدة {booking['unit_number']} لـ {booking['customer_name']}",
         "delivery_date": delivery_date,
-        "financials": {
-            "contract_price":  contract_price,
-            "re_tax_amount":   re_tax_amount,
-            "net_revenue":     net_revenue,
-            "unit_cost":       unit_cost,
-            "gross_margin":    gross_margin,
-            "gross_margin_pct": round(gross_margin/contract_price*100, 1) if gross_margin and contract_price else None,
-        },
-        "journal_entries": {
-            "revenue_recognition": je_rev_id,
-            "cogs":                je_cogs_id,
-        },
-        "revenue_entries": [
-            {"debit":  f"م/{ACC['booking_liability']} تصفية حجز    {deposit_paid:,.2f}"},
-            {"credit": f"م/{ACC['re_revenue']} إيراد بيع        {net_revenue:,.2f}"},
-            {"credit": f"م/{ACC['re_tax']} ضريبة تصرفات عقارية {re_tax_amount:,.2f}"},
-        ] if apply_re_tax else [
-            {"debit":  f"م/{ACC['booking_liability']} تصفية حجز  {deposit_paid:,.2f}"},
-            {"credit": f"م/{ACC['re_revenue']} إيراد بيع       {contract_price:,.2f}"},
-        ],
-        "cogs_entry": {
-            "debit":  f"م/{ACC['re_cogs']} تكلفة وحدة   {unit_cost:,.2f}",
-            "credit": f"م/{ACC['re_wip']} WIP عقاري      {unit_cost:,.2f}",
-        } if unit_cost > 0 else None,
+        "financials": {"contract_price": price, "re_tax_amount": re_tax, "revenue": price,
+                       "receivable": receivable, "unit_cost": unit_cost, "gross_margin": margin,
+                       "gross_margin_pct": round(margin / price * 100, 1) if price else None},
+        "journal_entries": {"revenue_recognition": je_rev_id, "cogs": je_cogs_id},
         "law": "المعيار المحاسبي المصري 48 — الإيراد يُثبَّت عند نقل السيطرة (التسليم الفعلي)",
     }
 
@@ -553,69 +515,48 @@ async def deliver_unit(booking_id: str, data: dict,
 
 @router.get("/projects")
 async def list_projects(current_user: dict = Depends(get_current_user)):
-    projects = await db.re_projects.find(
-        {"company_id": current_user["company_id"]}, {"_id": 0}
-    ).sort("created_at", -1).to_list(None)
+    projects = await db.re_projects.find({"company_id": current_user["company_id"]}, {"_id": 0}).sort("created_at", -1).to_list(None)
     return {"projects": projects, "total": len(projects)}
 
 
 @router.get("/projects/{project_id}/units")
-async def list_project_units(
-    project_id: str,
-    status: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
+async def list_project_units(project_id: str, status: Optional[str] = None,
+                             current_user: dict = Depends(get_current_user)):
     q = {"project_id": project_id, "company_id": current_user["company_id"]}
     if status: q["status"] = status
     units = await db.re_units.find(q, {"_id": 0}).to_list(None)
     summary = {
         "total": len(units),
-        "available":  sum(1 for u in units if u["status"]=="available"),
-        "reserved":   sum(1 for u in units if u["status"]=="reserved"),
-        "contracted": sum(1 for u in units if u["status"]=="contracted"),
-        "delivered":  sum(1 for u in units if u["status"]=="delivered"),
-        "total_contracted_value": round(sum(
-            float(u.get("contract_price",0)) for u in units
-            if u["status"] in ("reserved","contracted","delivered")), 2),
+        **{s: sum(1 for u in units if u["status"] == s) for s in ("available", "reserved", "contracted", "delivered")},
+        "total_contracted_value": P.r2(sum(float(u.get("contract_price", 0)) for u in units
+                                           if u["status"] in ("reserved", "contracted", "delivered"))),
     }
     return {"units": units, "summary": summary}
 
 
 @router.get("/bookings")
-async def list_bookings(
-    status: Optional[str] = None,
-    page: int = 1, limit: int = 20,
-    current_user: dict = Depends(get_current_user)
-):
+async def list_bookings(status: Optional[str] = None, page: int = 1, limit: int = 20,
+                        current_user: dict = Depends(get_current_user)):
     q = {"company_id": current_user["company_id"]}
     if status: q["status"] = status
-    total    = await db.re_bookings.count_documents(q)
-    bookings = await db.re_bookings.find(q, {"_id": 0}).sort(
-        "booking_date", -1).skip((page-1)*limit).limit(limit).to_list(None)
+    limit = max(1, min(limit, 200))
+    total = await db.re_bookings.count_documents(q)
+    bookings = await db.re_bookings.find(q, {"_id": 0}).sort("booking_date", -1).skip((max(page, 1) - 1) * limit).limit(limit).to_list(None)
     return {"bookings": bookings, "total": total}
 
 
 @router.get("/reports/revenue-recognition")
-async def revenue_recognition_report(
-    year: int = Query(None),
-    current_user: dict = Depends(get_current_user)
-):
+async def revenue_recognition_report(year: int = Query(None), current_user: dict = Depends(get_current_user)):
     """تقرير الاعتراف بالإيراد حسب التسليمات الفعلية"""
-    company_id = current_user["company_id"]
-    q = {"company_id": company_id, "status": "delivered"}
+    q = {"company_id": current_user["company_id"], "status": "delivered"}
     if year:
         q["delivery_date"] = {"$gte": f"{year}-01-01", "$lte": f"{year}-12-31"}
-
     bookings = await db.re_bookings.find(q, {"_id": 0}).to_list(None)
-    total_rev  = sum(float(b.get("contract_price",0)) for b in bookings)
-    total_tax  = sum(float(b.get("contract_price",0)) * RE_TAX_RATE for b in bookings)
-
-    return {
-        "period": str(year) if year else "الكل",
-        "units_delivered":  len(bookings),
-        "total_revenue":    round(total_rev, 2),
-        "total_re_tax":     round(total_tax, 2),
-        "net_revenue":      round(total_rev - total_tax, 2),
-        "bookings":         bookings,
-        "law": "م.48 — الإيراد يُثبَّت عند التسليم الفعلي فقط",
-    }
+    total_rev = P.r2(sum(float(b.get("contract_price", 0)) for b in bookings))
+    # was contract_price × 2.5% for every booking, whether the tax was applied or not
+    total_tax = P.r2(sum(float(b.get("re_tax_amount", 0) or 0) for b in bookings))
+    total_cost = P.r2(sum(float(b.get("unit_cost", 0) or 0) for b in bookings))
+    return {"period": str(year) if year else "الكل", "units_delivered": len(bookings),
+            "total_revenue": total_rev, "total_re_tax": total_tax, "total_cost": total_cost,
+            "gross_margin": P.r2(total_rev - total_cost), "net_revenue": total_rev, "bookings": bookings,
+            "law": "م.48 — الإيراد يُثبَّت عند التسليم الفعلي فقط"}

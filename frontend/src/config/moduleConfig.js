@@ -252,6 +252,7 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'parties',          name: isArabic ? '🤝 العملاء والموردين' : '🤝 Parties' },
   { id: 'products',         name: isArabic ? '📦 المنتجات'          : '📦 Products' },
   { id: 'inventory',        name: isArabic ? '🗄️ المخزون'           : '🗄️ Inventory' },
+  { id: 'inventory-tools',  name: isArabic ? '📦 أدوات المخزون المتقدمة' : '📦 Inventory Tools' },
   { id: 'bank',             name: isArabic ? '🏧 البنوك والخزائن'    : '🏧 Banks & Cash' },
   { id: 'treasury',         name: isArabic ? '💵 الخزينة والشيكات'  : '💵 Cash & Cheques' },
   { id: 'progress-claims',  name: isArabic ? '🏗️ المستخلصات'        : '🏗️ Progress Claims' },
@@ -263,6 +264,10 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'equity',           name: isArabic ? '🏛️ حقوق الملكية والتوزيعات' : '🏛️ Equity & Dividends' },
   { id: 'fraud-control',    name: isArabic ? '🛡️ الرقابة وكشف المخاطر' : '🛡️ Risk & Fraud Control' },
   { id: 'consolidation',    name: isArabic ? '🏢 القوائم المجمعة'       : '🏢 Group Consolidation' },
+  { id: 'pos-shifts',       name: isArabic ? '🧾 نقاط البيع والورديات'   : '🧾 POS Shifts' },
+  { id: 'manufacturing',    name: isArabic ? '🏭 التصنيع وأوامر الإنتاج' : '🏭 Manufacturing' },
+  { id: 'real-estate',      name: isArabic ? '🏢 التطوير العقاري'        : '🏢 Real Estate' },
+  { id: 'letters-of-credit', name: isArabic ? '🚢 الاعتمادات المستندية'  : '🚢 Letters of Credit' },
   { id: 'currencies',       name: isArabic ? '💱 العملات'           : '💱 Currencies' },
   { id: 'reports',          name: isArabic ? '📊 التقارير المالية'  : '📊 Financial Reports' },
 ];
