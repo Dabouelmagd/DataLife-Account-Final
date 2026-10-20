@@ -15,7 +15,7 @@ export default function GPSSettings() {
 
   const [settings, setSettings] = useState({
     enabled: false, latitude: '', longitude: '',
-    radius_meters: 200, address: '', allow_remote: false,
+    radius_meters: 40, address: '', allow_remote: false,
   });
   const [locating, setLocating] = useState(false);
   const [saving, setSaving]     = useState(false);

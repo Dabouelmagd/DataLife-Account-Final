@@ -22,6 +22,7 @@ const REVIEWS = {
   hr_policy: ['سياسة الموارد البشرية', 'الإضافي والجزاءات ومكافأة نهاية الخدمة — على قانون العمل 14/2025. تُضبط القيم من: الموارد البشرية ← الإجازات والإضافي والجزاءات ← السياسة.'],
   real_estate_tax: ['ضريبة التصرفات العقارية', 'هل تنطبق على مبيعات شركتك ونسبتها.'],
   retention: ['مدد الاحتفاظ بالسجلات', 'المدد المحددة أعلاه.'],
+  penalties: ['معالجة حصيلة الجزاءات', 'تخفيض مصروف الأجور أو حساب الخدمات الاجتماعية للعاملين.'],
   data_protection: ['حماية البيانات الشخصية', 'طريقة تعامل الشركة مع بيانات العاملين والعملاء — قانون 151/2020.'],
 };
 
@@ -76,6 +77,17 @@ export default function CompanyPoliciesPage() {
             value={Math.round((p.real_estate.disposal_tax_rate || 0) * 1000) / 10}
             onChange={(e) => setRe('disposal_tax_rate', (Number(e.target.value) || 0) / 100)} /></label>
         <p className="text-xs text-slate-500">يمكن تغيير الاختيار لكل وحدة عند تسليمها.</p>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-2">
+        <h3 className="font-bold">الجزاءات المخصومة من الرواتب</h3>
+        {[['reduce_expense', 'تخفّض مصروف الأجور (331)'], ['welfare_fund', 'تُحفظ في حساب الخدمات الاجتماعية للعاملين (250)']].map(([v, l]) => (
+          <label key={v} className="flex items-center gap-2">
+            <input type="radio" name="pen" checked={(p.payroll?.penalties_treatment || 'reduce_expense') === v}
+              onChange={() => setP({ ...p, payroll: { ...(p.payroll || {}), penalties_treatment: v } })} /> {l}
+          </label>
+        ))}
+        <p className="text-xs text-slate-500">يُطبَّق على مسيرات الرواتب التي تُعتمد بعد الحفظ.</p>
       </section>
 
       <section className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">

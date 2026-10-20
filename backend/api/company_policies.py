@@ -40,11 +40,15 @@ LEGAL_HOLD = {"journal_entries", "invoices", "payroll_runs", "tax_forms", "eta_s
 
 DEFAULTS = {
     "real_estate": {"disposal_tax_enabled": False, "disposal_tax_rate": 0.025},
+    # «reduce_expense»: penalties deducted from pay reduce the wages expense;
+    # «welfare_fund»: they are held in 250 for the staff's social services
+    "payroll": {"penalties_treatment": "reduce_expense"},
     "retention_years": dict(RETENTION_DEFAULTS),
     "legal_review": {
         "hr_policy":       {"reviewed": False, "reviewer": "", "date": "", "note": ""},
         "real_estate_tax": {"reviewed": False, "reviewer": "", "date": "", "note": ""},
         "retention":       {"reviewed": False, "reviewer": "", "date": "", "note": ""},
+        "penalties":       {"reviewed": False, "reviewer": "", "date": "", "note": ""},
         "data_protection": {"reviewed": False, "reviewer": "", "date": "", "note": ""},
     },
 }
@@ -66,6 +70,10 @@ def _merge(base: dict, saved: dict) -> dict:
 async def get_policies(company_id: str) -> dict:
     saved = await db.company_policies.find_one({"company_id": company_id}, {"_id": 0}) or {}
     return _merge(DEFAULTS, saved)
+
+
+async def penalties_treatment(company_id: str) -> str:
+    return (await get_policies(company_id))["payroll"]["penalties_treatment"]
 
 
 async def retention_years(company_id: str) -> dict:
@@ -108,6 +116,11 @@ async def update_policies(data: dict, current_user: dict = Depends(get_current_u
             if not 0 <= r <= 0.1:
                 raise HTTPException(400, "نسبة ضريبة التصرفات بين 0 و10%")
             upd["real_estate.disposal_tax_rate"] = round(r, 4)
+    pay = data.get("payroll")
+    if isinstance(pay, dict) and "penalties_treatment" in pay:
+        if pay["penalties_treatment"] not in ("reduce_expense", "welfare_fund"):
+            raise HTTPException(400, "معالجة الجزاءات: reduce_expense أو welfare_fund")
+        upd["payroll.penalties_treatment"] = pay["penalties_treatment"]
     ret = data.get("retention_years")
     if isinstance(ret, dict):
         for k, v in ret.items():

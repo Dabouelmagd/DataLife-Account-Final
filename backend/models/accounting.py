@@ -581,6 +581,8 @@ DEFAULT_ACCOUNTS = [
      "type": AccountType.ASSET, "category": AccountCategory.CASH, "parent_code": "16"},
     {"code": "165", "name": "غطاء اعتمادات مستندية محتجز", "name_en": "Letter of Credit Cash Margin",
      "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "16"},
+    {"code": "250", "name": "حصيلة الجزاءات — للخدمات الاجتماعية للعاملين", "name_en": "Penalties Fund (Staff Welfare)",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
     {"code": "1314", "name": "عجز مخزون — ذمة أمناء المخازن", "name_en": "Inventory Shortage Receivable",
      "type": AccountType.ASSET, "category": AccountCategory.RECEIVABLE, "parent_code": "13"},
     {"code": "1491", "name": "مشروعات تحت التنفيذ — أصول ثابتة", "name_en": "Fixed Assets Under Construction",

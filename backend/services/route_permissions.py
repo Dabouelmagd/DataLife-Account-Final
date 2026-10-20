@@ -85,6 +85,23 @@ EXEMPT_PREFIXES = (
 
 PLATFORM_ROLES = {"Super Admin"}
 
+# An employee login (role موظف / Employee, created from the employee's profile
+# «دعوة لبوابة الموظف») sees only its own portal. The screens already sent such
+# a user to /my-portal, but its token could still call any API that is not in
+# PREFIX_PERMISSIONS (sales, invoices, users…). These are the only paths an
+# employee token may use; everything else is refused, whatever the
+# PERMISSION_ENFORCEMENT mode.
+EMPLOYEE_ROLES = {"Employee", "موظف"}
+EMPLOYEE_ALLOWED = (
+    "/api/auth", "/api/ess", "/api/users/me", "/api/users/upload-photo",
+    "/api/notifications", "/api/push", "/api/chatbot", "/api/permissions/config",
+    "/api/companies/current", "/api/attendance/check", "/api/attendance/my",
+)
+
+
+def employee_may(path: str) -> bool:
+    return any(path == p or path.startswith(p + "/") or path.startswith(p + "?") for p in EMPLOYEE_ALLOWED)
+
 
 def required_for(path: str):
     if path.startswith(EXEMPT_PREFIXES):

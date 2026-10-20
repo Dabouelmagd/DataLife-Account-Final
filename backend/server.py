@@ -398,6 +398,25 @@ class PermissionMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http" and scope.get("path", "").startswith("/api/"):
+            # employee logins: their own portal only (always enforced)
+            try:
+                from services.route_permissions import EMPLOYEE_ROLES, employee_may
+                auth = dict(scope.get("headers") or []).get(b"authorization", b"").decode()
+                if auth.startswith("Bearer ") and not employee_may(scope["path"]):
+                    from services.auth_service import verify_token as _vt
+                    payload = _vt(auth[7:])
+                    role = (payload or {}).get("role")
+                    if payload and payload.get("user_id") and role not in EMPLOYEE_ROLES:
+                        u = await self._user(payload["user_id"])       # the role may have changed since login
+                        role = (u or {}).get("role", role)
+                    if role in EMPLOYEE_ROLES:
+                        body = '{"detail":"حساب الموظف يفتح بوابة الموظف فقط"}'.encode()
+                        await send({"type": "http.response.start", "status": 403,
+                                    "headers": [(b"content-type", b"application/json; charset=utf-8")]})
+                        await send({"type": "http.response.body", "body": body})
+                        return
+            except Exception:
+                pass
             try:
                 from services.route_permissions import required_for, effective_permissions, PLATFORM_ROLES
                 need = required_for(scope["path"])

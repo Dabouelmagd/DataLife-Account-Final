@@ -473,6 +473,20 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
     # whole difference into salaries payable, so the company appeared to owe
     # its staff the very amounts it had deducted.
     other_ded = round(float(payroll.get("total_other_deductions") or 0), 2)
+    # penalties: the company's choice (الإعدادات ← سياسات الشركة) — reduce the
+    # wages expense with the other deductions, or hold them in 250 for the
+    # staff's social services
+    penalties = round(float(payroll.get("total_penalties") or 0), 2)
+    if penalties > 0:
+        from api.company_policies import penalties_treatment
+        if await penalties_treatment(company_id) == "welfare_fund":
+            fund = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": "250"}, {"_id": 0})
+            if not fund:
+                raise HTTPException(status_code=400, detail="الحساب 250 (حصيلة الجزاءات) غير موجود — شغّل مزامنة الحسابات الافتراضية")
+            lines.append(JournalEntryLine(
+                account_id=fund["id"], account_code="250", account_name=fund["account_name"],
+                debit=0, credit=penalties, description="حصيلة الجزاءات — للخدمات الاجتماعية للعاملين"))
+            other_ded = round(other_ded - penalties, 2)
     if other_ded > 0 and sal_id:
         lines.append(JournalEntryLine(
             account_id=sal_id, account_code=sal_code, account_name=sal_name,
@@ -1068,6 +1082,7 @@ async def calculate_payroll(
                 reference_id=pen.get("id")
             ))
             totals["other_deductions"] += amt
+            totals["penalties"] = totals.get("penalties", 0) + amt
         
         total_deductions = sum(d.amount for d in deductions)
         net_salary = gross_salary - total_deductions
@@ -1130,6 +1145,7 @@ async def calculate_payroll(
         "total_income_tax": round(totals["income_tax"], 2),
         "total_loans": round(totals["loans"], 2),
         "total_other_deductions": round(totals["other_deductions"], 2),
+        "total_penalties": round(totals.get("penalties", 0), 2),
         # إجماليات الحضور الجديدة
         "total_late_deductions": round(totals["late_deductions"], 2),
         "total_absence_deductions": round(totals["absence_deductions"], 2),

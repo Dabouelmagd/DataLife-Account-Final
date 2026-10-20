@@ -98,7 +98,7 @@ def _geofence(emp: dict, company: dict, req, action: str) -> tuple:
         return "not_configured", None, 500
     wlat = float(work_location["latitude"])
     wlon = float(work_location["longitude"])
-    allowed_radius = float(work_location.get("radius_meters", 500))
+    allowed_radius = float(work_location.get("radius_meters", 40))
     distance_m = haversine_distance(req.latitude, req.longitude, wlat, wlon)
     if distance_m <= allowed_radius:
         return "within_range", distance_m, allowed_radius

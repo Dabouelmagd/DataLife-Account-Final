@@ -75,7 +75,7 @@ async def check_in(
                 float(location["longitude"])
             )
             
-            allowed_radius = float(gps_settings.get("radius_meters", 200))
+            allowed_radius = float(gps_settings.get("radius_meters", 40))
             location["distance_from_office"] = round(distance, 1)
             location["within_geofence"] = distance <= allowed_radius
             # used for the check above, then dropped — the privacy policy
@@ -490,7 +490,7 @@ async def get_gps_settings(authorization: Optional[str] = Header(None)):
             "enabled": False,
             "latitude": None,
             "longitude": None,
-            "radius_meters": 200,
+            "radius_meters": 40,
             "address": "",
             "allow_remote": False,
         }) if company else {}
@@ -508,7 +508,7 @@ async def save_gps_settings(data: dict, authorization: Optional[str] = Header(No
         raise HTTPException(status_code=403, detail="ضبط موقع العمل لمدير الموارد البشرية أو الإدارة العليا")
     try:
         lat, lon = float(data["latitude"]), float(data["longitude"])
-        radius = float(data.get("radius_meters", 200))
+        radius = float(data.get("radius_meters", 40))
     except (KeyError, TypeError, ValueError):
         raise HTTPException(status_code=400, detail="حدد خط العرض وخط الطول بالأرقام")
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
