@@ -11,6 +11,7 @@ import CandidateReportDashboard from '../components/hr/CandidateReportDashboard'
 import CandidateAssessments from '../components/hr/CandidateAssessments';
 import AssessmentQuestionBank from '../components/hr/AssessmentQuestionBank';
 import JobDetails from '../components/hr/JobDetails';
+import RecruitmentGuide from '../components/hr/RecruitmentGuide';
 import axios from 'axios';
 import {
   Briefcase, Users, Star, Plus, X, Loader2, CheckCircle, UserPlus, ArrowRight,
@@ -605,6 +606,8 @@ export default function RecruitmentPage() {
       )}
 
       {msg.text && <p className={`text-sm ${msg.type === 'err' ? 'text-red-700' : 'text-emerald-700'}`} role="status">{msg.text}</p>}
+
+      {tab === 'jobs' && <RecruitmentGuide />}
 
       {tab !== 'jobs' ? null : jobs === null ? (
         <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-slate-400" /></div>
