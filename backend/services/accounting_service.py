@@ -57,6 +57,11 @@ class AccountingService:
                 debit_types = {AccountType.ASSET, AccountType.EXPENSE,
                                AccountType.CONTRA_LIABILITY, AccountType.CONTRA_EQUITY}
                 normal_bal = "debit" if acc_type in debit_types else "credit"
+                # one rule for "header": the flag, the category, or the fixed
+                # list — they disagreed, so 14 refused postings yet showed as
+                # a normal account, and 9/91/92 showed as postable
+                header = bool(acc.get("is_header")) or code in HEADER_CODES or \
+                    acc["category"] == AccountCategory.HEADER
                 
                 account = ChartOfAccount(
                     company_id=company_id,
@@ -67,13 +72,13 @@ class AccountingService:
                     account_category=acc["category"],
                     is_system=acc.get("is_system", False),
                     is_reconciliation=code in RECONCILIATION_CODES,
-                    allow_posting=code not in HEADER_CODES,
+                    allow_posting=not header,
                     normal_balance=normal_bal,
-                    description=f"{'حساب رئيسي تجميعي' if acc.get('is_header') else 'حساب فرعي يقبل حركات'}"
+                    description=f"{'حساب رئيسي تجميعي' if header else 'حساب فرعي يقبل حركات'}"
                 )
                 account_dict = account.dict()
                 # Add extra fields for hierarchy
-                account_dict["is_header"] = acc.get("is_header", False)
+                account_dict["is_header"] = header
                 account_dict["parent_code"] = acc.get("parent_code")
                 accounts.append(account_dict)
             
@@ -830,11 +835,20 @@ class AccountingService:
         equity = {"items": [], "total": 0}
         accumulated_result = 0.0   # revenue − expense since inception, to as_of_date
 
+        memo = []   # حسابات نظامية (9xxx) — تُعرض أسفل الميزانية لا داخلها
         for account in accounts:
             if account.get("is_header") or account.get("account_category") == "header":
                 continue
             balance = round(balance_of(account), 2)
             if balance == 0:
+                continue
+            # Memorandum accounts (letters of guarantee, notes sent for
+            # collection, goods held by others) are off-balance-sheet: each pair
+            # nets to zero and neither side is an asset or liability. They were
+            # being added to current assets and current liabilities.
+            if str(account.get("account_code") or "").startswith("9"):
+                memo.append({"account_code": account["account_code"],
+                             "account_name": account["account_name"], "amount": balance})
                 continue
 
             account_type = account["account_type"]
@@ -873,6 +887,7 @@ class AccountingService:
             "assets": assets,
             "liabilities": liabilities,
             "equity": equity,
+            "memorandum": memo,
             "total_liabilities_and_equity": liabilities["total"] + equity["total"],
             "is_balanced": abs(assets["total"] - (liabilities["total"] + equity["total"])) < 0.01
         }

@@ -415,11 +415,11 @@ DEFAULT_ACCOUNTS = [
     {"code": "2431", "name": "التزامات العقود — مقابل أعمال لم تُنفَّذ", "name_en": "Contract Liabilities", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "243"},
     # ── الحسابات النظامية والرقابية (خارج الميزانية) ─────────────
     # الكود كان يرحّل خطابات الضمان على 9111/9112 وهما غير موجودين أصلاً
-    {"code": "9", "name": "حسابات نظامية ورقابية (خارج الميزانية)", "name_en": "Memorandum & Off-Balance-Sheet", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "parent_code": None},
-    {"code": "91", "name": "خطابات الضمان", "name_en": "Letters of Guarantee", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "parent_code": "9"},
+    {"code": "9", "name": "حسابات نظامية ورقابية (خارج الميزانية)", "name_en": "Memorandum & Off-Balance-Sheet", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "parent_code": None, "is_header": True},
+    {"code": "91", "name": "خطابات الضمان", "name_en": "Letters of Guarantee", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "parent_code": "9", "is_header": True},
     {"code": "9111", "name": "التزامات البنوك عن خطابات ضمان صادرة", "name_en": "Bank LG Obligations (Memo Dr)", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "91"},
     {"code": "9112", "name": "التزامات الشركة تجاه البنوك عن خطابات الضمان", "name_en": "Company LG Obligations (Memo Cr)", "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "91"},
-    {"code": "92", "name": "أوراق وبضائع لدى الغير", "name_en": "Instruments & Goods Held by Others", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "parent_code": "9"},
+    {"code": "92", "name": "أوراق وبضائع لدى الغير", "name_en": "Instruments & Goods Held by Others", "type": AccountType.ASSET, "category": AccountCategory.HEADER, "parent_code": "9", "is_header": True},
     {"code": "9211", "name": "أوراق قبض برسم التحصيل لدى البنوك", "name_en": "Notes Sent for Collection", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "92"},
     {"code": "9212", "name": "أوراق قبض برسم التأمين لدى البنوك", "name_en": "Notes Pledged as Security", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "92"},
     {"code": "9213", "name": "بضاعة أمانة أو تحت التشغيل لدى الغير", "name_en": "Goods on Consignment with Others", "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "92"},

@@ -82,10 +82,16 @@ async def _balances(db, company_id: str, upto: str = None) -> dict:
     return out
 
 
+# codes that share a group's prefix but belong elsewhere: 2602 is deferred
+# tax (a long-term liability), not output VAT — it was added to «ضريبة مستحقة»
+NOT_IN_GROUP = {"2602"}
+
+
 def _sum_prefix(balances: dict, prefixes: tuple) -> float:
     """Signed total of the leaf accounts under these codes (an overdrawn bank
     reduces the cash total instead of being added to it)."""
-    return round(sum(r["balance"] for code, r in balances.items() if code.startswith(prefixes)), 2)
+    return round(sum(r["balance"] for code, r in balances.items()
+                     if code.startswith(prefixes) and code not in NOT_IN_GROUP), 2)
 
 
 async def _result(db, company_id: str, since: str, until: str) -> tuple:

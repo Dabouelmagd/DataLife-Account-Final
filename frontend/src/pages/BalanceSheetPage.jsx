@@ -420,6 +420,24 @@ const BalanceSheetPage = ({ language: propLanguage }) => {
               </CardContent>
             </Card>
           </div>
+          {balanceSheet?.memorandum?.length > 0 && (
+            <Card className="mt-6">
+              <CardContent className="p-4">
+                <p className="font-bold text-slate-700 dark:text-slate-200 mb-1">
+                  {language === 'ar' ? 'حسابات نظامية (خارج الميزانية)' : 'Memorandum accounts (off balance sheet)'}</p>
+                <p className="text-xs text-slate-500 mb-3">
+                  {language === 'ar' ? 'خطابات الضمان والأوراق والبضائع لدى الغير — للمتابعة فقط ولا تدخل في الأصول أو الخصوم.' : 'Letters of guarantee and items held by others — for follow-up only, not assets or liabilities.'}</p>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                  {balanceSheet.memorandum.map((m) => (
+                    <div key={m.account_code} className="flex justify-between py-1.5">
+                      <span>{m.account_code} — {m.account_name}</span>
+                      <bdi dir="ltr" className="tabular-nums">{Number(m.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</bdi>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>
