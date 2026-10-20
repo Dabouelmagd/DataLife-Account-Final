@@ -294,6 +294,8 @@ async def medical_services_log_compat(
     query: dict = {"company_id": company_id}
     if status:
         query["status"] = status
+    else:
+        query["status"] = {"$ne": "cancelled"}   # a cancelled service's entry is reversed
     if from_date:
         query["service_date"] = {"$gte": from_date}
     if to_date:

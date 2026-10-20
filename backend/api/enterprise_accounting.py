@@ -835,6 +835,46 @@ async def get_pending_doctor_payments(
     }
 
 
+@router.get("/medical-services/insurance-outstanding")
+async def get_insurance_outstanding(current_user: dict = Depends(get_user)):
+    """مطالبات التأمين المفتوحة لكل شركة تأمين — ما طُلب، ما حُصّل، ما رُفض، وما زال مستحقاً."""
+    q = {"company_id": current_user.get("company_id"), "insurance_claim_amount": {"$gt": 0},
+         "status": {"$ne": "cancelled"}}
+    services = await db.medical_services.find(q, {"_id": 0}).sort("service_date", 1).to_list(5000)
+    today = datetime.now().strftime("%Y-%m-%d")
+    by_insurer = {}
+    for s in services:
+        claim = float(s.get("insurance_claim_amount") or 0)
+        rec = float(s.get("insurance_received") or 0)
+        rej = float(s.get("insurance_rejected") or 0)
+        left = round(claim - rec - rej, 2)
+        key = s.get("insurance_company_id") or s.get("insurance_company_name") or "—"
+        g = by_insurer.setdefault(key, {"insurance_company_id": s.get("insurance_company_id"),
+                                        "insurance_company_name": s.get("insurance_company_name") or "—",
+                                        "claimed": 0.0, "received": 0.0, "rejected": 0.0, "outstanding": 0.0,
+                                        "open_claims": 0, "oldest_open_date": None, "claims": []})
+        g["claimed"] = round(g["claimed"] + claim, 2)
+        g["received"] = round(g["received"] + rec, 2)
+        g["rejected"] = round(g["rejected"] + rej, 2)
+        if left > 0.01:
+            g["outstanding"] = round(g["outstanding"] + left, 2)
+            g["open_claims"] += 1
+            d = str(s.get("service_date") or "")[:10]
+            if d and (not g["oldest_open_date"] or d < g["oldest_open_date"]):
+                g["oldest_open_date"] = d
+            try:
+                age = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(d, "%Y-%m-%d")).days
+            except ValueError:
+                age = None
+            g["claims"].append({"service_id": s["id"], "service_date": d, "patient_name": s.get("patient_name"),
+                                "service_description": s.get("service_description"), "claimed": claim,
+                                "received": rec, "rejected": rej, "outstanding": left, "age_days": age,
+                                "status": s.get("status")})
+    rows = sorted(by_insurer.values(), key=lambda g: -g["outstanding"])
+    return {"insurers": rows, "total_outstanding": round(sum(g["outstanding"] for g in rows), 2),
+            "total_rejected": round(sum(g["rejected"] for g in rows), 2)}
+
+
 @router.get("/medical-services/{service_id}")
 async def get_medical_service(service_id: str, current_user: dict = Depends(get_user)):
     svc = await db.medical_services.find_one(
@@ -931,6 +971,83 @@ async def pay_doctor(data: dict, current_user: dict = Depends(get_user)):
     }
 
 
+@router.post("/medical-services/{service_id}/insurance-settlement")
+async def settle_insurance_claim(service_id: str, data: dict, current_user: dict = Depends(get_user)):
+    """
+    القيد ج — تحصيل مطالبة التأمين أو رفض جزء منها
+
+    من مذكورين:
+       حـ/ البنك 162 / الخزينة 161            (ما حصّلته شركة التأمين)
+       حـ/ العملاء 131                        (المرفوض ويُطالَب به المريض)
+         أو حـ/ مردودات ومسموحات المبيعات 413  (المرفوض ويُعدم)
+    إلى حـ/ شركات التأمين الطبي 148           (المحصل + المرفوض)
+
+    حصص الأطباء لا تتغير بالرفض — تسويتها مع الطبيب قرار إداري يُسجل يدوياً.
+    """
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("user_id", "system")
+    svc = await db.medical_services.find_one({"id": service_id, "company_id": company_id}, {"_id": 0})
+    if not svc:
+        raise HTTPException(404, "الخدمة غير موجودة")
+    if svc.get("status") == "cancelled":
+        raise HTTPException(400, "الخدمة ملغاة")
+    claim = round(float(svc.get("insurance_claim_amount") or 0), 2)
+    if claim <= 0:
+        raise HTTPException(400, "هذه الخدمة ليس لها مطالبة تأمين")
+    done = round(float(svc.get("insurance_received") or 0) + float(svc.get("insurance_rejected") or 0), 2)
+    outstanding = round(claim - done, 2)
+    if outstanding <= 0.01:
+        raise HTTPException(400, "مطالبة التأمين لهذه الخدمة مُسوّاة بالكامل")
+
+    received = _money(data.get("received_amount"), "المبلغ المحصل")
+    rejected = _money(data.get("rejected_amount"), "المبلغ المرفوض")
+    if received + rejected <= 0:
+        raise HTTPException(400, "أدخل المبلغ المحصل و/أو المرفوض")
+    if received + rejected > outstanding + 0.01:
+        raise HTTPException(400, f"المحصل + المرفوض ({received + rejected:,.2f}) أكبر من المتبقي على التأمين ({outstanding:,.2f})")
+    treatment = data.get("rejection_treatment") or ""
+    reason = str(data.get("rejection_reason") or "").strip()[:300]
+    if rejected > 0:
+        if treatment not in ("patient", "write_off"):
+            raise HTTPException(400, "حدد معالجة المرفوض: يُحمَّل على المريض (patient) أو يُعدم (write_off)")
+        if not reason:
+            raise HTTPException(400, "اكتب سبب رفض التأمين")
+    method = data.get("payment_method", "bank")
+    if method not in ("bank", "cash"):
+        raise HTTPException(400, "payment_method: bank | cash")
+    date = data.get("date") or datetime.now().strftime("%Y-%m-%d")
+    insurer = svc.get("insurance_company_name") or ""
+    patient = svc.get("patient_name") or ""
+    settlement_id = str(uuid.uuid4())
+    ins_partner = {"partner_type": "insurance", "partner_id": svc.get("insurance_company_id")}
+
+    je = await _post_claim_entry(company_id, user_id, date,
+                                 f"تسوية مطالبة تأمين {insurer} — مريض: {patient}"[:200], [
+        (("161",) if method == "cash" else ("162",), received, 0, f"تحصيل من {insurer}", ins_partner),
+        (("131",) if treatment == "patient" else ("413",), rejected, 0,
+         (f"مرفوض من التأمين يُطالَب به المريض {patient}" if treatment == "patient"
+          else f"مرفوض من التأمين — إعدام: {reason}")[:200],
+         {"partner_type": "patient", "partner_id": svc.get("patient_id")} if treatment == "patient" else None),
+        ((INSURER_RECEIVABLE,), 0, round(received + rejected, 2), f"تسوية مطالبة {insurer}", ins_partner),
+    ], "insurance_settlement", settlement_id)
+
+    rec_total = round(float(svc.get("insurance_received") or 0) + received, 2)
+    rej_total = round(float(svc.get("insurance_rejected") or 0) + rejected, 2)
+    left = round(claim - rec_total - rej_total, 2)
+    settlement = {"id": settlement_id, "date": date, "received": received, "rejected": rejected,
+                  "rejection_treatment": treatment if rejected else None, "rejection_reason": reason or None,
+                  "payment_method": method, "journal_entry_id": je["id"], "created_by": user_id,
+                  "created_at": datetime.now(timezone.utc).isoformat()}
+    upd = {"insurance_received": rec_total, "insurance_rejected": rej_total,
+           "insurance_status": "settled" if left <= 0.01 else "partial"}
+    if treatment == "patient" and rejected:
+        upd["patient_balance_due"] = round(float(svc.get("patient_balance_due") or 0) + rejected, 2)
+    await db.medical_services.update_one({"id": service_id, "company_id": company_id},
+                                         {"$set": upd, "$push": {"insurance_settlements": settlement}})
+    return {"message": "تم تسجيل تسوية مطالبة التأمين وترحيل القيد", "settlement": settlement,
+            "insurance_outstanding": left, **upd}
+
+
 @router.put("/medical-services/{service_id}/status")
 async def update_medical_service_status(
     service_id: str,
@@ -954,10 +1071,28 @@ async def update_medical_service_status(
     if new_status not in VALID_TRANSITIONS.get(current_status, []):
         raise HTTPException(status_code=400,
             detail=f"لا يمكن الانتقال من '{current_status}' إلى '{new_status}'")
-    from datetime import datetime, timezone
+    upd = {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}
+    if new_status == "cancelled":
+        # cancelling only changed the status: the posted revenue, the doctors'
+        # payable and the insurer's receivable stayed in the books
+        if any(float(d.get("paid_amount") or 0) > 0 for d in svc.get("doctors") or []):
+            raise HTTPException(400, "تم سداد أتعاب طبيب عن هذه الخدمة — لا يمكن إلغاؤها")
+        if svc.get("insurance_settlements"):
+            raise HTTPException(400, "سُجّلت تسوية تأمين على هذه الخدمة — لا يمكن إلغاؤها")
+        if svc.get("journal_entry_id"):
+            from services.accounting_service import AccountingService
+            try:
+                rev = await AccountingService(db).reverse_journal_entry(
+                    svc["journal_entry_id"], current_user.get("user_id", "system"))
+            except ValueError as e:
+                raise HTTPException(400, f"تعذّر عكس قيد الخدمة: {e}")
+            upd["reversal_entry_id"] = (rev or {}).get("id")
+        for d in svc.get("doctors") or []:
+            d["status"] = "cancelled"
+        upd["doctors"] = svc.get("doctors") or []
     await db.medical_services.update_one(
         {"id": service_id, "company_id": current_user.get("company_id")},
-        {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        {"$set": upd}
     )
     return {"message": f"تم تحديث حالة الخدمة إلى '{new_status}'"}
 

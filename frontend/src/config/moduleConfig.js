@@ -269,6 +269,7 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'manufacturing',    name: isArabic ? '🏭 التصنيع وأوامر الإنتاج' : '🏭 Manufacturing' },
   { id: 'real-estate',      name: isArabic ? '🏢 التطوير العقاري'        : '🏢 Real Estate' },
   { id: 'letters-of-credit', name: isArabic ? '🚢 الاعتمادات المستندية'  : '🚢 Letters of Credit' },
+  { id: 'medical',          name: isArabic ? '🏥 القطاع الطبي وأتعاب الأطباء' : '🏥 Medical & Doctor Fees' },
   { id: 'currencies',       name: isArabic ? '💱 العملات'           : '💱 Currencies' },
   { id: 'reports',          name: isArabic ? '📊 التقارير المالية'  : '📊 Financial Reports' },
 ];

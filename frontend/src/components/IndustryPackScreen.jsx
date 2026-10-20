@@ -9,6 +9,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import MedicalPage from './MedicalPage';
 import {
   Layers, Check, Loader2, ArrowLeft, BookOpen, Calendar, AlertTriangle,
 } from 'lucide-react';
@@ -110,6 +111,11 @@ export default function IndustryPackScreen({ packKey, language = 'ar', onNavigat
           <Calendar className="w-4 h-4" aria-hidden />{ar ? 'إدارة الاشتراك' : 'Manage'}
         </button>
       </div>
+
+      {/* packs with their own working screen show it here */}
+      {packKey === 'medical' && (
+        <section className="bg-white rounded-2xl border border-slate-200 p-5"><MedicalPage /></section>
+      )}
 
       {modules.length > 0 && (
         <section className="bg-white rounded-2xl border border-slate-200 p-5">

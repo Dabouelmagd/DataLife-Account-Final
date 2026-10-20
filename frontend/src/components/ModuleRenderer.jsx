@@ -6,6 +6,7 @@
 
 import React from 'react';
 import IndustryPackScreen from './IndustryPackScreen';
+import MedicalPage from './MedicalPage';
 import RecruitmentPage from '../pages/RecruitmentPage';
 import UnauthorizedPage from './UnauthorizedPage';
 
@@ -209,6 +210,7 @@ export const renderFinancialContent = ({
     'manufacturing': <ManufacturingPage />,
     'real-estate': <RealEstatePage />,
     'letters-of-credit': <LettersOfCreditPage />,
+    'medical': <MedicalPage />,
     'gov-payments': <GovPaymentsPage />,
     'bank-settings': <BankSettingsPage language={language} />,
     'trial-balance': <TrialBalancePage language={language} />,
