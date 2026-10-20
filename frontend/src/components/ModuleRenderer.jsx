@@ -48,6 +48,7 @@ import TrialBalancePage from '../pages/TrialBalancePage';
 import IncomeStatementPage from '../pages/IncomeStatementPage';
 import BalanceSheetPage from '../pages/BalanceSheetPage';
 import BankManagementPage from '../pages/BankManagementPage';
+import TreasuryPage from '../pages/TreasuryPage';
 import BankSettingsPage from '../pages/BankSettingsPage';
 import AdminDashboardPage from '../pages/AdminDashboardPage';
 import SuperAdminDashboard from '../pages/SuperAdminDashboard';
@@ -179,6 +180,7 @@ export const renderFinancialContent = ({
     'currencies': <CurrenciesPage language={language} />,
     'inventory': <InventoryPage language={language} />,
     'bank': <BankManagementPage language={language} />,
+    'treasury': <TreasuryPage />,
     'bank-settings': <BankSettingsPage language={language} />,
     'trial-balance': <TrialBalancePage language={language} />,
     'income-statement': <IncomeStatementPage language={language} />,
