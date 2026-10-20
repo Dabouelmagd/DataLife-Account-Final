@@ -110,9 +110,13 @@ async def calculate_income_tax(annual_taxable_income: float, settings: dict,
     return round(annual_tax(taxable) / 12, 2) if taxable > 0 else 0.0
 
 
-async def get_employee_loans(employee_id: str, month: str) -> List[dict]:
-    """الحصول على أقساط السُلف المستحقة"""
+async def get_employee_loans(employee_id: str, month: str, company_id: str) -> List[dict]:
+    """الحصول على أقساط السُلف المستحقة — لشركة المسير فقط.
+
+    It matched by employee id alone, so a payroll could pick up (and then mark
+    paid) a loan belonging to another company's record with the same id."""
     loans = await db.employee_loans.find({
+        "company_id": company_id,
         "employee_id": employee_id,
         "status": {"$in": ["approved", "active"]},
         "start_month": {"$lte": month},
@@ -987,7 +991,7 @@ async def calculate_payroll(
             totals["income_tax"] += monthly_tax
         
         # 3. السُلف
-        loans = await get_employee_loans(emp["id"], payroll["month"])
+        loans = await get_employee_loans(emp["id"], payroll["month"], payroll["company_id"])
         for loan in loans:
             deductions.append(PayrollDeduction(
                 deduction_type=DeductionType.LOAN,
@@ -1159,14 +1163,14 @@ async def approve_payroll(
     for emp in payroll.get("employees", []):
         for ded in emp.get("deductions", []):
             if ded.get("deduction_type") == "loan" and ded.get("reference_id"):
-                loan = await db.employee_loans.find_one({"id": ded["reference_id"]})
+                loan = await db.employee_loans.find_one({"id": ded["reference_id"], "company_id": company_id})
                 if loan:
                     new_paid = loan.get("paid_amount", 0) + ded["amount"]
                     new_remaining = loan.get("remaining_amount", loan["amount"]) - ded["amount"]
                     new_status = "paid" if new_remaining <= 0 else "active"
                     
                     await db.employee_loans.update_one(
-                        {"id": ded["reference_id"]},
+                        {"id": ded["reference_id"], "company_id": company_id},
                         {"$set": {
                             "paid_amount": new_paid,
                             "remaining_amount": max(0, new_remaining),
@@ -1565,13 +1569,14 @@ async def approve_end_of_service(
 
     # إيقاف الموظف
     await db.employees.update_one(
-        {"id": settlement["employee_id"]},
+        {"id": settlement["employee_id"], "company_id": settlement["company_id"]},
         {"$set": {"is_active": False}}
     )
     
     # تسوية السُلف
     await db.employee_loans.update_many(
         {
+            "company_id": settlement["company_id"],
             "employee_id": settlement["employee_id"],
             "status": {"$in": ["approved", "active"]}
         },

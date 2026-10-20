@@ -658,6 +658,11 @@ const CHQ_STATUS = { pending: ['تحت التحصيل', 'amber'], collected: ['�
 
 export function RealEstatePage() {
   const [tab, setTab] = useState('projects');
+  // the company's own choice (Settings → Company policies): tax on/off and its rate
+  const [reTax, setReTax] = useState({ disposal_tax_enabled: false, disposal_tax_rate: 0.025 });
+  useEffect(() => {
+    axios.get(`${API}/api/company-policies`, auth()).then((r) => r.data?.policies?.real_estate && setReTax(r.data.policies.real_estate)).catch(() => {});
+  }, []);
   const [projects, setProjects] = useState(null);
   const [project, setProject] = useState(null);
   const [units, setUnits] = useState(null);
@@ -708,7 +713,7 @@ export function RealEstatePage() {
     setErr('');
     try {
       const { data } = await axios.get(`${API}/api/real-estate/bookings/${b.id}/delivery-preview`, auth());
-      setForm({ kind: 'deliver', booking: b, preview: data, unit_cost: String(data.suggested), date: today(), apply_re_tax: false });
+      setForm({ kind: 'deliver', booking: b, preview: data, unit_cost: String(data.suggested), date: today(), apply_re_tax: !!reTax.disposal_tax_enabled });
     } catch (e) { setErr(errText(e, 'تعذّر تحميل بيانات التسليم')); }
   };
   const bookingOpenCheques = (b) => r2(b.contract_price - (b.paid_so_far || 0) - (b.cheques_in_hand || 0));
@@ -949,7 +954,7 @@ export function RealEstatePage() {
       )}
 
       {form?.kind === 'deliver' && (() => {
-        const p = form.preview; const cost = r2(form.unit_cost); const tax = form.apply_re_tax ? r2(p.contract_price * 0.025) : 0;
+        const p = form.preview; const cost = r2(form.unit_cost); const tax = form.apply_re_tax ? r2(p.contract_price * (reTax.disposal_tax_rate || 0.025)) : 0;
         return (
           <Modal title={`تسليم الوحدة ${form.booking.unit_number} — ${form.booking.customer_name}`} onClose={() => setForm(null)} footer={<>
             <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
@@ -961,7 +966,7 @@ export function RealEstatePage() {
             </div>
             <p className="mt-2 text-xs text-slate-500">المتبقي في تكاليف المشروع (142): <N v={p.remaining_wip} /></p>
             <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" checked={form.apply_re_tax} onChange={(e) => setForm({ ...form, apply_re_tax: e.target.checked })} className="mt-1" />
-              <span>ضريبة التصرفات العقارية 2.5% — تُفرض على البائع الشخص الطبيعي (ق 91/2005 م.42)، ولا تخص الشركات عادةً لأن ربحها يخضع لضريبة الشركات. راجع المستشار الضريبي قبل تفعيلها.</span></label>
+              <span>ضريبة التصرفات العقارية {(reTax.disposal_tax_rate * 100).toLocaleString('en-US')}% — الافتراضي من سياسات الشركة ({reTax.disposal_tax_enabled ? 'مفعّلة' : 'غير مفعّلة'})، ويمكن تغييره لهذه الوحدة.</span></label>
             <div className="mt-4 space-y-2">
               <Lines rows={[[`${p.liability_account} التزامات العقود (ما حُصّل وما استُلم من شيكات)`, p.liability_balance, 0], ['1312 عملاء أقساط مؤجلة', p.receivable, 0],
                 ['4111 إيرادات بيع الوحدات العقارية', 0, p.contract_price], ['3351 مصروف ضريبة التصرفات', tax, 0], ['2541 ضريبة التصرفات المستحقة', 0, tax]]} />

@@ -3,7 +3,8 @@ import SecurityTab from './settings/SecurityTab';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
-import { Building2, User, Key, Globe, Users, ClipboardList, Shield } from 'lucide-react';
+import { Building2, User, Key, Globe, Users, ClipboardList, Shield, Scale } from 'lucide-react';
+import CompanyPoliciesPage from './CompanyPoliciesPage';
 import axios from 'axios';
 import { Toaster, toast } from 'sonner';
 import ImageCropper from './ImageCropper';
@@ -393,6 +394,7 @@ const CompanySettings = () => {
     ...(canManageEmployees ? [{ id: 'employees', label: language === 'ar' ? 'الموظفين' : 'Employees', icon: Users }] : []),
     ...(canManageEmployees ? [{ id: 'permissions', label: language === 'ar' ? 'الصلاحيات' : 'Permissions', icon: Shield }] : []),
     ...(canManageEmployees ? [{ id: 'activity', label: language === 'ar' ? 'سجل النشاطات' : 'Activity Log', icon: ClipboardList }] : []),
+    ...(canManageEmployees ? [{ id: 'policies', label: language === 'ar' ? 'سياسات الشركة' : 'Company policies', icon: Scale }] : []),
     { id: 'subscription', label: language === 'ar' ? 'الاشتراك' : 'Subscription', icon: Key },
     { id: 'security', label: language === 'ar' ? 'الأمان' : 'Security', icon: Shield },
     { id: 'language', label: language === 'ar' ? 'اللغة' : 'Language', icon: Globe },
@@ -504,6 +506,8 @@ const CompanySettings = () => {
 
         )}
 
+
+        {activeTab === 'policies' && canManageEmployees && <CompanyPoliciesPage />}
 
         {activeTab === 'language' && (
           <LanguageTab

@@ -210,6 +210,10 @@ def _iso(d: str, label: str) -> date:
 # 0. POLICY ENDPOINTS
 # ══════════════════════════════════════════════════════════════
 
+POLICY_ROLES = {"HR Manager", "مدير الموارد البشرية", "General Manager", "مدير عام", "المدير العام",
+                "CEO", "المدير التنفيذي", "Board Chairman", "رئيس مجلس الإدارة", "Super Admin", "admin", "owner"}
+
+
 @router.get("/policy")
 async def read_policy(current_user: dict = Depends(get_current_user)):
     return {"policy": await get_policy(current_user["company_id"]),
@@ -218,6 +222,8 @@ async def read_policy(current_user: dict = Depends(get_current_user)):
 
 @router.put("/policy")
 async def update_policy(data: dict, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") not in POLICY_ROLES:
+        raise HTTPException(403, "سياسة الموارد البشرية يضبطها مدير الموارد البشرية أو الإدارة العليا")
     upd = {}
     for k, default in DEFAULT_POLICY.items():
         if k not in data:

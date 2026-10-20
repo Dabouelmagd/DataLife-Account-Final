@@ -283,6 +283,13 @@ RETENTION_RULES = {
 }
 
 
+async def _rules(company_id: str) -> dict:
+    """RETENTION_RULES with the company's own years (سياسات الشركة)."""
+    from api.company_policies import retention_years
+    years = await retention_years(company_id)
+    return {k: {**r, "years": int(years.get(k, r["years"]))} for k, r in RETENTION_RULES.items()}
+
+
 def _cutoff(rule: dict, today: date) -> str:
     d = (today - relativedelta(years=rule["years"])).isoformat()
     return d[:7] if rule["date_field"] == "month" else d
@@ -295,7 +302,7 @@ async def retention_status(current_user: dict = Depends(get_current_user)):
     today      = date.today()
     report     = []
 
-    for collection, rule in RETENTION_RULES.items():
+    for collection, rule in (await _rules(company_id)).items():
         min_keep_date = _cutoff(rule, today)
         col = db[collection]
         try:
@@ -329,7 +336,7 @@ async def retention_status(current_user: dict = Depends(get_current_user)):
         "title":       "مدد الاحتفاظ بالسجلات",
         "as_of":       today.isoformat(),
         "collections": report,
-        "note":        "المدد افتراضية للمراجعة مع المستشار الضريبي والقانوني وليست رأياً قانونياً.",
+        "note":        "المدد من سياسات شركتك (الإعدادات ← سياسات الشركة) — راجعها مع المستشار الضريبي والقانوني.",
         "disclaimer":  DISCLAIMER,
     }
 
@@ -344,7 +351,7 @@ async def flag_for_archive(data: dict,
 
     if collection not in RETENTION_RULES:
         raise HTTPException(400, "نوع السجل غير مُعرَّف في مدد الاحتفاظ")
-    rule = RETENTION_RULES[collection]
+    rule = (await _rules(company_id))[collection]
     cutoff = _cutoff(rule, date.today())
     # A caller-supplied before_date could flag records still inside the legal
     # period; it may only move the cut-off EARLIER, never later.

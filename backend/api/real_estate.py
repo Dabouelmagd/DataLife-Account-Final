@@ -401,7 +401,7 @@ async def bounce_installment_cheque(cheque_id: str, data: ChequeActionRequest,
 class DeliverRequest(BaseModel):
     date: Optional[str] = None
     unit_cost: Optional[float] = Field(None, ge=0)   # فارغ = تخصيص تلقائي من تكلفة المشروع بالمساحة
-    apply_re_tax: bool = False
+    apply_re_tax: Optional[bool] = None   # None = the company's policy (سياسات الشركة)
 
 
 async def _suggest_cost(company_id: str, booking: dict) -> dict:
@@ -461,7 +461,10 @@ async def deliver_unit(booking_id: str, data: DeliverRequest, current_user: dict
         unit_cost = P.r2(data.unit_cost if data.unit_cost is not None else sug["suggested"])
         if unit_cost > sug["remaining_wip"] + 0.01:
             raise HTTPException(400, f"تكلفة الوحدة ({unit_cost:,.2f}) أكبر من المتبقي في تكاليف المشروع ({sug['remaining_wip']:,.2f})")
-        re_tax = P.r2(price * RE_TAX_RATE) if data.apply_re_tax else 0.0
+        from api.company_policies import disposal_tax
+        tax_on, tax_rate = await disposal_tax(company_id)
+        apply_tax = tax_on if data.apply_re_tax is None else data.apply_re_tax
+        re_tax = P.r2(price * tax_rate) if apply_tax else 0.0
 
         rev_lines = [
             await P.je_line(db, company_id, liab_acc, debit=liab_bal,
@@ -473,7 +476,7 @@ async def deliver_unit(booking_id: str, data: DeliverRequest, current_user: dict
         ]
         if re_tax:
             rev_lines += [
-                await P.je_line(db, company_id, ACC["re_tax_exp"], debit=re_tax, desc=f"ضريبة تصرفات عقارية 2.5% — {booking['unit_number']}"),
+                await P.je_line(db, company_id, ACC["re_tax_exp"], debit=re_tax, desc=f"ضريبة تصرفات عقارية {tax_rate*100:g}% — {booking['unit_number']}"),
                 await P.je_line(db, company_id, ACC["re_tax"], credit=re_tax, desc=f"ضريبة تصرفات عقارية مستحقة — {booking['unit_number']}"),
             ]
         je_rev_id = await _post_je(company_id, current_user["user_id"], delivery_date,

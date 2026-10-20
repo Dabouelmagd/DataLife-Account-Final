@@ -57,6 +57,7 @@ from api.ess_portal import router as ess_portal_router
 from api.consolidation import router as consolidation_router
 from api.deferred_tax import router as deferred_tax_router
 from api.eta_signing import router as eta_signing_router
+from api.company_policies import router as company_policies_router
 from api.performance_engine import router as performance_router
 from api.fraud_detection import router as fraud_router
 from api.petty_cash import router as petty_cash_router
@@ -255,6 +256,7 @@ app.include_router(ess_portal_router)
 app.include_router(consolidation_router)
 app.include_router(deferred_tax_router)
 app.include_router(eta_signing_router)
+app.include_router(company_policies_router)
 app.include_router(performance_router)
 app.include_router(fraud_router)
 app.include_router(petty_cash_router)
