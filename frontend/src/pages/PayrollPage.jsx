@@ -45,7 +45,7 @@ function PayrollLawSettings({ settings, onSaved }) {
     <div className="grid md:grid-cols-2 gap-6" dir="rtl">
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
         <h3 className="font-bold">التأمينات الاجتماعية — قانون 148/2019</h3>
-        <p className="text-sm text-slate-600">حصة الموظف <b>{settings.employee_social_insurance_rate}%</b> · حصة الشركة <b>{settings.company_social_insurance_rate}%</b> من أجر الاشتراك.</p>
+        <p className="text-sm text-slate-600">حصة الموظف <b><bdi dir="ltr">{settings.employee_social_insurance_rate}%</bdi></b> · حصة الشركة <b><bdi dir="ltr">{settings.company_social_insurance_rate}%</bdi></b> من أجر الاشتراك.</p>
         <div className="grid grid-cols-3 gap-3 text-sm">
           <label>الحد الأدنى لأجر الاشتراك<input type="number" dir="ltr" value={lo} onChange={(e) => setLo(e.target.value)} className={`${input} mt-1`} /></label>
           <label>الحد الأقصى<input type="number" dir="ltr" value={hi} onChange={(e) => setHi(e.target.value)} className={`${input} mt-1`} /></label>
@@ -64,12 +64,12 @@ function PayrollLawSettings({ settings, onSaved }) {
             {(settings.income_tax_brackets || []).map((b, i) => (
               <tr key={i} className="border-t border-slate-100">
                 <td className="py-1.5 tabular-nums" dir="ltr">{n(b.from)} – {b.to >= 999999999 ? '∞' : n(b.to)}</td>
-                <td className="py-1.5 text-end font-semibold tabular-nums">{b.rate}%</td>
+                <td className="py-1.5 text-end font-semibold tabular-nums"><bdi dir="ltr">{b.rate}%</bdi></td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="text-xs text-slate-500">فوق 600,000 جنيه سنوياً تسقط الشرائح الأولى تدريجياً كما ينص القانون، وفوق 1,200,000 يُحسب أول 1,200,000 بسعر 25% والباقي 27.5%.</p>
+        <p className="text-xs text-slate-500">فوق 600,000 جنيه سنوياً تسقط الشرائح الأولى تدريجياً كما ينص القانون، وفوق 1,200,000 يُحسب أول 1,200,000 بسعر <bdi dir="ltr">25%</bdi> والباقي <bdi dir="ltr">27.5%</bdi>.</p>
       </div>
     </div>
   );
