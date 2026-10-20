@@ -129,8 +129,16 @@ async def create_approval_request(
 ):
     """Create a new approval request"""
     user_data = await verify_token(authorization)
-    company_id = user_data.get("company_id")
-    
+    return await open_approval_request(user_data.get("company_id"), user_data.get("user_id"),
+                                       user_data.get("full_name"), request_data)
+
+
+async def open_approval_request(company_id: str, requester_id: str, requester_name: Optional[str],
+                                request_data: dict) -> dict:
+    """Open an approval request on behalf of a user — used by the endpoint
+    above and by other modules (e.g. a leave requested from the employee
+    portal, which used to wait in a collection no approver could see)."""
+    user_data = {"company_id": company_id, "user_id": requester_id, "full_name": requester_name}
     approval_type = request_data.get("type")
     
     if approval_type not in APPROVAL_TYPES:
@@ -532,6 +540,12 @@ async def reject_request(
             "$push": {"approval_history": rejection_entry}
         }
     )
+    
+    if request.get("reference_type") == "leave" and request.get("reference_id"):
+        await db.leaves.update_one(
+            {"id": request["reference_id"], "company_id": company_id, "status": "pending"},
+            {"$set": {"status": "rejected", "rejection_reason": rejection_data.get("reason", ""),
+                      "reviewed_at": datetime.now(timezone.utc).isoformat()}})
     
     # Notify requester
     await create_approval_notification(

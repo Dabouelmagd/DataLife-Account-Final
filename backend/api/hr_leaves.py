@@ -98,6 +98,12 @@ async def _set_status(user: dict, leave_id: str, leave_type: str, status: str):
     )
     if res.matched_count == 0:
         raise HTTPException(404, "Leave not found")
+    if status in ("approved", "rejected"):
+        # decided here: the same request waiting in «الموافقات» is closed too
+        await db.approval_requests.update_many(
+            {"company_id": _company(user), "reference_type": "leave", "reference_id": leave_id, "status": "pending"},
+            {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat(),
+                      "closed_from": "hr_leave_screen"}})
     return {"message": "Status updated", "id": leave_id, "status": status}
 
 

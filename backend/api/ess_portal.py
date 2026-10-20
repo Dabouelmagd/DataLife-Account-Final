@@ -292,19 +292,35 @@ async def request_leave_ess(data: dict, current_user: dict = Depends(get_current
     if leave_type == "casual" and days > 2:
         raise HTTPException(400, "الإجازة العارضة لا تتجاوز يومين")
 
+    if leave_type not in ("annual", "casual", "sick"):
+        raise HTTPException(400, "نوع الإجازة: سنوية أو عارضة أو مرضية")
     req = {
         "id": str(uuid.uuid4()), "company_id": company_id,
         "employee_id":   emp["id"],
         "employee_name": emp.get("name",""),
+        "employee_code": emp.get("employee_code", ""),
         "request_type":  "leave",
         "leave_type":    leave_type,
         "start_date":    start, "end_date": end, "days": days,
         "reason":        data.get("reason",""),
         "status":        "pending",
         "submitted_via": "mobile_ess",
+        "created_by":    current_user.get("user_id"),
         "created_at":    datetime.now(timezone.utc).isoformat(),
     }
-    await db.leave_requests.insert_one(req); req.pop("_id",None)
+    # db.leaves is what the HR leave screens list and approve, and the
+    # approval request puts it in the managers' «الموافقات» queue. It used to
+    # go to db.leave_requests, which nobody could approve.
+    await db.leaves.insert_one(req); req.pop("_id",None)
+    try:
+        from api.approvals import open_approval_request
+        names = {"annual": "سنوية", "casual": "عارضة", "sick": "مرضية"}
+        await open_approval_request(company_id, current_user.get("user_id"), emp.get("name", ""), {
+            "type": "leave_request", "title": f"إجازة {names[leave_type]} — {emp.get('name', '')} ({days} يوم)",
+            "description": data.get("reason", ""), "reference_type": "leave", "reference_id": req["id"],
+            "data": {"start_date": start, "end_date": end, "days": days, "leave_type": leave_type}})
+    except HTTPException:
+        pass        # no approver configured yet: HR still sees it in the leave screens
     return {"message": f"✅ تم تقديم طلب إجازة {days} يوم", "request": req}
 
 
@@ -414,7 +430,8 @@ async def my_requests(
                 r["status"] = state[r["loan_id"]]
     leave_q  = {**q}; leave_q.pop("request_type", None)
     if not request_type or request_type == "leave":
-        leaves = await db.leave_requests.find(leave_q, {"_id": 0}).sort("created_at",-1).to_list(None)
+        leaves = await db.leaves.find({**leave_q, "employee_id": emp["id"]}, {"_id": 0}).sort("created_at",-1).to_list(None)
+        leaves += await db.leave_requests.find(leave_q, {"_id": 0}).sort("created_at",-1).to_list(None)   # older requests
         for l in leaves: l["request_type"] = "leave"
     else:
         leaves = []
