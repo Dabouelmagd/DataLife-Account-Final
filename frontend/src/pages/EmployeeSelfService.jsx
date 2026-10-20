@@ -10,6 +10,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { EmployeeAppraisals } from '../components/hr/Performance';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -373,6 +374,7 @@ const EmployeeSelfService = () => {
     { id: 'attendance', label: T.tabs.attendance, icon: ICONS.clock },
     { id: 'docs',       label: T.tabs.docs,       icon: ICONS.doc },
     { id: 'requests',   label: T.tabs.requests,   icon: ICONS.bell },
+    { id: 'performance', label: isRTL ? 'تقييماتي' : 'My reviews', icon: ICONS.check },
   ];
 
   return (
@@ -428,6 +430,13 @@ const EmployeeSelfService = () => {
 
       {/* ── CONTENT ── */}
       <div className="max-w-4xl mx-auto px-4 py-6">
+
+        {activeTab === 'performance' && (
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <h2 className="font-extrabold text-slate-900 mb-3">{isRTL ? 'تقييمات أدائي' : 'My performance reviews'}</h2>
+            <EmployeeAppraisals self />
+          </div>
+        )}
 
         {/* ══ PROFILE TAB ════════════════════════════════════════ */}
         {activeTab === 'profile' && (

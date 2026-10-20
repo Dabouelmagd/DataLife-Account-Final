@@ -478,16 +478,28 @@ export function AppraisalsPage() {
 }
 
 // ── employee profile tab ──────────────────────────────────────
-export function EmployeeAppraisals({ employeeId }) {
+// the employee portal gets only approved appraisals; the summary is worked out here
+function summarise(rows) {
+  const ok = rows.filter((a) => a.status === 'approved');
+  return {
+    appraisals: rows,
+    latest_score: ok[0]?.kpi_score ?? null,
+    average_score: ok.length ? Math.round(ok.reduce((s, a) => s + (Number(a.kpi_score) || 0), 0) / ok.length * 100) / 100 : null,
+    trend: ok.slice().reverse().map((a) => ({ period: a.review_period, score: a.kpi_score })),
+  };
+}
+
+export function EmployeeAppraisals({ employeeId, self = false }) {
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(null);
   const [err, setErr] = useState('');
   useEffect(() => {
-    if (!employeeId) return;
-    axios.get(`${API}/api/performance/employee/${employeeId}/appraisals`, auth())
-      .then((r) => { setData(r.data); setOpen(r.data.appraisals?.[0]?.appraisal_id || null); })
+    if (!self && !employeeId) return;
+    const url = self ? `${API}/api/ess/my-appraisals` : `${API}/api/performance/employee/${employeeId}/appraisals`;
+    axios.get(url, auth())
+      .then((r) => { const d = self ? summarise(r.data.appraisals || []) : r.data; setData(d); setOpen(d.appraisals?.[0]?.appraisal_id || null); })
       .catch((e) => { setData({ appraisals: [] }); setErr(errText(e, 'تعذّر تحميل التقييمات')); });
-  }, [employeeId]);
+  }, [employeeId, self]);
 
   if (!data) return <Loading />;
   const rows = data.appraisals || [];
@@ -495,7 +507,7 @@ export function EmployeeAppraisals({ employeeId }) {
     <div className="space-y-4 text-sm" dir="rtl">
       {err && <p role="alert" className="text-red-700">{err}</p>}
       {rows.length === 0 ? (
-        <p className="py-8 text-center text-slate-500">لا توجد تقييمات أداء لهذا الموظف بعد — تُضاف من «الموارد البشرية ← تقييم الأداء».</p>
+        <p className="py-8 text-center text-slate-500">{self ? 'لا توجد تقييمات أداء معتمدة لك بعد.' : 'لا توجد تقييمات أداء لهذا الموظف بعد — تُضاف من «الموارد البشرية ← تقييم الأداء».'}</p>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
