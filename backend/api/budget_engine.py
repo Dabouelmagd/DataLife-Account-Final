@@ -377,7 +377,7 @@ async def _get_spent_and_committed(
     }
     if account_code:
         pending_q["account_code"] = account_code
-    pending_reqs = await db.approval_requests.find(
+    pending_reqs = await db.erp_approval_requests.find(
         pending_q, {"_id": 0, "amount": 1}).to_list(None)
     committed += sum(float(r.get("amount", 0)) for r in pending_reqs)
 

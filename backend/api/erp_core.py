@@ -490,7 +490,9 @@ async def submit_approval_request(
         "submitted_ip": ip,
         "gl_posted":   False,
     }
-    await db.approval_requests.insert_one(ap_request); ap_request.pop("_id", None)
+    # its own collection: /api/approvals keeps a different schema in
+    # approval_requests, and sharing it meant each engine read the other's rows
+    await db.erp_approval_requests.insert_one(ap_request); ap_request.pop("_id", None)
 
     # Audit
     await write_audit(company_id, current_user["user_id"], ip,
@@ -524,7 +526,7 @@ async def approve_request(
     ip         = get_client_ip(request)
     comment    = data.get("comment", "")
 
-    ap_req = await db.approval_requests.find_one(
+    ap_req = await db.erp_approval_requests.find_one(
         {"id": req_id, "company_id": company_id}, {"_id": 0})
     if not ap_req:
         raise HTTPException(404, "طلب الاعتماد غير موجود")
@@ -560,7 +562,7 @@ async def approve_request(
         # gl_posted was set to True here and the reply said "the entry will be
         # created automatically" — but nothing was ever posted. Approval only
         # releases the document; its own module posts the entry.
-        res = await db.approval_requests.update_one(
+        res = await db.erp_approval_requests.update_one(
             {"id": req_id, "company_id": company_id, "status": "pending", "current_level": current_level},
             {"$set": {"status": new_status, "approvals_chain": chain,
                       "final_approved_at": datetime.now(timezone.utc).isoformat(),
@@ -581,7 +583,7 @@ async def approve_request(
         }
     else:
         # Advance to next level
-        res = await db.approval_requests.update_one(
+        res = await db.erp_approval_requests.update_one(
             {"id": req_id, "company_id": company_id, "status": "pending", "current_level": current_level},
             {"$set": {"current_level": current_level + 1, "approvals_chain": chain}})
         if res.modified_count == 0:
@@ -609,7 +611,7 @@ async def reject_request(
     ip = get_client_ip(request)
     reason = data.get("reason", "")
 
-    ap_req = await db.approval_requests.find_one(
+    ap_req = await db.erp_approval_requests.find_one(
         {"id": req_id, "company_id": company_id}, {"_id": 0})
     if not ap_req or ap_req["status"] != "pending" or "approvals_chain" not in ap_req:
         raise HTTPException(400, "الطلب غير موجود أو ليس معلقاً")
@@ -623,7 +625,7 @@ async def reject_request(
     chain[current_level]["rejected_at"] = datetime.now(timezone.utc).isoformat()
     chain[current_level]["comment"]     = reason
 
-    await db.approval_requests.update_one({"id": req_id, "company_id": company_id}, {"$set": {
+    await db.erp_approval_requests.update_one({"id": req_id, "company_id": company_id}, {"$set": {
         "status": "rejected", "approvals_chain": chain,
         "rejected_at": datetime.now(timezone.utc).isoformat(),
         "rejection_reason": reason,
@@ -649,8 +651,8 @@ async def list_approval_requests(
     if status:   q["status"]        = status
     if doc_type: q["document_type"] = doc_type
     page, limit = max(1, int(page)), max(1, min(int(limit), 100))
-    total    = await db.approval_requests.count_documents(q)
-    requests = await db.approval_requests.find(q, {"_id": 0}).sort(
+    total    = await db.erp_approval_requests.count_documents(q)
+    requests = await db.erp_approval_requests.find(q, {"_id": 0}).sort(
         "submitted_at", -1).skip((page-1)*limit).limit(limit).to_list(None)
     return {"requests": requests, "total": total}
 

@@ -279,6 +279,10 @@ async def get_fixed_assets(current_user: dict = Depends(get_current_user)):
 
 @router.post("/assets")
 async def create_fixed_asset(asset_data: dict, current_user: dict = Depends(get_current_user)):
+    # the old assets engine: assets are managed by /api/fixed-assets (real
+    # accounts, depreciation entries). Writing here created assets the
+    # depreciation engine and the ledger disagreed about.
+    raise HTTPException(status_code=410, detail="الأصول الثابتة تُدار من شاشة الأصول (/api/fixed-assets)")
     import uuid as _uuid
     from datetime import datetime, timezone
     company_id = current_user.get("company_id")
@@ -345,6 +349,10 @@ async def create_fixed_asset(asset_data: dict, current_user: dict = Depends(get_
 
 @router.put("/assets/{asset_id}")
 async def update_asset(asset_id: str, update_data: dict, current_user: dict = Depends(get_current_user)):
+    # the old assets engine: assets are managed by /api/fixed-assets (real
+    # accounts, depreciation entries). Writing here created assets the
+    # depreciation engine and the ledger disagreed about.
+    raise HTTPException(status_code=410, detail="الأصول الثابتة تُدار من شاشة الأصول (/api/fixed-assets)")
     from datetime import datetime, timezone
     company_id = current_user.get("company_id")
     update_data.pop("id", None); update_data.pop("company_id", None)
@@ -354,6 +362,10 @@ async def update_asset(asset_id: str, update_data: dict, current_user: dict = De
 
 @router.post("/assets/depreciation/run")
 async def run_depreciation(request_data: dict, current_user: dict = Depends(get_current_user)):
+    # the old assets engine: assets are managed by /api/fixed-assets (real
+    # accounts, depreciation entries). Writing here created assets the
+    # depreciation engine and the ledger disagreed about.
+    raise HTTPException(status_code=410, detail="الأصول الثابتة تُدار من شاشة الأصول (/api/fixed-assets)")
     """Post one month of depreciation per active asset — the ledger is the reference.
 
     Previously: the same month could be posted any number of times (running it
