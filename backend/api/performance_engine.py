@@ -15,7 +15,7 @@ High Availability + Materialized Balances + Smart Archiving
 4. Background Aggregation Jobs
    تحديث الأرصدة المُجمَّعة في الخلفية دون تأثير على الأداء
 """
-import uuid, asyncio
+import uuid, asyncio, re
 from datetime import datetime, timezone, date
 from dateutil.relativedelta import relativedelta
 from typing import Optional, List
@@ -26,7 +26,20 @@ from database import db
 from api.users import get_current_user
 from dependencies import get_current_user
 
-router = APIRouter(prefix="/api/performance", tags=["Performance & HA"])
+# Was prefix "/api/performance" — shared with api/performance_kpi.py (employee
+# appraisals). No path collided, but the permission map gives /api/performance
+# to HR only, so these ledger/database endpoints (trial balance, snapshots,
+# archiving) were open to HR users and closed to accountants. They are a
+# finance/admin tool, so they get their own prefix (no frontend called them).
+router = APIRouter(prefix="/api/db-performance", tags=["Performance & HA"])
+
+ADMIN_ROLES = {"Board Chairman", "رئيس مجلس الإدارة", "General Manager", "مدير عام", "المدير العام",
+               "CEO", "المدير التنفيذي", "Financial Manager", "المدير المالي", "Super Admin", "admin", "owner"}
+
+
+def _require_admin(user: dict):
+    if user.get("role") not in ADMIN_ROLES:
+        raise HTTPException(403, "هذه العملية للمدير العام أو المدير المالي فقط")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -36,7 +49,7 @@ router = APIRouter(prefix="/api/performance", tags=["Performance & HA"])
 
 async def compute_period_balance(
     company_id: str, account_code: str,
-    date_from: str, date_to: str
+    date_from: str, date_to: str, exact: bool = False
 ) -> dict:
     """
     احتساب رصيد حساب في فترة محددة من القيود المرحَّلة
@@ -49,8 +62,12 @@ async def compute_period_balance(
             "entry_date": {"$gte": date_from, "$lte": date_to},
         }},
         {"$unwind": "$lines"},
+        # The snapshot stores one row per POSTING account, but matched lines by
+        # prefix: 254 also summed 2544/2545, 13 summed 131..139, so a child's
+        # movement was counted in its own row and again in its parent's.
         {"$match": {
-            "lines.account_code": {"$regex": f"^{account_code}"}
+            "lines.account_code": account_code if exact
+            else {"$regex": f"^{re.escape(account_code)}"}
         }},
         {"$group": {
             "_id":    None,
@@ -92,7 +109,7 @@ async def build_monthly_snapshot(
     # Parallel: compute cumulative balance per account up to month_end
     async def get_balance(acc):
         bal = await compute_period_balance(
-            company_id, acc["account_code"], "2000-01-01", month_end)
+            company_id, acc["account_code"], "2000-01-01", month_end, exact=True)
         return {"account_code": acc["account_code"],
                 "account_name": acc.get("account_name",""),
                 "account_type": acc.get("account_type",""),
@@ -411,6 +428,8 @@ async def rebuild_performance_indexes(
     - الاستعلامات تستخدم هذا الـ Compound Index أولاً
     - يُعادِل Table Partitioning في SQL
     """
+    # indexes are database-wide (all companies) — not for any logged-in user
+    _require_admin(current_user)
     results = []
 
     # Critical indexes for journal_entries (محاكاة Table Partitioning)
@@ -530,6 +549,7 @@ async def archive_old_entries(
 
     يُعادِل: SQL Table Partitioning + Partition Pruning
     """
+    _require_admin(current_user)
     company_id  = current_user["company_id"]
     older_than_years = int(data.get("older_than_years", 3))
     cutoff_date = (date.today() - relativedelta(years=older_than_years)).isoformat()
@@ -552,7 +572,15 @@ async def archive_old_entries(
             "note":        "تأكد من وجود Snapshots كاملة قبل الأرشفة",
         }
 
-    async def bg_archive():
+    # Executing the archive moved POSTED entries out of journal_entries, but the
+    # ledger, trial balance, balance sheet and every report read only
+    # journal_entries / general_ledger — so archived years silently vanished
+    # from opening balances and the balance sheet stopped balancing. Until
+    # those reports read the archive, only the dry run is allowed.
+    raise HTTPException(400, "الأرشفة الفعلية موقوفة: التقارير والميزانية تقرأ القيود النشطة فقط، "
+                             "ونقل القيود المرحَّلة سيُسقط أرصدة السنوات السابقة. استخدم المعاينة (dry_run) فقط.")
+
+    async def bg_archive():  # kept for when the reports read journal_entries_archive
         batch_size = 500
         archived   = 0
         while True:

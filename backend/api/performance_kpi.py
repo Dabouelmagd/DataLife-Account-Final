@@ -96,6 +96,10 @@ async def create_kpi_template(req: KPITemplate,
     company_id = current_user["company_id"]
 
     # Validate weights sum to 100
+    if not req.kpis:
+        raise HTTPException(400, "أضف مؤشراً واحداً على الأقل")
+    if any(float(k.get("weight", 0) or 0) <= 0 for k in req.kpis):
+        raise HTTPException(400, "وزن كل مؤشر يجب أن يكون أكبر من صفر")
     total_weight = sum(float(k.get("weight", 0)) for k in req.kpis)
     if abs(total_weight - 100) > 0.01:
         raise HTTPException(400, f"مجموع الأوزان = {total_weight:.1f}% — يجب أن يكون 100%")
@@ -137,6 +141,22 @@ async def create_appraisal(req: AppraisalRequest,
     - التوصية وزيادة الراتب المقترحة
     """
     company_id = current_user["company_id"]
+
+    # Scores, weights and the raise were taken as sent: a score of 500 rated
+    # "exceptional", a negative weight lowered the total, and a 300% raise was
+    # applied to the salary as is.
+    if req.manager_recommendation not in RECOMMENDATIONS:
+        raise HTTPException(400, "التوصية غير معروفة")
+    if not req.review_period.strip():
+        raise HTTPException(400, "حدد فترة التقييم")
+    for k in req.kpi_scores:
+        sc, w = float(k.get("score", 0) or 0), float(k.get("weight", 0) or 0)
+        if not 0 <= sc <= 100:
+            raise HTTPException(400, f"درجة المؤشر «{k.get('kpi_name','')}» يجب أن تكون بين 0 و100")
+        if w < 0:
+            raise HTTPException(400, "الوزن لا يكون سالباً")
+    if not 0 <= req.salary_increment_percentage <= 100:
+        raise HTTPException(400, "نسبة الزيادة يجب أن تكون بين 0% و100%")
 
     emp = await db.employees.find_one(
         {"id": req.employee_id, "company_id": company_id}, {"_id": 0})
@@ -245,7 +265,11 @@ async def approve_appraisal(appraisal_id: str, data: dict,
     """اعتماد التقييم من المدير المختص"""
     company_id = current_user["company_id"]
     decision   = data.get("decision","approved")
-    comment    = data.get("comment","")
+    comment    = str(data.get("comment","") or "")[:1000]
+    # any string was saved as the status ("ok", "yes"...), leaving an appraisal
+    # that was neither approved nor rejected and could not be applied
+    if decision not in ("approved", "rejected"):
+        raise HTTPException(400, "القرار يجب أن يكون اعتماد أو رفض")
 
     appr = await db.employee_appraisals.find_one(
         {"appraisal_id": appraisal_id, "company_id": company_id}, {"_id": 0})
@@ -256,7 +280,7 @@ async def approve_appraisal(appraisal_id: str, data: dict,
 
     now = datetime.now(timezone.utc).isoformat()
     await db.employee_appraisals.update_one(
-        {"appraisal_id": appraisal_id},
+        {"appraisal_id": appraisal_id, "company_id": company_id},
         {"$set": {"status": decision, "approved_by": current_user["user_id"],
                   "approved_at": now, "approval_comment": comment}}
     )
@@ -325,7 +349,29 @@ async def apply_increment_to_payroll(
     inc_amount  = round(old_salary * increment / 100, 2)
     new_salary  = round(old_salary + inc_amount, 2)
 
-    # Update employee basic salary
+    # Claim the appraisal first: two clicks (or a bulk run next to a single
+    # apply) both passed the "already applied?" check and raised the salary twice.
+    claimed = await db.employee_appraisals.update_one(
+        {"appraisal_id": appraisal_id, "company_id": company_id,
+         "is_applied_to_payroll": {"$ne": True}},
+        {"$set": {"is_applied_to_payroll": True}})
+    if claimed.modified_count == 0:
+        raise HTTPException(400, "الزيادة مُرحَّلة بالفعل")
+
+    # Update employee basic salary. salary_history was $set to a single dict,
+    # so every raise overwrote the previous one; it is a list now.
+    hist = {
+        "date":       date.today().isoformat(),
+        "old_salary": old_salary,
+        "new_salary": new_salary,
+        "increment_pct": increment,
+        "appraisal_id":  appraisal_id,
+        "period":        appr["review_period"],
+    }
+    if isinstance(emp.get("salary_history"), dict):     # an old single entry
+        await db.employees.update_one(
+            {"id": appr["employee_id"], "company_id": company_id},
+            {"$set": {"salary_history": [emp["salary_history"]]}})
     await db.employees.update_one(
         {"id": appr["employee_id"], "company_id": company_id},
         {"$set": {
@@ -333,20 +379,12 @@ async def apply_increment_to_payroll(
             "last_increment_date":  date.today().isoformat(),
             "last_increment_amount": inc_amount,
             "last_increment_pct":   increment,
-            "salary_history": {
-                "date":       date.today().isoformat(),
-                "old_salary": old_salary,
-                "new_salary": new_salary,
-                "increment_pct": increment,
-                "appraisal_id":  appraisal_id,
-                "period":        appr["review_period"],
-            }
-        }}
+        }, "$push": {"salary_history": hist}}
     )
 
     # Mark appraisal as applied
     await db.employee_appraisals.update_one(
-        {"appraisal_id": appraisal_id},
+        {"appraisal_id": appraisal_id, "company_id": company_id},
         {"$set": {
             "is_applied_to_payroll": True,
             "applied_from_month":    apply_month,
@@ -458,14 +496,15 @@ async def complete_idp_goal(idp_id: str, goal_idx: int, data: dict,
     if not idp: raise HTTPException(404, "خطة التطوير غير موجودة")
 
     goals = idp.get("goals", [])
-    if goal_idx >= len(goals): raise HTTPException(400, "رقم الهدف غير صحيح")
+    # a negative index (-1) passed the old check and Python updated the last goal
+    if goal_idx < 0 or goal_idx >= len(goals): raise HTTPException(400, "رقم الهدف غير صحيح")
 
     goals[goal_idx]["status"] = data.get("status", "completed")
     goals[goal_idx]["completed_at"] = date.today().isoformat()
     completed = sum(1 for g in goals if g.get("status") == "completed")
 
     await db.employee_idp.update_one(
-        {"id": idp_id},
+        {"id": idp_id, "company_id": current_user["company_id"]},
         {"$set": {"goals": goals, "completed_goals": completed,
                   "status": "completed" if completed == len(goals) else "active"}}
     )
@@ -556,7 +595,10 @@ async def period_summary(review_period: str,
             "promotions":        len(promotions),
             "salary_increments": len(increments),
             "pip":               len(pip),
-            "no_action":         len(appraisals) - len(promotions) - len(increments) - len(pip),
+            # a promotion with a raise was subtracted twice (negative counts)
+            "no_action":         sum(1 for a in appraisals
+                                     if a.get("manager_recommendation", "none") == "none"
+                                     and not a.get("salary_increment_percentage", 0)),
         },
         "payroll_impact": {
             "employees_with_increment": len(increments),

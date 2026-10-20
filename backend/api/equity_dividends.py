@@ -51,7 +51,13 @@ ACC = {
 async def get_acc(company_id, code):
     a = await db.chart_of_accounts.find_one(
         {"company_id": company_id, "account_code": code}, {"_id": 0})
-    return a or {"id": code, "account_code": code, "account_name": f"حساب {code}"}
+    # the old fallback invented an account whose id was the bare code: the
+    # entry was saved and then failed at posting (500) — or never reached a report
+    if not a:
+        raise HTTPException(400, f"الحساب {code} غير موجود في دليل الحسابات — أضفه قبل تسجيل القيد")
+    if a.get("is_header") or a.get("allow_posting") is False or a.get("account_category") == "header":
+        raise HTTPException(400, f"الحساب {code} «{a.get('account_name')}» حساب تجميعي لا يقبل قيوداً")
+    return a
 
 
 async def je_line(company_id, code, debit=0.0, credit=0.0, desc=""):
@@ -70,8 +76,11 @@ async def post_je(company_id, user_id, date_str, description, lines, src_id=None
         description=description, lines=lines,
         source_document_type="equity", source_document_id=src_id,
         created_by=user_id)
-    r = await svc.create_journal_entry(entry)
-    await svc.post_journal_entry(r["id"], user_id)
+    try:
+        r = await svc.create_journal_entry(entry)
+        await svc.post_journal_entry(r["id"], user_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))   # closed period, unbalanced… — not a 500
     return r["id"]
 
 
@@ -82,22 +91,24 @@ def balanced(lines):
 
 
 async def get_account_balance(company_id, code, as_of=None):
-    """رصيد حساب تراكمي حتى تاريخ محدد"""
-    q = {"company_id": company_id, "status": "posted"}
+    """رصيد حساب دائن الطبيعة حتى تاريخ — من دفتر الأستاذ العام (المرحَّل فعلاً)
+
+    It matched journal lines with regex ^code, so "21" would sweep in every
+    account starting with 21 and a code like "221" any future "2211"; and it
+    read journal_entries rather than the ledger. Exact account, ledger rows.
+    """
+    acc = await db.chart_of_accounts.find_one(
+        {"company_id": company_id, "account_code": code}, {"_id": 0, "id": 1})
+    if not acc:
+        return 0.0
+    q = {"company_id": company_id, "account_id": acc["id"]}
     if as_of:
         q["entry_date"] = {"$lte": as_of}
-    pipeline = [
-        {"$match": q}, {"$unwind": "$lines"},
-        {"$match": {"lines.account_code": {"$regex": f"^{code}"}}},
-        {"$group": {"_id": None,
-                    "debit":  {"$sum": "$lines.debit"},
-                    "credit": {"$sum": "$lines.credit"}}},
-    ]
-    r = await db.journal_entries.aggregate(pipeline).to_list(1)
-    if not r:
-        return 0.0
-    d, c = float(r[0]["debit"]), float(r[0]["credit"])
-    return round(c - d, 2)   # حقوق الملكية: رصيد دائن طبيعي
+    d = c = 0.0
+    async for r in db.general_ledger.find(q, {"_id": 0, "debit": 1, "credit": 1}):
+        d += float(r.get("debit") or 0)
+        c += float(r.get("credit") or 0)
+    return round(c - d, 2)   # حقوق الملكية والالتزامات: رصيد دائن طبيعي
 
 
 # ══════════════════════════════════════════════════════════════
@@ -108,6 +119,13 @@ class LegalReserveRequest(BaseModel):
     fiscal_year:  int
     net_profit:   float
     date_str:     str
+    # Law 159/1981 art. 40 caps the legal reserve at half of the ISSUED
+    # capital; the chart only holds paid-up capital (211), so the issued
+    # amount can be given here (falls back to the 211 balance)
+    issued_capital: Optional[float] = None
+    # rates kept configurable — the articles of association may require more
+    reserve_rate: float = LEGAL_RESERVE_RATE
+    reserve_cap_rate: float = LEGAL_RESERVE_CAP
     notes:        Optional[str] = None
 
 
@@ -125,6 +143,7 @@ class DividendRequest(BaseModel):
     employees_share: float = 0.0      # حصة العاملين في الأرباح
     board_remuneration: float = 0.0   # مكافآت أعضاء مجلس الإدارة
     is_listed:       bool = False # مقيدة بالبورصة؟ (5% vs 10%)
+    dividend_tax_rate: Optional[float] = None   # override (treaty / exemption) — default 10% / 5%
     declaration_date: str
     payment_date:    Optional[str] = None
     payment_method:  str = "bank"  # bank | partners_account
@@ -138,6 +157,7 @@ class DividendRequest(BaseModel):
 @router.post("/legal-reserve")
 async def create_legal_reserve(
     req: LegalReserveRequest,
+    preview: bool = Query(False),
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -152,11 +172,20 @@ async def create_legal_reserve(
 
     if req.net_profit <= 0:
         raise HTTPException(400, "صافي الربح يجب أن يكون موجباً")
+    if not (0 < req.reserve_rate <= 1) or not (0 < req.reserve_cap_rate <= 1):
+        raise HTTPException(400, "نسبة الاحتياطي أو الحد الأقصى غير صحيحة")
+    # one legal-reserve appropriation per year — a second call stacked another 5%
+    if await db.equity_transactions.find_one(
+            {"company_id": company_id, "type": "legal_reserve", "fiscal_year": req.fiscal_year}):
+        raise HTTPException(400, f"تم تكوين الاحتياطي القانوني لسنة {req.fiscal_year} بالفعل")
 
     # Current legal reserve balance
     current_reserve  = await get_account_balance(company_id, ACC["legal_reserve"])
     paid_in_capital  = await get_account_balance(company_id, ACC["paid_in_capital"])
-    reserve_cap      = round(paid_in_capital * LEGAL_RESERVE_CAP, 2)
+    capital_base     = round(float(req.issued_capital), 2) if req.issued_capital else paid_in_capital
+    if capital_base <= 0:
+        raise HTTPException(400, "لا يوجد رأس مال مسجل (211) — سجّل رأس المال أو أدخل رأس المال المصدر")
+    reserve_cap      = round(capital_base * req.reserve_cap_rate, 2)
     reserve_gap      = round(max(reserve_cap - current_reserve, 0), 2)
 
     if reserve_gap <= 0:
@@ -168,16 +197,19 @@ async def create_legal_reserve(
         }
 
     # Required = 5% of net profit, but not more than remaining gap
-    required = round(req.net_profit * LEGAL_RESERVE_RATE, 2)
+    required = round(req.net_profit * req.reserve_rate, 2)
     actual   = round(min(required, reserve_gap), 2)
 
     reserve_id = str(uuid.uuid4())
     lines = await asyncio.gather(
         je_line(company_id, ACC["retained"], debit=actual,
-                desc=f"تكوين احتياطي قانوني {req.fiscal_year} — 5% × {req.net_profit:,.0f}"),
+                desc=f"تكوين احتياطي قانوني {req.fiscal_year} — {req.reserve_rate*100:g}% × {req.net_profit:,.0f}"),
         je_line(company_id, ACC["legal_reserve"], credit=actual,
                 desc=f"الاحتياطي القانوني {req.fiscal_year} (قانون 159/1981)"),
     )
+    if preview:
+        return {"preview": True, "lines": list(lines), "required": required, "actual": actual,
+                "reserve_before": current_reserve, "reserve_cap": reserve_cap, "capital_base": capital_base}
     je_id = await post_je(company_id, current_user["user_id"], req.date_str,
         f"احتياطي قانوني {req.fiscal_year}", list(lines), reserve_id)
 
@@ -187,7 +219,8 @@ async def create_legal_reserve(
     rec = {
         "id": reserve_id, "company_id": company_id,
         "type": "legal_reserve", "fiscal_year": req.fiscal_year,
-        "net_profit": req.net_profit, "rate": LEGAL_RESERVE_RATE,
+        "net_profit": req.net_profit, "rate": req.reserve_rate,
+        "capital_base": capital_base,
         "required_amount": required, "actual_amount": actual,
         "capped": actual < required,
         "reserve_before": current_reserve,
@@ -202,7 +235,7 @@ async def create_legal_reserve(
         "message":   f"✅ تم تكوين الاحتياطي القانوني {req.fiscal_year}",
         "calculation": {
             "net_profit":       req.net_profit,
-            "rate":             "5%",
+            "rate":             f"{req.reserve_rate*100:g}%",
             "required":         required,
             "actual":           actual,
             "capped_reason":    f"الاحتياطي وصل {current_reserve:,.0f} من {reserve_cap:,.0f}" if actual < required else None,
@@ -217,8 +250,8 @@ async def create_legal_reserve(
             "before": current_reserve,
             "after":  round(current_reserve + actual, 2),
             "cap":    reserve_cap,
-            "pct_of_capital": round((current_reserve+actual)/paid_in_capital*100,1)
-                               if paid_in_capital > 0 else 0,
+            "pct_of_capital": round((current_reserve+actual)/capital_base*100,1)
+                               if capital_base > 0 else 0,
         },
         "law": "قانون الشركات المصري 159/1981 — المادة 40",
         "record": rec,
@@ -232,6 +265,7 @@ async def create_legal_reserve(
 @router.post("/general-reserve")
 async def create_general_reserve(
     req: GeneralReserveRequest,
+    preview: bool = Query(False),
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -244,6 +278,7 @@ async def create_general_reserve(
     company_id = current_user["company_id"]
     if req.amount <= 0:
         raise HTTPException(400, "مبلغ الاحتياطي يجب أن يكون موجباً")
+    req.amount = round(req.amount, 2)
 
     res_id = str(uuid.uuid4())
     lines = await asyncio.gather(
@@ -252,6 +287,8 @@ async def create_general_reserve(
         je_line(company_id, ACC["general_reserve"], credit=req.amount,
                 desc=f"الاحتياطي العام {req.fiscal_year}"),
     )
+    if preview:
+        return {"preview": True, "lines": list(lines)}
     je_id = await post_je(company_id, current_user["user_id"], req.date_str,
         f"احتياطي عام {req.fiscal_year}", list(lines), res_id)
 
@@ -281,6 +318,7 @@ async def create_general_reserve(
 @router.post("/dividends/declare")
 async def declare_dividends(
     req: DividendRequest,
+    preview: bool = Query(False),
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -299,6 +337,15 @@ async def declare_dividends(
     company_id = current_user["company_id"]
 
     tax_rate   = DIVIDEND_TAX_LISTED if req.is_listed else DIVIDEND_TAX_NORMAL
+    if req.dividend_tax_rate is not None:
+        if not (0 <= req.dividend_tax_rate <= 1):
+            raise HTTPException(400, "نسبة ضريبة التوزيعات غير صحيحة")
+        tax_rate = req.dividend_tax_rate
+    req.gross_dividend = round(float(req.gross_dividend or 0), 2)
+    if req.gross_dividend <= 0:
+        raise HTTPException(400, "إجمالي المبلغ المقرر توزيعه يجب أن يكون موجباً")
+    if req.payment_method not in ("bank", "partners_account"):
+        raise HTTPException(400, "طريقة الصرف غير صحيحة (bank / partners_account)")
     emp_share = round(float(req.employees_share or 0), 2)
     board_rem = round(float(req.board_remuneration or 0), 2)
     if emp_share < 0 or board_rem < 0:
@@ -311,20 +358,43 @@ async def declare_dividends(
     net_div    = round(shareholders - tax_amount, 2)
     div_id     = str(uuid.uuid4())
 
-    lines = await asyncio.gather(
+    # Warnings only — the general assembly decides the figures; we flag the
+    # usual Law 159/1981 checks instead of blocking (articles may differ).
+    warnings = []
+    retained_bal = await get_account_balance(company_id, ACC["retained"], req.declaration_date)
+    if req.gross_dividend > retained_bal:
+        warnings.append(f"المبلغ الموزَّع ({req.gross_dividend:,.2f}) أكبر من رصيد الأرباح المرحلة "
+                        f"({retained_bal:,.2f}) — تأكد من إقفال أرباح السنة في حساب 213 قبل التوزيع")
+    if shareholders > 0 and emp_share < round(shareholders * 0.10, 2):
+        warnings.append("حصة العاملين أقل من 10% من الأرباح الموزعة على المساهمين — "
+                        "قانون 159/1981 م.41 (بحد أقصى مجموع الأجور السنوية)")
+    if board_rem > round(shareholders * 0.10, 2):
+        warnings.append("مكافأة مجلس الإدارة تتجاوز 10% من الأرباح الموزعة — راجع النظام الأساسي")
+
+    # zero lines are dropped: a 0% tax (exemption) or a distribution wholly to
+    # employees produced a 0/0 line, which the ledger refuses
+    lines = [l for l in await asyncio.gather(
         je_line(company_id, ACC["retained"], debit=req.gross_dividend,
                 desc=f"توزيعات أرباح {req.fiscal_year} — إقرار"),
-        je_line(company_id, ACC["div_payable"], credit=net_div,
-                desc=f"أرباح أسهم مستحقة للمساهمين (بعد الضريبة)"),
-        je_line(company_id, ACC["div_tax"], credit=tax_amount,
-                desc=f"ضريبة توزيعات أرباح {tax_rate*100:.0f}% — مستحقة لمصلحة الضرائب"),
+        *([je_line(company_id, ACC["div_payable"], credit=net_div,
+                   desc="أرباح مستحقة للمساهمين (بعد الضريبة)")] if net_div else []),
+        *([je_line(company_id, ACC["div_tax"], credit=tax_amount,
+                   desc=f"ضريبة توزيعات أرباح {tax_rate*100:g}% — مستحقة لمصلحة الضرائب")] if tax_amount else []),
         *([je_line(company_id, ACC["emp_share"], credit=emp_share,
                    desc="حصة العاملين في الأرباح — قانون 159/1981")] if emp_share else []),
         *([je_line(company_id, ACC["board_rem"], credit=board_rem,
                    desc="مكافآت أعضاء مجلس الإدارة")] if board_rem else []),
-    )
+    )]
+    ok, td, tc = balanced(lines)
+    if not ok:
+        raise HTTPException(400, f"قيد التوزيع غير متوازن (مدين {td} / دائن {tc})")
+    if preview:
+        return {"preview": True, "lines": lines, "warnings": warnings,
+                "calculation": {"gross_dividend": req.gross_dividend, "employees_share": emp_share,
+                                "board_remuneration": board_rem, "shareholders_share": shareholders,
+                                "tax_rate": tax_rate, "tax_amount": tax_amount, "net_to_shareholders": net_div}}
     je_id = await post_je(company_id, current_user["user_id"], req.declaration_date,
-        f"إقرار توزيعات أرباح {req.fiscal_year}", list(lines), div_id)
+        f"إقرار توزيعات أرباح {req.fiscal_year}", lines, div_id)
 
     ok, td, tc = balanced(list(lines))
 
@@ -367,13 +437,11 @@ async def declare_dividends(
         "journal": {
             "id":      je_id,
             "debit":   f"م/{ACC['retained']} الأرباح المرحلة         {req.gross_dividend:,.2f}",
-            "credits": [
-                f"م/{ACC['div_payable']} أرباح أسهم مستحقة (صافي)  {net_div:,.2f}",
-                f"م/{ACC['div_tax']}     ضريبة توزيعات مستحقة       {tax_amount:,.2f}",
-            ],
+            "lines":   list(lines),
             "balanced": ok,
         },
         "law": f"قانون 91/2005 — ضريبة توزيعات {tax_rate*100:.0f}%",
+        "warnings": warnings,
     }
 
 
@@ -383,81 +451,127 @@ async def declare_dividends(
 
 @router.post("/dividends/{div_id}/pay")
 async def pay_dividends(div_id: str, data: dict,
+                        preview: bool = Query(False),
                         current_user: dict = Depends(get_current_user)):
     """
-    صرف الأرباح للمساهمين وتسوية ضريبة التوزيعات
-
-    قيد السداد للمساهمين:
-    Dr م/2151 أرباح أسهم مستحقة
-    Cr م/112  البنك / م/212 جاري الشركاء
-
-    قيد سداد الضريبة لمصلحة الضرائب:
-    Dr م/2152 ضريبة توزيعات مستحقة
-    Cr م/112  البنك
+    صرف التوزيعات المستحقة — كل بند مرة واحدة:
+      المساهمون:      Dr 256 أرباح مستحقة         Cr 162 البنك / 212 جاري الشركاء
+      ضريبة التوزيعات: Dr 2542 ضريبة توزيعات مستحقة Cr 162 البنك
+      حصة العاملين:    Dr 267                      Cr 162 البنك
+      مكافآت المجلس:   Dr 268                      Cr 162 البنك
+    Previously only the shareholders and the tax could be paid, and the
+    declaration was then marked "paid" — the tax (if deferred), the employees'
+    share and the board remuneration could never be settled from here.
     """
     company_id  = current_user["company_id"]
-    pay_date    = data.get("date", date.today().isoformat())
-    pay_tax_now = data.get("pay_tax", True)
+    pay_date    = data.get("date") or date.today().isoformat()
+    want = {
+        "shareholders": bool(data.get("pay_shareholders", True)),
+        "tax":          bool(data.get("pay_tax", True)),
+        "employees":    bool(data.get("pay_employees", False)),
+        "board":        bool(data.get("pay_board", False)),
+    }
 
     div = await db.equity_transactions.find_one(
         {"id": div_id, "company_id": company_id,
          "type": "dividend_declaration"}, {"_id": 0})
     if not div:
         raise HTTPException(404, "قرار التوزيعات غير موجود")
-    if div.get("status") == "paid":
-        raise HTTPException(400, "التوزيعات مدفوعة بالفعل")
+    paid = dict(div.get("paid_parts") or {})
+    if div.get("status") == "paid" and not paid:
+        # declarations paid by the old code: shareholders + tax were settled
+        paid = {"shareholders": True, "tax": True}
 
-    net_div    = float(div["net_dividend"])
-    tax_amount = float(div["tax_amount"])
-    method     = div.get("payment_method","bank")
-    cr_code    = ACC["bank"] if method == "bank" else ACC["partners_cur"]
-    cr_name    = "البنك" if method == "bank" else "جاري الشركاء"
-
-    # Payment lines
-    lines = await asyncio.gather(
-        je_line(company_id, ACC["div_payable"], debit=net_div,
-                desc=f"سداد أرباح أسهم {div['fiscal_year']} للمساهمين"),
-        je_line(company_id, cr_code, credit=net_div,
-                desc=f"تحويل أرباح الأسهم للمساهمين — {cr_name}"),
-    )
-    lines = list(lines)
-
-    # Tax payment
-    if pay_tax_now and tax_amount > 0:
-        lines += list(await asyncio.gather(
-            je_line(company_id, ACC["div_tax"], debit=tax_amount,
-                    desc=f"سداد ضريبة توزيعات {div['fiscal_year']} لمصلحة الضرائب"),
-            je_line(company_id, ACC["bank"], credit=tax_amount,
-                    desc="تحويل ضريبة التوزيعات لمصلحة الضرائب"),
-        ))
+    method  = data.get("payment_method") or div.get("payment_method", "bank")
+    if method not in ("bank", "partners_account"):
+        raise HTTPException(400, "طريقة الصرف غير صحيحة")
+    cr_code = ACC["bank"] if method == "bank" else ACC["partners_cur"]
+    cr_name = "البنك" if method == "bank" else "جاري الشركاء"
+    fy = div["fiscal_year"]
+    parts = {
+        "shareholders": (ACC["div_payable"], float(div.get("net_dividend") or 0), cr_code,
+                         f"صرف أرباح {fy} للمساهمين — {cr_name}"),
+        "tax":          (ACC["div_tax"], float(div.get("tax_amount") or 0), ACC["bank"],
+                         f"سداد ضريبة توزيعات {fy} لمصلحة الضرائب"),
+        "employees":    (ACC["emp_share"], float(div.get("employees_share") or 0), ACC["bank"],
+                         f"صرف حصة العاملين في أرباح {fy}"),
+        "board":        (ACC["board_rem"], float(div.get("board_remuneration") or 0), ACC["bank"],
+                         f"صرف مكافآت مجلس الإدارة عن {fy}"),
+    }
+    lines, now_paid = [], []
+    for key, (dr, amt, cr, desc) in parts.items():
+        if not want[key] or paid.get(key) or round(amt, 2) <= 0:
+            continue
+        lines += [await je_line(company_id, dr, debit=amt, desc=desc),
+                  await je_line(company_id, cr, credit=amt, desc=desc)]
+        now_paid.append(key)
+    if not lines:
+        raise HTTPException(400, "لا توجد بنود مستحقة للصرف بالاختيارات المحددة")
+    ok, td, tc = balanced(lines)
+    if preview:
+        return {"preview": True, "lines": lines, "parts": now_paid, "total": td}
 
     je_id = await post_je(company_id, current_user["user_id"], pay_date,
-        f"سداد توزيعات أرباح {div['fiscal_year']}", lines, div_id)
-
-    ok, td, tc = balanced(lines)
+        f"صرف توزيعات أرباح {fy}", lines, div_id)
+    for k in now_paid:
+        paid[k] = True
+    outstanding = [k for k, (_, amt, _, _) in parts.items() if round(amt, 2) > 0 and not paid.get(k)]
     await db.equity_transactions.update_one(
-        {"id": div_id},
-        {"$set": {"status": "paid", "pay_je_id": je_id, "paid_date": pay_date}}
+        {"id": div_id, "company_id": company_id},
+        {"$set": {"status": "paid" if not outstanding else "partially_paid",
+                  "paid_parts": paid, "pay_je_id": je_id, "paid_date": pay_date},
+         "$push": {"payment_je_ids": je_id}}
     )
-
     return {
-        "message":    f"✅ تم سداد توزيعات أرباح {div['fiscal_year']}",
-        "net_paid":   net_div,
-        "tax_paid":   tax_amount if pay_tax_now else 0,
-        "total_paid": round(net_div + (tax_amount if pay_tax_now else 0), 2),
-        "journal": {
-            "id":       je_id,
-            "shareholders": {
-                "debit":  f"م/{ACC['div_payable']} أرباح مستحقة  {net_div:,.2f}",
-                "credit": f"م/{cr_code} {cr_name}               {net_div:,.2f}",
-            },
-            "tax": {
-                "debit":  f"م/{ACC['div_tax']} ضريبة مستحقة  {tax_amount:,.2f}",
-                "credit": f"م/{ACC['bank']} بنك              {tax_amount:,.2f}",
-            } if pay_tax_now else None,
-            "balanced": ok,
-        },
+        "message":    f"✅ تم صرف {len(now_paid)} بند من توزيعات {fy}",
+        "paid_parts": now_paid,
+        "outstanding": outstanding,
+        "total_paid": td,
+        "journal": {"id": je_id, "lines": lines, "balanced": ok},
     }
+
+
+# ══════════════════════════════════════════════════════════════
+# 4b. رأس المال — CAPITAL CONTRIBUTION
+# ══════════════════════════════════════════════════════════════
+
+class CapitalRequest(BaseModel):
+    amount:     float
+    date_str:   str
+    method:     str = "bank"     # bank | cash | partners_account
+    notes:      Optional[str] = None
+
+
+@router.post("/capital")
+async def add_capital(req: CapitalRequest, preview: bool = Query(False),
+                      current_user: dict = Depends(get_current_user)):
+    """
+    زيادة / سداد رأس المال المدفوع
+    Dr 162 البنك / 161 الخزينة / 212 جاري الشركاء — Cr 211 رأس المال المدفوع
+    (there was no way to record capital here, so the legal-reserve cap — half
+    the capital — read 0 until capital was entered by a manual journal)
+    """
+    company_id = current_user["company_id"]
+    amount = round(float(req.amount or 0), 2)
+    if amount <= 0:
+        raise HTTPException(400, "مبلغ رأس المال يجب أن يكون موجباً")
+    src = {"bank": (ACC["bank"], "البنك"), "cash": ("161", "الخزينة"),
+           "partners_account": (ACC["partners_cur"], "جاري الشركاء")}.get(req.method)
+    if not src:
+        raise HTTPException(400, "طريقة السداد غير صحيحة")
+    lines = [await je_line(company_id, src[0], debit=amount, desc=f"سداد رأس مال — {src[1]}"),
+             await je_line(company_id, ACC["paid_in_capital"], credit=amount, desc="زيادة رأس المال المدفوع")]
+    if preview:
+        return {"preview": True, "lines": lines}
+    cap_id = str(uuid.uuid4())
+    je_id = await post_je(company_id, current_user["user_id"], req.date_str,
+                          "زيادة رأس المال المدفوع", lines, cap_id)
+    rec = {"id": cap_id, "company_id": company_id, "type": "capital",
+           "fiscal_year": int(req.date_str[:4]) if req.date_str[:4].isdigit() else None,
+           "amount": amount, "method": req.method, "je_id": je_id, "date": req.date_str,
+           "notes": req.notes, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.equity_transactions.insert_one(rec); rec.pop("_id", None)
+    return {"message": "✅ تم تسجيل زيادة رأس المال", "journal": {"id": je_id, "lines": lines}, "record": rec}
 
 
 # ══════════════════════════════════════════════════════════════

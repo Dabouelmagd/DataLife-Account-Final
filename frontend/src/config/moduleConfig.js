@@ -230,6 +230,11 @@ export const getHRSubModules = (isArabic) => [
   { id: 'casual-leave',  name: isArabic ? '🌴 إجازة عارضة'        : '🌴 Casual Leave' },
   { id: 'annual-leave',  name: isArabic ? '📅 إجازة سنوية'        : '📅 Annual Leave' },
   { id: 'termination',   name: isArabic ? '🔚 إنهاء الخدمة'       : '🔚 End of Service' },
+  { id: 'hr-appraisals',     name: isArabic ? '📈 تقييم الأداء'                 : '📈 Performance Appraisals' },
+  { id: 'hr-tools',          name: isArabic ? '🗓️ الإجازات والإضافي والجزاءات' : '🗓️ Leave, Overtime & Penalties' },
+  { id: 'hr-end-of-service', name: isArabic ? '🧾 التسوية وإخلاء الطرف'        : '🧾 Final Settlement & Clearance' },
+  { id: 'hr-loans-custody',  name: isArabic ? '💳 السلف والعهد'                 : '💳 Loans & Custody' },
+  { id: 'hr-commissions',    name: isArabic ? '🎯 عمولات المندوبين'             : '🎯 Sales Commissions' },
   { id: 'reports',       name: isArabic ? '📊 تقارير HR'          : '📊 HR Reports' },
 ];
 
@@ -251,6 +256,10 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'progress-claims',  name: isArabic ? '🏗️ المستخلصات'        : '🏗️ Progress Claims' },
   { id: 'guarantees',       name: isArabic ? '🛡️ خطابات الضمان'     : '🛡️ Letters of Guarantee' },
   { id: 'tax-forms',        name: isArabic ? '🧾 نموذج 10 و41'      : '🧾 Tax Forms 10 & 41' },
+  { id: 'gov-payments',     name: isArabic ? '🏛️ المدفوعات الحكومية' : '🏛️ Government Payments' },
+  { id: 'budgets',          name: isArabic ? '📊 الموازنات التقديرية' : '📊 Budgets' },
+  { id: 'deferred-tax',     name: isArabic ? '🧾 ضريبة الدخل والمؤجلة' : '🧾 Income & Deferred Tax' },
+  { id: 'equity',           name: isArabic ? '🏛️ حقوق الملكية والتوزيعات' : '🏛️ Equity & Dividends' },
   { id: 'currencies',       name: isArabic ? '💱 العملات'           : '💱 Currencies' },
   { id: 'reports',          name: isArabic ? '📊 التقارير المالية'  : '📊 Financial Reports' },
 ];

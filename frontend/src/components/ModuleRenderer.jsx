@@ -31,6 +31,8 @@ import EmployeeProfilePage from '../pages/EmployeeProfilePage';
 import EmployeesPage from '../pages/EmployeesPage';
 import HREmployeesList from '../components/HREmployeesList';
 import { ProgressClaimsPage, GuaranteesPage, TaxFormsPage } from '../components/ContractsFinance';
+import { BudgetPage, DeferredTaxPage, EquityPage } from '../components/FinanceExtras';
+import { AppraisalsPage, HRToolsPage, EndOfServicePage, LoansCustodyPage, CommissionsPage, GovPaymentsPage } from '../components/HRExtras';
 import ShiftsPage from '../pages/ShiftsPage';
 import AttendancePage from '../pages/AttendancePage';
 import HRSettingsPage from '../pages/HRSettingsPage';
@@ -148,6 +150,12 @@ export const renderHRContent = ({
     'annual-leave': <AnnualLeavePage language={language} />,
     'termination': <TerminationPage language={language} />,
     'reports': <HRComprehensiveReportsPage language={language} />,
+    'hr-appraisals': <AppraisalsPage />,
+    'hr-tools': <HRToolsPage />,
+    'hr-end-of-service': <EndOfServicePage />,
+    'hr-loans-custody': <LoansCustodyPage />,
+    'hr-commissions': <CommissionsPage />,
+    'gov-payments': <GovPaymentsPage />,
     'hr-settings': <HRSettingsPage language={language} />
   };
 
@@ -187,6 +195,10 @@ export const renderFinancialContent = ({
     'progress-claims': <ProgressClaimsPage />,
     'guarantees': <GuaranteesPage />,
     'tax-forms': <TaxFormsPage />,
+    'budgets': <BudgetPage />,
+    'deferred-tax': <DeferredTaxPage />,
+    'equity': <EquityPage />,
+    'gov-payments': <GovPaymentsPage />,
     'bank-settings': <BankSettingsPage language={language} />,
     'trial-balance': <TrialBalancePage language={language} />,
     'income-statement': <IncomeStatementPage language={language} />,

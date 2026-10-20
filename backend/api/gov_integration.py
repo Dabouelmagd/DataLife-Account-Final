@@ -18,8 +18,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from database import db
-from api.users import get_current_user
 from dependencies import get_current_user
+from services.egypt_payroll import PERSONAL_EXEMPTION
 
 router = APIRouter(prefix="/api/gov", tags=["Government Integration"])
 
@@ -97,7 +97,7 @@ async def export_unified_payroll_json(
             "employerSI":          float(emp.get("employer_si", 0)),
             # ── ضريبة كسب العمل ─────────────────────────
             "annualTaxableIncome": float(emp.get("annual_taxable", 0)),
-            "personalExemption":   float(emp.get("personal_exemption", 21000)),
+            "personalExemption":   float(emp.get("personal_exemption") or PERSONAL_EXEMPTION),
             "incomeTax":           float(emp.get("income_tax", 0)),
             # ── الصرف الفعلي ────────────────────────────
             "deductions":          float(emp.get("total_deductions", 0)),
@@ -123,7 +123,7 @@ async def export_unified_payroll_json(
         # ── بيانات الفترة ─────────────────────────────────
         "period": {
             "year":      run.get("year", date.today().year),
-            "month":     run.get("month", date.today().month),
+            "month":     run.get("month_number") or run.get("month", date.today().month),
             "periodType":"monthly",
         },
         # ── إجماليات ─────────────────────────────────────
@@ -144,7 +144,8 @@ async def export_unified_payroll_json(
     return JSONResponse(
         content=payload,
         headers={
-            "Content-Disposition": f'attachment; filename="payroll_{run.get("year")}_{run.get("month"):02d}.json"',
+            # run["month"] is "YYYY-MM" (a str) — :02d raised ValueError → 500
+            "Content-Disposition": f'attachment; filename="payroll_{run.get("month") or run.get("year")}.json"',
             "X-Payroll-Run-Id":    run_id,
             "X-Employee-Count":    str(len(employees_payload)),
         }
@@ -180,7 +181,8 @@ async def export_unified_payroll_excel(
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"بيرول {run.get('year')}-{run.get('month',0):02d}"
+    period_label = str(run.get("month") or run.get("year") or "")
+    ws.title = f"بيرول {period_label}"[:31]
 
     # ── Company header ─────────────────────────────────────
     header_fill = PatternFill("solid", fgColor="1E3A5F")
@@ -195,7 +197,7 @@ async def export_unified_payroll_excel(
 
     ws.merge_cells("A2:R2")
     ws["A2"] = (f"{company.get('name','')} | رقم ضريبي: {company.get('tax_id','')} | "
-                f"الفترة: {run.get('year')}/{run.get('month',0):02d}")
+                f"الفترة: {period_label}")
     ws["A2"].fill = sub_fill
     ws["A2"].font = Font(color="FFFFFF", bold=True)
     ws["A2"].alignment = Alignment(horizontal="center")
@@ -254,7 +256,7 @@ async def export_unified_payroll_excel(
             float(emp.get("employee_si",0)),
             float(emp.get("employer_si",0)),
             float(emp.get("annual_taxable",0)),
-            float(emp.get("personal_exemption",21000)),
+            float(emp.get("personal_exemption") or PERSONAL_EXEMPTION),
             float(emp.get("income_tax",0)),
             float(emp.get("total_deductions",0)),
             float(emp.get("net_salary",0)),
@@ -290,7 +292,7 @@ async def export_unified_payroll_excel(
     wb.save(output)
     output.seek(0)
 
-    filename = f"payroll_unified_{run.get('year')}_{run.get('month',0):02d}.xlsx"
+    filename = f"payroll_unified_{period_label}.xlsx"
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -316,16 +318,21 @@ async def export_quarterly_form4(
     month_start = (quarter - 1) * 3 + 1
     month_end   = quarter * 3
 
+    # Runs store month as "YYYY-MM" and month_number as the int, and their
+    # rows under "employees" in the payroll-run shape. The form filtered an int
+    # against the string and read "employees_data" raw, so it always came out
+    # empty (and would have read zeros) — rows now go through _gov_row too.
     runs = await db.payroll_runs.find({
         "company_id": company_id,
         "year":  year,
-        "month": {"$gte": month_start, "$lte": month_end},
+        "$or": [{"month_number": {"$gte": month_start, "$lte": month_end}},
+                {"month": {"$gte": month_start, "$lte": month_end}}],
         "status": {"$in": ["approved","paid"]},
     }, {"_id": 0}).to_list(None)
 
     emp_totals = {}
     for run in runs:
-        for emp in run.get("employees_data", []):
+        for emp in [_gov_row(e) for e in (run.get("employees") or run.get("employees_data") or [])]:
             eid = emp.get("employee_id","")
             if eid not in emp_totals:
                 profile = await db.employee_insurance_profiles.find_one(
@@ -337,12 +344,15 @@ async def export_quarterly_form4(
                     "grossSalary": 0.0, "incomeTax": 0.0,
                     "employeeSI": 0.0,  "netSalary": 0.0,
                 }
-            emp_totals[eid]["grossSalary"] += float(emp.get("gross_salary",0))
-            emp_totals[eid]["incomeTax"]   += float(emp.get("income_tax",0))
-            emp_totals[eid]["employeeSI"]  += float(emp.get("employee_si",0))
-            emp_totals[eid]["netSalary"]   += float(emp.get("net_salary",0))
+            emp_totals[eid]["grossSalary"] += float(emp.get("gross_salary") or 0)
+            emp_totals[eid]["incomeTax"]   += float(emp.get("income_tax") or 0)
+            emp_totals[eid]["employeeSI"]  += float(emp.get("employee_si") or 0)
+            emp_totals[eid]["netSalary"]   += float(emp.get("net_salary") or 0)
 
     employees = list(emp_totals.values())
+    for e in employees:
+        for k in ("grossSalary", "incomeTax", "employeeSI", "netSalary"):
+            e[k] = round(e[k], 2)
     total_tax  = round(sum(e["incomeTax"] for e in employees), 2)
     total_gross= round(sum(e["grossSalary"] for e in employees), 2)
 
@@ -405,6 +415,8 @@ async def register_aci(
     - Landed costs distribution
     """
     company_id = current_user["company_id"]
+    if req.document_type not in ("purchase_order", "import_invoice"):
+        raise HTTPException(400, "نوع المستند: أمر شراء أو فاتورة استيراد")
 
     # Validate ACID format (Egyptian customs: typically 16 digits)
     acid = req.acid_number.strip().replace("-", "").replace(" ", "")
@@ -445,10 +457,11 @@ async def register_aci(
     await db.aci_registrations.insert_one(aci_rec)
     aci_rec.pop("_id", None)
 
-    # Update the source document with ACID number
+    # Update the source document with ACID number (scoped: the bare id
+    # filter could tag another company's document with the same id)
     collection = db.purchase_orders if req.document_type == "purchase_order" else db.invoices
     await collection.update_one(
-        {"id": req.document_id},
+        {"id": req.document_id, "company_id": company_id},
         {"$set": {
             "acid_number":   acid,
             "aci_id":        aci_id,
@@ -542,29 +555,79 @@ GPS_GATEWAYS = {
 }
 
 GPS_PAYMENT_TYPES = {
-    "income_tax":       {"gateway": "tax_authority",    "form": "نموذج 41"},
+    "income_tax":       {"gateway": "tax_authority",    "form": "إقرار ضريبة الدخل"},
     "vat":              {"gateway": "tax_authority",    "form": "نموذج 10"},
+    "withholding_tax":  {"gateway": "tax_authority",    "form": "نموذج 41"},
     "payroll_tax":      {"gateway": "tax_authority",    "form": "نموذج 4"},
     "social_insurance": {"gateway": "social_insurance", "form": "تسوية شهرية"},
+    "uhi_contribution": {"gateway": "tax_authority",    "form": "المساهمة التكافلية"},
+    "emergency_fund":   {"gateway": "ministry_finance", "form": "صندوق إعانة الطوارئ"},
     "customs_duty":     {"gateway": "customs",          "form": "بيان جمركي"},
     "real_estate_tax":  {"gateway": "real_estate_tax",  "form": "إقرار ضريبة عقارية"},
     "stamp_duty":       {"gateway": "tax_authority",    "form": "دمغة"},
 }
 
+# Debit side of each payment — what the payment settles. All are posting
+# accounts in models/accounting.py DEFAULT_ACCOUNTS. The old map paid:
+#   income_tax → 254 (VAT/withholding parent) instead of 265 corporate tax,
+#   payroll_tax → 261 (withholding tax!) instead of 266 salary tax withheld,
+#   customs/stamp → 254, real-estate tax → 2541 (real-estate DISPOSAL tax);
+# so the payroll tax liability never cleared and 261 went negative.
+GPS_DEBIT_ACCOUNTS = {
+    "income_tax":       ("265",  "ضريبة الدخل المستحقة"),
+    "vat":              ("260",  "ضريبة القيمة المضافة المستحقة"),
+    "withholding_tax":  ("261",  "ضريبة الخصم والتحصيل المستقطعة"),
+    "payroll_tax":      ("266",  "ضريبة كسب العمل المستقطعة"),
+    "social_insurance": ("255",  "التأمينات الاجتماعية المستحقة"),
+    "uhi_contribution": ("262",  "المساهمة التكافلية المستحقة"),
+    "emergency_fund":   ("258",  "صندوق إعانة الطوارئ المستحق"),
+    "customs_duty":     ("3374", "رسوم جمركية"),
+    "real_estate_tax":  ("3366", "ضريبة عقارية (مصروفات متنوعة)"),
+    "stamp_duty":       ("2545", "ضريبة الدمغة (الجدول) المستحقة"),
+}
+
 
 class GovernmentPaymentRequest(BaseModel):
-    payment_type:     str   # income_tax | vat | payroll_tax | social_insurance | customs_duty
+    payment_type:     str   # see GPS_PAYMENT_TYPES
     amount:           float
     period:           str   # "2026-01" or "2026-Q1"
     reference_number: Optional[str] = None   # رقم المرجع من البوابة
     payment_date:     str
     bank_account:     str = "162"
+    debit_account:    Optional[str] = None   # override, e.g. 123 to capitalise customs duty
     notes:            Optional[str] = None
+
+
+async def _posting_account(company_id: str, code: str) -> dict:
+    """A missing code used to become a line on a fake account id."""
+    acc = await db.chart_of_accounts.find_one(
+        {"company_id": company_id, "account_code": code}, {"_id": 0})
+    if not acc:
+        raise HTTPException(400, f"الحساب {code} غير موجود في دليل الحسابات")
+    if acc.get("is_header") or acc.get("allow_posting") is False:
+        raise HTTPException(400, f"الحساب {code} «{acc.get('account_name','')}» حساب تجميعي لا يقبل قيوداً")
+    return acc
+
+
+def _gps_lines(dr: dict, cr: dict, amount: float, dr_name: str, period: str, gateway: str) -> list:
+    return [
+        {"line_id": str(uuid.uuid4()), "entry_id": None,
+         "account_id": dr["id"], "account_code": dr["account_code"],
+         "account_name": dr.get("account_name") or dr_name,
+         "debit": amount, "credit": 0,
+         "description": f"سداد {dr_name} — {period} — {gateway}"},
+        {"line_id": str(uuid.uuid4()), "entry_id": None,
+         "account_id": cr["id"], "account_code": cr["account_code"],
+         "account_name": cr.get("account_name", ""),
+         "debit": 0, "credit": amount,
+         "description": f"تحويل لـ {gateway} — {period}"},
+    ]
 
 
 @router.post("/gps/payment")
 async def record_government_payment(
     req: GovernmentPaymentRequest,
+    preview: bool = Query(False, description="true: يرجع القيد بدون ترحيل"),
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -585,59 +648,53 @@ async def record_government_payment(
 
     config  = GPS_PAYMENT_TYPES[req.payment_type]
     gateway = GPS_GATEWAYS.get(config["gateway"], config["gateway"])
+    amount = round(req.amount, 2)
+    if amount <= 0:
+        raise HTTPException(400, "المبلغ يجب أن يكون أكبر من صفر")
+    try:
+        payment_date = date.fromisoformat(req.payment_date[:10]).isoformat()
+    except Exception:
+        raise HTTPException(400, "تاريخ الدفع غير صحيح")
 
-    # Map payment type to liability account
-    liability_accounts = {
-        "income_tax":       ("254", "ضريبة دخل مستحقة"),
-        "vat":              ("260", "VAT مخرجات مستحقة"),
-        "payroll_tax":      ("261", "ضريبة كسب عمل مستحقة"),
-        "social_insurance": ("255", "تأمينات اجتماعية مستحقة"),
-        "customs_duty":     ("254", "رسوم جمركية مستحقة"),
-        "real_estate_tax":  ("2541","ضريبة تصرفات عقارية"),
-        "stamp_duty":       ("254", "دمغة مستحقة"),
-    }
-    dr_code, dr_name = liability_accounts.get(req.payment_type, ("254","ضريبة مستحقة"))
+    dr_code, dr_name = GPS_DEBIT_ACCOUNTS[req.payment_type]
+    if req.debit_account:
+        dr_code = req.debit_account.strip()
+    dr_acc = await _posting_account(company_id, dr_code)
+    # the paying account was taken as sent — any code, even a revenue account
+    if req.bank_account in ("2", "25", "254") or not str(req.bank_account).startswith("16"):
+        raise HTTPException(400, "حساب الدفع يجب أن يكون حساب نقدية أو بنك (16x)")
+    cr_acc = await _posting_account(company_id, req.bank_account)
+    if dr_acc["account_code"].startswith("16"):
+        raise HTTPException(400, "حساب المدين لا يكون حساب نقدية")
 
-    # Journal entry
+    if req.reference_number and await db.government_payments.find_one(
+            {"company_id": company_id, "payment_type": req.payment_type,
+             "reference_number": req.reference_number}):
+        raise HTTPException(400, f"رقم المرجع {req.reference_number} مسجَّل من قبل لنفس نوع الدفع")
+
     from services.accounting_service import AccountingService
     from models.accounting import JournalEntry
     svc = AccountingService(db)
+    lines = _gps_lines(dr_acc, cr_acc, amount, dr_name, req.period, gateway)
 
-    async def get_acc(code):
-        a = await db.chart_of_accounts.find_one(
-            {"company_id": company_id, "account_code": code}, {"_id": 0})
-        return a or {"id": code, "account_code": code, "account_name": f"حساب {code}"}
-
-    dr_acc = await get_acc(dr_code)
-    cr_acc = await get_acc(req.bank_account)
-
-    lines = [
-        {
-            "line_id": str(uuid.uuid4()), "entry_id": None,
-            "account_id": dr_acc["id"], "account_code": dr_code,
-            "account_name": dr_name,
-            "debit": req.amount, "credit": 0,
-            "description": f"سداد {dr_name} — {req.period} — {gateway}",
-        },
-        {
-            "line_id": str(uuid.uuid4()), "entry_id": None,
-            "account_id": cr_acc["id"], "account_code": req.bank_account,
-            "account_name": "البنك",
-            "debit": 0, "credit": req.amount,
-            "description": f"تحويل بنكي لـ {gateway} — {req.period}",
-        },
-    ]
+    if preview:
+        return {"preview": True, "lines": [{k: l[k] for k in ("account_code", "account_name", "debit", "credit")}
+                                           for l in lines]}
 
     entry = JournalEntry(
         company_id=company_id, entry_number=0,
-        entry_date=req.payment_date,
-        description=f"دفعة حكومية GPS — {dr_name} — {req.period}",
-        lines=lines, source_document_type="manual",
+        entry_date=payment_date,
+        description=f"دفعة حكومية — {dr_name} — {req.period}",
+        lines=lines, source_document_type="payroll_government" if req.payment_type in
+        ("payroll_tax", "social_insurance", "uhi_contribution", "emergency_fund") else "manual",
         source_document_id=payment_id,
         created_by=current_user["user_id"],
     )
-    je_result = await svc.create_journal_entry(entry)
-    await svc.post_journal_entry(je_result["id"], current_user["user_id"])
+    try:
+        je_result = await svc.create_journal_entry(entry)
+        await svc.post_journal_entry(je_result["id"], current_user["user_id"])
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
     # Save payment record
     payment = {
@@ -647,11 +704,12 @@ async def record_government_payment(
         "payment_type_ar":   dr_name,
         "gateway":           gateway,
         "form_reference":    config.get("form",""),
-        "amount":            req.amount,
+        "amount":            amount,
         "period":            req.period,
-        "payment_date":      req.payment_date,
+        "payment_date":      payment_date,
         "reference_number":  req.reference_number,
         "bank_account":      req.bank_account,
+        "debit_account":     dr_acc["account_code"],
         "journal_entry_id":  je_result["id"],
         "law_reference":     "قانون رقم 18 لسنة 2019 — الدفع الإلكتروني الإلزامي",
         "notes":             req.notes,
@@ -667,8 +725,8 @@ async def record_government_payment(
         "payment":        payment,
         "journal": {
             "id":     je_result["id"],
-            "debit":  f"م/{dr_code} {dr_name}  {req.amount:,.2f}",
-            "credit": f"م/{req.bank_account} البنك  {req.amount:,.2f}",
+            "debit":  f"م/{dr_acc['account_code']} {dr_acc.get('account_name', dr_name)}  {amount:,.2f}",
+            "credit": f"م/{cr_acc['account_code']} {cr_acc.get('account_name','')}  {amount:,.2f}",
         },
     }
 
@@ -689,8 +747,15 @@ async def issue_electronic_cheque(
     cheque_id   = str(uuid.uuid4())
     cheque_num  = f"EGOV-{date.today().year}-{str(uuid.uuid4())[:6].upper()}"
 
-    amount       = float(data.get("amount", 0))
-    beneficiary  = data.get("beneficiary","")  # الجهة الحكومية
+    try:
+        amount   = round(float(data.get("amount", 0)), 2)
+    except (TypeError, ValueError):
+        amount   = 0
+    if amount <= 0:
+        raise HTTPException(400, "المبلغ يجب أن يكون أكبر من صفر")
+    beneficiary  = str(data.get("beneficiary","") or "")[:200]  # الجهة الحكومية
+    if not beneficiary:
+        raise HTTPException(400, "حدد الجهة المستفيدة")
     payment_type = data.get("payment_type","")
     period       = data.get("period","")
     issue_date   = data.get("issue_date", date.today().isoformat())
@@ -779,7 +844,8 @@ async def list_gps_gateways(current_user: dict = Depends(get_current_user)):
     """قائمة بوابات الدفع الحكومية المدعومة"""
     return {
         "gateways":      GPS_GATEWAYS,
-        "payment_types": GPS_PAYMENT_TYPES,
+        "payment_types": {k: {**v, "debit_account": GPS_DEBIT_ACCOUNTS[k][0],
+                              "debit_name": GPS_DEBIT_ACCOUNTS[k][1]} for k, v in GPS_PAYMENT_TYPES.items()},
         "law_reference": "قانون رقم 18 لسنة 2019 — إلزامية الدفع الإلكتروني للجهات الحكومية",
         "note":          "جميع الدفعات للجهات الحكومية > 500 ج.م يجب أن تكون إلكترونية",
     }

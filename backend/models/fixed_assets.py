@@ -55,16 +55,37 @@ TAX_DEPRECIATION_RULES = {
     "wip":         (None,               0.00,  None),    # لا إهلاك حتى التشغيل
 }
 
-# Account codes (Egyptian Standard Chart of Accounts)
+# Account codes — must match DEFAULT_ACCOUNTS in models/accounting.py.
+# The old map pointed at 151-157, which in the chart are "أوراق مالية متداولة"
+# (151), "أصول العقود" (152) and codes that do not exist (153-157): a building
+# was posted as marketable securities and most purchases failed. Fixed assets
+# live under 11 (112-116, land 11101); accumulated depreciation under 222.
+# 222 itself is a header (no postings), so intangibles get their own codes
+# (117 / 22205) — those are not in the default chart yet, and posting is
+# refused with a clear message until they are added (or the user picks a code).
 ASSET_ACCOUNTS = {
-    "buildings":  {"asset": "151",  "accum_dep": "22201", "dep_exp": "313"},
-    "machinery":  {"asset": "152",  "accum_dep": "22202", "dep_exp": "313"},
-    "computers":  {"asset": "153",  "accum_dep": "22202", "dep_exp": "313"},
-    "vehicles":   {"asset": "154",  "accum_dep": "22203", "dep_exp": "313"},
-    "furniture":  {"asset": "155",  "accum_dep": "22204", "dep_exp": "333"},
-    "intangible": {"asset": "156",  "accum_dep": "222",   "dep_exp": "333"},
-    "land":       {"asset": "157",  "accum_dep": None,    "dep_exp": None},
-    "wip":        {"asset": "14",   "accum_dep": None,    "dep_exp": None},
+    "buildings":  {"asset": "112",   "accum_dep": "22201", "dep_exp": "333"},
+    "machinery":  {"asset": "114",   "accum_dep": "22202", "dep_exp": "313"},   # production → cost of activity
+    "computers":  {"asset": "116",   "accum_dep": "22204", "dep_exp": "333"},   # 22204 = أثاث وأجهزة
+    "vehicles":   {"asset": "113",   "accum_dep": "22203", "dep_exp": "333"},
+    "furniture":  {"asset": "115",   "accum_dep": "22204", "dep_exp": "333"},
+    "intangible": {"asset": "117",   "accum_dep": "22205", "dep_exp": "333"},
+    "land":       {"asset": "11101", "accum_dep": None,    "dep_exp": None},   # 111 is a header
+    "wip":        {"asset": "1491",   "accum_dep": None,    "dep_exp": None},
+}
+
+# Fixed assets bought but not yet in use. "14" is a header in the chart (it
+# refuses postings) and 142 is real-estate development, so a dedicated child
+# account is needed; until it exists only "ready for use" purchases can post.
+WIP_ACCOUNT_CODE = "1491"   # 143 is the contracting pack's unbilled revenue
+
+# Assets created by the older /api/financial/assets screen share the same
+# collection with other type keys; map them so they still depreciate/dispose.
+LEGACY_TYPE_ACCOUNTS = {
+    "software":  {"asset": "116", "accum_dep": "22204", "dep_exp": "333"},
+    "goodwill":  {"asset": "116", "accum_dep": "22204", "dep_exp": "333"},
+    "leasehold": {"asset": "115", "accum_dep": "22204", "dep_exp": "333"},
+    "other":     {"asset": "116", "accum_dep": "22204", "dep_exp": "333"},
 }
 
 

@@ -87,6 +87,13 @@ async def create_budget_line(
         raise HTTPException(400, "مبلغ الموازنة يجب أن يكون موجباً")
     if req.control_action not in ("warning_only", "hard_stop_prevent_entry"):
         raise HTTPException(400, "control_action غير صحيح")
+    # A budget on a code that is not in the chart could never show any actual
+    # spending (it silently read 0 for ever). Validate it, and take the name
+    # from the chart rather than from the request.
+    acc = await db.chart_of_accounts.find_one(
+        {"company_id": company_id, "account_code": req.account_code}, {"_id": 0})
+    if not acc:
+        raise HTTPException(400, f"الحساب {req.account_code} غير موجود في دليل الحسابات")
 
     # Upsert: replace if same fiscal_year + account + centers
     filter_key = {
@@ -104,11 +111,12 @@ async def create_budget_line(
     doc = {
         **filter_key,
         "id":              line_id,
-        "account_name":    req.account_name or req.account_code,
+        "account_name":    acc.get("account_name") or req.account_name or req.account_code,
+        "is_header":       _is_header(acc),
+        "allocated_amount": round(float(req.allocated_amount), 2),
         "cost_center_name": req.cost_center_name,
         "project_name":    req.project_name,
         "department_name": req.department_name,
-        "allocated_amount": req.allocated_amount,
         "control_action":  req.control_action,
         "notes":           req.notes,
         "created_by":      current_user["user_id"],
@@ -154,6 +162,8 @@ async def create_budget_bulk(
             req = BudgetLineRequest(**{**line, "fiscal_year": data.get("fiscal_year", line.get("fiscal_year"))})
             await create_budget_line(req, current_user)
             created += 1
+        except HTTPException as e:
+            errors.append({"row": i+1, "error": e.detail})   # str(HTTPException) was empty
         except Exception as e:
             errors.append({"row": i+1, "error": str(e)})
 
@@ -237,6 +247,83 @@ async def delete_budget_line(line_id: str,
     return {"message": "تم حذف سطر الموازنة"}
 
 
+def _is_header(acc: dict) -> bool:
+    return bool(acc.get("is_header")) or acc.get("allow_posting") is False \
+        or acc.get("account_category") == "header"
+
+
+def _nature(acc: dict) -> str:
+    t = getattr(acc.get("account_type"), "value", acc.get("account_type"))
+    if acc.get("normal_balance") in ("debit", "credit"):
+        return acc["normal_balance"]
+    return "debit" if t in ("asset", "expense", "contra_liability", "contra_equity") else "credit"
+
+
+async def _postable_accounts(company_id: str, account_code: str) -> list:
+    """The account itself, or — for a header — every postable account below it."""
+    accounts = await db.chart_of_accounts.find(
+        {"company_id": company_id}, {"_id": 0, "id": 1, "account_code": 1, "parent_code": 1,
+                                     "is_header": 1, "allow_posting": 1, "account_category": 1,
+                                     "account_type": 1, "normal_balance": 1}).to_list(None)
+    by_code = {a["account_code"]: a for a in accounts}
+    root = by_code.get(account_code)
+    if not root:
+        return []
+    if not _is_header(root):
+        return [root]
+    children = {}
+    for a in accounts:
+        children.setdefault(a.get("parent_code"), []).append(a)
+    out, stack, seen = [], [account_code], set()
+    while stack:
+        code = stack.pop()
+        if code in seen:
+            continue
+        seen.add(code)
+        for ch in children.get(code, []):
+            if _is_header(ch):
+                stack.append(ch["account_code"])
+            else:
+                out.append(ch)
+    return out
+
+
+async def _ledger_actual(company_id: str, account_code: str, start: str, end: str,
+                         cost_center_id: Optional[str] = None,
+                         project_id: Optional[str] = None) -> float:
+    accounts = await _postable_accounts(company_id, account_code)
+    if not accounts:
+        return 0.0
+    ids = [a["id"] for a in accounts]
+    nature = {a["id"]: _nature(a) for a in accounts}
+    rows = await db.general_ledger.find(
+        {"company_id": company_id, "account_id": {"$in": ids},
+         "entry_date": {"$gte": start, "$lte": end}},
+        {"_id": 0, "account_id": 1, "journal_entry_id": 1, "debit": 1, "credit": 1}).to_list(None)
+    if cost_center_id or project_id:
+        # the ledger row has no cost centre/project; those live on the journal
+        # line, so take the matching lines of the entries that reached the ledger
+        je_ids = list({r["journal_entry_id"] for r in rows if r.get("journal_entry_id")})
+        total = 0.0
+        async for je in db.journal_entries.find(
+                {"company_id": company_id, "id": {"$in": je_ids}}, {"_id": 0, "lines": 1}):
+            for ln in je.get("lines") or []:
+                if ln.get("account_id") not in nature:
+                    continue
+                if cost_center_id and ln.get("cost_center_id") != cost_center_id:
+                    continue
+                if project_id and ln.get("project_id") != project_id:
+                    continue
+                d, c = float(ln.get("debit") or 0), float(ln.get("credit") or 0)
+                total += (d - c) if nature[ln["account_id"]] == "debit" else (c - d)
+        return round(total, 2)
+    total = 0.0
+    for r in rows:
+        d, c = float(r.get("debit") or 0), float(r.get("credit") or 0)
+        total += (d - c) if nature[r["account_id"]] == "debit" else (c - d)
+    return round(total, 2)
+
+
 # ══════════════════════════════════════════════════════════════
 # 2. BUDGET VALIDATION ENGINE — محرك فحص الموازنة
 # ══════════════════════════════════════════════════════════════
@@ -256,23 +343,15 @@ async def _get_spent_and_committed(
     year_start = f"{fiscal_year}-01-01"
     year_end   = f"{fiscal_year}-12-31"
 
-    # ── Actual Spent: sum of debit entries for this account ──
-    match_q = {
-        "company_id": company_id, "status": "posted",
-        "entry_date": {"$gte": year_start, "$lte": year_end},
-    }
-    pipeline_actual = [
-        {"$match": match_q},
-        {"$unwind": "$lines"},
-        {"$match": {
-            "lines.account_code": account_code,
-            **({} if not cost_center_id else {"lines.cost_center_id": cost_center_id}),
-            **({} if not project_id     else {"lines.project_id":     project_id}),
-        }},
-        {"$group": {"_id": None, "total": {"$sum": "$lines.debit"}}},
-    ]
-    actual_res = await db.journal_entries.aggregate(pipeline_actual).to_list(1)
-    actual = float(actual_res[0]["total"]) if actual_res else 0.0
+    # ── Actual: posted movement in the GENERAL LEDGER, signed by nature ──
+    # It used to sum only the DEBIT side of journal lines with that code:
+    # credits (reversals, refunds, corrections) never reduced the actual, a
+    # revenue budget always read ~0, and drafts in journal_entries mixed with
+    # what was really posted. A header budget line (e.g. 33 admin expenses)
+    # also read 0 because nothing is posted to a header — it now rolls up the
+    # postable accounts under it, skipping headers themselves.
+    actual = await _ledger_actual(company_id, account_code, year_start, year_end,
+                                  cost_center_id, project_id)
 
     # ── Committed: pending purchase orders ────────────────────
     po_q = {
@@ -330,6 +409,9 @@ async def check_budget(
         "account_code":  req.account_code,
         "cost_center_id": req.cost_center_id,
         "project_id":    req.project_id,
+        # lines are keyed on department too; without it any department's line
+        # (the first one found) was used for the check
+        "department_id": req.department_id,
     }, {"_id": 0})
 
     check_id = str(uuid.uuid4())
@@ -464,7 +546,7 @@ async def request_budget_override(
 
     # Mark the check as pending override
     await db.budget_checks.update_one(
-        {"check_id": req.budget_check_id},
+        {"check_id": req.budget_check_id, "company_id": company_id},
         {"$set": {"override_status": "pending", "override_id": override_id}}
     )
 
@@ -493,11 +575,17 @@ async def approve_override(
         raise HTTPException(404, "طلب التجاوز غير موجود")
     if override["status"] != "pending_cfo":
         raise HTTPException(400, f"الطلب في حالة '{override['status']}'")
+    if decision not in ("approved", "rejected"):
+        raise HTTPException(400, "القرار يجب أن يكون approved أو rejected")
+    # whoever asked to exceed the budget could approve their own request,
+    # which defeats the control (segregation of duties)
+    if override.get("requested_by") == current_user["user_id"]:
+        raise HTTPException(403, "لا يمكن اعتماد طلب تجاوز قدّمته بنفسك — يعتمده مسؤول آخر")
 
     now = datetime.now(timezone.utc).isoformat()
     new_status = "approved" if decision == "approved" else "rejected"
 
-    await db.budget_overrides.update_one({"id": override_id}, {"$set": {
+    await db.budget_overrides.update_one({"id": override_id, "company_id": company_id}, {"$set": {
         "status":      new_status,
         "approved_by": current_user["user_id"],
         "approved_at": now,
@@ -506,7 +594,7 @@ async def approve_override(
 
     # Update the budget check
     await db.budget_checks.update_one(
-        {"override_id": override_id},
+        {"override_id": override_id, "company_id": company_id},
         {"$set": {"override_status": new_status}}
     )
 

@@ -31,6 +31,7 @@ PREFIX_PERMISSIONS = [
     ("/api/revenues", {FIN}),
     ("/api/tax-reports", {FIN}),
     ("/api/fixed-assets", {FIN}),
+    ("/api/db-performance", {FIN}),   # trial-balance snapshots / indexes (moved off /api/performance, which is HR)
     ("/api/consolidation", {FIN}),
     ("/api/invoices", {"invoices", FIN, "sales", "purchases"}),
     ("/api/invoice", {"invoices", FIN, "sales", "purchases"}),
