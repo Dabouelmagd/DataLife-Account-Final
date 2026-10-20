@@ -67,7 +67,7 @@ export function GpsPunchButton({ onDone, className = '' }) {
     if (!navigator.geolocation) { setState({ busy: false, msg: { err: true, text: 'المتصفح لا يدعم تحديد الموقع' } }); return; }
     navigator.geolocation.getCurrentPosition(async (pos) => {
       try {
-        const { data } = await axios.post(`${API}/api/ess/attendance/check-${kind}`,
+        const { data } = await axios.post(kind === "in" ? `${API}/api/ess/attendance/check-in` : `${API}/api/ess/attendance/check-out`,
           { latitude: pos.coords.latitude, longitude: pos.coords.longitude, device_id: 'web' }, auth());
         const d = data.geofence?.distance_m;
         setState({ busy: false, msg: { text: `${data.message}${d != null ? ` — على بعد ${Math.round(d)} م من موقع العمل` : ''}` } });
