@@ -233,6 +233,22 @@ async def get_pending_updates(
     return {"updates": updates}
 
 
+@router.get("/history")
+async def updates_history(current_user: dict = Depends(get_current_user)):
+    """سجل كل التحديثات المنشورة — الجديد منها (لم تؤكده الشركة) معلَّم.
+    The page is titled «سجل كامل» but showed only the unseen ones, so it went
+    empty as soon as an update was acknowledged."""
+    company_id = current_user.get("company_id")
+    rows = await db.app_updates.find({"is_active": True},
+                                     {"_id": 0, "seen_by": 0, "updated_by": 0, "emails_sent": 0}
+                                     ).sort("created_at", -1).to_list(100)
+    seen = {u["id"] for u in await db.app_updates.find(
+        {"is_active": True, "seen_by": company_id}, {"_id": 0, "id": 1}).to_list(100)} if company_id else set()
+    for u in rows:
+        u["is_new"] = u["id"] not in seen
+    return {"updates": rows}
+
+
 # ─────────────────────────────────────────────
 # الشركة: تأكيد "رأيت التحديث / حدّثت"
 # ─────────────────────────────────────────────

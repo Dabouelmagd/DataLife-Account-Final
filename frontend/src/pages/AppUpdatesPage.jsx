@@ -48,16 +48,15 @@ export default function AppUpdatesPage() {
   const fetchUpdates = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API}/api/updates/pending`, {
+      // the full log; the ones this company has not acknowledged are marked new
+      const res = await fetch(`${API}/api/updates/history`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) return;
       const data = await res.json();
-      const pendingList = data.updates || [];
-      setPendingIds(new Set(pendingList.map(u => u.id)));
-
-      // Also get seen updates — for now we show pending only
-      setUpdates(pendingList);
+      const list = data.updates || [];
+      setPendingIds(new Set(list.filter(u => u.is_new).map(u => u.id)));
+      setUpdates(list);
     } catch { /* silent */ } finally {
       setLoading(false);
       setRefreshing(false);
