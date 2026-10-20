@@ -836,6 +836,158 @@ async def get_payroll_run(
     return run
 
 
+# ── كشف المرتبات التفصيلي ────────────────────────────────────
+# deduction columns, in the order a payroll sheet shows them; every deduction
+# of a run falls in exactly one, so the columns add up to total_deductions
+SHEET_DEDUCTIONS = [
+    ("social_insurance", "تأمينات (حصة الموظف)"), ("income_tax", "ضريبة كسب العمل"),
+    ("loans", "أقساط السلف"), ("late", "خصم تأخير"), ("absence", "خصم غياب"),
+    ("penalties", "جزاءات"), ("other", "خصومات أخرى"),
+]
+
+
+def _deduction_column(d: dict) -> str:
+    t, name = d.get("deduction_type"), str(d.get("name") or "")
+    if t in ("social_insurance", "income_tax", "absence", "late"):
+        return t
+    if t in ("loan", "advance"):
+        return "loans"
+    if t == "penalty":
+        return "penalties"
+    if "تأخير" in name:
+        return "late"
+    if "غياب" in name:
+        return "absence"
+    return "other"
+
+
+async def build_payroll_sheet(run: dict, company_id: str, department: str = None, branch: str = None) -> dict:
+    emps = run.get("employees") or []
+    # older runs did not store the code or branch: read them from the employee
+    ids = [e.get("employee_id") for e in emps if not e.get("branch") or not e.get("employee_code")]
+    extra = {x["id"]: x for x in await db.employees.find(
+        {"company_id": company_id, "id": {"$in": ids}},
+        {"_id": 0, "id": 1, "employee_code": 1, "branch": 1, "department": 1}).to_list(None)} if ids else {}
+
+    allowance_cols, rows = [], []
+    for e in emps:
+        x = extra.get(e.get("employee_id"), {})
+        row = {
+            "employee_id": e.get("employee_id"), "employee_code": e.get("employee_code") or x.get("employee_code") or "",
+            "employee_name": e.get("employee_name") or "", "position": e.get("position") or e.get("job_title") or "",
+            "department": e.get("department") or x.get("department") or "", "branch": e.get("branch") or x.get("branch") or "",
+            "basic_salary": round(float(e.get("basic_salary") or 0), 2), "allowances": {},
+            "total_allowances": round(float(e.get("total_allowances") or 0), 2),
+            "gross_salary": round(float(e.get("gross_salary") or 0), 2),
+            "insured_salary": round(float(e.get("insured_salary") or 0), 2),
+            "deductions": {k: 0.0 for k, _ in SHEET_DEDUCTIONS},
+            "total_deductions": round(float(e.get("total_deductions") or 0), 2),
+            "net_salary": round(float(e.get("net_salary") or 0), 2),
+            "company_social_insurance": round(float(e.get("company_social_insurance") or 0), 2),
+            "present_days": (e.get("attendance_summary") or {}).get("present_days"),
+            "absent_days": (e.get("attendance_summary") or {}).get("absent_days"),
+            "overtime_hours": (e.get("attendance_summary") or {}).get("total_overtime_hours"),
+            "bank_iban": e.get("bank_iban") or "",
+        }
+        for a in e.get("allowances") or []:
+            name = str(a.get("name") or a.get("allowance_type") or "بدل")
+            if name not in allowance_cols:
+                allowance_cols.append(name)
+            row["allowances"][name] = round(row["allowances"].get(name, 0) + float(a.get("amount") or 0), 2)
+        for d in e.get("deductions") or []:
+            k = _deduction_column(d)
+            row["deductions"][k] = round(row["deductions"][k] + float(d.get("amount") or 0), 2)
+        row["total_cost"] = round(row["gross_salary"] + row["company_social_insurance"], 2)
+        rows.append(row)
+
+    departments = sorted({r["department"] for r in rows if r["department"]})
+    branches = sorted({r["branch"] for r in rows if r["branch"]})
+    if department:
+        rows = [r for r in rows if (r["department"] or "") == department]
+    if branch:
+        rows = [r for r in rows if (r["branch"] or "") == branch]
+
+    def tot(f):
+        return round(sum(f(r) for r in rows), 2)
+    totals = {
+        "employees": len(rows),
+        "basic_salary": tot(lambda r: r["basic_salary"]),
+        "allowances": {c: tot(lambda r, c=c: r["allowances"].get(c, 0)) for c in allowance_cols},
+        "total_allowances": tot(lambda r: r["total_allowances"]),
+        "gross_salary": tot(lambda r: r["gross_salary"]),
+        "deductions": {k: tot(lambda r, k=k: r["deductions"][k]) for k, _ in SHEET_DEDUCTIONS},
+        "total_deductions": tot(lambda r: r["total_deductions"]),
+        "net_salary": tot(lambda r: r["net_salary"]),
+        "company_social_insurance": tot(lambda r: r["company_social_insurance"]),
+        "total_cost": tot(lambda r: r["total_cost"]),
+    }
+    # a deduction column nobody has is left out of the sheet
+    used = [{"key": k, "label": l} for k, l in SHEET_DEDUCTIONS if totals["deductions"][k] or k in ("social_insurance", "income_tax")]
+    by_department = {}
+    for r in rows:
+        g = by_department.setdefault(r["department"] or "بدون قسم", {"employees": 0, "gross_salary": 0.0, "net_salary": 0.0, "total_cost": 0.0})
+        g["employees"] += 1
+        for k in ("gross_salary", "net_salary", "total_cost"):
+            g[k] = round(g[k] + r[k], 2)
+    return {"run": {k: run.get(k) for k in ("id", "run_number", "month", "status", "journal_entry_id")},
+            "allowance_columns": allowance_cols, "deduction_columns": used, "rows": rows, "totals": totals,
+            "departments": departments, "branches": branches, "by_department": by_department}
+
+
+@router.get("/runs/{run_id}/sheet")
+async def payroll_sheet(run_id: str, department: Optional[str] = None, branch: Optional[str] = None,
+                        format: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    """كشف المرتبات بكل مشتملاته لكل موظف — مع فلتر بالإدارة / القسم والفرع، وتصدير Excel."""
+    run = await db.payroll_runs.find_one({"id": run_id, "company_id": current_user["company_id"]}, {"_id": 0})
+    if not run:
+        raise HTTPException(404, "مسير الرواتب غير موجود")
+    sheet = await build_payroll_sheet(run, current_user["company_id"], department, branch)
+    if format != "xlsx":
+        return sheet
+
+    import io, xlsxwriter
+    out = io.BytesIO()
+    wb = xlsxwriter.Workbook(out, {"in_memory": True})
+    ws = wb.add_worksheet("كشف المرتبات")
+    ws.right_to_left()
+    hdr = wb.add_format({"bold": True, "bg_color": "#1e3a8a", "font_color": "white", "align": "center",
+                         "valign": "vcenter", "text_wrap": True, "border": 1, "font_name": "Arial"})
+    num = wb.add_format({"num_format": "#,##0.00", "border": 1, "font_name": "Arial"})
+    txt = wb.add_format({"border": 1, "font_name": "Arial"})
+    tot = wb.add_format({"bold": True, "bg_color": "#dbeafe", "num_format": "#,##0.00", "border": 1, "font_name": "Arial"})
+    title = f"كشف مرتبات {run.get('month', '')}" + (f" — {department}" if department else "") + (f" — {branch}" if branch else "")
+    ws.write(0, 0, title, wb.add_format({"bold": True, "font_size": 14, "font_name": "Arial"}))
+    cols = (["#", "الكود", "الموظف", "الوظيفة", "الإدارة / القسم", "الفرع", "الأساسي"]
+            + sheet["allowance_columns"] + ["إجمالي البدلات", "إجمالي الاستحقاق", "الأجر التأميني"]
+            + [d["label"] for d in sheet["deduction_columns"]] + ["إجمالي الخصومات", "صافي المرتب",
+               "تأمينات (حصة الشركة)", "التكلفة على الشركة"])
+    for c, h in enumerate(cols):
+        ws.write(2, c, h, hdr)
+        ws.set_column(c, c, 22 if c in (2, 3, 4) else 13)
+    for i, r in enumerate(sheet["rows"], 1):
+        vals = ([i, r["employee_code"], r["employee_name"], r["position"], r["department"], r["branch"], r["basic_salary"]]
+                + [r["allowances"].get(c, 0) for c in sheet["allowance_columns"]]
+                + [r["total_allowances"], r["gross_salary"], r["insured_salary"]]
+                + [r["deductions"][d["key"]] for d in sheet["deduction_columns"]]
+                + [r["total_deductions"], r["net_salary"], r["company_social_insurance"], r["total_cost"]])
+        for c, v in enumerate(vals):
+            ws.write(2 + i, c, v, num if isinstance(v, (int, float)) and c >= 6 else txt)
+    t = sheet["totals"]
+    last = 3 + len(sheet["rows"])
+    tvals = (["الإجمالي", "", f"{t['employees']} موظف", "", "", "", t["basic_salary"]]
+             + [t["allowances"][c] for c in sheet["allowance_columns"]]
+             + [t["total_allowances"], t["gross_salary"], ""]
+             + [t["deductions"][d["key"]] for d in sheet["deduction_columns"]]
+             + [t["total_deductions"], t["net_salary"], t["company_social_insurance"], t["total_cost"]])
+    for c, v in enumerate(tvals):
+        ws.write(last, c, v, tot)
+    ws.freeze_panes(3, 3)
+    wb.close()
+    return Response(content=out.getvalue(),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="payroll_sheet_{run.get("month", "")}.xlsx"'})
+
+
 @router.post("/runs")
 async def create_payroll_run(
     request: PayrollRunRequest,
@@ -1091,7 +1243,9 @@ async def calculate_payroll(
         emp_payroll_data = {
             "employee_id": emp["id"],
             "employee_name": emp.get("name"),
+            "employee_code": emp.get("employee_code"),
             "department": emp.get("department"),
+            "branch": emp.get("branch"),
             "position": emp.get("position"),
             "basic_salary": basic_salary,
             "allowances": [a.dict() for a in allowances],

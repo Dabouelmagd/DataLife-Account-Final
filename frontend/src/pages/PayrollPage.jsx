@@ -10,6 +10,7 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { toast } from 'sonner';
 import { useLanguage } from '../contexts/LanguageContext';
+import PayrollSheet from '../components/PayrollSheet';
 
 const API = process.env.REACT_APP_BACKEND_URL + '/api/payroll';
 
@@ -557,6 +558,7 @@ export default function PayrollPage() {
 
   const tabs = [
     { id: 'runs', icon: Calendar, label: text.runs },
+    { id: 'sheet', icon: FileText, label: language === 'ar' ? 'كشف المرتبات التفصيلي' : 'Payroll sheet' },
     { id: 'loans', icon: CreditCard, label: text.loans },
     { id: 'endOfService', icon: UserX, label: text.endOfService },
     { id: 'reports', icon: FileText, label: text.reports },
@@ -749,6 +751,8 @@ export default function PayrollPage() {
         )}
 
         {/* Loans Tab */}
+        {activeTab === 'sheet' && <PayrollSheet />}
+
         {activeTab === 'loans' && (
           <>
             <div className="flex justify-between items-center mb-4">
