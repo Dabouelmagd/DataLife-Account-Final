@@ -95,25 +95,169 @@ async def create_kpi_template(req: KPITemplate,
     """إنشاء قالب KPI لقسم أو وظيفة"""
     company_id = current_user["company_id"]
 
-    # Validate weights sum to 100
-    if not req.kpis:
-        raise HTTPException(400, "أضف مؤشراً واحداً على الأقل")
-    if any(float(k.get("weight", 0) or 0) <= 0 for k in req.kpis):
-        raise HTTPException(400, "وزن كل مؤشر يجب أن يكون أكبر من صفر")
-    total_weight = sum(float(k.get("weight", 0)) for k in req.kpis)
-    if abs(total_weight - 100) > 0.01:
-        raise HTTPException(400, f"مجموع الأوزان = {total_weight:.1f}% — يجب أن يكون 100%")
+    kpis, total_weight = _clean_kpis(req.kpis)
+    if not req.name.strip():
+        raise HTTPException(400, "اسم القالب مطلوب")
 
     tmpl = {
         "id": str(uuid.uuid4()), "company_id": company_id,
-        "name": req.name, "department": req.department,
-        "kpis": req.kpis, "total_weight": total_weight,
-        "kpi_count": len(req.kpis),
+        "name": req.name.strip(), "department": (req.department or "").strip() or None,
+        "kpis": kpis, "total_weight": total_weight,
+        "kpi_count": len(kpis),
         "created_by": current_user["user_id"],
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.kpi_templates.insert_one(tmpl); tmpl.pop("_id", None)
     return {"message": f"✅ تم إنشاء قالب KPI '{req.name}'", "template": tmpl}
+
+
+# ── مكتبة مقاييس الأداء الجاهزة ─────────────────────────────
+# Starting sets a company loads and edits. Each KPI says how it is measured;
+# direction "lower" means a smaller actual is better (errors, days, turnover).
+def _k(name, weight, description, target="", unit="", direction="higher"):
+    return {"name": name, "name_ar": name, "weight": weight, "description": description,
+            "target": target, "unit": unit, "direction": direction}
+
+
+KPI_LIBRARY = [
+    {"name": "الكفاءات العامة", "department": None, "kpis": [
+        _k("جودة العمل ودقته", 25, "خلو العمل من الأخطاء ومطابقته للمطلوب من أول مرة"),
+        _k("الإنتاجية والالتزام بالمواعيد", 20, "إنجاز المهام المسندة في وقتها المحدد", "100", "% من المهام"),
+        _k("الانضباط والحضور", 15, "الالتزام بمواعيد العمل وقلة الغياب والتأخير"),
+        _k("العمل الجماعي والتعاون", 15, "التعاون مع الزملاء والإدارات الأخرى ومشاركة المعرفة"),
+        _k("المبادرة وحل المشكلات", 15, "اقتراح حلول وتحسينات والتصرف دون انتظار التوجيه"),
+        _k("التعلم والتطوير الذاتي", 10, "اكتساب مهارات جديدة وإكمال التدريب المطلوب"),
+    ]},
+    {"name": "المبيعات", "department": "المبيعات", "kpis": [
+        _k("تحقيق المستهدف البيعي", 40, "قيمة المبيعات الفعلية ÷ المستهدف", "", "ج.م"),
+        _k("عملاء جدد", 15, "عدد العملاء الجدد خلال الفترة", "", "عميل"),
+        _k("التحصيل في الموعد", 15, "نسبة المبالغ المحصلة في تاريخ استحقاقها", "95", "%"),
+        _k("هامش الربح على الصفقات", 10, "متوسط هامش الربح مقارنة بالمستهدف", "", "%"),
+        _k("رضا العملاء", 10, "نتيجة استبيان رضا العملاء", "90", "%"),
+        _k("تحديث بيانات العملاء والتقارير", 10, "انتظام تقارير الزيارات وتحديث بيانات العملاء"),
+    ]},
+    {"name": "المحاسبة والمالية", "department": "المالية", "kpis": [
+        _k("إقفال الشهر في موعده", 25, "عدد أيام التأخير في الإقفال الشهري عن الموعد", "0", "يوم", "lower"),
+        _k("دقة القيود", 25, "عدد القيود المصححة أو المعكوسة بسبب خطأ", "0", "قيد", "lower"),
+        _k("الإقرارات الضريبية في موعدها", 20, "تقديم الإقرارات والنماذج دون تأخير أو غرامات", "100", "%"),
+        _k("التسويات البنكية الشهرية", 15, "مطابقة كل الحسابات البنكية شهرياً", "100", "%"),
+        _k("الالتزام بالسياسات والرقابة", 15, "خلو المراجعة من ملاحظات جوهرية"),
+    ]},
+    {"name": "الموارد البشرية", "department": "الموارد البشرية", "kpis": [
+        _k("مدة شغل الوظيفة الشاغرة", 20, "متوسط الأيام من فتح الوظيفة حتى التعيين", "30", "يوم", "lower"),
+        _k("معدل دوران العاملين", 20, "نسبة من تركوا العمل خلال الفترة", "10", "%", "lower"),
+        _k("دقة وموعد مسير الرواتب", 25, "صرف الرواتب في موعدها دون أخطاء", "100", "%"),
+        _k("تنفيذ خطة التدريب", 15, "نسبة البرامج التدريبية المنفذة من الخطة", "100", "%"),
+        _k("رضا العاملين", 20, "نتيجة استبيان رضا العاملين", "80", "%"),
+    ]},
+    {"name": "خدمة العملاء", "department": "خدمة العملاء", "kpis": [
+        _k("رضا العملاء", 30, "تقييم العملاء بعد كل تواصل", "90", "%"),
+        _k("زمن الاستجابة", 20, "متوسط زمن الرد الأول على العميل", "15", "دقيقة", "lower"),
+        _k("الحل من أول تواصل", 20, "نسبة الحالات المحلولة دون متابعة", "75", "%"),
+        _k("عدد الحالات المغلقة", 15, "الحالات المغلقة خلال الفترة", "", "حالة"),
+        _k("الشكاوى المصعّدة", 15, "عدد الشكاوى التي احتاجت تصعيداً للمدير", "0", "شكوى", "lower"),
+    ]},
+    {"name": "العمليات والإنتاج والمخازن", "department": "العمليات", "kpis": [
+        _k("الإنتاجية مقابل المستهدف", 30, "الكمية المنتجة أو المنجزة ÷ المستهدف", "100", "%"),
+        _k("نسبة الهالك والمرتجعات", 20, "الهالك أو المرتجع ÷ الإجمالي", "2", "%", "lower"),
+        _k("التسليم في الموعد", 20, "نسبة الطلبات المسلمة في موعدها", "95", "%"),
+        _k("السلامة المهنية", 15, "عدد الحوادث أو المخالفات", "0", "حادثة", "lower"),
+        _k("دقة الجرد", 15, "الفرق بين الجرد الفعلي والدفتري", "0.5", "%", "lower"),
+    ]},
+    {"name": "المديرون ورؤساء الأقسام", "department": None, "kpis": [
+        _k("تحقيق أهداف الإدارة", 30, "نسبة ما تحقق من أهداف الإدارة المعتمدة", "100", "%"),
+        _k("الالتزام بالموازنة", 20, "الإنفاق الفعلي مقارنة بالموازنة", "100", "%", "lower"),
+        _k("تطوير الفريق", 15, "تدريب الفريق وتطويره وتجهيز بدلاء"),
+        _k("استقرار ورضا الفريق", 15, "دوران الفريق ونتيجة رضاه"),
+        _k("اتخاذ القرار وحل المشكلات", 10, "سرعة وجودة القرارات"),
+        _k("التواصل والتقارير", 10, "انتظام ووضوح التقارير للإدارة العليا"),
+    ]},
+]
+
+
+def _clean_kpis(kpis: list) -> tuple:
+    if not kpis:
+        raise HTTPException(400, "أضف مؤشراً واحداً على الأقل")
+    out = []
+    for k in kpis:
+        name = str(k.get("name_ar") or k.get("name") or "").strip()
+        if not name:
+            raise HTTPException(400, "اسم المؤشر مطلوب")
+        w = float(k.get("weight", 0) or 0)
+        if w <= 0:
+            raise HTTPException(400, f"وزن «{name}» يجب أن يكون أكبر من صفر")
+        out.append({"name": name, "name_ar": name, "weight": w,
+                    "description": str(k.get("description") or "")[:300],
+                    "target": str(k.get("target") or "")[:40], "unit": str(k.get("unit") or "")[:30],
+                    "direction": "lower" if k.get("direction") == "lower" else "higher"})
+    total = round(sum(k["weight"] for k in out), 2)
+    if abs(total - 100) > 0.01:
+        raise HTTPException(400, f"مجموع الأوزان = {total:g}% — يجب أن يكون 100%")
+    return out, total
+
+
+@router.get("/kpi-library")
+async def kpi_library(current_user: dict = Depends(get_current_user)):
+    return {"library": KPI_LIBRARY}
+
+
+@router.post("/kpi-templates/defaults")
+async def load_default_templates(current_user: dict = Depends(get_current_user)):
+    """إضافة مقاييس الأداء الجاهزة (ما لم يكن قالب بنفس الاسم موجوداً)."""
+    company_id = current_user["company_id"]
+    have = {t["name"] for t in await db.kpi_templates.find({"company_id": company_id}, {"_id": 0, "name": 1}).to_list(None)}
+    added = 0
+    for t in KPI_LIBRARY:
+        if t["name"] in have:
+            continue
+        kpis, total = _clean_kpis(t["kpis"])
+        await db.kpi_templates.insert_one({
+            "id": str(uuid.uuid4()), "company_id": company_id, "name": t["name"], "department": t["department"],
+            "kpis": kpis, "total_weight": total, "kpi_count": len(kpis), "is_default": True,
+            "created_by": current_user["user_id"], "created_at": datetime.now(timezone.utc).isoformat()})
+        added += 1
+    return {"message": f"تمت إضافة {added} مجموعة مقاييس" if added else "المقاييس الجاهزة مضافة بالفعل", "added": added}
+
+
+@router.put("/kpi-templates/{template_id}")
+async def update_kpi_template(template_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    company_id = current_user["company_id"]
+    if not await db.kpi_templates.find_one({"id": template_id, "company_id": company_id}, {"_id": 1}):
+        raise HTTPException(404, "القالب غير موجود")
+    name = str(data.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "اسم القالب مطلوب")
+    kpis, total = _clean_kpis(data.get("kpis") or [])
+    await db.kpi_templates.update_one({"id": template_id, "company_id": company_id}, {"$set": {
+        "name": name, "department": (str(data.get("department") or "").strip() or None),
+        "kpis": kpis, "total_weight": total, "kpi_count": len(kpis),
+        "updated_at": datetime.now(timezone.utc).isoformat()}})
+    return {"message": "تم حفظ المقاييس"}
+
+
+@router.delete("/kpi-templates/{template_id}")
+async def delete_kpi_template(template_id: str, current_user: dict = Depends(get_current_user)):
+    r = await db.kpi_templates.delete_one({"id": template_id, "company_id": current_user["company_id"]})
+    if not r.deleted_count:
+        raise HTTPException(404, "القالب غير موجود")
+    return {"message": "تم حذف القالب — التقييمات السابقة لا تتأثر"}
+
+
+@router.get("/employee/{employee_id}/appraisals")
+async def employee_appraisals(employee_id: str, current_user: dict = Depends(get_current_user)):
+    """كل تقييمات موظف بالتفصيل — لصفحة الموظف."""
+    company_id = current_user["company_id"]
+    if not await db.employees.find_one({"id": employee_id, "company_id": company_id}, {"_id": 1}):
+        raise HTTPException(404, "الموظف غير موجود")
+    rows = await db.employee_appraisals.find({"company_id": company_id, "employee_id": employee_id},
+                                             {"_id": 0}).sort("review_date", -1).to_list(200)
+    approved = [a for a in rows if a.get("status") == "approved"]
+    latest = approved[0] if approved else None
+    return {"appraisals": rows, "total": len(rows),
+            "latest_score": latest.get("kpi_score") if latest else None,
+            "latest_rating": latest.get("rating_ar") if latest else None,
+            "average_score": round(sum(float(a.get("kpi_score") or 0) for a in approved) / len(approved), 2) if approved else None,
+            "trend": [{"period": a.get("review_period"), "score": a.get("kpi_score")} for a in reversed(approved)]}
 
 
 @router.get("/kpi-templates")
@@ -200,7 +344,7 @@ async def create_appraisal(req: AppraisalRequest,
         "employee_id":      req.employee_id,
         "employee_name":    emp.get("name",""),
         "department":       emp.get("department",""),
-        "job_title":        emp.get("job_title",""),
+        "job_title":        emp.get("job_title") or emp.get("position", ""),
         "current_salary":   float(emp.get("basic_salary", 0)),
         "review_period":    req.review_period,
         "period_type":      req.period_type,

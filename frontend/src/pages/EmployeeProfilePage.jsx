@@ -6,6 +6,7 @@ import {
   Briefcase, Heart, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { EmployeeAppraisals } from '../components/hr/Performance';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 const DOC_TYPE_AR = {
@@ -575,6 +576,7 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
     { id: 'employment', label: t.employment, icon: Briefcase },
     { id: 'salary', label: t.salary, icon: DollarSign },
     { id: 'documents', label: t.documents, icon: FileText },
+    { id: 'performance', label: language === 'ar' ? 'تقييم الأداء' : 'Performance', icon: Calendar },
     { id: 'history', label: t.history, icon: Calendar },
   ];
 
@@ -1283,6 +1285,8 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
         )}
 
         {/* Payroll History Tab */}
+        {activeTab === 'performance' && <EmployeeAppraisals employeeId={employeeId} />}
+
         {activeTab === 'history' && (
           <div>
             {payrollHistory.length === 0 ? (

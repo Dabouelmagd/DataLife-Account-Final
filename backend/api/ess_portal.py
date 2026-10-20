@@ -837,6 +837,17 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
     return {"employee": safe, "company_id": company_id}
 
 
+@router.get("/my-appraisals")
+async def my_appraisals(current_user: dict = Depends(get_current_user)):
+    """تقييمات أدائي المعتمدة فقط — المسودات وما لم يُعتمد لا يراها الموظف."""
+    company_id = current_user["company_id"]
+    emp = await get_employee_by_user(current_user["user_id"], company_id)
+    rows = await db.employee_appraisals.find(
+        {"company_id": company_id, "employee_id": emp["id"], "status": "approved"},
+        {"_id": 0, "current_salary": 0, "created_by": 0, "approved_by": 0}).sort("review_date", -1).to_list(100)
+    return {"appraisals": rows, "total": len(rows)}
+
+
 @router.get("/leave/balances")
 async def get_leave_balances(current_user: dict = Depends(get_current_user)):
     """أرصدة الإجازات الخاصة بالموظف المسجل"""
