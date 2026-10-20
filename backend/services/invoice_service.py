@@ -584,9 +584,21 @@ class InvoiceService:
             await self._receive_purchase_stock(invoice)
         if doc_type == DocumentType.SALES_INVOICE.value:
             await self._create_cogs_entry(invoice, user_id, post_entry=(method == "perpetual"))
-        elif doc_type == DocumentType.CREDIT_NOTE.value and invoice.get("restock", True):
+        # Which way goods move on a note depends on the invoice it corrects:
+        #   sales credit note    → customer returned goods: back into stock
+        #   purchase debit note  → goods returned to the supplier: out of stock
+        #   sales debit note / purchase credit note → a price correction, no goods
+        # A debit note against a SALES invoice used to take goods out of stock.
+        note_on_purchase = False
+        if doc_type in (DocumentType.CREDIT_NOTE.value, DocumentType.DEBIT_NOTE.value) \
+                and invoice.get("original_invoice_id"):
+            orig = await self.db.invoices.find_one(
+                {"id": invoice["original_invoice_id"], "company_id": invoice["company_id"]},
+                {"_id": 0, "document_type": 1})
+            note_on_purchase = bool(orig) and orig.get("document_type") == DocumentType.PURCHASE_INVOICE.value
+        if doc_type == DocumentType.CREDIT_NOTE.value and invoice.get("restock", True) and not note_on_purchase:
             await self._create_cogs_entry(invoice, user_id, reverse=True, post_entry=(method == "perpetual"))
-        elif doc_type == DocumentType.DEBIT_NOTE.value and invoice.get("restock", True):
+        elif doc_type == DocumentType.DEBIT_NOTE.value and invoice.get("restock", True) and note_on_purchase:
             # goods handed back to the supplier leave the warehouse
             for line in invoice.get("lines", []):
                 if line.get("product_id") and float(line.get("quantity", 0) or 0):

@@ -416,12 +416,16 @@ const PurchasesModule = () => {
 
   const handleUpdateStatus = async (poNumber, newStatus) => {
     try {
-      await axios.put(
+      const { data } = await axios.put(
         `${API_URL}/api/purchases/orders/${poNumber}/status`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      toast.success(isRTL ? 'تم تحديث الحالة' : 'Status updated');
+      if (data?.purchase_invoice_number) {
+        toast.success(isRTL ? data.message : `Draft purchase invoice ${data.purchase_invoice_number} created — approve it in Invoices to post the entry and receive the stock`, { duration: 8000 });
+      } else {
+        toast.success(isRTL ? 'تم تحديث الحالة' : 'Status updated');
+      }
       fetchOrders();
       fetchStats();
     } catch (error) {

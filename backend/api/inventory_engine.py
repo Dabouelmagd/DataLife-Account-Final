@@ -27,8 +27,11 @@ router = APIRouter(prefix="/api/inventory-engine", tags=["Inventory Engine"])
 # ACCOUNT CODES
 # ══════════════════════════════════════════════════════════════
 ACC = {
-    "inventory":        "121",  # مخزون البضاعة
-    "inventory_wip":    "122",  # إنتاج تحت التشغيل
+    # 125 like the invoices: purchases (perpetual) and the cost of each sale
+    # both use 125, so goods received here into 121 (raw materials) were never
+    # relieved — 121 only grew and 125 went negative
+    "inventory":        "125",  # مخزون بضائع بغرض البيع
+    "inventory_wip":    "126",  # إنتاج تحت التشغيل (122 هو الإنتاج التام)
     "cogs":             "314",  # تكلفة البضاعة المباعة   # كان 321
     "shortage_allowed": "3353",  # عجز نقدية مسموح به (كان 332: مصروفات خدمية)
     "shortage_denied":  "1313",  # مطالبات / عجز غير مسموح (مدين من المسؤول)   # كان 432
@@ -121,7 +124,7 @@ async def receive_inventory(data: dict,
     استلام بضاعة + تحديث التكلفة (متوسط مرجح أو FIFO)
 
     القيد:
-    Dr م/121 مخزون البضاعة   ← (الكمية × التكلفة الشاملة)
+    Dr م/125 مخزون بضائع بغرض البيع   ← (الكمية × التكلفة الشاملة)
     Cr م/251 الموردون / م/112 البنك
     """
     company_id = current_user["company_id"]
@@ -297,7 +300,7 @@ async def apply_landed_costs(req: LandedCostRequest,
     - manual:   يدوي لكل بند
 
     القيد:
-    Dr م/121 مخزون (زيادة التكلفة الموزعة)
+    Dr م/125 مخزون (زيادة التكلفة الموزعة)
     Cr م/251 موردون / م/112 بنك / م/254 رسوم جمركية
     """
     company_id = current_user["company_id"]
@@ -438,14 +441,14 @@ async def reconcile_inventory(req: ReconciliationRequest,
     تسوية الجرد المخزني مع فصل العجز المسموح / غير المسموح
 
     العجز المسموح (ضمن التسامح):
-      Dr م/332 مصروف عجز مسموح | Cr م/121 مخزون
+      Dr م/332 مصروف عجز مسموح | Cr م/125 مخزون
 
     العجز غير المسموح (يتجاوز التسامح):
-      Dr م/432 مطالبات عجز | Cr م/121 مخزون
+      Dr م/432 مطالبات عجز | Cr م/125 مخزون
       (يُحمَّل على المسؤول أو التأمين)
 
     الزيادة (فائض):
-      Dr م/121 مخزون | Cr م/423 إيراد زيادة مخزون
+      Dr م/125 مخزون | Cr م/423 إيراد زيادة مخزون
     """
     company_id = current_user["company_id"]
     je_lines   = []
@@ -565,8 +568,8 @@ async def branch_transfer(req: BranchTransferRequest,
     تحويل بضاعة بين الفروع / المخازن
 
     القيد:
-    Dr م/121 مخزون الفرع المستلِم   ← (كمية × تكلفة)
-    Cr م/121 مخزون الفرع المُرسِل   ← نفس القيمة
+    Dr م/125 مخزون الفرع المستلِم   ← (كمية × تكلفة)
+    Cr م/125 مخزون الفرع المُرسِل   ← نفس القيمة
 
     يُحافظ على طريقة التقييم (FIFO / Weighted Average)
     """

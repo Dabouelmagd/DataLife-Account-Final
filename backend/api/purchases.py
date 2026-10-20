@@ -203,6 +203,7 @@ async def update_order_status(
     company_id = user_data.get("company_id")
     
     new_status = status_data.get("status")
+    created_invoice = None
     valid_statuses = ["draft", "pending_approval", "approved", "ordered", "received", "cancelled"]
     
     if new_status not in valid_statuses:
@@ -218,16 +219,21 @@ async def update_order_status(
         update_data["approved_at"] = datetime.now(timezone.utc).isoformat()
     elif new_status == "received":
         update_data["received_at"] = datetime.now(timezone.utc).isoformat()
-        # Update inventory
-        order = await db.purchase_orders.find_one({"po_number": po_number})
-        if order:
-            for item in order.get("items", []):
-                await db.stocks.update_one(     # quantities live in `stocks`
-                    {"company_id": company_id, "product_id": item.get("product_id"),
-                     "warehouse_id": item.get("warehouse_id", "main")},
-                    {"$inc": {"quantity": float(item.get("quantity", 0) or 0)},
-                     "$setOnInsert": {"unit_cost": float(item.get("unit_price", 0) or 0)}}, upsert=True)
-    
+        # Receiving no longer moves stock by itself. It used to add the
+        # quantities here, then the supplier's purchase invoice added them a
+        # second time, and neither step had an entry. The order now becomes a
+        # draft purchase invoice; approving that invoice posts the entry
+        # (purchases/stock, input VAT, supplier) and receives the goods once.
+        order = await db.purchase_orders.find_one(
+            {"po_number": po_number, "company_id": company_id}, {"_id": 0})
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        if not order.get("purchase_invoice_id"):
+            inv = await _invoice_from_order(order, user_data.get("user_id"))
+            update_data["purchase_invoice_id"] = inv["id"]
+            update_data["purchase_invoice_number"] = inv["document_number"]
+            created_invoice = inv
+
     result = await db.purchase_orders.update_one(
         {"po_number": po_number, "company_id": company_id},
         {"$set": update_data}
@@ -236,7 +242,43 @@ async def update_order_status(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Order not found")
     
+    if created_invoice:
+        return {"success": True, "purchase_invoice_id": created_invoice["id"],
+                "purchase_invoice_number": created_invoice["document_number"],
+                "message": f"تم إنشاء فاتورة الشراء {created_invoice['document_number']} كمسودة — "
+                           "اعتمدها من الفواتير ليُسجَّل القيد وتدخل البضاعة المخزون"}
     return {"success": True}
+
+
+async def _invoice_from_order(order: dict, user_id: Optional[str]) -> dict:
+    """Draft purchase invoice carrying the order's supplier, items and VAT."""
+    from models.invoice import Invoice, InvoiceLine, DocumentType
+    from services.invoice_service import InvoiceService
+    company_id = order["company_id"]
+    supplier = await _find_supplier(company_id, order.get("supplier_id") or "")
+    if not supplier:
+        raise HTTPException(status_code=400,
+                            detail="المورد غير موجود في دليل الموردين — أضفه أولاً ثم أعد الاستلام")
+    rate = float(order.get("tax_rate", 14) or 0)
+    lines = []
+    for i, item in enumerate(order.get("items", []), start=1):
+        qty = float(item.get("quantity", 0) or 0)
+        if qty <= 0:
+            continue
+        lines.append(InvoiceLine(
+            line_number=i, product_id=item.get("product_id"), product_code=item.get("product_code"),
+            description=item.get("product_name") or item.get("description") or item.get("name") or "صنف",
+            quantity=qty, unit_price=float(item.get("unit_price", 0) or 0), tax_rate=rate))
+    if not lines:
+        raise HTTPException(status_code=400, detail="أمر الشراء بلا أصناف")
+    invoice = Invoice(
+        company_id=company_id, document_type=DocumentType.PURCHASE_INVOICE, document_number="",
+        document_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        party_id=supplier["id"], party_name=supplier.get("name") or order.get("supplier_name") or "",
+        party_tax_id=supplier.get("tax_id"), lines=lines,
+        reference=order["po_number"], converted_from_id=order.get("id") or order["po_number"],
+        created_by=user_id or "system")
+    return await InvoiceService(db).create_invoice(invoice)
 
 
 @router.delete("/orders/{po_number}")
