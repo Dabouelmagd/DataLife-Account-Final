@@ -6,7 +6,7 @@ Payroll API with Accounting Integration
 from fastapi import APIRouter, HTTPException, Depends, Query, Response
 import os
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 from pydantic import BaseModel
 import uuid
 
@@ -588,6 +588,28 @@ async def update_settings(
 # Loans Endpoints (السُلف)
 # ==========================================
 
+async def _adopt_portal_loan_requests(company_id: str):
+    """Loan requests the employee portal saved before they reached HR (only in
+    ess_requests) become pending loans here, once each."""
+    async for r in db.ess_requests.find({"company_id": company_id, "request_type": "loan",
+                                         "status": "pending", "loan_id": {"$exists": False}}, {"_id": 0}):
+        amount = float(r.get("amount") or 0)
+        n = max(1, int(r.get("installments") or 3))
+        if amount <= 0:
+            continue
+        nxt = (datetime.utcnow().replace(day=1) + timedelta(days=32)).strftime("%Y-%m")
+        loan = EmployeeLoan(company_id=company_id, employee_id=r["employee_id"],
+                            employee_name=r.get("employee_name", ""),
+                            loan_number=await generate_number(company_id, "LOAN", "employee_loans"),
+                            loan_date=str(r.get("created_at", ""))[:10] or datetime.utcnow().strftime("%Y-%m-%d"),
+                            amount=round(amount, 2), installments=n, installment_amount=round(amount / n, 2),
+                            remaining_amount=round(amount, 2), start_month=nxt,
+                            reason=r.get("reason") or "طلب من بوابة الموظف", notes="ess")
+        doc = loan.dict(); doc.update({"source": "ess", "ess_request_id": r["id"]})
+        await db.employee_loans.insert_one(doc)
+        await db.ess_requests.update_one({"id": r["id"]}, {"$set": {"loan_id": loan.id, "loan_number": loan.loan_number}})
+
+
 @router.get("/loans")
 async def get_loans(
     employee_id: Optional[str] = Query(None),
@@ -595,6 +617,7 @@ async def get_loans(
     current_user: dict = Depends(get_current_user)
 ):
     """الحصول على السُلف"""
+    await _adopt_portal_loan_requests(current_user["company_id"])
     query = {"company_id": current_user["company_id"]}
     if employee_id:
         query["employee_id"] = employee_id

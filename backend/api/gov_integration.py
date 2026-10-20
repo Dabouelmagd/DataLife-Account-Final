@@ -29,6 +29,28 @@ router = APIRouter(prefix="/api/gov", tags=["Government Integration"])
 #    مصلحة الضرائب المصرية — تصدير الرواتب للرفع الإلكتروني
 # ══════════════════════════════════════════════════════════════
 
+
+def _gov_row(e: dict) -> dict:
+    """A payroll-run row in the shape these forms read: runs keep allowances
+    and deductions as lists and the insurance shares under their own names,
+    so the forms printed zeros (and float() on the allowances list failed)."""
+    def num(v):
+        try:
+            return float(v or 0)
+        except (TypeError, ValueError):
+            return 0.0
+    deds = e.get("deductions") if isinstance(e.get("deductions"), list) else []
+    by = lambda t: sum(num(d.get("amount")) for d in deds if d.get("deduction_type") == t)
+    allow = e.get("total_allowances")
+    if allow is None:
+        allow = sum(num(a.get("amount")) for a in e.get("allowances", [])) if isinstance(e.get("allowances"), list) else e.get("allowances")
+    from services.egypt_payroll import PERSONAL_EXEMPTION
+    return {**e, "allowances": num(allow),
+            "employee_si": num(e.get("employee_social_insurance") or e.get("employee_si") or by("social_insurance")),
+            "employer_si": num(e.get("company_social_insurance") or e.get("employer_si")),
+            "income_tax": num(e.get("income_tax") or by("income_tax")),
+            "personal_exemption": num(e.get("personal_exemption") or PERSONAL_EXEMPTION)}
+
 @router.get("/payroll/unified-export/{run_id}")
 async def export_unified_payroll_json(
     run_id: str,
@@ -47,7 +69,7 @@ async def export_unified_payroll_json(
 
     company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
 
-    employees_data = run.get("employees_data", [])
+    employees_data = [_gov_row(e) for e in (run.get("employees") or run.get("employees_data") or [])]
     employees_payload = []
 
     for emp in employees_data:
@@ -146,7 +168,7 @@ async def export_unified_payroll_excel(
         raise HTTPException(404, "كشف الرواتب غير موجود")
 
     company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
-    employees_data = run.get("employees_data", [])
+    employees_data = [_gov_row(e) for e in (run.get("employees") or run.get("employees_data") or [])]
 
     # Build Excel using openpyxl
     try:

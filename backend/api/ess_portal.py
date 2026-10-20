@@ -13,7 +13,7 @@ Employee Self-Service Portal — بوابة الخدمة الذاتية للمو
    - Schema-per-tenant documentation + enforcement
 """
 import uuid, io, math, hashlib, json
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query, Request, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
@@ -328,8 +328,33 @@ async def request_loan_ess(data: dict, current_user: dict = Depends(get_current_
         "submitted_via":    "mobile_ess",
         "created_at":       datetime.now(timezone.utc).isoformat(),
     }
+    installments = max(1, min(int(data.get("installments", 3) or 3), 60))
+    req["installments"] = installments
+    # the request was written only to ess_requests, which no HR screen reads —
+    # it now also lands in employee_loans as a pending loan, where الرواتب ←
+    # السُلف lists it with its approve button (approval posts the entry)
+    pending = await db.employee_loans.count_documents(
+        {"employee_id": emp["id"], "company_id": company_id, "status": "pending"})
+    if pending:
+        raise HTTPException(400, "لديك طلب سلفة قيد المراجعة بالفعل")
+    from models.payroll import EmployeeLoan
+    from api.payroll import generate_number
+    now = datetime.now(timezone.utc)
+    nxt = (now.replace(day=1) + timedelta(days=32)).strftime("%Y-%m")
+    loan = EmployeeLoan(
+        company_id=company_id, employee_id=emp["id"], employee_name=emp.get("name", ""),
+        loan_number=await generate_number(company_id, "LOAN", "employee_loans"),
+        loan_date=now.strftime("%Y-%m-%d"), amount=round(amount, 2), installments=installments,
+        installment_amount=round(amount / installments, 2), remaining_amount=round(amount, 2),
+        start_month=nxt, reason=req["reason"] or "طلب من بوابة الموظف", notes="ess")
+    loan_doc = loan.dict()
+    loan_doc["source"] = "ess"
+    loan_doc["ess_request_id"] = req["id"]
+    await db.employee_loans.insert_one(loan_doc)
+    req["loan_id"] = loan.id
+    req["loan_number"] = loan.loan_number
     await db.ess_requests.insert_one(req); req.pop("_id",None)
-    return {"message": f"✅ تم تقديم طلب سلفة {amount:,.2f} ج.م — في انتظار موافقة HR", "request": req}
+    return {"message": f"✅ تم تقديم طلب سلفة {amount:,.2f} ج.م — في انتظار موافقة الموارد البشرية", "request": req}
 
 
 @router.post("/requests/overtime")
@@ -371,6 +396,13 @@ async def my_requests(
 
     # Combine from both collections
     ess_reqs = await db.ess_requests.find(q, {"_id": 0}).sort("created_at",-1).to_list(None)
+    loan_ids = [r["loan_id"] for r in ess_reqs if r.get("loan_id")]
+    if loan_ids:                                  # HR decides on the loan record
+        state = {l["id"]: l.get("status") async for l in db.employee_loans.find(
+            {"id": {"$in": loan_ids}, "company_id": company_id}, {"_id": 0, "id": 1, "status": 1})}
+        for r in ess_reqs:
+            if r.get("loan_id") in state:
+                r["status"] = state[r["loan_id"]]
     leave_q  = {**q}; leave_q.pop("request_type", None)
     if not request_type or request_type == "leave":
         leaves = await db.leave_requests.find(leave_q, {"_id": 0}).sort("created_at",-1).to_list(None)
@@ -398,12 +430,22 @@ async def list_my_payslips(current_user: dict = Depends(get_current_user)):
     company_id = current_user["company_id"]
     emp = await get_employee_by_user(current_user["user_id"], company_id)
 
+    # payroll runs store their rows in "employees" and the month as "YYYY-MM";
+    # this read "employees_data" and integer year/month, so the list was always empty
     runs = await db.payroll_runs.find({
         "company_id":    company_id,
         "status":        {"$in": ["approved","paid"]},
-        "employees_data.employee_id": emp["id"],
-    }, {"_id": 0, "id": 1, "year": 1, "month": 1, "status": 1,
-        "payment_date": 1}).sort([("year",-1),("month",-1)]).limit(24).to_list(None)
+        "$or": [{"employees.employee_id": emp["id"]}, {"employees_data.employee_id": emp["id"]}],
+    }, {"_id": 0, "id": 1, "year": 1, "month": 1, "status": 1, "payroll_number": 1,
+        "payment_date": 1, "paid_at": 1, "employees": 1, "employees_data": 1}).to_list(None)
+    out = []
+    for r in runs:
+        row = next((e for e in _rows(r) if e.get("employee_id") == emp["id"]), {})
+        out.append({"run_id": r["id"], "id": r["id"], "period": _period(r),
+                    "period_month": _month_ar(_period(r)), "status": r.get("status"),
+                    "payment_date": str(r.get("payment_date") or r.get("paid_at") or "")[:10],
+                    "net_salary": round(float(row.get("net_salary") or 0), 2)})
+    runs = sorted(out, key=lambda r: r["period"], reverse=True)[:24]
 
     return {
         "employee":   emp.get("name",""),
@@ -417,6 +459,34 @@ async def list_my_payslips(current_user: dict = Depends(get_current_user)):
 # ب. MULTI-TENANT ISOLATION ARCHITECTURE
 # ══════════════════════════════════════════════════════════════
 
+
+
+MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس",
+             "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+
+
+def _month_ar(period: str) -> str:
+    """'2026-10' → 'أكتوبر 2026' (a bare 2026-10 flips to 10-2026 inside Arabic text)."""
+    try:
+        y, m = period.split("-")[:2]
+        return f"{MONTHS_AR[int(m) - 1]} {y}"
+    except (ValueError, IndexError):
+        return period
+
+
+def _rows(run: dict) -> list:
+    return run.get("employees") or run.get("employees_data") or []
+
+
+def _period(run: dict) -> str:
+    """'YYYY-MM' whether the run stored month as that string or year + month ints."""
+    m = run.get("month")
+    if isinstance(m, str) and len(m) >= 7:
+        return m[:7]
+    try:
+        return f"{int(run.get('year')):04d}-{int(m):02d}"
+    except (TypeError, ValueError):
+        return str(m or "")
 
 
 def slip_figures(emp_data: dict) -> dict:
@@ -471,164 +541,90 @@ async def get_payslip_pdf(
         raise HTTPException(404, "كشف الرواتب غير موجود")
 
     # Find this employee's data in the run
-    emp_data = next(
-        (e for e in run.get("employees_data", [])
-         if e.get("employee_id") == emp["id"]),
-        None
-    )
+    emp_data = next((e for e in _rows(run) if e.get("employee_id") == emp["id"]), None)
     if not emp_data:
         raise HTTPException(404, "لا توجد بيانات راتب لهذا الشهر")
 
     if format == "json":
-        return {"period": f"{run.get('year', '')}/{run.get('month', '')}".strip("/"), **slip_figures(emp_data)}
+        return {"period": _period(run), **slip_figures(emp_data)}
 
     company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
 
-    # Generate PDF using reportlab or fpdf
+    period = _period(run)
+    fg = slip_figures(emp_data)
     try:
         from reportlab.lib.pagesizes import A4
         from reportlab.lib import colors
         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.styles import ParagraphStyle
         from reportlab.lib.units import cm
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.lib.enums import TA_CENTER, TA_RIGHT
-
-        buf = io.BytesIO()
-        doc = SimpleDocTemplate(buf, pagesize=A4,
-                                rightMargin=2*cm, leftMargin=2*cm,
-                                topMargin=2*cm, bottomMargin=2*cm)
-        styles  = getSampleStyleSheet()
-        story   = []
-
-        # Title style
-        title_style = ParagraphStyle("title", fontSize=16, fontName="Helvetica-Bold",
-                                     alignment=TA_CENTER, spaceAfter=12)
-        sub_style   = ParagraphStyle("sub", fontSize=11, fontName="Helvetica",
-                                     alignment=TA_CENTER, spaceAfter=6)
-        label_style = ParagraphStyle("label", fontSize=10, fontName="Helvetica")
-
-        # Header
-        story.append(Paragraph(company.get("name",""), title_style))
-        story.append(Paragraph(f"Employee Payslip — قسيمة راتب", sub_style))
-        story.append(Paragraph(
-            f"Period: {run.get('year')}/{run.get('month',0):02d}", sub_style))
-        story.append(Spacer(1, 0.5*cm))
-
-        # Employee info table
-        info_data = [
-            ["Employee / الموظف", emp.get("name",""),
-             "Employee ID", emp.get("id","")[:8]],
-            ["Department", emp.get("department",""),
-             "Position", emp.get("position","")],
-            ["Pay Date", run.get("payment_date", ""),
-             "National ID", emp.get("national_id","")],
-        ]
-        info_table = Table(info_data, colWidths=[4*cm, 5*cm, 3.5*cm, 5*cm])
-        info_table.setStyle(TableStyle([
-            ("BACKGROUND", (0,0), (0,-1), colors.HexColor("#1E3A5F")),
-            ("BACKGROUND", (2,0), (2,-1), colors.HexColor("#1E3A5F")),
-            ("TEXTCOLOR",  (0,0), (0,-1), colors.white),
-            ("TEXTCOLOR",  (2,0), (2,-1), colors.white),
-            ("FONTNAME",   (0,0), (-1,-1), "Helvetica"),
-            ("FONTSIZE",   (0,0), (-1,-1), 9),
-            ("GRID",       (0,0), (-1,-1), 0.5, colors.grey),
-            ("ROWBACKGROUNDS", (0,0), (-1,-1),
-             [colors.HexColor("#F0F4F8"), colors.white]),
-        ]))
-        story.append(info_table)
-        story.append(Spacer(1, 0.5*cm))
-
-        # Salary breakdown
-        earn_data = [["EARNINGS / المكاسب", "Amount (EGP)"]]
-        deduct_data= [["DEDUCTIONS / الخصومات", "Amount (EGP)"]]
-
-        _fg = slip_figures(emp_data)
-        basic, allow, gross = _fg["basic_salary"], _fg["allowances"], _fg["gross_salary"]
-        si_emp, tax, loan, net = _fg["employee_si"], _fg["income_tax"], _fg["loan_deduction"], _fg["net_salary"]
-
-        earn_data += [
-            ["Basic Salary / الراتب الأساسي", f"{basic:,.2f}"],
-            ["Allowances / البدلات",           f"{allow:,.2f}"],
-        ]
-        earn_data.append(["GROSS TOTAL / الإجمالي", f"{gross:,.2f}"])
-
-        deduct_data += [
-            ["Social Insurance / تأمين اجتماعي", f"{si_emp:,.2f}"],
-            ["Income Tax / ضريبة كسب عمل",       f"{tax:,.2f}"],
-        ]
-        if loan > 0:
-            deduct_data.append(["Loan Deduction / خصم سلفة", f"{loan:,.2f}"])
-        deduct_data.append(["TOTAL DEDUCTIONS / إجمالي الخصومات",
-                            f"{si_emp+tax+loan:,.2f}"])
-
-        def make_table(data, header_color="#2E86AB"):
-            t = Table(data, colWidths=[11*cm, 6.5*cm])
-            t.setStyle(TableStyle([
-                ("BACKGROUND", (0,0), (-1,0), colors.HexColor(header_color)),
-                ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
-                ("FONTNAME",   (0,0), (-1,-1), "Helvetica"),
-                ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
-                ("FONTSIZE",   (0,0), (-1,-1), 10),
-                ("ALIGN",      (1,0), (1,-1), "RIGHT"),
-                ("GRID",       (0,0), (-1,-1), 0.5, colors.grey),
-                ("BACKGROUND", (0,-1), (-1,-1), colors.HexColor("#E8F4F8")),
-                ("FONTNAME",   (0,-1), (-1,-1), "Helvetica-Bold"),
-                ("ROWBACKGROUNDS", (0,1), (-1,-2),
-                 [colors.white, colors.HexColor("#F7FAFC")]),
-            ]))
-            return t
-
-        story.append(make_table(earn_data))
-        story.append(Spacer(1, 0.3*cm))
-        story.append(make_table(deduct_data, "#E63946"))
-        story.append(Spacer(1, 0.5*cm))
-
-        # Net pay
-        net_data = [["NET PAY / صافي الراتب المستحق", f"{net:,.2f} EGP"]]
-        net_table = Table(net_data, colWidths=[11*cm, 6.5*cm])
-        net_table.setStyle(TableStyle([
-            ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#1E3A5F")),
-            ("TEXTCOLOR",  (0,0), (-1,-1), colors.white),
-            ("FONTNAME",   (0,0), (-1,-1), "Helvetica-Bold"),
-            ("FONTSIZE",   (0,0), (-1,-1), 13),
-            ("ALIGN",      (1,0), (1,-1), "RIGHT"),
-            ("TOPPADDING", (0,0), (-1,-1), 10),
-            ("BOTTOMPADDING",(0,0),(-1,-1), 10),
-        ]))
-        story.append(net_table)
-        story.append(Spacer(1, 1*cm))
-        story.append(Paragraph(
-            "This payslip is confidential and encrypted. / هذه القسيمة سرية ومشفرة",
-            ParagraphStyle("footer", fontSize=8, textColor=colors.grey, alignment=TA_CENTER)
-        ))
-
-        doc.build(story)
-        buf.seek(0)
-
-        # Encrypt PDF with employee's national_id as password
-        pdf_data = buf.read()
-        password  = emp.get("national_id","")[-4:] if emp.get("national_id") else "1234"
-
-        filename = (f"payslip_{emp.get('name','employee').replace(' ','_')}_"
-                    f"{run.get('year')}_{run.get('month',0):02d}.pdf")
-        return StreamingResponse(
-            io.BytesIO(pdf_data),
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "X-PDF-Password-Hint": f"Last 4 digits of your National ID",
-                "X-Payslip-Month":     f"{run.get('year')}/{run.get('month',0):02d}",
-            }
-        )
-
+        from reportlab.lib.enums import TA_CENTER
     except ImportError:
-        # Fallback: return JSON if reportlab not available
-        return {
-            "message":   "PDF library not installed — returning JSON payslip",
-            "payslip": {"employee": emp.get("name", ""), "period": f"{run.get('year')}/{run.get('month',0):02d}", **slip_figures(emp_data)}
-        }
+        return {"message": "مكتبة PDF غير مثبتة — القسيمة كبيانات",
+                "payslip": {"employee": emp.get("name", ""), "period": period, **fg}}
+
+    # Arabic needs a font that has its letters and text shaped right-to-left;
+    # Helvetica drew every Arabic word as boxes
+    from services.arabic_pdf import font_name, ar
+    F, FB = font_name(), font_name(bold=True)
+    money = lambda v: f"{float(v or 0):,.2f}"
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm,
+                            topMargin=1.8*cm, bottomMargin=1.8*cm,
+                            title=f"Payslip {period}", author=company.get("name", ""))
+    title = ParagraphStyle("t", fontName=FB, fontSize=16, alignment=TA_CENTER, spaceAfter=6)
+    sub = ParagraphStyle("s", fontName=F, fontSize=11, alignment=TA_CENTER, spaceAfter=4,
+                         textColor=colors.HexColor("#475569"))
+    note = ParagraphStyle("n", fontName=F, fontSize=8, alignment=TA_CENTER, textColor=colors.grey)
+    story = [Paragraph(ar(company.get("name") or company.get("company_name") or ""), title),
+             Paragraph(ar(f"قسيمة راتب — {_month_ar(period)}"), sub), Spacer(1, 0.4*cm)]
+
+    # tables read right to left: value column on the left, label on the right
+    def grid(rows, head=None, widths=(6*cm, 11*cm), head_color="#1E3A5F", total=False):
+        data = ([[ar(head[1]), ar(head[0])]] if head else []) + [[ar(v), ar(k)] for k, v in rows]
+        t = Table(data, colWidths=list(widths))
+        style = [("FONTNAME", (0, 0), (-1, -1), F), ("FONTSIZE", (0, 0), (-1, -1), 10),
+                 ("ALIGN", (1, 0), (1, -1), "RIGHT"), ("ALIGN", (0, 0), (0, -1), "LEFT"),
+                 ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CBD5E1")),
+                 ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]
+        if head:
+            style += [("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(head_color)),
+                      ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), FB)]
+        if total:
+            style += [("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E2E8F0")),
+                      ("FONTNAME", (0, -1), (-1, -1), FB)]
+        t.setStyle(TableStyle(style))
+        return t
+
+    story.append(grid([("الموظف", emp.get("name", "")), ("القسم", emp.get("department", "") or "—"),
+                       ("الوظيفة", emp.get("position", "") or "—"),
+                       ("كود الموظف", emp.get("employee_code") or emp.get("id", "")[:8]),
+                       ("تاريخ الصرف", str(run.get("payment_date") or run.get("paid_at") or "")[:10] or "—")]))
+    story.append(Spacer(1, 0.4*cm))
+    earn = [("الراتب الأساسي", money(fg["basic_salary"])), ("البدلات", money(fg["allowances"]))]
+    if fg["overtime"]:
+        earn.append(("العمل الإضافي", money(fg["overtime"])))
+    earn.append(("إجمالي المستحقات", money(fg["gross_salary"])))
+    story.append(grid(earn, head=("المستحقات", "المبلغ (ج.م)"), total=True))
+    story.append(Spacer(1, 0.3*cm))
+    ded = [(d["name"] or d["type"] or "خصم", money(d["amount"])) for d in fg["deductions"] if d["amount"]]
+    ded.append(("إجمالي الخصومات", money(fg["total_deductions"])))
+    story.append(grid(ded, head=("الخصومات", "المبلغ (ج.م)"), head_color="#B91C1C", total=True))
+    story.append(Spacer(1, 0.4*cm))
+    net = Table([[ar(f"{money(fg['net_salary'])} ج.م"), ar("صافي الراتب")]], colWidths=[6*cm, 11*cm])
+    net.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#1E3A5F")),
+                             ("TEXTCOLOR", (0, 0), (-1, -1), colors.white), ("FONTNAME", (0, 0), (-1, -1), FB),
+                             ("FONTSIZE", (0, 0), (-1, -1), 13), ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+                             ("TOPPADDING", (0, 0), (-1, -1), 9), ("BOTTOMPADDING", (0, 0), (-1, -1), 9)]))
+    story += [net, Spacer(1, 0.8*cm),
+              Paragraph(ar("هذه القسيمة سرية وخاصة بالموظف — صادرة من نظام داتا لايف أكاونت"), note)]
+    doc.build(story)
+    buf.seek(0)
+    filename = f"payslip_{period}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"',
+                                      "X-Payslip-Month": period})
 
 
 @router.get("/admin/tenant-isolation/audit")
