@@ -47,6 +47,30 @@ PREFIX_PERMISSIONS = [
     ("/api/analytics", {"analytics", FIN}),
     ("/api/approvals", {"approvals"}),
     ("/api/import", {FIN, "hr", "inventory"}),
+    # routers that had no entry, so any signed-in user of the company could
+    # call them (several post journal entries). /api/hr does not cover these:
+    # a prefix matches only up to "/", so /api/hr-engine is its own area.
+    ("/api/hr-advanced", {"hr"}),
+    ("/api/hr-engine", {"hr"}),
+    ("/api/performance", {"hr"}),
+    ("/api/projects", {"projects", FIN}),
+    ("/api/payment-vouchers", {FIN}),
+    ("/api/bank-checks", {FIN}),
+    ("/api/enterprise", {FIN}),
+    ("/api/equity", {FIN}),
+    ("/api/budget", {FIN}),
+    ("/api/deferred-tax", {FIN}),
+    ("/api/lc", {FIN}),
+    ("/api/trade-finance", {FIN}),
+    ("/api/real-estate", {FIN}),
+    ("/api/fraud", {FIN}),
+    ("/api/gov", {FIN, "hr"}),
+    ("/api/erp-core", {"approvals", FIN}),
+    ("/api/inventory-engine", {"inventory", "sales", "purchases", FIN}),
+    ("/api/pos", {"sales", "inventory", FIN}),
+    ("/api/manufacturing", {"inventory", FIN}),
+    ("/api/reports", {"reports", "analytics", FIN, "hr"}),
+    ("/api/audit", {"settings", "users"}),
 ]
 
 # Everyone signed in needs these, whatever their permissions.

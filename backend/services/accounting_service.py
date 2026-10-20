@@ -121,11 +121,12 @@ class AccountingService:
         account_dict.pop("_id", None)  # Remove MongoDB _id
         return account_dict
     
-    async def update_account(self, account_id: str, updates: Dict) -> Optional[Dict]:
-        """تحديث حساب"""
+    async def update_account(self, account_id: str, updates: Dict, company_id: str) -> Optional[Dict]:
+        """تحديث حساب — within the caller's company only (it matched by id
+        alone, so one company could rename another's accounts)."""
         updates["updated_at"] = datetime.utcnow().isoformat()
         result = await self.db.chart_of_accounts.find_one_and_update(
-            {"id": account_id, "is_system": False},
+            {"id": account_id, "company_id": company_id, "is_system": False},
             {"$set": updates},
             return_document=True
         )
@@ -133,7 +134,7 @@ class AccountingService:
             result.pop("_id", None)
         return result
     
-    async def delete_account(self, account_id: str) -> bool:
+    async def delete_account(self, account_id: str, company_id: str) -> bool:
         """حذف حساب (soft delete)"""
         # التحقق من عدم وجود حركات على الحساب
         ledger_count = await self.db.general_ledger.count_documents({"account_id": account_id})
@@ -141,7 +142,7 @@ class AccountingService:
             raise ValueError("Cannot delete account with existing transactions")
         
         result = await self.db.chart_of_accounts.update_one(
-            {"id": account_id, "is_system": False},
+            {"id": account_id, "company_id": company_id, "is_system": False},
             {"$set": {"is_active": False, "updated_at": datetime.utcnow().isoformat()}}
         )
         return result.modified_count > 0
@@ -196,8 +197,22 @@ class AccountingService:
         if abs(total_debit - total_credit) > 0.01:
             raise ValueError(f"Journal entry is not balanced. Debit: {total_debit}, Credit: {total_credit}")
         
+        # a header (grouping) account takes no entries: the trial balance and
+        # balance sheet skip headers, so an amount posted there vanished from
+        # both and the trial balance came out unbalanced
+        ids = list({l.account_id for l in entry.lines if l.account_id})
+        if ids:
+            async for acc in self.db.chart_of_accounts.find(
+                    {"id": {"$in": ids}, "company_id": entry.company_id},
+                    {"_id": 0, "account_code": 1, "account_name": 1, "is_header": 1, "account_category": 1}):
+                if acc.get("is_header") or acc.get("account_category") == "header":
+                    raise ValueError(f"الحساب {acc.get('account_code')} «{acc.get('account_name')}» حساب تجميعي — "
+                                     "سجّل القيد على حساب فرعي تحته")
+
         # التحقق من أن كل سطر له مدين أو دائن (وليس كلاهما)
         for line in entry.lines:
+            if line.debit < 0 or line.credit < 0:
+                raise ValueError("لا تُقبل مبالغ سالبة في القيد — اعكس المدين والدائن بدلاً من ذلك")
             if line.debit > 0 and line.credit > 0:
                 raise ValueError("A journal line cannot have both debit and credit")
             if line.debit == 0 and line.credit == 0:

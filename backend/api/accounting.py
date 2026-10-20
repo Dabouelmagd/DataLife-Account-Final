@@ -6,7 +6,7 @@ Accounting API Routes
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from models.accounting import (
     ChartOfAccount, JournalEntry, JournalEntryLine, JournalEntryStatus,
@@ -48,8 +48,8 @@ class UpdateAccountRequest(BaseModel):
 
 class JournalLineRequest(BaseModel):
     account_id: str
-    debit: float = 0.0
-    credit: float = 0.0
+    debit: float = Field(0.0, ge=0)      # a negative amount posted as-is turned a debit into a credit
+    credit: float = Field(0.0, ge=0)
     description: Optional[str] = None
 
 
@@ -244,7 +244,7 @@ async def update_account(
     service = AccountingService(db)
     
     updates = {k: v for k, v in request.dict().items() if v is not None}
-    result = await service.update_account(account_id, updates)
+    result = await service.update_account(account_id, updates, current_user["company_id"])
     
     if not result:
         raise HTTPException(status_code=404, detail="Account not found or is a system account")
@@ -262,7 +262,7 @@ async def delete_account(
     service = AccountingService(db)
     
     try:
-        success = await service.delete_account(account_id)
+        success = await service.delete_account(account_id, current_user["company_id"])
         if not success:
             raise HTTPException(status_code=404, detail="Account not found or is a system account")
         return {"message": "تم حذف الحساب بنجاح"}
@@ -279,6 +279,13 @@ async def reinitialize_chart_of_accounts(
     تحذير: هذا سيحذف جميع الحسابات الموجودة ويستبدلها بالدليل المصري القياسي
     """
     service = AccountingService(db)
+    # it deleted the whole chart for any signed-in user, even with entries on
+    # it — every ledger row would then point at an account that no longer exists
+    await _reviewer(current_user)
+    if await db.general_ledger.count_documents({"company_id": current_user["company_id"]}, limit=1) \
+            or await db.journal_entries.count_documents({"company_id": current_user["company_id"]}, limit=1):
+        raise HTTPException(status_code=400,
+                            detail="لا يمكن إعادة تهيئة دليل الحسابات بعد تسجيل قيود عليه — عدّل الحسابات أو أضف حسابات جديدة بدلاً من ذلك")
     
     # حذف الحسابات الحالية
     await db.chart_of_accounts.delete_many({"company_id": current_user["company_id"]})
