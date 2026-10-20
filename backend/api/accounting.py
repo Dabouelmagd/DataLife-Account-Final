@@ -408,7 +408,7 @@ async def post_journal_entry(
     
     try:
         own = await db.journal_entries.find_one({"id": entry_id, "company_id": current_user["company_id"]},
-                                                {"_id": 0, "review_required": 1, "review_status": 1})
+                                                {"_id": 0, "id": 1, "review_required": 1, "review_status": 1})
         if not own:
             raise HTTPException(status_code=404, detail="Journal entry not found")   # could post another company's draft
         if own.get("review_required"):
