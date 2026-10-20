@@ -290,7 +290,7 @@ class TestStockMovements:
         print(f"Created opening balance: {mov['movement_number']} - {mov['quantity']} units")
     
     def test_create_sales_movement(self, headers, test_data):
-        """POST /api/inventory/movements - Create sales movement (decreases stock)"""
+        """POST /api/inventory/movements - a hand-typed sale is refused (no journal entry)"""
         if not test_data["product_id"] or not test_data["warehouse_id"]:
             pytest.skip("No product or warehouse available for testing")
         
@@ -309,18 +309,8 @@ class TestStockMovements:
             headers=headers,
             json=movement_data
         )
-        # May fail if insufficient stock - that's expected behavior
-        if response.status_code == 400:
-            error = response.json()
-            print(f"Sales movement blocked (expected if insufficient stock): {error.get('detail')}")
-            return
-        
-        assert response.status_code == 200, f"Failed: {response.text}"
-        data = response.json()
-        assert "movement" in data
-        mov = data["movement"]
-        assert mov["movement_type"] == "sales"
-        print(f"Created sales movement: {mov['movement_number']} - {mov['quantity']} units")
+        # only opening balances are entered by hand; a sale comes from its invoice
+        assert response.status_code == 400, f"Expected refusal: {response.text}"
 
 
 # ==========================================

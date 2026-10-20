@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import InventoryCountPanel from '../components/InventoryCountPanel';
+import { InventoryEngineTools } from '../components/OperationsExtras';
 import { 
   Package, Warehouse, Tags, Ruler, Plus, Search, Filter,
   ArrowRightLeft, ClipboardCheck, AlertTriangle, TrendingDown,
@@ -48,7 +49,7 @@ export default function InventoryPage() {
       movements: 'الحركات',
       transfers: 'التحويلات',
       adjustments: 'التسويات',
-      count: 'الجرد والإقفال',
+      count: 'إقفال المخزون الدوري',
       reports: 'التقارير',
       search: 'بحث...',
       add: 'إضافة',
@@ -122,7 +123,7 @@ export default function InventoryPage() {
       movements: 'Movements',
       transfers: 'Transfers',
       adjustments: 'Adjustments',
-      count: 'Count & close',
+      count: 'Periodic close',
       reports: 'Reports',
       search: 'Search...',
       add: 'Add',
@@ -357,7 +358,7 @@ export default function InventoryPage() {
     } else if (type === 'movement') {
       setFormData({
         movement_date: new Date().toISOString().split('T')[0],
-        movement_type: 'purchase',
+        movement_type: 'opening',
         product_id: '',
         warehouse_id: '',
         quantity: 0,
@@ -491,8 +492,10 @@ export default function InventoryPage() {
     { id: 'categories', icon: Tags, label: text.categories },
     { id: 'units', icon: Ruler, label: text.units },
     { id: 'movements', icon: ArrowRightLeft, label: text.movements },
-    { id: 'transfers', icon: ArrowRightLeft, label: text.transfers },
-    { id: 'adjustments', icon: ClipboardCheck, label: text.adjustments },
+    // transfers and count differences go through the inventory engine, which
+    // posts the entry; the old approve buttons changed quantities only, so the
+    // stock ledger and account 125 drifted apart
+    { id: 'tools', icon: ArrowRightLeft, label: language === 'ar' ? 'الجرد والتحويل وتكاليف الاستيراد' : 'Count, transfer & landed costs' },
     { id: 'count', icon: ClipboardCheck, label: text.count },
     { id: 'reports', icon: BarChart3, label: text.reports }
   ];
@@ -865,6 +868,7 @@ export default function InventoryPage() {
 
         {/* Adjustments Tab */}
         {activeTab === 'count' && <InventoryCountPanel language={language} />}
+        {activeTab === 'tools' && <InventoryEngineTools initialTab="count" />}
 
         {activeTab === 'adjustments' && (
           <div className="overflow-x-auto">
@@ -1131,10 +1135,15 @@ export default function InventoryPage() {
                         value={formData.movement_type || ''} 
                         onChange={e => setFormData({...formData, movement_type: e.target.value})}
                       >
-                        {Object.entries(text.movementTypes).map(([key, val]) => (
-                          <option key={key} value={key}>{val}</option>
-                        ))}
+                        {/* only the opening balance is entered by hand; every other
+                            movement comes from the document that has an entry */}
+                        <option value="opening">{text.movementTypes.opening || 'opening'}</option>
                       </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {language === 'ar'
+                          ? 'الشراء من فواتير المشتريات، البيع من الفواتير، العجز والزيادة والتحويل من تبويب «الجرد والتحويل». قيمة الرصيد الافتتاحي تُسجَّل في حساب 125 من استيراد الأرصدة الافتتاحية.'
+                          : 'Purchases, sales, count differences and transfers come from their own documents.'}
+                      </p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">

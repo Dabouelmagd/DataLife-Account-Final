@@ -457,38 +457,31 @@ async def create_e_receipt(
 
     # ── القيد المحاسبي ─────────────────────────────────────────
     # Dr البنك/الخزينة/محفظة إلكترونية | Cr إيرادات مبيعات + VAT مخرجات
-    PAYMENT_ACCOUNTS = {
-        "cash":           ("161", "الخزينة"),
-        "card":           ("162", "البنك — نقطة بيع"),
-        "mobile_wallet":  ("113", "محافظ إلكترونية"),
-    }
-    pay_code, pay_name = PAYMENT_ACCOUNTS.get(req.payment_method, ("161", "الخزينة"))
+    # Wallets and InstaPay settle into the bank. Was 113 «سيارات ووسائل نقل»:
+    # every wallet sale was booked as buying a car.
+    PAYMENT_ACCOUNTS = {"cash": "161", "card": "162", "mobile_wallet": "162"}
+    if req.payment_method not in PAYMENT_ACCOUNTS:
+        raise HTTPException(400, "طريقة الدفع: cash | card | mobile_wallet")
+    pay_code = PAYMENT_ACCOUNTS[req.payment_method]
 
+    # Same revenue account as POS shifts (4121, under 41 beside 411), so all
+    # point-of-sale revenue is in one place; 411 only where 4121 is missing.
+    # A missing account used to go into the entry with its code as the id.
+    from services import ops_posting as P
     svc = AccountingService(db)
-    accounts = await svc.get_all_accounts(company_id, True)
-    by_code  = {a["account_code"]: a for a in accounts}
-
-    def acc(code, name_fb):
-        a = by_code.get(code, {})
-        return {"line_id": str(uuid.uuid4()), "entry_id": None,
-                "account_id": a.get("id", code), "account_code": code,
-                "account_name": a.get("account_name", name_fb),
-                "debit": 0, "credit": 0, "description": ""}
-
-    je_lines = []
-    # مدين: وسيلة الدفع
-    dl = acc(pay_code, pay_name)
-    dl.update({"debit": grand_total, "description": f"إيصال {receipt_num} — {req.payment_method}"})
-    je_lines.append(dl)
-    # دائن: إيرادات مبيعات
-    rl = acc("411", "إيرادات مبيعات — نقاط البيع")
-    rl.update({"credit": subtotal, "description": f"مبيعات تجزئة — إيصال {receipt_num}"})
-    je_lines.append(rl)
-    # دائن: VAT مخرجات
+    rev = await P.first_account(db, company_id, ["4121", "411"])
+    labels = {"cash": "نقدي", "card": "بطاقة", "mobile_wallet": "محفظة / InstaPay"}
+    je_lines = [
+        await P.je_line(db, company_id, pay_code, debit=grand_total,
+                        desc=f"إيصال {receipt_num} — {labels[req.payment_method]}"),
+        await P.je_line(db, company_id, rev["account_code"], credit=round(subtotal, 2),
+                        desc=f"مبيعات تجزئة — إيصال {receipt_num}"),
+    ]
     if vat_total > 0:
-        vl = acc("260", "ضريبة القيمة المضافة مخرجات")
-        vl.update({"credit": vat_total, "description": f"VAT إيصال {receipt_num}"})
-        je_lines.append(vl)
+        je_lines.append(await P.je_line(db, company_id, "260", credit=round(vat_total, 2),
+                                        desc=f"VAT إيصال {receipt_num}"))
+    je_lines = [JournalEntryLine(**{k: v for k, v in l.items() if k not in ("line_id", "entry_id")})
+                for l in je_lines]
 
     entry = JournalEntry(
         company_id=company_id, entry_number=0,

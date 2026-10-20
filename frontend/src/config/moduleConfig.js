@@ -252,7 +252,6 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'parties',          name: isArabic ? '🤝 العملاء والموردين' : '🤝 Parties' },
   { id: 'products',         name: isArabic ? '📦 المنتجات'          : '📦 Products' },
   { id: 'inventory',        name: isArabic ? '🗄️ المخزون'           : '🗄️ Inventory' },
-  { id: 'inventory-tools',  name: isArabic ? '📦 أدوات المخزون المتقدمة' : '📦 Inventory Tools' },
   { id: 'bank',             name: isArabic ? '🏧 البنوك والخزائن'    : '🏧 Banks & Cash' },
   { id: 'treasury',         name: isArabic ? '💵 الخزينة والشيكات'  : '💵 Cash & Cheques' },
   { id: 'progress-claims',  name: isArabic ? '🏗️ المستخلصات'        : '🏗️ Progress Claims' },

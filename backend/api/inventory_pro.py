@@ -910,8 +910,13 @@ async def create_movement(
     request: StockMovementRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """إنشاء حركة مخزون"""
+    """إنشاء حركة مخزون — الرصيد الافتتاحي فقط"""
     company_id = current_user["company_id"]
+    # a hand-typed purchase, sale, damage or adjustment moved quantities with
+    # no entry; each of those has its own document that posts one
+    if request.movement_type != "opening":
+        raise HTTPException(400, "الحركة اليدوية للرصيد الافتتاحي فقط — الشراء من فواتير المشتريات، "
+                                 "البيع من الفواتير، والعجز والتالف والتحويل من «الجرد والتحويل»")
     
     # الحصول على المنتج والوحدة
     product, conversion_factor = await get_product_with_unit(request.product_id, request.unit_id)
@@ -1089,7 +1094,10 @@ async def approve_transfer(
     transfer_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """اعتماد التحويل"""
+    """اعتماد التحويل — موقوف: التحويل يتم من /api/inventory-engine/branch-transfer"""
+    # one transfer path: the engine checks stock per company, moves FIFO lots
+    # and posts the entry when the warehouses have different cost centres
+    raise HTTPException(410, "التحويل بين المخازن يتم الآن من: المخزون ← الجرد والتحويل وتكاليف الاستيراد ← تحويل بين المخازن")
     transfer = await db.stock_transfers.find_one({
         "id": transfer_id,
         "company_id": current_user["company_id"]
@@ -1247,7 +1255,10 @@ async def approve_adjustment(
     adjustment_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """اعتماد التسوية"""
+    """اعتماد التسوية — موقوف: فروق الجرد تُثبت من /api/inventory-engine/reconcile"""
+    # approving changed quantities with no entry, so account 125 and the
+    # stock records drifted apart; the count screen posts the difference
+    raise HTTPException(410, "تسوية فروق المخزون تتم الآن من: المخزون ← الجرد والتحويل وتكاليف الاستيراد ← الجرد والتسوية (بقيد محاسبي)")
     adjustment = await db.stock_adjustments.find_one({
         "id": adjustment_id,
         "company_id": current_user["company_id"]

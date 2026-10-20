@@ -34,7 +34,7 @@ import HREmployeesList from '../components/HREmployeesList';
 import { ProgressClaimsPage, GuaranteesPage, TaxFormsPage } from '../components/ContractsFinance';
 import { BudgetPage, DeferredTaxPage, EquityPage, CashRunwayPage } from '../components/FinanceExtras';
 import { FraudControlPage, DataProtectionPage, ConsolidationPage } from '../components/ControlExtras';
-import { PosShiftsPage, ManufacturingPage, RealEstatePage, LettersOfCreditPage, InventoryEngineTools } from '../components/OperationsExtras';
+import { PosShiftsPage, ManufacturingPage, RealEstatePage, LettersOfCreditPage } from '../components/OperationsExtras';
 import { AppraisalsPage, HRToolsPage, EndOfServicePage, LoansCustodyPage, CommissionsPage, GovPaymentsPage } from '../components/HRExtras';
 import ShiftsPage from '../pages/ShiftsPage';
 import AttendancePage from '../pages/AttendancePage';
@@ -205,7 +205,7 @@ export const renderFinancialContent = ({
     'equity': <EquityPage />,
     'fraud-control': <FraudControlPage />,
     'consolidation': <ConsolidationPage />,
-    'inventory-tools': <InventoryEngineTools />,
+    'inventory-tools': <InventoryPage language={language} />,   // merged into المخزون
     'pos-shifts': <PosShiftsPage />,
     'manufacturing': <ManufacturingPage />,
     'real-estate': <RealEstatePage />,

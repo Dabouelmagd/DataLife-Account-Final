@@ -1188,8 +1188,8 @@ const LANDED_CREDIT = [['251', '251 مستحق للمورد / الشاحن'], ['
   ['3372', '3372 سبق تسجيله مصروف شحن'], ['3373', '3373 سبق تسجيله مصروف تأمين'], ['3374', '3374 سبق تسجيله رسوم جمركية'], ['3375', '3375 سبق تسجيله تخليص']];
 const LANDED_DEFAULT = { freight: '251', insurance: '251', customs: '3374', clearance: '3375', other: '251' };
 
-export function InventoryEngineTools() {
-  const [tab, setTab] = useState('landed');
+export function InventoryEngineTools({ initialTab = 'landed' } = {}) {
+  const [tab, setTab] = useState(initialTab);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
   const [receipts, setReceipts] = useState([]);
