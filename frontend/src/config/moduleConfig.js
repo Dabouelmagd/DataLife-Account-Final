@@ -248,6 +248,9 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'inventory',        name: isArabic ? '🗄️ المخزون'           : '🗄️ Inventory' },
   { id: 'bank',             name: isArabic ? '🏧 البنوك والخزائن'    : '🏧 Banks & Cash' },
   { id: 'treasury',         name: isArabic ? '💵 الخزينة والشيكات'  : '💵 Cash & Cheques' },
+  { id: 'progress-claims',  name: isArabic ? '🏗️ المستخلصات'        : '🏗️ Progress Claims' },
+  { id: 'guarantees',       name: isArabic ? '🛡️ خطابات الضمان'     : '🛡️ Letters of Guarantee' },
+  { id: 'tax-forms',        name: isArabic ? '🧾 نموذج 10 و41'      : '🧾 Tax Forms 10 & 41' },
   { id: 'currencies',       name: isArabic ? '💱 العملات'           : '💱 Currencies' },
   { id: 'reports',          name: isArabic ? '📊 التقارير المالية'  : '📊 Financial Reports' },
 ];

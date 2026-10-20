@@ -117,6 +117,16 @@ async def create_cost_center(data: dict, current_user: dict = Depends(get_user))
 # ══════════════════════════════════════════
 # PROGRESS CLAIMS — مستخلصات المقاولات
 # ══════════════════════════════════════════
+@router.get("/progress-claims")
+async def list_all_claims(claim_type: Optional[str] = None, current_user: dict = Depends(get_user)):
+    """كل مستخلصات الشركة (المالك ومقاولي الباطن)، الأحدث أولاً."""
+    q = {"company_id": current_user.get("company_id")}
+    if claim_type in ("owner", "subcontractor"):
+        q["claim_type"] = claim_type
+    claims = await db.progress_claims.find(q, {"_id": 0}).sort("created_at", -1).to_list(length=500)
+    return {"claims": claims}
+
+
 @router.get("/progress-claims/{project_id}")
 async def get_progress_claims(project_id: str, current_user: dict = Depends(get_user)):
     claims = await db.progress_claims.find(

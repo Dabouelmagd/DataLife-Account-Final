@@ -30,6 +30,7 @@ import PayrollPage from '../pages/PayrollPage';
 import EmployeeProfilePage from '../pages/EmployeeProfilePage';
 import EmployeesPage from '../pages/EmployeesPage';
 import HREmployeesList from '../components/HREmployeesList';
+import { ProgressClaimsPage, GuaranteesPage, TaxFormsPage } from '../components/ContractsFinance';
 import ShiftsPage from '../pages/ShiftsPage';
 import AttendancePage from '../pages/AttendancePage';
 import HRSettingsPage from '../pages/HRSettingsPage';
@@ -183,6 +184,9 @@ export const renderFinancialContent = ({
     'inventory': <InventoryPage language={language} />,
     'bank': <BankManagementPage language={language} />,
     'treasury': <TreasuryPage />,
+    'progress-claims': <ProgressClaimsPage />,
+    'guarantees': <GuaranteesPage />,
+    'tax-forms': <TaxFormsPage />,
     'bank-settings': <BankSettingsPage language={language} />,
     'trial-balance': <TrialBalancePage language={language} />,
     'income-statement': <IncomeStatementPage language={language} />,
