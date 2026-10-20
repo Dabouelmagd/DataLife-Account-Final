@@ -129,7 +129,7 @@ PACKS = {
             ("1254", "مخزون أدوية ومحاليل الصيدلية", "Pharmacy Stock", A, CA, "125"),
             ("1255", "مخزون مستلزمات غرف العمليات والطوارئ", "Surgical & ER Supplies", A, CA, "125"),
             ("1256", "مخزون كيماويات وكواشف المعامل", "Lab Reagents Stock", A, CA, "125"),
-            ("148", "شركات التأمين الطبي والجهات المتعاقدة", "Insurers & Contracted Payers", A, CA, "14"),
+            ("148", "شركات التأمين الطبي والجهات المتعاقدة", "Insurers & Contracted Payers", A, CA, "13"),  # a receivable: under 13, not 14 (projects)
             ("345", "أتعاب ونسب الأطباء المعالجين والجراحين", "Physician Fees & Shares", E, COGS, "34"),
         ],
     },
