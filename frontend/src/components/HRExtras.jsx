@@ -496,6 +496,7 @@ export function HRToolsPage() {
               <Field key={k} label={label}><input type="number" step="any" dir="ltr" value={policy[k] ?? ''} onChange={(e) => setPolicy({ ...policy, [k]: e.target.value })} className={input} /></Field>
             ))}
             <label className="text-sm flex items-center gap-2 mt-6"><input type="checkbox" checked={!!policy.gratuity_enabled} onChange={(e) => setPolicy({ ...policy, gratuity_enabled: e.target.checked })} /> صرف مكافأة نهاية خدمة</label>
+            <label className="text-sm flex items-center gap-2 mt-6"><input type="checkbox" checked={!!policy.eos_taxable} onChange={(e) => setPolicy({ ...policy, eos_taxable: e.target.checked })} /> مكافأة نهاية الخدمة تخضع لضريبة كسب العمل (حسب رأي محاسب الشركة)</label>
           </div>
           <button onClick={savePolicy} disabled={busy} className={btn}>حفظ السياسة</button>
         </div>
