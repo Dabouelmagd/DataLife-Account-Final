@@ -468,6 +468,18 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
             description="خصم أقساط سُلف"
         ))
     
+    # دائن: خصومات الغياب والتأخير والجزاءات والخصومات اليدوية — تخفّض مصروف
+    # الأجور. They were in nobody's line: the "rounding" fix below pushed the
+    # whole difference into salaries payable, so the company appeared to owe
+    # its staff the very amounts it had deducted.
+    other_ded = round(float(payroll.get("total_other_deductions") or 0), 2)
+    if other_ded > 0 and sal_id:
+        lines.append(JournalEntryLine(
+            account_id=sal_id, account_code=sal_code, account_name=sal_name,
+            debit=0, credit=other_ded,
+            description="خصومات الغياب والتأخير والجزاءات"
+        ))
+
     # دائن: صافي الرواتب المستحقة
     if sal_pay_id:
         lines.append(JournalEntryLine(
@@ -644,7 +656,7 @@ async def create_loan(
     company_id = current_user["company_id"]
     
     # الحصول على بيانات الموظف
-    employee = await db.employees.find_one({"id": request.employee_id})
+    employee = await db.employees.find_one({"id": request.employee_id, "company_id": company_id})
     if not employee:
         raise HTTPException(status_code=404, detail="الموظف غير موجود")
     
@@ -1026,6 +1038,7 @@ async def calculate_payroll(
         
         # 6. خصومات أخرى (يدوية)
         emp_deductions = await db.deductions.find({
+            "company_id": payroll["company_id"],
             "employee_id": emp["id"],
             "month": payroll["month"]
         }).to_list(length=None)
@@ -1037,6 +1050,24 @@ async def calculate_payroll(
                 amount=ded.get("amount", 0)
             ))
             totals["other_deductions"] += ded.get("amount", 0)
+
+        # 7. الجزاءات — recorded in HR (الإجازات والإضافي والجزاءات) "to be
+        # deducted in payroll", but nothing read them, so no penalty was ever
+        # deducted. The month's penalties not yet deducted by an approved run.
+        async for pen in db.penalties.find({
+                "company_id": payroll["company_id"], "employee_id": emp["id"],
+                "date": {"$gte": f"{payroll['month']}-01", "$lte": f"{payroll['month']}-31"},
+                "status": {"$in": ["pending", "approved"]}}, {"_id": 0}):
+            amt = round(float(pen.get("amount") or 0), 2)
+            if amt <= 0:
+                continue
+            deductions.append(PayrollDeduction(
+                deduction_type=DeductionType.PENALTY,
+                name=f"جزاء — {pen.get('violation', '')}"[:120],
+                amount=amt,
+                reference_id=pen.get("id")
+            ))
+            totals["other_deductions"] += amt
         
         total_deductions = sum(d.amount for d in deductions)
         net_salary = gross_salary - total_deductions
@@ -1159,6 +1190,14 @@ async def approve_payroll(
         except Exception as e:
             logger.warning(f"Could not auto-post payroll journal {journal_id}: {e}")
     
+    # الجزاءات المخصومة في هذا المسير لا تُخصم مرة ثانية
+    pen_ids = [d.get("reference_id") for e in payroll.get("employees", []) for d in e.get("deductions", [])
+               if d.get("deduction_type") == "penalty" and d.get("reference_id")]
+    if pen_ids:
+        await db.penalties.update_many(
+            {"company_id": company_id, "id": {"$in": pen_ids}},
+            {"$set": {"status": "deducted", "payroll_run_id": payroll.get("id")}})
+
     # تحديث أرصدة السُلف
     for emp in payroll.get("employees", []):
         for ded in emp.get("deductions", []):
@@ -1404,32 +1443,42 @@ async def create_end_of_service(
     """إنشاء تسوية نهاية خدمة"""
     company_id = current_user["company_id"]
     
-    employee = await db.employees.find_one({"id": request.employee_id})
+    employee = await db.employees.find_one({"id": request.employee_id, "company_id": company_id})
     if not employee:
         raise HTTPException(status_code=404, detail="الموظف غير موجود")
-    
-    settings = await get_payroll_settings(company_id)
+    if request.other_entitlements < 0 or request.other_deductions < 0:
+        raise HTTPException(status_code=400, detail="المبالغ الأخرى لا تكون سالبة")
+    if await db.end_of_service.find_one({"company_id": company_id, "employee_id": request.employee_id,
+                                         "status": {"$in": ["pending", "approved"]}}, {"_id": 1}):
+        raise HTTPException(status_code=400, detail="توجد تسوية نهاية خدمة لهذا الموظف بالفعل")
+
+    # one end-of-service rule for the company: the HR policy
+    # (الموارد البشرية ← الإجازات والإضافي والجزاءات ← السياسة). This used its
+    # own payroll-settings rates, so the two screens gave different amounts.
+    from api.hr_engine import get_policy
+    policy = await get_policy(company_id)
     
     # حساب مدة الخدمة
     hire_date = datetime.strptime(employee["hire_date"], "%Y-%m-%d")
     end_date = datetime.strptime(request.end_date, "%Y-%m-%d")
     service_days = (end_date - hire_date).days
+    if service_days < 0:
+        raise HTTPException(status_code=400, detail="تاريخ نهاية الخدمة قبل تاريخ التعيين")
     years = service_days / 365.25
     months = int(service_days / 30.44)
     
-    basic_salary = employee.get("basic_salary", 0)
+    basic_salary = float(employee.get("basic_salary", 0) or 0)
     
     # حساب مكافأة نهاية الخدمة
-    eos_amount = 0
-    if years <= 5:
-        eos_amount = years * basic_salary * settings.get("eos_rate_first_5_years", 0.5)
-    else:
-        eos_amount = (5 * basic_salary * settings.get("eos_rate_first_5_years", 0.5)) + \
-                     ((years - 5) * basic_salary * settings.get("eos_rate_after_5_years", 1.0))
+    eos_amount = 0.0
+    if policy.get("gratuity_enabled", True):
+        first, after = float(policy["gratuity_months_first_5"]), float(policy["gratuity_months_after_5"])
+        eos_amount = (min(years, 5) * first + max(years - 5, 0) * after) * basic_salary
     
     # الحصول على السُلف المستحقة
     pending_loans = await db.employee_loans.aggregate([
         {"$match": {
+            "company_id": company_id,
             "employee_id": request.employee_id,
             "status": {"$in": ["approved", "active"]},
             "remaining_amount": {"$gt": 0}
@@ -1437,11 +1486,24 @@ async def create_end_of_service(
         {"$group": {"_id": None, "total": {"$sum": "$remaining_amount"}}}
     ]).to_list(length=1)
     
-    pending_loans_amount = pending_loans[0]["total"] if pending_loans else 0
+    pending_loans_amount = round(pending_loans[0]["total"], 2) if pending_loans else 0.0
+
+    # salary tax on the payout, when the company's accountant says it applies
+    # (HR policy «eos_taxable»): the extra tax the lump sum adds on top of a
+    # year's salary, with the Law 7/2024 brackets
+    eos_tax = 0.0
+    if policy.get("eos_taxable") and eos_amount > 0:
+        from services.egypt_payroll import annual_tax, social_insurance, PERSONAL_EXEMPTION
+        si = social_insurance(basic_salary, await get_payroll_settings(company_id))["employee"]
+        base = max((basic_salary - si) * 12 - PERSONAL_EXEMPTION, 0)
+        eos_tax = round(annual_tax(base + eos_amount) - annual_tax(base), 2)
     
     total_entitlements = eos_amount + request.other_entitlements
-    total_deductions = pending_loans_amount + request.other_deductions
+    total_deductions = pending_loans_amount + request.other_deductions + eos_tax
     net_settlement = total_entitlements - total_deductions
+    if net_settlement < 0:
+        raise HTTPException(status_code=400, detail=f"الخصومات أكبر من المستحقات بـ {abs(net_settlement):,.2f} — "
+                                                    "سجّل الباقي كسلفة مستحقة بدل التسوية")
     
     settlement_number = await generate_number(company_id, "EOS", "end_of_service")
     
@@ -1468,9 +1530,10 @@ async def create_end_of_service(
         created_by=current_user["user_id"]
     )
     
-    await db.end_of_service.insert_one(settlement.dict())
-    
-    return {"message": "تم إنشاء تسوية نهاية الخدمة", "settlement": settlement.dict()}
+    doc = {**settlement.dict(), "income_tax": eos_tax}
+    await db.end_of_service.insert_one(doc)
+    doc.pop("_id", None)
+    return {"message": "تم إنشاء تسوية نهاية الخدمة", "settlement": doc}
 
 
 @router.post("/end-of-service/{settlement_id}/approve")
@@ -1509,44 +1572,39 @@ async def approve_end_of_service(
             return acc["id"], acc["account_code"], acc.get("account_name") or acc.get("name", "")
         return None, default_code, f"حساب {default_code}"
     
-    eos_id, eos_code, eos_name = get_acc(settings.get("eos_provision_account"), "223")  # مخصص مكافأة نهاية الخدمة
-    loan_id, loan_code, loan_name = get_acc(settings.get("loans_receivable_account"), "134")  # سلف الموظفين
-    bank_id, bank_code, bank_name = get_acc(settings.get("bank_account"), "162")  # النقدية بالبنوك الجارية
-    
+    # Every part of the settlement has its line. Other entitlements and other
+    # deductions used to be in the net paid but not in the entry, so any
+    # settlement with them was out of balance and could not be approved.
+    def need(setting_val, code, label):
+        acc_id, acc_code, acc_name = get_acc(setting_val, code)
+        if not acc_id:
+            raise HTTPException(status_code=400, detail=f"الحساب {code} ({label}) غير موجود في دليل الحسابات")
+        return acc_id, acc_code, acc_name
+
     lines = []
-    
-    # مدين: مخصص نهاية الخدمة
-    if settlement["end_of_service_amount"] > 0 and eos_id:
-        lines.append(JournalEntryLine(
-            account_id=eos_id,
-            account_code=eos_code,
-            account_name=eos_name,
-            debit=settlement["end_of_service_amount"],
-            credit=0,
-            description="مكافأة نهاية الخدمة"
-        ).dict())
-    
-    # دائن: سُلف (تسوية)
-    if settlement["pending_loans"] > 0 and loan_id:
-        lines.append(JournalEntryLine(
-            account_id=loan_id,
-            account_code=loan_code,
-            account_name=loan_name,
-            debit=0,
-            credit=settlement["pending_loans"],
-            description="تسوية سُلف"
-        ).dict())
-    
-    # دائن: البنك (صافي المستحق)
-    if bank_id:
-        lines.append(JournalEntryLine(
-            account_id=bank_id,
-            account_code=bank_code,
-            account_name=bank_name,
-            debit=0,
-            credit=settlement["net_settlement"],
-            description="صرف تسوية نهاية الخدمة"
-        ).dict())
+
+    def add(acc, debit, credit, text):
+        if round(debit or credit, 2):
+            lines.append(JournalEntryLine(account_id=acc[0], account_code=acc[1], account_name=acc[2],
+                                          debit=round(debit, 2), credit=round(credit, 2), description=text).dict())
+
+    eos_tax = float(settlement.get("income_tax") or 0)
+    add(need(settings.get("eos_provision_account"), "223", "مخصص مكافأة نهاية الخدمة"),
+        settlement["end_of_service_amount"], 0, "مكافأة نهاية الخدمة")
+    if settlement.get("other_entitlements"):
+        add(need(settings.get("salaries_expense_account"), "331", "الرواتب والأجور"),
+            settlement["other_entitlements"], 0, "مستحقات أخرى في التسوية")
+    if settlement.get("pending_loans"):
+        add(need(settings.get("loans_receivable_account"), "134", "سلف الموظفين"),
+            0, settlement["pending_loans"], "تسوية سُلف")
+    if settlement.get("other_deductions"):
+        add(need(None, "423", "إيرادات متنوعة"), 0, settlement["other_deductions"], "خصومات أخرى من التسوية")
+    if eos_tax:
+        add(need(settings.get("income_tax_payable_account"), "266", "ضريبة كسب العمل المستقطعة"),
+            0, eos_tax, "ضريبة كسب العمل على مكافأة نهاية الخدمة")
+    if settlement["net_settlement"]:
+        add(need(settings.get("bank_account"), "162", "البنك"), 0, settlement["net_settlement"],
+            "صرف تسوية نهاية الخدمة")
     
     if not lines:
         raise HTTPException(status_code=400, detail="الحسابات المحاسبية غير متوفرة")

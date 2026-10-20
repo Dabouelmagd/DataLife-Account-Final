@@ -56,6 +56,8 @@ DEFAULT_POLICY = {
     "resignation_factor_3_to_5": 1 / 3,
     "resignation_factor_5_to_10": 2 / 3,
     "resignation_factor_10_plus": 1.0,
+    # هل تخضع مكافأة نهاية الخدمة لضريبة كسب العمل؟ يقرره محاسب الشركة
+    "eos_taxable": False,
 }
 # fallback only when the company never saved payroll HR settings
 OT_FALLBACK = {"day": 1.35, "night": 1.70, "holiday": 2.00}
