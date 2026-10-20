@@ -29,6 +29,7 @@ import InventoryPage from '../pages/InventoryPage';
 import PayrollPage from '../pages/PayrollPage';
 import EmployeeProfilePage from '../pages/EmployeeProfilePage';
 import EmployeesPage from '../pages/EmployeesPage';
+import HREmployeesList from '../components/HREmployeesList';
 import ShiftsPage from '../pages/ShiftsPage';
 import AttendancePage from '../pages/AttendancePage';
 import HRSettingsPage from '../pages/HRSettingsPage';
@@ -133,7 +134,8 @@ export const renderHRContent = ({
 
   // HR Sub-modules
   const hrSubModuleMap = {
-    'employees': <EmployeesPage language={language} />,
+    // HR employees (payroll records) — system logins are 'users' below
+    'employees': <HREmployeesList language={language} onOpen={(id) => setSelectedEmployeeId(id)} />,
     'recruitment': <RecruitmentPage />,      // jobs, candidates, scorecards, hiring
     'payroll': <PayrollPage language={language} />,
     'salaries': <PayrollPage language={language} />,  // legacy alias -> real payroll
@@ -404,6 +406,7 @@ const ModuleRenderer = ({
     'projects': <ProjectsModule language={language} />,
     'documents': <DocumentsModule language={language} />,
     'settings': <CompanySettings language={language} />,
+    'users': <EmployeesPage language={language} />,          // إدارة المستخدمين — حسابات الدخول
     'import': <ImportDataPage language={language} />,
     'subscription': <SubscriptionPage />,
     'app-updates': <AppUpdatesPage />,
