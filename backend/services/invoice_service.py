@@ -300,6 +300,17 @@ class InvoiceService:
             return next((a for a in accounts if a["account_code"] == code), None)
         
         lines = []
+        # Invoice-level discount / addition (on the whole invoice, not a line).
+        # grand_total already includes them, so the customer/supplier line did
+        # too, but nothing else did — every such invoice was out of balance and
+        # could not be approved. They now get their own line.
+        inv_disc = round(float(invoice.get("total_invoice_discount") or 0), 2)
+        inv_add = round(float(invoice.get("total_invoice_addition") or 0), 2)
+
+        def _adj_line(acc, amount, debit, text):
+            return JournalEntryLine(
+                account_id=acc["id"], account_code=acc["account_code"], account_name=acc["account_name"],
+                debit=amount if debit else 0.0, credit=0.0 if debit else amount, description=text)
         
         if doc_type == DocumentType.SALES_INVOICE.value:
             # فاتورة بيع — يحدد نوع الخدمة القيد المناسب
@@ -383,6 +394,19 @@ class InvoiceService:
                     credit=invoice["total_tax"],
                     description=f"ضريبة القيمة المضافة 14% مخرجات"
                 ))
+
+            # خصم على إجمالي الفاتورة ← من ح/ مردودات ومسموحات المبيعات
+            # إضافة على الفاتورة (نقل، تركيب…) ← إلى ح/ إيرادات متنوعة
+            if inv_disc > 0:
+                disc_acc = find_account("413") or sales_acc
+                if disc_acc:
+                    lines.append(_adj_line(disc_acc, inv_disc, True,
+                                           f"خصم مسموح به على الفاتورة {invoice['document_number']}"))
+            if inv_add > 0:
+                add_acc = find_account("423") or sales_acc
+                if add_acc:
+                    lines.append(_adj_line(add_acc, inv_add, False,
+                                           f"إضافات على الفاتورة {invoice['document_number']}"))
         
         elif doc_type in (DocumentType.CREDIT_NOTE.value, DocumentType.DEBIT_NOTE.value):
             # إشعار دائن: عكس فاتورة البيع — من ح/ المبيعات + ضريبة المخرجات ← إلى ح/ العملاء
@@ -418,7 +442,9 @@ class InvoiceService:
                 vat_out = find_account("260")
                 if not (customers and revenue):
                     raise ValueError("حسابات العملاء أو المبيعات غير موجودة في شجرة الحسابات")
-            net = round(float(invoice.get("total_after_discount") or 0), 2)
+            # adjustments on the note change the amount returned, so they move
+            # with the revenue/purchases line
+            net = round(float(invoice.get("total_after_discount") or 0) - inv_disc + inv_add, 2)
             tax = round(float(invoice.get("total_tax") or 0), 2)
             total = round(float(invoice.get("grand_total") or 0), 2)
 
@@ -510,6 +536,15 @@ class InvoiceService:
                     credit=p_wht_amount,
                     description=f"ضريبة خصم وتحصيل {wht_type_label} — {invoice['party_name']}"
                 ))
+
+            # خصم المورد على إجمالي الفاتورة يخفّض التكلفة (دائن)، والإضافات
+            # (نقل، تركيب…) تُحمَّل عليها (مدين)
+            if purchases_acc and inv_disc > 0:
+                lines.append(_adj_line(purchases_acc, inv_disc, False,
+                                       f"خصم مكتسب على فاتورة الشراء {invoice['document_number']}"))
+            if purchases_acc and inv_add > 0:
+                lines.append(_adj_line(purchases_acc, inv_add, True,
+                                       f"إضافات على فاتورة الشراء {invoice['document_number']}"))
         
         # ── التحقق من توازن القيد (مدين = دائن) ──────────────────
         total_dr = round(sum(l.debit  for l in lines), 2)

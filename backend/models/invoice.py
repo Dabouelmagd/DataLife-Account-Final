@@ -407,36 +407,31 @@ UNITS = [
 # ==========================================
 
 def calculate_line_totals(line: InvoiceLine) -> InvoiceLine:
-    """حساب مجاميع سطر الفاتورة"""
-    # المجموع الفرعي = الكمية × سعر الوحدة
-    line.subtotal = line.quantity * line.unit_price
-    
-    # حساب الخصم
+    """حساب مجاميع سطر الفاتورة — كل مبلغ مقرّب لقرشين.
+
+    Amounts were stored unrounded (3 × 33.333 → 99.999, tax 13.99986), so an
+    invoice, its entry and the ETA submission disagreed by fractions of a
+    piastre and the totals shown never matched the sum of the lines."""
+    line.subtotal = round(line.quantity * line.unit_price, 2)
     if line.discount_percent > 0:
         line.discount_amount = line.subtotal * (line.discount_percent / 100)
-    
-    # المجموع بعد الخصم
-    after_discount = line.subtotal - line.discount_amount
-    
-    # حساب الضريبة
+    line.discount_amount = round(line.discount_amount or 0, 2)
+    after_discount = round(line.subtotal - line.discount_amount, 2)
     if line.tax_type == TaxType.VAT:
-        line.tax_amount = after_discount * (line.tax_rate / 100)
+        line.tax_amount = round(after_discount * (line.tax_rate / 100), 2)
     else:
         line.tax_amount = 0
-    
-    # المجموع الكلي
-    line.total = after_discount + line.tax_amount
-    
+    line.total = round(after_discount + line.tax_amount, 2)
     return line
 
 
 def calculate_invoice_totals(invoice: Invoice) -> Invoice:
     """حساب مجاميع الفاتورة مع الخصومات والإضافات"""
     # حساب مجاميع الأسطر
-    invoice.subtotal = sum(line.subtotal for line in invoice.lines)
-    invoice.total_discount = sum(line.discount_amount for line in invoice.lines)
-    invoice.total_after_discount = invoice.subtotal - invoice.total_discount
-    invoice.total_tax = sum(line.tax_amount for line in invoice.lines)
+    invoice.subtotal = round(sum(line.subtotal for line in invoice.lines), 2)
+    invoice.total_discount = round(sum(line.discount_amount for line in invoice.lines), 2)
+    invoice.total_after_discount = round(invoice.subtotal - invoice.total_discount, 2)
+    invoice.total_tax = round(sum(line.tax_amount for line in invoice.lines), 2)
     
     # حساب الخصومات والإضافات على مستوى الفاتورة
     total_invoice_discount = 0.0
@@ -451,9 +446,9 @@ def calculate_invoice_totals(invoice: Invoice) -> Invoice:
         
         # حساب قيمة التعديل
         if adj.calculation_type == AdjustmentCalculation.PERCENTAGE:
-            adj.calculated_amount = base_amount * (adj.value / 100)
+            adj.calculated_amount = round(base_amount * (adj.value / 100), 2)
         else:  # FIXED
-            adj.calculated_amount = adj.value
+            adj.calculated_amount = round(adj.value, 2)
         
         # تصنيف التعديل
         if adj.adjustment_type == AdjustmentType.DISCOUNT:
