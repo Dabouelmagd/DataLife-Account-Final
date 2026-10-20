@@ -30,7 +30,9 @@ router = APIRouter(prefix="/api/trade-finance", tags=["Trade Finance"])
 # ══════════════════════════════════════════════════════════════
 ACC = {
     # خطابات الضمان
-    "lg_margin":       "1361",  # غطاء خطاب الضمان المحتجز
+    # was 1361 — جاري الشركات التابعة: LG cash margins were booked as money
+    # owed by sister companies
+    "lg_margin":       "1651",  # غطاء خطابات الضمان المحتجز لدى البنوك
     "lg_fees_prepaid": "135",  # مصاريف إصدار مدفوعة مقدماً
     "lg_fees_exp":     "3321",  # مصروف عمولات إصدار
     "lg_memo_dr":      "9111",  # التزام خطاب ضمان صادر (نظامي)
@@ -50,7 +52,13 @@ async def get_acc(company_id: str, code: str) -> dict:
     a = await db.chart_of_accounts.find_one(
         {"company_id": company_id, "account_code": code}, {"_id": 0}
     )
-    return a or {"id": code, "account_code": code, "account_name": f"حساب {code}"}
+    # a missing account used to become a fake line whose account_id was the
+    # code itself — posted, but to no account in the chart
+    if not a:
+        raise HTTPException(400, f"الحساب {code} غير موجود في دليل الحسابات — شغّل مزامنة الحسابات الافتراضية أو أضفه")
+    if a.get("is_header") or a.get("allow_posting") is False:
+        raise HTTPException(400, f"الحساب {code} حساب تجميعي — اختر حساباً فرعياً")
+    return a
 
 
 async def je_line(company_id: str, code: str,
@@ -67,12 +75,14 @@ async def je_line(company_id: str, code: str,
 
 
 async def post_je(company_id: str, user_id: str, date_str: str,
-                  description: str, lines: list, src_id: str = None) -> str:
+                  description: str, lines: list, src_id: str = None,
+                  src_type: str = "trade_finance") -> str:
     svc = AccountingService(db)
+    lines = [l for l in lines if l.get("debit") or l.get("credit")]   # a zero margin is no line
     entry = JournalEntry(
         company_id=company_id, entry_number=0, entry_date=date_str,
         description=description, lines=lines,
-        source_document_type="manual", source_document_id=src_id,
+        source_document_type=src_type, source_document_id=src_id,
         created_by=user_id,
     )
     result = await svc.create_journal_entry(entry)
@@ -131,6 +141,17 @@ async def issue_letter_of_guarantee(
     Cr م/9112 التزامات البنك عن خطابات ضمان ← مقابل نظامي
     """
     company_id  = current_user["company_id"]
+    if req.amount <= 0:
+        raise HTTPException(400, "قيمة خطاب الضمان يجب أن تكون أكبر من صفر")
+    if req.margin_amount < 0 or req.margin_amount > req.amount:
+        raise HTTPException(400, "الغطاء النقدي بين صفر وقيمة الخطاب")
+    if req.expiry_date < req.issue_date:
+        raise HTTPException(400, "تاريخ الانتهاء قبل تاريخ الإصدار")
+    # bank commissions are fractions of a percent: 0.5 means 0.5%, 0.005 is the same
+    rate = req.commission_rate / 100 if req.commission_rate > 0.05 else req.commission_rate
+    if not 0 <= rate <= 0.05:
+        raise HTTPException(400, "عمولة الإصدار نسبة مئوية بين 0 و5%")
+    req.commission_rate = rate
     lg_id       = str(uuid.uuid4())
     commission  = round(req.amount * req.commission_rate, 2)
     total_paid  = round(req.margin_amount + commission, 2)
@@ -176,6 +197,7 @@ async def issue_letter_of_guarantee(
         "status":        "active",  # active | expired | cancelled | claimed
         "reference":     req.reference,
         "notes":         req.notes,
+        "bank_account":  req.bank_account,
         "issue_je_id":   je_a_id,
         "memo_je_id":    je_b_id,
         "created_at":    datetime.now(timezone.utc).isoformat(),
@@ -239,7 +261,8 @@ async def release_letter_of_guarantee(
 
     # ── القيد أ: استرداد الغطاء ──────────────────────────────
     lines_a = await asyncio.gather(
-        je_line(company_id, "162", debit=margin,
+        # back to the bank that paid the margin (it always went to 162)
+        je_line(company_id, lg.get("bank_account") or ACC["bank"], debit=margin,
                 desc=f"استرداد غطاء خطاب ضمان — {lg['beneficiary']} — {reason}"),
         je_line(company_id, ACC["lg_margin"], credit=margin,
                 desc=f"إقفال غطاء خطاب ضمان — {lg['lg_type_ar']}"),

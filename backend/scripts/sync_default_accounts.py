@@ -44,7 +44,14 @@ def main():
     total = 0
     for cid in company_ids:
         existing = {a["account_code"]: a for a in db.chart_of_accounts.find(
-            {"company_id": cid}, {"_id": 0, "account_code": 1, "id": 1})}
+            {"company_id": cid}, {"_id": 0, "account_code": 1, "id": 1, "parent_code": 1})}
+        # accounts added by earlier runs were saved without parent_code
+        if apply:
+            for d in DEFAULT_ACCOUNTS:
+                a = existing.get(d["code"])
+                if a and not a.get("parent_code") and d.get("parent_code"):
+                    db.chart_of_accounts.update_one({"company_id": cid, "id": a["id"]},
+                                                    {"$set": {"parent_code": d["parent_code"]}})
         if not existing:
             continue  # company never initialised its chart — the app seeds it on first use
         todo = [d for d in DEFAULT_ACCOUNTS if d["code"] not in existing]
@@ -61,6 +68,7 @@ def main():
                 "account_name_en": d.get("name_en"), "account_type": t,
                 "account_category": d["category"].value,
                 "parent_account_id": (parent or {}).get("id"),
+                "parent_code": d.get("parent_code"),
                 "is_header": d.get("is_header", False),
                 "allow_posting": not d.get("is_header", False),
                 "is_system": d.get("is_system", False), "is_active": True,

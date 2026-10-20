@@ -82,15 +82,17 @@ async def generate_form_41(
     pipeline = [
         {"$match": {
             "company_id": company_id,
-            "status": "posted",
-            "source_document_type": "invoice",
-            "entry_date": {"$gte": date_from, "$lte": date_to},
+            "status": {"$in": ["posted", "reversed"]},
+            # purchase invoices AND subcontractor claims withhold 261
+            "source_document_type": {"$in": ["invoice", "subcontractor_claim"]},
+            "entry_date": {"$gte": date_from, "$lte": date_to + "\uffff"},
         }},
         {"$unwind": "$lines"},
         {"$match": {"lines.account_code": "261", "lines.credit": {"$gt": 0}}},
         {"$group": {
             "_id": "$source_document_id",
             "wht_amount":  {"$sum": "$lines.credit"},
+            "source":      {"$first": "$source_document_type"},
             "entry_date":  {"$first": "$entry_date"},
             "description": {"$first": "$description"},
         }}
@@ -102,36 +104,46 @@ async def generate_form_41(
     total_1pct = total_3pct = total_5pct = 0.0
 
     for entry in wht_entries:
-        invoice_id = entry["_id"]
-        invoice    = await db.invoices.find_one({"id": invoice_id}, {"_id": 0}) or {}
-        party_id   = invoice.get("party_id")
-        party      = await db.parties.find_one({"id": party_id}, {"_id": 0}) or {}   # was invoice_parties, which does not exist
-        inv_type   = invoice.get("invoice_type", "goods")
+        doc_id     = entry["_id"]
         wht_amount = round(entry["wht_amount"], 2)
-
-        # تصنيف النسبة
-        if inv_type in {"engineering", "consulting", "legal", "accounting", "medical_professional"}:
-            rate_pct = 5.0; rate_label = "5% مهن حرة"
-            total_5pct += wht_amount
-        elif inv_type == "services":
-            rate_pct = 3.0; rate_label = "3% خدمات"
-            total_3pct += wht_amount
+        if entry.get("source") == "subcontractor_claim":
+            claim = await db.progress_claims.find_one({"id": doc_id, "company_id": company_id}, {"_id": 0}) or {}
+            party = await db.parties.find_one({"id": claim.get("partner_id"), "company_id": company_id},
+                                              {"_id": 0}) or {} if claim.get("partner_id") else {}
+            number, name = f"مستخلص {claim.get('claim_number', '')}", claim.get("partner_name", "")
+            gross, inv_type = float(claim.get("current_claim", 0) or 0), claim.get("wht_type", "contracts")
         else:
-            rate_pct = 1.0; rate_label = "1% توريدات"
-            total_1pct += wht_amount
+            invoice = await db.invoices.find_one({"id": doc_id, "company_id": company_id}, {"_id": 0}) or {}
+            party   = await db.parties.find_one({"id": invoice.get("party_id"), "company_id": company_id},
+                                                {"_id": 0}) or {}
+            number, name = invoice.get("document_number", ""), invoice.get("party_name", "")
+            gross, inv_type = float(invoice.get("total_after_discount", 0) or 0), invoice.get("invoice_type", "goods")
+
+        # the band is what was actually withheld (amount ÷ base), not a guess
+        # from the document type — the two disagreed (engineering invoices
+        # withheld 3% but were reported in the 5% band)
+        ratio = (wht_amount / gross * 100) if gross else 0
+        rate_pct = min((1.0, 3.0, 5.0), key=lambda r: abs(r - ratio)) if gross else 1.0
+        if rate_pct == 5.0:
+            rate_label = "5% مهن حرة"; total_5pct += wht_amount
+        elif rate_pct == 3.0:
+            rate_label = "3% خدمات"; total_3pct += wht_amount
+        else:
+            rate_label = "1% توريدات ومقاولات"; total_1pct += wht_amount
 
         entries_detail.append({
-            "invoice_id":       invoice_id,
-            "invoice_number":   invoice.get("document_number", ""),
+            "invoice_id":       doc_id,
+            "invoice_number":   number,
             "invoice_date":     entry["entry_date"],
-            "supplier_name":    party.get("name", invoice.get("party_name", "")),
+            "supplier_name":    party.get("name", name),
             "supplier_tax_id":  party.get("tax_id", ""),
             "supplier_address": party.get("address", ""),
-            "gross_amount":     float(invoice.get("total_after_discount", 0)),
+            "gross_amount":     round(gross, 2),
             "wht_rate_pct":     rate_pct,
             "wht_rate_label":   rate_label,
             "wht_amount":       wht_amount,
             "invoice_type":     inv_type,
+            "source":           entry.get("source"),
         })
 
     total_wht = round(total_1pct + total_3pct + total_5pct, 2)

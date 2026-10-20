@@ -485,7 +485,9 @@ class InvoiceService:
             
             # WHT rate: 1% توريدات بضائع | 3% خدمات
             p_inv_type   = invoice_extra.get("invoice_type", "goods")
-            p_wht_rate   = 0.03 if p_inv_type in {"services","engineering","consulting"} else 0.01
+            # 5% professional fees (lawyers, accountants, doctors) | 3% services | 1% supplies
+            p_wht_rate   = 0.05 if p_inv_type in {"legal", "accounting", "medical_professional", "professional"} \
+                else 0.03 if p_inv_type in {"services", "engineering", "consulting"} else 0.01
             # تطبيق WHT فقط إذا كانت قيمة الشراء > 300 ج.م (حد الإعفاء الضريبي)
             purchase_base = invoice["total_after_discount"]
             p_wht_amount  = round(purchase_base * p_wht_rate, 2) if purchase_base > 300 else 0
@@ -527,7 +529,7 @@ class InvoiceService:
             
             # ── دائن 2: ضريبة الخصم والتحصيل مستحقة لمصلحة الضرائب ──
             if wht_pay_acc and p_wht_amount > 0:
-                wht_type_label = "3% خدمات" if p_inv_type in {"services","engineering","consulting"} else "1% توريدات"
+                wht_type_label = {0.05: "5% مهن حرة", 0.03: "3% خدمات"}.get(p_wht_rate, "1% توريدات")
                 lines.append(JournalEntryLine(
                     account_id=wht_pay_acc["id"],
                     account_code=wht_pay_acc["account_code"],

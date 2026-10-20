@@ -581,6 +581,8 @@ DEFAULT_ACCOUNTS = [
      "type": AccountType.ASSET, "category": AccountCategory.CASH, "parent_code": "16"},
     {"code": "165", "name": "غطاء اعتمادات مستندية محتجز", "name_en": "Letter of Credit Cash Margin",
      "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "16"},
+    {"code": "1651", "name": "غطاء خطابات الضمان المحتجز لدى البنوك", "name_en": "Letter of Guarantee Cash Margin",
+     "type": AccountType.ASSET, "category": AccountCategory.CURRENT_ASSET, "parent_code": "16"},
     {"code": "265", "name": "ضريبة الدخل المستحقة", "name_en": "Corporate Income Tax Payable",
      "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "25"},
     {"code": "266", "name": "ضريبة كسب العمل المستقطعة من المرتبات", "name_en": "Payroll Income Tax Withheld",
