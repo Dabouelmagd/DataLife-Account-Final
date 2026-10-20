@@ -157,7 +157,10 @@ class InvoiceService:
         
         # توليد QR Code
         try:
-            qr_data = generate_qr_code_data(invoice, company_name)
+            company = await self.db.companies.find_one(
+                {"id": invoice.company_id}, {"_id": 0, "name": 1, "tax_id": 1, "tax_number": 1}) or {}
+            qr_data = generate_qr_code_data(invoice, company_name or company.get("name", ""),
+                                            company.get("tax_id") or company.get("tax_number") or "")
             qr = qrcode.QRCode(version=1, box_size=10, border=5)
             qr.add_data(qr_data)
             qr.make(fit=True)

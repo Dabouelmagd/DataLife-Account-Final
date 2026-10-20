@@ -37,6 +37,9 @@ class CreatePartyRequest(BaseModel):
     commercial_register: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
+    governate: Optional[str] = None
+    building_number: Optional[str] = None
+    national_id: Optional[str] = None
     country: str = "EG"
     phone: Optional[str] = None
     email: Optional[str] = None
@@ -161,6 +164,9 @@ async def create_party(
         commercial_register=request.commercial_register,
         address=request.address,
         city=request.city,
+        governate=request.governate,
+        building_number=request.building_number,
+        national_id=request.national_id,
         country=request.country,
         phone=request.phone,
         email=request.email,

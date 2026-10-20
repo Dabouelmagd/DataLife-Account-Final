@@ -80,8 +80,11 @@ class Party(BaseModel):
     name_en: Optional[str] = None
     tax_id: Optional[str] = None           # الرقم الضريبي
     commercial_register: Optional[str] = None  # السجل التجاري
-    address: Optional[str] = None
-    city: Optional[str] = None
+    address: Optional[str] = None          # الشارع
+    city: Optional[str] = None             # المدينة / المنطقة
+    governate: Optional[str] = None        # المحافظة — مطلوبة للفاتورة الإلكترونية
+    building_number: Optional[str] = None  # رقم المبنى — مطلوب للفاتورة الإلكترونية
+    national_id: Optional[str] = None      # الرقم القومي (للأفراد فوق الحد)
     country: str = "EG"
     phone: Optional[str] = None
     email: Optional[str] = None
@@ -470,24 +473,22 @@ def calculate_invoice_totals(invoice: Invoice) -> Invoice:
     return invoice
 
 
-def generate_qr_code_data(invoice: Invoice, company_name: str) -> str:
-    """توليد بيانات QR Code للفاتورة الإلكترونية"""
-    import base64
-    
-    # TLV format for Saudi/Egyptian e-invoice
-    def tlv_encode(tag: int, value: str) -> bytes:
-        value_bytes = value.encode('utf-8')
-        return bytes([tag, len(value_bytes)]) + value_bytes
-    
-    data = b''
-    data += tlv_encode(1, company_name)                    # اسم البائع
-    data += tlv_encode(2, invoice.party_tax_id or '')      # الرقم الضريبي
-    data += tlv_encode(3, invoice.document_date)           # تاريخ الفاتورة
-    data += tlv_encode(4, f"{invoice.grand_total:.2f}")    # الإجمالي
-    data += tlv_encode(5, f"{invoice.total_tax:.2f}")      # الضريبة
-    
-    return base64.b64encode(data).decode('utf-8')
+def generate_qr_code_data(invoice: Invoice, company_name: str, company_tax_id: str = "") -> str:
+    """نص رمز QR قبل إرسال الفاتورة للمنظومة.
 
+    It was the Saudi ZATCA TLV layout with the CUSTOMER's tax id in the
+    seller's place. An Egyptian e-invoice's QR is the link to the invoice on
+    the tax authority's portal, which exists only after submission (see
+    services/eta_document.public_url — the submit step replaces this). Until
+    then the code carries a readable summary with the seller's own number.
+    """
+    return "\n".join([
+        company_name or "",
+        f"الرقم الضريبي: {company_tax_id}" if company_tax_id else "",
+        f"{invoice.document_number} — {invoice.document_date}",
+        f"الإجمالي: {invoice.grand_total:.2f} {getattr(invoice.currency, 'value', invoice.currency)}",
+        f"الضريبة: {invoice.total_tax:.2f}",
+    ]).replace("\n\n", "\n")
 
 
 # ==========================================

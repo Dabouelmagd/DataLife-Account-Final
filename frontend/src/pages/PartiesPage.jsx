@@ -49,6 +49,9 @@ const PartiesPage = () => {
     commercial_register: '',
     address: '',
     city: '',
+    governate: '',
+    building_number: '',
+    national_id: '',
     country: 'EG',
     phone: '',
     email: '',
@@ -192,6 +195,9 @@ const PartiesPage = () => {
       commercial_register: '',
       address: '',
       city: '',
+      governate: '',
+      building_number: '',
+      national_id: '',
       country: 'EG',
       phone: '',
       email: '',
@@ -211,6 +217,9 @@ const PartiesPage = () => {
       commercial_register: party.commercial_register || '',
       address: party.address || '',
       city: party.city || '',
+      governate: party.governate || '',
+      building_number: party.building_number || '',
+      national_id: party.national_id || '',
       country: party.country || 'EG',
       phone: party.phone || '',
       email: party.email || '',
@@ -401,6 +410,18 @@ const PartiesPage = () => {
               <div>
                 <label className="block text-sm font-medium mb-1 text-gray-700">{text.city}</label>
                 <Input value={formData.city} onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">{language === 'ar' ? 'المحافظة' : 'Governorate'}</label>
+                <Input value={formData.governate} onChange={(e) => setFormData(prev => ({ ...prev, governate: e.target.value }))} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">{language === 'ar' ? 'رقم المبنى' : 'Building no.'}</label>
+                <Input value={formData.building_number} onChange={(e) => setFormData(prev => ({ ...prev, building_number: e.target.value }))} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">{language === 'ar' ? 'الرقم القومي (للأفراد)' : 'National ID (individuals)'}</label>
+                <Input dir="ltr" inputMode="numeric" maxLength={14} value={formData.national_id} onChange={(e) => setFormData(prev => ({ ...prev, national_id: e.target.value }))} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 text-gray-700">{text.address}</label>

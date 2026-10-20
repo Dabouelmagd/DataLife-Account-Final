@@ -10,7 +10,7 @@ import httpx
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List
-from fastapi import APIRouter, HTTPException, Depends, Query, Body, Header
+from fastapi import APIRouter, HTTPException, Depends, Query, Body, Header, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
 from database import db
@@ -21,6 +21,9 @@ from models.eta_settings import (
 )
 
 router = APIRouter(prefix="/api/eta", tags=["ETA Integration"])
+
+ADMIN_ROLES = {"Board Chairman", "رئيس مجلس الإدارة", "General Manager", "مدير عام", "المدير العام",
+               "CEO", "المدير التنفيذي", "Financial Manager", "المدير المالي", "Super Admin", "admin", "owner"}
 
 
 def get_eta_base_url(environment: str) -> str:
@@ -67,6 +70,20 @@ class ETASettingsUpdateRequest(BaseModel):
     environment: Optional[str] = None
     is_active: Optional[bool] = None
     auto_submit_invoices: Optional[bool] = None
+    # issuer as registered with the authority — every document carries it
+    issuer_name: Optional[str] = None
+    governate: Optional[str] = None
+    region_city: Optional[str] = None
+    street: Optional[str] = None
+    building_number: Optional[str] = None
+    postal_code: Optional[str] = None
+    item_code_type: Optional[str] = None          # EGS | GS1
+    # signing: "pkcs12" (eSeal file uploaded below) or "pkcs11" (token/HSM)
+    signing_mode: Optional[str] = None
+    pkcs11_library: Optional[str] = None
+    token_label: Optional[str] = None
+    key_label: Optional[str] = None
+    token_pin: Optional[str] = None
 
 
 class TestConnectionRequest(BaseModel):
@@ -119,7 +136,7 @@ async def get_eta_token(company_id: str, settings: dict) -> str:
     
     token_endpoint = f"{identity_url}/connect/token"
     
-    credentials = f"{settings['client_id']}:{settings['client_secret']}"
+    credentials = f"{settings['client_id']}:{_secret(settings.get('client_secret'))}"
     encoded = base64.b64encode(credentials.encode()).decode()
     
     headers = {
@@ -161,104 +178,139 @@ async def get_eta_token(company_id: str, settings: dict) -> str:
         return token_data["access_token"]
 
 
-def format_invoice_for_eta(invoice: dict, settings: dict) -> dict:
-    """تحويل الفاتورة إلى صيغة ETA"""
-    # بناء بيانات المُصدر (الشركة)
-    issuer = {
-        "type": "B",  # B = Business
-        "id": settings.get("tax_registration_number", ""),
-        "name": invoice.get("company_name", ""),
-        "address": {
-            "branchId": settings.get("branch_id", "0"),
-            "country": "EG",
-            "governate": invoice.get("company_governate", "Cairo"),
-            "regionCity": invoice.get("company_city", ""),
-            "street": invoice.get("company_street", ""),
-            "buildingNumber": invoice.get("company_building", "1")
-        }
-    }
-    
-    # بناء بيانات المستلم (العميل) — بعد التدقيق
-    # كان يُرسَل الرقم كما هو مهما كان طوله أو شكله، ولم يكن الرقم القومي
-    # يُطلب إطلاقاً. المصلحة ترفض ذلك، والرفض يظهر متأخراً بعد أن تكون
-    # الفاتورة في يد العميل وفي الدفاتر.
-    # this builder is synchronous, so the party's details come from the invoice
-    from services.eta_validation import validate_party
-    _check = validate_party(invoice, invoice.get("party") or {})
-    if not _check["ok"]:
-        raise HTTPException(status_code=400, detail=_check["error"])
+def _secret(value) -> str:
+    """Secrets are stored encrypted (enc: prefix); older rows hold plain text."""
+    v = str(value or "")
+    if v.startswith("enc:"):
+        from services.eta_signer import decrypt
+        return decrypt(v[4:]).decode()
+    return v
 
-    receiver = {
-        "type": _check["type"],
-        "id": _check["id"],
-        "name": invoice.get("party_name", ""),
-    }
-    
-    if invoice.get("party_address"):
-        receiver["address"] = {
-            "country": "EG",
-            "governate": invoice.get("party_governate", ""),
-            "regionCity": invoice.get("party_city", ""),
-            "street": invoice.get("party_street", ""),
-            "buildingNumber": invoice.get("party_building", "1")
-        }
-    
-    # بناء بنود الفاتورة
-    invoice_lines = []
-    for idx, item in enumerate(invoice.get("items", [])):
-        line = {
-            "description": item.get("description", ""),
-            "itemType": item.get("item_type", "EGS"),
-            "itemCode": item.get("eta_code", item.get("code", "")),
-            "unitType": item.get("unit", "EA"),
-            "quantity": float(item.get("quantity", 1)),
-            "unitValue": {
-                "currencySold": invoice.get("currency", "EGP"),
-                "amountEGP": float(item.get("unit_price", 0))
-            },
-            "salesTotal": float(item.get("total_before_discount", item.get("quantity", 1) * item.get("unit_price", 0))),
-            "netTotal": float(item.get("net_total", item.get("total", 0))),
-            "total": float(item.get("total", 0)),
-            "valueDifference": 0,
-            "totalTaxableFees": 0,
-            "itemsDiscount": float(item.get("discount", 0)),
-            "taxableItems": []
-        }
-        
-        # إضافة الضريبة إذا وجدت
-        if item.get("vat_amount", 0) > 0:
-            line["taxableItems"].append({
-                "taxType": "T1",  # VAT
-                "amount": float(item.get("vat_amount", 0)),
-                "subType": "V009",  # 14% VAT
-                "rate": float(item.get("vat_rate", 14))
-            })
-        
-        invoice_lines.append(line)
-    
-    # بناء المستند الكامل
-    document = {
-        "issuer": issuer,
-        "receiver": receiver,
-        "documentType": "I",  # Invoice
-        "documentTypeVersion": "1.0",
-        "dateTimeIssued": invoice.get("date", datetime.utcnow().isoformat()),
-        "taxpayerActivityCode": settings.get("activity_code", ""),
-        "internalID": invoice.get("invoice_number", ""),
-        "invoiceLines": invoice_lines,
-        "totalSalesAmount": float(invoice.get("subtotal", 0)),
-        "totalDiscountAmount": float(invoice.get("total_discount", 0)),
-        "netAmount": float(invoice.get("net_amount", invoice.get("subtotal", 0))),
-        "taxTotals": [{
-            "taxType": "T1",
-            "amount": float(invoice.get("vat_amount", 0))
-        }] if invoice.get("vat_amount", 0) > 0 else [],
-        "totalAmount": float(invoice.get("total", 0)),
-        "extraDiscountAmount": 0,
-        "totalItemsDiscountAmount": float(invoice.get("total_discount", 0))
-    }
-    
-    return document
+
+def _protect(value: str) -> str:
+    from services.eta_signer import encrypt
+    return "enc:" + encrypt(value.encode())
+
+
+async def _signer_for(settings: dict):
+    """(cert_der, rsa_sign) for the company's eSeal."""
+    from services import eta_signer
+    mode = settings.get("signing_mode") or ("pkcs12" if settings.get("certificate_p12") else "")
+    if mode == "pkcs12":
+        if not settings.get("certificate_p12"):
+            raise HTTPException(400, "ارفع ملف شهادة الختم الإلكتروني (.pfx) من إعدادات المنظومة")
+        pfx = eta_signer.decrypt(settings["certificate_p12"])
+        return eta_signer.pkcs12_signer(pfx, _secret(settings.get("certificate_password")))
+    if mode == "pkcs11":
+        if not settings.get("pkcs11_library"):
+            raise HTTPException(400, "حدّد مسار مكتبة PKCS#11 الخاصة بالتوكن")
+        return eta_signer.pkcs11_signer(settings["pkcs11_library"], _secret(settings.get("token_pin")),
+                                        settings.get("token_label"), settings.get("key_label"))
+    raise HTTPException(400, "لم تُضبط شهادة التوقيع — المنظومة ترفض المستندات غير الموقَّعة (الإصدار 1.0)")
+
+
+async def prepare_signed_document(company_id: str, invoice: dict, settings: dict) -> tuple:
+    """(document with signature, canonical string). Raises 400 in Arabic on
+    anything the authority would reject."""
+    from services.eta_document import build_document, serialize, ETADocumentError
+    from services.eta_validation import validate_party
+    from services.eta_signer import sign_canonical, ETASigningError
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
+    party = {}
+    if invoice.get("party_id"):
+        party = await db.parties.find_one({"id": invoice["party_id"], "company_id": company_id}, {"_id": 0}) or {}
+    check = validate_party(invoice, party)
+    if not check["ok"]:
+        raise HTTPException(400, check["error"])
+    receiver = {"type": check["type"], "id": check["id"],
+                "name": party.get("name") or invoice.get("party_name", ""),
+                "country": party.get("country") or "EG", "governate": party.get("governate"),
+                "city": party.get("city"), "street": party.get("address"),
+                "building_number": party.get("building_number")}
+    ids = [l.get("product_id") for l in invoice.get("lines", []) if l.get("product_id")]
+    products = {p["id"]: p async for p in db.products.find(
+        {"company_id": company_id, "id": {"$in": ids}}, {"_id": 0})} if ids else {}
+    original_uuid = None
+    if invoice.get("original_invoice_id"):
+        orig = await db.invoices.find_one({"id": invoice["original_invoice_id"], "company_id": company_id},
+                                          {"_id": 0, "eta_uuid": 1})
+        original_uuid = (orig or {}).get("eta_uuid")
+    try:
+        doc = build_document(invoice, settings, company.get("name", ""), receiver, products, original_uuid)
+        canonical = serialize(doc)
+        cert_der, rsa_sign = await _signer_for(settings)
+        doc["signatures"] = [{"signatureType": "I", "value": sign_canonical(canonical, cert_der, rsa_sign)}]
+    except (ETADocumentError, ETASigningError) as e:
+        raise HTTPException(400, str(e))
+    return doc, canonical
+
+
+async def submit_to_eta(company_id: str, invoice_id: str, user: dict) -> dict:
+    """The one submission path: build, serialize, sign, send, record."""
+    from services.eta_document import to_json, public_url
+    settings = await db.company_eta_settings.find_one({"company_id": company_id}, {"_id": 0})
+    if not settings or not settings.get("is_active"):
+        raise HTTPException(400, "تكامل ETA غير مفعل. يرجى تفعيله من الإعدادات")
+    if not settings.get("client_id") or not settings.get("client_secret"):
+        raise HTTPException(400, "بيانات اعتماد ETA غير مكتملة")
+    invoice = await db.invoices.find_one({"id": invoice_id, "company_id": company_id}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(404, "الفاتورة غير موجودة")
+    if invoice.get("status") not in ("approved", "paid", "partially_paid"):
+        raise HTTPException(400, "يجب اعتماد الفاتورة قبل إرسالها لمصلحة الضرائب")
+    if str(invoice.get("eta_status") or "").lower() in ("submitted", "valid"):
+        raise HTTPException(400, "تم إرسال هذه الفاتورة مسبقاً")
+
+    doc, canonical = await prepare_signed_document(company_id, invoice, settings)
+    token = await get_eta_token(company_id, settings)
+    base = get_eta_base_url(settings.get("environment", "preprod"))
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        # the body is sent as built: the numbers in it are the text that was signed
+        response = await client.post(f"{base}/documentsubmissions",
+                                     content=('{"documents":[' + to_json(doc) + ']}').encode("utf-8"),
+                                     headers={"Authorization": f"Bearer {token}",
+                                              "Content-Type": "application/json; charset=utf-8",
+                                              "Accept": "application/json"})
+    try:
+        result = response.json()
+    except Exception:
+        result = {"raw": response.text[:1000]}
+    now = datetime.now(timezone.utc).isoformat()
+    record = {"id": str(uuid.uuid4()), "company_id": company_id, "invoice_id": invoice_id,
+              "invoice_number": invoice.get("document_number"), "http_status": response.status_code,
+              "response": result, "submitted_at": now, "submitted_by": user.get("email") or user.get("user_id"),
+              "created_at": now}
+    accepted = (result.get("acceptedDocuments") or []) if isinstance(result, dict) else []
+    rejected = (result.get("rejectedDocuments") or []) if isinstance(result, dict) else []
+    if response.status_code in (200, 202) and accepted:
+        d = accepted[0]
+        sub_id = result.get("submissionId") or result.get("submissionUUID")
+        qr = public_url(settings.get("environment", "preprod"), d.get("uuid"), d.get("longId"))
+        record.update({"status": "submitted", "submission_uuid": sub_id, "document_uuid": d.get("uuid"),
+                       "long_id": d.get("longId")})
+        await db.eta_submissions.insert_one(record)
+        await db.invoices.update_one({"id": invoice_id, "company_id": company_id}, {"$set": {
+            "eta_status": "Submitted", "eta_submission_id": sub_id, "eta_submission_uuid": sub_id,
+            "eta_uuid": d.get("uuid"), "eta_document_uuid": d.get("uuid"), "eta_long_id": d.get("longId"),
+            "eta_hash_key": d.get("hashKey"), "eta_submission_date": now, "eta_public_url": qr,
+            "eta_qr": qr, "eta_rejection_reason": None}})
+        return {"success": True, "message": "تم إرسال الفاتورة — المنظومة تتحقق منها خلال دقائق",
+                "submission_uuid": sub_id, "document_uuid": d.get("uuid"), "long_id": d.get("longId"),
+                "public_url": qr}
+    # rejected: say why, in the authority's own words
+    errs = []
+    for r in rejected:
+        e = r.get("error") or {}
+        errs += [f"{x.get('propertyPath', '')}: {x.get('message', '')}" for x in (e.get("details") or [])] \
+            or [e.get("message", "")]
+    if not errs and isinstance(result, dict):
+        err = result.get("error")
+        errs = [err.get("message") if isinstance(err, dict) else (err or result.get("message") or result.get("raw") or "")]
+    record.update({"status": "rejected", "errors": errs})
+    await db.eta_submissions.insert_one(record)
+    await db.invoices.update_one({"id": invoice_id, "company_id": company_id}, {"$set": {
+        "eta_status": "Rejected", "eta_rejection_reason": "؛ ".join(e for e in errs if e)[:1000]}})
+    raise HTTPException(400, "رفضت المنظومة الفاتورة: " + ("؛ ".join(e for e in errs if e) or f"HTTP {response.status_code}"))
 
 
 # ==========================================
@@ -274,11 +326,15 @@ async def get_company_eta_settings(current_user: dict = Depends(get_current_user
     if settings.get("client_secret"):
         secret = settings["client_secret"]
         if len(secret) > 8:
-            settings["client_secret_masked"] = secret[:4] + "*" * (len(secret) - 8) + secret[-4:]
+            settings["client_secret_masked"] = "••••••••" if secret.startswith("enc:") else \
+            secret[:4] + "*" * (len(secret) - 8) + secret[-4:]
         else:
             settings["client_secret_masked"] = "****"
         # لا نرسل السر الكامل
         del settings["client_secret"]
+    for k in ("certificate_p12", "certificate_password", "token_pin"):
+        if settings.pop(k, None):
+            settings[f"{k}_set"] = True
     
     return settings
 
@@ -291,7 +347,19 @@ async def update_company_eta_settings(
     """تحديث إعدادات ETA للشركة"""
     company_id = current_user["company_id"]
     
+    if current_user.get("role") not in ADMIN_ROLES:
+        raise HTTPException(403, "إعدادات المنظومة لمدير الشركة أو المدير المالي")
     update_data = {k: v for k, v in request.dict().items() if v is not None}
+    for k in ("client_secret", "token_pin"):
+        if k in update_data and not str(update_data[k]).strip():
+            update_data.pop(k)            # an empty box means "unchanged", never "erase"
+    for k in ("client_secret", "token_pin"):
+        if update_data.get(k):
+            update_data[k] = _protect(update_data[k])
+    if "signing_mode" in update_data and update_data["signing_mode"] not in ("pkcs12", "pkcs11"):
+        raise HTTPException(400, "signing_mode: pkcs12 | pkcs11")
+    if "environment" in update_data and update_data["environment"] not in ("preprod", "production"):
+        raise HTTPException(400, "environment: preprod | production")
     update_data["updated_at"] = datetime.utcnow()
     
     await db.company_eta_settings.update_one(
@@ -378,255 +446,48 @@ async def test_eta_connection(
 
 
 @router.post("/submit-invoice")
-async def submit_invoice_to_eta(
-    request: SubmitInvoiceRequest,
-    current_user: dict = Depends(get_current_user)
-):
+async def submit_invoice_to_eta(request: SubmitInvoiceRequest, current_user: dict = Depends(get_current_user)):
     """إرسال فاتورة إلى مصلحة الضرائب"""
-    company_id = current_user["company_id"]
-    
-    # الحصول على إعدادات ETA
-    settings = await db.company_eta_settings.find_one(
-        {"company_id": company_id},
-        {"_id": 0}
-    )
-    
-    if not settings or not settings.get("is_active"):
-        raise HTTPException(status_code=400, detail="تكامل ETA غير مفعل")
-    
-    if not settings.get("client_id") or not settings.get("client_secret"):
-        raise HTTPException(status_code=400, detail="بيانات اعتماد ETA غير مكتملة")
-    
-    # الحصول على الفاتورة
-    invoice = await db.invoices.find_one(
-        {"id": request.invoice_id, "company_id": company_id},
-        {"_id": 0}
-    )
-    
-    if not invoice:
-        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
-    
-    if invoice.get("status") != "approved":
-        raise HTTPException(status_code=400, detail="يجب اعتماد الفاتورة قبل إرسالها")
-    
-    # التحقق من عدم الإرسال مسبقاً
-    existing_submission = await db.eta_submissions.find_one({
-        "invoice_id": request.invoice_id,
-        "status": {"$in": ["submitted", "valid"]}
-    })
-    
-    if existing_submission:
-        raise HTTPException(status_code=400, detail="تم إرسال هذه الفاتورة مسبقاً")
-    
-    try:
-        # الحصول على التوكن
-        token = await get_eta_token(company_id, settings)
-        
-        # تحويل الفاتورة لصيغة ETA
-        eta_document = format_invoice_for_eta(invoice, settings)
-        
-        # إرسال الفاتورة
-        base_url = (
-            "https://api.preprod.invoicing.eta.gov.eg" 
-            if settings.get("environment") == "preprod" 
-            else "https://api.invoicing.eta.gov.eg"
-        )
-        
-        submit_endpoint = f"{base_url}/api/v1.0/documentsubmissions"
-        
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
-        
-        payload = {"documents": [eta_document]}
-        
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(submit_endpoint, json=payload, headers=headers)
-            response_data = response.json()
-            
-            # إنشاء سجل الإرسال
-            submission = ETASubmission(
-                company_id=company_id,
-                invoice_id=request.invoice_id,
-                invoice_number=invoice.get("invoice_number"),
-                invoice_type="sales"
-            )
-            
-            if response.status_code in [200, 202]:
-                accepted_docs = response_data.get("acceptedDocuments", [])
-                rejected_docs = response_data.get("rejectedDocuments", [])
-                
-                if accepted_docs:
-                    doc = accepted_docs[0]
-                    submission.submission_uuid = response_data.get("submissionUUID")
-                    submission.document_uuid = doc.get("uuid")
-                    submission.long_id = doc.get("longId")
-                    submission.status = ETADocumentStatus.SUBMITTED
-                    submission.submitted_at = datetime.utcnow()
-                    
-                    # تحديث الفاتورة
-                    await db.invoices.update_one(
-                        {"id": request.invoice_id},
-                        {"$set": {
-                            "eta_submission_uuid": response_data.get("submissionUUID"),
-                            "eta_submission_id":   response_data.get("submissionUUID"),  # SQL field alias
-                            "eta_uuid":            doc.get("uuid"),   # SQL: eta_uuid (document UUID)
-                            "eta_document_uuid":   doc.get("uuid"),
-                            "eta_long_id":         doc.get("longId"),
-                            "eta_hash_key":        doc.get("hashKey"),
-                            "eta_status":          "Submitted",       # SQL: eta_status (TitleCase)
-                            "eta_submission_date": datetime.now(timezone.utc).isoformat(),
-                        }}
-                    )
-                elif rejected_docs:
-                    doc = rejected_docs[0]
-                    submission.status = ETADocumentStatus.REJECTED
-                    submission.error_message = doc.get("error", {}).get("message", "خطأ غير معروف")
-                    submission.validation_errors = doc.get("error", {}).get("details", [])
-            else:
-                submission.status = ETADocumentStatus.INVALID
-                submission.error_code = response_data.get("error", "")
-                submission.error_message = response_data.get("message", response.text)
-            
-            # حفظ سجل الإرسال
-            await db.eta_submissions.insert_one(submission.dict())
-            
-            if submission.status == ETADocumentStatus.SUBMITTED:
-                return {
-                    "success": True,
-                    "message": "تم إرسال الفاتورة بنجاح",
-                    "submission_uuid": submission.submission_uuid,
-                    "document_uuid": submission.document_uuid,
-                    "long_id": submission.long_id
-                }
-            else:
-                return {
-                    "success": False,
-                    "message": submission.error_message,
-                    "errors": submission.validation_errors
-                }
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error submitting invoice to ETA: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"خطأ في إرسال الفاتورة: {str(e)}")
+    return await submit_to_eta(current_user["company_id"], request.invoice_id, current_user)
 
 
 @router.post("/submit/{invoice_id}")
-async def submit_invoice_by_id(
-    invoice_id: str,
-    current_user: dict = Depends(get_current_user)
-):
+async def submit_invoice_by_id(invoice_id: str, current_user: dict = Depends(get_current_user)):
     """إرسال فاتورة إلى مصلحة الضرائب باستخدام معرف الفاتورة"""
+    return await submit_to_eta(current_user["company_id"], invoice_id, current_user)
+
+
+@router.post("/preview/{invoice_id}")
+async def preview_signed_document(invoice_id: str, current_user: dict = Depends(get_current_user)):
+    """المستند كما سيُرسل (موقَّعاً) والنص الموحَّد — للمراجعة قبل الإرسال، بلا إرسال."""
     company_id = current_user["company_id"]
-    
-    # الحصول على إعدادات ETA
-    settings = await db.company_eta_settings.find_one(
-        {"company_id": company_id},
-        {"_id": 0}
-    )
-    
-    if not settings or not settings.get("is_active"):
-        raise HTTPException(status_code=400, detail="تكامل ETA غير مفعل. يرجى تفعيله من الإعدادات")
-    
-    if not settings.get("client_id") or not settings.get("client_secret"):
-        raise HTTPException(status_code=400, detail="بيانات اعتماد ETA غير مكتملة")
-    
-    # الحصول على الفاتورة
-    invoice = await db.invoices.find_one(
-        {"id": invoice_id, "company_id": company_id},
-        {"_id": 0}
-    )
-    
+    settings = await db.company_eta_settings.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    invoice = await db.invoices.find_one({"id": invoice_id, "company_id": company_id}, {"_id": 0})
     if not invoice:
-        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
-    
-    if invoice.get("status") != "approved":
-        raise HTTPException(status_code=400, detail="يجب اعتماد الفاتورة قبل إرسالها لمصلحة الضرائب")
-    
-    # التحقق من عدم الإرسال مسبقاً
-    existing_submission = await db.eta_submissions.find_one({
-        "invoice_id": invoice_id,
-        "status": {"$in": ["submitted", "valid"]}
-    })
-    
-    if existing_submission:
-        raise HTTPException(status_code=400, detail="تم إرسال هذه الفاتورة مسبقاً")
-    
+        raise HTTPException(404, "الفاتورة غير موجودة")
+    doc, canonical = await prepare_signed_document(company_id, invoice, settings)
+    return {"document": doc, "canonical": canonical}
+
+
+@router.post("/certificate")
+async def upload_certificate(file: UploadFile = File(...), password: str = Form(""),
+                             current_user: dict = Depends(get_current_user)):
+    """رفع شهادة الختم الإلكتروني (.pfx / .p12) — تُحفظ مشفّرة."""
+    from services import eta_signer
+    if current_user.get("role") not in ADMIN_ROLES:
+        raise HTTPException(403, "رفع الشهادة لمدير الشركة أو المدير المالي")
+    data = await file.read()
+    if not data or len(data) > 64 * 1024:
+        raise HTTPException(400, "ملف الشهادة غير صالح")
     try:
-        # الحصول على التوكن
-        token = await get_eta_token(company_id, settings)
-        
-        # تحويل الفاتورة لصيغة ETA
-        eta_document = format_invoice_for_eta(invoice, settings)
-        
-        # إرسال الفاتورة
-        base_url = (
-            "https://api.preprod.invoicing.eta.gov.eg" 
-            if settings.get("environment") == "preprod" 
-            else "https://api.invoicing.eta.gov.eg"
-        )
-        
-        submit_endpoint = f"{base_url}/api/v1.0/documentsubmissions"
-        
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
-        
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                submit_endpoint,
-                json={"documents": [eta_document]},
-                headers=headers
-            )
-            
-            if response.status_code in [200, 201, 202]:
-                result = response.json()
-                
-                # حفظ سجل الإرسال
-                submission_record = {
-                    "submission_uuid": result.get("submissionUUID", str(uuid.uuid4())),
-                    "invoice_id": invoice_id,
-                    "company_id": company_id,
-                    "document_uuid": result.get("acceptedDocuments", [{}])[0].get("uuid") if result.get("acceptedDocuments") else None,
-                    "status": "submitted",
-                    "response": result,
-                    "submitted_at": datetime.now(timezone.utc).isoformat(),
-                    "submitted_by": current_user.get("email")
-                }
-                await db.eta_submissions.insert_one(submission_record)
-                
-                # تحديث حالة الفاتورة
-                await db.invoices.update_one(
-                    {"id": invoice_id},
-                    {"$set": {
-                        "eta_status": "submitted",
-                        "eta_submission_uuid": submission_record["submission_uuid"],
-                        "eta_submitted_at": submission_record["submitted_at"]
-                    }}
-                )
-                
-                return {
-                    "success": True,
-                    "message": "تم إرسال الفاتورة بنجاح",
-                    "submission_uuid": submission_record["submission_uuid"],
-                    "document_uuid": submission_record["document_uuid"]
-                }
-            else:
-                error_detail = response.text
-                logger.error(f"ETA API error: {error_detail}")
-                raise HTTPException(status_code=400, detail=f"خطأ من مصلحة الضرائب: {error_detail}")
-                
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error submitting invoice to ETA: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"خطأ في إرسال الفاتورة: {str(e)}")
+        cert_der, _ = eta_signer.pkcs12_signer(data, password)
+    except eta_signer.ETASigningError as e:
+        raise HTTPException(400, str(e))
+    info = eta_signer.certificate_info(cert_der)
+    await db.company_eta_settings.update_one({"company_id": current_user["company_id"]}, {"$set": {
+        "certificate_p12": eta_signer.encrypt(data), "certificate_password": _protect(password),
+        "certificate_info": info, "signing_mode": "pkcs12", "updated_at": datetime.utcnow()}}, upsert=True)
+    return {"message": "تم حفظ شهادة التوقيع", "certificate": info}
 
 
 @router.get("/submission-status/{submission_uuid}")
@@ -830,6 +691,8 @@ async def sync_eta_status(
                 {"$set": {
                     "eta_status":    new_status,
                     "eta_long_id":   data.get("longId", invoice.get("eta_long_id")),
+                    # the portal link the printed QR opens
+                    **({"eta_public_url": data["publicUrl"], "eta_qr": data["publicUrl"]} if data.get("publicUrl") else {}),
                     "eta_hash_key":  data.get("hashKey", invoice.get("eta_hash_key")),
                 }}
             )

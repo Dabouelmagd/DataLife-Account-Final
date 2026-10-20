@@ -15,6 +15,7 @@ const getToken = () => localStorage.getItem('token');
 
 export default function ETASettingsPage() {
   const { language } = useLanguage();
+  const isRTL = language === 'ar';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -406,6 +407,63 @@ export default function ETASettingsPage() {
                   onChange={e => updateSetting('activity_code', e.target.value)}
                   placeholder="4610"
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Issuer address + signing certificate — required on every signed document */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-[#28376B]">
+                <Key className="w-5 h-5" />
+                {isRTL ? 'عنوان الشركة وشهادة التوقيع' : 'Issuer address & signing certificate'}
+              </CardTitle>
+              <CardDescription>{isRTL ? 'كما هي مسجّلة في منظومة الفاتورة الإلكترونية — المنظومة ترفض المستند بدونها' : 'As registered with the e-invoicing system'}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[['issuer_name', isRTL ? 'الاسم المسجّل' : 'Registered name'], ['governate', isRTL ? 'المحافظة' : 'Governorate'],
+                ['region_city', isRTL ? 'المدينة / المنطقة' : 'City / region'], ['street', isRTL ? 'الشارع' : 'Street'],
+                ['building_number', isRTL ? 'رقم المبنى' : 'Building no.'], ['postal_code', isRTL ? 'الرمز البريدي' : 'Postal code']].map(([k, l]) => (
+                <div key={k}>
+                  <label className="block text-sm font-medium mb-1">{l}</label>
+                  <Input value={settings?.[k] || ''} onChange={e => updateSetting(k, e.target.value)} />
+                </div>
+              ))}
+              <div>
+                <label className="block text-sm font-medium mb-1">{isRTL ? 'نوع أكواد الأصناف' : 'Item code type'}</label>
+                <select className="w-full p-2 border rounded-md" value={settings?.item_code_type || 'EGS'}
+                  onChange={e => updateSetting('item_code_type', e.target.value)}>
+                  <option value="EGS">EGS — {isRTL ? 'كود مصري مسجّل في المنظومة' : 'Egyptian registered code'}</option>
+                  <option value="GS1">GS1 — {isRTL ? 'باركود دولي' : 'international barcode'}</option>
+                </select>
+              </div>
+              <div className="border-t pt-3">
+                <label className="block text-sm font-medium mb-1">{isRTL ? 'شهادة الختم الإلكتروني (.pfx / .p12)' : 'eSeal certificate (.pfx / .p12)'}</label>
+                {settings?.certificate_info ? (
+                  <p className="text-xs text-gray-600 mb-2 leading-5" dir="ltr">
+                    {settings.certificate_info.subject}<br />
+                    {isRTL ? 'صالحة حتى' : 'valid to'} {settings.certificate_info.valid_to}
+                  </p>
+                ) : <p className="text-xs text-amber-700 mb-2">{isRTL ? 'لم تُرفع شهادة بعد — لن تُرسل أي فاتورة بدونها' : 'No certificate yet'}</p>}
+                <input type="file" accept=".pfx,.p12" id="eta-cert-file" className="block w-full text-sm" />
+                <Input type="password" id="eta-cert-pass" className="mt-2" placeholder={isRTL ? 'كلمة مرور الشهادة' : 'Certificate password'} />
+                <Button variant="outline" className="w-full mt-2" onClick={async () => {
+                  const f = document.getElementById('eta-cert-file')?.files?.[0];
+                  if (!f) { toast.error(isRTL ? 'اختر ملف الشهادة' : 'Choose the file'); return; }
+                  const fd = new FormData();
+                  fd.append('file', f);
+                  fd.append('password', document.getElementById('eta-cert-pass')?.value || '');
+                  try {
+                    const r = await fetch(`${API}/certificate`, { method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: fd });
+                    const d = await r.json().catch(() => ({}));
+                    if (!r.ok) { toast.error(typeof d.detail === 'string' ? d.detail : (isRTL ? 'تعذّر حفظ الشهادة' : 'Failed')); return; }
+                    toast.success(d.message || 'OK');
+                    setSettings(prev => ({ ...prev, certificate_info: d.certificate, signing_mode: 'pkcs12' }));
+                  } catch { toast.error(isRTL ? 'تعذّر حفظ الشهادة' : 'Failed'); }
+                }}>{isRTL ? 'رفع الشهادة' : 'Upload certificate'}</Button>
+                <p className="text-xs text-gray-500 mt-2">{isRTL
+                  ? 'تُحفظ الشهادة وكلمة مرورها مشفّرتين. التوقيع بتوكن USB يحتاج جهازاً متصلاً بالتوكن.'
+                  : 'Stored encrypted. A USB token needs a machine with the token attached.'}</p>
               </div>
             </CardContent>
           </Card>
