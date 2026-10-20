@@ -89,6 +89,27 @@ def resolve_work_location(emp: dict, company: dict):
     return loc, remote
 
 
+def _geofence(emp: dict, company: dict, req, action: str) -> tuple:
+    """(status, distance_m, allowed_radius) — refuses outside the work radius
+    unless remote work is allowed. Used for check-in AND check-out: check-out
+    had no location check, so a day could be closed from anywhere."""
+    work_location, remote_allowed = resolve_work_location(emp, company)
+    if not (work_location and work_location.get("latitude")):
+        return "not_configured", None, 500
+    wlat = float(work_location["latitude"])
+    wlon = float(work_location["longitude"])
+    allowed_radius = float(work_location.get("radius_meters", 500))
+    distance_m = haversine_distance(req.latitude, req.longitude, wlat, wlon)
+    if distance_m <= allowed_radius:
+        return "within_range", distance_m, allowed_radius
+    if not remote_allowed:
+        raise HTTPException(400,
+            f"أنت خارج نطاق مكان العمل ({distance_m:.0f}م) — "
+            f"الحد المسموح {allowed_radius:.0f}م | "
+            f"لا يمكن تسجيل {action} من هنا — تواصل مع مديرك للحصول على إذن العمل عن بُعد")
+    return "out_of_range", distance_m, allowed_radius
+
+
 @router.post("/attendance/check-in")
 async def ess_check_in(
     req: AttendanceRequest,
@@ -116,27 +137,7 @@ async def ess_check_in(
 
     # Geofencing check
     company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
-    work_location, remote_allowed = resolve_work_location(emp, company)
-    geofence_status = "not_configured"
-    distance_m      = None
-    allowed_radius  = 500  # default 500 meters
-
-    if work_location and work_location.get("latitude"):
-        wlat = float(work_location["latitude"])
-        wlon = float(work_location["longitude"])
-        allowed_radius = float(work_location.get("radius_meters", 500))
-        distance_m = haversine_distance(req.latitude, req.longitude, wlat, wlon)
-
-        if distance_m <= allowed_radius:
-            geofence_status = "within_range"
-        else:
-            geofence_status = "out_of_range"
-            # Check if remote work is allowed
-            if not remote_allowed:
-                raise HTTPException(400,
-                    f"أنت خارج نطاق مكان العمل ({distance_m:.0f}م) — "
-                    f"الحد المسموح {allowed_radius:.0f}م | "
-                    f"تواصل مع مديرك للحصول على إذن العمل عن بُعد")
+    geofence_status, distance_m, allowed_radius = _geofence(emp, company, req, "الحضور")
 
     # Create check-in record
     record_id = str(uuid.uuid4())
@@ -202,9 +203,15 @@ async def ess_check_out(
     if not record:
         raise HTTPException(400, "لا يوجد تسجيل حضور مفتوح اليوم")
 
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
+    geofence_status, distance_m, allowed_radius = _geofence(emp, company, req, "الانصراف")
+
     check_in_dt  = datetime.fromisoformat(record["check_in"])
+    if check_in_dt.tzinfo is None:            # older records were saved without a zone
+        check_in_dt = check_in_dt.replace(tzinfo=timezone.utc)
     check_out_dt = datetime.now(timezone.utc)
-    work_hours   = round((check_out_dt - check_in_dt).seconds / 3600, 2)
+    # total_seconds: .seconds dropped whole days and wrapped past 24h
+    work_hours   = round(max((check_out_dt - check_in_dt).total_seconds(), 0) / 3600, 2)
     now          = check_out_dt.isoformat()
 
     await db.attendance_records.update_one(
@@ -214,6 +221,8 @@ async def ess_check_out(
             "work_hours": work_hours,
             "check_out_location": {
                 "latitude": req.latitude, "longitude": req.longitude,
+                "distance_from_office_m": distance_m,
+                "geofence_status": geofence_status,
             },
         }}
     )

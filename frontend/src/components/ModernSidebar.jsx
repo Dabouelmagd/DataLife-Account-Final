@@ -88,6 +88,13 @@ const ModernSidebar = ({
   const { darkMode, toggleDarkMode } = useTheme();
   const [copied, setCopied] = useState(false);
 
+  // On a phone the sidebar is a drawer over the page. Picking a screen closes
+  // it; tapping a section that has sub-items keeps it open so the sub-items can
+  // be reached (it used to close at once, so HR/finance sub-screens were
+  // unreachable on mobile, while sub-items and other entries never closed it).
+  const closeDrawer = () => setSidebarOpen?.(false);
+  const go = (id) => { setActiveModule(id); closeDrawer(); };
+
   const toggleMenu = (menuId) => {
     setExpandedMenus(prev => ({
       ...prev,
@@ -444,7 +451,7 @@ const ModernSidebar = ({
             return (
               <button
                 key={module.id}
-                onClick={() => setActiveModule(module.id)}
+                onClick={() => go(module.id)}
                 data-testid={`nav-${module.id}-module`}
                 className={`w-full flex items-center gap-2 py-2 px-2.5 rounded-lg mb-1 transition-all
                   ${isActive ? `${colors.bg} border-s-2 ${colors.border} ${colors.text}` : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
@@ -476,8 +483,8 @@ const ModernSidebar = ({
                   <button
                     onClick={() => {
                       setActiveModule(module.id);
-                      setSidebarOpen?.(false); // close on mobile
                       if (hasSubModules) toggleMenu(module.id);
+                      else closeDrawer();
                       if (module.id === 'hr') { setActiveHRSubModule?.(null); setActiveFinancialSubModule?.(null); setActiveInvoiceSubModule?.(null); }
                       else if (module.id === 'financial') { setActiveFinancialSubModule?.(null); setActiveHRSubModule?.(null); setActiveInvoiceSubModule?.(null); }
                       else if (module.id === 'invoices') { setActiveInvoiceSubModule?.('overview'); setActiveHRSubModule?.(null); setActiveFinancialSubModule?.(null); }
@@ -527,6 +534,7 @@ const ModernSidebar = ({
                               if (module.id === 'hr') setActiveHRSubModule?.(subModule.id);
                               else if (module.id === 'invoices') setActiveInvoiceSubModule?.(subModule.id);
                               else setActiveFinancialSubModule?.(subModule.id);
+                              closeDrawer();
                             }}
                             data-testid={`nav-${module.id}-${subModule.id}`}
                             className={`w-full flex items-center gap-2 ps-3 pe-2 py-1.5 text-[13px] rounded-e transition-all
@@ -561,7 +569,7 @@ const ModernSidebar = ({
                 return (
                   <button
                     key={module.id}
-                    onClick={() => setActiveModule(module.id)}
+                    onClick={() => go(module.id)}
                     data-testid={`nav-${module.id}-module`}
                     className={`w-full flex items-center gap-2 py-2 px-2.5 rounded-lg mb-0.5 transition-all
                       ${isActive ? `${colors.bg} border-s-2 ${colors.border} ${colors.text}` : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
@@ -587,7 +595,7 @@ const ModernSidebar = ({
                 return (
                   <button
                     key={module.id}
-                    onClick={() => setActiveModule(module.id)}
+                    onClick={() => go(module.id)}
                     data-testid={`nav-${module.id}-module`}
                     className={`w-full flex items-center gap-2 py-2 px-2.5 rounded-lg mb-0.5 transition-all
                       ${isActive ? `${colors.bg} border-s-2 ${colors.border} ${colors.text}` : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
@@ -605,7 +613,7 @@ const ModernSidebar = ({
               {otherModules.some(m => m.id === 'app-updates') && (
                 <AppUpdatesSidebarItem
                   isActive={activeModule === 'app-updates'}
-                  onClick={() => setActiveModule('app-updates')}
+                  onClick={() => go('app-updates')}
                   language={language}
                   token={token}
                 />
@@ -623,7 +631,7 @@ const ModernSidebar = ({
                 return (
                   <button
                     key={module.id}
-                    onClick={() => setActiveModule(module.id)}
+                    onClick={() => go(module.id)}
                     data-testid={`nav-${module.id}-module`}
                     className={`w-full flex items-center gap-2 py-1.5 px-2.5 rounded-lg mb-0.5 transition-all
                       ${isActive ? `${colors.bg} border-s-2 ${colors.border} ${colors.text}` : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
@@ -663,7 +671,7 @@ const ModernSidebar = ({
             </button>
             
             {/* Settings */}
-            <button onClick={() => setActiveModule?.('settings')} data-testid="nav-settings-btn"
+            <button onClick={() => { setActiveModule?.('settings'); closeDrawer(); }} data-testid="nav-settings-btn"
               className={`flex-1 flex items-center justify-center py-2 rounded-lg transition-colors ${activeModule === 'settings' ? 'bg-gray-200 dark:bg-gray-700' : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
               <Gear weight={activeModule === 'settings' ? 'fill' : 'duotone'} className="w-4 h-4 text-gray-600 dark:text-gray-400" />
             </button>
