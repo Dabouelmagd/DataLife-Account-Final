@@ -79,6 +79,47 @@ APPROVAL_TYPES = {
 }
 
 
+# roles as they are stored: English ids and the Arabic names some accounts use
+ROLE_ALIASES = {
+    "HR Manager": ["HR Manager", "مدير الموارد البشرية"],
+    "General Manager": ["General Manager", "مدير عام", "المدير العام"],
+    "Financial Manager": ["Financial Manager", "المدير المالي"],
+    "Procurement Manager": ["Procurement Manager", "مدير المشتريات"],
+}
+# who may set up approval chains, and the fallback approvers when a type's
+# default roles have no users
+TOP_ROLES = ["Board Chairman", "رئيس مجلس الإدارة", "General Manager", "مدير عام", "المدير العام",
+             "CEO", "المدير التنفيذي", "Super Admin", "admin", "owner"]
+
+
+def _renumber(approvers: list) -> list:
+    """Levels become 1..n in order, with no gaps (an empty level blocked a
+    request forever: nobody could ever approve it)."""
+    order = sorted({int(a.get("level") or 1) for a in approvers})
+    remap = {old: i + 1 for i, old in enumerate(order)}
+    return [{**a, "level": remap[int(a.get("level") or 1)]} for a in approvers]
+
+
+async def _default_approvers(company_id: str, roles: list, requester_id: str) -> list:
+    """One level per role, in order; every active user holding that role is an
+    approver at that level and any one of them can act. The requester is never
+    an approver of their own request."""
+    out, level = [], 0
+    for role in roles:
+        names = ROLE_ALIASES.get(role, [role])
+        users = await db.users.find(
+            {"company_id": company_id, "role": {"$in": names}, "is_active": {"$ne": False},
+             "id": {"$ne": requester_id}},
+            {"_id": 0, "id": 1, "full_name": 1, "role": 1, "email": 1}).to_list(length=None)
+        users = [u for u in users if u.get("id") not in {a["user_id"] for a in out}]
+        if not users:
+            continue
+        level += 1
+        out += [{"user_id": u["id"], "user_name": u.get("full_name"), "role": u.get("role"),
+                 "email": u.get("email"), "level": level} for u in users]
+    return out
+
+
 # ============ APPROVAL REQUESTS ============
 
 @router.post("/request")
@@ -104,27 +145,19 @@ async def create_approval_request(
         "is_active": True
     })
     
+    requester_id = user_data.get("user_id")
     if workflow:
-        approvers = workflow.get("approvers", [])
-        approval_levels = workflow.get("levels", 1)
+        approvers = [a for a in workflow.get("approvers", []) if a.get("user_id") and a.get("user_id") != requester_id]
     else:
-        # Use defaults - find users with these roles
-        approvers = []
-        for role in type_config["default_approvers"]:
-            users = await db.users.find(
-                {"company_id": company_id, "role": role, "is_active": True},
-                {"_id": 0, "id": 1, "full_name": 1, "role": 1, "email": 1}
-            ).to_list(length=None)
-            for u in users:
-                if u.get("id") not in [a.get("user_id") for a in approvers]:
-                    approvers.append({
-                        "user_id": u.get("id"),
-                        "user_name": u.get("full_name"),
-                        "role": u.get("role"),
-                        "email": u.get("email"),
-                        "level": len(approvers) + 1
-                    })
-        approval_levels = len(set(a.get("level") for a in approvers))
+        approvers = await _default_approvers(company_id, type_config["default_approvers"], requester_id)
+    if not approvers:
+        # nobody in the configured roles (or only the requester): the top management decides
+        approvers = await _default_approvers(company_id, TOP_ROLES, requester_id)
+    if not approvers:
+        raise HTTPException(status_code=400,
+                            detail="لا يوجد مَن يعتمد هذا الطلب — أضف مستخدماً بدور مدير أو اضبط مسار الموافقات")
+    approvers = _renumber(approvers)
+    approval_levels = max(a["level"] for a in approvers)
     
     approval_request = {
         "id": generate_id("apr_"),
@@ -372,6 +405,12 @@ async def approve_request(
     
     if current_level not in user_levels:
         raise HTTPException(status_code=403, detail="Not authorized to approve at this level")
+    if user_id == request.get("requester_id"):
+        raise HTTPException(status_code=403, detail="لا يمكن اعتماد طلبك بنفسك")
+    # one person, one signature: someone listed on two levels cannot clear both
+    if any(h.get("user_id") == user_id and h.get("action") == "approved"
+           for h in request.get("approval_history", [])):
+        raise HTTPException(status_code=403, detail="اعتمدت هذا الطلب في مستوى سابق — يلزم معتمد آخر")
     
     # Add to approval history
     approval_entry = {
@@ -391,12 +430,9 @@ async def approve_request(
     total_levels = request.get("total_levels", 1)
     
     if current_level >= total_levels:
-        # Final approval
+        # Final approval — the action runs only after the status change is saved
         update_data["status"] = "approved"
         update_data["approved_at"] = datetime.now(timezone.utc).isoformat()
-        
-        # Execute post-approval action
-        await execute_approval_action(request)
     else:
         # Move to next level
         update_data["current_level"] = current_level + 1
@@ -411,13 +447,19 @@ async def approve_request(
                 "level_approved"
             )
     
-    await db.approval_requests.update_one(
-        {"id": request_id},
+    # conditional on the level we checked: two approvers clicking together
+    # cannot both pass the same level (or run the final action twice)
+    res = await db.approval_requests.update_one(
+        {"id": request_id, "company_id": company_id, "status": "pending", "current_level": current_level},
         {
             "$set": update_data,
             "$push": {"approval_history": approval_entry}
         }
     )
+    if not res.modified_count:
+        raise HTTPException(status_code=409, detail="تغيّرت حالة الطلب — حدّث الصفحة")
+    if update_data.get("status") == "approved":
+        await execute_approval_action(request)
     
     # Notify requester
     await create_approval_notification(
@@ -466,6 +508,8 @@ async def reject_request(
     
     if current_level not in user_levels:
         raise HTTPException(status_code=403, detail="Not authorized to reject")
+    if user_id == request.get("requester_id"):
+        raise HTTPException(status_code=403, detail="لا يمكن رفض طلبك بنفسك — ألغِه بدلاً من ذلك")
     
     rejection_entry = {
         "action": "rejected",
@@ -477,7 +521,7 @@ async def reject_request(
     }
     
     await db.approval_requests.update_one(
-        {"id": request_id},
+        {"id": request_id, "company_id": company_id, "status": "pending"},
         {
             "$set": {
                 "status": "rejected",
@@ -544,18 +588,41 @@ async def create_workflow(
     user_data = await verify_token(authorization)
     company_id = user_data.get("company_id")
     
+    # Anyone could rewrite a chain — including listing themselves as the only
+    # approver, then approving their own requests.
+    if user_data.get("role") not in TOP_ROLES:
+        raise HTTPException(status_code=403, detail="ضبط مسار الموافقات لرئيس مجلس الإدارة أو المدير العام فقط")
     approval_type = workflow_data.get("type")
     
     if approval_type not in APPROVAL_TYPES:
         raise HTTPException(status_code=400, detail="Invalid approval type")
+    
+    approvers = []
+    for a in workflow_data.get("approvers", []) or []:
+        uid = (a or {}).get("user_id")
+        try:
+            level = int(a.get("level") or 1)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="مستوى الموافقة يجب أن يكون رقماً")
+        if level < 1:
+            raise HTTPException(status_code=400, detail="مستوى الموافقة يبدأ من 1")
+        u = await db.users.find_one({"id": uid, "company_id": company_id, "is_active": {"$ne": False}},
+                                    {"_id": 0, "id": 1, "full_name": 1, "role": 1, "email": 1})
+        if not u:
+            raise HTTPException(status_code=400, detail="أحد المعتمدين ليس مستخدماً في الشركة")
+        approvers.append({"user_id": u["id"], "user_name": u.get("full_name"), "role": u.get("role"),
+                          "email": u.get("email"), "level": level})
+    if not approvers:
+        raise HTTPException(status_code=400, detail="أضف معتمداً واحداً على الأقل")
+    approvers = _renumber(approvers)
     
     workflow = {
         "company_id": company_id,
         "type": approval_type,
         "name_en": APPROVAL_TYPES[approval_type]["name_en"],
         "name_ar": APPROVAL_TYPES[approval_type]["name_ar"],
-        "approvers": workflow_data.get("approvers", []),
-        "levels": workflow_data.get("levels", 1),
+        "approvers": approvers,
+        "levels": max(a["level"] for a in approvers),
         "auto_approve_below": workflow_data.get("auto_approve_below"),  # Auto-approve if amount below this
         "escalation_days": workflow_data.get("escalation_days", 3),
         "is_active": True,
@@ -621,14 +688,17 @@ async def execute_approval_action(request: dict):
     if not ref_type or not ref_id:
         return
     
+    company_id = request.get("company_id")
+    # every update is scoped to the request's company: reference_id comes from
+    # the requester and used to be matched across all companies
     if ref_type == "leave":
         await db.leaves.update_one(
-            {"id": ref_id},
+            {"id": ref_id, "company_id": company_id},
             {"$set": {"status": "approved", "approved_at": datetime.now(timezone.utc).isoformat()}}
         )
         # Send email notification to employee
         try:
-            leave = await db.leaves.find_one({"id": ref_id})
+            leave = await db.leaves.find_one({"id": ref_id, "company_id": company_id})
             if leave:
                 employee = await db.users.find_one({"id": leave.get("employee_id")})
                 if employee and employee.get("email"):
@@ -648,11 +718,15 @@ async def execute_approval_action(request: dict):
             pass  # Email failure should not block approval
     elif ref_type == "purchase_order":
         await db.purchase_orders.update_one(
-            {"po_number": ref_id},
+            {"po_number": ref_id, "company_id": company_id},
             {"$set": {"status": "approved", "approved_at": datetime.now(timezone.utc).isoformat()}}
         )
     elif ref_type == "invoice":
-        await db.invoices.update_one(
-            {"invoice_number": ref_id},
-            {"$set": {"status": "approved", "approved_at": datetime.now(timezone.utc).isoformat()}}
-        )
+        # approve through the invoice service so the entry is posted (and stock
+        # moves); just flipping the status left an approved invoice with no entry
+        inv = await db.invoices.find_one(
+            {"company_id": company_id, "status": "draft",
+             "$or": [{"id": ref_id}, {"document_number": ref_id}]}, {"_id": 0, "id": 1})
+        if inv:
+            from services.invoice_service import InvoiceService
+            await InvoiceService(db).approve_invoice(inv["id"], request.get("requester_id") or "system")

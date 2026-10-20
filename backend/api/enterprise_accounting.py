@@ -39,34 +39,24 @@ async def get_user(authorization: Optional[str] = Header(None)):
 # TAX BRACKETS — Dynamic (no hardcoding)
 # ══════════════════════════════════════════
 @router.get("/tax-brackets")
-async def get_tax_brackets(year: int = 2024, current_user: dict = Depends(get_user)):
-    company_id = current_user.get("company_id")
-    brackets = await db.payroll_tax_brackets.find(
-        {"tax_year": year, "$or": [{"company_id": company_id}, {"company_id": None}]},
-        {"_id": 0}
-    ).sort("bracket_order", 1).to_list(length=20)
+async def get_tax_brackets(year: int = 2026, current_user: dict = Depends(get_user)):
+    """شرائح ضريبة كسب العمل — القانون 7/2024، من نفس المصدر الذي تحسب به الرواتب.
 
-    if not brackets:
-        # Seed default brackets
-        for b in DEFAULT_TAX_BRACKETS_2024:
-            d = b.dict()
-            d["id"] = str(uuid.uuid4())
-            await db.payroll_tax_brackets.insert_one(d)
-        brackets = [b.dict() for b in DEFAULT_TAX_BRACKETS_2024]
+    This endpoint used to seed and serve its own 2024 table (which no payroll
+    calculation read) and let any user PUT arbitrary fields into it.
+    """
+    from services.egypt_payroll import brackets_table, PERSONAL_EXEMPTION, PHASE_OUT
+    return {"brackets": brackets_table(), "tax_year": year, "personal_exemption": PERSONAL_EXEMPTION,
+            "phase_out": [{"income_above": a, "taxed_from_bracket_ending": e} for a, e in PHASE_OUT],
+            "source": "قانون 91/2005 المعدل بالقانون 7/2024",
+            "editable": False}
 
-    return {"brackets": brackets, "tax_year": year}
 
 @router.put("/tax-brackets/{bracket_id}")
 async def update_tax_bracket(bracket_id: str, data: dict, current_user: dict = Depends(get_user)):
-    """تحديث شريحة ضريبية — Super Admin أو مدير مالي"""
-    # only this company's brackets; the shared defaults (company_id None) apply to every company
-    if not await db.payroll_tax_brackets.find_one({"id": bracket_id, "company_id": current_user.get("company_id")}, {"_id": 1}):
-        raise HTTPException(status_code=404, detail="الشريحة غير موجودة أو شريحة افتراضية لا يمكن تعديلها من حساب الشركة")
-    await db.payroll_tax_brackets.update_one(
-        {"id": bracket_id},
-        {"$set": {**data, "updated_at": datetime.now(timezone.utc).isoformat()}}
-    )
-    return {"message": "Bracket updated"}
+    """الشرائح يحددها القانون ولا تُعدَّل من حساب الشركة."""
+    raise HTTPException(status_code=405, detail="شرائح الضريبة يحددها القانون ولا تُعدَّل من الشركة — "
+                        "حدود التأمينات والإعفاء تُضبط من الرواتب ← الإعدادات")
 
 
 # ══════════════════════════════════════════
