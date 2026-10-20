@@ -23,6 +23,10 @@ const Icon = ({ d, size = 18, color = 'currentColor', className = '' }) => (
   </svg>
 );
 
+// HH:MM from either a clock time (09:05:00) or an older ISO timestamp
+const hhmm = (v) => (!v ? '—' : String(v).includes('T') ? String(v).slice(11, 16) : String(v).slice(0, 5));
+const SOURCE_AR = { gps: 'بالموقع', fingerprint: 'بصمة', manual: 'يدوي' };
+
 const ICONS = {
   user:       "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
   doc:        "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
@@ -216,8 +220,9 @@ const EmployeeSelfService = () => {
       // Check if already checked in today
       const today = new Date().toISOString().slice(0, 10);
       const todayRec = (res.data?.records || []).find(r => r.date === today);
-      if (todayRec?.check_in_time) setCheckInDone(true);
-      if (todayRec?.check_out_time) setCheckOutDone(true);
+      // the record keeps check_in / check_out (HH:MM:SS); check_in_time was never stored
+      if (todayRec?.check_in || todayRec?.check_in_time) setCheckInDone(true);
+      if (todayRec?.check_out || todayRec?.check_out_time) setCheckOutDone(true);
     } catch { }
   }, []);
 
@@ -761,9 +766,10 @@ const EmployeeSelfService = () => {
                     <div key={i} className="px-5 py-3 flex justify-between items-center text-sm">
                       <div className="text-gray-700 font-semibold">{rec.date}</div>
                       <div className="flex gap-4 text-xs">
-                        <span className="text-green-600 font-bold">دخول: {rec.check_in_time?.slice(11, 16) || '—'}</span>
-                        <span className="text-orange-500 font-bold">خروج: {rec.check_out_time?.slice(11, 16) || '—'}</span>
-                        {rec.duration_hours && <span className="text-blue-600 font-bold">{rec.duration_hours}h</span>}
+                        <span className="text-green-600 font-bold">دخول: {hhmm(rec.check_in || rec.check_in_time)}</span>
+                        <span className="text-orange-500 font-bold">خروج: {hhmm(rec.check_out || rec.check_out_time)}</span>
+                        {(rec.actual_working_hours || rec.work_hours) ? <span className="text-blue-600 font-bold">{rec.actual_working_hours || rec.work_hours}h</span> : null}
+                        {rec.source && <span className="text-gray-400">{SOURCE_AR[rec.source] || rec.source}</span>}
                       </div>
                     </div>
                   ))}

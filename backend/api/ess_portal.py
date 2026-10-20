@@ -110,128 +110,37 @@ def _geofence(emp: dict, company: dict, req, action: str) -> tuple:
     return "out_of_range", distance_m, allowed_radius
 
 
-@router.post("/attendance/check-in")
-async def ess_check_in(
-    req: AttendanceRequest,
-    request: Request,
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    تسجيل حضور من الهاتف مع التحقق من الموقع الجغرافي (Geofencing)
-
-    النظام يتحقق أن الموظف داخل نطاق مكان العمل المُعرَّف
-    """
+async def _gps_punch(kind: str, req, current_user: dict, request: Request = None) -> dict:
+    from api.attendance_api import attendance_methods, gps_punch
     company_id = current_user["company_id"]
+    if not (await attendance_methods(company_id))["gps"]:
+        raise HTTPException(400, "الحضور بالموقع غير مفعّل في شركتك — سجّل بالبصمة أو تواصل مع الموارد البشرية")
     emp = await get_employee_by_user(current_user["user_id"], company_id)
-
-    # Check existing open check-in
-    today = date.today().isoformat()
-    existing = await db.attendance_records.find_one({
-        "employee_id": emp["id"],
-        "company_id":  company_id,
-        "date":        today,
-        "check_out":   None,
-    })
-    if existing:
-        raise HTTPException(400, f"تم تسجيل الحضور بالفعل اليوم في {existing.get('check_in','')}")
-
-    # Geofencing check
     company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
-    geofence_status, distance_m, allowed_radius = _geofence(emp, company, req, "الحضور")
+    status, distance_m, allowed = _geofence(emp, company, req, "الحضور" if kind == "in" else "الانصراف")
+    # the privacy policy promises exact coordinates are not kept: only the
+    # distance from the office and whether it was inside the allowed area
+    geo = {"distance_from_office_m": distance_m, "geofence_status": status, "allowed_radius_m": allowed}
+    if request is not None:
+        geo["ip_address"] = request.headers.get("X-Forwarded-For", getattr(request.client, "host", ""))
+    r = await gps_punch(company_id, emp, kind, geo, current_user["user_id"], req.device_id)
+    return {**r, "employee": emp.get("name", ""),
+            "geofence": {"status": status, "distance_m": distance_m, "allowed_radius": allowed}}
 
-    # Create check-in record
-    record_id = str(uuid.uuid4())
-    now       = datetime.now(timezone.utc).isoformat()
-    ip        = request.headers.get("X-Forwarded-For", getattr(request.client, "host",""))
 
-    record = {
-        "id":            record_id,
-        "company_id":    company_id,
-        "employee_id":   emp["id"],
-        "employee_name": emp.get("name",""),
-        "date":          today,
-        "check_in":      now,
-        "check_out":     None,
-        # The privacy policy promises employees that exact coordinates are not
-        # stored — only whether they were inside the allowed area and how far
-        # from the office. The record kept latitude and longitude anyway, and
-        # nothing ever read them. They are used for the distance check above
-        # and then discarded, so the record now matches the promise.
-        "check_in_location": {
-            "distance_from_office_m": distance_m,
-            "geofence_status": geofence_status,
-        },
-        "check_out_location": None,
-        "device_id":     req.device_id,
-        "ip_address":    ip,
-        "status":        "present",
-        "work_hours":    None,
-        "notes":         req.notes,
-        "created_at":    now,
-    }
-    await db.attendance_records.insert_one(record)
-    record.pop("_id", None)
-
-    return {
-        "message":       f"✅ تم تسجيل حضورك — {now[:19].replace('T',' ')}",
-        "record_id":     record_id,
-        "geofence": {
-            "status":         geofence_status,
-            "distance_m":     distance_m,
-            "allowed_radius": allowed_radius,
-        },
-        "employee":      emp.get("name",""),
-    }
+@router.post("/attendance/check-in")
+async def ess_check_in(req: AttendanceRequest, request: Request, current_user: dict = Depends(get_current_user)):
+    """تسجيل حضور من الهاتف بالموقع (Geofencing) — في نفس سجل الحضور مع البصمة واليدوي."""
+    r = await _gps_punch("in", req, current_user, request)
+    late = f" — تأخير {r['late_minutes']} دقيقة" if r.get("late_minutes") else ""
+    return {"message": f"✅ تم تسجيل حضورك {r['check_in'][:5]}{late}", **r}
 
 
 @router.post("/attendance/check-out")
-async def ess_check_out(
-    req: AttendanceRequest,
-    current_user: dict = Depends(get_current_user)
-):
-    """تسجيل انصراف من الهاتف"""
-    company_id = current_user["company_id"]
-    emp = await get_employee_by_user(current_user["user_id"], company_id)
-    today = date.today().isoformat()
-
-    record = await db.attendance_records.find_one({
-        "employee_id": emp["id"],
-        "company_id":  company_id,
-        "date":        today,
-        "check_out":   None,
-    })
-    if not record:
-        raise HTTPException(400, "لا يوجد تسجيل حضور مفتوح اليوم")
-
-    company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
-    geofence_status, distance_m, allowed_radius = _geofence(emp, company, req, "الانصراف")
-
-    check_in_dt  = datetime.fromisoformat(record["check_in"])
-    if check_in_dt.tzinfo is None:            # older records were saved without a zone
-        check_in_dt = check_in_dt.replace(tzinfo=timezone.utc)
-    check_out_dt = datetime.now(timezone.utc)
-    # total_seconds: .seconds dropped whole days and wrapped past 24h
-    work_hours   = round(max((check_out_dt - check_in_dt).total_seconds(), 0) / 3600, 2)
-    now          = check_out_dt.isoformat()
-
-    await db.attendance_records.update_one(
-        {"id": record["id"]},
-        {"$set": {
-            "check_out":  now,
-            "work_hours": work_hours,
-            "check_out_location": {
-                "latitude": req.latitude, "longitude": req.longitude,
-                "distance_from_office_m": distance_m,
-                "geofence_status": geofence_status,
-            },
-        }}
-    )
-    return {
-        "message":    f"✅ تم تسجيل انصرافك — {now[:19].replace('T',' ')}",
-        "work_hours": work_hours,
-        "check_in":   record["check_in"][:19].replace("T"," "),
-        "check_out":  now[:19].replace("T"," "),
-    }
+async def ess_check_out(req: AttendanceRequest, request: Request, current_user: dict = Depends(get_current_user)):
+    """تسجيل انصراف من الهاتف بالموقع."""
+    r = await _gps_punch("out", req, current_user, request)
+    return {"message": f"✅ تم تسجيل انصرافك {r['check_out'][:5]} — {r['work_hours']} ساعة", **r}
 
 
 @router.get("/attendance/my-records")
@@ -242,7 +151,8 @@ async def my_attendance(
     """سجل حضور الموظف الشخصي"""
     company_id = current_user["company_id"]
     emp = await get_employee_by_user(current_user["user_id"], company_id)
-    today = date.today()
+    from api.attendance_api import local_now
+    today = local_now().date()          # the server runs in UTC; the day is Egypt's
     if month:
         y, m = map(int, month.split("-"))
         date_from = f"{y}-{m:02d}-01"
@@ -259,8 +169,9 @@ async def my_attendance(
         "date": {"$gte": date_from, "$lte": date_to},
     }, {"_id": 0}).sort("date", -1).to_list(None)
 
-    total_hours = round(sum(float(r.get("work_hours") or 0) for r in records), 2)
-    present_days = len([r for r in records if r["status"] == "present"])
+    total_hours = round(sum(float(r.get("actual_working_hours") or r.get("work_hours") or 0) for r in records), 2)
+    # a late or early-leave day is still a day worked
+    present_days = len([r for r in records if str(r.get("status")) in ("present", "late", "early_leave")])
     return {
         "employee": emp.get("name",""),
         "period": {"from": date_from, "to": date_to},

@@ -11,6 +11,7 @@ import {
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import GPSSettings from '../components/GPSSettings';
+import { MethodsCard, GpsPunchButton, useAttendanceMethods } from '../components/AttendanceMethods';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 
@@ -18,8 +19,9 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const AttendancePage = ({ language = 'ar' }) => {
   const [activeTab, setActiveTab] = useState('daily');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'));   // local day, not UTC
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleDateString('en-CA').slice(0, 7));
+  const [methods, setMethods] = useAttendanceMethods();
   const [records, setRecords] = useState([]);
   const [dailySummary, setDailySummary] = useState(null);
   const [monthlySummary, setMonthlySummary] = useState([]);
@@ -359,7 +361,7 @@ const AttendancePage = ({ language = 'ar' }) => {
     { id: 'overtime', label: t.overtime_report, icon: Timer },
     // GPSSettings existed but was never mounted, so the work location for
     // GPS check-in could not be set anywhere in the program
-    { id: 'gps', label: language === 'ar' ? 'موقع العمل (GPS)' : 'Work location (GPS)', icon: MapPin },
+    { id: 'gps', label: language === 'ar' ? 'طرق الحضور وموقع العمل' : 'Methods & work location', icon: MapPin },
   ];
 
   return (
@@ -383,12 +385,18 @@ const AttendancePage = ({ language = 'ar' }) => {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {methods.gps && (
+              <GpsPunchButton onDone={fetchDailyData}
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 transition-colors" />
+            )}
+            {methods.fingerprint && (
             <label className="flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 cursor-pointer transition-colors">
               <Upload className="h-4 w-4" />
               {t.import_fingerprint}
               <input type="file" accept=".csv" className="hidden" onChange={handleImportFingerprint} />
             </label>
+            )}
             <Button
               onClick={() => setShowManualModal(true)}
               className="bg-white text-teal-700 hover:bg-teal-50"
@@ -557,8 +565,13 @@ const AttendancePage = ({ language = 'ar' }) => {
                         <td className="px-4 py-3 text-sm">{record.shift_name || '-'}</td>
                         <td className="px-4 py-3">
                           <div>
-                            <p className="font-medium">{record.check_in || '-'}</p>
+                            <p className="font-medium">{record.check_in ? (String(record.check_in).includes('T') ? String(record.check_in).slice(11, 19) : record.check_in) : '-'}</p>
                             <p className="text-xs text-gray-500">{record.expected_check_in}</p>
+                            {record.source && (
+                              <span className={`inline-block mt-0.5 text-[11px] px-1.5 rounded ${record.source === 'gps' ? 'bg-teal-100 text-teal-800' : record.source === 'fingerprint' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-600'}`}>
+                                {language === 'ar' ? ({ gps: '📍 بالموقع', fingerprint: 'بصمة', manual: 'يدوي' }[record.source] || record.source) : record.source}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -676,7 +689,10 @@ const AttendancePage = ({ language = 'ar' }) => {
       )}
 
       {activeTab === 'gps' && (
-        <div className="max-w-2xl"><GPSSettings /></div>
+        <div className="max-w-2xl space-y-4">
+          <MethodsCard methods={methods} onSaved={setMethods} />
+          <GPSSettings />
+        </div>
       )}
 
       {/* Fingerprint Report Tab */}

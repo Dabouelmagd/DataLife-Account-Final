@@ -162,6 +162,90 @@ async def get_attendance_settings(company_id: str) -> dict:
     return settings
 
 
+METHODS_DEFAULT = {"fingerprint": True, "manual": True, "gps": True}
+METHOD_AR = {"fingerprint": "البصمة", "manual": "اليدوي", "gps": "الموقع (GPS)"}
+
+
+async def attendance_methods(company_id: str) -> dict:
+    """Which ways of recording attendance this company uses — any combination.
+    Manual entry by HR stays available for corrections whatever is chosen."""
+    s = await db.attendance_settings.find_one({"company_id": company_id}, {"_id": 0, "methods": 1}) or {}
+    return {**METHODS_DEFAULT, **(s.get("methods") or {})}
+
+
+def local_now():
+    """Clock time at the company (Egypt). The server runs in UTC, so a 9:00
+    check-in was stored as 06:00 and every lateness was off by hours."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Africa/Cairo"))
+    except Exception:
+        return datetime.utcnow() + timedelta(hours=2)
+
+
+async def gps_punch(company_id: str, emp: dict, kind: str, geo: dict, user_id: str, device_id: str = None) -> dict:
+    """تسجيل حضور/انصراف بالموقع في نفس سجل الحضور الذي تكتبه البصمة واليدوي —
+    with the shift, lateness, hours and overtime worked out the same way, so a
+    GPS day counts in the daily sheet, the monthly summary and payroll exactly
+    like a fingerprint day. (It used to save a UTC timestamp with none of these.)"""
+    now = local_now()
+    today, hhmmss = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
+    record = await db.attendance_records.find_one(
+        {"employee_id": emp["id"], "company_id": company_id, "date": today}, {"_id": 0})
+    if kind == "in":
+        if record and record.get("check_in"):
+            raise HTTPException(400, f"تم تسجيل الحضور اليوم بالفعل ({str(record['check_in'])[:5]})")
+        shift = await get_employee_shift(emp["id"], today)
+        settings = await get_attendance_settings(company_id)
+        late, status = 0, AttendanceStatus.PRESENT
+        if shift:
+            late = calculate_late_minutes(shift.get("start_time"), hhmmss[:5], settings.get("grace_period_minutes", 15))
+            if late > settings.get("max_late_minutes_before_absence", 120):
+                status = AttendanceStatus.ABSENT
+            elif late > 0:
+                status = AttendanceStatus.LATE
+        rec = AttendanceRecord(
+            company_id=company_id, employee_id=emp["id"], employee_name=emp.get("name", ""),
+            employee_code=emp.get("employee_code"), department=emp.get("department"), date=today,
+            shift_id=shift.get("id") if shift else None, shift_name=shift.get("name") if shift else None,
+            expected_check_in=shift.get("start_time") if shift else None,
+            expected_check_out=shift.get("end_time") if shift else None,
+            expected_working_hours=shift.get("working_hours", 8.0) if shift else 8.0,
+            check_in=hhmmss, check_in_device=device_id or "gps", late_minutes=late, status=status,
+            created_by=user_id).dict()
+        rec.update({"source": "gps", "check_in_source": "gps", "check_in_location": geo,
+                    "status": getattr(status, "value", status)})
+        await db.attendance_records.insert_one(dict(rec))
+        return {"date": today, "check_in": hhmmss, "late_minutes": late, "status": str(getattr(status, "value", status))}
+
+    if not record or not record.get("check_in"):
+        raise HTTPException(400, "لا يوجد تسجيل حضور اليوم — سجّل الحضور أولاً")
+    if record.get("check_out"):
+        raise HTTPException(400, "تم تسجيل الانصراف اليوم بالفعل")
+    check_in = str(record["check_in"])
+    if "T" in check_in:                       # an older GPS record kept an ISO timestamp
+        try:
+            from zoneinfo import ZoneInfo
+            check_in = datetime.fromisoformat(check_in).astimezone(ZoneInfo("Africa/Cairo")).strftime("%H:%M:%S")
+        except Exception:
+            check_in = check_in[11:19]
+    shift = await db.work_shifts.find_one({"id": record["shift_id"]}, {"_id": 0}) if record.get("shift_id") else None
+    hours = calculate_working_hours(check_in, hhmmss, shift.get("break_duration", 60) if shift else 60)
+    early = calculate_early_leave_minutes(shift["end_time"], hhmmss[:5]) if shift and shift.get("end_time") else 0
+    ot = calculate_overtime(hours, record.get("expected_working_hours", 8.0), shift)
+    status = record.get("status", AttendanceStatus.PRESENT)
+    if early > 30 and status in (AttendanceStatus.PRESENT, "present"):
+        status = AttendanceStatus.EARLY_LEAVE
+    await db.attendance_records.update_one({"id": record["id"], "company_id": company_id}, {"$set": {
+        "check_in": check_in, "check_out": hhmmss, "check_out_device": device_id or "gps",
+        "check_out_source": "gps", "check_out_location": geo,
+        "source": record.get("source") if record.get("source") not in (None, "gps") else "gps",
+        "actual_working_hours": hours, "work_hours": hours, "early_leave_minutes": early,
+        "overtime_hours": ot["regular_overtime"], "regular_overtime": ot["regular_overtime"],
+        "status": getattr(status, "value", status), "updated_at": datetime.utcnow()}})
+    return {"date": today, "check_in": check_in, "check_out": hhmmss, "work_hours": hours}
+
+
 def get_day_name(date_str: str) -> str:
     """الحصول على اسم اليوم"""
     d = datetime.strptime(date_str, "%Y-%m-%d")
@@ -421,9 +505,10 @@ async def add_manual_attendance(
         created_by=current_user["user_id"]
     )
     
-    await db.attendance_records.insert_one(record.dict())
-    
-    return {"message": "تم إضافة سجل الحضور بنجاح", "record": record.dict()}
+    doc = {**record.dict(), "source": "manual"}
+    await db.attendance_records.insert_one(dict(doc))
+    doc.pop("_id", None)
+    return {"message": "تم إضافة سجل الحضور بنجاح", "record": doc}
 
 
 # ==========================================
@@ -897,7 +982,20 @@ async def delete_holiday(
 async def get_settings(current_user: dict = Depends(get_current_user)):
     """الحصول على إعدادات الحضور"""
     settings = await get_attendance_settings(current_user["company_id"])
+    settings["methods"] = await attendance_methods(current_user["company_id"])
     return settings
+
+
+@router.put("/methods")
+async def update_methods(data: dict, current_user: dict = Depends(get_current_user)):
+    """طرق تسجيل الحضور المستخدمة في الشركة — يمكن تفعيل أكثر من طريقة معاً."""
+    methods = {k: bool((data or {}).get(k, v)) for k, v in METHODS_DEFAULT.items()}
+    if not any(methods.values()):
+        raise HTTPException(400, "فعّل طريقة واحدة على الأقل")
+    await db.attendance_settings.update_one({"company_id": current_user["company_id"]},
+                                            {"$set": {"methods": methods, "updated_at": datetime.utcnow()}}, upsert=True)
+    on = "، ".join(METHOD_AR[k] for k, v in methods.items() if v)
+    return {"message": f"طرق الحضور المفعّلة: {on}", "methods": methods}
 
 
 @router.put("/settings")
@@ -931,6 +1029,8 @@ async def import_fingerprint_data(
 ):
     """استيراد بيانات البصمة من ملف CSV"""
     company_id = current_user["company_id"]
+    if not (await attendance_methods(company_id))["fingerprint"]:
+        raise HTTPException(400, "الحضور بالبصمة غير مفعّل للشركة — فعّله من «طرق الحضور وموقع العمل»")
     
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="يجب أن يكون الملف بصيغة CSV")
@@ -977,6 +1077,7 @@ async def import_fingerprint_data(
                     {"$set": {
                         "check_in": check_in,
                         "check_out": check_out,
+                        "source": "fingerprint",
                         "updated_at": datetime.utcnow()
                     }}
                 )
@@ -1016,7 +1117,7 @@ async def import_fingerprint_data(
                         )
                         record.overtime_hours = max(0, record.actual_working_hours - shift.get("working_hours", 8.0))
                 
-                await db.attendance_records.insert_one(record.dict())
+                await db.attendance_records.insert_one({**record.dict(), "source": "fingerprint"})
             
             imported += 1
         except Exception as e:
