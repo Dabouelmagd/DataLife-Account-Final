@@ -1067,6 +1067,30 @@ async def get_employees_stats(
     }
 
 
+@router.post("/portal-invite-all")
+async def invite_all_to_portal(current_user: dict = Depends(get_current_user)):
+    """دعوة كل الموظفين على رأس العمل لبوابة الموظف دفعة واحدة.
+    Skips anyone who already has an active login; reports who has no e-mail.
+    Each invitee gets their own login (role موظف) that opens their own page only."""
+    company_id = current_user["company_id"]
+    emps = await db.employees.find({"company_id": company_id, "is_active": {"$ne": False},
+                                    "status": {"$ne": "terminated"}},
+                                   {"_id": 0, "id": 1, "name": 1, "email": 1}).sort("name", 1).to_list(None)
+    invited, skipped, no_email = [], [], []
+    for e in emps:
+        if not (e.get("email") or "").strip():
+            no_email.append(e.get("name"))
+            continue
+        try:
+            r = await invite_employee_to_portal(e["id"], None, current_user)
+            invited.append({"name": e.get("name"), "email": r["email"], "invite_link": r["invite_link"],
+                            "email_sent": r["email_sent"]})
+        except HTTPException as ex:
+            skipped.append({"name": e.get("name"), "reason": ex.detail})
+    return {"message": f"تمت دعوة {len(invited)} موظف", "invited": invited, "skipped": skipped,
+            "no_email": no_email}
+
+
 @router.post("/{employee_id}/portal-invite")
 async def invite_employee_to_portal(employee_id: str, data: dict = None,
                                     current_user: dict = Depends(get_current_user)):

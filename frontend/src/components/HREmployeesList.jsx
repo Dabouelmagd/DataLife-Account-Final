@@ -74,6 +74,17 @@ export default function HREmployeesList({ language = 'ar', onOpen }) {
     } finally { setBusy(false); }
   };
 
+  // one login per employee, each opening only their own portal page
+  const [invites, setInvites] = useState(null);
+  const inviteAll = async () => {
+    if (!window.confirm(ar ? 'إنشاء حساب دخول لبوابة الموظف لكل موظف لديه بريد إلكتروني وليس له حساب؟' : 'Invite every employee to the portal?')) return;
+    setBusy(true); setErr('');
+    try { const { data } = await axios.post(`${API}/api/employees/portal-invite-all`, {}, auth()); setInvites(data); }
+    catch (e) { const d = e?.response?.data?.detail; setErr(typeof d === 'string' ? d : (ar ? 'تعذّر إرسال الدعوات' : 'Could not invite')); }
+    finally { setBusy(false); }
+  };
+  const copy = (t) => { try { navigator.clipboard.writeText(t); } catch { /* no clipboard */ } };
+
   const makeFiles = async () => {
     const ids = Object.keys(pick).filter((k) => pick[k]);
     if (!ids.length) return;
@@ -99,10 +110,42 @@ export default function HREmployeesList({ language = 'ar', onOpen }) {
           <p className="text-sm text-slate-500">
             {ar ? 'سجل موظفي الشركة. حسابات الدخول للبرنامج في «إدارة المستخدمين».' : 'Company staff records. Program logins are under User Management.'}</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <button onClick={inviteAll} disabled={busy}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-blue-600 text-blue-700 text-sm font-bold disabled:opacity-50">
+          {ar ? 'حسابات دخول الموظفين' : 'Employee logins'}</button>
         <button onClick={() => { setAdding(true); setErr(''); }}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold">
           <Plus className="w-4 h-4" aria-hidden /> {ar ? 'إضافة موظف' : 'Add employee'}</button>
+        </div>
       </div>
+
+      {invites && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-900/20 p-4 text-sm space-y-3">
+          <div className="flex justify-between gap-2">
+            <p className="font-bold">{invites.message}</p>
+            <button onClick={() => setInvites(null)} aria-label={ar ? 'إغلاق' : 'Close'}><X className="w-4 h-4" /></button>
+          </div>
+          <p className="text-slate-600 dark:text-slate-300">
+            كل موظف له حساب خاص باسم دخول = بريده. يفتح الرابط مرة واحدة ليختار كلمة المرور، وبعدها يدخل من صفحة تسجيل الدخول العادية
+            فيرى صفحته فقط (راتبه، إجازاته، حضوره، مستنداته، تقييماته) — باقي البرنامج محجوب عنه. الرابط صالح لعدة أيام.</p>
+          {invites.invited.length > 0 && (
+            <table className="w-full">
+              <tbody className="divide-y divide-blue-100">
+                {invites.invited.map((i) => (
+                  <tr key={i.email}>
+                    <td className="py-1.5">{i.name}<span className="block text-xs text-slate-500" dir="ltr">{i.email}</span></td>
+                    <td className="py-1.5 text-xs">{i.email_sent ? 'أُرسل بالبريد' : 'لم يُرسل بريد — انسخ الرابط وأرسله له'}</td>
+                    <td className="py-1.5 text-end"><button onClick={() => copy(i.invite_link)} className="text-blue-700 font-semibold text-xs">نسخ الرابط</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {invites.skipped.length > 0 && <p className="text-slate-600">لديهم حساب بالفعل أو تعذّرت دعوتهم: {invites.skipped.map((x) => `${x.name} (${x.reason})`).join('، ')}</p>}
+          {invites.no_email.length > 0 && <p className="text-amber-800">بلا بريد إلكتروني — أضف بريدهم في ملفاتهم ثم أعد الدعوة: {invites.no_email.join('، ')}</p>}
+        </div>
+      )}
 
       {loose.length > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm space-y-2">
