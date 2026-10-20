@@ -1,6 +1,7 @@
 /**
  * شاشات مالية كانت موجودة في الخلفية بلا واجهة:
- *   BudgetPage      — الموازنات التقديرية والرقابة (/api/budget)
+ *   BudgetPage      — الموازنات التقديرية والرقابة (/api/budget) + مراكز التكلفة والفروع
+ *   CashRunwayPage  — النقدية الحرة / المقيدة وعدد شهور التشغيل (/api/dashboard/owner-pulse)
  *   DeferredTaxPage — ضريبة الدخل الجارية والمؤجلة EAS 24 (/api/deferred-tax)
  *   EquityPage      — رأس المال والاحتياطيات وتوزيع الأرباح (/api/equity)
  * كل قيد يُعرض كما سيرحِّله الخادم (?preview=true) قبل الحفظ — الأرقام
@@ -167,8 +168,11 @@ export function BudgetPage() {
   const [variance, setVariance] = useState(null);
   const [overrides, setOverrides] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [centers, setCenters] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [ccForm, setCcForm] = useState({ code: '', name_ar: '', center_type: 'branch' });
   const [form, setForm] = useState(null);
-  const [check, setCheck] = useState({ account_code: '', transaction_amount: '' });
+  const [check, setCheck] = useState({ account_code: '', transaction_amount: '', cost_center_id: '', project_id: '' });
   const [checkRes, setCheckRes] = useState(null);
   const [justification, setJustification] = useState('');
   const [busy, setBusy] = useState(false);
@@ -187,13 +191,29 @@ export function BudgetPage() {
     } catch (e) { setData({ lines: [], totals: {} }); setErr(errText(e, 'تعذّر تحميل الموازنة')); }
   }, [year]);
 
+  const loadCenters = useCallback(() => {
+    axios.get(`${API}/api/enterprise/cost-centers`, auth()).then((r) => setCenters(r.data?.cost_centers || [])).catch(() => {});
+  }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
+    loadCenters();
+    axios.get(`${API}/api/tasks/projects`, auth())
+      .then((r) => setProjects(Array.isArray(r.data) ? r.data : (r.data?.projects || []))).catch(() => {});
     axios.get(`${API}/api/accounting/accounts`, auth())
       .then((r) => setAccounts((r.data?.accounts || []).filter((a) => ['expense', 'revenue'].includes(a.account_type))
         .sort((a, b) => String(a.account_code).localeCompare(String(b.account_code)))))
       .catch(() => {});
-  }, []);
+  }, [loadCenters]);
+
+  const addCenter = async () => {
+    setBusy(true); setErr('');
+    try {
+      await axios.post(`${API}/api/enterprise/cost-centers`, ccForm, auth());
+      setMsg(`تمت إضافة ${ccForm.name_ar}`); setCcForm({ code: '', name_ar: '', center_type: ccForm.center_type }); loadCenters();
+    } catch (e) { setErr(errText(e, 'تعذّر إضافة مركز التكلفة')); } finally { setBusy(false); }
+  };
+  const dimLabel = (l) => [l.cost_center_name, l.project_name].filter(Boolean).join(' · ') || 'الشركة كلها';
+  const overLines = (data?.lines || []).filter((l) => l.status === 'over_budget' || l.status === 'critical');
 
   const save = async () => {
     setBusy(true); setErr('');
@@ -201,6 +221,7 @@ export function BudgetPage() {
       const { data: d } = await axios.post(`${API}/api/budget/lines`, {
         fiscal_year: year, account_code: form.account_code, allocated_amount: num(form.allocated_amount),
         control_action: form.control_action, notes: form.notes || undefined,
+        cost_center_id: form.cost_center_id || undefined, project_id: form.project_id || undefined,
       }, auth());
       setMsg(d.message); setForm(null); load();
     } catch (e) { setErr(errText(e, 'تعذّر حفظ سطر الموازنة')); } finally { setBusy(false); }
@@ -214,6 +235,7 @@ export function BudgetPage() {
     try {
       const { data: d } = await axios.post(`${API}/api/budget/check`, {
         fiscal_year: year, account_code: check.account_code, transaction_amount: num(check.transaction_amount),
+        cost_center_id: check.cost_center_id || undefined, project_id: check.project_id || undefined,
         source_document_type: 'manual',
       }, auth());
       setCheckRes(d);
@@ -246,12 +268,25 @@ export function BudgetPage() {
         <div className="flex flex-wrap items-center gap-2">
           <YearPicker year={year} setYear={setYear} />
           <button className={btnGhost} onClick={load}><RefreshCw className="w-4 h-4" /> تحديث</button>
-          <button className={btnPrimary} onClick={() => { setErr(''); setForm({ account_code: '', allocated_amount: '', control_action: 'warning_only', notes: '' }); }}>
+          <button className={btnPrimary} onClick={() => { setErr(''); setForm({ account_code: '', allocated_amount: '', control_action: 'warning_only', notes: '', cost_center_id: '', project_id: '' }); }}>
             <Plus className="w-4 h-4" /> سطر موازنة
           </button>
         </div>
       </div>
       <Err msg={err} /><Ok msg={msg} />
+
+      {overLines.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 text-red-900 p-3 text-sm space-y-1" role="alert">
+          <p className="font-extrabold flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> تنبيه انحراف الموازنة — {overLines.length} بند</p>
+          {overLines.map((l) => (
+            <p key={l.id} className="text-xs">
+              <bdi dir="ltr">{l.account_code}</bdi> {l.account_name} — {dimLabel(l)}:
+              {' '}المستخدم <N v={(l.actual_spent || 0) + (l.committed || 0)} /> من <N v={l.allocated_amount} />
+              {l.available < 0 ? <> (تجاوز <N v={-l.available} />)</> : <> (<bdi dir="ltr">{l.utilization_pct}%</bdi>)</>}
+            </p>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[['المعتمد', t.allocated], ['الفعلي', t.spent], ['المرتبط', t.committed], ['المتاح', t.available]].map(([l, v]) => (
@@ -265,20 +300,21 @@ export function BudgetPage() {
       </div>
 
       <Tabs value={tab} onChange={setTab} tabs={[['lines', 'أسطر الموازنة'], ['variance', 'الموازنة مقابل الفعلي'],
-        ['check', 'فحص مصروف قبل تنفيذه'], ['overrides', `طلبات التجاوز (${overrides.length})`]]} />
+        ['check', 'فحص مصروف قبل تنفيذه'], ['overrides', `طلبات التجاوز (${overrides.length})`], ['centers', 'مراكز التكلفة والفروع']]} />
 
       {tab === 'lines' && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500"><tr>
-              {['الحساب', 'المعتمد', 'الفعلي', 'المرتبط', 'المتاح', '%', 'الرقابة', 'الحالة', ''].map((h) => <th key={h} className="p-2 text-start">{h}</th>)}
+              {['الحساب', 'المركز / المشروع', 'المعتمد', 'الفعلي', 'المرتبط', 'المتاح', '%', 'الرقابة', 'الحالة', ''].map((h) => <th key={h} className="p-2 text-start">{h}</th>)}
             </tr></thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {!data ? <tr><td colSpan={9} className="p-6 text-center"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
-                : !data.lines.length ? <tr><td colSpan={9} className="p-6 text-center text-slate-400">لا توجد موازنة لهذه السنة — أضف سطراً</td></tr>
+              {!data ? <tr><td colSpan={10} className="p-6 text-center"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
+                : !data.lines.length ? <tr><td colSpan={10} className="p-6 text-center text-slate-400">لا توجد موازنة لهذه السنة — أضف سطراً</td></tr>
                   : data.lines.map((l) => (
                     <tr key={l.id}>
                       <td className="p-2"><bdi dir="ltr">{l.account_code}</bdi> {l.account_name}{l.is_header && <span className="text-[11px] text-slate-400"> (تجميعي)</span>}</td>
+                      <td className="p-2 text-xs">{dimLabel(l)}</td>
                       <td className="p-2"><N v={l.allocated_amount} /></td>
                       <td className="p-2"><N v={l.actual_spent} /></td>
                       <td className="p-2"><N v={l.committed} /></td>
@@ -287,7 +323,7 @@ export function BudgetPage() {
                       <td className="p-2 text-xs">{l.control_action === 'hard_stop_prevent_entry' ? 'منع' : 'تحذير'}</td>
                       <td className="p-2"><StatusPill s={l.status} /></td>
                       <td className="p-2 whitespace-nowrap">
-                        <button className="text-xs text-blue-700 me-2" onClick={() => setForm({ account_code: l.account_code, allocated_amount: l.allocated_amount, control_action: l.control_action, notes: l.notes || '' })}>تعديل</button>
+                        <button className="text-xs text-blue-700 me-2" onClick={() => setForm({ account_code: l.account_code, allocated_amount: l.allocated_amount, control_action: l.control_action, notes: l.notes || '', cost_center_id: l.cost_center_id || '', project_id: l.project_id || '' })}>تعديل</button>
                         <button aria-label="حذف" className="text-red-600" onClick={() => remove(l.id)}><Trash2 className="w-4 h-4 inline" /></button>
                       </td>
                     </tr>
@@ -301,12 +337,13 @@ export function BudgetPage() {
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500"><tr>
-              {['الحساب', 'المعتمد', 'المستخدم (فعلي + مرتبط)', 'الانحراف', '%', 'الحالة'].map((h) => <th key={h} className="p-2 text-start">{h}</th>)}
+              {['الحساب', 'المركز / المشروع', 'المعتمد', 'المستخدم (فعلي + مرتبط)', 'الانحراف', '%', 'الحالة'].map((h) => <th key={h} className="p-2 text-start">{h}</th>)}
             </tr></thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {(variance?.report || []).map((r, i) => (
                 <tr key={i}>
                   <td className="p-2"><bdi dir="ltr">{r.account_code}</bdi> {r.account_name}</td>
+                  <td className="p-2 text-xs">{[r.cost_center, r.project].filter(Boolean).join(' · ') || 'الشركة كلها'}</td>
                   <td className="p-2"><N v={r.allocated} /></td>
                   <td className="p-2"><N v={r.total_utilized} /></td>
                   <td className={`p-2 font-bold ${r.variance < 0 ? 'text-red-700' : 'text-green-700'}`}><N v={r.variance} /></td>
@@ -314,7 +351,7 @@ export function BudgetPage() {
                   <td className="p-2"><StatusPill s={r.status} /></td>
                 </tr>
               ))}
-              {variance && <tr className="font-bold bg-slate-50 dark:bg-slate-800"><td className="p-2">الإجمالي</td>
+              {variance && <tr className="font-bold bg-slate-50 dark:bg-slate-800"><td className="p-2" colSpan={2}>الإجمالي</td>
                 <td className="p-2"><N v={variance.grand_total?.allocated} /></td><td className="p-2"><N v={variance.grand_total?.total_utilized} /></td>
                 <td className="p-2"><N v={variance.grand_total?.variance} /></td><td className="p-2"><bdi dir="ltr">{variance.grand_total?.variance_pct}%</bdi></td><td /></tr>}
             </tbody>
@@ -334,6 +371,18 @@ export function BudgetPage() {
             </Field>
             <Field label="مبلغ العملية"><input type="number" min="0" dir="ltr" className={input} value={check.transaction_amount}
               onChange={(e) => { setCheck({ ...check, transaction_amount: e.target.value }); setCheckRes(null); }} /></Field>
+            <Field label="مركز التكلفة / الفرع">
+              <select className={input} value={check.cost_center_id} onChange={(e) => { setCheck({ ...check, cost_center_id: e.target.value }); setCheckRes(null); }}>
+                <option value="">— الشركة كلها —</option>
+                {centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name_ar}</option>)}
+              </select>
+            </Field>
+            <Field label="المشروع">
+              <select className={input} value={check.project_id} onChange={(e) => { setCheck({ ...check, project_id: e.target.value }); setCheckRes(null); }}>
+                <option value="">— بدون —</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </Field>
           </div>
           <button className={btnPrimary} disabled={busy || !check.account_code || !num(check.transaction_amount)} onClick={runCheck}>فحص</button>
           {checkRes && (
@@ -376,6 +425,37 @@ export function BudgetPage() {
         </div>
       )}
 
+      {tab === 'centers' && (
+        <div className="space-y-3">
+          <p className="text-xs text-slate-500">الفرع أو القسم أو المشروع = مركز تكلفة. اختره على الفاتورة فيُسجَّل على كل سطر في قيدها، ثم اعرض قائمة الدخل لكل مركز من «قائمة الدخل».</p>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+            <Field label="الرمز"><input className={input} dir="ltr" value={ccForm.code} onChange={(e) => setCcForm({ ...ccForm, code: e.target.value })} /></Field>
+            <Field label="الاسم"><input className={input} value={ccForm.name_ar} onChange={(e) => setCcForm({ ...ccForm, name_ar: e.target.value })} /></Field>
+            <Field label="النوع">
+              <select className={input} value={ccForm.center_type} onChange={(e) => setCcForm({ ...ccForm, center_type: e.target.value })}>
+                <option value="branch">فرع</option><option value="department">قسم / إدارة</option>
+                <option value="project">مشروع</option><option value="region">منطقة</option><option value="product">خط منتج</option>
+              </select>
+            </Field>
+            <button className={btnPrimary} disabled={busy || !ccForm.code.trim() || !ccForm.name_ar.trim()} onClick={addCenter}><Plus className="w-4 h-4" /> إضافة</button>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <table className="w-full min-w-[480px] text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500"><tr>
+                {['الرمز', 'الاسم', 'النوع'].map((h) => <th key={h} className="p-2 text-start">{h}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {!centers.length ? <tr><td colSpan={3} className="p-6 text-center text-slate-400">لا توجد مراكز تكلفة بعد</td></tr>
+                  : centers.map((c) => (
+                    <tr key={c.id}><td className="p-2"><bdi dir="ltr">{c.code}</bdi></td><td className="p-2">{c.name_ar}</td>
+                      <td className="p-2 text-xs">{({ branch: 'فرع', department: 'قسم', project: 'مشروع', region: 'منطقة', product: 'خط منتج' })[c.center_type] || c.center_type}</td></tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {form && (
         <Modal title={`سطر موازنة ${year}`} onClose={() => setForm(null)}
           footer={<><button className={btnGhost} onClick={() => setForm(null)}>إلغاء</button>
@@ -397,6 +477,18 @@ export function BudgetPage() {
                 </select>
               </Field>
               <Field label="ملاحظات"><input className={input} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
+              <Field label="مركز التكلفة / الفرع">
+              <select className={input} value={form.cost_center_id} onChange={(e) => setForm({ ...form, cost_center_id: e.target.value })}>
+                <option value="">— الشركة كلها —</option>
+                {centers.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name_ar}</option>)}
+              </select>
+              </Field>
+              <Field label="المشروع">
+              <select className={input} value={form.project_id} onChange={(e) => setForm({ ...form, project_id: e.target.value })}>
+                <option value="">— بدون —</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              </Field>
             </div>
           </div>
         </Modal>
@@ -771,6 +863,76 @@ export function EquityPage() {
             <JournalPreview lines={payPP.preview?.lines} />
           </div>
         </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ═════════════════════════ النقدية وشهور التشغيل ═════════════════════════ */
+
+const RUNWAY_STATUS = {
+  healthy: ['آمن — أكثر من 6 شهور', 'bg-green-100 text-green-800'],
+  warning: ['انتبه — من 3 إلى 6 شهور', 'bg-amber-100 text-amber-800'],
+  critical: ['حرج — أقل من 3 شهور', 'bg-red-100 text-red-800'],
+  no_burn: ['لا مصروفات في آخر 90 يوماً', 'bg-slate-100 text-slate-700'],
+};
+
+/** الأرقام من دفتر الأستاذ لحظة الطلب (لا يوجد حساب دوري كل ساعة) — زر «تحديث» يعيد الحساب. */
+export function CashRunwayPage() {
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState('');
+  const load = useCallback(async () => {
+    setErr('');
+    try { const { data } = await axios.get(`${API}/api/dashboard/owner-pulse`, auth()); setD(data); }
+    catch (e) { setErr(errText(e, 'تعذّر تحميل المركز النقدي')); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const t = d?.treasury || {};
+  const r = d?.cash_runway || {};
+  const [label, cls] = RUNWAY_STATUS[r.status] || ['—', 'bg-slate-100 text-slate-700'];
+  return (
+    <div className="p-4 sm:p-6 space-y-4" dir="rtl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold">💧 النقدية وشهور التشغيل</h1>
+          <p className="text-sm text-slate-500">من دفتر الأستاذ: حسابات 16 (الخزينة، البنوك، درج الكاشير). المقيدة: شيكات برسم التحصيل 163 وغطاء الاعتمادات 165 وخطابات الضمان 1651.</p>
+        </div>
+        <button className={btnGhost} onClick={load}><RefreshCw className="w-4 h-4" /> تحديث</button>
+      </div>
+      <Err msg={err} />
+      {!d ? (!err && <Loader2 className="w-5 h-5 animate-spin" />) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {[['النقدية الحرة', t.free_cash], ['النقدية المقيدة', t.restricted_cash], ['متوسط المصروف الشهري', r.monthly_burn]].map(([l, v]) => (
+              <div key={l} className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+                <p className="text-xs text-slate-500">{l}</p><p className="text-lg font-extrabold"><N v={v} /></p>
+              </div>
+            ))}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+              <p className="text-xs text-slate-500">تكفي النقدية الحرة لمدة</p>
+              <p className="text-lg font-extrabold">{r.months === null || r.months === undefined ? '—' : <><bdi dir="ltr">{Number(r.months).toLocaleString('en-US')}</bdi> شهر</>}</p>
+              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold ${cls}`}>{label}</span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">طريقة الحساب: {r.basis} — بدون الإهلاك والمخصصات (لا تخرج نقدية). آخر حساب: <bdi dir="ltr">{(d.timestamp || '').slice(0, 16).replace('T', ' ')}</bdi> UTC.</p>
+          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <table className="w-full min-w-[480px] text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500"><tr>
+                {['الحساب', 'الرصيد', 'النوع'].map((h) => <th key={h} className="p-2 text-start">{h}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {!(t.accounts || []).length ? <tr><td colSpan={3} className="p-6 text-center text-slate-400">لا أرصدة نقدية مرحَّلة</td></tr>
+                  : t.accounts.map((a) => (
+                    <tr key={a.account_code}>
+                      <td className="p-2"><bdi dir="ltr">{a.account_code}</bdi> {a.account_name}</td>
+                      <td className={`p-2 font-bold ${a.balance < 0 ? 'text-red-700' : ''}`}><N v={a.balance} /></td>
+                      <td className="p-2 text-xs">{a.restricted ? 'مقيدة' : 'حرة'}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

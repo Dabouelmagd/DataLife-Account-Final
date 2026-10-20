@@ -9,7 +9,9 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     if not authorization:
         raise HTTPException(status_code=401, detail="Not authenticated")
     token = authorization.replace("Bearer ", "").strip()
-    from services.auth_service import verify_token
+    from services.auth_service import verify_token, load_revocations
+    from database import db as _db
+    await load_revocations(_db)          # once per process: logouts made before a restart
     user = verify_token(token)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired token")

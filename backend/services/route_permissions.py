@@ -103,7 +103,19 @@ def employee_may(path: str) -> bool:
     return any(path == p or path.startswith(p + "/") or path.startswith(p + "?") for p in EMPLOYEE_ALLOWED)
 
 
+# money figures under otherwise-open prefixes: /api/dashboard is open to every
+# login (each widget checks its own section), but these show company cash and
+# budgets, which HR-only staff should not see
+PRIORITY_PERMISSIONS = [
+    ("/api/dashboard/owner-pulse", {"financial"}),
+    ("/api/dashboard/budget-variance", {"financial"}),
+]
+
+
 def required_for(path: str):
+    for prefix, perms in PRIORITY_PERMISSIONS:
+        if path == prefix or path.startswith(prefix + "/"):
+            return prefix, perms
     if path.startswith(EXEMPT_PREFIXES):
         return None
     for prefix, perms in PREFIX_PERMISSIONS:

@@ -1,18 +1,71 @@
 import bcrypt
+import hashlib
+import time
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 
-# ── In-memory token blacklist (revoked tokens) ──────
-# For production with multiple workers, use Redis
-_revoked_tokens: set = set()
+# ── Token revocation (logout / refresh rotation) ─────
+# revoke_token() filled a set that nothing ever read: verify_token never
+# checked it, so a token kept working for its full 8 hours after "logout"
+# (a copied token, or one left in another browser, stayed usable). Now
+# verify_token refuses revoked tokens. Kept as sha256 -> exp so the map can
+# be pruned once a token would have expired anyway, and mirrored to
+# db.revoked_tokens (persist_revocation / load_revocations) so a restart
+# doesn't silently re-validate every logged-out token. The production
+# backend is one uvicorn process; with several workers each loads the
+# collection on its first authenticated request but won't see another
+# worker's later logouts until restart — use a shared store (Redis) then.
+_revoked_tokens: dict = {}
+_loaded = False
+
+
+def _h(token: str) -> str:
+    return hashlib.sha256((token or "").encode()).hexdigest()
+
+
+def _exp_of(token: str) -> float:
+    try:
+        return float(jwt.get_unverified_claims(token).get("exp") or 0) or time.time() + 8 * 3600
+    except Exception:
+        return time.time() + 8 * 3600
+
 
 def revoke_token(token: str) -> None:
-    """Add token to blacklist on logout"""
-    _revoked_tokens.add(token)
+    """Refuse this token from now on (logout, or replaced by /refresh)."""
+    if not token:
+        return
+    _revoked_tokens[_h(token)] = _exp_of(token)
+    if len(_revoked_tokens) > 5000:              # drop entries past their expiry
+        now = time.time()
+        for k in [k for k, e in _revoked_tokens.items() if e < now]:
+            _revoked_tokens.pop(k, None)
+
 
 def is_token_revoked(token: str) -> bool:
-    """Check if token has been revoked"""
-    return token in _revoked_tokens
+    return _h(token) in _revoked_tokens
+
+
+async def persist_revocation(db, token: str) -> None:
+    try:
+        exp = _exp_of(token)
+        await db.revoked_tokens.update_one({"_id": _h(token)}, {"$set": {"exp": exp}}, upsert=True)
+    except Exception:
+        pass
+
+
+async def load_revocations(db) -> None:
+    """Once per process: reload unexpired revocations saved before a restart."""
+    global _loaded
+    if _loaded:
+        return
+    _loaded = True
+    try:
+        now = time.time()
+        async for d in db.revoked_tokens.find({"exp": {"$gt": now}}, {"exp": 1}):
+            _revoked_tokens[d["_id"]] = d["exp"]
+        await db.revoked_tokens.delete_many({"exp": {"$lte": now}})
+    except Exception:
+        _loaded = False                          # try again on the next request
 from typing import Optional
 import os
 
@@ -63,7 +116,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
-    to_encode.update({"exp": expire})
+    # jti: two tokens for the same user issued in the same second were
+    # byte-identical, so revoking the replaced one on /refresh would also
+    # revoke its replacement. A unique id keeps every token distinct.
+    import uuid as _uuid
+    to_encode.update({"exp": expire, "jti": to_encode.get("jti") or _uuid.uuid4().hex})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -79,6 +136,8 @@ def verify_token(token: str, allow_customer: bool = False) -> Optional[dict]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
+        return None
+    if is_token_revoked(token):                  # logged out / rotated by /refresh
         return None
     if payload.get("type") == "customer" and not allow_customer:
         return None

@@ -206,7 +206,9 @@ async def login(credentials: UserLogin, request: Request = None):
     new_session = {
         "login_at":  login_time,
         "logout_at": None,
-        "ip":        credentials.email,  # placeholder — real IP needs middleware
+        # stored the e-mail address as the "IP"; the session history is what
+        # shows a second device signing in, so record where it came from
+        "ip":        _sec.client_ip(request),
         "duration_minutes": None
     }
     await db.users.update_one(
@@ -249,10 +251,11 @@ async def logout(authorization: str = Header(None)):
     from services.auth_service import verify_token
     try:
         raw_token = authorization.replace("Bearer ", "") if authorization else ""
-        from services.auth_service import revoke_token as _revoke
+        from services.auth_service import revoke_token as _revoke, persist_revocation as _persist
+        token_data = verify_token(raw_token)     # read it before revoking — after, it no longer verifies
         if raw_token:
             _revoke(raw_token)
-        token_data = verify_token(raw_token)
+            await _persist(db, raw_token)        # survives a restart
         if token_data:
             logout_time = datetime.now(timezone.utc)
             user = await db.users.find_one({"id": token_data.get("user_id")})
@@ -293,7 +296,12 @@ async def logout(authorization: str = Header(None)):
                     )
     except Exception:
         pass
-    return {"message": "Logged out successfully"}
+    # the uploads cookie (12 h) kept opening the company's files in this
+    # browser after logout — clear it with the session
+    from services.upload_access import COOKIE_NAME as _FC
+    resp = JSONResponse({"message": "Logged out successfully"})
+    resp.delete_cookie(_FC, path="/api/uploads")
+    return resp
 
 
 @router.post("/reset-password")
@@ -1288,7 +1296,8 @@ async def two_factor_status(current_user: dict = Depends(get_current_user)):
             "enforced": _2fa.required_for(user) and not user.get("two_factor_enabled")}
 
 @router.post("/refresh")
-async def refresh_access_token(current_user: dict = Depends(get_current_user)):
+async def refresh_access_token(current_user: dict = Depends(get_current_user),
+                               authorization: Optional[str] = Header(None)):
     """تجديد جلسة مستخدم نشط.
 
     The token lasts 8 hours and there was no way to extend it, so anyone
@@ -1303,6 +1312,14 @@ async def refresh_access_token(current_user: dict = Depends(get_current_user)):
 
     token = create_access_token(data={"user_id": user["id"], "email": user.get("email"),
                                       "company_id": user.get("company_id"), "role": user.get("role")})
+    # Rotation: the token being replaced stopped nothing — every token ever
+    # issued by a refresh stayed valid for its own 8 hours, so one copied
+    # token could keep minting new ones. The old one is now revoked.
+    old = (authorization or "").replace("Bearer ", "").strip()
+    if old:
+        from services.auth_service import revoke_token as _revoke, persist_revocation as _persist
+        _revoke(old)
+        await _persist(db, old)
     user.pop("password_hash", None)
     resp = JSONResponse({"access_token": token, "token_type": "bearer", "user": jsonable_encoder(user)})
     set_file_cookie(resp, user)      # the uploads cookie is renewed with it

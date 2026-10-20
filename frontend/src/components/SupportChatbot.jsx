@@ -115,31 +115,69 @@ const SupportChatbot = () => {
     setInputValue('');
     setIsLoading(true);
 
-    try {
-      const response = await fetch(`${API_URL}/api/chatbot/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: sessionId,
-          message: userMessage.content,
-          language: language
-        })
+    const body = JSON.stringify({ session_id: sessionId, message: userMessage.content, language });
+    const finish = (data) => {
+      setSessionId(data.session_id);
+      setMessages(prev => {
+        const rest = prev.filter(m => !m.streaming);
+        return [...rest, { role: 'assistant', content: data.message, timestamp: new Date(data.timestamp) }];
       });
+    };
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSessionId(data.session_id);
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data.message,
-          timestamp: new Date(data.timestamp)
-        }]);
-      } else {
-        throw new Error(data.detail || 'Error');
+    try {
+      // The answer is streamed (Server-Sent Events) so it appears as it is written
+      // instead of after a long spinner. If the stream can't be read (old browser,
+      // proxy), the same question goes to /send and arrives in one piece.
+      let streamed = false;
+      try {
+        const res = await fetch(`${API_URL}/api/chatbot/stream`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+        });
+        if (res.ok && res.body && res.body.getReader) {
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = '';
+          let text = '';
+          let done = null;
+          for (;;) {
+            const { value, done: end } = await reader.read();
+            if (end) break;
+            buf += decoder.decode(value, { stream: true });
+            const events = buf.split('\n\n');
+            buf = events.pop();
+            for (const ev of events) {
+              const line = ev.split('\n').find(l => l.startsWith('data:'));
+              if (!line) continue;
+              let msg;
+              try { msg = JSON.parse(line.slice(5).trim()); } catch (e) { continue; }
+              if (msg.type === 'delta') {
+                text += msg.text || '';
+                const shown = text;
+                setIsLoading(false);
+                setMessages(prev => {
+                  const rest = prev.filter(m => !m.streaming);
+                  return [...rest, { role: 'assistant', content: shown, timestamp: new Date(), streaming: true }];
+                });
+              } else if (msg.type === 'done') {
+                done = msg;
+              }
+            }
+          }
+          if (done) { finish(done); streamed = true; }
+        }
+      } catch (e) {
+        streamed = false;
       }
+      if (streamed) return;
+
+      const response = await fetch(`${API_URL}/api/chatbot/send`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Error');
+      finish(data);
     } catch (error) {
-      setMessages(prev => [...prev, {
+      setMessages(prev => [...prev.filter(m => !m.streaming), {
         role: 'assistant',
         content: content.error,
         timestamp: new Date(),

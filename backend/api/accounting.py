@@ -775,15 +775,24 @@ async def get_trial_balance(
 async def get_income_statement(
     start_date: str = Query(..., description="Start date (YYYY-MM-DD)"),
     end_date: str = Query(..., description="End date (YYYY-MM-DD)"),
+    cost_center_id: Optional[str] = Query(None, description="مركز تكلفة / فرع واحد"),
+    project_id: Optional[str] = Query(None, description="مشروع واحد"),
     current_user: dict = Depends(get_current_user),
-    
+
 ):
-    """قائمة الدخل"""
+    """قائمة الدخل — للشركة كلها أو لمركز تكلفة / فرع / مشروع."""
+    company_id = current_user["company_id"]
+    cc_name = None
+    if cost_center_id:
+        cc = await db.cost_centers.find_one({"id": cost_center_id, "company_id": company_id}, {"_id": 0})
+        if not cc:
+            raise HTTPException(status_code=404, detail="مركز التكلفة غير موجود")
+        cc_name = cc.get("name_ar") or cc.get("code")
     service = AccountingService(db)
     report = await service.get_income_statement(
-        current_user["company_id"],
-        start_date, end_date
+        company_id, start_date, end_date, cost_center_id, project_id
     )
+    report["cost_center_name"] = cc_name
     return report
 
 

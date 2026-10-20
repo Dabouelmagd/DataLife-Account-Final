@@ -250,6 +250,10 @@ class Invoice(BaseModel):
     restock: bool = True                     # ترجع البضاعة للمخزون؟
     credited_amount: float = 0.0             # ما صدر مقابل هذه الفاتورة من إشعارات
     journal_entry_id: Optional[str] = None   # قيد اليومية
+    # مركز التكلفة / الفرع والمشروع — يُنسخان على كل سطر في قيد الفاتورة
+    # (والتكلفة والسداد) حتى تُستخرج قائمة دخل لكل مركز/فرع دون اختلاط.
+    cost_center_id: Optional[str] = None
+    project_id: Optional[str] = None
     
     # ══ ETA E-Invoicing — Egyptian Tax Authority (مصلحة الضرائب) ══════
     # SQL: ALTER TABLE sales_invoices ADD COLUMN:

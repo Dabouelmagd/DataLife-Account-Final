@@ -353,6 +353,15 @@ const InvoicesPage = () => {
     fetchParties();
   }, [fetchParties]);
 
+  // مراكز التكلفة / الفروع — يُسجَّل المركز المختار على كل سطر في قيد الفاتورة
+  const [costCenters, setCostCenters] = useState([]);
+  useEffect(() => {
+    fetch(`${process.env.REACT_APP_BACKEND_URL}/api/enterprise/cost-centers`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      .then((r) => (r.ok ? r.json() : { cost_centers: [] }))
+      .then((d) => setCostCenters(d.cost_centers || []))
+      .catch(() => {});
+  }, []);
+
   const handleCreateInvoice = async () => {
     try {
       const token = getToken();
@@ -1037,6 +1046,24 @@ const InvoicesPage = () => {
                 </Select>
               </div>
             </div>
+
+            {costCenters.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">
+                    {language === 'ar' ? 'مركز التكلفة / الفرع' : 'Cost centre / branch'}
+                  </label>
+                  <select
+                    className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm bg-white"
+                    value={formData.cost_center_id || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cost_center_id: e.target.value }))}
+                  >
+                    <option value="">{language === 'ar' ? '— بدون (الشركة كلها) —' : '— None (whole company) —'}</option>
+                    {costCenters.map((c) => <option key={c.id} value={c.id}>{c.code} — {language === 'ar' ? c.name_ar : (c.name_en || c.name_ar)}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
 
             {/* Invoice Lines */}
             <div>

@@ -435,27 +435,35 @@ export default function PayrollPage() {
     }
   };
 
-  const downloadBankFile = () => {
-    if (!bankReport) return;
-    const ar = language === 'ar';
-    const lines = [
-      `${ar ? 'تقرير التحويلات البنكية' : 'Bank Transfer Report'}`,
-      `${ar ? 'الشركة' : 'Company'}: ${bankReport.company_name}`,
-      `${ar ? 'الشهر' : 'Month'}: ${bankReport.month}`,
-      `${ar ? 'رقم المسير' : 'Payroll No'}: ${bankReport.payroll_number}`,
-      '',
-      `${ar ? 'الموظف' : 'Employee'},${ar ? 'القسم' : 'Dept'},${ar ? 'طريقة الدفع' : 'Payment'},${ar ? 'البنك' : 'Bank'},${ar ? 'رقم الحساب' : 'Acc No'},${ar ? 'IBAN' : 'IBAN'},${ar ? 'رقم المحفظة' : 'Wallet'},${ar ? 'صافي الراتب' : 'Net Salary'}`,
-      ...(bankReport.employees || []).map(e =>
-        `${e.employee_name},${e.department},${e.payment_method},${e.bank_name},${e.account_number},${e.iban},${e.wallet_number},${e.net_salary}`
-      ),
-      '',
-      `${ar ? 'الإجمالي' : 'Total'}: ${bankReport.summary?.total_net?.toFixed(2)} EGP`,
-    ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = `bank_transfer_${bankReport.month}.csv`; a.click();
-    URL.revokeObjectURL(url);
+  // The file is built by the server (/export/bank-file): one payment method per
+  // file, UTF-8 with BOM so Excel shows the Arabic, header on the first row,
+  // amounts with 2 decimals and a reference per transfer. The old browser-built
+  // CSV had none of that and mixed cash, bank and wallet rows in one file.
+  // It reflects the methods saved on the run — the choices in this window are
+  // saved when the payroll is paid.
+  const downloadBankFile = async (method) => {
+    if (!bankModal) return;
+    try {
+      const r = await fetch(`${API}/runs/${bankModal.id}/export/bank-file?method=${method}`, {
+        headers: { Authorization: `Bearer ${getToken()}` }
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        const d = data.detail;
+        const msg = d && typeof d === 'object' ? [d.message, ...(d.errors || []).slice(0, 5)].join('\n') : (d || 'Error');
+        toast.error(msg);
+        return;
+      }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `salary_${method}_${bankReport?.month || ''}.csv`; a.click();
+      URL.revokeObjectURL(url);
+      const total = Number(r.headers.get('X-Transfer-Total') || 0);
+      toast.success(`${r.headers.get('X-Transfer-Count') || ''} ${language === 'ar' ? 'تحويل بإجمالي' : 'transfers, total'} ${total.toLocaleString('en-US', { minimumFractionDigits: 2 })} EGP`);
+    } catch (e) {
+      toast.error(language === 'ar' ? 'تعذّر تحميل الملف' : 'Download failed');
+    }
   };
   // ─────────────────────────────────────────
 
@@ -1127,9 +1135,17 @@ export default function PayrollPage() {
                     <h3 className="font-semibold text-gray-800 text-sm">
                       {language === 'ar' ? 'تفاصيل كل موظف — يمكن تغيير طريقة الدفع' : 'Per-employee payment method'}
                     </h3>
-                    <button onClick={downloadBankFile} className="flex items-center gap-2 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg text-gray-700 font-medium">
-                      ⬇️ {language === 'ar' ? 'تحميل CSV للبنك' : 'Download CSV'}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { id: 'bank_transfer', ar: 'ملف البنك', en: 'Bank file' },
+                        { id: 'instapay', ar: 'ملف InstaPay', en: 'InstaPay file' },
+                        { id: 'vodafone_cash', ar: 'ملف فودافون كاش', en: 'Vodafone Cash file' },
+                      ].filter(m => (bankReport?.summary?.[m.id]?.count || 0) > 0).map(m => (
+                        <button key={m.id} onClick={() => downloadBankFile(m.id)} className="flex items-center gap-2 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg text-gray-700 font-medium">
+                          ⬇️ {language === 'ar' ? m.ar : m.en} (CSV)
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="overflow-x-auto -mx-2 px-2"><table className="w-full text-sm min-w-[600px]">
                     <thead className="bg-gray-50 text-xs text-gray-600">

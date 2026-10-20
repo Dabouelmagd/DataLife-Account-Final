@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useIdleLogout } from '../utils/idleLogout';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
@@ -146,31 +147,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ── Session Security ─────────────────────────────────
-  const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-  const idleTimerRef = React.useRef(null);
-
-  const resetIdleTimer = React.useCallback(() => {
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = setTimeout(() => {
-      if (localStorage.getItem('token')) {
-        // Token still in storage = still "logged in" → force logout
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login?reason=idle';
-      }
-    }, IDLE_TIMEOUT_MS);
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    const events = ['mousedown','mousemove','keypress','touchstart','scroll','click'];
-    events.forEach(e => window.addEventListener(e, resetIdleTimer, { passive: true }));
-    resetIdleTimer(); // start timer on login
-    return () => {
-      events.forEach(e => window.removeEventListener(e, resetIdleTimer));
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    };
-  }, [user, resetIdleTimer]);
+  // one idle timer for every tab of the app (utils/idleLogout): activity in
+  // any tab keeps the session, and signing out revokes the token on the server
+  useIdleLogout({ enabled: !!user });
 
   // ── Check JWT expiry on tab focus ────────────────────
   useEffect(() => {

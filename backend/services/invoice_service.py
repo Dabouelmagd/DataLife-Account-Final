@@ -22,6 +22,23 @@ import base64
 logger = logging.getLogger(__name__)
 
 
+def _tag_dimensions(lines, invoice: Dict) -> None:
+    """Copy the invoice's cost centre / project onto every journal line.
+
+    Invoices had no cost centre at all, so every sale and purchase landed in
+    the ledger unassigned: an income statement per cost centre / branch, and
+    a budget per cost centre or project, could never see them. A line that
+    already carries its own dimension keeps it."""
+    cc, pj = invoice.get("cost_center_id"), invoice.get("project_id")
+    if not (cc or pj):
+        return
+    for ln in lines:
+        if cc and not ln.cost_center_id:
+            ln.cost_center_id = cc
+        if pj and not ln.project_id:
+            ln.project_id = pj
+
+
 class InvoiceService:
     """خدمات الفواتير"""
     
@@ -138,8 +155,17 @@ class InvoiceService:
     # Invoice Operations
     # ==========================================
     
-    async def create_invoice(self, invoice: Invoice, company_name: str = "") -> Dict:
-        """إنشاء فاتورة"""
+    async def create_invoice(self, invoice: Invoice, company_name: str = "",
+                             invoice_extra: Optional[Dict] = None) -> Dict:
+        """إنشاء فاتورة
+
+        invoice_extra: invoice_type / client_wht_rate / client_wht_amount.
+        api/invoice.py has always passed it, but this method did not accept
+        it, so POST /api/invoice/ died with TypeError (500) and no invoice
+        could be created from the invoices screen. The fields are not on the
+        Invoice model, so they are stored next to it on the document, where
+        _create_invoice_journal_entry reads them.
+        """
         # توليد رقم الفاتورة
         if not invoice.document_number:
             invoice.document_number = await self.get_next_document_number(
@@ -172,6 +198,9 @@ class InvoiceService:
             logger.error(f"Error generating QR code: {e}")
         
         invoice_dict = invoice.dict()
+        for k in ("invoice_type", "client_wht_rate", "client_wht_amount"):
+            if invoice_extra and invoice_extra.get(k) is not None:
+                invoice_dict[k] = invoice_extra[k]
         await self.db.invoices.insert_one(invoice_dict)
         invoice_dict.pop("_id", None)
         
@@ -561,6 +590,8 @@ class InvoiceService:
                 f"debit={total_dr} credit={total_cr} diff={abs(total_dr-total_cr)}"
             )
         
+        _tag_dimensions(lines, invoice)
+
         # إنشاء القيد
         entry = JournalEntry(
             company_id=invoice["company_id"],
@@ -740,7 +771,8 @@ class InvoiceService:
                     description=f"إقفال بضاعة مباعة — فاتورة {invoice['document_number']}"
                 ),
             ]
-            
+            _tag_dimensions(cogs_lines, invoice)   # cost of sales belongs to the same branch
+
             cogs_entry = JournalEntry(
                 company_id=invoice["company_id"],
                 entry_number=0,
@@ -762,9 +794,11 @@ class InvoiceService:
     async def record_payment(self, payment: Payment, user_id: str) -> Dict:
         """تسجيل سداد للفاتورة"""
         invoice = await self.get_invoice(payment.invoice_id)
-        if not invoice:
+        # the invoice was looked up by bare id: a user of one company could
+        # record a payment (and post its entry) against another company's invoice
+        if not invoice or invoice.get("company_id") != payment.company_id:
             raise ValueError("Invoice not found")
-        
+
         if invoice["status"] == DocumentStatus.CANCELLED.value:
             raise ValueError("Cannot record payment for cancelled invoice")
         
@@ -850,7 +884,7 @@ class InvoiceService:
         _method = str(getattr(payment, "payment_method", "") or "").lower()
         _method = getattr(_method, "value", _method)
         cash_acc = find_account("161") if "cash" in _method and "wallet" not in _method else find_account("162")
-        
+
         if invoice["document_type"] == DocumentType.SALES_INVOICE.value:
             # سداد فاتورة بيع: النقدية (مدين) - العملاء (دائن)
             customers_acc = find_account("131")
@@ -899,6 +933,7 @@ class InvoiceService:
                     description=f"سداد إلى {invoice['party_name']}"
                 ))
         
+        _tag_dimensions(lines, invoice)
         entry = JournalEntry(
             company_id=invoice["company_id"],
             entry_number=0,

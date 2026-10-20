@@ -142,6 +142,46 @@ def mad_benford(observed: dict, n: int) -> float:
     return round(total_dev / 9, 6)
 
 
+# Minimum sample and decision rule for the Benford alert.
+# The old score (chi2/30*0.6 + MAD/0.015*0.4, alert at 0.40) ignored sample
+# size: MAD of a perfectly natural sample is ~0.02 at n=100 purely from
+# sampling noise, so MAD alone pushed the score over 0.40. Simulated on
+# log-uniform (Benford-conforming) amounts it raised an alert 97% of the time
+# at n=100, 76% at n=300 and 36% at n=1000 — a fraud alert on almost every
+# small company. Now an alert needs BOTH:
+#   - a statistically significant deviation: chi-square > 20.090 (df=8,
+#     p<0.01) — the test that accounts for n; and
+#   - a material one: MAD above Nigrini's first-digit "acceptable" bound
+#     (0.012), since with very large n chi-square flags trivial deviations.
+# Same simulation: ~1% false alerts at any n, while 35% of entries starting
+# with 7-9, or invented amounts with uniform first digits, are caught
+# 97-100% of the time from n=100.
+BENFORD_MIN_N = 100            # was 30: far too few for a 9-cell test
+BENFORD_RELIABLE_N = 300       # below this the result is shown as low-reliability
+CHI2_CRIT_05 = 15.507          # df=8, p=0.05
+CHI2_CRIT_01 = 20.090          # df=8, p=0.01 — alert threshold
+MAD_CLOSE, MAD_ACCEPTABLE, MAD_MARGINAL = 0.006, 0.012, 0.015   # Nigrini, first digit
+
+
+def chi2_p_value_df8(x: float) -> float:
+    """Upper-tail p-value of chi-square with 8 degrees of freedom
+    (closed form for even df: e^(-x/2) * sum_{i<4} (x/2)^i / i!)."""
+    h = max(float(x), 0.0) / 2
+    return round(math.exp(-h) * sum(h ** i / math.factorial(i) for i in range(4)), 6)
+
+
+def benford_risk(chi2: float, mad: float) -> float:
+    """0..1. Below 0.40 (no alert) unless the deviation is both significant
+    (p<0.01) and material (MAD > 0.012)."""
+    if chi2 <= CHI2_CRIT_01:
+        return round(min(chi2 / CHI2_CRIT_01, 1.0) * 0.19, 3)          # within sampling noise
+    if mad <= MAD_ACCEPTABLE:
+        return 0.25                                                    # significant but immaterial
+    if mad <= MAD_MARGINAL:
+        return 0.45                                                    # marginal conformity
+    return round(min(0.60 + (mad - MAD_MARGINAL) / 0.045 * 0.40, 1.0), 3)  # nonconformity
+
+
 @router.get("/benford")
 async def benford_analysis(
     date_from:    Optional[str] = None,
@@ -207,9 +247,10 @@ async def benford_analysis(
                 if net >= min_amount:
                     amounts.append(net)
 
-    if len(amounts) < 30:
-        return {"message": "البيانات غير كافية — يتطلب 30+ سجل للتحليل",
-                "count": len(amounts)}
+    if len(amounts) < BENFORD_MIN_N:
+        return {"message": f"البيانات غير كافية — اختبار بنفورد يحتاج {BENFORD_MIN_N}+ مبلغ في الفترة "
+                           "(وتزيد دقته مع 300+). وسّع الفترة أو المصدر.",
+                "count": len(amounts), "min_required": BENFORD_MIN_N}
 
     # Count first digits
     first_digits = [get_first_digit(a) for a in amounts]
@@ -221,11 +262,9 @@ async def benford_analysis(
     chi2 = chi_square_benford(observed, n)
     mad  = mad_benford(observed, n)
 
-    # Risk scoring
-    # Chi2 critical value for df=8, p=0.05 → 15.507
-    chi2_risk = min(chi2 / 30, 1.0)
-    mad_risk  = min(mad / 0.015, 1.0)
-    risk_score = round((chi2_risk * 0.6 + mad_risk * 0.4), 3)
+    # Risk scoring — see BENFORD_MIN_N / benford_risk above
+    p_value    = chi2_p_value_df8(chi2)
+    risk_score = benford_risk(chi2, mad)
 
     # Identify suspicious digits (observed >> expected)
     suspicious = []
@@ -248,7 +287,11 @@ async def benford_analysis(
         alert_id = await save_alert(company_id, "benford_anomaly", risk_score, {
             "source": source, "n": n, "chi2": chi2, "mad": mad,
             "suspicious_digits": suspicious,
-        }, current_user["user_id"], fingerprint=f"{source}:{df}:{dt}")
+        # With no date_to the period ends "today", so the fingerprint changed
+        # every day and each day's visit filed a fresh copy of the same
+        # year-to-date alert (re-opening one the reviewer had closed).
+        # An open-ended period is now one alert per source and start date.
+        }, current_user["user_id"], fingerprint=f"{source}:{df}:{dt if date_to else 'ytd'}")
 
     # Digit distribution table
     distribution = []
@@ -269,12 +312,16 @@ async def benford_analysis(
         "n":        n,
         "tests": {
             "chi_square":  chi2,
-            "chi2_critical":"15.507 (p=0.05, df=8)",
-            "chi2_result": "⚠️ احتمال تلاعب" if chi2 > 15.507 else "✅ طبيعي",
+            "chi2_critical":"15.507 (p=0.05) | 20.090 (p=0.01), df=8",
+            "p_value":     p_value,
+            "chi2_result": "⚠️ انحراف دال إحصائياً" if chi2 > CHI2_CRIT_01 else
+                           "ملاحظة: انحراف ضعيف الدلالة" if chi2 > CHI2_CRIT_05 else "✅ طبيعي",
             "mad":         mad,
-            "mad_scale":   "<0.006 ممتاز | 0.006-0.012 مقبول | >0.012 مشبوه",
-            "mad_result":  "✅ مقبول" if mad < 0.012 else "⚠️ مشبوه",
+            "mad_scale":   "<0.006 مطابقة قوية | 0.006-0.012 مقبول | 0.012-0.015 حدّي | >0.015 غير مطابق",
+            "mad_result":  "✅ مقبول" if mad <= MAD_ACCEPTABLE else
+                           "⚠️ حدّي" if mad <= MAD_MARGINAL else "⚠️ غير مطابق",
         },
+        "reliability":  "منخفضة — أقل من 300 مبلغ" if n < BENFORD_RELIABLE_N else "جيدة",
         "risk_score":   risk_score,
         "risk":         rl,
         "alert_id":     alert_id,

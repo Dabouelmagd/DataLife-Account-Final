@@ -94,6 +94,21 @@ async def create_budget_line(
         {"company_id": company_id, "account_code": req.account_code}, {"_id": 0})
     if not acc:
         raise HTTPException(400, f"الحساب {req.account_code} غير موجود في دليل الحسابات")
+    # a cost centre / project id that is not this company's could never match
+    # a journal line (actual 0 for ever); take the display names from the record
+    req.cost_center_id = req.cost_center_id or None
+    req.project_id = req.project_id or None
+    req.department_id = req.department_id or None
+    if req.cost_center_id:
+        cc = await db.cost_centers.find_one({"id": req.cost_center_id, "company_id": company_id}, {"_id": 0})
+        if not cc:
+            raise HTTPException(400, "مركز التكلفة غير موجود في هذه الشركة")
+        req.cost_center_name = cc.get("name_ar") or cc.get("code")
+    if req.project_id:
+        pj = await db.projects.find_one({"id": req.project_id, "company_id": company_id}, {"_id": 0})
+        if not pj:
+            raise HTTPException(400, "المشروع غير موجود في هذه الشركة")
+        req.project_name = pj.get("name") or req.project_name
 
     # Upsert: replace if same fiscal_year + account + centers
     filter_key = {
@@ -201,6 +216,7 @@ async def list_budget_lines(
             line["account_code"],
             line.get("cost_center_id"),
             line.get("project_id"),
+            line.get("department_id"),
         )
         allocated  = float(line["allocated_amount"])
         available  = round(allocated - spent - committed, 2)
@@ -290,7 +306,8 @@ async def _postable_accounts(company_id: str, account_code: str) -> list:
 
 async def _ledger_actual(company_id: str, account_code: str, start: str, end: str,
                          cost_center_id: Optional[str] = None,
-                         project_id: Optional[str] = None) -> float:
+                         project_id: Optional[str] = None,
+                         department_id: Optional[str] = None) -> float:
     accounts = await _postable_accounts(company_id, account_code)
     if not accounts:
         return 0.0
@@ -300,19 +317,27 @@ async def _ledger_actual(company_id: str, account_code: str, start: str, end: st
         {"company_id": company_id, "account_id": {"$in": ids},
          "entry_date": {"$gte": start, "$lte": end}},
         {"_id": 0, "account_id": 1, "journal_entry_id": 1, "debit": 1, "credit": 1}).to_list(None)
-    if cost_center_id or project_id:
+    if cost_center_id or project_id or department_id:
         # the ledger row has no cost centre/project; those live on the journal
         # line, so take the matching lines of the entries that reached the ledger
         je_ids = list({r["journal_entry_id"] for r in rows if r.get("journal_entry_id")})
         total = 0.0
         async for je in db.journal_entries.find(
-                {"company_id": company_id, "id": {"$in": je_ids}}, {"_id": 0, "lines": 1}):
+                {"company_id": company_id, "id": {"$in": je_ids}},
+                {"_id": 0, "lines": 1, "cost_center_id": 1, "project_id": 1, "department_id": 1}):
             for ln in je.get("lines") or []:
                 if ln.get("account_id") not in nature:
                     continue
-                if cost_center_id and ln.get("cost_center_id") != cost_center_id:
+                # a dimension set on the entry header applies to lines that do
+                # not carry their own (older project entries were tagged on the
+                # header only, so project budgets read 0)
+                if cost_center_id and (ln.get("cost_center_id") or je.get("cost_center_id")) != cost_center_id:
                     continue
-                if project_id and ln.get("project_id") != project_id:
+                if project_id and (ln.get("project_id") or je.get("project_id")) != project_id:
+                    continue
+                # department budgets were accepted but the department was never
+                # used: they compared against the whole company's spending
+                if department_id and (ln.get("department_id") or je.get("department_id")) != department_id:
                     continue
                 d, c = float(ln.get("debit") or 0), float(ln.get("credit") or 0)
                 total += (d - c) if nature[ln["account_id"]] == "debit" else (c - d)
@@ -333,6 +358,7 @@ async def _get_spent_and_committed(
     account_code: str,
     cost_center_id: Optional[str] = None,
     project_id: Optional[str] = None,
+    department_id: Optional[str] = None,
 ) -> tuple:
     """
     احتساب المنصرف الفعلي + المرتبط (أوامر شراء معلقة)
@@ -351,7 +377,7 @@ async def _get_spent_and_committed(
     # also read 0 because nothing is posted to a header — it now rolls up the
     # postable accounts under it, skipping headers themselves.
     actual = await _ledger_actual(company_id, account_code, year_start, year_end,
-                                  cost_center_id, project_id)
+                                  cost_center_id, project_id, department_id)
 
     # ── Committed: pending purchase orders ────────────────────
     po_q = {
@@ -377,6 +403,11 @@ async def _get_spent_and_committed(
     }
     if account_code:
         pending_q["account_code"] = account_code
+    # without these, one pending request was counted as committed on EVERY
+    # cost centre's / project's line for that account
+    if cost_center_id: pending_q["cost_center_id"] = cost_center_id
+    if project_id:     pending_q["project_id"]     = project_id
+    if department_id:  pending_q["department_id"]  = department_id
     pending_reqs = await db.erp_approval_requests.find(
         pending_q, {"_id": 0, "amount": 1}).to_list(None)
     committed += sum(float(r.get("amount", 0)) for r in pending_reqs)
@@ -435,7 +466,7 @@ async def check_budget(
     allocated  = float(budget["allocated_amount"])
     actual, committed = await _get_spent_and_committed(
         company_id, req.fiscal_year, req.account_code,
-        req.cost_center_id, req.project_id
+        req.cost_center_id, req.project_id, req.department_id
     )
     current    = float(req.transaction_amount)
     total_after = round(actual + committed + current, 2)
@@ -644,7 +675,7 @@ async def budget_variance_report(
     for line in lines:
         actual, committed = await _get_spent_and_committed(
             company_id, fiscal_year, line["account_code"],
-            line.get("cost_center_id"), line.get("project_id")
+            line.get("cost_center_id"), line.get("project_id"), line.get("department_id")
         )
         allocated = float(line["allocated_amount"])
         total_actual = actual + committed
@@ -712,7 +743,7 @@ async def budget_dashboard(
     for line in lines:
         actual, committed = await _get_spent_and_committed(
             company_id, fiscal_year, line["account_code"],
-            line.get("cost_center_id"), line.get("project_id")
+            line.get("cost_center_id"), line.get("project_id"), line.get("department_id")
         )
         total_actual    += actual
         total_committed += committed
@@ -720,6 +751,8 @@ async def budget_dashboard(
             over_budget.append({
                 "account":   line["account_code"],
                 "name":      line.get("account_name",""),
+                "cost_center": line.get("cost_center_name"),
+                "project":   line.get("project_name"),
                 "excess":    round(actual+committed-float(line["allocated_amount"]), 2),
                 "control":   line.get("control_action"),
             })

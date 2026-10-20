@@ -16,6 +16,7 @@ are bounded to keep that safe.
 """
 
 import os
+import json
 import uuid
 import logging
 from datetime import datetime, timezone
@@ -23,6 +24,7 @@ from typing import Optional
 
 import html as _html
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -51,14 +53,17 @@ KB = [
      "النظام مطابق لمنظومة الفاتورة الإلكترونية لمصلحة الضرائب المصرية (ETA). يمكنك ربط حسابك من إعدادات الفواتير.",
      "The system is compliant with the Egyptian Tax Authority e-invoicing (ETA). Connect your account from invoice settings."),
     (("راتب", "رواتب", "مرتب", "payroll", "salary"),
-     "نظام الرواتب يحسب ضريبة الدخل والتأمينات وفق القانون ١٤٨/٢٠١٩، ويدير المسيرات والسلف ونهاية الخدمة. تجده في الموارد البشرية ← الرواتب.",
-     "Payroll computes income tax and social insurance per Law 148/2019 and manages runs, loans and end of service. Find it under HR → Payroll."),
+     # Law 148/2019 is the social-insurance law; salary tax is Law 91/2005 as
+     # amended by Law 7/2024 (what services/egypt_payroll.py implements).
+     "نظام الرواتب يحسب ضريبة كسب العمل وفق القانون ٩١/٢٠٠٥ وتعديلاته (القانون ٧/٢٠٢٤) والتأمينات الاجتماعية وفق القانون ١٤٨/٢٠١٩، ويدير المسيرات والسلف ونهاية الخدمة. تجده في الموارد البشرية ← الرواتب.",
+     "Payroll computes salary tax per Law 91/2005 as amended by Law 7/2024 and social insurance per Law 148/2019, and manages runs, loans and end of service. Find it under HR → Payroll."),
     (("كلمة المرور", "باسورد", "password", "دخول", "login"),
      "لاستعادة كلمة المرور اضغط «نسيت كلمة المرور؟» في صفحة الدخول. وإن استمرت المشكلة اطلب التحدث مع الدعم.",
      "To reset your password, press 'Forgot password?' on the login page. If it persists, ask to talk to support."),
     (("سعر", "اسعار", "أسعار", "باقة", "باقات", "اشتراك", "price", "pricing", "plan", "cost"),
-     "لدينا ثلاث باقات: أساسي واحترافي ومؤسسي، باشتراك شهري أو سنوي. تجد التفاصيل في قسم «الأسعار» بالصفحة الرئيسية.",
-     "We offer Basic, Professional and Enterprise plans, monthly or yearly. See the Pricing section on the home page."),
+     # names as PricingSection.jsx shows them (it said "Basic"/"أساسي")
+     "لدينا ثلاث باقات: المبتدئ والمحترف والمؤسسي، باشتراك شهري أو سنوي. تجد التفاصيل في قسم «الأسعار» بالصفحة الرئيسية.",
+     "We offer Starter, Professional and Enterprise plans, monthly or yearly. See the Pricing section on the home page."),
 ]
 
 FALLBACK_AR = ("لم أجد إجابة دقيقة لسؤالك. اضغط «التحدث مع الدعم» وسيتواصل معك فريقنا عبر البريد الإلكتروني.")
@@ -127,25 +132,30 @@ async def _ai_allowed(ip: str, session: dict) -> bool:
     return (doc or {}).get("n", 1) <= AI_PER_IP_HOUR
 
 
-@router.post("/send")
-async def send_message(data: SendIn, request: Request = None):
+def _client_ip(request: Optional[Request]) -> str:
+    if not request:
+        return "?"
+    return (request.headers.get("x-real-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+            or (request.client.host if request.client else "?"))
+
+
+async def _prepare(data: SendIn, request: Optional[Request]):
+    """session id + the history to send to the model, or None when the model
+    must not be called (no key, or this visitor is over the cap)."""
     from services import support_ai
     session_id = data.session_id or str(uuid.uuid4())
     session = await db.chatbot_sessions.find_one({"session_id": session_id}, {"_id": 0, "messages": 1}) \
         if data.session_id else None
-    reply = None
-    if support_ai.available():
-        ip = (request.headers.get("x-real-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-              or (request.client.host if request.client else "?")) if request else "?"
-        if await _ai_allowed(ip, session):
-            history = [{"role": m.get("role"), "content": m.get("content")}
-                       for m in (session or {}).get("messages", [])]
-            history.append({"role": "user", "content": data.message})
-            reply = await support_ai.answer(history)
-    if not reply:
-        reply = _answer(data.message, data.language)
-    ts = _now()
+    history = None
+    if support_ai.available() and await _ai_allowed(_client_ip(request), session):
+        history = [{"role": m.get("role"), "content": m.get("content")}
+                   for m in (session or {}).get("messages", [])]
+        history.append({"role": "user", "content": data.message})
+    return session_id, history
 
+
+async def _save(session_id: str, data: SendIn, reply: str) -> str:
+    ts = _now()
     await db.chatbot_sessions.update_one(
         {"session_id": session_id},
         {
@@ -161,7 +171,49 @@ async def send_message(data: SendIn, request: Request = None):
         },
         upsert=True,
     )
+    return ts
+
+
+@router.post("/send")
+async def send_message(data: SendIn, request: Request = None):
+    from services import support_ai
+    session_id, history = await _prepare(data, request)
+    reply = await support_ai.answer(history) if history else None
+    if not reply:
+        reply = _answer(data.message, data.language)
+    ts = await _save(session_id, data, reply)
     return {"session_id": session_id, "message": reply, "timestamp": ts}
+
+
+def _sse(obj: dict) -> str:
+    return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
+
+
+@router.post("/stream")
+async def stream_message(data: SendIn, request: Request = None):
+    """Same answer as /send, sent as Server-Sent Events while the model writes:
+    data: {"type":"delta","text":...} ... then data: {"type":"done",session_id,message,timestamp}.
+    Falls back to the keyword answer (one delta) exactly like /send."""
+    from services import support_ai
+    session_id, history = await _prepare(data, request)
+
+    async def events():
+        parts = []
+        if history:
+            async for piece in support_ai.stream(history):
+                parts.append(piece)
+                yield _sse({"type": "delta", "text": piece})
+        reply = "".join(parts).strip()
+        if not reply:
+            reply = _answer(data.message, data.language)
+            yield _sse({"type": "delta", "text": reply})
+        ts = await _save(session_id, data, reply)
+        yield _sse({"type": "done", "session_id": session_id, "message": reply, "timestamp": ts})
+
+    # X-Accel-Buffering: nginx would otherwise hold the whole answer and the
+    # browser would see it arrive at once, defeating the stream.
+    return StreamingResponse(events(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 # kept so older callers of /chat don't break

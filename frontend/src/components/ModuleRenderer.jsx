@@ -31,7 +31,7 @@ import EmployeeProfilePage from '../pages/EmployeeProfilePage';
 import EmployeesPage from '../pages/EmployeesPage';
 import HREmployeesList from '../components/HREmployeesList';
 import { ProgressClaimsPage, GuaranteesPage, TaxFormsPage } from '../components/ContractsFinance';
-import { BudgetPage, DeferredTaxPage, EquityPage } from '../components/FinanceExtras';
+import { BudgetPage, DeferredTaxPage, EquityPage, CashRunwayPage } from '../components/FinanceExtras';
 import { FraudControlPage, DataProtectionPage, ConsolidationPage } from '../components/ControlExtras';
 import { PosShiftsPage, ManufacturingPage, RealEstatePage, LettersOfCreditPage, InventoryEngineTools } from '../components/OperationsExtras';
 import { AppraisalsPage, HRToolsPage, EndOfServicePage, LoansCustodyPage, CommissionsPage, GovPaymentsPage } from '../components/HRExtras';
@@ -199,6 +199,7 @@ export const renderFinancialContent = ({
     'guarantees': <GuaranteesPage />,
     'tax-forms': <TaxFormsPage />,
     'budgets': <BudgetPage />,
+    'cash-runway': <CashRunwayPage />,
     'deferred-tax': <DeferredTaxPage />,
     'equity': <EquityPage />,
     'fraud-control': <FraudControlPage />,

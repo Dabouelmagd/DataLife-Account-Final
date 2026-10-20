@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import CompanyLogo from './CompanyLogo';
+import { idleLogoutMessage } from '../utils/idleLogout';
 import { LogIn, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const LoginPage = () => {
@@ -273,6 +274,11 @@ const LoginPage = () => {
           ) : (
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {idleLogoutMessage(window.location.search, language === 'ar') && (
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm" role="status">
+                {idleLogoutMessage(window.location.search, language === 'ar')}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {t.email}

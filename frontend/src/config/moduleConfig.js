@@ -259,6 +259,7 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'guarantees',       name: isArabic ? '🛡️ خطابات الضمان'     : '🛡️ Letters of Guarantee' },
   { id: 'tax-forms',        name: isArabic ? '🧾 نموذج 10 و41'      : '🧾 Tax Forms 10 & 41' },
   { id: 'gov-payments',     name: isArabic ? '🏛️ المدفوعات الحكومية' : '🏛️ Government Payments' },
+  { id: 'cash-runway',      name: isArabic ? '💧 النقدية وشهور التشغيل' : '💧 Cash & Runway' },
   { id: 'budgets',          name: isArabic ? '📊 الموازنات التقديرية' : '📊 Budgets' },
   { id: 'deferred-tax',     name: isArabic ? '🧾 ضريبة الدخل والمؤجلة' : '🧾 Income & Deferred Tax' },
   { id: 'equity',           name: isArabic ? '🏛️ حقوق الملكية والتوزيعات' : '🏛️ Equity & Dividends' },

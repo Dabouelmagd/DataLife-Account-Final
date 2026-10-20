@@ -24,13 +24,22 @@ const IncomeStatementPage = ({ language: propLanguage }) => {
     return date.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  // مركز تكلفة / فرع: قائمة دخل لفرع واحد (سطور القيود التي تحمل هذا المركز فقط)
+  const [costCenterId, setCostCenterId] = useState('');
+  const [costCenters, setCostCenters] = useState([]);
+  useEffect(() => {
+    fetch(`${API_URL}/api/enterprise/cost-centers`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then((r) => (r.ok ? r.json() : { cost_centers: [] }))
+      .then((d) => setCostCenters(d.cost_centers || []))
+      .catch(() => {});
+  }, [API_URL]);
 
   const fetchIncomeStatement = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${API_URL}/api/accounting/reports/income-statement?start_date=${startDate}&end_date=${endDate}`,
+        `${API_URL}/api/accounting/reports/income-statement?start_date=${startDate}&end_date=${endDate}${costCenterId ? `&cost_center_id=${encodeURIComponent(costCenterId)}` : ''}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -47,7 +56,7 @@ const IncomeStatementPage = ({ language: propLanguage }) => {
 
   useEffect(() => {
     fetchIncomeStatement();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, costCenterId]);
 
   const exportToCSV = () => {
     if (!incomeStatement) return;
@@ -115,7 +124,18 @@ const IncomeStatementPage = ({ language: propLanguage }) => {
               <p className="text-emerald-200 text-sm">{language === 'ar' ? 'الإيرادات والمصروفات وصافي الربح' : 'Revenue, Expenses & Net Profit'}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {costCenters.length > 0 && (
+              <select
+                value={costCenterId}
+                onChange={(e) => setCostCenterId(e.target.value)}
+                aria-label={language === 'ar' ? 'مركز التكلفة / الفرع' : 'Cost centre / branch'}
+                className="bg-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none [&>option]:text-slate-900"
+              >
+                <option value="">{language === 'ar' ? 'كل الفروع والمراكز' : 'All branches / cost centres'}</option>
+                {costCenters.map((c) => <option key={c.id} value={c.id}>{c.code} — {language === 'ar' ? c.name_ar : (c.name_en || c.name_ar)}</option>)}
+              </select>
+            )}
             <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2">
               <span className="text-sm">{language === 'ar' ? 'من' : 'From'}</span>
               <input

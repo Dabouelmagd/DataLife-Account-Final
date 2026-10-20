@@ -546,6 +546,144 @@ async def import_purchases(file: UploadFile = File(...), current_user: dict = De
     return await _import_invoices(file, current_user, "purchase")
 
 
+# ── opening trial balance (الميزان الافتتاحي) ──────────────────────────────
+# There was no way to bring a company's opening balances in per account: only
+# per customer / supplier / item, each auto-balanced against 213. An accountant
+# moving from another system has a trial balance (account, debit, credit), and
+# the one thing that must hold before anything is written is total debit =
+# total credit. A sheet that does not balance is refused whole, with the totals
+# and the difference named, and nothing reaches the ledger.
+
+OPENING_CONTROL_ACCOUNTS = {"131": "العملاء", "251": "الموردين"}
+
+
+@router.post("/opening-balances")
+async def import_opening_balances(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    """One posted opening entry from a trial-balance sheet; Dr must equal Cr."""
+    from services.import_documents import Check, map_columns
+    if current_user.get("role") not in IMPORT_ROLES:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    company_id = current_user.get("company_id")
+    # a second, different opening sheet would double every balance — the hash
+    # check only stops the identical file
+    # (once that entry has been reversed, a corrected sheet may come in)
+    earlier = None
+    async for h in db.import_history.find(
+            {"company_id": company_id, "type": "opening_balances", "success_count": {"$gt": 0}},
+            {"_id": 0, "created_at": 1, "filename": 1, "journal_entry_id": 1}):
+        je = await db.journal_entries.find_one(
+            {"company_id": company_id, "id": h.get("journal_entry_id")}, {"_id": 0, "status": 1})
+        if not je or je.get("status") != "reversed":
+            earlier = h
+            break
+    if earlier:
+        raise HTTPException(status_code=409, detail=(
+            f"الأرصدة الافتتاحية استُوردت من قبل ({earlier.get('filename', '')} بتاريخ "
+            f"{str(earlier.get('created_at', ''))[:10]}). لتعديلها اعكس قيد الأرصدة الافتتاحية أولاً "
+            "أو سجّل قيد تسوية — لا تُستورد مرتين حتى لا تتضاعف الأرصدة."))
+    df, digest = await _read_upload(file, current_user, "opening_balances")
+    cols = map_columns(df, {
+        'code': ['account_code', 'كود الحساب', 'رقم الحساب', 'الكود', 'code'],
+        'name': ['account_name', 'اسم الحساب', 'الحساب', 'name'],
+        'debit': ['debit', 'مدين', 'رصيد مدين', 'الرصيد المدين'],
+        'credit': ['credit', 'دائن', 'رصيد دائن', 'الرصيد الدائن'],
+        'date': ['date', 'تاريخ الرصيد', 'التاريخ'],
+    })
+    _require(cols, {"code": "كود الحساب", "debit": "مدين", "credit": "دائن", "date": "تاريخ الرصيد"}, df)
+
+    accounts = {a["account_code"]: a async for a in db.chart_of_accounts.find(
+        {"company_id": company_id},
+        {"_id": 0, "id": 1, "account_code": 1, "account_name": 1, "is_header": 1,
+         "allow_posting": 1, "account_category": 1, "is_active": 1})}
+    has_party_openings = bool(await db.invoices.find_one(
+        {"company_id": company_id, "is_opening_balance": True}, {"_id": 0, "id": 1}))
+
+    ck, rows, seen, dates = Check(), [], {}, {}
+    total_dr = total_cr = 0.0
+    for idx, row in df.iterrows():
+        n = idx + 2
+        code = ck.text(row, n, cols.get('code'), "كود الحساب", required=True, max_len=30)
+        dr = ck.number(row, n, cols.get('debit'), "مدين")
+        cr = ck.number(row, n, cols.get('credit'), "دائن")
+        d = ck.date(row, n, cols.get('date'), "تاريخ الرصيد")
+        if d:
+            dates.setdefault(d, n)
+        ck.once(seen, code, n, "كود الحساب")
+        acc = accounts.get(code) if code else None
+        if code and not acc:
+            ck.err(n, "كود الحساب", f"«{code}» غير موجود في شجرة الحسابات")
+        elif acc and (acc.get("is_header") or acc.get("allow_posting") is False
+                      or acc.get("account_category") == "header"):
+            ck.err(n, "كود الحساب", f"«{code} {acc.get('account_name', '')}» حساب تجميعي — ضع الرصيد على حساب فرعي تحته")
+        elif acc and acc.get("is_active") is False:
+            ck.err(n, "كود الحساب", f"«{code}» حساب موقوف")
+        if code in OPENING_CONTROL_ACCOUNTS and has_party_openings:
+            ck.err(n, "كود الحساب", (
+                f"أرصدة {OPENING_CONTROL_ACCOUNTS[code]} الافتتاحية مستوردة بالفعل لكل طرف على {code} — "
+                "احذف هذا الصف حتى لا يتضاعف الرصيد"))
+        if dr is not None and cr is not None:
+            if dr > 0 and cr > 0:
+                ck.err(n, "مدين/دائن", "الصف فيه مدين ودائن معاً — اكتب الصافي في خانة واحدة")
+            elif dr == 0 and cr == 0:
+                ck.err(n, "مدين/دائن", "الصف بلا رصيد — احذفه أو اكتب المبلغ")
+            total_dr += dr
+            total_cr += cr
+        rows.append({"n": n, "acc": acc, "dr": round(dr or 0, 2), "cr": round(cr or 0, 2)})
+    if len(dates) > 1:
+        ck.err(", ".join(str(v) for v in list(dates.values())[:5]), "تاريخ الرصيد",
+               f"أكثر من تاريخ في الملف ({'، '.join(list(dates)[:5])}) — الميزان الافتتاحي له تاريخ واحد")
+    elif not dates and len(df):
+        ck.err(2, "تاريخ الرصيد", "فارغ في كل الصفوف — اكتب تاريخ بداية الأرصدة")
+    total_dr, total_cr = round(total_dr, 2), round(total_cr, 2)
+    if abs(total_dr - total_cr) > 0.01:
+        ck.err(f"الإجمالي (بعد صف {len(df) + 1})", "مدين ≠ دائن",
+               f"إجمالي المدين {total_dr:,.2f} لا يساوي إجمالي الدائن {total_cr:,.2f} "
+               f"(الفرق {abs(total_dr - total_cr):,.2f} في جانب "
+               f"{'المدين' if total_dr > total_cr else 'الدائن'}) — الميزان الافتتاحي يجب أن يتوازن")
+    entry_date = next(iter(dates), "")
+    if entry_date:
+        fp = await db.financial_periods.find_one(
+            {"company_id": company_id, "$or": [{"year": int(entry_date[:4]), "month": int(entry_date[5:7])},
+                                               {"period": entry_date[:7]}]}, {"_id": 0, "status": 1})
+        if fp and fp.get("status") == "closed":
+            ck.err(list(dates.values())[0], "تاريخ الرصيد", f"الفترة {entry_date[:7]} مغلقة")
+    if not len(df):
+        ck.err(2, "الملف", "لا توجد صفوف")
+    _reject(ck, len(df))
+
+    from models.accounting import JournalEntry, JournalEntryLine, JournalEntryStatus
+    from services.accounting_service import AccountingService
+    user_id = current_user.get("user_id") or "import"
+    lines = [JournalEntryLine(account_id=r["acc"]["id"], account_code=r["acc"]["account_code"],
+                              account_name=r["acc"].get("account_name", ""), debit=r["dr"], credit=r["cr"],
+                              description="رصيد افتتاحي") for r in rows]
+    svc = AccountingService(db)
+    created = await svc.create_journal_entry(JournalEntry(
+        company_id=company_id, entry_number=0, entry_date=entry_date,
+        description=f"قيد الأرصدة الافتتاحية — {file.filename}"[:200], lines=lines,
+        total_debit=total_dr, total_credit=total_cr, status=JournalEntryStatus.DRAFT,
+        source_document_type="opening_balance", created_by=user_id,
+        fiscal_year=entry_date[:4], period=entry_date[:7]))
+    try:
+        await svc.post_journal_entry(created["id"], user_id)
+    except Exception as e:
+        # a draft left behind would look like an opening entry that is not in
+        # the ledger — remove it and report
+        await db.journal_entries.delete_one({"id": created["id"], "company_id": company_id})
+        raise HTTPException(status_code=400, detail=f"تعذّر ترحيل قيد الأرصدة الافتتاحية: {e}")
+    notes = [f"قيد افتتاحي واحد ({len(rows)} سطر) بتاريخ {entry_date}: مدين {total_dr:,.2f} = دائن {total_cr:,.2f}"]
+    if any(r["acc"]["account_code"] in OPENING_CONTROL_ACCOUNTS for r in rows):
+        notes.append("رصيد العملاء/الموردين دخل كإجمالي — لن يظهر في كشف كل عميل أو مورد")
+    result = await _finish(current_user, "opening_balances", "الأرصدة الافتتاحية", file.filename, digest,
+                           len(df), len(rows), [], notes,
+                           {"journal_entry_id": created["id"], "entry_number": created.get("entry_number_str"),
+                            "total_debit": total_dr, "total_credit": total_cr})
+    await db.import_history.update_one(
+        {"company_id": company_id, "type": "opening_balances", "file_hash": digest},
+        {"$set": {"journal_entry_id": created["id"]}})
+    return result
+
+
 # ── templates ───────────────────────────────────────────────────────────────
 
 _FINANCIAL_TEMPLATE = {
@@ -592,6 +730,12 @@ TEMPLATES = {
         "columns_ar": ["رقم الفاتورة", "اسم المورد", "التاريخ", "تاريخ الاستحقاق", "المبلغ قبل الضريبة", "نسبة الضريبة", "الإجمالي", "الحالة", "طريقة السداد"],
         "sample": [{"purchase_number": "P-001", "supplier_name": "مورد 1", "date": "2026-01-15", "due_date": "2026-02-15",
                     "subtotal": 10000, "tax_rate": 14, "amount": 11400, "status": "مدفوعة", "payment_method": "بنك"}]
+    },
+    "opening_balances": {
+        "columns_en": ["account_code", "account_name", "debit", "credit", "date"],
+        "columns_ar": ["كود الحساب", "اسم الحساب", "مدين", "دائن", "تاريخ الرصيد"],
+        "sample": [{"account_code": "162", "account_name": "النقدية بالبنوك", "debit": 50000, "credit": "",
+                    "date": "2026-01-01"}],
     },
     "financial": _FINANCIAL_TEMPLATE,
     "expense": _FINANCIAL_TEMPLATE,

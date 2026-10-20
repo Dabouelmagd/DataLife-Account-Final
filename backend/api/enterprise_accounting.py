@@ -107,7 +107,26 @@ async def get_cost_centers(current_user: dict = Depends(get_user)):
 
 @router.post("/cost-centers")
 async def create_cost_center(data: dict, current_user: dict = Depends(get_user)):
-    center = CostCenter(company_id=current_user.get("company_id"), **data)
+    company_id = current_user.get("company_id")
+    # `**data` straight from the body: a body with company_id raised TypeError
+    # (500), and id/created_at/is_active could be forced by the caller. Take
+    # only the editable fields. center_type "branch" marks a branch (فرع).
+    allowed = {"code", "name_ar", "name_en", "parent_id", "center_type", "budget", "manager_id"}
+    clean = {k: v for k, v in (data or {}).items() if k in allowed}
+    if not str(clean.get("code") or "").strip() or not str(clean.get("name_ar") or "").strip():
+        raise HTTPException(400, "رمز المركز واسمه مطلوبان")
+    clean["code"] = str(clean["code"]).strip()
+    # a duplicate code made two branches indistinguishable in every report
+    if await db.cost_centers.find_one({"company_id": company_id, "code": clean["code"],
+                                       "is_active": True}, {"_id": 1}):
+        raise HTTPException(400, f"يوجد مركز تكلفة بالرمز {clean['code']}")
+    if clean.get("parent_id") and not await db.cost_centers.find_one(
+            {"company_id": company_id, "id": clean["parent_id"]}, {"_id": 1}):
+        raise HTTPException(400, "المركز الأب غير موجود")
+    try:
+        center = CostCenter(company_id=company_id, **clean)
+    except Exception:
+        raise HTTPException(400, "بيانات مركز التكلفة غير صحيحة")
     d = center.dict()
     await db.cost_centers.insert_one(d)
     d.pop("_id", None)
@@ -594,188 +613,152 @@ async def list_progress_claims(
 # القيد ب: سداد أتعاب الأطباء
 # ════════════════════════════════════════════════════════════════
 
+# Revenue account per service type. 416 used to be the outpatient account, but
+# in this chart 416 is "engineering & professional consulting revenue" — clinic
+# income landed in an engineering account. Outpatient now goes to 415.
 SERVICE_REVENUE_ACCOUNTS = {
-    "inpatient":    ("415", "إيرادات إقامة — المرضى الداخليين"),
-    "outpatient":   ("416", "إيرادات عيادات خارجية"),
+    "inpatient":    ("415", "إيرادات الخدمات الطبية"),
+    "outpatient":   ("415", "إيرادات الخدمات الطبية"),
     "surgery":      ("417", "إيرادات غرف العمليات والجراحة"),
-    "lab":          ("418", "إيرادات مختبر وتحاليل"),
-    "radiology":    ("419", "إيرادات أشعة وتصوير"),
-    "pharmacy":     ("420", "إيرادات صيدلية"),
-    "other":        ("415", "إيرادات خدمات طبية أخرى"),
+    "lab":          ("418", "إيرادات المختبر والتحاليل"),
+    "radiology":    ("419", "إيرادات الأشعة والتصوير"),
+    "pharmacy":     ("420", "إيرادات الصيدلية"),
+    "other":        ("415", "إيرادات الخدمات الطبية"),
 }
+# 148 «شركات التأمين الطبي والجهات المتعاقدة» comes with the medical pack. The
+# insurer's share used to be debited to 134, which here is employee advances.
+INSURER_RECEIVABLE = "148"
+DOCTORS_PAYABLE = "264"          # أمانات أطباء استشاريين مستحقة
+WHT_PAYABLE = "261"              # ضريبة الخصم والتحصيل المستقطعة
+
+
+def _money(v, label):
+    try:
+        x = round(float(v or 0), 2)
+    except (TypeError, ValueError):
+        raise HTTPException(400, f"{label}: قيمة غير رقمية")
+    if x < 0:
+        raise HTTPException(400, f"{label} لا يقبل قيمة سالبة")
+    return x
+
 
 @router.post("/medical-services")
 async def create_medical_service(data: dict, current_user: dict = Depends(get_user)):
     """
     القيد أ — تقديم الخدمة الطبية (نقدي وتأمين طبي)
-    
+
     من مذكورين:
-       حـ/ الخزينة / البنك          (الدفعة النقدية من المريض)
-       حـ/ مدينو شركات التأمين       (الحصة المغطاة تأمينياً)
+       حـ/ الخزينة 161 / البنك 162       (دفعة المريض)
+       حـ/ شركات التأمين الطبي 148        (الحصة المغطاة تأمينياً)
     إلى مذكورين:
-       حـ/ إيرادات الخدمات الطبية   (حصة المستشفى — بحسب نوع الخدمة)
-       حـ/ أمانات أطباء استشاريين   (إجمالي حصة الأطباء — قبل خصم الضريبة)
-    
-    ملاحظة: ضريبة الخصم 5% تُحجز عند سداد الأتعاب (القيد ب) وليس هنا
+       حـ/ إيرادات الخدمات الطبية 415-420 (حصة المستشفى/العيادة فقط)
+       حـ/ أمانات أطباء استشاريين 264     (حصة كل طبيب — التزام عليه، ليست إيراداً)
+
+    What was wrong before: the whole request body was stored as the record;
+    the entry was written straight into journal_entries as a draft that was
+    never posted (so it reached no report), any line whose account was missing
+    was silently dropped, and an unbalanced entry was saved with a warning in
+    the log. Hospital share was whatever the client sent, even when
+    hospital + doctors did not equal what the patient and insurer paid.
+    Now the amounts must reconcile, every account must exist, and the entry is
+    created and posted through AccountingService — or nothing is saved.
+
+    ضريبة الخصم تُحجز عند سداد الأتعاب (القيد ب) بنسبة من جدول الخصم والتحصيل.
     """
     company_id = current_user.get("company_id")
-    data["company_id"] = company_id
-    data["id"] = str(uuid.uuid4())
-    data["created_at"] = datetime.now(timezone.utc).isoformat()
+    user_id = current_user.get("user_id", "system")
 
-    # ── المبالغ الأساسية ──────────────────────────────
-    total_amount = float(data.get("total_amount", 0))
-    copay        = float(data.get("patient_copay", 0))        # دفعة المريض النقدية
-    ins_amt      = float(data.get("insurance_claim_amount", 0)) # تغطية التأمين
-    hosp_share   = float(data.get("hospital_share", 0))       # حصة المستشفى
-    
-    # متعدد الأطباء — يقبل قائمة [{doctor_id, doctor_name, share, wht_rate}]
-    doctors = data.get("doctors", [])
-    if not doctors and data.get("doctor_share", 0):
-        # backward-compat: single doctor
-        wht_rate_single = float(data.get("doctor_wht_rate", 0.05))
-        doctors = [{
-            "doctor_id":   data.get("doctor_id", ""),
-            "doctor_name": data.get("doctor_name", ""),
-            "share":       float(data.get("doctor_share", 0)),
-            "wht_rate":    wht_rate_single,  # 5% أتعاب / 10% غير مقيم
-        }]
-    
-    total_doc_share = sum(float(d.get("share", 0)) for d in doctors)
-    
-    # تخزين بيانات الأطباء المحسوبة
-    doctors_computed = []
-    for doc in doctors:
-        share    = float(doc.get("share", 0))
-        wht_rate = float(doc.get("wht_rate", 0.05))
-        wht_amt  = round(share * wht_rate, 2)
-        net_pay  = round(share - wht_amt, 2)
-        doctors_computed.append({**doc,
-            "wht_amount": wht_amt,
-            "net_payment": net_pay,
-            "status": "pending"  # لم يُسدَّد بعد
-        })
-    
-    data["doctors"] = doctors_computed
-    data["total_doctor_share"] = round(total_doc_share, 2)
-    
-    await db.medical_services.insert_one(data)
-    data.pop("_id", None)
-    
-    # ── القيد المحاسبي (أ) ──────────────────────────────────────
-    from services.accounting_service import AccountingService
-    svc      = AccountingService(db)
-    accounts = await svc.get_all_accounts(company_id, True)
-    by_code  = {a["account_code"]: a for a in accounts}
-    
-    def acct(code, name_default):
-        a = by_code.get(code, {})
-        return a.get("id"), code, a.get("account_name", name_default)
-    
-    svc_type     = data.get("service_type", "other")
-    rev_code, rev_name_default = SERVICE_REVENUE_ACCOUNTS.get(svc_type, SERVICE_REVENUE_ACCOUNTS["other"])
-    
-    cash_id,   cash_code,   cash_name    = acct("161", "الخزينة / الصندوق النقدي")
-    bank_id,   bank_code,   bank_name    = acct("162", "البنك")
-    ins_id,    ins_code,    ins_name     = acct("134", "مدينو شركات التأمين الطبي")
-    rev_id,    rev_code2,   rev_name     = acct(rev_code, rev_name_default)
-    trust_id,  trust_code,  trust_name   = acct("264", "أمانات أطباء استشاريين")
-    
-    payment_method = data.get("payment_method", "cash")  # cash | bank | insurance
-    
-    lines_je = []
-    
-    # ── مدين ─────────────────────────────────────────────────────
-    # مدين 1: الخزينة / البنك (دفعة المريض النقدية أو المباشرة)
-    if copay > 0:
-        if payment_method == "bank" and bank_id:
-            lines_je.append({"account_id": bank_id, "account_code": bank_code,
-                "account_name": bank_name, "debit": copay, "credit": 0,
-                "description": f"دفعة المريض {data.get('patient_name','')} عبر البنك",
-                "partner_type": "patient", "partner_id": data.get("patient_id")})
-        elif cash_id:
-            lines_je.append({"account_id": cash_id, "account_code": cash_code,
-                "account_name": cash_name, "debit": copay, "credit": 0,
-                "description": f"دفعة المريض {data.get('patient_name','')} نقداً",
-                "partner_type": "patient", "partner_id": data.get("patient_id")})
-    
-    # مدين 2: مدينو شركات التأمين الطبي (الحصة المغطاة)
-    if ins_amt > 0 and ins_id:
-        lines_je.append({"account_id": ins_id, "account_code": ins_code,
-            "account_name": ins_name, "debit": ins_amt, "credit": 0,
-            "description": f"مطالبة تأمين — {data.get('insurance_company_name','')}",
-            "partner_type": "insurance", "partner_id": data.get("insurance_company_id")})
-    
-    # ── دائن ─────────────────────────────────────────────────────
-    # دائن 1: إيرادات الخدمات الطبية (حصة المستشفى)
-    if hosp_share > 0 and rev_id:
-        lines_je.append({"account_id": rev_id, "account_code": rev_code2,
-            "account_name": rev_name, "debit": 0, "credit": hosp_share,
-            "description": f"إيراد خدمة {data.get('service_description','')} — حصة المستشفى"})
-    
-    # دائن 2: أمانات أطباء استشاريين (إجمالي حصة الأطباء — GROSS, before WHT)
-    # ⚠️ WHT لا يُحجز هنا — يُحجز عند سداد الأتعاب (القيد ب)
-    if total_doc_share > 0 and trust_id:
-        doc_names = ", ".join(d.get("doctor_name","") for d in doctors_computed)
-        lines_je.append({"account_id": trust_id, "account_code": trust_code,
-            "account_name": trust_name, "debit": 0, "credit": total_doc_share,
-            "description": f"أتعاب أطباء مستحقة — {doc_names} (إجمالي قبل الضريبة)"})
-    
-    # ── التحقق من التوازن ──────────────────────────────────────
-    total_d = round(sum(l["debit"]  for l in lines_je), 2)
-    total_c = round(sum(l["credit"] for l in lines_je), 2)
-    diff    = abs(total_d - total_c)
-    
-    if lines_je:
-        je = {
-            "id": str(uuid.uuid4()), "company_id": company_id,
-            "entry_date": data.get("service_date", datetime.now().strftime("%Y-%m-%d")),
-            "entry_number": 0,
-            "description": f"خدمة طبية — {data.get('service_description','')} — مريض: {data.get('patient_name','')}",
-            "lines": lines_je,
-            "total_debit": total_d, "total_credit": total_c,
-            "status": "draft",
-            "source_document_type": "medical_service",
-            "source_document_id": data["id"],
-            "created_by": current_user.get("user_id", "system"),
-        }
-        await db.journal_entries.insert_one(je)
-        await db.medical_services.update_one(
-            {"id": data["id"]},
-            {"$set": {"journal_entry_id": je["id"], "je_balanced": diff <= 0.01}}
-        )
-    
-    # ── Validate totals match (patient_copay + insurance = hospital + doctors) ──
-    debit_total  = round(copay + ins_amt, 2)
-    credit_total = round(hosp_share + total_doc_share, 2)
-    totals_match = abs(debit_total - credit_total) <= 0.01
-    if not totals_match:
-        import logging
-        logging.warning(
-            f"Medical service financial mismatch: "
-            f"Dr(copay+ins)={debit_total} ≠ Cr(hosp+doc)={credit_total}"
-        )
-    
+    copay   = _money(data.get("patient_copay"), "دفعة المريض")
+    ins_amt = _money(data.get("insurance_claim_amount"), "حصة التأمين")
+    total   = round(copay + ins_amt, 2)
+    if total <= 0:
+        raise HTTPException(400, "قيمة الخدمة صفر — أدخل دفعة المريض و/أو حصة التأمين")
+    if data.get("total_amount") not in (None, "") and abs(_money(data["total_amount"], "الإجمالي") - total) > 0.01:
+        raise HTTPException(400, f"الإجمالي {data['total_amount']} لا يساوي دفعة المريض + التأمين ({total:,.2f})")
+
+    doctors_in = data.get("doctors") or []
+    if not doctors_in and data.get("doctor_share"):
+        doctors_in = [{"doctor_id": data.get("doctor_id"), "doctor_name": data.get("doctor_name"),
+                       "share": data.get("doctor_share"), "wht_rate": data.get("doctor_wht_rate")}]
+    doctors = []
+    for d in doctors_in:
+        share = _money(d.get("share"), "حصة الطبيب")
+        if share <= 0:
+            continue
+        if not (d.get("doctor_id") or d.get("doctor_name")):
+            raise HTTPException(400, "حصة طبيب بدون اسم أو كود الطبيب")
+        # the rate comes from the same withholding table as the rest of the
+        # system (0/1/3/5%); professional fees default to 5%
+        rate = _rate(d["wht_rate"], tuple(WHT_RATES.values()), "الخصم والتحصيل") \
+            if d.get("wht_rate") not in (None, "") else WHT_RATES["professional"]
+        doctors.append({"doctor_id": str(d.get("doctor_id") or ""), "doctor_name": str(d.get("doctor_name") or "")[:120],
+                        "share": share, "wht_rate": rate, "wht_amount": round(share * rate, 2),
+                        "net_payment": round(share - round(share * rate, 2), 2),
+                        "paid_amount": 0.0, "status": "pending"})
+    total_doc = round(sum(d["share"] for d in doctors), 2)
+    if total_doc > total:
+        raise HTTPException(400, f"حصص الأطباء {total_doc:,.2f} أكبر من قيمة الخدمة {total:,.2f}")
+    hosp_share = round(total - total_doc, 2)
+    if data.get("hospital_share") not in (None, "") and abs(_money(data["hospital_share"], "حصة المستشفى") - hosp_share) > 0.01:
+        raise HTTPException(400, (f"حصة المستشفى {float(data['hospital_share']):,.2f} + حصص الأطباء {total_doc:,.2f} "
+                                  f"لا تساوي ما دفعه المريض والتأمين ({total:,.2f})"))
+
+    payment_method = data.get("payment_method", "cash")
+    if payment_method not in ("cash", "bank", "insurance"):
+        raise HTTPException(400, "payment_method: cash | bank | insurance")
+    svc_type = data.get("service_type") or "other"
+    if svc_type not in SERVICE_REVENUE_ACCOUNTS:
+        raise HTTPException(400, "service_type: " + " | ".join(SERVICE_REVENUE_ACCOUNTS))
+    rev_code = SERVICE_REVENUE_ACCOUNTS[svc_type][0]
+    if ins_amt > 0 and not await db.chart_of_accounts.find_one(
+            {"company_id": company_id, "account_code": INSURER_RECEIVABLE}, {"_id": 0, "id": 1}):
+        raise HTTPException(400, "حساب شركات التأمين الطبي 148 غير موجود — فعّل الباقة الطبية من إعدادات الشركة")
+
+    service_id = str(uuid.uuid4())
+    service_date = data.get("service_date") or datetime.now().strftime("%Y-%m-%d")
+    patient = str(data.get("patient_name") or "")[:120]
+    desc = str(data.get("service_description") or "")[:200]
+    spec = [
+        (("162",) if payment_method == "bank" else ("161",), copay, 0,
+         f"دفعة المريض {patient}", {"partner_type": "patient", "partner_id": data.get("patient_id")}),
+        ((INSURER_RECEIVABLE,), ins_amt, 0, f"مطالبة تأمين — {data.get('insurance_company_name', '')}",
+         {"partner_type": "insurance", "partner_id": data.get("insurance_company_id")}),
+        ((rev_code,), 0, hosp_share, f"إيراد خدمة {desc} — حصة المنشأة", None),
+    ] + [((DOCTORS_PAYABLE,), 0, d["share"], f"أتعاب د. {d['doctor_name']} مستحقة (قبل الضريبة)",
+          {"partner_type": "doctor", "partner_id": d["doctor_id"] or None}) for d in doctors]
+    je = await _post_claim_entry(company_id, user_id, service_date,
+                                 f"خدمة طبية — {desc} — مريض: {patient}"[:200], spec,
+                                 "medical_service", service_id)
+
+    record = {
+        "id": service_id, "company_id": company_id,
+        "patient_id": data.get("patient_id"), "patient_name": patient,
+        "service_date": service_date, "service_type": svc_type, "service_description": desc,
+        "payment_method": payment_method,
+        "insurance_company_id": data.get("insurance_company_id"),
+        "insurance_company_name": data.get("insurance_company_name"),
+        "total_amount": total, "patient_copay": copay, "insurance_claim_amount": ins_amt,
+        "hospital_share": hosp_share, "doctors": doctors, "total_doctor_share": total_doc,
+        "status": "pending", "journal_entry_id": je["id"], "je_balanced": True,
+        "created_by": user_id, "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.medical_services.insert_one(dict(record))
+
     return {
-        "message": "تم تسجيل الخدمة الطبية بنجاح",
-        "service": data,
+        "message": "تم تسجيل الخدمة الطبية وترحيل قيدها",
+        "service": record,
         "financial_summary": {
-            "total_amount":      round(copay + ins_amt, 2),
-            "hospital_share":    hosp_share,
-            "total_doctor_share": total_doc_share,
-            "doctors_count":     len(doctors_computed),
-            "patient_copay":     copay,
-            "insurance_amount":  ins_amt,
-            "totals_match":      totals_match,
+            "total_amount": total, "hospital_share": hosp_share, "total_doctor_share": total_doc,
+            "doctors_count": len(doctors), "patient_copay": copay, "insurance_amount": ins_amt,
+            "totals_match": True,
         },
         "journal_summary": {
-            "debit_cash_or_bank":     copay if payment_method != "insurance" else 0,
-            "debit_insurance_ar":     ins_amt,
-            "credit_hospital_revenue": hosp_share,
-            "credit_doctor_trust":    total_doc_share,
-            "je_balanced":            diff <= 0.01,
-            "note": "ضريبة الخصم 5% تُحجز عند سداد الأتعاب — استخدم POST /doctor-payment"
-        }
+            "journal_entry_id": je["id"],
+            "debit_cash_or_bank": copay, "debit_insurance_ar": ins_amt,
+            "credit_hospital_revenue": hosp_share, "credit_doctor_trust": total_doc,
+            "je_balanced": True,
+            "note": "ضريبة الخصم تُحجز عند سداد الأتعاب — POST /api/enterprise/doctor-payment",
+        },
     }
 
 
@@ -818,7 +801,7 @@ async def get_pending_doctor_payments(
                     {"doctors.doctor_id": doctor_id}]
     else:
         q["$or"] = [
-            {"doctors.status": "pending"},
+            {"doctors.status": {"$in": ["pending", "partial"]}},
             {"status": {"$in": ["pending","billed"]}, "doctor_net_payment": {"$gt": 0}}
         ]
     
@@ -827,14 +810,18 @@ async def get_pending_doctor_payments(
     pending_by_doctor = {}
     for svc in services:
         for doc in (svc.get("doctors") or []):
-            if doc.get("status") == "pending":
+            # what is still owed: a part-paid share used to vanish from the list
+            # (only "pending" counted) or, before, was listed in full again
+            if doc.get("status") in ("pending", "partial"):
                 did = doc.get("doctor_id", "unknown")
+                if doctor_id and did != doctor_id:
+                    continue
                 if did not in pending_by_doctor:
                     pending_by_doctor[did] = {"doctor_id": did, "doctor_name": doc.get("doctor_name",""),
                                                "total_pending": 0, "services": []}
-                share = float(doc.get("share", 0))
+                share = round(float(doc.get("share", 0)) - float(doc.get("paid_amount", 0) or 0), 2)
                 wht   = round(share * float(doc.get("wht_rate", 0.05)), 2)
-                pending_by_doctor[did]["total_pending"] += (share - wht)
+                pending_by_doctor[did]["total_pending"] = round(pending_by_doctor[did]["total_pending"] + share - wht, 2)
                 pending_by_doctor[did]["services"].append({
                     "service_id": svc["id"],
                     "service_date": svc.get("service_date"),
@@ -861,147 +848,86 @@ async def get_medical_service(service_id: str, current_user: dict = Depends(get_
 @router.post("/doctor-payment")
 async def pay_doctor(data: dict, current_user: dict = Depends(get_user)):
     """
-    القيد ب — سداد أتعاب الأطباء الخارجيين / الاستشاريين
-    
-    من حـ/ أمانات أطباء استشاريين (264)
-       إلى حـ/ مصلحة الضرائب — خصم وتحصيل (261)  [5% أو 10% حسب الإقامة]
-       إلى حـ/ البنك / الخزينة                      [صافي المسدد للطبيب]
-    
-    يمكن سداد طبيب واحد أو عدة أطباء من خدمة واحدة أو متعددة
+    القيد ب — سداد أتعاب طبيب عن خدمة مسجلة
+
+    من حـ/ أمانات أطباء استشاريين 264   (المبلغ المسدد قبل الضريبة)
+       إلى حـ/ ضريبة الخصم والتحصيل 261  (بنسبة الطبيب من جدول الخصم: 0/1/3/5%)
+       إلى حـ/ البنك 162 / الخزينة 161    (الصافي للطبيب)
+
+    Before: any amount could be paid to any doctor id, with or without a
+    service, as often as asked — 264 was debited for fees never accrued; a
+    "non_resident" type forced a 10% rate that is not in the withholding table;
+    and the entry was an unposted draft built without checking accounts. Now
+    the payment is against a doctor's share in a service, cannot exceed what is
+    still owed, and is posted through AccountingService.
     """
     company_id = current_user.get("company_id")
-    
-    # تحديد مصدر الدفع
-    service_id  = data.get("service_id")
-    doctor_id   = data.get("doctor_id")
-    doctor_name = data.get("doctor_name", "")
-    gross_amt   = float(data.get("gross_amount", 0))  # إجمالي أتعاب الطبيب
-    
-    # نوع الطبيب يحدد نسبة الخصم
-    # قانون 91/2005 م.59: 5% استشاري مقيم | 10% غير مقيم
-    doctor_type = data.get("doctor_type", "resident")  # resident | non_resident
-    wht_rate    = 0.10 if doctor_type == "non_resident" else float(data.get("wht_rate", 0.05))
-    wht_amt     = round(gross_amt * wht_rate, 2)
-    net_pay     = round(gross_amt - wht_amt, 2)
-    payment_method = data.get("payment_method", "bank")  # bank | cash
-    
-    # تسجيل الدفعة
+    user_id = current_user.get("user_id", "system")
+    service_id, doctor_id = data.get("service_id"), str(data.get("doctor_id") or "")
+    if not service_id or not doctor_id:
+        raise HTTPException(400, "حدد الخدمة (service_id) والطبيب (doctor_id) — الأتعاب تُسدد عن خدمة مسجلة")
+    if data.get("doctor_type") == "non_resident":
+        raise HTTPException(400, "طبيب غير مقيم: ضريبته ليست ضمن جدول الخصم والتحصيل — سجّل القيد يدوياً بعد مراجعة المحاسب")
+    svc = await db.medical_services.find_one({"id": service_id, "company_id": company_id}, {"_id": 0})
+    if not svc:
+        raise HTTPException(404, "الخدمة غير موجودة")
+    docs = svc.get("doctors") or []
+    doc = next((d for d in docs if str(d.get("doctor_id") or "") == doctor_id), None)
+    if not doc:
+        raise HTTPException(404, "الطبيب ليس له حصة في هذه الخدمة")
+    remaining = round(float(doc.get("share", 0)) - float(doc.get("paid_amount", 0) or 0), 2)
+    if remaining <= 0:
+        raise HTTPException(400, "أتعاب هذا الطبيب عن هذه الخدمة مسددة بالكامل")
+    gross_amt = _money(data.get("gross_amount") or remaining, "مبلغ الأتعاب")
+    if gross_amt <= 0 or gross_amt > remaining + 0.01:
+        raise HTTPException(400, f"المبلغ يجب أن يكون بين 0 و المتبقي للطبيب ({remaining:,.2f})")
+    wht_rate = _rate(data["wht_rate"], tuple(WHT_RATES.values()), "الخصم والتحصيل") \
+        if data.get("wht_rate") not in (None, "") else float(doc.get("wht_rate", WHT_RATES["professional"]))
+    wht_amt = round(gross_amt * wht_rate, 2)
+    net_pay = round(gross_amt - wht_amt, 2)
+    payment_method = data.get("payment_method", "bank")
+    if payment_method not in ("bank", "cash"):
+        raise HTTPException(400, "payment_method: bank | cash")
+    doctor_name = doc.get("doctor_name", "")
+    pay_date = data.get("payment_date") or datetime.now().strftime("%Y-%m-%d")
+    payment_id = str(uuid.uuid4())
+
+    je = await _post_claim_entry(company_id, user_id, pay_date,
+                                 f"سداد أتعاب د. {doctor_name} — ضريبة خصم {wht_rate*100:g}%", [
+        ((DOCTORS_PAYABLE,), gross_amt, 0, f"إقفال أمانة د. {doctor_name}",
+         {"partner_type": "doctor", "partner_id": doctor_id}),
+        ((WHT_PAYABLE,), 0, wht_amt, f"ضريبة خصم وتحصيل {wht_rate*100:g}% — د. {doctor_name}", None),
+        (("161",) if payment_method == "cash" else ("162",), 0, net_pay,
+         f"صافي أتعاب د. {doctor_name}", {"partner_type": "doctor", "partner_id": doctor_id}),
+    ], "doctor_payment", payment_id)
+
     payment_record = {
-        "id": str(uuid.uuid4()), "company_id": company_id,
-        "service_id":   service_id,
-        "doctor_id":    doctor_id, "doctor_name": doctor_name,
-        "gross_amount": gross_amt, "wht_rate":    wht_rate,
-        "wht_amount":   wht_amt,   "net_payment": net_pay,
-        "doctor_type":  doctor_type,
-        "payment_method": payment_method,
-        "payment_date": data.get("payment_date", datetime.now().strftime("%Y-%m-%d")),
-        "created_at":   datetime.now(timezone.utc).isoformat(),
-        "created_by":   current_user.get("user_id", "system"),
+        "id": payment_id, "company_id": company_id, "service_id": service_id,
+        "doctor_id": doctor_id, "doctor_name": doctor_name,
+        "gross_amount": gross_amt, "wht_rate": wht_rate, "wht_amount": wht_amt, "net_payment": net_pay,
+        "payment_method": payment_method, "payment_date": pay_date,
+        "journal_entry_id": je["id"], "je_balanced": True,
+        "created_at": datetime.now(timezone.utc).isoformat(), "created_by": user_id,
     }
-    await db.doctor_payments.insert_one(payment_record)
-    payment_record.pop("_id", None)
-    
-    # تحديث حالة الطبيب في الخدمة الأصلية
-    if service_id and doctor_id:
-        svc = await db.medical_services.find_one(
-            {"id": service_id, "company_id": company_id}, {"_id": 0}
-        )
-        if svc:
-            docs = svc.get("doctors", [])
-            for doc in docs:
-                if doc.get("doctor_id") == doctor_id:
-                    doc["status"]       = "paid"
-                    doc["paid_at"]      = payment_record["payment_date"]
-                    doc["wht_deducted"] = wht_amt
-            await db.medical_services.update_one(
-                {"id": service_id}, {"$set": {"doctors": docs}}
-            )
-    
-    # ── القيد المحاسبي (ب) ──────────────────────────────────────
-    from services.accounting_service import AccountingService
-    svc_acc  = AccountingService(db)
-    accounts = await svc_acc.get_all_accounts(company_id, True)
-    by_code  = {a["account_code"]: a for a in accounts}
-    
-    def acct(code, name_default):
-        a = by_code.get(code, {})
-        return a.get("id"), code, a.get("account_name", name_default)
-    
-    trust_id,  trust_code,  trust_name   = acct("264", "أمانات أطباء استشاريين")
-    wht_id,    wht_code,    wht_name     = acct("261", "مصلحة الضرائب — خصم وتحصيل")
-    bank_id,   bank_code,   bank_name    = acct("162", "البنك")
-    cash_id,   cash_code,   cash_name    = acct("161", "الخزينة / الصندوق النقدي")
-    
-    lines_je = []
-    
-    # مدين: أمانات أطباء استشاريين (إقفال الأمانة)
-    if trust_id and gross_amt > 0:
-        lines_je.append({
-            "account_id": trust_id, "account_code": trust_code, "account_name": trust_name,
-            "debit": gross_amt, "credit": 0,
-            "description": f"إقفال أمانة د. {doctor_name} — سداد الأتعاب",
-            "partner_type": "doctor", "partner_id": doctor_id
-        })
-    
-    # دائن 1: مصلحة الضرائب — ضريبة خصم مهن حرة
-    if wht_id and wht_amt > 0:
-        wht_label = "غير مقيم 10%" if doctor_type == "non_resident" else "مقيم 5%"
-        lines_je.append({
-            "account_id": wht_id, "account_code": wht_code, "account_name": wht_name,
-            "debit": 0, "credit": wht_amt,
-            "description": f"ضريبة خصم مهن حرة {wht_label} — د. {doctor_name}"
-        })
-    
-    # دائن 2: البنك / الخزينة (الصافي المسدد للطبيب)
-    if net_pay > 0:
-        if payment_method == "cash" and cash_id:
-            lines_je.append({
-                "account_id": cash_id, "account_code": cash_code, "account_name": cash_name,
-                "debit": 0, "credit": net_pay,
-                "description": f"صافي أتعاب د. {doctor_name} — نقداً"
-            })
-        elif bank_id:
-            lines_je.append({
-                "account_id": bank_id, "account_code": bank_code, "account_name": bank_name,
-                "debit": 0, "credit": net_pay,
-                "description": f"صافي أتعاب د. {doctor_name} — تحويل بنكي"
-            })
-    
-    # ── التحقق من التوازن ──────────────────────────────────────
-    total_d = round(sum(l["debit"]  for l in lines_je), 2)
-    total_c = round(sum(l["credit"] for l in lines_je), 2)
-    diff    = abs(total_d - total_c)
-    
-    if lines_je:
-        je = {
-            "id": str(uuid.uuid4()), "company_id": company_id,
-            "entry_date": payment_record["payment_date"],
-            "entry_number": 0,
-            "description": f"سداد أتعاب د. {doctor_name} — ضريبة {round(wht_rate*100)}%",
-            "lines": lines_je,
-            "total_debit": total_d, "total_credit": total_c,
-            "status": "draft",
-            "source_document_type": "doctor_payment",
-            "source_document_id": payment_record["id"],
-            "created_by": current_user.get("user_id", "system"),
-        }
-        await db.journal_entries.insert_one(je)
-        await db.doctor_payments.update_one(
-            {"id": payment_record["id"]},
-            {"$set": {"journal_entry_id": je["id"], "je_balanced": diff <= 0.01}}
-        )
-    
+    await db.doctor_payments.insert_one(dict(payment_record))
+    paid_total = round(float(doc.get("paid_amount", 0) or 0) + gross_amt, 2)
+    doc["paid_amount"] = paid_total
+    doc["wht_deducted"] = round(float(doc.get("wht_deducted", 0) or 0) + wht_amt, 2)
+    doc["status"] = "paid" if paid_total >= float(doc.get("share", 0)) - 0.01 else "partial"
+    doc["paid_at"] = pay_date
+    await db.medical_services.update_one({"id": service_id, "company_id": company_id},
+                                         {"$set": {"doctors": docs}})
+
     return {
-        "message": f"تم سداد أتعاب د. {doctor_name} بنجاح",
+        "message": f"تم سداد أتعاب د. {doctor_name} وترحيل القيد",
         "payment": payment_record,
         "journal_summary": {
-            "debit_trust_closed": gross_amt,
-            "credit_wht_payable": wht_amt,
-            "credit_bank_or_cash": net_pay,
-            "wht_rate_pct": round(wht_rate * 100, 1),
-            "doctor_type": doctor_type,
-            "balanced": diff <= 0.01
-        }
+            "journal_entry_id": je["id"],
+            "debit_trust_closed": gross_amt, "credit_wht_payable": wht_amt,
+            "credit_bank_or_cash": net_pay, "wht_rate_pct": round(wht_rate * 100, 1),
+            "remaining_for_doctor": round(float(doc.get("share", 0)) - paid_total, 2),
+            "balanced": True,
+        },
     }
 
 
@@ -1030,7 +956,7 @@ async def update_medical_service_status(
             detail=f"لا يمكن الانتقال من '{current_status}' إلى '{new_status}'")
     from datetime import datetime, timezone
     await db.medical_services.update_one(
-        {"id": service_id},
+        {"id": service_id, "company_id": current_user.get("company_id")},
         {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
     return {"message": f"تم تحديث حالة الخدمة إلى '{new_status}'"}

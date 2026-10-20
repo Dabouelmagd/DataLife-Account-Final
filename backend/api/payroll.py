@@ -1920,6 +1920,51 @@ async def get_attendance_payroll_preview(
     }
 
 
+PAY_METHODS = ("bank_transfer", "cash", "instapay", "vodafone_cash")
+_METHOD_WORDS = {"bank": "bank_transfer", "بنك": "bank_transfer", "تحويل بنكي": "bank_transfer",
+                 "نقدي": "cash", "نقدا": "cash", "انستاباي": "instapay", "فودافون كاش": "vodafone_cash"}
+
+
+def _norm_method(m) -> str:
+    m = str(m or "").strip()
+    m = _METHOD_WORDS.get(m, _METHOD_WORDS.get(m.lower(), m.lower()))
+    return m if m in PAY_METHODS else "bank_transfer"
+
+
+async def _transfer_rows(payroll: dict, company_id: str) -> list:
+    """One row per employee in the run with where the net salary goes.
+
+    The employee and user lookups used to be by bare id — a run row whose id
+    matched another company's employee picked up that company's bank details.
+    Every lookup is now limited to the run's company. Net is rounded to 2
+    decimals here, once, so the report, the bank file and the totals agree.
+    """
+    rows = []
+    for emp in payroll.get("employees", []):
+        eid = emp.get("employee_id")
+        emp_doc = await db.employees.find_one({"id": eid, "company_id": company_id}, {"_id": 0}) or {}
+        emp_user = await db.users.find_one({"id": eid, "company_id": company_id}, {"_id": 0, "email": 1}) or {}
+        pay_method = emp.get("payment_method") or ""
+        if not pay_method or pay_method == "bank_transfer":
+            pay_method = emp_doc.get("payment_method") or "bank_transfer"
+        rows.append({
+            "employee_id":    eid,
+            "employee_code":  emp_doc.get("employee_code", "") or "",
+            "employee_name":  emp.get("employee_name", "") or emp_doc.get("name", ""),
+            "national_id":    emp_doc.get("national_id", "") or "",
+            "department":     emp.get("department", "") or "",
+            "position":       emp.get("position", "") or "",
+            "net_salary":     round(float(emp.get("net_salary", 0) or 0), 2),
+            "payment_method": _norm_method(pay_method),
+            "bank_name":      emp_doc.get("bank_name", "") or "",
+            "account_number": emp_doc.get("bank_account_number", "") or "",
+            "iban":           emp_doc.get("iban", "") or emp.get("bank_iban", "") or "",
+            "wallet_number":  emp_doc.get("wallet_number", "") or "",
+            "email":          emp_user.get("email", ""),
+        })
+    return rows
+
+
 @router.get("/runs/{run_id}/bank-transfer-report")
 async def get_bank_transfer_report(
     run_id: str,
@@ -1937,45 +1982,11 @@ async def get_bank_transfer_report(
     company = await db.companies.find_one({"id": company_id}, {"_id": 0})
     company_name = company.get("name", "") if company else ""
 
-    rows = []
+    rows = await _transfer_rows(payroll, company_id)
     totals = {"bank_transfer": 0, "cash": 0, "instapay": 0, "vodafone_cash": 0, "total": 0}
-
-    for emp in payroll.get("employees", []):
-        # Get employee bank info
-        emp_doc = await db.employees.find_one({"id": emp["employee_id"]}, {"_id": 0})
-        emp_user = await db.users.find_one({"id": emp["employee_id"]}, {"_id": 0})
-
-        bank_name   = ""
-        account_no  = ""
-        iban        = ""
-        wallet_no   = ""
-        pay_method  = emp.get("payment_method", "bank_transfer")
-
-        if emp_doc:
-            bank_name  = emp_doc.get("bank_name", "")
-            account_no = emp_doc.get("bank_account_number", "")
-            iban       = emp_doc.get("iban", "")
-            wallet_no  = emp_doc.get("wallet_number", "")
-            if not pay_method or pay_method == "bank_transfer":
-                pay_method = emp_doc.get("payment_method", "bank_transfer")
-
-        net = emp.get("net_salary", 0)
-        totals[pay_method] = totals.get(pay_method, 0) + net
-        totals["total"] += net
-
-        rows.append({
-            "employee_id":   emp["employee_id"],
-            "employee_name": emp.get("employee_name", ""),
-            "department":    emp.get("department", ""),
-            "position":      emp.get("position", ""),
-            "net_salary":    net,
-            "payment_method": pay_method,
-            "bank_name":     bank_name,
-            "account_number": account_no,
-            "iban":          iban,
-            "wallet_number": wallet_no,
-            "email":         emp_user.get("email", "") if emp_user else "",
-        })
+    for r in rows:
+        totals[r["payment_method"]] = round(totals.get(r["payment_method"], 0) + r["net_salary"], 2)
+        totals["total"] = round(totals["total"] + r["net_salary"], 2)
 
     # Group by payment method
     by_method = {}
@@ -2053,7 +2064,9 @@ async def export_payroll_csv(
 
     import csv, io
     output = io.StringIO()
-    output.write("\ufeff")  # UTF-8 BOM for Arabic in Excel
+    # the BOM comes from encoding with utf-8-sig below; writing "\ufeff" here
+    # as well put two BOMs in the file and the first header cell opened in
+    # Excel as "\ufeffاسم الموظف" (a stray character before the title)
     fieldnames = [
         "اسم الموظف", "الوظيفة", "القسم", "الراتب الأساسي",
         "البدلات", "الخصومات", "التأمينات", "ضريبة الدخل", "صافي الراتب", "طريقة الصرف"
@@ -2063,7 +2076,7 @@ async def export_payroll_csv(
     for emp in run.get("employees", []):
         writer.writerow({
             "اسم الموظف": emp.get("employee_name", ""),
-            "الوظيفة": emp.get("job_title", ""),
+            "الوظيفة": emp.get("job_title") or emp.get("position", ""),   # run rows carry `position`
             "القسم": emp.get("department", ""),
             "الراتب الأساسي": emp.get("basic_salary", 0),
             "البدلات": emp.get("total_allowances", 0),
@@ -2079,6 +2092,99 @@ async def export_payroll_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="payroll_{month_str}.csv"'}
     )
+
+
+@router.get("/runs/{run_id}/export/bank-file")
+async def export_bank_transfer_file(
+    run_id: str,
+    method: str = Query("bank_transfer"),
+    current_user: dict = Depends(get_current_user)
+):
+    """ملف التحويل للبنك أو InstaPay أو فودافون كاش — طريقة واحدة لكل ملف.
+
+    The screen used to build this file in the browser: no BOM (Arabic came out
+    as symbols in Excel), title lines above the header (a bank upload expects
+    the header on row 1), no quoting (a comma in a name shifted every column),
+    every payment method mixed in one file and amounts unrounded. This is a
+    plain CSV — one header row, one row per employee paid by `method`, amounts
+    with 2 decimals, a reference per transfer — that a bank's bulk-upload
+    template can be filled from. It is a generic layout, not any one bank's
+    proprietary format. An employee without the account details the method
+    needs stops the file, naming who, rather than sending a blank transfer.
+    """
+    if method not in ("bank_transfer", "instapay", "vodafone_cash"):
+        raise HTTPException(status_code=400, detail="طريقة الصرف يجب أن تكون bank_transfer أو instapay أو vodafone_cash")
+    company_id = current_user["company_id"]
+    payroll = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id}, {"_id": 0})
+    if not payroll:
+        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+    if payroll.get("status") not in ("approved", "paid"):
+        raise HTTPException(status_code=400, detail="يجب اعتماد المسير أولاً")
+
+    rows = [r for r in await _transfer_rows(payroll, company_id)
+            if r["payment_method"] == method and r["net_salary"] > 0]
+    if not rows:
+        raise HTTPException(status_code=404, detail="لا يوجد موظفون يُصرف لهم بهذه الطريقة في هذا المسير")
+
+    def mobile_ok(v):
+        d = "".join(ch for ch in v if ch.isdigit())
+        return len(d) == 11 and d.startswith("01")
+
+    missing = []
+    for r in rows:
+        iban = r["iban"].replace(" ", "").upper()
+        if method == "bank_transfer" and not (iban or r["account_number"]):
+            missing.append(f"{r['employee_name']}: لا يوجد IBAN ولا رقم حساب")
+        elif method == "bank_transfer" and iban and not (
+                len(iban) == 29 and iban.startswith("EG") and iban[2:].isdigit()):
+            # an Egyptian IBAN is EG + 27 digits; anything else bounces at the bank
+            missing.append(f"{r['employee_name']}: IBAN «{r['iban']}» غير صحيح (EG + 27 رقماً)")
+        elif method == "vodafone_cash" and not mobile_ok(r["wallet_number"]):
+            missing.append(f"{r['employee_name']}: رقم المحفظة «{r['wallet_number']}» ليس رقم موبايل مصري (11 رقماً يبدأ بـ 01)")
+        elif method == "instapay" and not (mobile_ok(r["wallet_number"]) or "@" in r["wallet_number"]):
+            missing.append(f"{r['employee_name']}: لا يوجد رقم موبايل أو عنوان InstaPay (مثل name@instapay)")
+    if missing:
+        raise HTTPException(status_code=422, detail={
+            "message": f"لم يُصدَّر الملف — {len(missing)} موظف بياناتهم ناقصة. أكملها في بيانات الموظف ثم صدّر مرة أخرى.",
+            "errors": missing})
+
+    period = f"{payroll.get('year', '')}-{str(payroll.get('month', '')).zfill(2)}"
+    ref_base = f"SAL-{payroll.get('payroll_number') or period}"
+
+    def text(v):
+        # values are written as-is (no ="..." Excel trick): a bank portal that
+        # reads the CSV would take the quotes and = sign as part of the number.
+        # Opened in Excel, long numbers should be imported as Text columns.
+        return str(v or "").strip()
+
+    import csv, io
+    out = io.StringIO()
+    w = csv.writer(out, quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n")
+    if method == "bank_transfer":
+        w.writerow(["م", "كود الموظف", "اسم الموظف", "الرقم القومي", "البنك", "رقم الحساب", "IBAN",
+                    "المبلغ", "العملة", "المرجع", "البيان"])
+    else:
+        w.writerow(["م", "كود الموظف", "اسم الموظف", "الرقم القومي",
+                    "رقم الموبايل / عنوان InstaPay" if method == "instapay" else "رقم محفظة فودافون كاش",
+                    "المبلغ", "العملة", "المرجع", "البيان"])
+    total = 0.0
+    for i, r in enumerate(rows, 1):
+        ref = f"{ref_base}-{r['employee_code'] or i}"
+        memo = f"راتب {period}"
+        head = [i, r["employee_code"], r["employee_name"], text(r["national_id"])]
+        amount = f"{r['net_salary']:.2f}"
+        if method == "bank_transfer":
+            w.writerow(head + [r["bank_name"], text(r["account_number"]), r["iban"].replace(" ", "").upper(),
+                               amount, "EGP", ref, memo])
+        else:
+            w.writerow(head + [text(r["wallet_number"].strip()), amount, "EGP", ref, memo])
+        total = round(total + r["net_salary"], 2)
+    return Response(
+        content=out.getvalue().encode("utf-8-sig"),       # BOM so Excel reads the Arabic
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="salary_{method}_{period}.csv"',
+                 "X-Transfer-Count": str(len(rows)), "X-Transfer-Total": f"{total:.2f}",
+                 "Access-Control-Expose-Headers": "X-Transfer-Count, X-Transfer-Total"})
 
 
 @router.get("/runs/{run_id}/export/excel")
@@ -2119,7 +2225,7 @@ async def export_payroll_excel(
     for row, emp in enumerate(run.get("employees", []), 1):
         ws.write(row, 0, row, txt)
         ws.write(row, 1, emp.get("employee_name", ""), txt)
-        ws.write(row, 2, emp.get("job_title", ""), txt)
+        ws.write(row, 2, emp.get("job_title") or emp.get("position", ""), txt)
         ws.write(row, 3, emp.get("department", ""), txt)
         ws.write(row, 4, emp.get("basic_salary", 0), num)
         ws.write(row, 5, emp.get("total_allowances", 0), num)

@@ -166,7 +166,14 @@ async def post_item(db, company_id: str, user_id: str, *, kind: str, project: di
     dr, cr = (main, money) if kind == "expense" else (money, main)
     entry = await post_two_line_entry(db, company_id, user_id, date, dr["account_code"], cr["account_code"],
                                       amount, desc, f"project_{kind}", item["id"])
-    await db.journal_entries.update_one({"id": entry["id"]}, {"$set": {"project_id": project["id"]}})
+    # project_id was set on the entry header only. Every report that splits by
+    # project (budget actuals, income statement per project) reads it from the
+    # journal LINE, like cost_center_id, so project spending always read 0.
+    # Tag both lines (and the reversal copies line dimensions on cancel).
+    je = await db.journal_entries.find_one({"id": entry["id"], "company_id": company_id}, {"_id": 0, "lines": 1})
+    lines = [{**ln, "project_id": project["id"]} for ln in (je or {}).get("lines") or []]
+    await db.journal_entries.update_one({"id": entry["id"], "company_id": company_id},
+                                        {"$set": {"project_id": project["id"], "lines": lines}})
 
     bank_txn = None
     if bank:

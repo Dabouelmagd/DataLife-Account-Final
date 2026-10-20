@@ -505,7 +505,14 @@ class AccountingService:
                 account_name=line["account_name"],
                 debit=line["credit"],  # عكس المدين والدائن
                 credit=line["debit"],
-                description=f"عكس: {line.get('description', '')}"
+                description=f"عكس: {line.get('description', '')}",
+                # the reversal dropped the line's cost centre / project, so
+                # reversing a branch's invoice took it off the company total
+                # but left it in that branch's income statement and budget
+                cost_center_id=line.get("cost_center_id"),
+                project_id=line.get("project_id"),
+                partner_type=line.get("partner_type"),
+                partner_id=line.get("partner_id"),
             ))
         
         # Date of the reversal. It used to be always today, so correcting a May
@@ -731,13 +738,38 @@ class AccountingService:
             "is_balanced": abs(total_debit - total_credit) < 0.01
         }
     
+    async def _dimension_movement(self, company_id: str, start_date: str, end_date: str,
+                                  cost_center_id: Optional[str], project_id: Optional[str]) -> Dict:
+        """{account_id: {debit, credit}} for the lines of one cost centre /
+        project. general_ledger rows carry no cost centre (it lives on the
+        journal line), so take the lines of the entries that reached the
+        ledger in the period — posted entries and, for a reversed one, both
+        the original and its reversal, exactly as the ledger has them."""
+        je_ids = await self.db.general_ledger.distinct("journal_entry_id", {
+            "company_id": company_id,
+            "entry_date": {"$gte": start_date, "$lte": end_date + "\uffff"}})
+        movement: Dict = {}
+        async for je in self.db.journal_entries.find(
+                {"company_id": company_id, "id": {"$in": je_ids}}, {"_id": 0, "lines": 1}):
+            for ln in je.get("lines") or []:
+                if cost_center_id and ln.get("cost_center_id") != cost_center_id:
+                    continue
+                if project_id and ln.get("project_id") != project_id:
+                    continue
+                mv = movement.setdefault(ln.get("account_id"), {"debit": 0.0, "credit": 0.0})
+                mv["debit"] += float(ln.get("debit") or 0)
+                mv["credit"] += float(ln.get("credit") or 0)
+        return movement
+
     async def get_income_statement(
         self,
         company_id: str,
         start_date: str,
-        end_date: str
+        end_date: str,
+        cost_center_id: Optional[str] = None,
+        project_id: Optional[str] = None,
     ) -> Dict:
-        """قائمة الدخل"""
+        """قائمة الدخل — للشركة كلها، أو لمركز تكلفة / فرع / مشروع واحد."""
         accounts = await self.get_all_accounts(company_id)
 
         # Movement WITHIN the period, from the general ledger. The previous
@@ -753,6 +785,9 @@ class AccountingService:
                         "debit": {"$sum": "$debit"}, "credit": {"$sum": "$credit"}}},
         ]
         movement = {row["_id"]: row async for row in self.db.general_ledger.aggregate(pipeline)}
+        if cost_center_id or project_id:
+            movement = await self._dimension_movement(company_id, start_date, end_date,
+                                                      cost_center_id, project_id)
 
         revenues = []
         expenses = []
@@ -794,10 +829,12 @@ class AccountingService:
             "period_end": end_date,
             "revenues": revenues,
             "expenses": expenses,
-            "total_revenue": total_revenue,
-            "total_expenses": total_expenses,
-            "net_income": net_income,
-            "is_profit": net_income >= 0
+            "total_revenue": round(total_revenue, 2),
+            "total_expenses": round(total_expenses, 2),
+            "net_income": round(net_income, 2),
+            "is_profit": net_income >= 0,
+            "cost_center_id": cost_center_id,
+            "project_id": project_id,
         }
     
     async def get_balance_sheet(

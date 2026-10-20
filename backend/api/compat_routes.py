@@ -31,6 +31,9 @@ from database import db
 from api.users import get_current_user
 from dependencies import get_current_user
 
+import logging
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["Compatibility Routes"])
 
 
@@ -300,7 +303,10 @@ async def medical_services_log_compat(
         .sort("service_date", -1).limit(50).to_list(None)
 
     total_revenue = sum(float(s.get("total_amount", 0)) for s in services)
-    doctor_fees = sum(float(s.get("doctor_fee", 0)) for s in services)
+    # services store the doctors' part as total_doctor_share; "doctor_fee" is
+    # never written, so this read 0 and hospital_net counted the doctors' fees
+    # as the hospital's own income
+    doctor_fees = sum(float(s.get("total_doctor_share", s.get("doctor_fee", 0)) or 0) for s in services)
 
     return {
         "services": services,
@@ -475,19 +481,42 @@ async def owner_pulse(current_user: dict = Depends(get_current_user)):
     company_id = current_user["company_id"]
     now = datetime.now(timezone.utc)
 
-    # ── Cash & Treasury ──────────────────────────────────────
+    # ── Cash & Treasury — from the GENERAL LEDGER ───────────
+    # It summed bank_accounts.balance (a field nothing keeps in step with the
+    # ledger, and the cash box 161 / POS drawer 164 were not counted at all),
+    # so posting an invoice payment never moved the figure. Now: every
+    # postable account under 16 "cash & cash equivalents", balance = opening
+    # + posted ledger movement. Restricted (not free to spend):
+    #   163 cheques under collection (not cleared yet), 165 LC cash margin,
+    #   1651 LG cash margin — and any sub-account below them.
+    # Computed on every request (no cache, no scheduler): a posted entry shows
+    # up on the next refresh.
+    RESTRICTED_PREFIXES = ("163", "165")
+    cash_lines, free_cash, restricted_cash = [], 0.0, 0.0
     try:
-        bank_accounts = await db.bank_accounts.find(
-            {"company_id": company_id, "is_active": True},
-            {"_id": 0, "balance": 1, "account_type": 1}
-        ).to_list(None)
-        free_cash = sum(float(b.get("balance", 0)) for b in bank_accounts
-                        if b.get("account_type") not in ["restricted", "collateral"])
-        restricted_cash = sum(float(b.get("balance", 0)) for b in bank_accounts
-                               if b.get("account_type") in ["restricted", "collateral"])
-    except Exception:
-        free_cash = 0
-        restricted_cash = 0
+        accs = await db.chart_of_accounts.find(
+            {"company_id": company_id, "account_code": {"$regex": "^16"}},
+            {"_id": 0, "id": 1, "account_code": 1, "account_name": 1, "is_header": 1,
+             "allow_posting": 1, "account_category": 1, "opening_balance": 1}).to_list(None)
+        accs = [a for a in accs if not (a.get("is_header") or a.get("allow_posting") is False
+                                        or a.get("account_category") == "header")]
+        mv = {r["_id"]: r async for r in db.general_ledger.aggregate([
+            {"$match": {"company_id": company_id, "account_id": {"$in": [a["id"] for a in accs]}}},
+            {"$group": {"_id": "$account_id", "d": {"$sum": "$debit"}, "c": {"$sum": "$credit"}}}])}
+        for a in sorted(accs, key=lambda x: x["account_code"]):
+            m = mv.get(a["id"], {"d": 0, "c": 0})
+            bal = round(float(a.get("opening_balance") or 0) + float(m["d"] or 0) - float(m["c"] or 0), 2)
+            restricted = a["account_code"].startswith(RESTRICTED_PREFIXES)
+            if restricted:
+                restricted_cash += bal
+            else:
+                free_cash += bal
+            if bal:
+                cash_lines.append({"account_code": a["account_code"], "account_name": a.get("account_name"),
+                                   "balance": bal, "restricted": restricted})
+    except Exception as e:
+        logger.error(f"owner-pulse cash position failed: {e}")
+        cash_lines, free_cash, restricted_cash = [], 0.0, 0.0
 
     # ── AR / AP ──────────────────────────────────────────────
     try:
@@ -508,22 +537,35 @@ async def owner_pulse(current_user: dict = Depends(get_current_user)):
         ar_30 = 0
         ap_30 = 0
 
-    # ── Monthly Burn (avg last 3 months) ─────────────────────
+    # ── Monthly Burn (avg of the last 3 months, from the ledger) ──
+    # Was: debits on every line whose code starts with 3 OR 4 — 4 is REVENUE
+    # in this chart, so a sales return or a closing entry counted as burn, and
+    # credits (refunds, reversals) never reduced it; it read journal_entries
+    # with status "posted" only, so a reversed entry kept counting. Now: net
+    # movement (debit - credit) on postable expense accounts, from the ledger,
+    # excluding non-cash charges (depreciation, provisions, deferred tax,
+    # inventory write-downs, ECL) that do not consume cash.
+    NON_CASH = ("333", "3352", "3368", "3369", "3183")
     try:
-        three_months_ago = (now - __import__("datetime").timedelta(days=90)).strftime("%Y-%m-%d")
-        expense_pipeline = [
-            {"$match": {"company_id": company_id, "status": "posted",
-                         "entry_date": {"$gte": three_months_ago}}},
-            {"$unwind": "$lines"},
-            {"$match": {"lines.account_code": {"$regex": "^[3-4]"}}},
-            {"$group": {"_id": None, "total": {"$sum": "$lines.debit"}}}
-        ]
-        exp_res = await db.journal_entries.aggregate(expense_pipeline).to_list(None)
-        monthly_burn = (exp_res[0]["total"] if exp_res else 0) / 3
-    except Exception:
-        monthly_burn = 1  # avoid div-by-zero
+        start = (now - __import__("datetime").timedelta(days=90)).strftime("%Y-%m-%d")
+        exp = await db.chart_of_accounts.find(
+            {"company_id": company_id, "account_code": {"$regex": "^3"}},
+            {"_id": 0, "id": 1, "account_code": 1, "account_type": 1}).to_list(None)
+        ids = [a["id"] for a in exp
+               if str(getattr(a.get("account_type"), "value", a.get("account_type"))) == "expense"
+               and not a["account_code"].startswith(NON_CASH)]
+        rows = await db.general_ledger.aggregate([
+            {"$match": {"company_id": company_id, "account_id": {"$in": ids},
+                        "entry_date": {"$gte": start}}},
+            {"$group": {"_id": None, "d": {"$sum": "$debit"}, "c": {"$sum": "$credit"}}}]).to_list(1)
+        monthly_burn = max(((rows[0]["d"] - rows[0]["c"]) if rows else 0) / 3, 0)
+    except Exception as e:
+        logger.error(f"owner-pulse burn failed: {e}")
+        monthly_burn = 0.0
 
-    cash_runway_months = round(free_cash / max(monthly_burn, 1), 1)
+    # no spending in 3 months → runway is not a number of months; say so
+    # instead of dividing by a fake 1 EGP burn
+    cash_runway_months = round(free_cash / monthly_burn, 1) if monthly_burn > 0 else None
 
     # ── HR KPIs ──────────────────────────────────────────────
     try:
@@ -557,15 +599,21 @@ async def owner_pulse(current_user: dict = Depends(get_current_user)):
         "treasury": {
             "free_cash": round(free_cash, 2),
             "restricted_cash": round(restricted_cash, 2),
+            "total_cash": round(free_cash + restricted_cash, 2),
+            "accounts": cash_lines,
+            "source": "general_ledger",
             "ar_30_days": round(float(ar_30), 2),
             "ap_30_days": round(float(ap_30), 2),
         },
         "cash_runway": {
             "months": cash_runway_months,
             "monthly_burn": round(monthly_burn, 2),
-            "status": "healthy" if cash_runway_months > 6 else
-                      "warning" if cash_runway_months > 3 else "critical"
+            "status": ("no_burn" if cash_runway_months is None else
+                       "healthy" if cash_runway_months > 6 else
+                       "warning" if cash_runway_months > 3 else "critical"),
+            "basis": "متوسط صافي المصروفات النقدية لآخر 90 يوماً ÷ 3",
         },
+        "computed": "live",   # recalculated on every request — no hourly job
         "hr": {
             "total_active_employees": total_employees,
         },
@@ -582,56 +630,41 @@ async def budget_variance_compat(
     fiscal_year: Optional[int] = None,
     period: Optional[str] = None,
 ):
-    """Budget variance radar — alias → /api/budget/variance-report"""
-    company_id = current_user["company_id"]
+    """Budget variance radar — alias → /api/budget/variance-report.
+
+    It said "alias" but read a collection nothing writes (budget_lines, with
+    a stored actual_amount), so the radar was always empty. Budgets live in
+    financial_budgets and actuals come from the ledger; delegate to the
+    budget engine and keep this endpoint's response shape."""
+    from api.budget_engine import budget_variance_report
     y = fiscal_year or datetime.now(timezone.utc).year
-
-    try:
-        budgets = await db.budget_lines.find(
-            {"company_id": company_id, "fiscal_year": y},
-            {"_id": 0}
-        ).to_list(None)
-    except Exception:
-        budgets = []
-
-    variances = []
-    total_budgeted = 0
-    total_actual = 0
-    alerts = []
-
-    for b in budgets:
-        budgeted = float(b.get("budgeted_amount", 0))
-        actual = float(b.get("actual_amount", 0))
-        variance = actual - budgeted
-        pct = round((variance / max(budgeted, 1)) * 100, 1)
-        total_budgeted += budgeted
-        total_actual += actual
-
+    rep = await budget_variance_report(fiscal_year=y, cost_center_id=None, project_id=None,
+                                       current_user=current_user)
+    items, alerts = [], []
+    for r in rep["report"]:
+        used, alloc = r["total_utilized"], r["allocated"]
         item = {
-            "cost_center": b.get("cost_center", b.get("account_code", "")),
-            "description": b.get("description", b.get("account_name", "")),
-            "budgeted": budgeted,
-            "actual": actual,
-            "variance": round(variance, 2),
-            "variance_pct": pct,
-            "status": "over_budget" if pct > 10 else "under_budget" if pct < -10 else "on_track",
+            "cost_center": r.get("cost_center") or r.get("project") or r["account_code"],
+            "account_code": r["account_code"],
+            "description": r.get("account_name", ""),
+            "budgeted": alloc, "actual": used,
+            "variance": round(used - alloc, 2),
+            "variance_pct": round((used - alloc) / alloc * 100, 1) if alloc else 0,
+            "status": r["status"],
         }
-        variances.append(item)
-        if abs(pct) > 15:
-            alerts.append(f"{item['description']}: {pct:+.1f}%")
-
+        items.append(item)
+        if r["status"] in ("over_budget", "critical"):
+            alerts.append(f"{item['cost_center']} — {item['description']}: {item['variance_pct']:+.1f}%")
+    tb, ta = rep["grand_total"]["allocated"], rep["grand_total"]["total_utilized"]
     return {
         "fiscal_year": y,
-        "company_id": company_id,
+        "company_id": current_user["company_id"],
         "summary": {
-            "total_budgeted": round(total_budgeted, 2),
-            "total_actual": round(total_actual, 2),
-            "total_variance": round(total_actual - total_budgeted, 2),
-            "overall_variance_pct": round(
-                ((total_actual - total_budgeted) / max(total_budgeted, 1)) * 100, 1
-            ),
+            "total_budgeted": tb, "total_actual": ta,
+            "total_variance": round(ta - tb, 2),
+            "overall_variance_pct": round((ta - tb) / tb * 100, 1) if tb else 0,
         },
         "alerts": alerts,
-        "items": sorted(variances, key=lambda x: abs(x["variance_pct"]), reverse=True),
-        "items_over_budget": [v for v in variances if v["status"] == "over_budget"],
+        "items": sorted(items, key=lambda x: abs(x["variance_pct"]), reverse=True),
+        "items_over_budget": [v for v in items if v["status"] == "over_budget"],
     }

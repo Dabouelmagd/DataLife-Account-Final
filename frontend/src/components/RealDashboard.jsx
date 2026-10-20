@@ -17,7 +17,7 @@ import ModernSidebar from './ModernSidebar';
 import AppFooter from './AppFooter';
 import ModuleRenderer from './ModuleRenderer';
 import AppUpdateNotification from './AppUpdateNotification';
-import { useIdleTimeout } from '../hooks/useIdleTimeout';
+import { useIdleLogout } from '../utils/idleLogout';
 
 // Config
 import { getAvailableModules } from '../config/moduleConfig';
@@ -67,15 +67,8 @@ const RealDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sidebar toggle
   const [idleWarning, setIdleWarning] = useState(false);
 
-  // Auto logout after 30 min idle — financial data protection
-  useIdleTimeout({
-    onLogout: () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login?reason=idle';
-    },
-    onWarning: (secsLeft) => setIdleWarning(secsLeft),
-  });
+  // Auto logout after 30 min idle — financial data protection (shared across tabs)
+  useIdleLogout({ onWarning: setIdleWarning, onActive: () => setIdleWarning(false) });
   const [activeHRSubModule, setActiveHRSubModule] = useState(null);
   const [activeFinancialSubModule, setActiveFinancialSubModule] = useState(null);
   const [activeInvoiceSubModule, setActiveInvoiceSubModule] = useState(null);

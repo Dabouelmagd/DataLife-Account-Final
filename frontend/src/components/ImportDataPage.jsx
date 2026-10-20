@@ -25,63 +25,82 @@ const ImportDataPage = ({ language }) => {
 
   // Column requirements for each type
   const columnRequirements = {
+    // kept in line with what the server actually requires (api/import_data.py):
+    // the old guide marked hire date, cost price, tax rate and status optional,
+    // so a file built from it was refused with "column not found"
     employees: [
       { key: 'name', ar: 'الاسم', en: 'Name', required: true, example: 'أحمد محمد' },
-      { key: 'position', ar: 'الوظيفة', en: 'Position', required: true, example: 'مهندس برمجيات' },
-      { key: 'department', ar: 'القسم', en: 'Department', required: false, example: 'تكنولوجيا المعلومات' },
+      { key: 'position', ar: 'الوظيفة', en: 'Position', required: true, example: 'محاسب' },
+      { key: 'hire_date', ar: 'تاريخ التعيين', en: 'Hire Date', required: true, example: '2024-01-15' },
+      { key: 'basic_salary', ar: 'الراتب الأساسي', en: 'Basic Salary', required: true, example: '15000' },
+      { key: 'national_id', ar: 'الرقم القومي', en: 'National ID', required: false, example: '29001011234567' },
+      { key: 'employee_code', ar: 'كود الموظف', en: 'Employee Code', required: false, example: 'EMP-0001' },
+      { key: 'department', ar: 'القسم', en: 'Department', required: false, example: 'المالية' },
       { key: 'email', ar: 'البريد الإلكتروني', en: 'Email', required: false, example: 'ahmed@example.com' },
-      { key: 'phone', ar: 'الهاتف', en: 'Phone', required: false, example: '01234567890' },
-      { key: 'hire_date', ar: 'تاريخ التعيين', en: 'Hire Date', required: false, example: '2024-01-15' },
-      { key: 'basic_salary', ar: 'الراتب الأساسي', en: 'Basic Salary', required: false, example: '15000' }
+      { key: 'phone', ar: 'الهاتف', en: 'Phone', required: false, example: '01234567890' }
     ],
     customers: [
       { key: 'name', ar: 'الاسم', en: 'Name', required: true, example: 'شركة ABC' },
-      { key: 'email', ar: 'البريد الإلكتروني', en: 'Email', required: false, example: 'info@abc.com' },
+      { key: 'tax_id', ar: 'الرقم الضريبي', en: 'Tax ID', required: false, example: '123456789' },
       { key: 'phone', ar: 'الهاتف', en: 'Phone', required: false, example: '01234567890' },
-      { key: 'address', ar: 'العنوان', en: 'Address', required: false, example: 'القاهرة' },
-      { key: 'balance', ar: 'الرصيد', en: 'Balance', required: false, example: '5000' }
+      { key: 'balance', ar: 'الرصيد الافتتاحي', en: 'Opening Balance', required: false, example: '5000' },
+      { key: 'balance_date', ar: 'تاريخ الرصيد', en: 'Balance Date', required: false, example: '2026-01-01' }
     ],
     suppliers: [
       { key: 'name', ar: 'الاسم', en: 'Name', required: true, example: 'مورد XYZ' },
-      { key: 'email', ar: 'البريد الإلكتروني', en: 'Email', required: false, example: 'info@xyz.com' },
+      { key: 'tax_id', ar: 'الرقم الضريبي', en: 'Tax ID', required: false, example: '987654321' },
       { key: 'phone', ar: 'الهاتف', en: 'Phone', required: false, example: '01234567890' },
-      { key: 'address', ar: 'العنوان', en: 'Address', required: false, example: 'الجيزة' },
-      { key: 'balance', ar: 'الرصيد', en: 'Balance', required: false, example: '10000' }
+      { key: 'balance', ar: 'الرصيد الافتتاحي', en: 'Opening Balance', required: false, example: '10000' },
+      { key: 'balance_date', ar: 'تاريخ الرصيد', en: 'Balance Date', required: false, example: '2026-01-01' }
     ],
     inventory: [
       { key: 'name', ar: 'الاسم', en: 'Name', required: true, example: 'منتج 1' },
-      { key: 'category', ar: 'الفئة', en: 'Category', required: false, example: 'مواد خام' },
-      { key: 'quantity', ar: 'الكمية', en: 'Quantity', required: false, example: '100' },
-      { key: 'unit', ar: 'الوحدة', en: 'Unit', required: false, example: 'كيلو' },
-      { key: 'unit_price', ar: 'سعر الوحدة', en: 'Unit Price', required: false, example: '50' },
-      { key: 'min_stock', ar: 'الحد الأدنى', en: 'Min Stock', required: false, example: '20' }
+      { key: 'unit', ar: 'الوحدة', en: 'Unit', required: true, example: 'كيلو' },
+      { key: 'quantity', ar: 'الكمية', en: 'Quantity', required: true, example: '100' },
+      { key: 'cost_price', ar: 'سعر التكلفة', en: 'Cost Price', required: true, example: '40' },
+      { key: 'sale_price', ar: 'سعر البيع', en: 'Sale Price', required: false, example: '50' },
+      { key: 'code', ar: 'كود الصنف', en: 'Item Code', required: false, example: 'P-001' }
     ],
     invoices: [
-      { key: 'invoice_number', ar: 'رقم الفاتورة', en: 'Invoice Number', required: false, example: 'INV-001' },
+      { key: 'invoice_number', ar: 'رقم الفاتورة', en: 'Invoice Number', required: true, example: 'INV-001' },
       { key: 'customer_name', ar: 'اسم العميل', en: 'Customer Name', required: true, example: 'عميل 1' },
-      { key: 'date', ar: 'التاريخ', en: 'Date', required: false, example: '2024-01-15' },
-      { key: 'due_date', ar: 'تاريخ الاستحقاق', en: 'Due Date', required: false, example: '2024-02-15' },
-      { key: 'amount', ar: 'المبلغ', en: 'Amount', required: true, example: '5000' },
-      { key: 'status', ar: 'الحالة', en: 'Status', required: false, example: 'pending' }
+      { key: 'date', ar: 'التاريخ', en: 'Date', required: true, example: '2026-01-15' },
+      { key: 'subtotal', ar: 'المبلغ قبل الضريبة', en: 'Subtotal', required: true, example: '5000' },
+      { key: 'tax_rate', ar: 'نسبة الضريبة', en: 'Tax Rate %', required: true, example: '14' },
+      { key: 'status', ar: 'الحالة', en: 'Status', required: true, example: 'غير مدفوعة' },
+      { key: 'payment_method', ar: 'طريقة السداد', en: 'Payment Method', required: false, example: 'بنك' }
     ],
     purchases: [
-      { key: 'purchase_number', ar: 'رقم الشراء', en: 'Purchase Number', required: false, example: 'PO-001' },
+      { key: 'purchase_number', ar: 'رقم الفاتورة', en: 'Invoice Number', required: true, example: 'P-001' },
       { key: 'supplier_name', ar: 'اسم المورد', en: 'Supplier Name', required: true, example: 'مورد 1' },
-      { key: 'date', ar: 'التاريخ', en: 'Date', required: false, example: '2024-01-15' },
-      { key: 'amount', ar: 'المبلغ', en: 'Amount', required: true, example: '10000' },
-      { key: 'status', ar: 'الحالة', en: 'Status', required: false, example: 'pending' }
+      { key: 'date', ar: 'التاريخ', en: 'Date', required: true, example: '2026-01-15' },
+      { key: 'subtotal', ar: 'المبلغ قبل الضريبة', en: 'Subtotal', required: true, example: '10000' },
+      { key: 'tax_rate', ar: 'نسبة الضريبة', en: 'Tax Rate %', required: true, example: '14' },
+      { key: 'status', ar: 'الحالة', en: 'Status', required: true, example: 'مدفوعة' },
+      { key: 'payment_method', ar: 'طريقة السداد', en: 'Payment Method', required: false, example: 'بنك' }
+    ],
+    opening_balances: [
+      { key: 'account_code', ar: 'كود الحساب', en: 'Account Code', required: true, example: '162' },
+      { key: 'account_name', ar: 'اسم الحساب', en: 'Account Name', required: false, example: 'النقدية بالبنوك' },
+      { key: 'debit', ar: 'مدين', en: 'Debit', required: true, example: '50000' },
+      { key: 'credit', ar: 'دائن', en: 'Credit', required: true, example: '0' },
+      { key: 'date', ar: 'تاريخ الرصيد', en: 'Balance Date', required: true, example: '2026-01-01' }
     ],
     revenue: [
-      { key: 'date', ar: 'التاريخ', en: 'Date', required: true, example: '2024-01-15' },
-      { key: 'description', ar: 'الوصف', en: 'Description', required: true, example: 'مبيعات منتجات' },
+      { key: 'date', ar: 'التاريخ', en: 'Date', required: true, example: '2026-01-15' },
+      { key: 'description', ar: 'الوصف', en: 'Description', required: true, example: 'إيراد خدمات' },
       { key: 'amount', ar: 'المبلغ', en: 'Amount', required: true, example: '25000' },
-      { key: 'category', ar: 'الفئة', en: 'Category', required: false, example: 'مبيعات' }
+      { key: 'account', ar: 'الحساب', en: 'Account', required: false, example: '412' },
+      { key: 'payment_method', ar: 'طريقة السداد', en: 'Payment Method', required: false, example: 'بنك' }
     ],
-    expenses: [
-      { key: 'date', ar: 'التاريخ', en: 'Date', required: true, example: '2024-01-15' },
+    // keyed by dataType ('expense'), which is what getCurrentColumns looks up —
+    // under 'expenses' the expense guide came up empty
+    expense: [
+      { key: 'date', ar: 'التاريخ', en: 'Date', required: true, example: '2026-01-15' },
       { key: 'description', ar: 'الوصف', en: 'Description', required: true, example: 'إيجار مكتب' },
       { key: 'amount', ar: 'المبلغ', en: 'Amount', required: true, example: '5000' },
-      { key: 'category', ar: 'الفئة', en: 'Category', required: false, example: 'إيجارات' }
+      { key: 'account', ar: 'الحساب', en: 'Account', required: false, example: '3322' },
+      { key: 'payment_method', ar: 'طريقة السداد', en: 'Payment Method', required: false, example: 'بنك' }
     ]
   };
 
@@ -139,6 +158,16 @@ const ImportDataPage = ({ language }) => {
       color: 'bg-pink-500',
       description: language === 'ar' ? 'استيراد المشتريات' : 'Import purchases',
       endpoint: '/api/import/purchases'
+    },
+    {
+      id: 'opening_balances',
+      name: language === 'ar' ? 'الأرصدة الافتتاحية' : 'Opening Balances',
+      icon: <FileSpreadsheet className="h-6 w-6" />,
+      color: 'bg-indigo-500',
+      description: language === 'ar'
+        ? 'ميزان افتتاحي: كود الحساب، مدين، دائن — يُرفض إن لم يتوازن'
+        : 'Trial balance: account, debit, credit — refused unless it balances',
+      endpoint: '/api/import/opening-balances'
     },
     {
       id: 'revenue',

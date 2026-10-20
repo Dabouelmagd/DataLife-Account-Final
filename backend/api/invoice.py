@@ -108,6 +108,31 @@ class CreateInvoiceRequest(BaseModel):
     client_wht_amount: Optional[float] = 0.0
     # supplier_wht_rate: WHT we deduct FROM SUPPLIER on purchase (توريدات/خدمات)
     supplier_wht_rate: Optional[float] = None  # None = auto-detect by invoice_type
+    # مركز التكلفة / الفرع والمشروع — يُنسخان على سطور القيد عند الاعتماد
+    cost_center_id: Optional[str] = None
+    project_id: Optional[str] = None
+
+
+async def _check_dimensions(company_id: str, cost_center_id: Optional[str], project_id: Optional[str]):
+    """A cost centre / project id from the request must belong to this
+    company — otherwise an invoice could be booked to another tenant's
+    branch, or to an id that no report will ever show."""
+    if cost_center_id and not await db.cost_centers.find_one(
+            {"id": cost_center_id, "company_id": company_id}, {"_id": 1}):
+        raise HTTPException(status_code=400, detail="مركز التكلفة غير موجود في هذه الشركة")
+    if project_id and not await db.projects.find_one(
+            {"id": project_id, "company_id": company_id}, {"_id": 1}):
+        raise HTTPException(status_code=400, detail="المشروع غير موجود في هذه الشركة")
+
+
+async def _own_invoice(invoice_id: str, company_id: str) -> dict:
+    """get/update/approve/payments looked the invoice up by bare id, so any
+    logged-in user could read, edit, approve (post!) or list payments of
+    another company's invoice. Scope the lookup to the caller's company."""
+    inv = await db.invoices.find_one({"id": invoice_id, "company_id": company_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return inv
 
 
 class RecordPaymentRequest(BaseModel):
@@ -320,11 +345,7 @@ async def get_invoice(
     current_user: dict = Depends(get_current_user)
 ):
     """الحصول على فاتورة"""
-    service = InvoiceService(db)
-    invoice = await service.get_invoice(invoice_id)
-    if not invoice:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    return invoice
+    return await _own_invoice(invoice_id, current_user["company_id"])
 
 
 @router.post("/")
@@ -337,8 +358,10 @@ async def create_invoice(
     
     # الحصول على بيانات العميل/المورد
     party = await service.get_party_by_id(request.party_id)
-    if not party:
+    # bare-id lookup: another company's customer could be invoiced
+    if not party or party.get("company_id") not in (None, current_user["company_id"]):
         raise HTTPException(status_code=400, detail="Party not found")
+    await _check_dimensions(current_user["company_id"], request.cost_center_id, request.project_id)
     
     # تحويل الأسطر
     lines = []
@@ -389,6 +412,8 @@ async def create_invoice(
         adjustments=adjustments,
         notes=request.notes,
         reference=request.reference,
+        cost_center_id=request.cost_center_id or None,
+        project_id=request.project_id or None,
         created_by=current_user["user_id"]
     )
     
@@ -413,6 +438,8 @@ async def update_invoice(
     current_user: dict = Depends(get_current_user)
 ):
     """تحديث فاتورة"""
+    await _own_invoice(invoice_id, current_user["company_id"])
+    await _check_dimensions(current_user["company_id"], request.cost_center_id, request.project_id)
     service = InvoiceService(db)
     
     # تحويل الأسطر
@@ -455,7 +482,9 @@ async def update_invoice(
         "lines": [line.dict() for line in lines],
         "adjustments": [adj.dict() for adj in adjustments],
         "notes": request.notes,
-        "reference": request.reference
+        "reference": request.reference,
+        "cost_center_id": request.cost_center_id or None,
+        "project_id": request.project_id or None,
     }
     
     try:
@@ -473,6 +502,7 @@ async def approve_invoice(
     current_user: dict = Depends(get_current_user)
 ):
     """اعتماد الفاتورة"""
+    await _own_invoice(invoice_id, current_user["company_id"])
     service = InvoiceService(db)
     
     try:
@@ -550,6 +580,7 @@ async def get_invoice_payments(
     current_user: dict = Depends(get_current_user)
 ):
     """الحصول على مدفوعات الفاتورة"""
+    await _own_invoice(invoice_id, current_user["company_id"])
     service = InvoiceService(db)
     payments = await service.get_invoice_payments(invoice_id)
     return {"payments": payments, "total": len(payments)}
