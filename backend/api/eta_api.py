@@ -178,6 +178,18 @@ async def get_eta_token(company_id: str, settings: dict) -> str:
         return token_data["access_token"]
 
 
+def _qr_png(text: str) -> dict:
+    """The printed invoice's QR image, now pointing at the authority's portal."""
+    try:
+        import io, qrcode
+        img = qrcode.make(text)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return {"qr_code": base64.b64encode(buf.getvalue()).decode()}
+    except Exception:
+        return {}
+
+
 def _secret(value) -> str:
     """Secrets are stored encrypted (enc: prefix); older rows hold plain text."""
     v = str(value or "")
@@ -293,7 +305,7 @@ async def submit_to_eta(company_id: str, invoice_id: str, user: dict) -> dict:
             "eta_status": "Submitted", "eta_submission_id": sub_id, "eta_submission_uuid": sub_id,
             "eta_uuid": d.get("uuid"), "eta_document_uuid": d.get("uuid"), "eta_long_id": d.get("longId"),
             "eta_hash_key": d.get("hashKey"), "eta_submission_date": now, "eta_public_url": qr,
-            "eta_qr": qr, "eta_rejection_reason": None}})
+            "eta_qr": qr, "eta_rejection_reason": None, **_qr_png(qr)}})
         return {"success": True, "message": "تم إرسال الفاتورة — المنظومة تتحقق منها خلال دقائق",
                 "submission_uuid": sub_id, "document_uuid": d.get("uuid"), "long_id": d.get("longId"),
                 "public_url": qr}
@@ -692,7 +704,8 @@ async def sync_eta_status(
                     "eta_status":    new_status,
                     "eta_long_id":   data.get("longId", invoice.get("eta_long_id")),
                     # the portal link the printed QR opens
-                    **({"eta_public_url": data["publicUrl"], "eta_qr": data["publicUrl"]} if data.get("publicUrl") else {}),
+                    **({"eta_public_url": data["publicUrl"], "eta_qr": data["publicUrl"], **_qr_png(data["publicUrl"])}
+                       if data.get("publicUrl") else {}),
                     "eta_hash_key":  data.get("hashKey", invoice.get("eta_hash_key")),
                 }}
             )
