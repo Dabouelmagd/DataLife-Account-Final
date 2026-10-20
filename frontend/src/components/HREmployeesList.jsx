@@ -28,7 +28,15 @@ export default function HREmployeesList({ language = 'ar', onOpen }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  // users invited in Settings who have no HR record yet
+  const [loose, setLoose] = useState([]);
+  const [pick, setPick] = useState({});
+  const [linkMsg, setLinkMsg] = useState('');
+
   const load = async () => {
+    axios.get(`${API}/api/employees/users-without-file`, auth())
+      .then((r) => { const u = r.data.users || []; setLoose(u); setPick(Object.fromEntries(u.map((x) => [x.id, true]))); })
+      .catch(() => setLoose([]));
     try {
       const { data } = await axios.get(`${API}/api/employees`, auth());
       setRows(data.employees || []);
@@ -66,6 +74,20 @@ export default function HREmployeesList({ language = 'ar', onOpen }) {
     } finally { setBusy(false); }
   };
 
+  const makeFiles = async () => {
+    const ids = Object.keys(pick).filter((k) => pick[k]);
+    if (!ids.length) return;
+    setBusy(true); setLinkMsg('');
+    try {
+      const { data } = await axios.post(`${API}/api/employees/from-users`, { user_ids: ids }, auth());
+      setLinkMsg(data.message);
+      await load();
+    } catch (e) {
+      const d = e?.response?.data?.detail;
+      setLinkMsg(typeof d === 'string' ? d : (ar ? 'تعذّر إنشاء الملفات' : 'Could not create records'));
+    } finally { setBusy(false); }
+  };
+
   const input = 'mt-1 w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900';
   const canSave = f.name.trim().length >= 2 && f.position.trim() && f.hire_date;
 
@@ -81,6 +103,29 @@ export default function HREmployeesList({ language = 'ar', onOpen }) {
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold">
           <Plus className="w-4 h-4" aria-hidden /> {ar ? 'إضافة موظف' : 'Add employee'}</button>
       </div>
+
+      {loose.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm space-y-2">
+          <p className="font-bold">
+            {ar ? `${loose.length} من مستخدمي البرنامج (الإعدادات ← الموظفين) ليس لهم ملف موظف هنا`
+                : `${loose.length} program user(s) have no employee record`}</p>
+          <p className="text-slate-600 dark:text-slate-300">
+            {ar ? 'ملف الموظف هو ما يدخل الرواتب والحضور وبوابة الموظف. اختر من يعمل بالشركة فعلاً (صاحب الشركة قد لا يكون على الرواتب):'
+                : 'Pick who is actually on staff:'}</p>
+          <div className="flex flex-wrap gap-x-5 gap-y-1">
+            {loose.map((u) => (
+              <label key={u.id} className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={!!pick[u.id]} onChange={(e) => setPick({ ...pick, [u.id]: e.target.checked })} />
+                {u.name} <span className="text-xs text-slate-500">{u.role}</span>
+              </label>
+            ))}
+          </div>
+          <button onClick={makeFiles} disabled={busy || !Object.values(pick).some(Boolean)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white font-bold disabled:opacity-50">
+            {busy ? '…' : (ar ? 'إنشاء ملفات موظفين لهم' : 'Create employee records')}</button>
+        </div>
+      )}
+      {linkMsg && <p role="status" className="text-sm text-emerald-700">{linkMsg}</p>}
 
       <div className="flex flex-wrap gap-2">
         <label className="relative flex-1 min-w-[220px]">

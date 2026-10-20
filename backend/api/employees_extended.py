@@ -210,6 +210,72 @@ async def get_employees(
     return {"employees": employees, "total": len(employees)}
 
 
+async def _users_without_file(company_id: str) -> list:
+    """Program users of this company that no employee record points to."""
+    users = await db.users.find({"company_id": company_id, "is_active": {"$ne": False}},
+                                {"_id": 0, "id": 1, "full_name": 1, "name": 1, "email": 1, "role": 1,
+                                 "phone": 1, "employee_id": 1}).to_list(None)
+    emps = await db.employees.find({"company_id": company_id},
+                                   {"_id": 0, "id": 1, "user_id": 1, "email": 1}).to_list(None)
+    linked_users = {e.get("user_id") for e in emps if e.get("user_id")}
+    emp_ids = {e["id"] for e in emps}
+    return [u for u in users if u["id"] not in linked_users and u.get("employee_id") not in emp_ids]
+
+
+@router.get("/users-without-file")
+async def users_without_employee_file(current_user: dict = Depends(get_current_user)):
+    """مستخدمو البرنامج (الإعدادات ← الموظفين) الذين ليس لهم ملف في سجل الموارد البشرية.
+    The two lists were never connected: inviting someone in Settings created a
+    login only, so HR showed «no employees» while Settings listed three."""
+    users = await _users_without_file(current_user["company_id"])
+    return {"users": [{"id": u["id"], "name": u.get("full_name") or u.get("name") or u.get("email"),
+                       "email": u.get("email"), "role": u.get("role")} for u in users]}
+
+
+@router.post("/from-users")
+async def employees_from_users(data: dict, current_user: dict = Depends(get_current_user)):
+    """إنشاء ملف موظف لكل مستخدم مختار وربطه بحسابه (يفتح له بوابة الموظف).
+    A record with the same e-mail and no login is linked instead of duplicated.
+    Salary and the rest are completed in the employee's profile."""
+    company_id = current_user["company_id"]
+    wanted = set(data.get("user_ids") or [])
+    if not wanted:
+        raise HTTPException(400, "اختر مستخدماً واحداً على الأقل")
+    created, linked = [], []
+    for u in await _users_without_file(company_id):
+        if u["id"] not in wanted:
+            continue
+        name = u.get("full_name") or u.get("name") or (u.get("email") or "").split("@")[0]
+        email = (u.get("email") or "").strip().lower()
+        existing = await db.employees.find_one(
+            {"company_id": company_id, "user_id": {"$in": [None, ""]},
+             "email": {"$regex": f"^{__import__('re').escape(email)}$", "$options": "i"}}, {"_id": 0, "id": 1}) \
+            if email else None
+        if existing:
+            emp_id = existing["id"]
+            await db.employees.update_one({"id": emp_id, "company_id": company_id}, {"$set": {"user_id": u["id"]}})
+            linked.append(name)
+        else:
+            emp = ExtendedEmployee(company_id=company_id, employee_code=await generate_employee_code(company_id),
+                                   name=name, email=u.get("email"), phone=u.get("phone"),
+                                   position=u.get("role") or "موظف", hire_date=date.today().isoformat(),
+                                   basic_salary=0.0)
+            doc = emp.dict()
+            doc["user_id"] = u["id"]
+            await db.employees.insert_one(doc)
+            emp_id = doc["id"]
+            created.append(name)
+        await db.users.update_one({"id": u["id"], "company_id": company_id}, {"$set": {"employee_id": emp_id}})
+    if not created and not linked:
+        raise HTTPException(400, "المستخدمون المختارون لهم ملفات بالفعل")
+    msg = []
+    if created:
+        msg.append(f"أُنشئ {len(created)} ملف موظف — أكمل الراتب والقسم من ملف كل موظف")
+    if linked:
+        msg.append(f"رُبط {len(linked)} موظف موجود بحسابه")
+    return {"message": "، ".join(msg), "created": created, "linked": linked}
+
+
 @router.get("/{employee_id}")
 async def get_employee(
     employee_id: str,
@@ -294,15 +360,16 @@ async def update_employee(
     if not employee:
         raise HTTPException(status_code=404, detail="الموظف غير موجود")
     
-    # منع تعديل كود الموظف - immutable field
-    if "employee_code" in request:
-        del request["employee_code"]
+    # منع تعديل كود الموظف - immutable field; the record's company and id are
+    # not editable either (they were, through this body)
+    for k in ("employee_code", "company_id", "id", "_id"):
+        request.pop(k, None)
     
     # تحديث البيانات
     request["updated_at"] = datetime.utcnow()
     
     await db.employees.update_one(
-        {"id": employee_id},
+        {"id": employee_id, "company_id": current_user["company_id"]},
         {"$set": request}
     )
     
