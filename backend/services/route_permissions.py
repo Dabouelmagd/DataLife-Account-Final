@@ -32,6 +32,7 @@ PREFIX_PERMISSIONS = [
     ("/api/tax-reports", {FIN}),
     ("/api/fixed-assets", {FIN}),
     ("/api/db-performance", {FIN}),   # trial-balance snapshots / indexes (moved off /api/performance, which is HR)
+    ("/api/data-protection", {"hr", "settings"}),   # personal-data requests; finer role checks inside
     ("/api/consolidation", {FIN}),
     ("/api/invoices", {"invoices", FIN, "sales", "purchases"}),
     ("/api/invoice", {"invoices", FIN, "sales", "purchases"}),

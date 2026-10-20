@@ -41,10 +41,31 @@ def risk_level(score: float) -> dict:
 
 
 async def save_alert(company_id: str, alert_type: str, risk_score: float,
-                     details: dict, user_id: str = None) -> str:
-    """حفظ تنبيه الاحتيال في قاعدة البيانات"""
+                     details: dict, user_id: str = None, fingerprint: str = None) -> str:
+    """حفظ تنبيه الاحتيال في قاعدة البيانات
+
+    Every GET of a detector used to insert its findings again, so opening the
+    page five times produced five copies of the same alert, and an alert the
+    accountant had already closed came straight back as a new open one. With a
+    fingerprint (what the finding is about: the two invoice numbers, the entry
+    id...) an existing alert is refreshed instead, and its status — including
+    "resolved" / "false_positive" — is left as the reviewer set it.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    if fingerprint:
+        existing = await db.fraud_alerts.find_one(
+            {"company_id": company_id, "alert_type": alert_type, "fingerprint": fingerprint},
+            {"_id": 0, "id": 1})
+        if existing:
+            await db.fraud_alerts.update_one(
+                {"id": existing["id"], "company_id": company_id},
+                {"$set": {"risk_score": risk_score, "risk_level": risk_level(risk_score)["level"],
+                          "details": details, "last_seen_at": now}})
+            return existing["id"]
     alert_id = str(uuid.uuid4())
     await db.fraud_alerts.insert_one({
+        "fingerprint": fingerprint,
+        "last_seen_at": now,
         "id":          alert_id,
         "company_id":  company_id,
         "alert_type":  alert_type,
@@ -69,6 +90,22 @@ BENFORD_EXPECTED = {
     1: 0.3010, 2: 0.1761, 3: 0.1249, 4: 0.0969,
     5: 0.0792, 6: 0.0669, 7: 0.0580, 8: 0.0512, 9: 0.0458
 }
+
+BENFORD_AMOUNT_FIELDS = {"grand_total", "subtotal", "total_tax", "amount_due"}
+
+
+def _payroll_lines(run: dict) -> list:
+    """Employee lines of a payroll run (stored as "employees"; a few older
+    runs used "employees_data")."""
+    return run.get("employees") or run.get("employees_data") or []
+
+
+def _month_bounds(year: int, month: int):
+    """[first day of month, first day of next month) — December rolls the year.
+    full-scan built "YYYY-01-01" with the SAME year for December, so the
+    December window ended before it began and found nothing."""
+    ny, nm = (year + 1, 1) if month == 12 else (year, month + 1)
+    return f"{year}-{month:02d}-01", f"{ny}-{nm:02d}-01"
 
 
 def get_first_digit(amount: float) -> Optional[int]:
@@ -123,6 +160,12 @@ async def benford_analysis(
     company_id = current_user["company_id"]
     df = date_from or f"{date.today().year}-01-01"
     dt = date_to   or date.today().isoformat()
+    # amount_field went straight into the projection, so any invoice field
+    # could be requested; only the money totals make sense for Benford.
+    if amount_field not in BENFORD_AMOUNT_FIELDS:
+        amount_field = "grand_total"
+    if source not in ("invoices", "expenses", "payroll", "all"):
+        raise HTTPException(400, "المصدر يجب أن يكون invoices أو expenses أو payroll أو all")
 
     # Collect amounts from source
     amounts = []
@@ -133,8 +176,8 @@ async def benford_analysis(
             "document_date": {"$gte": df, "$lte": dt},
             "status": {"$nin": ["cancelled","draft"]},
         }, {"_id": 0, amount_field: 1}).to_list(None)
-        amounts.extend([float(i.get(amount_field, 0)) for i in invs
-                        if float(i.get(amount_field, 0)) >= min_amount])
+        amounts.extend([float(i.get(amount_field) or 0) for i in invs
+                        if float(i.get(amount_field) or 0) >= min_amount])
 
     if source in ("expenses","all"):
         # Journal lines with expense accounts (3xxx)
@@ -150,12 +193,17 @@ async def benford_analysis(
         amounts.extend([float(e["amount"]) for e in exp])
 
     if source in ("payroll","all"):
+        # Payroll runs keep their lines in "employees" (models/payroll.py) and
+        # the period in "month" = "YYYY-MM"; this read "employees_data" over
+        # every run ever made, so payroll never contributed and the period
+        # filter was ignored.
         for run in await db.payroll_runs.find({
             "company_id": company_id,
             "status": {"$in": ["approved","paid"]},
-        }, {"_id": 0, "employees_data": 1}).to_list(None):
-            for emp in run.get("employees_data",[]):
-                net = float(emp.get("net_salary",0))
+            "month": {"$gte": df[:7], "$lte": dt[:7]},
+        }, {"_id": 0, "employees": 1, "employees_data": 1}).to_list(None):
+            for emp in _payroll_lines(run):
+                net = float(emp.get("net_salary") or 0)
                 if net >= min_amount:
                     amounts.append(net)
 
@@ -200,7 +248,7 @@ async def benford_analysis(
         alert_id = await save_alert(company_id, "benford_anomaly", risk_score, {
             "source": source, "n": n, "chi2": chi2, "mad": mad,
             "suspicious_digits": suspicious,
-        }, current_user["user_id"])
+        }, current_user["user_id"], fingerprint=f"{source}:{df}:{dt}")
 
     # Digit distribution table
     distribution = []
@@ -255,95 +303,139 @@ async def detect_duplicate_payments(
     رصد الفواتير والمدفوعات المكررة
 
     يبحث عن:
-    - نفس المورد + نفس المبلغ + فترة متقاربة
-    - نفس رقم الفاتورة لمورد مختلف
+    - نفس المورد + نفس المبلغ + فترة متقاربة (فواتير الشراء)
+    - نفس رقم فاتورة المورد مسجَّلاً مرتين
+    - سندات صرف لنفس المستفيد بنفس المبلغ في فترة متقاربة
     - مبالغ متطابقة لأطراف متعددين في نفس اليوم
     """
     company_id = current_user["company_id"]
     df = date_from or f"{date.today().year}-01-01"
     dt = date_to   or date.today().isoformat()
+    tolerance_pct = max(0.0, min(float(tolerance_pct), 20.0))
+    days_window   = max(0, min(int(days_window), 365))
 
     invoices = await db.invoices.find({
         "company_id": company_id,
-        "document_type": {"$in": ["purchase_invoice", "expense"]},
+        # "expense" is not a document type (models/invoice.py DocumentType);
+        # draft invoices were scanned too although nothing was paid on them.
+        "document_type": "purchase_invoice",
         "document_date": {"$gte": df, "$lte": dt},
-        "status": {"$nin": ["cancelled"]},
-    }, {"_id": 0, "id":1, "document_number":1, "document_date":1,
+        "status": {"$nin": ["cancelled", "draft"]},
+    }, {"_id": 0, "id":1, "document_number":1, "document_date":1, "reference":1,
         "party_id":1, "party_name":1, "grand_total":1, "status":1}).to_list(None)
 
     duplicates = []
     suspicious_groups = []
 
-    # Group by (party_id, rounded_amount)
-    from itertools import combinations
-    for i, inv_a in enumerate(invoices):
-        for inv_b in invoices[i+1:]:
-            # Same vendor + same amount + close dates
-            same_vendor = inv_a.get("party_id") == inv_b.get("party_id")
-            amt_a = float(inv_a.get("grand_total", 0))
-            amt_b = float(inv_b.get("grand_total", 0))
+    def _d(s):
+        try:
+            return date.fromisoformat(str(s or "")[:10])
+        except Exception:
+            return None
 
-            if amt_a == 0 or amt_b == 0:
-                continue
+    # Compare only within the same supplier (the old loop compared every pair
+    # of invoices in the year — n² — and timed out on a real ledger).
+    by_party: dict = {}
+    for inv in invoices:
+        if float(inv.get("grand_total") or 0) > 0:
+            by_party.setdefault(inv.get("party_id") or "", []).append(inv)
 
-            amt_diff_pct = abs(amt_a - amt_b) / max(amt_a, amt_b) * 100
-
-            # Date proximity
-            try:
-                d_a = date.fromisoformat(inv_a.get("document_date",""))
-                d_b = date.fromisoformat(inv_b.get("document_date",""))
-                days_apart = abs((d_a - d_b).days)
-            except Exception:
-                days_apart = 999
-
-            within_window = days_apart <= days_window
-            within_tol    = amt_diff_pct <= tolerance_pct
-
-            if same_vendor and within_tol and within_window and amt_diff_pct == 0:
-                # Exact duplicate
-                risk_s = 0.95 if days_apart <= 7 else 0.75
+    for party, group in by_party.items():
+        group.sort(key=lambda x: str(x.get("document_date", "")))
+        for i, inv_a in enumerate(group):
+            d_a = _d(inv_a.get("document_date"))
+            for inv_b in group[i+1:]:
+                d_b = _d(inv_b.get("document_date"))
+                days_apart = abs((d_b - d_a).days) if d_a and d_b else 999
+                if days_apart > days_window:
+                    break       # sorted by date: later ones are further away
+                amt_a = float(inv_a.get("grand_total") or 0)
+                amt_b = float(inv_b.get("grand_total") or 0)
+                diff_pct = abs(amt_a - amt_b) / max(amt_a, amt_b) * 100
+                if diff_pct > tolerance_pct:
+                    continue
+                exact = diff_pct == 0
+                risk_s = (0.95 if days_apart <= 7 else 0.75) if exact else 0.55
                 duplicates.append({
-                    "type":       "EXACT_DUPLICATE",
+                    "type":       "EXACT_DUPLICATE" if exact else "NEAR_DUPLICATE",
                     "invoice_a":  inv_a.get("document_number",""),
                     "invoice_b":  inv_b.get("document_number",""),
                     "vendor":     inv_a.get("party_name",""),
-                    "amount":     amt_a,
+                    "amount":     round(amt_a, 2),
+                    "amount_b":   round(amt_b, 2),
+                    "diff_pct":   round(diff_pct, 2),
                     "date_a":     inv_a.get("document_date",""),
                     "date_b":     inv_b.get("document_date",""),
                     "days_apart": days_apart,
                     "risk_score": risk_s,
                     "risk":       risk_level(risk_s)["level"],
+                    "fingerprint": f"inv:{inv_a.get('id')}:{inv_b.get('id')}",
                 })
-            elif same_vendor and within_tol and within_window and amt_diff_pct > 0:
-                # Near duplicate
-                risk_s = 0.55
+
+    # Same supplier invoice number entered twice (the classic double payment)
+    by_ref: dict = {}
+    for inv in invoices:
+        ref = str(inv.get("reference") or "").strip()   # supplier's own invoice no.
+        if ref:
+            by_ref.setdefault((inv.get("party_id") or "", ref), []).append(inv)
+    for (party, ref), group in by_ref.items():
+        if len(group) >= 2:
+            duplicates.append({
+                "type":       "SAME_SUPPLIER_INVOICE_NUMBER",
+                "invoice_a":  group[0].get("document_number",""),
+                "invoice_b":  group[1].get("document_number",""),
+                "vendor":     group[0].get("party_name",""),
+                "supplier_ref": ref,
+                "count":      len(group),
+                "amount":     round(float(group[1].get("grand_total") or 0), 2),
+                "risk_score": 0.9,
+                "risk":       risk_level(0.9)["level"],
+                "fingerprint": f"ref:{party}:{ref}",
+            })
+
+    # Payment vouchers: same beneficiary + same amount within the window
+    vouchers = await db.payment_vouchers.find({
+        "company_id": company_id, "date": {"$gte": df, "$lte": dt},
+        "status": {"$ne": "cancelled"},
+    }, {"_id": 0, "id": 1, "number": 1, "date": 1, "beneficiary": 1, "amount": 1}).to_list(None)
+    by_benef: dict = {}
+    for v in vouchers:
+        key = (str(v.get("beneficiary") or "").strip(), round(float(v.get("amount") or 0), 2))
+        if key[0] and key[1] > 0:
+            by_benef.setdefault(key, []).append(v)
+    for (benef, amt), group in by_benef.items():
+        group.sort(key=lambda x: str(x.get("date", "")))
+        for a, b in zip(group, group[1:]):
+            da, db_ = _d(a.get("date")), _d(b.get("date"))
+            days_apart = abs((db_ - da).days) if da and db_ else 999
+            if days_apart <= days_window:
+                risk_s = 0.85 if days_apart <= 7 else 0.65
                 duplicates.append({
-                    "type":       "NEAR_DUPLICATE",
-                    "invoice_a":  inv_a.get("document_number",""),
-                    "invoice_b":  inv_b.get("document_number",""),
-                    "vendor":     inv_a.get("party_name",""),
-                    "amount_a":   amt_a, "amount_b": amt_b,
-                    "diff_pct":   round(amt_diff_pct, 2),
+                    "type":       "DUPLICATE_PAYMENT_VOUCHER",
+                    "invoice_a":  a.get("number",""),
+                    "invoice_b":  b.get("number",""),
+                    "vendor":     benef,
+                    "amount":     amt,
+                    "date_a":     a.get("date",""), "date_b": b.get("date",""),
                     "days_apart": days_apart,
                     "risk_score": risk_s,
                     "risk":       risk_level(risk_s)["level"],
+                    "fingerprint": f"pv:{a.get('id')}:{b.get('id')}",
                 })
 
     # Same amount, multiple vendors, same day (split payment suspicion)
     by_date_amount: dict = {}
     for inv in invoices:
-        key = (inv.get("document_date",""), str(inv.get("grand_total","")))
-        if key not in by_date_amount:
-            by_date_amount[key] = []
-        by_date_amount[key].append(inv)
+        key = (inv.get("document_date",""), round(float(inv.get("grand_total") or 0), 2))
+        by_date_amount.setdefault(key, []).append(inv)
     for key, group in by_date_amount.items():
-        if len(group) >= 3:
+        if len(group) >= 3 and key[1] > 0:
             vendors = set(g.get("party_id","") for g in group)
             if len(vendors) >= 2:
                 suspicious_groups.append({
                     "type":     "SAME_AMOUNT_MULTIPLE_VENDORS",
                     "date":     key[0],
-                    "amount":   float(key[1]),
+                    "amount":   key[1],
                     "count":    len(group),
                     "vendors":  [g.get("party_name","") for g in group],
                     "risk_score": 0.45,
@@ -353,22 +445,24 @@ async def detect_duplicate_payments(
     all_issues = duplicates + suspicious_groups
     critical   = [d for d in all_issues if d.get("risk") in ("CRITICAL","HIGH")]
 
-    # Save alerts for critical findings
-    for issue in critical[:10]:
+    # Save alerts for critical findings (de-duplicated by fingerprint)
+    for issue in critical[:20]:
         await save_alert(company_id, "duplicate_payment",
                          issue.get("risk_score", 0.7), issue,
-                         current_user["user_id"])
+                         current_user["user_id"], fingerprint=issue.get("fingerprint"))
 
     return {
         "analysis":           "كاشف المدفوعات المكررة",
         "period":             {"from": df, "to": dt},
         "invoices_analyzed":  len(invoices),
+        "vouchers_analyzed":  len(vouchers),
         "duplicates_found":   len(duplicates),
-        "suspicious_groups":  len(suspicious_groups),
+        "suspicious_groups_count": len(suspicious_groups),
         "critical_count":     len(critical),
-        "total_at_risk":      round(sum(
-            float(d.get("amount", d.get("amount_a",0))) for d in critical), 2),
-        "duplicates":         duplicates[:20],
+        "total_at_risk":      round(sum(float(d.get("amount") or 0) for d in critical), 2),
+        "duplicates":         duplicates[:50],
+        # this key was defined twice in the response; the list silently
+        # overwrote the count. The count now has its own key.
         "suspicious_groups":  suspicious_groups[:10],
         "recommendation": (
             f"🚨 {len(critical)} مدفوعة مشبوهة تحتاج مراجعة فورية"
@@ -397,35 +491,51 @@ async def detect_ghost_employees(
     5. موظف بـ national_id مكرر
     """
     company_id = current_user["company_id"]
-    y, m = map(int, month.split("-"))
-    df = f"{y}-{m:02d}-01"
-    m2 = m+1; y2 = y
-    if m2>12: y2+=1; m2=1
-    dt = f"{y2}-{m2:02d}-01"
+    try:
+        y, m = map(int, month.split("-"))
+        if not 1 <= m <= 12:
+            raise ValueError
+    except ValueError:
+        raise HTTPException(400, "الشهر يجب أن يكون بصيغة YYYY-MM")
+    month = f"{y}-{m:02d}"
+    df, dt = _month_bounds(y, m)
 
     alerts = []
 
+    # Attendance lives in two collections: "attendance" (daily check-in API)
+    # and "attendance_records" (ESS / GPS). Only the second was read, so
+    # companies using the first had every paid employee flagged as a ghost —
+    # or, as below, none at all.
+    attendance = []
+    for coll in ("attendance_records", "attendance"):
+        for a in await db[coll].find({
+            "company_id": company_id,
+            "date": {"$gte": df, "$lt": dt},
+        }, {"_id": 0, "employee_id": 1, "date": 1, "work_hours": 1, "actual_working_hours": 1,
+            "hours": 1, "check_in_location": 1, "location": 1}).to_list(None):
+            if a.get("employee_id"):
+                a["work_hours"] = float(a.get("work_hours") or a.get("actual_working_hours")
+                                        or a.get("hours") or 0)
+                attendance.append(a)
+    attendance_emp = set(a["employee_id"] for a in attendance)
+
     # ── 1. موظفون في كشف الراتب بلا حضور ──────────────────────
+    # Payroll runs store month as "YYYY-MM" and month_number as int
+    # (models/payroll.py); the query used month=<int>, which never matched, so
+    # this check — the main ghost-employee test — never ran.
     payroll_run = await db.payroll_runs.find_one({
         "company_id": company_id,
-        "year": y, "month": m,
+        "$or": [{"month": month}, {"year": y, "month_number": m}],
         "status": {"$in": ["approved","paid"]},
     }, {"_id": 0})
+    names = {}
 
     if payroll_run:
         payroll_employees = {
             emp.get("employee_id"): emp
-            for emp in payroll_run.get("employees_data",[])
+            for emp in _payroll_lines(payroll_run)
         }
-
-        # Get attendance records for this month
-        attendance = await db.attendance_records.find({
-            "company_id": company_id,
-            "date": {"$gte": df, "$lt": dt},
-        }, {"_id": 0, "employee_id": 1, "date":1, "work_hours":1,
-            "check_in_location": 1}).to_list(None)
-
-        attendance_emp = set(a["employee_id"] for a in attendance)
+        names = {k: v.get("employee_name", "") for k, v in payroll_employees.items()}
 
         for emp_id, emp_data in payroll_employees.items():
             net = float(emp_data.get("net_salary",0))
@@ -444,7 +554,7 @@ async def detect_ghost_employees(
 
     # ── 2. ساعات عمل إضافية شاذة (Z-Score) ────────────────────
     emp_hours: dict = {}
-    for att in (attendance if payroll_run else []):
+    for att in attendance:
         eid = att["employee_id"]
         hrs = float(att.get("work_hours") or 0)
         if eid not in emp_hours:
@@ -463,11 +573,7 @@ async def detect_ghost_employees(
                 z_score = (avg_h - mean_h) / std_h if std_h > 0 else 0
 
                 if z_score > 2.5 or avg_h > 14:  # > 14 hours/day suspicious
-                    emp_name = next(
-                        (e.get("employee_name","") for e in
-                         payroll_run.get("employees_data",[])
-                         if e.get("employee_id") == emp_id), emp_id
-                    ) if payroll_run else emp_id
+                    emp_name = names.get(emp_id) or emp_id
                     alerts.append({
                         "type":         "ANOMALY_WORK_HOURS",
                         "risk_score":   min(0.30 + z_score * 0.1, 0.90),
@@ -482,11 +588,11 @@ async def detect_ghost_employees(
                     })
 
     # ── 3. تسجيل حضور من مواقع بعيدة ──────────────────────────
-    for att in (attendance if payroll_run else []):
-        loc = att.get("check_in_location",{})
+    for att in attendance:
+        loc = att.get("check_in_location") or att.get("location") or {}
         geofence = loc.get("geofence_status","")
-        dist     = loc.get("distance_from_office_m")
-        if geofence == "out_of_range" and dist and float(dist) > 2000:
+        dist     = loc.get("distance_from_office_m") or loc.get("distance_from_office")
+        if geofence in ("out_of_range", "outside") and dist and float(dist) > 2000:
             alerts.append({
                 "type":         "REMOTE_LOCATION_CHECKIN",
                 "risk_score":   0.55,
@@ -546,11 +652,12 @@ async def detect_ghost_employees(
     alerts.sort(key=lambda x: x.get("risk_score",0), reverse=True)
 
     # Save critical alerts
-    for alert in alerts[:5]:
+    for alert in alerts[:20]:
         if alert.get("risk_score",0) >= 0.60:
+            fp = f'{month}:{alert.get("employee_id") or alert.get("national_id") or ""}:{alert.get("date","")}'
             await save_alert(company_id, alert["type"],
                              alert["risk_score"], alert,
-                             current_user["user_id"])
+                             current_user["user_id"], fingerprint=fp)
 
     critical = [a for a in alerts if a.get("risk") in ("CRITICAL","HIGH")]
     return {
@@ -595,6 +702,12 @@ async def detect_statistical_outliers(
     company_id = current_user["company_id"]
     df = date_from or f"{date.today().year}-01-01"
     dt = date_to   or date.today().isoformat()
+    # account_prefix was pasted into a $regex; anything but digits (".*",
+    # catastrophic patterns) changed what was scanned or stalled the query.
+    if not str(account_prefix).isdigit():
+        raise HTTPException(400, "بادئة الحساب يجب أن تكون أرقاماً فقط (مثال 3 للمصروفات)")
+    if method not in ("iqr", "zscore"):
+        method = "iqr"
 
     pipeline = [
         {"$match": {"company_id": company_id, "status": "posted",
@@ -608,6 +721,8 @@ async def detect_statistical_outliers(
             "account_name": "$lines.account_name",
             "description":  "$description",
             "entry_date":   1,
+            "entry_number": 1,
+            "id":           1,
         }},
     ]
     records = await db.journal_entries.aggregate(
@@ -651,10 +766,13 @@ async def detect_statistical_outliers(
             "entry_date":   r.get("entry_date",""),
             "account_code": r.get("account_code",""),
             "account_name": r.get("account_name",""),
-            "description":  r.get("description","")[:80],
+            "entry_number": r.get("entry_number"),
+            "description":  (r.get("description") or "")[:80],
             "amount":       round(float(r.get("amount",0)), 2),
-            "risk_score":   round(min(float(r.get("amount",0)) / upper_fence
-                                      if method=="iqr" else 0.7, 1.0), 2),
+            # amount/fence is >= 1 for every outlier above the fence, so every
+            # one scored 1.0; scale by how far beyond the fence it is instead.
+            "risk_score":   (round(min(0.4 + (float(r.get("amount",0)) / upper_fence - 1) * 0.3, 1.0), 2)
+                             if method == "iqr" and upper_fence > 0 else 0.7),
         })
 
     return {
@@ -676,6 +794,101 @@ async def detect_statistical_outliers(
 
 
 # ══════════════════════════════════════════════════════════════
+# 4b. JOURNAL CONTROLS — ضوابط القيود اليدوية
+# ══════════════════════════════════════════════════════════════
+
+# Python weekday(): Mon=0 … Fri=4, Sat=5. Egypt's official weekend is Friday;
+# most private companies also close on Saturday — configurable per request.
+DEFAULT_WEEKEND = "4,5"
+MANUAL_SOURCES = {None, "", "manual", "journal_entry", "opening_balance"}
+
+
+@router.get("/journal-controls")
+async def journal_controls(
+    date_from:    Optional[str] = None,
+    date_to:      Optional[str] = None,
+    round_unit:   float = Query(1000.0, description="المبلغ المدوَّر المشبوه (مضاعفات)"),
+    min_round:    float = Query(10000.0, description="أقل مبلغ يُفحص للتدوير"),
+    weekend_days: str = Query(DEFAULT_WEEKEND, description="أيام العطلة 0=الإثنين … 4=الجمعة 5=السبت"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    فحوص رقابية على القيود اليدوية المُرحَّلة (قراءة فقط — لا تعدِّل أي قيد):
+    1. نفس المستخدم أنشأ القيد ورحَّله/اعتمده (غياب الفصل بين المهام)
+    2. قيود بتاريخ يوم عطلة
+    3. قيود بمبالغ مدوَّرة كبيرة (مضاعفات 1,000 مثلاً)
+    القيود الآلية (فواتير، رواتب، سندات) مستبعدة لأن النظام يُنشئها ويرحِّلها بنفس المستخدم.
+    """
+    company_id = current_user["company_id"]
+    df = date_from or f"{date.today().year}-01-01"
+    dt = date_to   or date.today().isoformat()
+    try:
+        weekend = {int(x) for x in str(weekend_days).split(",") if x.strip() != ""}
+    except ValueError:
+        raise HTTPException(400, "أيام العطلة أرقام من 0 إلى 6 مفصولة بفاصلة")
+    round_unit = max(float(round_unit), 1.0)
+
+    entries = await db.journal_entries.find({
+        "company_id": company_id, "status": "posted",
+        "entry_date": {"$gte": df, "$lte": dt},
+    }, {"_id": 0, "id": 1, "entry_number": 1, "entry_date": 1, "description": 1,
+        "source_document_type": 1, "created_by": 1, "posted_by": 1, "approved_by": 1,
+        "lines": 1, "total_debit": 1}).to_list(None)
+    manual = [e for e in entries if e.get("source_document_type") in MANUAL_SOURCES]
+
+    user_ids = {e.get("created_by") for e in manual} | {e.get("posted_by") for e in manual}
+    users = {u["id"]: u.get("full_name") or u.get("email", "")
+             for u in await db.users.find({"company_id": company_id, "id": {"$in": [u for u in user_ids if u]}},
+                                          {"_id": 0, "id": 1, "full_name": 1, "email": 1}).to_list(None)}
+
+    findings = []
+    for e in manual:
+        total = e.get("total_debit")
+        if not total:
+            total = sum(float(l.get("debit") or 0) for l in e.get("lines", []))
+        total = round(float(total or 0), 2)
+        base = {"entry_id": e.get("id"), "entry_number": e.get("entry_number"),
+                "entry_date": e.get("entry_date"), "description": (e.get("description") or "")[:80],
+                "amount": total, "created_by": users.get(e.get("created_by"), e.get("created_by"))}
+        reviewer = e.get("approved_by") or e.get("posted_by")
+        if e.get("created_by") and reviewer and reviewer == e.get("created_by"):
+            findings.append({**base, "type": "SELF_APPROVED_ENTRY", "risk_score": 0.6, "risk": "HIGH",
+                             "detail": "نفس المستخدم أنشأ القيد اليدوي ورحَّله دون مراجع ثانٍ"})
+        try:
+            wd = date.fromisoformat(str(e.get("entry_date"))[:10]).weekday()
+        except ValueError:
+            wd = None
+        if wd is not None and wd in weekend:
+            findings.append({**base, "type": "WEEKEND_ENTRY", "risk_score": 0.35, "risk": "LOW",
+                             "detail": "قيد يدوي بتاريخ يوم عطلة"})
+        if total >= min_round and abs(total / round_unit - round(total / round_unit)) < 1e-9:
+            findings.append({**base, "type": "ROUND_AMOUNT_ENTRY", "risk_score": 0.4, "risk": "MEDIUM",
+                             "detail": f"مبلغ مدوَّر ({total:,.0f}) — تحقَّق من وجود مستند مؤيد"})
+
+    findings.sort(key=lambda f: f["risk_score"], reverse=True)
+    for f in findings:
+        if f["risk_score"] >= 0.6:
+            await save_alert(company_id, f["type"], f["risk_score"], f, current_user["user_id"],
+                             fingerprint=str(f.get("entry_id")))
+
+    summary = {t: sum(1 for f in findings if f["type"] == t)
+               for t in ("SELF_APPROVED_ENTRY", "WEEKEND_ENTRY", "ROUND_AMOUNT_ENTRY")}
+    return {
+        "analysis":         "ضوابط القيود اليدوية",
+        "period":           {"from": df, "to": dt},
+        "entries_analyzed": len(entries),
+        "manual_entries":   len(manual),
+        "findings_count":   len(findings),
+        "summary":          summary,
+        "findings":         findings[:100],
+        "recommendation": (
+            "✅ لا ملاحظات على القيود اليدوية" if not findings else
+            "راجع القيود المذكورة مع مستنداتها المؤيدة — الملاحظة مؤشر للمراجعة وليست دليلاً على خطأ"
+        ),
+    }
+
+
+# ══════════════════════════════════════════════════════════════
 # 5. COMPREHENSIVE FRAUD SCAN — المسح الشامل
 # ══════════════════════════════════════════════════════════════
 
@@ -689,31 +902,40 @@ async def full_fraud_scan(
     يُشغَّل شهرياً أو ربع سنوياً
     """
     company_id = current_user["company_id"]
-    year  = data.get("year",  date.today().year)
-    month = data.get("month", date.today().month)
+    try:
+        year  = int(data.get("year")  or date.today().year)
+        month = int(data.get("month") or date.today().month)
+        if not 1 <= month <= 12:
+            raise ValueError
+    except (TypeError, ValueError):
+        raise HTTPException(400, "السنة والشهر يجب أن يكونا أرقاماً صحيحة")
     month_str = f"{year}-{month:02d}"
-    df = f"{year}-{month:02d}-01"
-    dt = f"{year}-{month+1 if month<12 else 1:02d}-01"
+    df, next_month = _month_bounds(year, month)
+    # detectors take an inclusive end date
+    dt = (date.fromisoformat(next_month).toordinal() - 1)
+    dt = date.fromordinal(dt).isoformat()
 
     scan_id = str(uuid.uuid4())
-    results = {}
 
-    # Run all detectors in parallel
     async def safe_call(fn, *args, **kwargs):
         try:
             return await fn(*args, **kwargs)
+        except HTTPException as e:
+            return {"error": str(e.detail)[:100]}
         except Exception as e:
             return {"error": str(e)[:100]}
 
-    # Minimal user mock
-    user = {"company_id": company_id,
-            "user_id": current_user.get("user_id","")}
+    # The detectors are called directly, so every Query() default must be
+    # passed explicitly (a Query object is truthy and not a number).
+    user = {"company_id": company_id, "user_id": current_user.get("user_id", ""),
+            "role": current_user.get("role")}
 
-    (benford_res, dup_res, ghost_res, outlier_res) = await asyncio.gather(
-        safe_call(benford_analysis, df, dt, "all", "grand_total", 0.0, user),
+    (benford_res, dup_res, ghost_res, outlier_res, jc_res) = await asyncio.gather(
+        safe_call(benford_analysis, df, dt, "all", "grand_total", 100.0, user),
         safe_call(detect_duplicate_payments, df, dt, 0.0, 30, user),
         safe_call(detect_ghost_employees, month_str, user),
         safe_call(detect_statistical_outliers, df, dt, "3", "iqr", user),
+        safe_call(journal_controls, df, dt, 1000.0, 10000.0, DEFAULT_WEEKEND, user),
     )
 
     results = {
@@ -721,14 +943,18 @@ async def full_fraud_scan(
         "duplicates": dup_res,
         "ghost":      ghost_res,
         "outliers":   outlier_res,
+        "journal_controls": jc_res,
     }
 
-    # Overall risk
+    jc_self = int((jc_res.get("summary") or {}).get("SELF_APPROVED_ENTRY", 0))
+    # Overall risk — each component capped at 1.0 (ghost "critical" count ×
+    # 0.3 could reach 3.0 and push the average above 100%).
     scores = [
-        float(benford_res.get("risk_score", 0)),
-        0.8 if int(dup_res.get("critical_count",0)) > 0 else 0.1,
-        float(ghost_res.get("critical",0)) * 0.3,
-        float(outlier_res.get("risk_score",0)),
+        float(benford_res.get("risk_score", 0) or 0),
+        0.8 if int(dup_res.get("critical_count",0) or 0) > 0 else 0.1,
+        min(float(ghost_res.get("critical",0) or 0) * 0.3, 1.0),
+        float(outlier_res.get("risk_score",0) or 0),
+        min(jc_self * 0.1, 1.0),
     ]
     overall_score = round(sum(scores) / len(scores), 3)
     rl = risk_level(overall_score)
@@ -745,6 +971,7 @@ async def full_fraud_scan(
             int(dup_res.get("critical_count",0)),
             int(ghost_res.get("critical",0)),
             1 if outlier_res.get("risk_score",0) >= 0.40 else 0,
+            jc_self,
         ]),
         "scan_date":    datetime.now(timezone.utc).isoformat(),
     })
@@ -758,7 +985,9 @@ async def full_fraud_scan(
             "benford_anomaly":    benford_res.get("risk_score",0) >= 0.40,
             "duplicate_payments": int(dup_res.get("critical_count",0)),
             "ghost_employees":    int(ghost_res.get("critical",0)),
-            "statistical_outliers": int(outlier_res.get("outliers_found",0)),
+            "statistical_outliers": int(outlier_res.get("outliers_found",0) or 0),
+            "self_approved_entries": jc_self,
+            "journal_findings":   int(jc_res.get("findings_count", 0) or 0),
         },
         "results": results,
         "recommendation": rl["action"],
@@ -779,6 +1008,7 @@ async def list_fraud_alerts(
     q = {"company_id": current_user["company_id"]}
     if status:             q["status"]     = status
     if risk_level_filter:  q["risk_level"] = risk_level_filter.upper()
+    limit = max(1, min(int(limit), 500))
     alerts = await db.fraud_alerts.find(q, {"_id": 0}).sort(
         "detected_at", -1).limit(limit).to_list(None)
     summary = {
@@ -793,11 +1023,20 @@ async def list_fraud_alerts(
 @router.patch("/alerts/{alert_id}/resolve")
 async def resolve_alert(alert_id: str, data: dict,
                         current_user: dict = Depends(get_current_user)):
+    # Closing an alert is a reviewer's decision: a note is required so the
+    # file shows WHY it was closed, and "false_positive" is kept apart from a
+    # confirmed-and-fixed "resolved".
+    status = data.get("status") or "resolved"
+    if status not in ("resolved", "false_positive"):
+        raise HTTPException(400, "الحالة يجب أن تكون resolved أو false_positive")
+    resolution = str(data.get("resolution") or "").strip()[:1000]
+    if not resolution:
+        raise HTTPException(400, "اكتب سبب إغلاق التنبيه أو ما تم بشأنه")
     result = await db.fraud_alerts.update_one(
         {"id": alert_id, "company_id": current_user["company_id"]},
         {"$set": {
-            "status":      "resolved",
-            "resolution":  data.get("resolution",""),
+            "status":      status,
+            "resolution":  resolution,
             "resolved_by": current_user["user_id"],
             "resolved_at": datetime.now(timezone.utc).isoformat(),
         }}

@@ -54,8 +54,10 @@ def make_audit_hash(entry: dict, prev_hash: str = "") -> str:
 
 async def get_last_audit_hash(company_id: str) -> str:
     """Get hash of last audit entry for chaining"""
+    # Other modules (financial_engine) write plain audit_trail rows with no
+    # chain_hash; picking one of those as "last" restarted the chain from "".
     last = await db.audit_trail.find_one(
-        {"company_id": company_id},
+        {"company_id": company_id, "chain_hash": {"$exists": True, "$ne": ""}},
         {"_id": 0, "chain_hash": 1},
         sort=[("timestamp", -1)]
     )
@@ -66,38 +68,56 @@ async def get_last_audit_hash(company_id: str) -> str:
 # 1. GL POSTING RULES ENGINE — الموجه المحاسبي الآلي
 # ══════════════════════════════════════════════════════════════
 
-# Default posting matrix — account codes per document type and scenario
+# Default posting matrix — account codes per document type and scenario.
+#
+# NOTE: this matrix is a REFERENCE / preview. No module posts through it —
+# invoices, payroll and vouchers post their own entries (services/
+# invoice_service.py, api/payroll.py, ...). Editing it changes the preview
+# only; it is described that way to the user.
+#
+# The old defaults did not balance and used wrong accounts: the customer was
+# debited with the net amount only while revenue + VAT were credited; on a
+# purchase the WHT deducted from the supplier was DEBITED to 138 (that is WHT
+# others deducted from US) instead of credited to 261; payroll debited only the
+# net pay; "asset_purchase" debited 151 Marketable Securities; COGS/stock used
+# the raw-material accounts 311/121 for goods sold.
+# Allocations: net | tax | wht | si | gross (= net+tax+si) | payable (= net+tax−wht)
 DEFAULT_POSTING_MATRIX = {
     "sales_invoice": {
-        "debit":  {"account": "131", "name": "العملاء"},
-        "credit": [
-            {"account": "411", "name": "إيرادات مبيعات", "allocation": "net"},
-            {"account": "260", "name": "VAT مخرجات",      "allocation": "tax"},
+        "debit":  [
+            {"account": "131", "name": "العملاء",                         "allocation": "payable"},
+            {"account": "138", "name": "خصم وتحصيل خصمه العميل منا",      "allocation": "wht"},
         ],
-        "cogs_debit":  {"account": "311", "name": "تكلفة المبيعات"},
-        "cogs_credit": {"account": "121", "name": "مخزون بضاعة"},
+        "credit": [
+            {"account": "411", "name": "إيراد مبيعات بضائع", "allocation": "net"},
+            {"account": "260", "name": "ضريبة القيمة المضافة المخرجات", "allocation": "tax"},
+        ],
+        "cogs_debit":  {"account": "314", "name": "تكلفة البضاعة المباعة"},
+        "cogs_credit": {"account": "125", "name": "مخزون بضائع بغرض البيع"},
         "auto_post": True,
     },
     "purchase_invoice": {
         "debit":  [
-            {"account": "121", "name": "مخزون",        "allocation": "net"},
-            {"account": "137", "name": "VAT مدخلات",  "allocation": "tax"},
-            {"account": "138", "name": "خصم وتحصيل",  "allocation": "wht"},
+            {"account": "125", "name": "مخزون بضائع",                "allocation": "net"},
+            {"account": "137", "name": "ضريبة المدخلات",             "allocation": "tax"},
         ],
-        "credit": {"account": "251", "name": "الموردون"},
+        "credit": [
+            {"account": "261", "name": "خصم وتحصيل مستقطع من المورد", "allocation": "wht"},
+            {"account": "251", "name": "الموردون",                    "allocation": "payable"},
+        ],
         "auto_post": True,
     },
     "stock_issue": {
-        "debit":  {"account": "311", "name": "تكلفة المبيعات"},
-        "credit": {"account": "121", "name": "مخزون"},
+        "debit":  {"account": "311", "name": "تكلفة الخامات المستهلكة"},
+        "credit": {"account": "121", "name": "مخزون الخامات"},
         "auto_post": True,
     },
     "payroll_run": {
-        "debit":  {"account": "312", "name": "أجور وتعويضات"},
+        "debit":  {"account": "331", "name": "رواتب وأجور", "allocation": "gross"},
         "credit": [
-            {"account": "253", "name": "أجور مستحقة",   "allocation": "net"},
-            {"account": "261", "name": "ضريبة كسب عمل", "allocation": "tax"},
-            {"account": "255", "name": "تأمينات اجتماعية","allocation": "si"},
+            {"account": "253", "name": "أجور مستحقة (الصافي)",      "allocation": "net"},
+            {"account": "266", "name": "ضريبة كسب العمل",           "allocation": "tax"},
+            {"account": "255", "name": "تأمينات اجتماعية (حصة العامل)", "allocation": "si"},
         ],
         "auto_post": True,
     },
@@ -114,16 +134,59 @@ DEFAULT_POSTING_MATRIX = {
         "note": "طلبات الشراء تنتظر الاعتماد — لا قيد حتى تحويلها لأمر شراء",
     },
     "expense_claim": {
-        "debit":  {"account": "332", "name": "مصروفات إدارية"},
-        "credit": {"account": "253", "name": "مصروفات مستحقة"},
+        "debit":  {"account": "3366", "name": "مصروفات نثرية ومتنوعة"},
+        "credit": {"account": "253",  "name": "مصروفات مستحقة"},
         "auto_post": False,  # Requires approval
     },
     "asset_purchase": {
-        "debit":  {"account": "151", "name": "أصول ثابتة"},
-        "credit": {"account": "251", "name": "الموردون"},
+        "debit":  [
+            {"account": "115", "name": "أثاث وتجهيزات (اختر حساب الأصل المناسب)", "allocation": "net"},
+            {"account": "137", "name": "ضريبة المدخلات",                         "allocation": "tax"},
+        ],
+        "credit": [
+            {"account": "261", "name": "خصم وتحصيل مستقطع من المورد", "allocation": "wht"},
+            {"account": "251", "name": "الموردون",                    "allocation": "payable"},
+        ],
         "auto_post": False,  # Requires approval for high value
     },
 }
+
+ALLOCATIONS = {"net", "tax", "wht", "si", "gross", "payable"}
+TOP_ROLES = {"Board Chairman", "رئيس مجلس الإدارة", "General Manager", "مدير عام",
+             "المدير العام", "CEO", "المدير التنفيذي", "owner"}
+FINANCE_ROLES = TOP_ROLES | {"Financial Manager", "المدير المالي"}
+
+# Approval levels name abstract roles ("cfo", "ceo"...); this maps each one to
+# the real user roles that may sign that level. Before, anybody — including
+# the person who submitted the request — could approve every level.
+LEVEL_ROLES = {
+    "manager":      TOP_ROLES | {"Financial Manager", "المدير المالي", "HR Manager", "مدير الموارد البشرية",
+                                 "Project Manager", "مدير المشاريع", "Chief Accountant", "رئيس الحسابات"},
+    "dept_manager": TOP_ROLES | {"Financial Manager", "المدير المالي", "HR Manager", "مدير الموارد البشرية",
+                                 "Project Manager", "مدير المشاريع", "Chief Accountant", "رئيس الحسابات"},
+    "chief_accountant": TOP_ROLES | {"Financial Manager", "المدير المالي", "Chief Accountant", "رئيس الحسابات"},
+    "cfo":          FINANCE_ROLES,
+    "finance_manager": FINANCE_ROLES,
+    "ceo":          TOP_ROLES,
+    "gm":           TOP_ROLES,
+    "chairman":     {"Board Chairman", "رئيس مجلس الإدارة", "owner"},
+}
+
+
+def _require(user: dict, roles: set, what: str):
+    if user.get("role") not in roles and not user.get("is_platform_admin"):
+        raise HTTPException(403, f"{what} غير مسموح لدورك")
+
+
+def _alloc_amounts(net: float, tax: float, wht: float, si: float) -> dict:
+    return {"net": net, "tax": tax, "wht": wht, "si": si,
+            "gross": round(net + tax + si, 2), "payable": round(net + tax - wht, 2)}
+
+
+def _rule_sides(rule: dict):
+    def as_list(x):
+        return [] if not x else (x if isinstance(x, list) else [x])
+    return as_list(rule.get("debit")), as_list(rule.get("credit"))
 
 
 @router.get("/gl-rules")
@@ -149,20 +212,47 @@ async def get_gl_rules(current_user: dict = Depends(get_current_user)):
         "auto_post_docs":    [k for k,v in rules.items() if v.get("auto_post")],
         "approval_req_docs": [k for k,v in rules.items() if not v.get("auto_post") and v.get("debit")],
         "operational_docs":  [k for k,v in rules.items() if not v.get("debit")],
-        "principle": (
-            "المستخدم يتعامل مع المستندات فقط — "
-            "النظام يُنشئ القيود المزدوجة آلياً بناءً على هذه المصفوفة"
-        ),
+        "note": ("مصفوفة مرجعية للمعاينة — القيود الفعلية تُنشئها موديولات الفواتير "
+                 "والرواتب والسندات بقواعدها الخاصة"),
     }
 
 
 @router.post("/gl-rules")
 async def save_gl_rules(data: dict, current_user: dict = Depends(get_current_user)):
     """حفظ تخصيص مصفوفة قواعد التوجيه للشركة"""
+    _require(current_user, FINANCE_ROLES, "تعديل قواعد التوجيه المحاسبي")
     company_id = current_user["company_id"]
     matrix = data.get("matrix", {})
-    if not matrix:
+    if not matrix or not isinstance(matrix, dict):
         raise HTTPException(400, "matrix مطلوبة")
+    # The matrix was stored exactly as sent: any structure, any account code.
+    # Every rule is rebuilt from known keys and each account must exist and
+    # accept postings in this company's chart.
+    clean = {}
+    for doc_type, rule in matrix.items():
+        if not isinstance(rule, dict):
+            raise HTTPException(400, f"قاعدة {doc_type} غير صحيحة")
+        sides = {}
+        for side in ("debit", "credit"):
+            items = rule.get(side)
+            items = [] if not items else (items if isinstance(items, list) else [items])
+            out = []
+            for it in items:
+                code = str((it or {}).get("account") or "")
+                alloc = (it or {}).get("allocation", "net")
+                if alloc not in ALLOCATIONS:
+                    raise HTTPException(400, f"توزيع غير معروف '{alloc}' في {doc_type}")
+                acc = await db.chart_of_accounts.find_one(
+                    {"company_id": company_id, "account_code": code}, {"_id": 0})
+                if not acc:
+                    raise HTTPException(400, f"الحساب {code} في قاعدة {doc_type} غير موجود في شجرة الحسابات")
+                if acc.get("is_header") or acc.get("allow_posting") is False:
+                    raise HTTPException(400, f"الحساب {code} تجميعي ولا يقبل قيوداً")
+                out.append({"account": code, "name": acc.get("account_name", ""), "allocation": alloc})
+            sides[side] = (out if len(out) != 1 else out[0]) if out else None
+        clean[str(doc_type)[:50]] = {**sides, "auto_post": bool(rule.get("auto_post")),
+                                     "note": str(rule.get("note") or "")[:300]}
+    matrix = clean
 
     await db.gl_posting_rules.replace_one(
         {"company_id": company_id},
@@ -183,10 +273,13 @@ async def resolve_posting(data: dict, current_user: dict = Depends(get_current_u
     """
     company_id  = current_user["company_id"]
     doc_type    = data.get("document_type")
-    net_amount  = float(data.get("net_amount", 0))
-    tax_amount  = float(data.get("tax_amount", 0))
-    wht_amount  = float(data.get("wht_amount", 0))
-    total       = round(net_amount + tax_amount, 2)
+    try:
+        net_amount = round(float(data.get("net_amount") or 0), 2)
+        tax_amount = round(float(data.get("tax_amount") or 0), 2)
+        wht_amount = round(float(data.get("wht_amount") or 0), 2)
+        si_amount  = round(float(data.get("si_amount") or 0), 2)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "المبالغ يجب أن تكون أرقاماً")
 
     custom = await db.gl_posting_rules.find_one({"company_id": company_id}, {"_id": 0})
     matrix = custom.get("matrix", DEFAULT_POSTING_MATRIX) if custom else DEFAULT_POSTING_MATRIX
@@ -205,21 +298,20 @@ async def resolve_posting(data: dict, current_user: dict = Depends(get_current_u
 
     # Build preview lines
     lines = []
-    dr_rule = rule["debit"]
-    cr_rules = rule["credit"] if isinstance(rule["credit"], list) else [rule["credit"]]
-    dr_rules = [dr_rule] if not isinstance(dr_rule, list) else dr_rule
-
-    for r in dr_rules:
-        alloc = r.get("allocation", "net")
-        amount = wht_amount if alloc == "wht" else tax_amount if alloc == "tax" else net_amount
-        if amount > 0:
-            lines.append({"side":"Dr","account":r["account"],"name":r["name"],"amount":amount})
-
-    for r in cr_rules:
-        alloc = r.get("allocation","net")
-        amount = wht_amount if alloc == "wht" else tax_amount if alloc == "tax" else net_amount
-        if amount > 0:
-            lines.append({"side":"Cr","account":r["account"],"name":r["name"],"amount":amount})
+    amounts = _alloc_amounts(net_amount, tax_amount, wht_amount, si_amount)
+    dr_rules, cr_rules = _rule_sides(rule)
+    for side, rules in (("Dr", dr_rules), ("Cr", cr_rules)):
+        for r in rules:
+            amount = round(amounts.get(r.get("allocation", "net"), net_amount), 2)
+            if amount > 0:
+                acc = await db.chart_of_accounts.find_one(
+                    {"company_id": company_id, "account_code": r["account"]},
+                    {"_id": 0, "is_header": 1, "allow_posting": 1})
+                lines.append({"side": side, "account": r["account"], "name": r.get("name", ""),
+                              "amount": amount,
+                              "problem": ("الحساب غير موجود في شجرة الحسابات" if not acc else
+                                          "حساب تجميعي لا يقبل قيوداً" if acc.get("is_header") or acc.get("allow_posting") is False
+                                          else None)})
 
     total_dr = round(sum(l["amount"] for l in lines if l["side"]=="Dr"), 2)
     total_cr = round(sum(l["amount"] for l in lines if l["side"]=="Cr"), 2)
@@ -231,7 +323,7 @@ async def resolve_posting(data: dict, current_user: dict = Depends(get_current_u
         "balanced":      abs(total_dr - total_cr) < 0.01,
         "total_dr":      total_dr,
         "total_cr":      total_cr,
-        "principle":     "الموظف يُدخل المستند — النظام يُنشئ هذا القيد تلقائياً",
+        "note":          "معاينة مرجعية — القيد الفعلي يُنشئه الموديول المختص عند حفظ المستند",
     }
 
 
@@ -250,6 +342,52 @@ class ApprovalRuleRequest(BaseModel):
     # ]
 
 
+async def _clean_levels(levels: list, company_id: str) -> list:
+    """Levels were stored as sent ({**anything}). Keep known keys, a known
+    role, numeric bands, and an approver who is an active user of THIS company."""
+    if not levels:
+        raise HTTPException(400, "أضف مستوى اعتماد واحداً على الأقل")
+    out = []
+    for lv in levels:
+        role = (lv or {}).get("role")
+        if role not in LEVEL_ROLES:
+            raise HTTPException(400, f"الدور '{role}' غير معروف — المتاح: {', '.join(LEVEL_ROLES)}")
+        try:
+            mn = round(float(lv.get("min_amount") or 0), 2)
+            mx = None if lv.get("max_amount") in (None, "") else round(float(lv["max_amount"]), 2)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "حدود المبالغ يجب أن تكون أرقاماً")
+        if mn < 0 or (mx is not None and mx <= mn):
+            raise HTTPException(400, "الحد الأقصى يجب أن يكون أكبر من الحد الأدنى")
+        approver = lv.get("approver_user_id") or None
+        name = ""
+        if approver:
+            u = await db.users.find_one({"id": approver, "company_id": company_id, "is_active": {"$ne": False}},
+                                        {"_id": 0, "full_name": 1})
+            if not u:
+                raise HTTPException(400, "المعتمد المحدد ليس مستخدماً نشطاً في الشركة")
+            name = u.get("full_name", "")
+        out.append({"role": role, "role_name_ar": str(lv.get("role_name_ar") or "")[:100],
+                    "min_amount": mn, "max_amount": mx,
+                    "approver_user_id": approver, "approver_name": name})
+    return out
+
+
+def _required_levels(levels: list, amount: float) -> list:
+    """Escalation is CUMULATIVE: a level applies once the amount reaches its
+    minimum. The old test (min <= amount < max) kept only the one band the
+    amount fell in, so 600,000 needed the CEO alone and skipped the manager
+    and CFO — the opposite of the documented rule."""
+    req = [lv for lv in levels if amount >= float(lv.get("min_amount") or 0)]
+    return req or levels[:1]
+
+
+def _can_sign(level: dict, user: dict) -> bool:
+    if level.get("approver_id"):
+        return level["approver_id"] == user.get("user_id")
+    return user.get("role") in LEVEL_ROLES.get(level.get("role"), TOP_ROLES) or bool(user.get("is_platform_admin"))
+
+
 @router.post("/approval-rules")
 async def create_approval_rule(req: ApprovalRuleRequest,
                                current_user: dict = Depends(get_current_user)):
@@ -261,18 +399,15 @@ async def create_approval_rule(req: ApprovalRuleRequest,
     - 100,000-500,000 → مدير القسم + المدير المالي
     - أكثر من 500,000 → + المدير العام
     """
+    _require(current_user, TOP_ROLES, "ضبط قواعد الاعتماد")
     company_id = current_user["company_id"]
-
-    # Validate levels
-    for level in req.levels:
-        if "role" not in level:
-            raise HTTPException(400, "كل مستوى يجب أن يحتوي على role")
+    levels = await _clean_levels(req.levels, company_id)
 
     rule = {
         "id": str(uuid.uuid4()), "company_id": company_id,
-        "document_type": req.document_type,
-        "name": req.name,
-        "levels": req.levels,
+        "document_type": req.document_type[:50],
+        "name": req.name[:200],
+        "levels": levels,
         "active": True,
         "created_by": current_user["user_id"],
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -306,10 +441,15 @@ async def submit_approval_request(
     - من يجب أن يوافق في كل مستوى
     """
     company_id  = current_user["company_id"]
-    doc_type    = data.get("document_type")
+    doc_type    = str(data.get("document_type") or "")[:50]
     doc_id      = data.get("document_id")
-    amount      = float(data.get("amount", 0))
-    description = data.get("description", "")
+    try:
+        amount = round(float(data.get("amount") or 0), 2)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "المبلغ يجب أن يكون رقماً")
+    if not doc_type or amount < 0:
+        raise HTTPException(400, "نوع المستند مطلوب والمبلغ لا يقل عن صفر")
+    description = str(data.get("description") or "")[:500]
     ip          = get_client_ip(request)
 
     # Find matching approval rule
@@ -319,15 +459,8 @@ async def submit_approval_request(
     )
 
     # Determine required levels based on amount
-    if rule:
-        required_levels = []
-        for level in rule.get("levels", []):
-            min_amt = float(level.get("min_amount", 0))
-            max_amt = level.get("max_amount")
-            if amount >= min_amt and (max_amt is None or amount < float(max_amt)):
-                required_levels.append(level)
-            elif amount >= min_amt and max_amt is None:
-                required_levels.append(level)
+    if rule and rule.get("levels"):
+        required_levels = _required_levels(rule["levels"], amount)
     else:
         # Default: single-level approval
         required_levels = [{"role": "manager", "min_amount": 0, "max_amount": None}]
@@ -398,9 +531,21 @@ async def approve_request(
     if ap_req["status"] != "pending":
         raise HTTPException(400, f"الطلب في حالة '{ap_req['status']}'")
 
+    if "approvals_chain" not in ap_req:
+        raise HTTPException(400, "هذا الطلب من شاشة الموافقات — اعتمده من هناك")
     current_level = ap_req["current_level"]
     chain = ap_req["approvals_chain"]
     total = ap_req["total_levels"]
+
+    # Segregation of duties: the requester cannot approve their own request,
+    # and each level is signed only by its named approver or its role.
+    if ap_req.get("submitted_by") == current_user["user_id"]:
+        raise HTTPException(403, "لا يمكنك اعتماد طلب قدَّمته بنفسك")
+    if any(c.get("status") == "approved" and c.get("approver_id") == current_user["user_id"]
+           for c in chain):
+        raise HTTPException(403, "اعتمدت مستوى سابقاً في هذا الطلب — يلزم معتمد آخر")
+    if not _can_sign(chain[current_level - 1], current_user):
+        raise HTTPException(403, "هذا المستوى ليس من صلاحيتك")
 
     # Update current level
     slot = current_level - 1
@@ -412,23 +557,16 @@ async def approve_request(
     if current_level >= total:
         # ── Final approval → auto-post GL if applicable ─────
         new_status = "approved"
-        new_level  = current_level
-        gl_posted  = False
-
-        # Check GL rule for auto-post
-        custom = await db.gl_posting_rules.find_one({"company_id": company_id})
-        matrix = custom.get("matrix", DEFAULT_POSTING_MATRIX) if custom else DEFAULT_POSTING_MATRIX
-        rule   = matrix.get(ap_req["document_type"], {})
-
-        if rule.get("auto_post") is False and rule.get("debit"):
-            # Post GL now that approval is complete
-            gl_posted = True
-
-        await db.approval_requests.update_one({"id": req_id}, {"$set": {
-            "status": new_status, "approvals_chain": chain,
-            "final_approved_at": datetime.now(timezone.utc).isoformat(),
-            "gl_posted": gl_posted,
-        }})
+        # gl_posted was set to True here and the reply said "the entry will be
+        # created automatically" — but nothing was ever posted. Approval only
+        # releases the document; its own module posts the entry.
+        res = await db.approval_requests.update_one(
+            {"id": req_id, "company_id": company_id, "status": "pending", "current_level": current_level},
+            {"$set": {"status": new_status, "approvals_chain": chain,
+                      "final_approved_at": datetime.now(timezone.utc).isoformat(),
+                      "gl_posted": False}})
+        if res.modified_count == 0:
+            raise HTTPException(409, "تم تعديل الطلب في نفس اللحظة — حدِّث الصفحة")
 
         await write_audit(company_id, current_user["user_id"], ip,
             "approval_final_approved", ap_req["document_type"], req_id,
@@ -438,14 +576,16 @@ async def approve_request(
         return {
             "message":   f"✅ تم الاعتماد النهائي (المستوى {current_level}/{total})",
             "status":    "approved",
-            "gl_posted": gl_posted,
-            "note":      "القيد المحاسبي سيُنشَأ تلقائياً" if gl_posted else "",
+            "gl_posted": False,
+            "note":      "تم الاعتماد — يُنشأ القيد عند حفظ/ترحيل المستند في الموديول الخاص به",
         }
     else:
         # Advance to next level
-        await db.approval_requests.update_one({"id": req_id}, {"$set": {
-            "current_level": current_level + 1, "approvals_chain": chain,
-        }})
+        res = await db.approval_requests.update_one(
+            {"id": req_id, "company_id": company_id, "status": "pending", "current_level": current_level},
+            {"$set": {"current_level": current_level + 1, "approvals_chain": chain}})
+        if res.modified_count == 0:
+            raise HTTPException(409, "تم تعديل الطلب في نفس اللحظة — حدِّث الصفحة")
 
         await write_audit(company_id, current_user["user_id"], ip,
             "approval_level_approved", ap_req["document_type"], req_id,
@@ -471,16 +611,19 @@ async def reject_request(
 
     ap_req = await db.approval_requests.find_one(
         {"id": req_id, "company_id": company_id}, {"_id": 0})
-    if not ap_req or ap_req["status"] != "pending":
+    if not ap_req or ap_req["status"] != "pending" or "approvals_chain" not in ap_req:
         raise HTTPException(400, "الطلب غير موجود أو ليس معلقاً")
 
     current_level = ap_req["current_level"] - 1
     chain = ap_req["approvals_chain"]
+    if not _can_sign(chain[current_level], current_user):
+        raise HTTPException(403, "هذا المستوى ليس من صلاحيتك")
+    chain[current_level]["approver_id"] = current_user["user_id"]
     chain[current_level]["status"]      = "rejected"
     chain[current_level]["rejected_at"] = datetime.now(timezone.utc).isoformat()
     chain[current_level]["comment"]     = reason
 
-    await db.approval_requests.update_one({"id": req_id}, {"$set": {
+    await db.approval_requests.update_one({"id": req_id, "company_id": company_id}, {"$set": {
         "status": "rejected", "approvals_chain": chain,
         "rejected_at": datetime.now(timezone.utc).isoformat(),
         "rejection_reason": reason,
@@ -500,9 +643,12 @@ async def list_approval_requests(
     page: int = 1, limit: int = 20,
     current_user: dict = Depends(get_current_user)
 ):
-    q = {"company_id": current_user["company_id"]}
+    # approvals.py shares this collection with a different schema; show only
+    # the requests this engine created (the others live in the Approvals screen).
+    q = {"company_id": current_user["company_id"], "approvals_chain": {"$exists": True}}
     if status:   q["status"]        = status
     if doc_type: q["document_type"] = doc_type
+    page, limit = max(1, int(page)), max(1, min(int(limit), 100))
     total    = await db.approval_requests.count_documents(q)
     requests = await db.approval_requests.find(q, {"_id": 0}).sort(
         "submitted_at", -1).skip((page-1)*limit).limit(limit).to_list(None)
@@ -649,6 +795,7 @@ async def update_thresholds(
       ]
     }
     """
+    _require(current_user, TOP_ROLES, "ضبط قواعد الاعتماد")
     company_id = current_user["company_id"]
     thresholds = data.get("thresholds", [])
 
@@ -724,6 +871,7 @@ async def assign_approver(
 
     يمكن ترك approver_user_id فارغاً → أي مستخدم بالدور يمكنه الاعتماد
     """
+    _require(current_user, TOP_ROLES, "ضبط قواعد الاعتماد")
     company_id = current_user["company_id"]
     approver_id = data.get("approver_user_id")
     approver_name = data.get("approver_name", "")
@@ -738,9 +886,15 @@ async def assign_approver(
     if idx < 0 or idx >= len(levels):
         raise HTTPException(400, f"المستوى {level_num} غير موجود (المجال 1–{len(levels)})")
 
+    if approver_id:
+        u = await db.users.find_one({"id": approver_id, "company_id": company_id, "is_active": {"$ne": False}},
+                                    {"_id": 0, "full_name": 1})
+        if not u:
+            raise HTTPException(400, "المعتمد ليس مستخدماً نشطاً في الشركة")
+        approver_name = u.get("full_name", "")   # not the name typed in the request
     old_approver = levels[idx].get("approver_user_id")
-    levels[idx]["approver_user_id"] = approver_id
-    levels[idx]["approver_name"]    = approver_name
+    levels[idx]["approver_user_id"] = approver_id or None
+    levels[idx]["approver_name"]    = approver_name if approver_id else ""
 
     await db.approval_rules.update_one(
         {"company_id": company_id, "document_type": doc_type},
@@ -764,8 +918,9 @@ async def toggle_rule(
     current_user: dict = Depends(get_current_user)
 ):
     """تفعيل / تعطيل قاعدة اعتماد"""
+    _require(current_user, TOP_ROLES, "ضبط قواعد الاعتماد")
     company_id = current_user["company_id"]
-    active = data.get("active", True)
+    active = data.get("active", True) is not False
 
     result = await db.approval_rules.update_one(
         {"company_id": company_id, "document_type": doc_type},
@@ -800,6 +955,17 @@ async def copy_rules_from_company(
         raise HTTPException(400, "source_company_id مطلوب")
     if source_company == company_id:
         raise HTTPException(400, "لا يمكن النسخ من نفس الشركة")
+    # This read another company's rules by bare id — any tenant could pull
+    # any other tenant's approval structure. Only companies linked to this one
+    # in a consolidation group (subsidiary has ACCEPTED the link) qualify.
+    linked = await db.company_groups.find_one({"$or": [
+        {"holding_company_id": company_id,
+         "subsidiaries": {"$elemMatch": {"company_id": source_company, "link_status": "accepted"}}},
+        {"holding_company_id": source_company,
+         "subsidiaries": {"$elemMatch": {"company_id": company_id, "link_status": "accepted"}}},
+    ]}, {"_id": 1})
+    if not linked:
+        raise HTTPException(403, "النسخ مسموح فقط من شركة مرتبطة بشركتك في مجموعة (تجميع) وافقت على الارتباط")
 
     q = {"company_id": source_company, "active": True}
     if doc_types:
@@ -813,7 +979,8 @@ async def copy_rules_from_company(
     for rule in source_rules:
         import uuid as _uuid
         new_rule = {
-            **rule,
+            "document_type": rule["document_type"], "name": rule.get("name", ""),
+            "levels": [dict(l) for l in rule.get("levels", [])], "active": True,
             "id":          str(_uuid.uuid4()),
             "company_id":  company_id,
             "copied_from": source_company,
@@ -847,6 +1014,7 @@ async def get_all_rules_summary(current_user: dict = Depends(get_current_user)):
 
     يُظهر بوضوح: كل نوع مستند + مستوياته + قيم العتبات
     """
+    _require(current_user, TOP_ROLES, "ضبط قواعد الاعتماد")
     company_id = current_user["company_id"]
     rules = await db.approval_rules.find(
         {"company_id": company_id}, {"_id": 0}
@@ -945,7 +1113,8 @@ async def manual_audit_log(
         company_id=current_user["company_id"],
         user_id=current_user["user_id"],
         ip=ip,
-        action=data.get("action",""),
+        # marked so a hand-written event can't pass for one the system logged
+        action="manual:" + str(data.get("action", ""))[:80],
         module=data.get("module",""),
         entity_id=data.get("entity_id",""),
         description=data.get("description",""),
@@ -972,6 +1141,7 @@ async def get_audit_trail(
     الفلاتر: entity_id | module | user_id | action | date range
     """
     q = {"company_id": current_user["company_id"]}
+    page, limit = max(1, int(page)), max(1, min(int(limit), 200))
     if entity_id: q["entity_id"] = entity_id
     if module:    q["module"]    = module
     if user_id:   q["user_id"]   = user_id
@@ -1003,23 +1173,33 @@ async def verify_audit_chain(
     إذا وُجِد أي تعديل → يُبلِّغ بالسجل المعدَّل
     """
     company_id = current_user["company_id"]
-    limit      = int(data.get("limit", 100))
+    try:
+        limit = max(1, min(int(data.get("limit", 1000)), 20000))
+    except (TypeError, ValueError):
+        limit = 1000
 
     entries = await db.audit_trail.find(
-        {"company_id": company_id}, {"_id": 0}
+        {"company_id": company_id, "chain_hash": {"$exists": True, "$ne": ""}}, {"_id": 0}
     ).sort("timestamp", 1).limit(limit).to_list(None)
 
     tampered = []
-    prev_hash = ""
+    prev_hash = None
 
     for entry in entries:
-        # Recompute hash
         computed = make_audit_hash(entry, entry.get("prev_hash",""))
+        problem = None
         if computed != entry.get("chain_hash",""):
+            problem = "محتوى السجل تغيَّر"
+        # Only each row's own hash was checked, so DELETING a row went
+        # unnoticed. Each row must point at the hash of the row before it.
+        elif prev_hash is not None and entry.get("prev_hash", "") != prev_hash:
+            problem = "سجل سابق محذوف أو مُعاد ترتيبه"
+        if problem:
             tampered.append({
                 "entry_id":  entry["id"],
                 "timestamp": entry["timestamp"],
                 "action":    entry["action"],
+                "problem":   problem,
                 "stored_hash":   entry.get("chain_hash",""),
                 "computed_hash": computed,
             })
@@ -1028,6 +1208,7 @@ async def verify_audit_chain(
     return {
         "entries_checked": len(entries),
         "chain_intact":    len(tampered) == 0,
+        "note": "قد تظهر ملاحظة تسلسل إذا سُجِّل حدثان في نفس اللحظة",
         "tampered_entries": tampered,
         "message": "✅ سلسلة التدقيق سليمة" if not tampered else f"⚠️ {len(tampered)} سجل مُعدَّل",
     }

@@ -235,6 +235,7 @@ export const getHRSubModules = (isArabic) => [
   { id: 'hr-end-of-service', name: isArabic ? '🧾 التسوية وإخلاء الطرف'        : '🧾 Final Settlement & Clearance' },
   { id: 'hr-loans-custody',  name: isArabic ? '💳 السلف والعهد'                 : '💳 Loans & Custody' },
   { id: 'hr-commissions',    name: isArabic ? '🎯 عمولات المندوبين'             : '🎯 Sales Commissions' },
+  { id: 'data-protection',   name: isArabic ? '🔐 طلبات البيانات الشخصية'       : '🔐 Personal Data Requests' },
   { id: 'reports',       name: isArabic ? '📊 تقارير HR'          : '📊 HR Reports' },
 ];
 
@@ -260,6 +261,8 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'budgets',          name: isArabic ? '📊 الموازنات التقديرية' : '📊 Budgets' },
   { id: 'deferred-tax',     name: isArabic ? '🧾 ضريبة الدخل والمؤجلة' : '🧾 Income & Deferred Tax' },
   { id: 'equity',           name: isArabic ? '🏛️ حقوق الملكية والتوزيعات' : '🏛️ Equity & Dividends' },
+  { id: 'fraud-control',    name: isArabic ? '🛡️ الرقابة وكشف المخاطر' : '🛡️ Risk & Fraud Control' },
+  { id: 'consolidation',    name: isArabic ? '🏢 القوائم المجمعة'       : '🏢 Group Consolidation' },
   { id: 'currencies',       name: isArabic ? '💱 العملات'           : '💱 Currencies' },
   { id: 'reports',          name: isArabic ? '📊 التقارير المالية'  : '📊 Financial Reports' },
 ];
