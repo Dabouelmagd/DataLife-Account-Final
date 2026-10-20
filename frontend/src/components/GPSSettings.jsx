@@ -53,11 +53,12 @@ export default function GPSSettings() {
       const res = await fetch(`${API}/api/attendance/gps-settings`, {
         method: 'POST', headers, body: JSON.stringify(settings),
       });
+      const d = await res.json().catch(() => ({}));
       if (res.ok) setMsg({ type: 'success', text: ar ? '✅ تم حفظ إعدادات GPS' : '✅ GPS settings saved' });
-      else        setMsg({ type: 'error', text: ar ? 'فشل الحفظ' : 'Save failed' });
+      else        setMsg({ type: 'error', text: typeof d.detail === 'string' ? d.detail : (ar ? 'فشل الحفظ' : 'Save failed') });
     } catch { setMsg({ type: 'error', text: ar ? 'خطأ في الاتصال' : 'Connection error' }); }
     setSaving(false);
-    setTimeout(() => setMsg(null), 3000);
+    setTimeout(() => setMsg(null), 6000);
   };
 
   return (

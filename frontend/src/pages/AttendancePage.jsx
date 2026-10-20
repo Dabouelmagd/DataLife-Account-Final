@@ -3,13 +3,14 @@ import {
   Clock, Calendar, Users, UserCheck, UserX, Timer,
   TrendingUp, TrendingDown, Download, Upload, Filter,
   CheckCircle, XCircle, AlertCircle, RefreshCw,
-  FileText, BarChart3, Settings, Plus
+  FileText, BarChart3, Settings, Plus, MapPin
 } from 'lucide-react';
 import { 
   Clock as ClockIcon, Users as UsersIcon, CheckCircle as CheckIcon,
   XCircle as XCircleIcon, Warning
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import GPSSettings from '../components/GPSSettings';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 
@@ -356,6 +357,9 @@ const AttendancePage = ({ language = 'ar' }) => {
     { id: 'monthly', label: t.monthly_summary, icon: BarChart3 },
     { id: 'fingerprint', label: t.fingerprint_report, icon: FileText },
     { id: 'overtime', label: t.overtime_report, icon: Timer },
+    // GPSSettings existed but was never mounted, so the work location for
+    // GPS check-in could not be set anywhere in the program
+    { id: 'gps', label: language === 'ar' ? 'موقع العمل (GPS)' : 'Work location (GPS)', icon: MapPin },
   ];
 
   return (
@@ -669,6 +673,10 @@ const AttendancePage = ({ language = 'ar' }) => {
             )}
           </div>
         </>
+      )}
+
+      {activeTab === 'gps' && (
+        <div className="max-w-2xl"><GPSSettings /></div>
       )}
 
       {/* Fingerprint Report Tab */}

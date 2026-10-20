@@ -475,6 +475,10 @@ async def update_attendance_settings(
 # GPS Settings — Company Location Management
 # ══════════════════════════════════════════════
 
+GPS_ADMIN_ROLES = {"HR Manager", "مدير الموارد البشرية", "General Manager", "مدير عام", "المدير العام",
+                   "CEO", "المدير التنفيذي", "Board Chairman", "رئيس مجلس الإدارة", "Super Admin", "admin", "owner"}
+
+
 @router.get("/gps-settings")
 async def get_gps_settings(authorization: Optional[str] = Header(None)):
     """جلب إعدادات GPS للشركة"""
@@ -498,14 +502,27 @@ async def save_gps_settings(data: dict, authorization: Optional[str] = Header(No
     """حفظ إعدادات GPS للشركة"""
     user_data = await verify_token_from_header(authorization)
     company_id = user_data.get("company_id")
+    # Anyone could move the office: an employee could set it to their home and
+    # check in from there. Only HR and top management set it.
+    if user_data.get("role") not in GPS_ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="ضبط موقع العمل لمدير الموارد البشرية أو الإدارة العليا")
+    try:
+        lat, lon = float(data["latitude"]), float(data["longitude"])
+        radius = float(data.get("radius_meters", 200))
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="حدد خط العرض وخط الطول بالأرقام")
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise HTTPException(status_code=400, detail="إحداثيات الموقع غير صحيحة")
+    if not (20 <= radius <= 5000):
+        raise HTTPException(status_code=400, detail="نطاق الحضور بين 20 و5000 متر")
     
     gps_settings = {
-        "enabled": data.get("enabled", True),
-        "latitude": float(data["latitude"]),
-        "longitude": float(data["longitude"]),
-        "radius_meters": float(data.get("radius_meters", 200)),
+        "enabled": bool(data.get("enabled", True)),
+        "latitude": lat,
+        "longitude": lon,
+        "radius_meters": radius,
         "address": data.get("address", ""),
-        "allow_remote": data.get("allow_remote", False),
+        "allow_remote": bool(data.get("allow_remote", False)),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": user_data.get("user_id"),
     }
