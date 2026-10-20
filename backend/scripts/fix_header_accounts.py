@@ -29,9 +29,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pymongo import MongoClient
 
-# parents the system posts to by code (invoice VAT fallback, imports, projects,
+# parents the system posts to by code (land and intangible assets, perpetual
+# stock 125, invoice VAT fallback, imports, projects,
 # government payments) — flagging them would make those postings fail
-POSTED_BY_SYSTEM = {"254", "332", "336", "338"}
+POSTED_BY_SYSTEM = {"111", "125", "222", "254", "332", "336", "338"}
 
 
 def main():
