@@ -143,13 +143,19 @@ export default function GPSSettings() {
           <span className="text-blue-600 font-bold text-sm">{settings.radius_meters}م</span>
         </div>
         <input
-          type="range" min="50" max="2000" step="50"
+          type="range" min="20" max="2000" step="10"
           value={settings.radius_meters}
           onChange={e => setSettings(s => ({ ...s, radius_meters: parseInt(e.target.value) }))}
           className="w-full accent-blue-600"
         />
+        {settings.radius_meters <= 30 && (
+          <p className="text-xs text-amber-700 mt-2">
+            {ar ? 'دقة GPS في الموبايل داخل المباني غالباً بين 10 و30 متراً — مع نطاق ضيق قد يُرفض موظف موجود فعلاً في المكتب، فيعيد المحاولة بجوار شباك أو يُفعّل «الموقع الدقيق» في الموبايل.'
+                : 'Phone GPS indoors is often 10–30 m accurate — a tight radius may refuse someone who is in the office.'}
+          </p>
+        )}
         <div className="flex justify-between text-xs text-gray-400 mt-1">
-          <span>50م {ar ? '(دقيق)' : '(precise)'}</span>
+          <span>20م {ar ? '(دقيق جداً)' : '(very precise)'}</span>
           <span>{ar ? '200م (موصى به)' : '200m (recommended)'}</span>
           <span>2000م</span>
         </div>
