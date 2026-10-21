@@ -60,6 +60,111 @@ REVENUE_CATEGORIES = {
 }
 
 
+# ============ SIMPLE VIEW: overview + combined movements ============
+# Read-only. Both read the same collections the add/cancel routes write
+# (projects, project_expenses, project_revenues, attachments); nothing stored
+# changes shape. Cancelled items stay listed but count for nothing, exactly
+# like /{project_id}/financials.
+
+def _num(v) -> float:
+    try:
+        return float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _money_summary(budget: float, revenue: float, expenses: float) -> dict:
+    budget = _num(budget)
+    return {
+        "budget": round(budget, 2),
+        "revenue": round(revenue, 2),
+        "expenses": round(expenses, 2),
+        "profit": round(revenue - expenses, 2),
+        "remaining": round(budget - expenses, 2) if budget > 0 else None,
+        "spent_pct": round(expenses / budget * 100, 1) if budget > 0 else None,
+    }
+
+
+async def projects_overview(company_id: str) -> dict:
+    """Every project of this company with its revenue / expenses to date."""
+    projects = await db.projects.find({"company_id": company_id}, {"_id": 0}).sort("created_at", -1).to_list(length=None)
+    sums = {}
+    for kind, coll in (("expenses", db.project_expenses), ("revenue", db.project_revenues)):
+        async for it in coll.find({"company_id": company_id, "status": {"$ne": "cancelled"}},
+                                  {"_id": 0, "project_id": 1, "amount": 1}):
+            row = sums.setdefault(it.get("project_id"), {"expenses": 0.0, "revenue": 0.0})
+            row[kind] += _num(it.get("amount"))
+    out, tot = [], {"budget": 0.0, "revenue": 0.0, "expenses": 0.0}
+    for p in projects:
+        s = sums.get(p.get("id"), {"expenses": 0.0, "revenue": 0.0})
+        m = _money_summary(p.get("budget"), s["revenue"], s["expenses"])
+        tot["budget"] += m["budget"]; tot["revenue"] += m["revenue"]; tot["expenses"] += m["expenses"]
+        out.append({"id": p.get("id"), "name": p.get("name"), "client_name": p.get("client_name") or "",
+                    "status": p.get("status") or "planning", "start_date": p.get("start_date"),
+                    "end_date": p.get("end_date"), "notes": p.get("notes") or "",
+                    "description": p.get("description") or "", "progress": p.get("progress", 0), **m})
+    return {"projects": out, "totals": {k: round(v, 2) for k, v in tot.items()} |
+            {"profit": round(tot["revenue"] - tot["expenses"], 2), "count": len(out)}}
+
+
+async def project_movements(company_id: str, project_id: str, kind: Optional[str] = None) -> dict:
+    """One list of a project's revenues and expenses, newest first, with totals."""
+    project = await db.projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    q = {"project_id": project_id, "company_id": company_id}
+    rows = []
+    for k, coll in (("expense", db.project_expenses), ("revenue", db.project_revenues)):
+        async for it in coll.find(q, {"_id": 0}):
+            rows.append((k, it))
+    ids = [it["id"] for _, it in rows if it.get("id")]
+    files = {}
+    if ids:
+        async for a in db.attachments.find(
+                {"company_id": company_id, "entity_type": {"$in": ["project_expense", "project_revenue"]},
+                 "entity_id": {"$in": ids}}, {"_id": 0, "id": 1, "entity_id": 1, "filename": 1}):
+            files.setdefault(a["entity_id"], []).append({"id": a["id"], "filename": a.get("filename")})
+    revenue = sum(_num(it.get("amount")) for k, it in rows if k == "revenue" and it.get("status") != "cancelled")
+    expenses = sum(_num(it.get("amount")) for k, it in rows if k == "expense" and it.get("status") != "cancelled")
+    movements = [{
+        "id": it.get("id"), "kind": k, "date": it.get("date"), "description": it.get("description") or "",
+        "amount": round(_num(it.get("amount")), 2), "category": it.get("category"),
+        "party": (it.get("vendor") if k == "expense" else it.get("customer")) or "",
+        "paid_from": it.get("paid_from"), "paid_from_code": it.get("paid_from_code"),
+        "paid_from_name": it.get("paid_from_name") or "", "payment_method": it.get("payment_method"),
+        "account_code": it.get("account_code"), "account_name": it.get("account_name"),
+        "journal_entry_number": it.get("journal_entry_number"), "status": it.get("status") or "posted",
+        "cancel_reason": it.get("cancel_reason"), "created_at": it.get("created_at"),
+        "attachments": files.get(it.get("id"), []),
+    } for k, it in rows if kind in (None, "", k)]
+    movements.sort(key=lambda m: (str(m["date"] or ""), str(m["created_at"] or "")), reverse=True)
+    return {
+        "project": {"id": project["id"], "name": project.get("name"), "client_name": project.get("client_name") or "",
+                    "status": project.get("status") or "planning", "start_date": project.get("start_date"),
+                    "end_date": project.get("end_date"), "notes": project.get("notes") or "",
+                    "description": project.get("description") or "", "budget": _num(project.get("budget"))},
+        "summary": _money_summary(project.get("budget"), revenue, expenses) | {
+            "count": len([m for m in movements if m["status"] != "cancelled"])},
+        "movements": movements,
+    }
+
+
+@router.get("/all/overview")
+async def get_projects_overview(authorization: Optional[str] = Header(None)):
+    """قائمة المشاريع مع الإيرادات والمصروفات والربح ونسبة صرف الميزانية."""
+    user_data = await verify_token_from_header(authorization)
+    return await projects_overview(user_data.get("company_id"))
+
+
+@router.get("/{project_id}/movements")
+async def get_project_movements(project_id: str, kind: Optional[str] = None,
+                                authorization: Optional[str] = Header(None)):
+    """كل حركات المشروع (إيرادات ومصروفات) في جدول واحد مع الملخص."""
+    user_data = await verify_token_from_header(authorization)
+    return await project_movements(user_data.get("company_id"), project_id,
+                                   kind if kind in ("revenue", "expense") else None)
+
+
 # ============ PROJECT EXPENSES ============
 
 async def _posted_entry_for(company_id: str, doc_type: str, doc_id: str):
@@ -577,12 +682,12 @@ async def get_all_projects_financials(
     
     # Get all expenses and revenues
     all_expenses = await db.project_expenses.find(
-        {"company_id": company_id},
+        {"company_id": company_id, "status": {"$ne": "cancelled"}},   # reversed in the books
         {"_id": 0, "project_id": 1, "amount": 1, "category": 1}
     ).to_list(length=None)
     
     all_revenues = await db.project_revenues.find(
-        {"company_id": company_id},
+        {"company_id": company_id, "status": {"$ne": "cancelled"}},
         {"_id": 0, "project_id": 1, "amount": 1, "category": 1}
     ).to_list(length=None)
     

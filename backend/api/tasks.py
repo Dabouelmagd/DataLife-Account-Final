@@ -39,6 +39,8 @@ def generate_id(prefix=""):
 
 # ============ PROJECTS ============
 
+PROJECT_STATUSES = ("planning", "in_progress", "on_hold", "completed", "cancelled")
+
 @router.post("/projects")
 async def create_project(
     project_data: dict,
@@ -53,7 +55,10 @@ async def create_project(
         "company_id": company_id,
         "name": project_data.get("name"),
         "description": project_data.get("description", ""),
-        "status": "planning",  # planning, in_progress, on_hold, completed, cancelled
+        "client_name": str(project_data.get("client_name") or "").strip(),
+        "notes": str(project_data.get("notes") or "").strip(),
+        # planning, in_progress, on_hold, completed, cancelled
+        "status": project_data.get("status") if project_data.get("status") in PROJECT_STATUSES else "planning",
         "priority": project_data.get("priority", "medium"),  # low, medium, high, urgent
         "start_date": project_data.get("start_date"),
         "end_date": project_data.get("end_date"),
@@ -136,9 +141,12 @@ async def update_project(
     company_id = user_data.get("company_id")
     
     allowed_fields = ["name", "description", "status", "priority", "start_date", 
-                      "end_date", "budget", "manager_id", "team_members", "tags"]
+                      "end_date", "budget", "manager_id", "team_members", "tags",
+                      "client_name", "notes"]
     
     update_fields = {k: v for k, v in update_data.items() if k in allowed_fields}
+    if "status" in update_fields and update_fields["status"] not in PROJECT_STATUSES:
+        raise HTTPException(status_code=400, detail="حالة المشروع غير صحيحة")
     update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     result = await db.projects.update_one(
@@ -161,8 +169,17 @@ async def delete_project(
     user_data = await verify_token_from_header(authorization)
     company_id = user_data.get("company_id")
     
+    if not await db.projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Project not found")
+    # its revenues / expenses are posted entries in the ledger: deleting the
+    # project would leave them pointing at nothing
+    money = {"project_id": project_id, "company_id": company_id, "status": {"$ne": "cancelled"}}
+    if await db.project_expenses.find_one(money, {"_id": 1}) or await db.project_revenues.find_one(money, {"_id": 1}):
+        raise HTTPException(status_code=400, detail="المشروع عليه إيرادات أو مصروفات مسجّلة في الحسابات — "
+                                                    "غيّر حالته إلى «ملغي» أو «مكتمل» بدل حذفه")
+
     # Delete all tasks in project
-    await db.tasks.delete_many({"project_id": project_id})
+    await db.tasks.delete_many({"project_id": project_id, "company_id": company_id})
     
     # Delete project
     result = await db.projects.delete_one({"id": project_id, "company_id": company_id})
