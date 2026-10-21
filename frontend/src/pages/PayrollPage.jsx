@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '../contexts/LanguageContext';
 import PayrollSheet from '../components/PayrollSheet';
 import PayrollBankFilePanel from '../components/PayrollBankFilePanel';
+import PayrollFunds, { FundsReviewBanner } from '../components/hr/PayrollFunds';
 
 const API = process.env.REACT_APP_BACKEND_URL + '/api/payroll';
 
@@ -673,6 +674,7 @@ export default function PayrollPage() {
       {/* Tab Content */}
       <div className="bg-white rounded-lg shadow p-6">
         {/* Payroll Runs Tab */}
+        {activeTab === 'runs' && <div className="mb-4"><FundsReviewBanner settings={settings} onOpen={() => setActiveTab('settings')} /></div>}
         {activeTab === 'runs' && (
           <>
             <div className="flex justify-between items-center mb-4">
@@ -909,7 +911,10 @@ export default function PayrollPage() {
 
         {/* Settings Tab */}
         {activeTab === 'settings' && settings && (
-          <PayrollLawSettings settings={settings} onSaved={fetchSettings} />
+          <div className="space-y-6">
+            <PayrollLawSettings settings={settings} onSaved={fetchSettings} />
+            <PayrollFunds key={settings.funds_reviewed ? 'r' : 'n'} settings={settings} onSaved={fetchSettings} />
+          </div>
         )}
       </div>
 

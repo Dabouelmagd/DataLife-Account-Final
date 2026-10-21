@@ -337,12 +337,7 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
     tax_id,    tax_code,    tax_name    = get_account_info(settings.get("income_tax_payable_account"),       "266")  # ضريبة كسب العمل
     sal_pay_id,sal_pay_code,sal_pay_name= get_account_info(settings.get("salaries_payable_account"),        "253")  # صافي الرواتب المستحقة
     loan_id,   loan_code,   loan_name   = get_account_info(settings.get("loans_receivable_account"),        "134")  # سلف الموظفين
-    # صناديق إجبارية — قانون 148/2019
-    emg_exp_id,emg_exp_code,emg_exp_name= get_account_info(None, "339")  # مصروف صندوق الطوارئ 1%
-    emg_pay_id,emg_pay_code,emg_pay_name= get_account_info(None, "258")  # صندوق الطوارئ مستحق
-    mrt_pay_id,mrt_pay_code,mrt_pay_name= get_account_info(None, "259")  # صندوق الشهداء 0.05% مستحق
-    uhi_exp_id,uhi_exp_code,uhi_exp_name= get_account_info(None, "340")  # مصروف التأمين الصحي الشامل 0.25%
-    uhi_pay_id,uhi_pay_code,uhi_pay_name= get_account_info(None, "262")  # التأمين الصحي الشامل مستحق
+    # الصناديق: services/payroll_funds (إعدادات كل شركة)
     
     lines = []
     
@@ -381,27 +376,6 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
             description="تأمينات اجتماعية — حصة الشركة 18.75%"
         ))
 
-    # مدين: مصروف صندوق إعانة الطوارئ 1% من أجر الاشتراك الأساسي
-    emergency_basic = payroll["total_basic_salary"]  # أجر الاشتراك الأساسي
-    emg_amount = round(emergency_basic * 0.01, 2)
-    if emg_amount > 0 and emg_exp_id:
-        lines.append(JournalEntryLine(
-            account_id=emg_exp_id, account_code=emg_exp_code, account_name=emg_exp_name,
-            debit=emg_amount, credit=0,
-            description="صندوق إعانة الطوارئ للعمال — 1%"
-        ))
-
-    # مدين: مصروف التأمين الصحي الشامل — حصة الشركة 0.25% من إجمالي الإيرادات
-    # يُحسب تقريباً على إجمالي الأجر الشامل
-    gross_payroll = payroll.get("total_gross_salary", payroll["total_basic_salary"])
-    uhi_amount = round(gross_payroll * 0.0025, 2)
-    if uhi_amount > 0 and uhi_exp_id:
-        lines.append(JournalEntryLine(
-            account_id=uhi_exp_id, account_code=uhi_exp_code, account_name=uhi_exp_name,
-            debit=uhi_amount, credit=0,
-            description="التأمين الصحي الشامل — حصة الشركة 0.25%"
-        ))
-
     # دائن: التأمينات الاجتماعية مستحقة (حصة الموظف + حصة الشركة)
     total_si = payroll["total_social_insurance"] + company_si
     if total_si > 0 and si_pay_id:
@@ -411,59 +385,38 @@ async def create_payroll_journal_entry(payroll: dict, settings: dict, user_id: s
             description="التأمينات الاجتماعية مستحقة — حصة الموظف + الشركة"
         ))
 
-    # دائن: صندوق إعانة الطوارئ مستحق
-    if emg_amount > 0 and emg_pay_id:
-        lines.append(JournalEntryLine(
-            account_id=emg_pay_id, account_code=emg_pay_code, account_name=emg_pay_name,
-            debit=0, credit=emg_amount,
-            description="صندوق إعانة الطوارئ مستحق"
-        ))
-
-    # مدين + دائن: صندوق دعم الأشخاص ذوي الإعاقة — قانون 10/2018
-    # كان غير مسجَّل إطلاقاً رغم أنه استقطاع واجب على المنشأة
-    disability_rate = float(os.environ.get("DISABILITY_FUND_RATE", "0.0005"))
-    disability_amount = round(emergency_basic * disability_rate, 2)
-    dis_exp_id, dis_exp_code, dis_exp_name = get_account_info(None, "3383")
-    dis_pay_id, dis_pay_code, dis_pay_name = get_account_info(None, "269")
-    if disability_amount > 0 and dis_exp_id and dis_pay_id:
-        lines.append(JournalEntryLine(
-            account_id=dis_exp_id, account_code=dis_exp_code, account_name=dis_exp_name,
-            debit=disability_amount, credit=0,
-            description="مصروف صندوق دعم ذوي الإعاقة — حصة المنشأة"))
-        lines.append(JournalEntryLine(
-            account_id=dis_pay_id, account_code=dis_pay_code, account_name=dis_pay_name,
-            debit=0, credit=disability_amount,
-            description="صندوق دعم ذوي الإعاقة مستحق"))
-
-    # مدين + دائن: صندوق تكريم الشهداء والمفقودين 0.05% — قانون 148/2019
-    martyrs_amount = round(emergency_basic * 0.0005, 2)
-    # 338 is "مصروفات تأمين" in this chart — the martyrs fund was being posted
-    # to insurance expenses. 3382 is the fund's own account.
-    mrt_exp_id, mrt_exp_code, mrt_exp_name = get_account_info(None, "3382")
-    if martyrs_amount > 0:
-        # مدين: مصروف صندوق تكريم الشهداء
-        if mrt_exp_id:
+    # الصناديق والمساهمات — حسب إعدادات الشركة (الرواتب ← الإعدادات)
+    from services.payroll_funds import FUNDS, funds_config, company_amounts
+    fcfg = funds_config(settings)
+    co_funds = company_amounts(fcfg, payroll["total_basic_salary"],
+                               payroll.get("total_gross_salary", payroll["total_basic_salary"]))
+    emp_funds = {k: round(float(v or 0), 2) for k, v in (payroll.get("employee_funds") or {}).items()}
+    funds_posted = {}
+    for fkey, f in FUNDS.items():
+        co_amt, emp_amt = co_funds.get(fkey, 0.0), emp_funds.get(fkey, 0.0)
+        if not (co_amt or emp_amt):
+            continue
+        p_id, p_code, p_name = get_account_info(None, f["liability"])
+        if not p_id:
+            raise HTTPException(status_code=400, detail=(
+                f"الحساب {f['payable']} ({f['name']}) غير موجود — شغّل مزامنة الحسابات الافتراضية "
+                "أو أوقف هذا الصندوق من إعدادات الرواتب"))
+        if co_amt:
+            x_id, x_code, x_name = get_account_info(None, f["expense"])
+            if not x_id:
+                raise HTTPException(status_code=400, detail=(
+                    f"حساب المصروف {f['expense']} ({f['name']}) غير موجود — شغّل مزامنة الحسابات الافتراضية"))
             lines.append(JournalEntryLine(
-                account_id=mrt_exp_id, account_code=mrt_exp_code, account_name=mrt_exp_name,
-                debit=martyrs_amount, credit=0,
-                description="مصروف صندوق تكريم الشهداء والمفقودين — 0.05%"
-            ))
-        # دائن: صندوق تكريم الشهداء مستحق
-        if mrt_pay_id:
-            lines.append(JournalEntryLine(
-                account_id=mrt_pay_id, account_code=mrt_pay_code, account_name=mrt_pay_name,
-                debit=0, credit=martyrs_amount,
-                description="صندوق تكريم الشهداء والمفقودين مستحق — 0.05%"
-            ))
-
-    # دائن: التأمين الصحي الشامل مستحق
-    if uhi_amount > 0 and uhi_pay_id:
+                account_id=x_id, account_code=x_code, account_name=x_name,
+                debit=co_amt, credit=0, description=f"مصروف {f['name']} — {fcfg[fkey]['rate']}%"))
         lines.append(JournalEntryLine(
-            account_id=uhi_pay_id, account_code=uhi_pay_code, account_name=uhi_pay_name,
-            debit=0, credit=uhi_amount,
-            description="التأمين الصحي الشامل مستحق — 0.25%"
-        ))
-    
+            account_id=p_id, account_code=p_code, account_name=p_name,
+            debit=0, credit=round(co_amt + emp_amt, 2),
+            description=f"{f['name']} مستحق" + (" — مخصوم من الموظفين" if emp_amt and not co_amt else "")))
+        funds_posted[fkey] = {"company": co_amt, "employee": emp_amt, "liability": f["liability"]}
+    await db.payroll_runs.update_one({"id": payroll["id"], "company_id": company_id},
+                                     {"$set": {"funds_posted": funds_posted}})
+
     # دائن: ضريبة كسب العمل مستحقة
     if payroll["total_income_tax"] > 0 and tax_id:
         lines.append(JournalEntryLine(
@@ -589,6 +542,9 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
         "employee_social_insurance_rate": ep.EMPLOYEE_RATE, "company_social_insurance_rate": ep.EMPLOYER_RATE,
         "tax_law": "قانون 91/2005 معدلاً بالقانون 7/2024 — يُطبَّق تلقائياً",
     })
+    from services.payroll_funds import describe
+    settings["funds"] = describe(settings)
+    settings["funds_reviewed"] = bool(settings.get("funds_reviewed_at"))
     return settings
 
 
@@ -606,6 +562,13 @@ async def update_settings(
     allowed = {"social_insurance_min_wage", "social_insurance_max_wage", "insurance_year",
                "overtime_rate", "overtime_rate_holiday", "working_days_per_month", "working_hours_per_day"}
     clean = {k: v for k, v in (settings or {}).items() if k in allowed}
+    if "funds" in (settings or {}):
+        from services.payroll_funds import clean_funds
+        try:
+            clean["funds"] = clean_funds(settings["funds"])
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        clean["funds_reviewed_at"] = datetime.utcnow().isoformat()
     for k in ("social_insurance_min_wage", "social_insurance_max_wage"):
         if k in clean:
             try:
@@ -860,7 +823,7 @@ async def get_payroll_run(
 SHEET_DEDUCTIONS = [
     ("social_insurance", "تأمينات (حصة الموظف)"), ("income_tax", "ضريبة كسب العمل"),
     ("loans", "أقساط السلف"), ("late", "خصم تأخير"), ("absence", "خصم غياب"),
-    ("penalties", "جزاءات"), ("other", "خصومات أخرى"),
+    ("penalties", "جزاءات"), ("funds", "صناديق (حصة الموظف)"), ("other", "خصومات أخرى"),
 ]
 
 
@@ -872,6 +835,8 @@ def _deduction_column(d: dict) -> str:
         return "loans"
     if t == "penalty":
         return "penalties"
+    if t == "fund":
+        return "funds"
     if "تأخير" in name:
         return "late"
     if "غياب" in name:
@@ -1330,6 +1295,15 @@ async def _compute_employee_payroll(emp: dict, month: str, company_id: str, sett
         totals["other_deductions"] += amt
         totals["penalties"] = totals.get("penalties", 0) + amt
 
+    # 8. صناديق يتحملها الموظف (حسب إعدادات الشركة — مثلاً صندوق الشهداء)
+    from services.payroll_funds import funds_config, employee_deductions
+    for fkey, fname, famt in employee_deductions(funds_config(settings), basic_salary, gross_salary):
+        deductions.append(PayrollDeduction(
+            deduction_type=DeductionType.FUND, name=fname, amount=famt, reference_id=fkey))
+        totals["employee_funds"] = round(totals.get("employee_funds", 0) + famt, 2)
+        ef = totals.setdefault("employee_funds_by", {})
+        ef[fkey] = round(ef.get(fkey, 0) + famt, 2)
+
     total_deductions = sum(d.amount for d in deductions)
     net_salary = gross_salary - total_deductions
 
@@ -1441,6 +1415,8 @@ async def _calculate_run(payroll: dict, job_id: Optional[str] = None) -> dict:
         "total_loans": round(totals["loans"], 2),
         "total_other_deductions": round(totals["other_deductions"], 2),
         "total_penalties": round(totals.get("penalties", 0), 2),
+        "total_employee_funds": round(totals.get("employee_funds", 0), 2),
+        "employee_funds": totals.get("employee_funds_by", {}),
         "total_late_deductions": round(totals["late_deductions"], 2),
         "total_absence_deductions": round(totals["absence_deductions"], 2),
         "total_overtime_bonus": round(totals["overtime_bonus"], 2),
@@ -2989,9 +2965,6 @@ async def disburse_payroll(
     bank_id,     bank_code,     bank_name      = acct("bank_account_id",                  "162")
     si_pay_id,   si_pay_code,   si_pay_name    = acct("social_insurance_payable_account_id","255")
     tax_id,      tax_code,      tax_name       = acct("income_tax_payable_account_id",    "266")
-    emg_pay_id,  emg_pay_code,  emg_pay_name   = acct(None,                               "258")
-    mrt_pay_id,  mrt_pay_code,  mrt_pay_name   = acct(None,                               "259")
-    uhi_pay_id,  uhi_pay_code,  uhi_pay_name   = acct(None,                               "262")
     
     # month is stored as "YYYY-MM"; prefixing the year again printed "2026/2026-09"
     _m = str(run.get('month', ''))
@@ -3057,36 +3030,33 @@ async def disburse_payroll(
             description="سداد ضريبة كسب العمل لمصلحة الضرائب"
         ))
     
-    # مدين: صندوق الطوارئ مستحق
-    emg_amount = round(run.get("total_basic_salary", 0) * 0.01, 2)
-    if emg_amount > 0 and emg_pay_id:
-        lines_b.append(JournalEntryLine(
-            account_id=emg_pay_id, account_code=emg_pay_code, account_name=emg_pay_name,
-            debit=emg_amount, credit=0,
-            description="سداد صندوق إعانة الطوارئ — 1%"
-        ))
-    
-    # مدين: صندوق الشهداء مستحق
-    mrt_amount = round(run.get("total_basic_salary", 0) * 0.0005, 2)
-    if mrt_amount > 0 and mrt_pay_id:
-        lines_b.append(JournalEntryLine(
-            account_id=mrt_pay_id, account_code=mrt_pay_code, account_name=mrt_pay_name,
-            debit=mrt_amount, credit=0,
-            description="سداد صندوق تكريم الشهداء — 0.05%"
-        ))
-    
-    # مدين: التأمين الصحي الشامل مستحق
-    gross_payroll = run.get("total_gross_salary", run.get("total_basic_salary", 0))
-    uhi_amount = round(gross_payroll * 0.0025, 2)
-    if uhi_amount > 0 and uhi_pay_id:
-        lines_b.append(JournalEntryLine(
-            account_id=uhi_pay_id, account_code=uhi_pay_code, account_name=uhi_pay_name,
-            debit=uhi_amount, credit=0,
-            description="سداد التأمين الصحي الشامل — 0.25%"
-        ))
-    
+    # مدين: الصناديق المستحقة — ما رُحِّل فعلاً عند الاعتماد (funds_posted).
+    # It recomputed fixed rates here (and never paid the disability fund), so a
+    # company that changed or stopped a fund paid amounts it never accrued.
+    from services.payroll_funds import FUNDS
+    funds_posted = run.get("funds_posted")
+    if funds_posted is None:   # approved before funds became settings: the old fixed rates
+        _b = run.get("total_basic_salary", 0)
+        _g = run.get("total_gross_salary", _b)
+        funds_posted = {"emergency": {"company": round(_b * 0.01, 2), "employee": 0, "liability": "258"},
+                        "martyrs": {"company": round(_b * 0.0005, 2), "employee": 0, "liability": "259"},
+                        "uhi": {"company": round(_g * 0.0025, 2), "employee": 0, "liability": "262"}}
+    paid_funds = {}
+    for fkey, fp in funds_posted.items():
+        amt = round(float(fp.get("company") or 0) + float(fp.get("employee") or 0), 2)
+        f_id, f_code, f_name = acct(None, fp.get("liability") or FUNDS.get(fkey, {}).get("liability", ""))
+        if amt > 0 and f_id:
+            lines_b.append(JournalEntryLine(
+                account_id=f_id, account_code=f_code, account_name=f_name,
+                debit=amt, credit=0,
+                description=f"سداد {FUNDS.get(fkey, {}).get('name', f_name)}"))
+            paid_funds[fkey] = amt
+    emg_amount = paid_funds.get("emergency", 0.0)
+    mrt_amount = paid_funds.get("martyrs", 0.0)
+    uhi_amount = paid_funds.get("uhi", 0.0)
+
     # دائن: البنك (إجمالي المدفوعات الحكومية)
-    total_gov = round(total_si + total_tax + emg_amount + mrt_amount + uhi_amount, 2)
+    total_gov = round(total_si + total_tax + sum(paid_funds.values()), 2)
     if total_gov > 0 and bank_id and lines_b:
         lines_b.append(JournalEntryLine(
             account_id=bank_id, account_code=bank_code, account_name=bank_name,
@@ -3146,6 +3116,7 @@ async def disburse_payroll(
                     "emergency_fund": emg_amount,
                     "martyrs_fund": mrt_amount,
                     "uhi": uhi_amount,
+                    "funds": paid_funds,
                     "total": total_gov
                 }
             }

@@ -430,7 +430,7 @@ async def update_payment_request(
 
     # Idempotent: a request that was already reviewed is never re-applied,
     # so a double click can't create two subscriptions.
-    if req.get("status") != "pending":
+    if req.get("status") not in ("pending", "awaiting_payment"):
         return {"message": f"Request already {req.get('status')}", "status": req.get("status")}
 
     now = datetime.now(timezone.utc)
@@ -474,8 +474,38 @@ async def update_payment_request(
                 "subscription_status": "active",
                 "subscription_plan": plan,
                 "subscription_expires_at": end_date.isoformat(),
+                "auto_renew": bool(req.get("auto_renew")),
             }},
         )
+        if req.get("auto_renew"):
+            await db.subscriptions.update_one({"id": subscription_id}, {"$set": {
+                "auto_renew": True, "renewal_packs": req.get("packs") or []}})
+
+        # the sector packs chosen with the plan are part of the same payment
+        from services.pricing import DURATIONS
+        months = (DURATIONS.get(duration) or {}).get("months") or 1
+        activated_packs = []
+        for pack_key in req.get("packs") or []:
+            try:
+                await activate_pack(company_id, pack_key, months, user.get("email"),
+                                    req.get("reference_number", ""), request_id, end_date)
+                activated_packs.append(pack_key)
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"تعذّر تفعيل باقة {pack_key}: {e}")
+
+        # one tax invoice for the whole payment (plan + packs), VAT contained in the total
+        invoice = None
+        if (req.get("amount_egp") or 0) > 0:
+            from services.subscription_invoices import issue_and_send
+            q = req.get("quote") or {}
+            invoice = await issue_and_send(db, {
+                "id": request_id, "company_id": company_id, "amount": req.get("amount_egp"),
+                "plan": plan, "period": (DURATIONS.get(duration) or {}).get("label", duration),
+                "description": "، ".join(l.get("label", "") for l in q.get("lines", [])) or f"اشتراك {plan}",
+                "payment_method": req.get("payment_method") or "تحويل",
+            }, company_id)
 
     await db.payment_requests.update_one(
         {"id": request_id},
@@ -487,4 +517,33 @@ async def update_payment_request(
             "subscription_id": subscription_id,
         }}
     )
-    return {"message": f"Request {status}", "status": status, "subscription_id": subscription_id}
+    out = {"message": f"Request {status}", "status": status, "subscription_id": subscription_id}
+    if status == "approved":
+        out.update({"packs_activated": activated_packs, "invoice": invoice})
+    return out
+
+
+async def activate_pack(company_id: str, pack_key: str, months: int, confirmed_by: str,
+                        reference: str, request_id: str, ends_at) -> None:
+    """Inject the pack's accounts and record it active — paid inside a plan payment."""
+    from services.industry_packs import PACKS, pack_accounts
+    if pack_key not in PACKS:
+        raise HTTPException(status_code=400, detail=f"باقة المجال «{pack_key}» غير موجودة")
+    existing = {a["account_code"] async for a in db.chart_of_accounts.find(
+        {"company_id": company_id}, {"_id": 0, "account_code": 1})}
+    to_add = [a for a in pack_accounts(pack_key, company_id) if a["account_code"] not in existing]
+    if to_add:
+        await db.chart_of_accounts.insert_many(to_add)
+    now = datetime.now(timezone.utc)
+    await db.pack_subscriptions.update_many(
+        {"company_id": company_id, "pack_key": pack_key, "status": "pending_payment"},
+        {"$set": {"status": "replaced"}})
+    await db.pack_subscriptions.insert_one({
+        "id": str(uuid.uuid4()), "company_id": company_id, "pack_key": pack_key,
+        "pack_name": PACKS[pack_key]["name_ar"], "months": months, "status": "active",
+        "activated_at": now.isoformat(), "expires_at": ends_at.isoformat(),
+        "confirmed_by": confirmed_by, "payment_reference": reference,
+        "payment_request_id": request_id})
+    await db.companies.update_one({"id": company_id}, {
+        "$addToSet": {"industry_packs": pack_key},
+        "$set": {f"industry_pack_dates.{pack_key}": now.isoformat()}})

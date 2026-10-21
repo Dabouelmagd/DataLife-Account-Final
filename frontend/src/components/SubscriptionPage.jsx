@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { IndustryPacksTab, SubscriptionInvoicesTab } from './subscription/IndustryPacksTab';
+import PricingSection, { RenewalInvoices } from './PricingSection';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -32,7 +33,7 @@ const SubscriptionPage = () => {
     'hr-only': 'HR only', 'financial-only': 'Financial only',
     'inventory-only': 'Inventory only', trial: 'Trial',
   };
-  const [pageTab, setPageTab] = useState('plans');   // plans | packs | invoices
+  const [pageTab, setPageTab] = useState(() => { try { return localStorage.getItem('dl_pricing_choice') ? 'build' : 'plans'; } catch { return 'plans'; } });   // build | plans | packs | invoices
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -281,7 +282,8 @@ const SubscriptionPage = () => {
         </div>
 
         <div className="flex flex-wrap gap-2 mb-6" role="tablist">
-          {[['plans', isRTL ? 'الاشتراك والتجديد' : 'Subscription'],
+          {[['build', isRTL ? 'احسب اشتراكك وادفع' : 'Build & pay'],
+            ['plans', isRTL ? 'الاشتراك والتجديد' : 'Subscription'],
             ['packs', isRTL ? 'باقات القطاعات' : 'Industry packs'],
             ['invoices', isRTL ? 'الفواتير الضريبية' : 'Tax invoices']].map(([k, l]) => (
             <button key={k} role="tab" aria-selected={pageTab === k} onClick={() => setPageTab(k)}
@@ -291,6 +293,8 @@ const SubscriptionPage = () => {
           ))}
         </div>
 
+        <RenewalInvoices ar={isRTL} />
+        {pageTab === 'build' && <div className="rounded-2xl bg-[#060c1a] p-4 sm:p-6"><PricingSection /></div>}
         {pageTab === 'packs' && <IndustryPacksTab language={language} />}
         {pageTab === 'invoices' && <SubscriptionInvoicesTab language={language} />}
         <div style={{ display: pageTab === 'plans' ? 'block' : 'none' }}>

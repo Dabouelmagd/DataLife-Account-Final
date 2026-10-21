@@ -47,27 +47,36 @@ export default function LandingPage() {
     { icon: '🔍', title: ar ? 'كشف الاحتيال Benford' : "Fraud Detection — Benford's Law", desc: ar ? 'تحليل χ² للأرقام المحاسبية. ينبه عند اكتشاف تلاعب في البيانات.' : 'χ² analysis of accounting numbers. Alerts on detected manipulation.', tags: ["Benford χ²", ar?'تنبيه':'Alert'], color: 'from-red-600 to-rose-500' },
     { icon: '📊', title: ar ? 'Treasury + Cash Runway' : 'Treasury + Cash Runway', desc: ar ? 'نقدية حرة/مقيدة + عدد شهور التشغيل + رادار الموازنة. يُحسَب لحظياً من دفتر الأستاذ.' : 'Free/restricted cash + runway in months + budget radar. Live from the ledger.', tags: [ar?'لحظي':'Live', 'Cash Runway'], color: 'from-amber-600 to-yellow-500' },
     { icon: '🏗️', title: ar ? 'محرك المقاولات' : 'Contracting Engine', desc: ar ? 'مستخلصات + تأمين حسن التنفيذ + خطابات ضمان + مقاولو الباطن + خصم وتحصيل وقيمة مضافة 5%/14%' : 'Claims + retention + letters of guarantee + subcontractors + WHT and 5%/14% VAT', tags: [ar?'مستخلصات':'Claims', 'LGs', 'BOQ'], color: 'from-blue-600 to-blue-500' },
+    { icon: '📍', title: ar ? 'حضور بالموقع + عمل عن بُعد' : 'Location attendance + remote work', desc: ar ? 'بصمة ويدوي وGPS مع بعض. نطاق حول موقع الشركة، والعمل عن بُعد لموظفين محددين بس.' : 'Fingerprint, manual and GPS together. A radius around the office, and remote work for chosen employees only.', tags: ['GPS', ar?'عمل عن بُعد':'Remote'], color: 'from-sky-600 to-cyan-500', isNew: true },
+    { icon: '📱', title: ar ? 'تطبيق الموظف على الموبايل' : 'Employee app on the phone', desc: ar ? 'لينك واحد datalifeaccount.com/staff — الموظف يثبّته على الشاشة الرئيسية ويسجّل حضوره ويطلب إجازة ويشوف قسيمته.' : 'One link datalifeaccount.com/staff — installs on the home screen; check in, request leave, see payslips.', tags: [ar?'أندرويد وآيفون':'Android & iPhone'], color: 'from-violet-600 to-fuchsia-500', isNew: true },
+    { icon: '🧮', title: ar ? 'كشف رواتب كامل + صناديق اختيارية' : 'Full payroll sheet + optional funds', desc: ar ? 'كل مكونات الراتب في جدول بفلتر الإدارة والفرع وتصدير Excel، وملفات تحويل للبنوك. الصناديق والمساهمات اختيارية لكل شركة بنسبها.' : 'Every pay component in one table by department/branch with Excel export and bank files. Payroll funds optional per company.', tags: ['Excel', ar?'ملفات بنوك':'Bank files'], color: 'from-emerald-600 to-teal-500', isNew: true },
+    { icon: '🎯', title: ar ? 'تقييم الأداء ومؤشرات KPI' : 'Appraisals & KPIs', desc: ar ? 'مكتبة مؤشرات جاهزة لكل وظيفة، والتقييم يظهر في ملف الموظف وفي بوابته.' : 'Ready KPI sets per job; the appraisal shows on the employee file and portal.', tags: ['KPI'], color: 'from-pink-600 to-rose-500', isNew: true },
+    { icon: '📆', title: ar ? 'إقفال السنة والعملات الأجنبية' : 'Year-end close & foreign currency', desc: ar ? 'إقفال السنة المالية وإعادة فتحها، وفروق العملة المحققة وإعادة التقييم، والتسوية البنكية.' : 'Close and reopen the year, realised FX differences and revaluation, bank reconciliation.', tags: [ar?'إقفال':'Close', 'FX'], color: 'from-yellow-600 to-amber-500', isNew: true },
+    { icon: '🛍️', title: ar ? 'نقاط بيع بدون إنترنت + متجر إلكتروني' : 'Offline POS + online store', desc: ar ? 'الكاشير يكمّل لو النت قطع ويرحّل لما يرجع، مع الإيصال الإلكتروني، وربط طلبات متجر سلة.' : 'The till keeps selling offline and syncs later, with e-receipts and Salla store orders.', tags: ['POS', ar?'إيصال إلكتروني':'E-receipt'], color: 'from-orange-600 to-red-500', isNew: true },
+    { icon: '💾', title: ar ? 'نسخ احتياطي وتصدير بياناتك' : 'Backups & your data export', desc: ar ? 'نسخة احتياطية يومية مشفّرة خارج السيرفر، وتقدر تصدّر كل بيانات شركتك في أي وقت.' : 'Daily encrypted off-site backup, and export all your company data any time.', tags: [ar?'يومي':'Daily', ar?'تصدير':'Export'], color: 'from-slate-600 to-slate-500', isNew: true },
+    { icon: '↩️', title: ar ? 'المرتجعات والإشعارات الدائنة' : 'Returns & credit notes', desc: ar ? 'المرتجع يرجع للمخزن أو الحجر أو الإعدام، والإشعار الدائن مربوط بالفاتورة الأصلية في الفاتورة الإلكترونية.' : 'Returns go back to stock, quarantine or scrap; the credit note is linked to the original e-invoice.', tags: ['RMA', 'ETA'], color: 'from-cyan-700 to-sky-600', isNew: true },
+    { icon: '🧑‍💼', title: ar ? 'التوظيف والمقابلات' : 'Recruitment & interviews', desc: ar ? 'دليل للمقابلة والاختبار النفسي والقدرات والخبرة، وتحويل المرشح المقبول لموظف.' : 'A guide for interviews, psychological, aptitude and experience tests; hire the accepted candidate.', tags: [ar?'اختبارات':'Tests'], color: 'from-lime-600 to-green-500', isNew: true },
     { icon: '📥', title: ar ? 'استيراد Excel ذكي' : 'Smart Excel Import', desc: ar ? 'أرصدة افتتاحية + موظفين + عملاء وموردين + مخزون. الملف يُفحص كله قبل التسجيل ويُرفض بأخطائه، مع تحقق المدين = الدائن.' : 'Opening balances + employees + customers & suppliers + stock. The whole file is checked before anything is saved; rejected with its errors; Dr = Cr verified.', tags: [ar?'فحص قبل التسجيل':'Checked before saving', 'Dr=Cr'], color: 'from-teal-600 to-cyan-500' },
   ];
 
   const verticals = [
-    { id: 'co', icon: '🏗️', label: ar ? 'مقاولات' : 'Contracting', price: 150,
+    { id: 'co', icon: '🏗️', label: ar ? 'مقاولات' : 'Contracting', price: 399,
       items: ar
         ? ['مستخلصات الملاك مع خصم تأمين 5%','مقاولو الباطن + خصم وتحصيل وقيمة مضافة','خطابات ضمان LGs مع متابعة تاريخ الانتهاء','ربحية فعلي vs BOQ','استرداد الدفعات المقدمة']
         : ['Owner claims with 5% retention','Subcontractors + WHT and VAT','LGs with expiry tracking','Actual vs BOQ profitability','Advance recovery'] },
-    { id: 'med', icon: '🏥', label: ar ? 'طبي' : 'Medical', price: 120,
+    { id: 'med', icon: '🏥', label: ar ? 'طبي' : 'Medical', price: 349,
       items: ar
         ? ['تقسيم إيراد العيادة: نسبة المستشفى / أمانة طبيب','خصم مهن حرة 5% تلقائياً','مطالبات التأمين مع تتبع الرفض','ESS: أطباء وممرضون يتابعون بدلاتهم']
         : ['Clinic revenue split: hospital % / doctor trust','5% liberal profession deduction auto','Insurance claims with rejection tracking','ESS: doctors track their allowances'] },
-    { id: 'mfg', icon: '🏭', label: ar ? 'تصنيع' : 'Manufacturing', price: 200,
+    { id: 'mfg', icon: '🏭', label: ar ? 'تصنيع' : 'Manufacturing', price: 599,
       items: ar
         ? ['خامات → WIP → منتج تام مع Landed Cost','فارق التكلفة: فعلي vs تقديري','معدل الهدر Scrap Rate%','ESS: ورديات عمال الإنتاج GPS']
         : ['Raw → WIP → finished with Landed Cost','Cost variance: actual vs estimated','Scrap Rate%','ESS: production workers GPS shifts'] },
-    { id: 'trd', icon: '🛒', label: ar ? 'تجاري' : 'Trading', price: 180,
+    { id: 'trd', icon: '🛒', label: ar ? 'تجاري' : 'Trading', price: 349,
       items: ar
         ? ['اعتماد مستندي LC — 4 مراحل مع Landed Cost','جمارك ACI/ACID تلقائياً','مخزون FIFO / AVCO / LIFO','ESS: مندوبي المبيعات يتابعون عمولاتهم']
         : ['LC documentary credit — 4 stages with Landed Cost','ACI/ACID customs auto','FIFO / AVCO / LIFO inventory','ESS: sales reps track commissions'] },
-    { id: 're', icon: '🏠', label: ar ? 'عقاري' : 'Real Estate', price: 160,
+    { id: 're', icon: '🏠', label: ar ? 'عقاري' : 'Real Estate', price: 299,
       items: ar
         ? ['إيراد مؤجل EAS 48 بنسبة الإنجاز','جدول تحصيل الأقساط مع تنبيه التأخر','ربحية كل مشروع/برج منفصلة','ESS: فريق المبيعات يتابع عمولاتهم']
         : ['Deferred revenue EAS 48 by completion %','Installment schedule with delay alerts','Per-project/tower profitability','ESS: sales team tracks commissions'] },
@@ -83,15 +92,13 @@ export default function LandingPage() {
     { feat: ar?'Treasury + Cash Runway':'Treasury + Cash Runway', dl:'✓', qb:'✗', od:'✗', sap:'✓', local:'✗' },
     { feat: ar?'محركات القطاعات المصرية':'Egyptian Sector Engines', dl:ar?'✓ 5 قطاعات':'✓ 5 Sectors', qb:'✗', od:ar?'محدود':'Limited', sap:ar?'بإضافة':'Add-on', local:ar?'متفاوت':'Varies' },
     { feat: ar?'نسخ احتياطي يومي':'Daily Backup', dl:ar?'✓ تلقائي':'✓ Auto', qb:ar?'سحابي':'Cloud', od:ar?'يدوي':'Manual', sap:'✓', local:'✗' },
-    { feat: ar?'سعر الشركة الصغيرة':'SME Price', dl:ar?'299 ج.م/شهر':'EGP 299/mo', qb:ar?'1,200+ ج.م':'EGP 1,200+', od:ar?'900+ ج.م':'EGP 900+', sap:ar?'3,000+ ج.م':'EGP 3,000+', local:ar?'500-800 ج.م':'EGP 500-800' },
-    { feat: ar?'وقت التهيئة':'Setup Time', dl:ar?'30 دقيقة':'30 Minutes', qb:ar?'يومان':'2 Days', od:ar?'أسبوع+':'Week+', sap:ar?'شهر+':'Month+', local:ar?'3-7 أيام':'3-7 Days' },
   ];
 
   const faqs = [
     { q: ar?'هل الموظف يرى رواتب زملائه؟':'Can employees see each other\'s salaries?', a: ar?'لا إطلاقاً. الموظف معزول في بوابة ESS ولا يرى أي بيانات الشركة أو الزملاء. الرقم القومي والـ IBAN مخفيان جزئياً.':'Absolutely not. The employee is isolated in ESS and cannot see any company or colleague data. National ID and IBAN are partially hidden.' },
     { q: ar?'كيف أمنح موظفاً صلاحية إضافية؟':'How to grant an employee additional permission?', a: ar?'إدارة المستخدمين → اختر الموظف → صلاحيات → فعّل الوحدة. تُطبَّق فوراً. HR Manager والمدير المالي يملكان هذه الصلاحية أيضاً.':'User Management → Select employee → Permissions → Activate module. Applied immediately. HR Manager and Financial Manager can also grant permissions.' },
     { q: ar?'هل النظام متصل بمنظومة الفاتورة الإلكترونية؟':'Does it connect to the Egyptian e-invoicing system?', a: ar?'نعم — يرسل الفواتير لمنظومة ETA من خلال واجهتها الرسمية بتوقيع CAdES-BES (بعد تسجيل شركتك وبيانات الربط الخاصة بها)، ويجهّز بيانات نماذج 41 و10.':'Yes — it sends invoices to ETA through its official API with a CAdES-BES signature (once your company is registered and its credentials are set), and prepares the data for forms 41 and 10.' },
-    { q: ar?'كيف يعمل تسجيل الحضور GPS؟':'How does GPS attendance work?', a: ar?'الموظف يضغط "تسجيل حضور" من بوابة ESS → النظام يحدد موقعه ويتحقق من المسافة من مقر العمل → يسجل مع الإحداثيات والوقت الفعلي.':'Employee taps "Check In" from ESS portal → System detects location and verifies distance from workplace → Records with coordinates and real time.' },
+    { q: ar?'كيف يعمل تسجيل الحضور GPS؟':'How does GPS attendance work?', a: ar?'الموظف يضغط "حضور بالموقع" من بوابته أو من الموبايل → النظام يحدد موقعه ويتحقق إنه جوه نطاق مقر العمل → يسجل الوقت والمسافة من المقر بس، من غير ما يحتفظ بإحداثيات الموظف. والعمل عن بُعد مسموح للموظفين اللي تحددهم.':'Employee taps "Location check-in" in the portal or on the phone → the system checks they are inside the office radius → records the time and the distance only, not the employee coordinates. Remote work is allowed for employees you choose.' },
     { q: ar?'هل يمكن الترقية أو الإلغاء في أي وقت؟':'Can I upgrade or cancel anytime?', a: ar?'نعم من داخل التطبيق. الترقية فورية. الإلغاء يحفظ بياناتك 90 يوماً مع تصدير كامل JSON/Excel/CSV.':'Yes, from inside the app. Upgrade is immediate. Cancellation keeps your data for 90 days with full JSON/Excel/CSV export.' },
     { q: ar?'ما طرق الدفع المتاحة؟':'What payment methods are available?', a: ar?'InstaPay (01006008552) · فودافون كاش (01012625529) · تحويل بنكي · كود تفعيل. الدفع بالبطاقة قريباً. الفاتورة الضريبية مع VAT 14% تُرسَل تلقائياً.':'InstaPay (01006008552) · Vodafone Cash (01012625529) · Bank transfer · Activation code. Card payment coming soon. Tax invoice with 14% VAT sent automatically.' },
   ];
@@ -335,7 +342,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <div className="mt-5 px-4 py-3 rounded-xl bg-teal-500/8 border border-teal-500/20 text-teal-400 text-sm font-semibold">
-                  💡 {ar?`إضافة ${v.label}: ${v.price} ج.م/شهر — مدمجة في الاحترافي`:`${v.label} Add-on: EGP ${v.price}/mo — included in Professional`}
+                  💡 {ar?`باقة ${v.label}: ${v.price} ج.م/شهر — تتضاف على أي باقة أساسية`:`${v.label} add-on: EGP ${v.price}/mo — on top of any base plan`}
                 </div>
               </div>
               <div className="bg-white/3 border border-white/7 rounded-2xl p-6">
@@ -364,7 +371,7 @@ export default function LandingPage() {
             <div className="text-xs font-bold uppercase tracking-widest text-teal-400 mb-3">{ar?'الأسعار والخطط':'Pricing Plans'}</div>
             <h2 className="text-4xl font-black text-white mb-4">{ar?'شفافية كاملة — تُناسب السوق المصري':'Full Transparency — Tailored for Egyptian Market'}</h2>
           </div>
-          <PricingSection />
+          <PricingSection onStartTrial={() => setTrialOpen(true)} />
         </div>
       </section>
 

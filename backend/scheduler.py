@@ -455,6 +455,19 @@ async def run_real_estate_daily_job():
         return None
 
 
+async def renewal_invoices_job():
+    """Daily: raise the renewal invoice 7 days before an auto-renew subscription ends."""
+    try:
+        from database import db as _db
+        from services.renewals import raise_renewal_invoices
+        res = await raise_renewal_invoices(_db)
+        print(f"[{datetime.now()}] renewal invoices: {res}")
+        return res
+    except Exception as e:
+        print(f"[{datetime.now()}] Error raising renewal invoices: {e}")
+        return None
+
+
 async def submit_pos_eta_receipts_job():
     """Every 10 minutes: send pending POS e-receipts to the tax authority
     (companies without complete POS e-receipt settings are left pending)."""
@@ -580,6 +593,15 @@ def start_scheduler():
         minutes=10,
         id='pos_eta_receipts',
         name='POS ETA E-Receipts Submission',
+        replace_existing=True
+    )
+
+    # renewal invoices for subscriptions set to auto-renew — daily 06:10 UTC
+    scheduler.add_job(
+        renewal_invoices_job,
+        CronTrigger(hour=6, minute=10),
+        id='renewal_invoices',
+        name='Subscription Renewal Invoices',
         replace_existing=True
     )
 

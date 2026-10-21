@@ -40,6 +40,7 @@ class DeductionType(str, Enum):
     ABSENCE = "absence"                     # خصم غياب
     LATE = "late"                           # خصم تأخير
     PENALTY = "penalty"                     # جزاء/غرامة
+    FUND = "fund"                           # صندوق يتحمله الموظف (حسب إعدادات الشركة)
     OTHER = "other"                         # أخرى
 
 

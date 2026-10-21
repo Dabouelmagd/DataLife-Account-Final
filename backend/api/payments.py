@@ -75,6 +75,24 @@ async def get_packages(country: str = "EG"):
     return result
 
 
+@router.get("/catalog")
+async def pricing_catalog():
+    """الباقات والمجالات والمدد بأسعار السيرفر — صفحة الأسعار تعرض منها."""
+    from services.pricing import catalog
+    return catalog()
+
+
+@router.post("/quote")
+async def pricing_quote(data: dict):
+    """الإجمالي والفاتورة المبدئية: باقة أساسية + مجالات + مدة + تجديد تلقائي."""
+    from services.pricing import quote
+    try:
+        return quote((data or {}).get("plan") or "", (data or {}).get("duration") or "monthly",
+                     (data or {}).get("packs") or [], bool((data or {}).get("auto_renew")))
+    except (ValueError, KeyError) as e:
+        raise HTTPException(status_code=400, detail=str(e) or "الباقة غير متاحة")
+
+
 @router.get("/payment-methods")
 async def get_payment_methods():
     """طرق الدفع المتاحة"""
@@ -154,15 +172,31 @@ async def submit_payment_request(
     # the JWT carries no company_name — look it up so the admin can tell who paid
     company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1}) or {}
 
+    # the amount due is the server's quote — it used to be whatever the browser sent
+    from services.pricing import quote as _quote
+    method = data.get("payment_method")
+    if method in ("card", "stripe", "paypal", "fawry"):
+        raise HTTPException(status_code=400, detail=(
+            "الدفع بالكارت قريباً — ادفع بإنستاباي أو فودافون كاش أو تحويل بنكي وارفع الإيصال"))
+    duration = {"annual": "yearly", "year": "yearly", "quarterly": "3months"}.get(
+        data.get("duration"), data.get("duration") or "monthly")
+    try:
+        q = _quote(data.get("plan") or "", duration, data.get("packs") or [], bool(data.get("auto_renew")))
+    except (ValueError, KeyError) as e:
+        raise HTTPException(status_code=400, detail=str(e) or "الباقة غير متاحة")
+
     request = {
         "id": f"preq_{secrets.token_hex(8)}",
         "company_id": company_id,
         "company_name": company.get("name", ""),
         "user_email": user.get("email"),
-        "package_id": data.get("package_id"),
-        "plan": data.get("plan"),
-        "duration": data.get("duration"),
-        "amount_egp": data.get("amount_egp"),
+        "package_id": f"{q['plan']}_{q['duration']}",
+        "plan": q["plan"],
+        "duration": q["duration"],
+        "packs": q["packs"],
+        "auto_renew": q["auto_renew"],
+        "quote": q,
+        "amount_egp": q["total"],
         "payment_method": data.get("payment_method"),
         "reference_number": data.get("reference_number", ""),
         "receipt_url": data.get("receipt_url", ""),
@@ -172,7 +206,35 @@ async def submit_payment_request(
     }
     await db.payment_requests.insert_one(request)
     request.pop("_id", None)
-    return {"message": "تم إرسال طلب الدفع — سيتم تأكيده خلال 24 ساعة", "request_id": request["id"]}
+    return {"message": "تم إرسال طلب الدفع — سيتم تأكيده خلال 24 ساعة", "request_id": request["id"],
+            "amount_egp": q["total"], "quote": q}
+
+
+@router.post("/requests/{request_id}/pay")
+async def pay_request(request_id: str, data: dict, authorization: Optional[str] = Header(None)):
+    """العميل يسجّل دفع فاتورة قائمة (مثل فاتورة التجديد) — رقم العملية والإيصال."""
+    from services.auth_service import verify_token
+    user = verify_token((authorization or '').replace('Bearer ', ''))
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    req = await db.payment_requests.find_one(
+        {"id": request_id, "company_id": user.get("company_id")}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+    if req.get("status") not in ("awaiting_payment", "pending"):
+        raise HTTPException(status_code=400, detail="الفاتورة دي اتراجعت بالفعل")
+    method = (data or {}).get("payment_method")
+    if method not in ("instapay", "vodafone_cash", "bank_transfer"):
+        raise HTTPException(status_code=400, detail="اختار إنستاباي أو فودافون كاش أو تحويل بنكي — الكارت قريباً")
+    ref = str((data or {}).get("reference_number") or "").strip()[:80]
+    if not ref:
+        raise HTTPException(status_code=400, detail="اكتب رقم العملية")
+    await db.payment_requests.update_one({"id": request_id}, {"$set": {
+        "payment_method": method, "reference_number": ref,
+        "receipt_url": str((data or {}).get("receipt_url") or "")[:300],
+        "status": "pending", "paid_reported_at": datetime.now(timezone.utc).isoformat(),
+        "user_email": user.get("email")}})
+    return {"message": "تم تسجيل الدفع — هيتأكد خلال 24 ساعة"}
 
 
 @router.get("/my-transactions")

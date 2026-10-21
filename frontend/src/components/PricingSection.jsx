@@ -1,672 +1,463 @@
-import React, { useState } from 'react';
-import { CheckCircle, X, Zap, Building2, Crown, Key } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, FileText, RefreshCw, CreditCard, Building2, Zap, Crown, Upload } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useCurrency } from '../hooks/useCurrency';
 import { toast } from 'sonner';
-import PaymentModal from './PaymentModal';
-import { Input } from './ui/input';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+/*
+ * صفحة الأسعار — 4 خطوات:
+ *   1) الباقة الأساسية + المدة   2) المجالات المتخصصة (اختياري)
+ *   3) الإجمالي + التجديد التلقائي   4) الفاتورة المبدئية ← الدفع
+ * Prices, totals and the VAT contained in them come from the server
+ * (/api/payments/catalog and /quote); the payment request is priced there too.
+ */
 
-const PricingSection = () => {
+const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+const fmt = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+// what each base plan adds on top of the system (every plan runs the whole system)
+const PLAN_META = {
+  starter: { icon: Zap, ar: { tag: 'للشركات الصغيرة والناشئة', emp: 'حتى 10 موظفين', extra: ['تخزين 5 جيجا', 'دعم بالإيميل والتذاكر', 'شرح فيديو وأدلة استخدام'] },
+             en: { tag: 'Small & new businesses', emp: 'Up to 10 employees', extra: ['5 GB storage', 'Email & ticket support', 'Video guides'] } },
+  professional: { icon: Building2, popular: true, ar: { tag: 'للشركات المتوسطة والنامية', emp: 'من 11 لـ 100 موظف', extra: ['تخزين 25 جيجا', 'دعم أولوية', 'جلسة تهيئة أونلاين لنقل بياناتك'] },
+                  en: { tag: 'Growing businesses', emp: '11 – 100 employees', extra: ['25 GB storage', 'Priority support', 'Online onboarding session'] } },
+  enterprise: { icon: Crown, ar: { tag: 'للمؤسسات والشركات الكبيرة', emp: 'موظفين بلا حد', extra: ['تخزين بلا حد', 'دعم بالهاتف ومدير حساب', 'تدريب فريقك ومراجعة الإعداد'] },
+                en: { tag: 'Large organisations', emp: 'Unlimited employees', extra: ['Unlimited storage', 'Phone support & account manager', 'Team training & setup review'] } },
+};
+
+// every plan includes all of this — grouped as the comparison shows it
+const ALL_FEATURES_AR = [
+  ['المحاسبة والمالية', ['دليل حسابات مصري جاهز', 'قيود يومية وأستاذ عام وميزان مراجعة', 'قائمة الدخل والمركز المالي والتدفقات', 'إقفال السنة المالية وإعادة الفتح', 'مراكز التكلفة', 'الأصول الثابتة — إهلاك محاسبي وضريبي واستبعاد', 'عملات أجنبية وفروق العملة وإعادة التقييم', 'البنوك والشيكات والتسوية البنكية', 'الخزينة والعهد']],
+  ['الضرائب والفاتورة الإلكترونية', ['ضريبة القيمة المضافة وإقرارها الشهري', 'الخصم والتحصيل ونموذج 41', 'ضريبة الدمغة وضريبة الجدول', 'ربط الفاتورة الإلكترونية ETA', 'الإيصال الإلكتروني لنقاط البيع', 'إشعارات دائنة ومدينة مرتبطة بالفاتورة الأصلية']],
+  ['المبيعات والمشتريات والمخزون', ['عروض أسعار وفواتير وتحصيل', 'كشف حساب عميل بفترة وحد ائتمان', 'مرتجعات للمخزن أو الحجر أو الإعدام', 'مشتريات وأوامر توريد', 'مخازن متعددة وجرد وتحويل', 'تكاليف الاستيراد على الأصناف', 'نقاط بيع تشتغل من غير إنترنت', 'ربط متجر إلكتروني (سلة)']],
+  ['الموارد البشرية والرواتب', ['ملف موظف بمستنداته وصورته', 'حضور بالبصمة واليدوي والموقع GPS — مع العمل عن بُعد لموظفين محددين', 'الورديات والإجازات والإضافي بنسب قانون العمل', 'مسير رواتب بضريبة كسب العمل والتأمينات (حدود 2026)', 'كشف رواتب كامل بفلتر الإدارة والفرع وتصدير Excel', 'ملفات تحويل الرواتب للبنوك وقسائم PDF', 'السلف والجزاءات ونهاية الخدمة', 'الصناديق والمساهمات — اختيارية لكل شركة', 'بيانات نماذج التأمينات 1 و6', 'تقييم الأداء ومؤشرات KPI', 'التوظيف ودليل المقابلات والاختبارات']],
+  ['بوابة الموظف', ['دخول لكل موظف يشوف بياناته بس', 'تسجيل الحضور من الموبايل بالموقع', 'طلب إجازة وسلفة وشوف القسيمة والتقييم', 'تثبيت البرنامج على الموبايل كتطبيق — لينك واحد datalifeaccount.com/staff']],
+  ['الإدارة والأمان', ['صلاحيات حسب الدور', 'موافقات بحدود مبالغ وإشعارات', 'سجل مراجعة لكل العمليات', 'استيراد Excel بيرفض الملف الغلط ويقول الصف', 'تصدير كل بيانات شركتك في أي وقت', 'نسخ احتياطي يومي مشفّر', 'مساعد ذكي يجاوب من داخل البرنامج', 'عربي وإنجليزي']],
+];
+const ALL_FEATURES_EN = [
+  ['Accounting', ['Egyptian chart of accounts', 'Journals, ledger, trial balance', 'P&L, balance sheet, cash flow', 'Year-end close & reopen', 'Cost centres', 'Fixed assets — book & tax depreciation', 'Foreign currency & revaluation', 'Banks, cheques, bank reconciliation', 'Treasury & petty cash']],
+  ['Tax & e-invoicing', ['VAT and the monthly return', 'Withholding tax & form 41', 'Stamp & table tax', 'ETA e-invoice link', 'POS e-receipt', 'Credit/debit notes linked to the original']],
+  ['Sales, purchases, stock', ['Quotes, invoices, collections', 'Customer statement & credit limit', 'Returns to stock, quarantine or scrap', 'Purchases & supply orders', 'Multiple warehouses, counts, transfers', 'Import landed costs', 'Offline POS', 'Online store link (Salla)']],
+  ['HR & payroll', ['Employee file & documents', 'Fingerprint, manual and GPS attendance — remote work for chosen staff', 'Shifts, leave, overtime by Labour Law rates', 'Payroll with salary tax & insurance (2026 limits)', 'Full payroll sheet by department/branch, Excel export', 'Bank salary files & PDF payslips', 'Loans, penalties, end of service', 'Payroll funds — optional per company', 'Insurance forms 1 & 6 data', 'Appraisals & KPIs', 'Recruitment guide & tests']],
+  ['Employee portal', ['Each employee sees only their own data', 'Check in from the phone by location', 'Leave & loan requests, payslips, appraisals', 'Installs on the phone — one link datalifeaccount.com/staff']],
+  ['Admin & security', ['Role permissions', 'Approval limits & notifications', 'Audit trail', 'Excel import that names the wrong row', 'Export all your data any time', 'Daily encrypted backup', 'In-app assistant', 'Arabic & English']],
+];
+
+const COMPARE = [
+  ['employees', 'عدد الموظفين', 'Employees', ['حتى 10', 'من 11 لـ 100', 'بلا حد'], ['Up to 10', '11 – 100', 'Unlimited']],
+  ['storage', 'مساحة التخزين', 'Storage', ['5 جيجا', '25 جيجا', 'بلا حد'], ['5 GB', '25 GB', 'Unlimited']],
+  ['support', 'الدعم', 'Support', ['إيميل وتذاكر', 'أولوية', 'هاتف + مدير حساب'], ['Email & tickets', 'Priority', 'Phone + account manager']],
+  ['onboarding', 'التهيئة', 'Onboarding', ['أدلة وفيديو', 'جلسة أونلاين', 'تدريب الفريق'], ['Guides & video', 'Online session', 'Team training']],
+];
+
+const card = 'rounded-2xl border border-white/10 bg-white/[0.04]';
+
+export default function PricingSection({ onStartTrial }) {
   const { language } = useLanguage();
-  const [billingCycle, setBillingCycle] = useState('monthly');
-  const { currency: detectedCurrency } = useCurrency();
-  const [currency, setCurrency] = useState('EGP');
-  React.useEffect(() => { setCurrency(detectedCurrency); }, [detectedCurrency]);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState(null);
-  const [subCode, setSubCode] = useState('');
-  const [subDuration, setSubDuration] = useState('');
-  const [activating, setActivating] = useState(false);
-  const [activeTab, setActiveTab] = useState('plans'); // plans | compare | faq
-
   const ar = language === 'ar';
-  const exchangeRate = 30;
+  const [tab, setTab] = useState('build');
+  const [catalog, setCatalog] = useState(null);
+  const [loadErr, setLoadErr] = useState('');
+  const [step, setStep] = useState(1);
+  // a choice made on the public page before signing up is picked up here
+  const saved = (() => { try { return JSON.parse(localStorage.getItem('dl_pricing_choice') || 'null') || {}; } catch { return {}; } })();
+  const [duration, setDuration] = useState(saved.duration || 'yearly');
+  const [plan, setPlan] = useState(saved.plan || 'professional');
+  const [packs, setPacks] = useState(Array.isArray(saved.packs) ? saved.packs : []);
+  const [autoRenew, setAutoRenew] = useState(saved.auto_renew !== undefined ? !!saved.auto_renew : true);
+  const [quote, setQuote] = useState(null);
+  const [quoteErr, setQuoteErr] = useState('');
+  const loggedIn = (() => { try { return !!localStorage.getItem('token'); } catch { return false; } })();
 
-  const plans = [
-    {
-      id: 'starter',
-      name: ar ? 'المبتدئ' : 'Starter',
-      tagline: ar ? 'للشركات الصغيرة والناشئة' : 'For small & startup businesses',
-      employees: ar ? 'حتى 10 موظفين' : 'Up to 10 employees',
-      monthlyEGP: 299, annualEGP: 2390,
-      monthlyUSD: 10,  annualUSD: 80,
-      icon: <Zap className="h-6 w-6" />,
-      iconBg: 'linear-gradient(135deg,#3b82f6,#6366f1)',
-      border: 'rgba(99,102,241,0.3)',
-      badge: null,
-      popular: false,
-      highlight: [],
-      features: {
-        [ar?'الموارد البشرية':'HR']: [
-          ar?'إدارة الموظفين الأساسية':'Basic employee management',
-          ar?'الحضور والانصراف (يدوي)':'Manual attendance',
-          ar?'الإجازات العارضة والسنوية':'Leave management',
-          ar?'كشف مرتبات يدوي':'Manual payroll',
-          ar?'ملف موظف + صورة + مستندات':'Employee profile + docs',
-        ],
-        [ar?'المحاسبة':'Accounting']: [
-          ar?'108 حساب وفق الدليل المصري':'108 Egyptian standard accounts',
-          ar?'القيود اليومية والأستاذ العام':'Journal entries & general ledger',
-          ar?'ميزان المراجعة':'Trial balance',
-          ar?'قائمة الدخل والميزانية العمومية':'P&L & balance sheet',
-        ],
-        [ar?'المبيعات والفواتير':'Sales']: [
-          ar?'الفواتير الأساسية':'Basic invoicing',
-          ar?'إدارة العملاء والموردين':'Customers & suppliers',
-          ar?'المخزون الأساسي':'Basic inventory',
-        ],
-        [ar?'الدعم':'Support']: [
-          ar?'دعم بريد إلكتروني':'Email support',
-          ar?'5 جيجا تخزين':'5 GB storage',
-          ar?'فاتورة بعد الدفع (PDF)':'Invoice after payment (PDF)',
-        ],
-      },
-      notIncluded: [
-        ar?'كشف المرتبات التلقائي (قانون 148/2019)':'Auto payroll (Law 148/2019)',
-        ar?'حضور GPS':'GPS attendance',
-        ar?'قسيمة راتب بالإيميل':'Email payslips',
-        ar?'الفاتورة الإلكترونية ETA':'E-Invoice (ETA)',
-        ar?'إدارة المشاريع والمقاولات':'Projects & contracting',
-        ar?'بنوك وتسويات':'Banking & reconciliation',
-        ar?'فروع متعددة':'Multi-branch',
-      ],
-    },
-    {
-      id: 'professional',
-      name: ar ? 'المحترف' : 'Professional',
-      tagline: ar ? 'للشركات المتوسطة والنامية' : 'For growing medium businesses',
-      employees: ar ? '11 – 100 موظف' : '11 – 100 employees',
-      monthlyEGP: 799, annualEGP: 6392,
-      monthlyUSD: 27,  annualUSD: 213,
-      icon: <Building2 className="h-6 w-6" />,
-      iconBg: 'linear-gradient(135deg,#0f1729,#28376B)',
-      border: '#28376B',
-      badge: ar ? '⭐ الأكثر مبيعاً' : '⭐ Best Seller',
-      popular: true,
-      highlight: [
-        ar?'كشف مرتبات تلقائي قانون 148/2019':'Auto payroll Law 148/2019',
-        ar?'حضور GPS مع نطاق جيوفنسينج':'GPS geofencing attendance',
-        ar?'قسيمة راتب PDF بالإيميل':'PDF payslip via email',
-        ar?'صرف مرتبات للبنك / InstaPay / Vodafone':'Salary disbursement: Bank / InstaPay',
-        ar?'الفاتورة الإلكترونية ETA':'E-Invoice ETA',
-      ],
-      features: {
-        [ar?'الموارد البشرية':'HR']: [
-          ar?'كل مميزات المبتدئ':'All Starter HR features',
-          ar?'كشف مرتبات تلقائي (قانون 148/2019 + قانون 91/2005)':'Auto payroll (Law 148/2019 + 91/2005)',
-          ar?'7 صناديق تأمينات اجتماعية':'7 social insurance funds',
-          ar?'ضريبة كسب العمل 7 شرائح تصاعدية':'Income tax 7 progressive brackets',
-          ar?'حضور GPS مع جيوفنسينج':'GPS attendance + geofencing',
-          ar?'قسيمة راتب HTML/PDF بالإيميل':'HTML/PDF payslip by email',
-          ar?'صرف مرتبات: بنك / InstaPay / فودافون / نقدي':'Disbursement: Bank / InstaPay / Vodafone / Cash',
-          ar?'تقرير التحويلات البنكية (CSV)':'Bank transfer report (CSV)',
-          ar?'الورديات وجدول الحضور':'Shifts & attendance schedule',
-          ar?'إنهاء الخدمة والمكافآت':'End of service & gratuity',
-          ar?'تتبع جلسات الموظفين (دخول/خروج)':'Employee session tracking',
-          ar?'دعوة موظف بصلاحيات تلقائية':'Employee invite with auto-permissions',
-        ],
-        [ar?'المحاسبة المالية':'Accounting']: [
-          ar?'كل مميزات المبتدئ المحاسبية':'All Starter accounting',
-          ar?'VAT (ضريبة القيمة المضافة)':'VAT management',
-          ar?'خصم وتحصيل ضريبي 1%':'Withholding tax 1%',
-          ar?'الأصول الثابتة والإهلاك':'Fixed assets & depreciation',
-          ar?'التسويات البنكية':'Bank reconciliation',
-          ar?'متعدد العملات (6 عملات)':'Multi-currency (6)',
-          ar?'محاسبة Immutable Ledger (قيود لا تُحذف)':'Immutable Ledger accounting',
-        ],
-        [ar?'المبيعات والفواتير':'Sales']: [
-          ar?'الفاتورة الإلكترونية ETA':'E-Invoice (ETA)',
-          ar?'إدارة المبيعات CRM':'Sales CRM',
-          ar?'عروض الأسعار والاشتراكات':'Quotations & subscriptions',
-          ar?'المشتريات وأوامر التوريد':'Purchases & supply orders',
-          ar?'المخزون المتقدم':'Advanced inventory',
-        ],
-        [ar?'الدعم والأدوات':'Support']: [
-          ar?'دعم أولوية (بريد + تذاكر)':'Priority support (email + tickets)',
-          ar?'25 جيجا تخزين':'25 GB storage',
-          ar?'الموافقات والتفويضات':'Approvals & delegation',
-          ar?'إشعارات Push Real-time':'Real-time push notifications',
-        ],
-      },
-      notIncluded: [
-        ar?'إدارة المشاريع والمقاولات':'Projects & contracting',
-        ar?'مستخلصات المقاولات (معيار 8)':'Progress claims (Std 8)',
-        ar?'قطاع طبي وأتعاب أطباء':'Medical sector',
-        ar?'مراكز التكلفة':'Cost centers',
-        ar?'فروع متعددة':'Multi-branch',
-        ar?'مدير حساب مخصص':'Dedicated account manager',
-      ],
-    },
-    {
-      id: 'enterprise',
-      name: ar ? 'المؤسسي' : 'Enterprise',
-      tagline: ar ? 'للمؤسسات والشركات الكبيرة' : 'For large organizations',
-      employees: ar ? 'موظفون غير محدودون' : 'Unlimited employees',
-      monthlyEGP: 1499, annualEGP: 11992,
-      monthlyUSD: 50,   annualUSD: 400,
-      icon: <Crown className="h-6 w-6" />,
-      iconBg: 'linear-gradient(135deg,#92400e,#f59e0b)',
-      border: '#f59e0b',
-      badge: ar ? '👑 المميز' : '👑 Premium',
-      popular: false,
-      highlight: [
-        ar?'المشاريع والمقاولات (معيار محاسبي 8)':'Projects & contracting (Std 8)',
-        ar?'مستخلصات المقاولات وجداول الكميات BOQ':'Progress claims & BOQ',
-        ar?'قطاع طبي — فصل أتعاب الأطباء':'Medical sector — Doctor fee split',
-        ar?'فروع متعددة ومراكز التكلفة':'Multi-branch & cost centers',
-        ar?'مدير حساب مخصص + تدريب الفريق':'Dedicated account manager + training',
-      ],
-      features: {
-        [ar?'كل مميزات المحترف +':'All Professional +']: [
-          ar?'موظفون وحسابات غير محدودة':'Unlimited employees & accounts',
-          ar?'إدارة المشاريع والمقاولات':'Projects & contracting management',
-          ar?'مستخلصات المقاولات (معيار محاسبي مصري 8)':'Progress claims (Egyptian Std 8)',
-          ar?'جداول الكميات (BOQ)':'Bill of Quantities (BOQ)',
-          ar?'قطاع طبي — فصل أتعاب الأطباء':'Medical sector — Doctor fee split',
-          ar?'مراكز التكلفة المتعددة':'Multiple cost centers',
-          ar?'فروع متعددة':'Multi-branch',
-          ar?'تكامل محاسبي Enterprise (SAP Level)':'Enterprise accounting (SAP level)',
-          ar?'مراجعة ضريبية متقدمة':'Advanced tax review',
-          ar?'ربط API للتكامل الخارجي':'External API integration',
-        ],
-        [ar?'الدعم المميز':'Premium Support']: [
-          ar?'مدير حساب مخصص':'Dedicated account manager',
-          ar?'تدريب الفريق on-site أو عبر الإنترنت':'Team training (on-site or online)',
-          ar?'دعم هاتفي 24/7':'Phone support 24/7',
-          ar?'SLA مضمون خلال 4 ساعات':'SLA guaranteed within 4 hours',
-          ar?'تخزين غير محدود':'Unlimited storage',
-        ],
-      },
-      notIncluded: [],
-    },
-  ];
+  useEffect(() => {
+    fetch(`${API_URL}/api/payments/catalog`).then((r) => r.ok ? r.json() : Promise.reject())
+      .then(setCatalog).catch(() => setLoadErr(ar ? 'تعذّر تحميل الأسعار — اعمل تحديث للصفحة' : 'Could not load prices — refresh the page'));
+  }, []);
 
-  const comparisonFeatures = [
-    { category: ar?'الأساسيات':'Basics' },
-    { name: ar?'عدد الموظفين':'Employees',                               starter:'1-10',   professional:'11-100', enterprise:ar?'غير محدود':'Unlimited' },
-    { name: ar?'المساحة التخزينية':'Storage',                            starter:'5 GB',   professional:'25 GB',  enterprise:ar?'غير محدود':'Unlimited' },
-    { name: ar?'الدعم الفني':'Support',                                  starter:ar?'بريد':'Email', professional:ar?'أولوية':'Priority', enterprise:ar?'هاتف 24/7':'Phone 24/7' },
-    { name: ar?'إشعارات Push Real-time':'Push Notifications',            starter:false,    professional:true,     enterprise:true },
-    { name: ar?'متعدد العملات (6)':'Multi-currency',                     starter:false,    professional:true,     enterprise:true },
+  useEffect(() => {
+    if (!catalog) return;
+    let off = false;
+    setQuoteErr('');
+    fetch(`${API_URL}/api/payments/quote`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan, duration, packs, auto_renew: autoRenew }) })
+      .then(async (r) => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : ''); return d; })
+      .then((q) => { if (!off) setQuote(q); })
+      .catch((e) => { if (!off) setQuoteErr(e.message || (ar ? 'تعذّر حساب الإجمالي' : 'Could not compute the total')); });
+    return () => { off = true; };
+  }, [catalog, plan, duration, packs, autoRenew]);
 
-    { category: ar?'الموارد البشرية':'Human Resources' },
-    { name: ar?'إدارة الموظفين + ملف + صورة':'Employee Management',     starter:true,     professional:true,     enterprise:true },
-    { name: ar?'الحضور والانصراف':'Attendance',                          starter:ar?'يدوي':'Manual', professional:ar?'يدوي + GPS':'Manual + GPS', enterprise:ar?'يدوي + GPS':'Manual + GPS' },
-    { name: ar?'حضور GPS مع جيوفنسينج':'GPS Geofencing Attendance',     starter:false,    professional:true,     enterprise:true },
-    { name: ar?'الإجازات العارضة والسنوية':'Leave Management',           starter:true,     professional:true,     enterprise:true },
-    { name: ar?'كشف مرتبات يدوي':'Manual Payroll',                       starter:true,     professional:true,     enterprise:true },
-    { name: ar?'كشف مرتبات تلقائي (قانون 148/2019)':'Auto Payroll',     starter:false,    professional:true,     enterprise:true },
-    { name: ar?'7 صناديق تأمينات اجتماعية':'7 Insurance Funds',         starter:false,    professional:true,     enterprise:true },
-    { name: ar?'ضريبة كسب العمل (7 شرائح)':'Income Tax (7 brackets)',   starter:false,    professional:true,     enterprise:true },
-    { name: ar?'قسيمة راتب PDF بالإيميل':'Email Payslips (PDF)',         starter:false,    professional:true,     enterprise:true },
-    { name: ar?'صرف مرتبات: بنك / InstaPay / Vodafone':'Salary Disbursement', starter:false, professional:true,  enterprise:true },
-    { name: ar?'تقرير تحويلات بنكية CSV':'Bank Transfer Report (CSV)',   starter:false,    professional:true,     enterprise:true },
-    { name: ar?'تتبع جلسات الموظفين':'Employee Session Tracking',        starter:false,    professional:true,     enterprise:true },
-    { name: ar?'الورديات':'Shifts',                                       starter:false,    professional:true,     enterprise:true },
-    { name: ar?'إنهاء الخدمة والمكافآت':'End of Service & Gratuity',    starter:false,    professional:true,     enterprise:true },
+  const planObj = useMemo(() => catalog?.plans.find((p) => p.key === plan), [catalog, plan]);
+  const factor = planObj ? planObj.prices[duration] / planObj.prices.monthly : 1;
+  const durLabel = (d) => (ar ? catalog?.durations[d]?.label : catalog?.durations[d]?.label_en) || d;
+  const togglePack = (k) => setPacks((ps) => (ps.includes(k) ? ps.filter((x) => x !== k) : [...ps, k]));
 
-    { category: ar?'المحاسبة المالية':'Financial Accounting' },
-    { name: ar?'108 حساب (الدليل المصري)':'108 Accounts (Egyptian Std)', starter:true,    professional:true,     enterprise:true },
-    { name: ar?'القيود اليومية والأستاذ العام':'Journal & General Ledger',starter:true,    professional:true,     enterprise:true },
-    { name: ar?'ميزان المراجعة':'Trial Balance',                          starter:true,    professional:true,     enterprise:true },
-    { name: ar?'قوائم مالية كاملة':'Full Financial Statements',           starter:true,    professional:true,     enterprise:true },
-    { name: ar?'VAT وضريبة القيمة المضافة':'VAT',                        starter:false,   professional:true,     enterprise:true },
-    { name: ar?'خصم وتحصيل ضريبي 1%':'Withholding Tax 1%',              starter:false,   professional:true,     enterprise:true },
-    { name: ar?'الأصول الثابتة والإهلاك':'Fixed Assets & Depreciation',  starter:false,   professional:true,     enterprise:true },
-    { name: ar?'التسويات البنكية':'Bank Reconciliation',                   starter:false,   professional:true,     enterprise:true },
-    { name: ar?'Immutable Ledger (قيود لا تُحذف)':'Immutable Ledger',    starter:false,   professional:true,     enterprise:true },
-    { name: ar?'مراكز التكلفة':'Cost Centers',                            starter:false,   professional:false,    enterprise:true },
+  const Steps = () => (
+    <ol className="flex flex-wrap justify-center gap-2 mb-8 text-sm" aria-label={ar ? 'الخطوات' : 'Steps'}>
+      {[ar ? 'الباقة الأساسية' : 'Base plan', ar ? 'المجالات المتخصصة' : 'Sector add-ons', ar ? 'الإجمالي والتجديد' : 'Total & renewal', ar ? 'الفاتورة' : 'Invoice'].map((l, i) => (
+        <li key={l}>
+          <button type="button" onClick={() => setStep(i + 1)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors ${step === i + 1 ? 'bg-amber-500 text-black border-amber-500 font-bold' : step > i + 1 ? 'border-teal-500/40 text-teal-300' : 'border-white/15 text-gray-300'}`}
+            aria-current={step === i + 1 ? 'step' : undefined}>
+            <span className="tabular-nums">{i + 1}</span>{l}
+          </button>
+        </li>
+      ))}
+    </ol>
+  );
 
-    { category: ar?'المبيعات والفواتير':'Sales & Invoicing' },
-    { name: ar?'الفواتير الأساسية':'Basic Invoicing',                     starter:true,    professional:true,     enterprise:true },
-    { name: ar?'إدارة العملاء والموردين':'Customers & Suppliers',         starter:true,    professional:true,     enterprise:true },
-    { name: ar?'إدارة المبيعات CRM':'Sales CRM',                          starter:false,   professional:true,     enterprise:true },
-    { name: ar?'عروض الأسعار والاشتراكات':'Quotations & Subscriptions',   starter:false,   professional:true,     enterprise:true },
-    { name: ar?'الفاتورة الإلكترونية ETA':'E-Invoice (ETA)',              starter:false,   professional:true,     enterprise:true },
-    { name: ar?'المشتريات وأوامر التوريد':'Purchases & Supply Orders',    starter:false,   professional:true,     enterprise:true },
-    { name: ar?'المخزون المتقدم':'Advanced Inventory',                    starter:'أساسي', professional:true,     enterprise:true },
+  const Nav = ({ next, back, nextLabel }) => (
+    <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
+      {back ? <button type="button" onClick={back} className="inline-flex items-center gap-1 px-4 py-2 rounded-lg border border-white/15 text-gray-200 hover:bg-white/5">
+        {ar ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}{ar ? 'رجوع' : 'Back'}</button> : <span />}
+      {next && <button type="button" onClick={next} className="inline-flex items-center gap-1 px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold">
+        {nextLabel}{ar ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</button>}
+    </div>
+  );
 
-    { category: ar?'المشاريع والمقاولات':'Projects & Contracting' },
-    { name: ar?'إدارة المشاريع':'Project Management',                     starter:false,   professional:false,    enterprise:true },
-    { name: ar?'مستخلصات المقاولات (معيار 8)':'Progress Claims (Std 8)', starter:false,   professional:false,    enterprise:true },
-    { name: ar?'جداول الكميات BOQ':'Bill of Quantities (BOQ)',            starter:false,   professional:false,    enterprise:true },
-    { name: ar?'قطاع طبي — أتعاب الأطباء':'Medical — Doctor Fees',       starter:false,   professional:false,    enterprise:true },
-
-    { category: ar?'الأدوات المتقدمة':'Advanced Tools' },
-    { name: ar?'الموافقات والتفويضات':'Approvals & Delegation',           starter:false,   professional:true,     enterprise:true },
-    { name: ar?'استيراد بيانات Excel':'Excel Data Import',                starter:true,    professional:true,     enterprise:true },
-    { name: ar?'فروع متعددة':'Multi-branch',                              starter:false,   professional:false,    enterprise:true },
-    { name: ar?'ربط API':'API Integration',                               starter:false,   professional:false,    enterprise:true },
-    { name: ar?'مدير حساب مخصص':'Dedicated Account Manager',             starter:false,   professional:false,    enterprise:true },
-    { name: ar?'تدريب الفريق':'Team Training',                            starter:false,   professional:false,    enterprise:true },
-    { name: ar?'SLA مضمون':'Guaranteed SLA',                              starter:false,   professional:false,    enterprise:true },
-  ];
-
-  const faqs = [
-    { q: ar?'هل يمكنني تغيير خطتي لاحقاً؟':'Can I change my plan later?',
-      a: ar?'نعم، يمكنك الترقية أو التخفيض في أي وقت. عند الترقية تدفع الفرق فقط.':'Yes, upgrade or downgrade anytime. On upgrade you only pay the difference.' },
-    { q: ar?'ماذا يحدث بعد انتهاء 14 يوم التجربة؟':'What happens after the 14-day trial?',
-      a: ar?'لن تُحذف بياناتك. ستحتاج فقط إلى اختيار خطة للاستمرار.':'Your data is safe. You just need to choose a plan to continue.' },
-    { q: ar?'هل الأسعار شاملة ضريبة القيمة المضافة؟':'Are prices VAT inclusive?',
-      a: ar?'نعم، جميع الأسعار المعروضة شاملة ضريبة القيمة المضافة (14%).':'Yes, all displayed prices include 14% VAT.' },
-    { q: ar?'ما هي طرق الدفع المتاحة؟':'What payment methods are available?',
-      a: ar?'InstaPay، فودافون كاش، تحويل بنكي، أو كود تفعيل. والدفع بالبطاقة قريباً.':'InstaPay, Vodafone Cash, bank transfer, or activation code. Card payment is coming soon.' },
-    { q: ar?'هل بياناتي آمنة؟':'Is my data secure?',
-      a: ar?'نعم، نستخدم تشفير SSL/TLS 1.3 وقواعد بيانات معزولة لكل شركة.':'Yes, we use SSL/TLS 1.3 encryption and isolated databases per company.' },
-    { q: ar?'كيف يعمل نظام الرواتب وفق القانون المصري؟':'How does payroll work with Egyptian law?',
-      a: ar?'النظام يطبق قانون 148/2019 (تأمينات) و91/2005 (ضريبة الدخل) تلقائياً مع 7 صناديق تأمين وضريبة تصاعدية.':'System auto-applies Law 148/2019 (insurance) & 91/2005 (income tax) with 7 funds and progressive tax.' },
-  ];
-
-  const getPrice = (plan) => {
-    if (currency === 'USD') {
-      return billingCycle === 'monthly' ? plan.monthlyUSD : plan.annualUSD;
-    }
-    return billingCycle === 'monthly' ? plan.monthlyEGP : plan.annualEGP;
-  };
-
-  const getSavings = (plan) => {
-    if (currency === 'USD') return (plan.monthlyUSD * 12) - plan.annualUSD;
-    return (plan.monthlyEGP * 12) - plan.annualEGP;
-  };
-
-  const handleSelect = (plan) => {
-    setSelectedPlan(plan);
-    setIsPaymentModalOpen(true);
-  };
-
-  const handleActivateCode = async () => {
-    if (!subCode.trim()) { toast.error(ar ? 'أدخل الكود' : 'Enter code'); return; }
-    if (!subDuration) { toast.error(ar ? 'اختر مدة الاشتراك' : 'Choose duration'); return; }
-    setActivating(true);
-    try {
-      const token = localStorage.getItem('token');
-      const r = await fetch(`${API_URL}/api/subscriptions/redeem-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ code: subCode.trim(), duration_months: parseInt(subDuration) }),
-      });
-      const data = await r.json();
-      if (r.ok) {
-        toast.success(ar ? `✅ تم تفعيل الكود! ${data.message || ''}` : `✅ Code activated! ${data.message || ''}`);
-        setSubCode(''); setSubDuration('');
-      } else {
-        toast.error(data.detail || (ar ? 'كود غير صالح' : 'Invalid code'));
-      }
-    } catch { toast.error(ar ? 'خطأ في الاتصال' : 'Connection error'); }
-    setActivating(false);
-  };
-
-  const renderCheck = (val) => {
-    if (val === true) return <span className="text-emerald-500 text-lg">✓</span>;
-    if (val === false) return <span className="text-gray-300 text-sm">—</span>;
-    return <span className="text-xs text-gray-600 font-medium">{val}</span>;
-  };
+  const Total = () => quote ? (
+    <div className="text-sm text-gray-300">
+      {ar ? 'الإجمالي' : 'Total'} <b className="text-white text-lg tabular-nums">{fmt(quote.total)}</b> {ar ? 'ج.م — شامل ضريبة القيمة المضافة' : 'EGP incl. VAT'}
+    </div>
+  ) : null;
 
   return (
-    <div dir={ar ? 'rtl' : 'ltr'} className="pricing-section">
-      <style>{`
-        .pricing-section { font-family: 'Cairo', 'Segoe UI', sans-serif; }
-        .plan-card { transition: transform .2s, box-shadow .2s; }
-        .plan-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,.15); }
-        .tab-btn { padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; }
-        .tab-active { background: #28376B; color: #fff; }
-        .tab-inactive { background: transparent; color: #64748b; }
-        .tab-inactive:hover { background: #f1f5f9; }
-        .feature-row:nth-child(even) { background: #f8fafc; }
-        .cat-row { background: #0f1729; color: #fff; }
-        @media(max-width:768px) { .plans-grid { grid-template-columns: 1fr !important; } .compare-table { font-size: 11px; } }
-      `}</style>
-
-      {/* ── Section header ── */}
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'rgba(40,55,107,.08)', border:'1px solid rgba(40,55,107,.15)', borderRadius:20, padding:'4px 16px', marginBottom:16 }}>
-          <span style={{ fontSize:11, fontWeight:700, color:'#28376B', letterSpacing:'.05em', textTransform:'uppercase' }}>{ar?'الأسعار والخطط':'Pricing & Plans'}</span>
-        </div>
-        <h2 style={{ fontSize:'clamp(24px,4vw,36px)', fontWeight:800, color:'#0f1729', marginBottom:10 }}>
-          {ar ? 'خطة تناسب كل شركة' : 'A Plan for Every Business'}
-        </h2>
-        <p style={{ color:'#64748b', fontSize:15, maxWidth:520, margin:'0 auto' }}>
-          {ar ? '14 يوم تجربة مجانية — بدون بطاقة ائتمان — تفعيل فوري' : '14-day free trial · No credit card · Instant activation'}
-        </p>
-      </div>
-
-      {/* ── Tabs ── */}
-      <div style={{ display:'flex', justifyContent:'center', gap:4, marginBottom:32, background:'#f1f5f9', borderRadius:12, padding:4, width:'fit-content', margin:'0 auto 32px' }}>
-        {[['plans', ar?'خطط التسعير':'Pricing Plans'], ['compare', ar?'مقارنة تفصيلية':'Feature Comparison'], ['industry', ar?'🏭 التخصصات':'🏭 Industry Add-ons'], ['faq', ar?'الأسئلة الشائعة':'FAQ']].map(([id, label]) => (
-          <button key={id} className={`tab-btn ${activeTab===id?'tab-active':'tab-inactive'}`} onClick={() => setActiveTab(id)}>{label}</button>
+    <div dir={ar ? 'rtl' : 'ltr'} className="text-gray-200">
+      <div className="flex justify-center gap-1 mb-8 bg-white/5 rounded-xl p-1 w-fit mx-auto" role="tablist">
+        {[['build', ar ? 'احسب اشتراكك' : 'Build your plan'], ['compare', ar ? 'المقارنة وكل المميزات' : 'Compare & all features'], ['faq', ar ? 'أسئلة شائعة' : 'FAQ']].map(([id, l]) => (
+          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold ${tab === id ? 'bg-white text-[#0f1729]' : 'text-gray-300 hover:text-white'}`}>{l}</button>
         ))}
       </div>
 
-      {/* ══════════════════ PLANS TAB ══════════════════ */}
-      {activeTab === 'plans' && (
-        <>
-          {/* الاشتراك الأساسي هو الأصل، والتخصص إضافة اختيارية فوقه */}
-          <div style={{ maxWidth:820, margin:'0 auto 22px', padding:'14px 18px', borderRadius:12,
-                        background:'#f8fafc', border:'1px solid #e2e8f0', textAlign:'center' }}>
-            <p style={{ margin:'0 0 4px', fontSize:14, fontWeight:700, color:'#0f1729' }}>
-              {ar?'اشترك في الخطة التي تناسب حجمك — وهي وحدها تشغّل الشركة بالكامل.'
-                 :'Pick the plan that fits your size — it runs the whole business on its own.'}
-            </p>
-            <p style={{ margin:0, fontSize:13, color:'#475569' }}>
-              {ar?'وإن كان لنشاطك تخصص (مقاولات، مصانع، مطاعم، عيادات…) تضيفه فوق اشتراكك في أي وقت من داخل البرنامج، وتوقفه متى شئت.'
-                 :'If your sector needs one (construction, manufacturing, restaurants, clinics…) add it on top at any time from inside the app.'}
-              {' '}
-              <button onClick={() => setActiveTab('industry')}
-                style={{ background:'none', border:'none', padding:0, color:'#1e3a8a', fontWeight:700, cursor:'pointer', fontSize:13 }}>
-                {ar?'اطّلع على التخصصات ←':'See the add-ons →'}
-              </button>
-            </p>
-          </div>
+      {loadErr && <p className="text-center text-red-300">{loadErr}</p>}
+      {!catalog && !loadErr && <p className="text-center text-gray-400">{ar ? 'بنحمّل الأسعار…' : 'Loading prices…'}</p>}
 
-          {/* Billing toggle */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12, marginBottom:28 }}>
-            <button onClick={() => setBillingCycle('monthly')} style={{ padding:'6px 16px', borderRadius:8, border:'1px solid', fontSize:13, fontWeight:600, cursor:'pointer', background: billingCycle==='monthly'?'#0f1729':'transparent', color: billingCycle==='monthly'?'#fff':'#64748b', borderColor: billingCycle==='monthly'?'#0f1729':'#cbd5e1' }}>
-              {ar?'شهري':'Monthly'}
-            </button>
-            <button onClick={() => setBillingCycle('annual')} style={{ padding:'6px 16px', borderRadius:8, border:'1px solid', fontSize:13, fontWeight:600, cursor:'pointer', background: billingCycle==='annual'?'#0f1729':'transparent', color: billingCycle==='annual'?'#fff':'#64748b', borderColor: billingCycle==='annual'?'#0f1729':'#cbd5e1' }}>
-              {ar?'سنوي':'Annual'} <span style={{ fontSize:11, color:'#10b981', fontWeight:700, marginRight:4 }}>-20%</span>
-            </button>
-            <div style={{ display:'flex', gap:6 }}>
-              {['EGP','USD'].map(c => (
-                <button key={c} onClick={() => setCurrency(c)} style={{ padding:'4px 12px', borderRadius:6, border:'1px solid', fontSize:12, fontWeight:700, cursor:'pointer', background: currency===c?'#f0c060':'transparent', color: currency===c?'#78350f':'#94a3b8', borderColor: currency===c?'#f0c060':'#e2e8f0' }}>{c}</button>
-              ))}
-            </div>
-          </div>
+      {catalog && tab === 'build' && (
+        <div className="max-w-5xl mx-auto">
+          <Steps />
 
-          {/* Plan cards */}
-          <div className="plans-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:20, maxWidth:1100, margin:'0 auto 40px' }}>
-            {plans.map(plan => (
-              <div key={plan.id} className="plan-card" style={{ border:`2px solid ${plan.popular?plan.border:'#e2e8f0'}`, borderRadius:20, overflow:'hidden', background:'#fff', position:'relative' }}>
-                {plan.badge && (
-                  <div style={{ background: plan.popular?'#0f1729':'linear-gradient(135deg,#92400e,#f59e0b)', color:'#fff', textAlign:'center', fontSize:12, fontWeight:700, padding:'6px 0' }}>{plan.badge}</div>
-                )}
-
-                {/* Card header */}
-                <div style={{ padding:'24px 24px 16px', background: plan.popular?'linear-gradient(135deg,#0f1729,#28376B)':'#fafafa', color: plan.popular?'#fff':'#0f1729' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-                    <div style={{ width:44, height:44, borderRadius:12, background:plan.iconBg, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff' }}>{plan.icon}</div>
-                    <div>
-                      <div style={{ fontSize:18, fontWeight:800 }}>{plan.name}</div>
-                      <div style={{ fontSize:11, opacity:.7 }}>{plan.employees}</div>
-                    </div>
-                  </div>
-                  <p style={{ fontSize:12, opacity:.7, marginBottom:16, lineHeight:1.5 }}>{plan.tagline}</p>
-
-                  {/* Price */}
-                  <div style={{ display:'flex', alignItems:'baseline', gap:4 }}>
-                    <span style={{ fontSize:38, fontWeight:900 }}>{getPrice(plan).toLocaleString()}</span>
-                    <span style={{ fontSize:13, opacity:.7 }}>{currency === 'USD' ? '$' : 'ج.م'} / {ar?'شهر':'mo'}</span>
-                  </div>
-                  {billingCycle === 'annual' && (
-                    <div style={{ fontSize:11, color:'#10b981', fontWeight:700, marginTop:4 }}>
-                      {ar?`وفر ${getSavings(plan).toLocaleString()} ${currency==='USD'?'$':'ج.م'} سنوياً`:`Save ${getSavings(plan).toLocaleString()} ${currency==='USD'?'USD':'EGP'}/year`}
-                    </div>
-                  )}
-                </div>
-
-                {/* Highlights (professional & enterprise) */}
-                {plan.highlight?.length > 0 && (
-                  <div style={{ padding:'14px 20px', background:'#f0fdf4', borderBottom:'1px solid #bbf7d0' }}>
-                    <div style={{ fontSize:11, fontWeight:700, color:'#065f46', marginBottom:8 }}>⚡ {ar?'المميزات الرئيسية':'Key Highlights'}</div>
-                    {plan.highlight.map((h,i) => (
-                      <div key={i} style={{ fontSize:12, color:'#047857', display:'flex', gap:6, marginBottom:4 }}>
-                        <span>✓</span><span>{h}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Features by category */}
-                <div style={{ padding:'16px 20px 0' }}>
-                  {Object.entries(plan.features).map(([cat, items]) => (
-                    <div key={cat} style={{ marginBottom:14 }}>
-                      <div style={{ fontSize:11, fontWeight:700, color:'#28376B', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:6 }}>{cat}</div>
-                      {items.map((feat, i) => (
-                        <div key={i} style={{ display:'flex', gap:8, marginBottom:5, fontSize:12.5, color:'#374151', lineHeight:1.4 }}>
-                          <CheckCircle style={{ width:14, height:14, color:'#10b981', flexShrink:0, marginTop:2 }} />
-                          <span>{feat}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-
-                  {plan.notIncluded?.length > 0 && (
-                    <div style={{ marginBottom:14 }}>
-                      <div style={{ fontSize:11, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:6 }}>{ar?'غير متاح':'Not Included'}</div>
-                      {plan.notIncluded.map((feat, i) => (
-                        <div key={i} style={{ display:'flex', gap:8, marginBottom:5, fontSize:12, color:'#94a3b8' }}>
-                          <X style={{ width:13, height:13, flexShrink:0, marginTop:2 }} />
-                          <span>{feat}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* CTA */}
-                <div style={{ padding:'16px 20px 24px' }}>
-                  <button
-                    onClick={() => handleSelect(plan)}
-                    style={{ width:'100%', padding:'12px 0', borderRadius:12, border:'none', fontSize:14, fontWeight:700, cursor:'pointer',
-                      background: plan.popular ? 'linear-gradient(135deg,#0f1729,#28376B)' : plan.id==='enterprise' ? 'linear-gradient(135deg,#92400e,#f59e0b)' : '#f1f5f9',
-                      color: plan.id==='starter' ? '#0f1729' : '#fff',
-                      boxShadow: plan.popular ? '0 4px 16px rgba(40,55,107,.3)' : 'none' }}
-                  >
-                    {ar ? 'ابدأ تجربتك المجانية ←' : 'Start Free Trial →'}
+          {step === 1 && (
+            <section aria-labelledby="st1">
+              <h3 id="st1" className="sr-only">{ar ? 'اختار الباقة الأساسية' : 'Choose a base plan'}</h3>
+              <p className="text-center text-gray-300 mb-5">{ar ? 'كل باقة بتشغّل البرنامج كله — الفرق في عدد الموظفين والتخزين والدعم.' : 'Every plan runs the whole system — they differ in employees, storage and support.'}</p>
+              <div className="flex flex-wrap justify-center gap-2 mb-6">
+                {Object.keys(catalog.durations).map((d) => (
+                  <button key={d} type="button" onClick={() => setDuration(d)} aria-pressed={duration === d}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold border ${duration === d ? 'bg-white text-[#0f1729] border-white' : 'border-white/15 text-gray-200'}`}>
+                    {durLabel(d)}{d !== 'monthly' && planObj?.savings?.[d] > 0 && <span className="ms-1 text-emerald-500 text-xs">{ar ? `وفّر ${fmt(planObj.savings[d])}` : `save ${fmt(planObj.savings[d])}`}</span>}
                   </button>
-                  <p style={{ textAlign:'center', fontSize:11, color:'#94a3b8', marginTop:8 }}>
-                    {ar?'14 يوم مجاناً — بدون بطاقة':'14 days free · No card required'}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Activation code */}
-          <div style={{ maxWidth:480, margin:'0 auto', background:'linear-gradient(135deg,#f0fdf4,#ecfdf5)', border:'1px solid #bbf7d0', borderRadius:16, padding:24 }}>
-            <div style={{ textAlign:'center', marginBottom:16 }}>
-              <Key style={{ width:24, height:24, color:'#047857', margin:'0 auto 8px' }} />
-              <h4 style={{ fontWeight:700, color:'#065f46', marginBottom:4 }}>{ar?'لديك كود تفعيل؟':'Have an activation code?'}</h4>
-              <p style={{ fontSize:12, color:'#059669' }}>{ar?'فعّل اشتراكك مباشرة بكود مجاني':'Activate your subscription instantly with a free code'}</p>
-            </div>
-            <div style={{ display:'flex', gap:8, marginBottom:10 }}>
-              <Input value={subCode} onChange={e=>setSubCode(e.target.value.toUpperCase())} placeholder={ar?'XXXX-XXXX-XXXX':'XXXX-XXXX-XXXX'} style={{ flex:1, fontFamily:'monospace', textAlign:'center', letterSpacing:2 }} />
-              <select value={subDuration} onChange={e=>setSubDuration(e.target.value)} style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'8px 12px', fontSize:13, background:'#fff', color:'#374151' }}>
-                <option value="">{ar?'المدة':'Duration'}</option>
-                <option value="1">{ar?'1 شهر':'1 month'}</option>
-                <option value="3">{ar?'3 أشهر':'3 months'}</option>
-                <option value="6">{ar?'6 أشهر':'6 months'}</option>
-                <option value="12">{ar?'سنة':'1 year'}</option>
-              </select>
-            </div>
-            <button onClick={handleActivateCode} disabled={activating} style={{ width:'100%', padding:'10px 0', background:'#059669', color:'#fff', border:'none', borderRadius:10, fontWeight:700, fontSize:14, cursor:'pointer' }}>
-              {activating ? (ar?'جاري التفعيل...':'Activating...') : (ar?'تفعيل الكود':'Activate Code')}
-            </button>
-          </div>
-        </>
-      )}
-
-
-      {/* ══════════════════ INDUSTRY TAB ══════════════════ */}
-      {activeTab === 'industry' && (
-        <div style={{ maxWidth:860, margin:'0 auto' }}>
-          {/* Header */}
-          <div style={{ textAlign:'center', marginBottom:28, padding:'20px 24px', background:'linear-gradient(135deg,#fef3c7,#fde68a)', borderRadius:16, border:'1px solid #f59e0b' }}>
-            <div style={{ fontSize:28, marginBottom:8 }}>🏭</div>
-            <h3 style={{ fontSize:20, fontWeight:800, color:'#92400e', margin:'0 0 6px' }}>{ar?'التخصصات القطاعية — إضافة اختيارية فوق اشتراكك':'Industry Add-ons — Optional, on top of your subscription'}</h3>
-            <p style={{ fontSize:13, color:'#78350f', margin:'0 0 10px', fontWeight:700 }}>
-              {ar?'الاشتراك الأساسي هو الأصل — وهو وحده كافٍ لتشغيل الشركة بالكامل.'
-                 :'The base subscription is the product — on its own it runs the whole business.'}
-            </p>
-            <p style={{ fontSize:13, color:'#78350f', margin:0 }}>
-              {ar?'التخصص إضافة لمن يحتاجها: تُضيف حسابات وشاشات نشاطك إلى النظام. تشترك فيها من داخل البرنامج في أي وقت — عند الاشتراك أو بعده بشهور — وتوقفها متى شئت، ويمكن اختيار أكثر من تخصص معاً.'
-                 :'An add-on is for those who need it: it adds your sector’s accounts and screens. Subscribe from inside the app at any time — at sign-up or months later — stop it whenever you like, and combine as many as you need.'}
-            </p>
-          </div>
-
-          {/* Addons grid */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:16, marginBottom:28 }}>
-            {[
-              { key:'ads',          icon:'📢', name:ar?'شركات الإعلانات':'Advertising',       price:299, tags:ar?['إدارة الحملات','شراء الوسائط','المؤثرون']:['Campaigns','Media Buying','Influencers'] },
-              { key:'construction', icon:'🏗️', name:ar?'المقاولات والإنشاءات':'Construction', price:399, tags:ar?['BOQ','إدارة المواقع','المعدات']:['BOQ','Site Mgmt','Equipment'] },
-              { key:'manufacturing',icon:'🏭', name:ar?'المصانع والإنتاج':'Manufacturing',    price:599, tags:ar?['أوامر إنتاج','BOM','مراقبة الجودة']:['Production Orders','BOM','QC'] },
-              { key:'medical',      icon:'🏥', name:ar?'الطبية والصيدليات':'Medical',         price:349, tags:ar?['المرضى','الوصفات','مخزون أدوية']:['Patients','Prescriptions','Drug Stock'] },
-              { key:'real_estate',  icon:'🏠', name:ar?'العقارات':'Real Estate',              price:299, tags:ar?['إدارة وحدات','إيجار','حجوزات']:['Units','Rental','Bookings'] },
-              { key:'restaurants',  icon:'🍽️', name:ar?'المطاعم والضيافة':'Restaurants',     price:249, tags:ar?['إدارة طاولات','KDS مطبخ','توصيل']:['Tables','KDS','Delivery'] },
-              { key:'education',    icon:'🎓', name:ar?'التعليم والمدارس':'Education',        price:199, tags:ar?['الطلاب','الرسوم','جداول']:['Students','Fees','Schedules'] },
-              { key:'retail',       icon:'🛒', name:ar?'التجزئة والمتاجر':'Retail',           price:249, tags:ar?['POS','باركود','نقاط ولاء']:['POS','Barcode','Loyalty'] },
-              { key:'logistics',    icon:'🚚', name:ar?'اللوجستيات والشحن':'Logistics',       price:399, tags:ar?['أسطول','شحنات','جمارك']:['Fleet','Shipments','Customs'] },
-              // كانت هذه الباقات موجودة في النظام بحساباتها ولا تُعرض للبيع
-              { key:'import',       icon:'🚢', name:ar?'الاستيراد':'Import',                  price:349, tags:ar?['اعتمادات','جمارك','شحن دولي']:['LCs','Customs','Freight'] },
-              { key:'export',       icon:'🌍', name:ar?'التصدير':'Export',                    price:349, tags:ar?['عملاء بالعملات','مساندة الصادرات','شهادات منشأ']:['FX Customers','Export Support','Origin Certs'] },
-              { key:'professional', icon:'⚖️', name:ar?'المكاتب المهنية':'Professional Services', price:249, tags:ar?['أتعاب','ساعات غير مفوترة','عملاء']:['Fees','Unbilled WIP','Clients'] },
-            ].map(addon => (
-              <div key={addon.key} style={{ border:'2px solid #e2e8f0', borderRadius:14, padding:'16px', background:'#fff', position:'relative', overflow:'hidden' }}>
-                <div style={{ position:'absolute', top:10, left:ar?'auto':10, right:ar?10:'auto', background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:8, padding:'2px 8px', fontSize:10, color:'#92400e', fontWeight:700 }}>+ {ar?'إضافة':'Add-on'}</div>
-                <div style={{ fontSize:28, marginBottom:8 }}>{addon.icon}</div>
-                <div style={{ fontWeight:800, fontSize:14, color:'#0f1729', marginBottom:6 }}>{addon.name}</div>
-                <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginBottom:10 }}>
-                  {addon.tags.map(t => <span key={t} style={{ background:'#f1f5f9', color:'#475569', borderRadius:20, padding:'2px 8px', fontSize:10 }}>{t}</span>)}
-                </div>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <span style={{ fontSize:20, fontWeight:900, color:'#f59e0b' }}>+{addon.price} <span style={{ fontSize:11, fontWeight:400, color:'#94a3b8' }}>{ar?'ج.م/شهر':'EGP/mo'}</span></span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Price calculator */}
-          <div style={{ background:'linear-gradient(135deg,#0f1729,#1e3a8a)', borderRadius:20, padding:'28px 24px', color:'#fff' }}>
-            <h4 style={{ textAlign:'center', fontWeight:800, fontSize:17, marginBottom:20 }}>🧮 {ar?'احسب سعرك':'Build Your Price'}</h4>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
-              <div>
-                <div style={{ fontSize:12, color:'#94a3b8', marginBottom:10, fontWeight:600 }}>{ar?'اختر خطتك:':'Base Plan:'}</div>
-                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                  {[
-                    { id:'starter', name:ar?'⚡ الأساسية':'⚡ Starter', price:299 },
-                    { id:'professional', name:ar?'⭐ الاحترافية':'⭐ Professional', price:799 },
-                    { id:'enterprise', name:ar?'👑 المؤسسية':'👑 Enterprise', price:1499 },
-                  ].map(p => (
-                    <button key={p.id} onClick={() => setActiveTab('plans')}
-                      style={{ padding:'10px 14px', borderRadius:10, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.05)', color:'#fff', textAlign:'start', cursor:'pointer', display:'flex', justifyContent:'space-between' }}>
-                      <span style={{ fontWeight:700, fontSize:13 }}>{p.name}</span>
-                      <span style={{ color:'#94a3b8', fontSize:12 }}>{p.price} {ar?'ج.م':'EGP'}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize:12, color:'#94a3b8', marginBottom:10, fontWeight:600 }}>{ar?'مثال — الاحترافية + مقاولات + طبية:':'Example — Pro + Construction + Medical:'}</div>
-                <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:12, padding:'16px' }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8, fontSize:13 }}><span>⭐ {ar?'الاحترافية':'Professional'}</span><span>799</span></div>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8, fontSize:13 }}><span>🏗️ {ar?'مقاولات':'Construction'}</span><span>+ 399</span></div>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12, fontSize:13 }}><span>🏥 {ar?'طبية':'Medical'}</span><span>+ 349</span></div>
-                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.15)', paddingTop:10, display:'flex', justifyContent:'space-between' }}>
-                    <span style={{ fontWeight:700 }}>{ar?'الإجمالي':'Total'}</span>
-                    <span style={{ fontSize:22, fontWeight:900, color:'#f59e0b' }}>1,547 <span style={{ fontSize:12, color:'#94a3b8' }}>{ar?'ج.م/شهر':'EGP/mo'}</span></span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p style={{ textAlign:'center', fontSize:11, color:'#64748b', marginTop:16 }}>
-              💡 {ar?'تظهر التخصصات في الشريط الجانبي فور التفعيل · يمكن إضافة أكثر من تخصص · تُضاف على الفاتورة الشهرية':'Add-ons appear in sidebar immediately · Multiple add-ons supported · Billed monthly'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════ COMPARE TAB ══════════════════ */}
-      {activeTab === 'compare' && (
-        <div style={{ maxWidth:900, margin:'0 auto', overflowX:'auto' }}>
-          <table className="compare-table" style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-            <thead>
-              <tr style={{ background:'#0f1729', color:'#fff' }}>
-                <th style={{ padding:'14px 16px', textAlign:'start', fontWeight:700, width:'40%' }}>{ar?'الميزة':'Feature'}</th>
-                {plans.map(p => (
-                  <th key={p.id} style={{ padding:'14px 12px', textAlign:'center', fontWeight:800, color: p.popular?'#f0c060':'#fff' }}>
-                    {p.name}
-                    {p.badge && <div style={{ fontSize:10, fontWeight:600, opacity:.7 }}>{p.badge}</div>}
-                  </th>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {comparisonFeatures.map((feat, i) => (
-                feat.category ? (
-                  <tr key={i} className="cat-row">
-                    <td colSpan={4} style={{ padding:'10px 16px', fontWeight:700, fontSize:12, letterSpacing:'.05em', textTransform:'uppercase', color:'#f0c060' }}>{feat.category}</td>
-                  </tr>
-                ) : (
-                  <tr key={i} className="feature-row">
-                    <td style={{ padding:'10px 16px', color:'#374151', fontWeight:500 }}>{feat.name}</td>
-                    <td style={{ textAlign:'center', padding:'10px 12px' }}>{renderCheck(feat.starter)}</td>
-                    <td style={{ textAlign:'center', padding:'10px 12px' }}>{renderCheck(feat.professional)}</td>
-                    <td style={{ textAlign:'center', padding:'10px 12px' }}>{renderCheck(feat.enterprise)}</td>
-                  </tr>
-                )
-              ))}
-            </tbody>
-            <tfoot>
-              <tr style={{ background:'#f8fafc', borderTop:'2px solid #e2e8f0' }}>
-                <td style={{ padding:'16px' }}></td>
-                {plans.map(plan => (
-                  <td key={plan.id} style={{ textAlign:'center', padding:'16px 12px' }}>
-                    <button onClick={() => { handleSelect(plan); setActiveTab('plans'); }}
-                      style={{ padding:'10px 20px', borderRadius:10, border:'none', fontSize:13, fontWeight:700, cursor:'pointer',
-                        background: plan.popular?'#0f1729':plan.id==='enterprise'?'#92400e':'#f1f5f9',
-                        color: plan.id==='starter'?'#0f1729':'#fff' }}>
-                      {ar ? 'اختر الخطة' : 'Choose Plan'}
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                {catalog.plans.map((p) => {
+                  const meta = PLAN_META[p.key] || {}; const t = meta[ar ? 'ar' : 'en'] || {}; const Icon = meta.icon || Zap;
+                  const chosen = plan === p.key;
+                  return (
+                    <button key={p.key} type="button" onClick={() => setPlan(p.key)} aria-pressed={chosen}
+                      className={`text-start ${card} p-5 grid gap-3 transition-colors ${chosen ? 'ring-2 ring-amber-400 bg-white/[0.08]' : 'hover:bg-white/[0.06]'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2 font-bold text-white text-lg"><Icon className="w-5 h-5 text-amber-400" aria-hidden />{ar ? p.name_ar : p.name_en}</span>
+                        {meta.popular && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">{ar ? 'الأكثر اختياراً' : 'Most chosen'}</span>}
+                      </div>
+                      <span className="text-sm text-gray-300">{t.tag} · {t.emp}</span>
+                      <span><b className="text-3xl text-white tabular-nums">{fmt(p.prices[duration])}</b> <span className="text-sm text-gray-300">{ar ? 'ج.م' : 'EGP'} / {durLabel(duration)}</span></span>
+                      {duration !== 'monthly' && <span className="text-xs text-gray-400 tabular-nums">{ar ? `يعني ${fmt(p.prices[duration] / catalog.durations[duration].months)} ج.م في الشهر` : `${fmt(p.prices[duration] / catalog.durations[duration].months)} EGP a month`}</span>}
+                      <ul className="grid gap-1 text-sm">
+                        <li className="flex gap-2"><Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />{ar ? 'كل مميزات البرنامج' : 'Every feature of the system'}</li>
+                        {(t.extra || []).map((x) => <li key={x} className="flex gap-2"><Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />{x}</li>)}
+                      </ul>
+                      <span className={`mt-1 text-center rounded-lg py-2 text-sm font-bold ${chosen ? 'bg-amber-500 text-black' : 'bg-white/10 text-white'}`}>{chosen ? (ar ? 'مختارة' : 'Selected') : (ar ? 'اختار' : 'Choose')}</span>
                     </button>
-                  </td>
+                  );
+                })}
+              </div>
+              <Nav next={() => setStep(2)} nextLabel={ar ? 'التالي: المجالات المتخصصة' : 'Next: sector add-ons'} />
+            </section>
+          )}
+
+          {step === 2 && (
+            <section aria-labelledby="st2">
+              <h3 id="st2" className="text-center text-white font-bold text-xl mb-2">{ar ? 'نشاطك محتاج مجال متخصص؟' : 'Does your sector need an add-on?'}</h3>
+              <p className="text-center text-gray-300 mb-6">{ar ? 'اختياري — كل مجال بيضيف حساباته وشاشاته فوق الباقة الأساسية، وتقدر تضيفه أو توقفه بعدين.' : 'Optional — each adds its accounts and screens on top of the base plan; add or stop it later.'}</p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {catalog.packs.map((k) => {
+                  const on = packs.includes(k.key);
+                  return (
+                    <label key={k.key} className={`${card} p-4 grid gap-1 cursor-pointer ${on ? 'ring-2 ring-teal-400 bg-white/[0.08]' : 'hover:bg-white/[0.06]'}`}>
+                      <span className="flex items-start gap-2">
+                        <input type="checkbox" checked={on} onChange={() => togglePack(k.key)} className="mt-1 w-4 h-4 accent-teal-500" />
+                        <span className="font-semibold text-white">{ar ? k.name_ar : k.name_en}</span>
+                      </span>
+                      {k.note_ar && ar && <span className="text-xs text-gray-400 ps-6">{k.note_ar}</span>}
+                      <span className="text-sm ps-6 tabular-nums"><b className="text-white">{fmt(Math.round(k.monthly * factor))}</b> {ar ? 'ج.م' : 'EGP'} / {durLabel(duration)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><Total />{quoteErr && <span className="text-red-300 text-sm">{quoteErr}</span>}</div>
+              <Nav back={() => setStep(1)} next={() => setStep(3)} nextLabel={ar ? 'التالي: الإجمالي' : 'Next: total'} />
+            </section>
+          )}
+
+          {step === 3 && quote && (
+            <section aria-labelledby="st3" className="max-w-2xl mx-auto">
+              <h3 id="st3" className="text-white font-bold text-xl mb-4">{ar ? 'الإجمالي' : 'Your total'}</h3>
+              <div className={`${card} p-5 grid gap-2`}>
+                {quote.lines.map((l) => (
+                  <div key={l.kind + l.key} className="flex justify-between gap-3 text-sm"><span>{l.label}</span><span className="tabular-nums text-white">{fmt(l.amount)}</span></div>
                 ))}
-              </tr>
-            </tfoot>
-          </table>
+                <div className="border-t border-white/10 pt-3 mt-1 flex justify-between font-bold text-white text-lg"><span>{ar ? 'الإجمالي (شامل الضريبة)' : 'Total (incl. VAT)'}</span><span className="tabular-nums">{fmt(quote.total)} {ar ? 'ج.م' : 'EGP'}</span></div>
+                <div className="flex justify-between text-xs text-gray-400"><span>{ar ? `منها ضريبة القيمة المضافة ${quote.vat_rate}%` : `of which VAT ${quote.vat_rate}%`}</span><span className="tabular-nums">{fmt(quote.vat_included)}</span></div>
+              </div>
+              <div className={`${card} p-5 mt-4 grid gap-3`}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} className="mt-1 w-4 h-4 accent-amber-500" />
+                  <span><span className="font-semibold text-white flex items-center gap-2"><RefreshCw className="w-4 h-4" aria-hidden />{ar ? 'تجديد تلقائي' : 'Auto-renew'}</span>
+                    <span className="block text-sm text-gray-300 mt-1">{ar ? quote.renewal_note : (autoRenew ? 'A renewal invoice is raised 7 days before the end date; card auto-charge arrives once the bank link is ready.' : 'The subscription ends on its date; renew manually from the subscription page.')}</span>
+                    <span className="block text-xs text-gray-400 mt-1">{ar ? 'ميعاد التجديد: ' : 'Renews on '}<bdi dir="ltr">{quote.renews_on}</bdi></span></span>
+                </label>
+                <p className="flex items-center gap-2 text-xs text-gray-400"><CreditCard className="w-4 h-4" aria-hidden />{ar ? 'الخصم التلقائي من الكارت — قريباً' : 'Card auto-charge — coming soon'}</p>
+              </div>
+              <Nav back={() => setStep(2)} next={() => setStep(4)} nextLabel={ar ? 'اعرض الفاتورة' : 'Show the invoice'} />
+            </section>
+          )}
+
+          {step === 4 && quote && <InvoiceStep ar={ar} quote={quote} planName={ar ? planObj?.name_ar : planObj?.name_en} durLabel={durLabel(duration)}
+            loggedIn={loggedIn} onBack={() => setStep(3)} onStartTrial={onStartTrial} />}
         </div>
       )}
 
-      {/* ══════════════════ FAQ TAB ══════════════════ */}
-      {activeTab === 'faq' && (
-        <div style={{ maxWidth:700, margin:'0 auto' }}>
-          {faqs.map((faq, i) => (
-            <details key={i} style={{ marginBottom:12, border:'1px solid #e2e8f0', borderRadius:12, overflow:'hidden' }}>
-              <summary style={{ padding:'16px 20px', cursor:'pointer', fontWeight:700, fontSize:14, color:'#0f1729', listStyle:'none', display:'flex', alignItems:'center', justifyContent:'space-between', background:'#fff' }}>
-                {faq.q}
-                <span style={{ fontSize:18, color:'#94a3b8', flexShrink:0, marginRight:ar?0:0 }}>+</span>
-              </summary>
-              <div style={{ padding:'0 20px 16px', fontSize:13.5, color:'#374151', lineHeight:1.7, background:'#fafafa' }}>{faq.a}</div>
-            </details>
-          ))}
-
-          {/* CTA bottom */}
-          <div style={{ textAlign:'center', marginTop:32, padding:28, background:'linear-gradient(135deg,#0f1729,#28376B)', borderRadius:20, color:'#fff' }}>
-            <h3 style={{ fontSize:20, fontWeight:800, marginBottom:8 }}>{ar?'جاهز للبداية؟':'Ready to get started?'}</h3>
-            <p style={{ fontSize:13, opacity:.7, marginBottom:20 }}>{ar?'14 يوم تجربة مجانية — لا حاجة لبطاقة ائتمان':'14-day free trial — no credit card required'}</p>
-            <div style={{ display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap' }}>
-              <button onClick={() => setActiveTab('plans')} style={{ padding:'12px 28px', background:'#f0c060', color:'#0f1729', border:'none', borderRadius:12, fontWeight:800, fontSize:14, cursor:'pointer' }}>
-                {ar?'ابدأ تجربتك المجانية ←':'Start Free Trial →'}
-              </button>
-              <a href="mailto:info@datalifeai.com" style={{ padding:'12px 24px', background:'rgba(255,255,255,.1)', color:'#fff', border:'1px solid rgba(255,255,255,.25)', borderRadius:12, fontWeight:600, fontSize:14, textDecoration:'none' }}>
-                {ar?'تواصل معنا':'Contact Us'}
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Modal */}
-      {isPaymentModalOpen && selectedPlan && (
-        <PaymentModal
-          isOpen={isPaymentModalOpen}
-          onClose={() => setIsPaymentModalOpen(false)}
-          selectedPlan={selectedPlan}
-          billingCycle={billingCycle}
-        />
-      )}
+      {catalog && tab === 'compare' && <Compare ar={ar} catalog={catalog} />}
+      {tab === 'faq' && <Faq ar={ar} />}
     </div>
   );
-};
+}
 
-export default PricingSection;
+function InvoiceStep({ ar, quote, planName, durLabel, loggedIn, onBack, onStartTrial }) {
+  const [pay, setPay] = useState(false);
+  const [method, setMethod] = useState('instapay');
+  const [ref, setRef] = useState('');
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(null);
+  const [err, setErr] = useState('');
+  const today = new Date().toISOString().slice(0, 10);
+
+  const saveChoice = () => { try { localStorage.setItem('dl_pricing_choice', JSON.stringify({ plan: quote.plan, duration: quote.duration, packs: quote.packs, auto_renew: quote.auto_renew })); } catch { /* ignore */ } };
+
+  const submit = async (e) => {
+    e.preventDefault(); setErr('');
+    if (!ref.trim()) { setErr(ar ? 'اكتب رقم العملية من رسالة التحويل' : 'Enter the transfer reference'); return; }
+    setBusy(true);
+    try {
+      const token = localStorage.getItem('token');
+      let receipt_url = '';
+      if (file) {
+        const fd = new FormData(); fd.append('file', file); fd.append('type', 'payment_receipt');
+        const up = await fetch(`${API_URL}/api/payments/upload-receipt`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+        const ud = await up.json().catch(() => ({}));
+        if (!up.ok) throw new Error(typeof ud.detail === 'string' ? ud.detail : (ar ? 'الإيصال ماترفعش' : 'Receipt upload failed'));
+        receipt_url = ud.url || '';
+      }
+      const r = await fetch(`${API_URL}/api/payments/request`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ plan: quote.plan, duration: quote.duration, packs: quote.packs, auto_renew: quote.auto_renew, payment_method: method, reference_number: ref.trim(), receipt_url }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : (ar ? 'الطلب ماتسجلش' : 'Request not recorded'));
+      setDone(d); toast.success(ar ? 'اتسجل طلب الدفع' : 'Payment request recorded');
+      try { localStorage.removeItem('dl_pricing_choice'); } catch { /* ignore */ }
+    } catch (e2) { setErr(e2.message); } finally { setBusy(false); }
+  };
+
+  const METHODS = [['instapay', 'InstaPay', '00201006008552'], ['vodafone_cash', ar ? 'فودافون كاش' : 'Vodafone Cash', '00201012625529'], ['bank_transfer', ar ? 'تحويل بنكي' : 'Bank transfer', ar ? 'بيانات الحساب بتوصلك مع تأكيد الطلب' : 'Account details are sent with the confirmation']];
+
+  return (
+    <section aria-labelledby="st4" className="max-w-2xl mx-auto grid gap-5">
+      <h3 id="st4" className="text-white font-bold text-xl flex items-center gap-2"><FileText className="w-5 h-5" aria-hidden />{ar ? 'الفاتورة المبدئية' : 'Pro-forma invoice'}</h3>
+      <div className="rounded-2xl bg-white text-slate-800 p-6 grid gap-4 shadow-xl">
+        <div className="flex flex-wrap justify-between gap-3 text-sm">
+          <div><p className="font-bold text-[#1e3a8a]">{ar ? 'داتا لايف لخدمات الذكاء الصناعي' : 'DataLife AI Services'}</p><p className="text-slate-500">DataLife Account</p></div>
+          <div className="text-end"><p>{ar ? 'التاريخ' : 'Date'}: <bdi dir="ltr" className="tabular-nums">{today}</bdi></p><p>{ar ? 'المدة' : 'Period'}: {durLabel}</p></div>
+        </div>
+        <table className="w-full text-sm">
+          <thead><tr className="text-slate-500 border-b"><th className="text-start py-2">{ar ? 'البند' : 'Item'}</th><th className="text-end py-2">{ar ? 'المبلغ (ج.م)' : 'Amount (EGP)'}</th></tr></thead>
+          <tbody>
+            {quote.lines.map((l) => <tr key={l.kind + l.key} className="border-b border-slate-100"><td className="py-2">{l.label}</td><td className="py-2 text-end tabular-nums">{fmt(l.amount)}</td></tr>)}
+          </tbody>
+          <tfoot>
+            <tr><td className="pt-3 text-slate-500">{ar ? 'القيمة قبل الضريبة' : 'Net before VAT'}</td><td className="pt-3 text-end tabular-nums">{fmt(quote.net_before_vat)}</td></tr>
+            <tr><td className="text-slate-500">{ar ? `ضريبة القيمة المضافة ${quote.vat_rate}% (داخل السعر)` : `VAT ${quote.vat_rate}% (included)`}</td><td className="text-end tabular-nums">{fmt(quote.vat_included)}</td></tr>
+            <tr className="font-bold text-lg"><td className="pt-2">{ar ? 'الإجمالي المطلوب' : 'Total due'}</td><td className="pt-2 text-end tabular-nums">{fmt(quote.total)}</td></tr>
+          </tfoot>
+        </table>
+        <p className="text-xs text-slate-500">{ar ? `الباقة: ${planName} · ${quote.auto_renew ? 'تجديد تلقائي يوم ' : 'بدون تجديد تلقائي — ينتهي '}` : `Plan: ${planName} · ${quote.auto_renew ? 'auto-renews on ' : 'ends '}`}<bdi dir="ltr">{quote.renews_on}</bdi>{ar ? '. الفاتورة الضريبية النهائية بتتعمل بعد تأكيد الدفع.' : '. The final tax invoice is issued once payment is confirmed.'}</p>
+      </div>
+
+      {done ? (
+        <div className={`${card} p-5 text-emerald-300`} role="status">{done.message} — {ar ? 'المبلغ المسجل' : 'amount'} <b className="tabular-nums">{fmt(done.amount_egp)}</b> {ar ? 'ج.م' : 'EGP'}</div>
+      ) : !loggedIn ? (
+        <div className={`${card} p-5 grid gap-3`}>
+          <p>{ar ? 'ابدأ تجربة مجانية 14 يوم، وبعدها ادفع الفاتورة دي من صفحة الاشتراك — اختيارك هيتحفظ.' : 'Start a 14-day free trial, then pay this invoice from the subscription page — your choice is kept.'}</p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => { saveChoice(); onStartTrial ? onStartTrial() : (window.location.href = '/register-company'); }} className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold">{ar ? 'ابدأ التجربة المجانية' : 'Start the free trial'}</button>
+            <a href="/login" onClick={saveChoice} className="px-5 py-2.5 rounded-lg border border-white/15 text-white">{ar ? 'عندي حساب — دخول' : 'I have an account — sign in'}</a>
+          </div>
+        </div>
+      ) : !pay ? (
+        <button type="button" onClick={() => setPay(true)} className="px-5 py-3 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold justify-self-start">{ar ? 'ادفع الفاتورة' : 'Pay this invoice'}</button>
+      ) : (
+        <form onSubmit={submit} className={`${card} p-5 grid gap-4`} noValidate>
+          <fieldset className="grid gap-2">
+            <legend className="font-semibold text-white mb-2">{ar ? 'طريقة الدفع' : 'Payment method'}</legend>
+            {METHODS.map(([k, l, d]) => (
+              <label key={k} className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer ${method === k ? 'border-amber-400 bg-white/[0.06]' : 'border-white/10'}`}>
+                <input type="radio" name="pm" value={k} checked={method === k} onChange={() => setMethod(k)} className="mt-1" />
+                <span><span className="font-semibold text-white">{l}</span><span className="block text-sm text-gray-300 tabular-nums" dir="ltr">{d}</span></span>
+              </label>
+            ))}
+            <p className="flex items-center gap-2 text-xs text-gray-400 border border-dashed border-white/10 rounded-lg p-3"><CreditCard className="w-4 h-4" aria-hidden />{ar ? 'الدفع بالكارت — قريباً' : 'Card payment — coming soon'}</p>
+          </fieldset>
+          <p className="text-sm text-gray-300">{ar ? `حوّل ${fmt(quote.total)} ج.م، واكتب رقم العملية وارفع صورة الإيصال.` : `Transfer ${fmt(quote.total)} EGP, then enter the reference and upload the receipt.`}</p>
+          <label className="grid gap-1 text-sm" htmlFor="pay-ref">{ar ? 'رقم العملية' : 'Reference number'}
+            <input id="pay-ref" value={ref} onChange={(e) => setRef(e.target.value)} dir="ltr" className="px-3 py-2 rounded-lg bg-white/10 border border-white/15 text-white" />
+          </label>
+          <label className="grid gap-1 text-sm" htmlFor="pay-rec"><span className="flex items-center gap-2"><Upload className="w-4 h-4" aria-hidden />{ar ? 'صورة الإيصال (اختياري)' : 'Receipt image (optional)'}</span>
+            <input id="pay-rec" type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-gray-300" />
+          </label>
+          {err && <p className="text-red-300 text-sm" role="alert">{err}</p>}
+          <button type="submit" disabled={busy} className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold justify-self-start disabled:opacity-50">{busy ? '…' : (ar ? 'أرسل طلب الدفع' : 'Send payment request')}</button>
+        </form>
+      )}
+      <div><button type="button" onClick={onBack} className="text-sm text-gray-300 underline">{ar ? 'رجوع للإجمالي' : 'Back to the total'}</button></div>
+    </section>
+  );
+}
+
+function Compare({ ar, catalog }) {
+  const groups = ar ? ALL_FEATURES_AR : ALL_FEATURES_EN;
+  return (
+    <div className="max-w-6xl mx-auto grid gap-8">
+      <div className="overflow-x-auto rounded-2xl border border-white/10">
+        <table className="w-full text-sm min-w-[560px]">
+          <thead><tr className="bg-white/5"><th className="text-start p-3">{ar ? 'الباقة' : 'Plan'}</th>
+            {catalog.plans.map((p) => <th key={p.key} className="p-3 text-center text-white">{ar ? p.name_ar : p.name_en}<span className="block text-xs text-gray-400 font-normal tabular-nums">{fmt(p.prices.monthly)} {ar ? 'ج.م / شهر' : 'EGP / mo'}</span></th>)}</tr></thead>
+          <tbody>
+            {COMPARE.map(([k, la, le, va, ve]) => (
+              <tr key={k} className="border-t border-white/10"><td className="p-3 text-gray-300">{ar ? la : le}</td>{(ar ? va : ve).map((v, i) => <td key={i} className="p-3 text-center text-white">{v}</td>)}</tr>
+            ))}
+            <tr className="border-t border-white/10"><td className="p-3 text-gray-300">{ar ? 'كل مميزات البرنامج (تحت)' : 'Every feature (below)'}</td>{catalog.plans.map((p) => <td key={p.key} className="p-3 text-center"><Check className="inline w-4 h-4 text-teal-400" aria-label={ar ? 'متضمن' : 'included'} /></td>)}</tr>
+            <tr className="border-t border-white/10"><td className="p-3 text-gray-300">{ar ? 'المجالات المتخصصة' : 'Sector add-ons'}</td>{catalog.plans.map((p) => <td key={p.key} className="p-3 text-center text-gray-300">{ar ? 'إضافة اختيارية' : 'optional add-on'}</td>)}</tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <h3 className="text-white font-bold text-xl mb-4">{ar ? 'اللي موجود في كل الباقات' : 'Included in every plan'}</h3>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {groups.map(([g, items]) => (
+            <div key={g} className={`${card} p-5`}>
+              <h4 className="font-bold text-white mb-3">{g}</h4>
+              <ul className="grid gap-1.5 text-sm">{items.map((x) => <li key={x} className="flex gap-2"><Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-hidden />{x}</li>)}</ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-white font-bold text-xl mb-4">{ar ? 'المجالات المتخصصة — تتضاف على أي باقة' : 'Sector add-ons — on top of any plan'}</h3>
+        <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <table className="w-full text-sm min-w-[520px]">
+            <thead><tr className="bg-white/5"><th className="text-start p-3">{ar ? 'المجال' : 'Sector'}</th><th className="text-start p-3">{ar ? 'بيضيف' : 'Adds'}</th><th className="p-3 text-end">{ar ? 'شهرياً' : 'Monthly'}</th></tr></thead>
+            <tbody>{catalog.packs.map((k) => <tr key={k.key} className="border-t border-white/10"><td className="p-3 text-white">{ar ? k.name_ar : k.name_en}</td><td className="p-3 text-gray-300">{k.note_ar}</td><td className="p-3 text-end tabular-nums text-white">{fmt(k.monthly)}</td></tr>)}</tbody>
+          </table>
+        </div>
+        <p className="text-xs text-gray-400 mt-2">{ar ? 'كل الأسعار بالجنيه المصري وشاملة ضريبة القيمة المضافة. المجال اللي بتشتريه مع مدة بياخد نفس خصم المدة.' : 'All prices in EGP, VAT included. An add-on bought for a period gets the same period discount.'}</p>
+      </div>
+    </div>
+  );
+}
+
+function Faq({ ar }) {
+  const items = ar ? [
+    ['إيه الفرق بين الباقات؟', 'كل الباقات فيها البرنامج كله. الفرق في عدد الموظفين ومساحة التخزين ونوع الدعم والتهيئة.'],
+    ['إيه هي المجالات المتخصصة؟', 'إضافات لأنشطة معينة (مقاولات، تصنيع، عقارات، طبي، مطاعم…) بتضيف حساباتها وشاشاتها. اختيارية وتضيفها أو توقفها في أي وقت.'],
+    ['الأسعار شاملة الضريبة؟', 'أيوه، كل الأسعار شاملة ضريبة القيمة المضافة 14%، والفاتورة بتوضح الضريبة اللي جوه السعر.'],
+    ['التجديد التلقائي بيشتغل إزاي؟', 'قبل نهاية الاشتراك بـ 7 أيام بتتعمل فاتورة التجديد وتوصلك في البرنامج، وتدفعها بنفس طرق الدفع. الخصم التلقائي من الكارت هيتفعّل أول ما ربط البنك يخلص.'],
+    ['طرق الدفع إيه؟', 'إنستاباي، فودافون كاش، تحويل بنكي، أو كود تفعيل. الدفع بالكارت قريباً.'],
+    ['أقدر أغيّر الباقة؟', 'أيوه، تقدر ترقّي في أي وقت من صفحة الاشتراك.'],
+    ['بعد التجربة المجانية بياناتي هتروح؟', 'لأ، بياناتك بتفضل محفوظة، ومحتاج بس تختار باقة عشان تكمّل.'],
+    ['أقدر آخد بياناتي معايا؟', 'أيوه، من الإعدادات تقدر تصدّر كل بيانات شركتك في أي وقت.'],
+  ] : [
+    ['What differs between plans?', 'Every plan has the whole system; they differ in employees, storage, support and onboarding.'],
+    ['What are sector add-ons?', 'Optional extras for specific activities that add their accounts and screens; add or stop them any time.'],
+    ['Are prices VAT-inclusive?', 'Yes, all prices include 14% VAT and the invoice shows the VAT inside the price.'],
+    ['How does auto-renew work?', 'A renewal invoice is raised 7 days before the end date and paid the usual way; card auto-charge comes once the bank link is ready.'],
+    ['Payment methods?', 'InstaPay, Vodafone Cash, bank transfer or an activation code. Card payment is coming soon.'],
+    ['Can I change plans?', 'Yes, upgrade any time from the subscription page.'],
+    ['What happens after the trial?', 'Your data is kept; choose a plan to continue.'],
+    ['Can I take my data?', 'Yes, export all your company data from Settings at any time.'],
+  ];
+  return (
+    <div className="max-w-3xl mx-auto grid gap-3">
+      {items.map(([q, a]) => (
+        <details key={q} className={`${card} p-4`}>
+          <summary className="cursor-pointer font-semibold text-white">{q}</summary>
+          <p className="mt-2 text-sm text-gray-300">{a}</p>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+
+/** فواتير التجديد المستنية الدفع — في صفحة الاشتراك جوه البرنامج. */
+export function RenewalInvoices({ ar = true }) {
+  const [items, setItems] = useState([]);
+  const [open, setOpen] = useState(null);
+  const [method, setMethod] = useState('instapay');
+  const [ref, setRef] = useState('');
+  const [msg, setMsg] = useState('');
+  const load = () => {
+    const token = localStorage.getItem('token');
+    fetch(`${API_URL}/api/payments/my-transactions`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : { requests: [] }))
+      .then((d) => setItems((d.requests || []).filter((x) => x.status === 'awaiting_payment')))
+      .catch(() => {});
+  };
+  useEffect(load, []);
+  if (!items.length) return null;
+  const pay = async (id) => {
+    setMsg('');
+    const r = await fetch(`${API_URL}/api/payments/requests/${id}/pay`, { method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: JSON.stringify({ payment_method: method, reference_number: ref }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { setMsg(typeof d.detail === 'string' ? d.detail : (ar ? 'ماتسجلش' : 'Not recorded')); return; }
+    setOpen(null); setRef(''); load(); toast.success(d.message || (ar ? 'اتسجل الدفع' : 'Recorded'));
+  };
+  return (
+    <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 grid gap-3" dir={ar ? 'rtl' : 'ltr'}>
+      <p className="font-bold">{ar ? 'فواتير تجديد مستنية الدفع' : 'Renewal invoices awaiting payment'}</p>
+      {items.map((x) => (
+        <div key={x.id} className="grid gap-2 bg-white rounded-lg p-3 text-slate-800">
+          <div className="flex flex-wrap justify-between gap-2 text-sm">
+            <span>{(x.quote?.lines || []).map((l) => l.label).join('، ')}</span>
+            <span className="font-bold tabular-nums">{fmt(x.amount_egp)} {ar ? 'ج.م' : 'EGP'} · {ar ? 'تستحق' : 'due'} <bdi dir="ltr">{x.due_date}</bdi></span>
+          </div>
+          {open === x.id ? (
+            <div className="flex flex-wrap items-end gap-2 text-sm">
+              <select value={method} onChange={(e) => setMethod(e.target.value)} className="px-2 py-1.5 border rounded-lg">
+                <option value="instapay">InstaPay — 00201006008552</option>
+                <option value="vodafone_cash">{ar ? 'فودافون كاش' : 'Vodafone Cash'} — 00201012625529</option>
+                <option value="bank_transfer">{ar ? 'تحويل بنكي' : 'Bank transfer'}</option>
+              </select>
+              <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder={ar ? 'رقم العملية' : 'Reference'} dir="ltr" className="px-2 py-1.5 border rounded-lg" />
+              <button type="button" onClick={() => pay(x.id)} className="px-3 py-1.5 rounded-lg bg-[#1e3a8a] text-white font-semibold">{ar ? 'سجّل الدفع' : 'Record payment'}</button>
+              {msg && <span className="text-red-700">{msg}</span>}
+            </div>
+          ) : (
+            <button type="button" onClick={() => setOpen(x.id)} className="justify-self-start px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-semibold">{ar ? 'ادفع الفاتورة' : 'Pay invoice'}</button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}

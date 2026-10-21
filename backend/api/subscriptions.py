@@ -33,6 +33,7 @@ def calculate_end_date(start_date: datetime, duration: str) -> datetime:
     duration_days = {
         "monthly": 30,
         "3_months": 90,
+        "3months": 90,
         "quarterly": 90,
         "6_months": 180,
         "9_months": 270,
