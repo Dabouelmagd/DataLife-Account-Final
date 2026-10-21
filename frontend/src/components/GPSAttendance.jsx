@@ -6,6 +6,7 @@
 import { parseServerDate } from '../utils/dates';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getPosition } from '../utils/geo';
 import {
   MapPin, Clock, CheckCircle, XCircle, Loader2,
   Navigation, LogIn, LogOut, AlertTriangle, Wifi
@@ -50,17 +51,8 @@ export default function GPSAttendance({ employeeId, employeeName }) {
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
   // Get GPS location
-  const getLocation = () => new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error(ar ? 'المتصفح لا يدعم GPS' : 'Browser does not support GPS'));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy }),
-      err => reject(new Error(ar ? 'تعذّر تحديد الموقع. تأكد من تفعيل GPS' : 'Could not get location. Enable GPS')),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-  });
+  const getLocation = () => getPosition({ ar }).then(
+    pos => ({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy }));
 
   const handleCheckIn = async () => {
     setLocating(true);

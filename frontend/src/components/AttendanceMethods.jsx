@@ -8,6 +8,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { MapPin, Upload, Pencil, Loader2, X } from 'lucide-react';
+import { getPosition } from '../utils/geo';
 
 const API = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -64,8 +65,7 @@ export function GpsPunchButton({ onDone, className = '' }) {
 
   const punch = (kind) => {
     setState({ busy: true, msg: null });
-    if (!navigator.geolocation) { setState({ busy: false, msg: { err: true, text: 'المتصفح لا يدعم تحديد الموقع' } }); return; }
-    navigator.geolocation.getCurrentPosition(async (pos) => {
+    getPosition().then(async (pos) => {
       try {
         const { data } = await axios.post(kind === "in" ? `${API}/api/ess/attendance/check-in` : `${API}/api/ess/attendance/check-out`,
           { latitude: pos.coords.latitude, longitude: pos.coords.longitude, device_id: 'web' }, auth());
@@ -74,8 +74,8 @@ export function GpsPunchButton({ onDone, className = '' }) {
         onDone?.();
       } catch (e) { setState({ busy: false, msg: { err: true, text: errText(e, 'تعذّر التسجيل') } }); }
     }, (err) => {
-      setState({ busy: false, msg: { err: true, text: err.code === 1 ? 'اسمح للمتصفح بالوصول لموقعك ثم أعد المحاولة' : 'تعذّر تحديد موقعك — تأكد من تشغيل الـ GPS' } });
-    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+      setState({ busy: false, msg: { err: true, text: err.message } });
+    });
   };
 
   return (

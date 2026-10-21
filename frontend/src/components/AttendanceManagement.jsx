@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import useRealTimeSync from '../hooks/useRealTimeSync';
 import { escapeHtml } from '../utils/escapeHtml';
+import { getPosition } from '../utils/geo';
 
 const AttendanceManagement = () => {
   const { token, user } = useAuth();
@@ -162,11 +163,7 @@ const AttendanceManagement = () => {
     }
 
     if (useGPS) {
-      if (!navigator.geolocation) {
-        toast.error(isRTL ? 'المتصفح لا يدعم GPS' : 'Browser does not support GPS');
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
+      getPosition({ ar: isRTL }).then(
         async (pos) => {
           try {
             await axios.post(
@@ -183,8 +180,7 @@ const AttendanceManagement = () => {
             toast.error(error.response?.data?.detail || (isRTL ? 'خارج نطاق العمل' : 'Outside work zone'));
           }
         },
-        () => toast.error(isRTL ? 'تعذّر الحصول على الموقع' : 'Could not get GPS location'),
-        { enableHighAccuracy: true, timeout: 10000 }
+        (err) => toast.error(err.message)
       );
       return;
     }

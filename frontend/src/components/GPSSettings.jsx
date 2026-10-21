@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MapPin, Save, Navigation, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { getPosition } from '../utils/geo';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
@@ -33,13 +34,12 @@ export default function GPSSettings() {
 
   const detectMyLocation = () => {
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    getPosition({ ar }).then(
       pos => {
         setSettings(s => ({ ...s, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) }));
         setLocating(false);
       },
-      () => { setMsg({ type: 'error', text: ar ? 'تعذّر تحديد الموقع' : 'Could not get location' }); setLocating(false); },
-      { enableHighAccuracy: true, timeout: 10000 }
+      (err) => { setMsg({ type: 'error', text: err.message }); setLocating(false); }
     );
   };
 

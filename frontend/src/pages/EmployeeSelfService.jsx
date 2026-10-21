@@ -11,6 +11,7 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { EmployeeAppraisals } from '../components/hr/Performance';
+import { getPosition } from '../utils/geo';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -249,15 +250,7 @@ const EmployeeSelfService = () => {
   }, [activeTab, fetchPayroll, fetchLeaves, fetchAttendance, fetchRequests]);
 
   // ── GPS helpers ──────────────────────────────────────────────
-  const getGPS = () => new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('GPS غير مدعوم في هذا المتصفح'));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true, timeout: 10000, maximumAge: 0
-    });
-  });
+  const getGPS = () => getPosition();
 
   const handleCheckIn = async () => {
     setGpsLoading(true); setGpsError('');
@@ -271,8 +264,9 @@ const EmployeeSelfService = () => {
       showToast('✅ تم تسجيل الحضور بنجاح');
       fetchAttendance();
     } catch (e) {
-      setGpsError(e.message || T.msg.locationError);
-      showToast(e.response?.data?.detail || T.msg.locationError, 'error');
+      const why = (typeof e.response?.data?.detail === 'string' && e.response.data.detail) || (!e.response && e.message) || T.msg.locationError;
+      setGpsError(why);
+      showToast(why, 'error');
     } finally { setGpsLoading(false); }
   };
 
@@ -288,8 +282,9 @@ const EmployeeSelfService = () => {
       showToast('✅ تم تسجيل الانصراف بنجاح');
       fetchAttendance();
     } catch (e) {
-      setGpsError(e.message || T.msg.locationError);
-      showToast(e.response?.data?.detail || T.msg.locationError, 'error');
+      const why = (typeof e.response?.data?.detail === 'string' && e.response.data.detail) || (!e.response && e.message) || T.msg.locationError;
+      setGpsError(why);
+      showToast(why, 'error');
     } finally { setGpsLoading(false); }
   };
 
