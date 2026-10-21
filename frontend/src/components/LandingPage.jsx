@@ -112,7 +112,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-6">
             {navLinks.map(l => (
               <button key={l.href} onClick={() => scrollTo(l.href)}
-                className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
+                className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
                 {l.label}
               </button>
             ))}
@@ -193,7 +193,7 @@ export default function LandingPage() {
           <h1 className="text-[2.1rem] leading-[1.25] sm:text-5xl md:text-7xl font-black sm:leading-tight mb-5 sm:mb-6">
             {ar ? (<><span className="block">نظام ERP المحاسبي</span><span className="block bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">المصري الأكثر اكتمالاً</span></>) : (<>Egypt&apos;s Most Complete<br/><span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Accounting ERP</span></>)}
           </h1>
-          <p className="text-base sm:text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl text-gray-300 max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
             {ar ? 'فاتورة ETA · رواتب قانون 148/2019 · بوابة موظف ESS · مساعد AI محاسبي · تنبيهات ذكية تُصلح نفسها تلقائياً' : 'ETA Invoice · Payroll Law 148/2019 · ESS Employee Portal · AI Accounting Assistant · Smart self-healing alerts'}
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-4 mb-10 sm:mb-14 max-w-sm sm:max-w-none mx-auto">
@@ -214,7 +214,7 @@ export default function LandingPage() {
             {[{n:'946+',l:ar?'نقطة API':'API Points'},{n:'89+',l:ar?'محرك متخصص':'Engines'},{n:'99.5%',l:'SLA'},{n:'ETA',l:ar?'ربط الفاتورة الإلكترونية':'e-invoice link'}].map((s,i)=>(
               <div key={i} className="text-center">
                 <div className="text-2xl md:text-3xl font-black text-white">{s.n}</div>
-                <div className="text-xs text-gray-500 mt-1">{s.l}</div>
+                <div className="text-xs text-gray-300 mt-1">{s.l}</div>
               </div>
             ))}
           </div>
@@ -225,7 +225,7 @@ export default function LandingPage() {
       <div className="bg-[#0a1020]/80 border-y border-white/5 py-3">
         <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-center gap-6">
           {[ar?'🔒 اتصال مشفر HTTPS':'🔒 HTTPS Encrypted', ar?'📋 أدوات حماية البيانات الشخصية':'📋 Personal-data tools', ar?'🧾 ربط الفاتورة الإلكترونية ETA':'🧾 ETA e-invoice integration', ar?'🤖 مساعد AI 24/7':'🤖 AI Assistant 24/7', ar?'👤 بوابة ESS للموظفين':'👤 ESS Employee Portal', ar?'⚡ نسخ احتياطي يومي':'⚡ Daily Backup'].map((t,i)=>(
-            <span key={i} className="text-xs font-semibold text-gray-500">{t}</span>
+            <span key={i} className="text-xs font-semibold text-gray-300">{t}</span>
           ))}
         </div>
       </div>
@@ -236,7 +236,7 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <div className="text-xs font-bold uppercase tracking-widest text-teal-400 mb-3">{ar?'المحركات والميزات':'Engines & Features'}</div>
             <h2 className="text-4xl md:text-5xl font-black text-white mb-4">{ar?'89 محرك — 946 نقطة API':'89 Engines — 946 API Points'}</h2>
-            <p className="text-gray-400 max-w-xl mx-auto">{ar?'مبني من الأساس للبيئة المصرية. لا حلول مستوردة تحتاج تكييف.':'Built from scratch for the Egyptian environment. No imported solutions needing adaptation.'}</p>
+            <p className="text-gray-300 max-w-xl mx-auto">{ar?'مبني من الأساس للبيئة المصرية. لا حلول مستوردة تحتاج تكييف.':'Built from scratch for the Egyptian environment. No imported solutions needing adaptation.'}</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((f,i)=>(
@@ -245,9 +245,9 @@ export default function LandingPage() {
                 {f.isNew && <span className="absolute top-3 left-3 text-xs font-black px-2 py-0.5 rounded-full bg-gradient-to-r from-green-500 to-teal-500 text-black">{ar?'جديد':'New'}</span>}
                 <div className="text-3xl mb-3">{f.icon}</div>
                 <h3 className="font-bold text-white mb-2">{f.title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed mb-3">{f.desc}</p>
+                <p className="text-sm text-gray-300 leading-relaxed mb-3">{f.desc}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {f.tags.map((t,j)=><span key={j} className="text-xs px-2 py-0.5 rounded-md bg-white/5 text-gray-500 font-medium">{t}</span>)}
+                  {f.tags.map((t,j)=><span key={j} className="text-xs px-2 py-0.5 rounded-md bg-white/5 text-gray-300 font-medium">{t}</span>)}
                 </div>
               </div>
             ))}
@@ -261,7 +261,7 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <div className="text-xs font-bold uppercase tracking-widest text-purple-400 mb-3">{ar?'جديد — بوابة الموظف الذاتية':'New — Employee Self-Service'}</div>
             <h2 className="text-4xl md:text-5xl font-black text-white mb-4">{ar?'كل موظف يرى بياناته فقط':'Every Employee Sees Their Own Data Only'}</h2>
-            <p className="text-gray-400 max-w-xl mx-auto">{ar?'عند تسجيل الدخول يُوجَّه الموظف تلقائياً لبوابته الخاصة — عزل كامل وأمان تام':'Employee is automatically directed to their personal portal — complete isolation and full security'}</p>
+            <p className="text-gray-300 max-w-xl mx-auto">{ar?'عند تسجيل الدخول يُوجَّه الموظف تلقائياً لبوابته الخاصة — عزل كامل وأمان تام':'Employee is automatically directed to their personal portal — complete isolation and full security'}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
@@ -269,7 +269,7 @@ export default function LandingPage() {
                 <h3 className="font-bold text-purple-200 mb-4 flex items-center gap-2"><span>📱</span>{ar?'ما يراه الموظف':'What the Employee Sees'}</h3>
                 <ul className="space-y-2.5">
                   {(ar?['بياناته الشخصية + صورة قابلة للتحديث','راتبه الأساسي + البدلات + الخصومات + الصافي','سجل مسيرات الرواتب + تحميل قسيمة PDF','أرصدة الإجازات: سنوية / عارضة / مرضية','تسجيل حضور وانصراف بالموقع الجغرافي GPS','رفع مستندات + عرض وثائقه الشخصية','تقديم طلبات: إجازة · سلفة · وقت إضافي']:['Personal data + updatable photo','Base salary + allowances + deductions + net','Payroll history + PDF payslip download','Leave balances: annual / casual / sick','GPS check-in/check-out attendance','Upload documents + view personal files','Submit requests: leave · advance · overtime']).map((item,i)=>(
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-400">
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
                       <span className="text-teal-400 font-bold flex-shrink-0 mt-0.5">✓</span>{item}
                     </li>
                   ))}
@@ -279,7 +279,7 @@ export default function LandingPage() {
                 <h3 className="font-bold text-red-400 mb-3 text-sm flex items-center gap-2"><span>🔒</span>{ar?'ما لا يستطيع رؤيته':'What They Cannot See'}</h3>
                 <ul className="space-y-1.5">
                   {(ar?['رواتب أو بيانات أي موظف آخر','الحسابات المالية أو الفواتير','بيانات العملاء أو الموردين','لوحة التحكم الرئيسية بأي حال']:['Salaries or data of other employees','Financial accounts or invoices','Customer or supplier data','Main dashboard under any circumstance']).map((item,i)=>(
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-500">
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
                       <span className="text-red-500 font-bold flex-shrink-0 mt-0.5">✗</span>{item}
                     </li>
                   ))}
@@ -296,7 +296,7 @@ export default function LandingPage() {
                 ].map((p,i)=>(
                   <div key={i} className={`flex gap-3 p-4 rounded-xl border ${p.color}`}>
                     <div className="text-2xl flex-shrink-0">{p.icon}</div>
-                    <div><div className="font-bold text-white text-sm">{p.role}</div><div className="text-gray-500 text-xs mt-1">{p.desc}</div></div>
+                    <div><div className="font-bold text-white text-sm">{p.role}</div><div className="text-gray-300 text-xs mt-1">{p.desc}</div></div>
                   </div>
                 ))}
                 <div className="bg-green-500/8 border border-green-500/20 rounded-xl p-3 mt-2">
@@ -318,7 +318,7 @@ export default function LandingPage() {
           <div className="flex flex-wrap justify-center gap-2 mb-8">
             {verticals.map(v=>(
               <button key={v.id} onClick={()=>setActiveVertical(v.id)}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeVertical===v.id?'bg-blue-600 text-white':'bg-white/5 text-gray-400 hover:bg-white/10'}`}>
+                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeVertical===v.id?'bg-blue-600 text-white':'bg-white/5 text-gray-300 hover:bg-white/10'}`}>
                 {v.icon} {v.label}
               </button>
             ))}
@@ -328,7 +328,7 @@ export default function LandingPage() {
               <div>
                 <ul className="space-y-3">
                   {v.items.map((item,i)=>(
-                    <li key={i} className="flex items-start gap-3 text-gray-400">
+                    <li key={i} className="flex items-start gap-3 text-gray-300">
                       <span className="text-teal-400 font-black flex-shrink-0 mt-0.5">✓</span>
                       <span className="text-sm">{item}</span>
                     </li>
@@ -339,7 +339,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="bg-white/3 border border-white/7 rounded-2xl p-6">
-                <div className="text-sm font-bold text-gray-500 mb-4 uppercase tracking-wider">{ar?'مؤشرات نموذجية':'Sample KPIs'}</div>
+                <div className="text-sm font-bold text-gray-300 mb-4 uppercase tracking-wider">{ar?'مؤشرات نموذجية':'Sample KPIs'}</div>
                 {[
                   {l:ar?'إيراد الشهر':'Monthly Revenue', v:ar?'٢.٨٥ م ج.م':'EGP 2.85M', c:'text-amber-400'},
                   {l:ar?'معدل الاسترداد':'Recovery Rate', v:'94.2%', c:'text-green-400'},
@@ -347,7 +347,7 @@ export default function LandingPage() {
                   {l:ar?'تنبيهات معلقة':'Pending Alerts', v:'3 ⚠️', c:'text-red-400'},
                 ].map((s,i)=>(
                   <div key={i} className="flex justify-between items-center py-3 border-b border-white/5 last:border-0">
-                    <span className="text-sm text-gray-500">{s.l}</span>
+                    <span className="text-sm text-gray-300">{s.l}</span>
                     <span className={`text-sm font-bold ${s.c}`}>{s.v}</span>
                   </div>
                 ))}
@@ -379,12 +379,12 @@ export default function LandingPage() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="text-right py-3 px-4 text-gray-500 font-semibold w-1/3">{ar?'الميزة':'Feature'}</th>
+                  <th className="text-right py-3 px-4 text-gray-300 font-semibold w-1/3">{ar?'الميزة':'Feature'}</th>
                   <th className="py-3 px-4 text-amber-400 font-bold bg-amber-500/5 rounded-t-lg">DataLife ⭐</th>
-                  <th className="py-3 px-4 text-gray-500">QuickBooks</th>
-                  <th className="py-3 px-4 text-gray-500">Odoo</th>
-                  <th className="py-3 px-4 text-gray-500">SAP B1</th>
-                  <th className="py-3 px-4 text-gray-500">{ar?'برامج محلية':'Local SW'}</th>
+                  <th className="py-3 px-4 text-gray-300">QuickBooks</th>
+                  <th className="py-3 px-4 text-gray-300">Odoo</th>
+                  <th className="py-3 px-4 text-gray-300">SAP B1</th>
+                  <th className="py-3 px-4 text-gray-300">{ar?'برامج محلية':'Local SW'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -392,10 +392,10 @@ export default function LandingPage() {
                   <tr key={i} className={`border-b border-white/5 ${i%2===0?'bg-white/1':''}`}>
                     <td className="py-3 px-4 text-gray-300 font-medium">{r.feat}</td>
                     <td className="py-3 px-4 text-center text-green-400 font-semibold bg-amber-500/3">{r.dl}</td>
-                    <td className="py-3 px-4 text-center text-gray-600">{r.qb}</td>
-                    <td className="py-3 px-4 text-center text-gray-600">{r.od}</td>
-                    <td className="py-3 px-4 text-center text-gray-600">{r.sap}</td>
-                    <td className="py-3 px-4 text-center text-gray-600">{r.local}</td>
+                    <td className="py-3 px-4 text-center text-gray-400">{r.qb}</td>
+                    <td className="py-3 px-4 text-center text-gray-400">{r.od}</td>
+                    <td className="py-3 px-4 text-center text-gray-400">{r.sap}</td>
+                    <td className="py-3 px-4 text-center text-gray-400">{r.local}</td>
                   </tr>
                 ))}
               </tbody>
@@ -420,9 +420,9 @@ export default function LandingPage() {
                 <button onClick={()=>setFaqOpen(faqOpen===i?null:i)}
                   className="w-full flex items-center justify-between p-5 text-start">
                   <span className="font-semibold text-white text-sm">{f.q}</span>
-                  {faqOpen===i ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0"/> : <ChevronDown size={16} className="text-gray-400 flex-shrink-0"/>}
+                  {faqOpen===i ? <ChevronUp size={16} className="text-gray-300 flex-shrink-0"/> : <ChevronDown size={16} className="text-gray-300 flex-shrink-0"/>}
                 </button>
-                {faqOpen===i && <div className="px-5 pb-5 text-sm text-gray-400 leading-relaxed">{f.a}</div>}
+                {faqOpen===i && <div className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{f.a}</div>}
               </div>
             ))}
           </div>
@@ -440,7 +440,7 @@ export default function LandingPage() {
           <h2 className="text-4xl md:text-5xl font-black text-white mb-4">
             {ar?<>ابدأ اليوم — التجربة <span className="text-amber-400">مجانية 30 يوماً</span></>:<>Start Today — <span className="text-amber-400">30 Days Free</span></>}
           </h2>
-          <p className="text-gray-400 mb-10">{ar?'إعداد في 30 دقيقة، صلاحيات مرنة لكل فريقك، مساعد AI يجيب على أسئلتك فوراً.':'Setup in 30 minutes, flexible permissions for your team, AI assistant answers instantly.'}</p>
+          <p className="text-gray-300 mb-10">{ar?'إعداد في 30 دقيقة، صلاحيات مرنة لكل فريقك، مساعد AI يجيب على أسئلتك فوراً.':'Setup in 30 minutes, flexible permissions for your team, AI assistant answers instantly.'}</p>
           <div className="flex flex-wrap justify-center gap-4 mb-8">
             <button onClick={()=>setTrialOpen(true)}
               className="px-8 py-4 rounded-xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-xl shadow-amber-500/30 hover:-translate-y-0.5 transition-all">
@@ -451,7 +451,7 @@ export default function LandingPage() {
               📞 {ar?'تواصل مع المبيعات':'Contact Sales'}
             </a>
           </div>
-          <div className="flex flex-wrap justify-center gap-4 text-xs text-gray-600">
+          <div className="flex flex-wrap justify-center gap-4 text-xs text-gray-400">
             {[ar?'🔒 بدون بطاقة ائتمان':'🔒 No credit card',ar?'⚡ إعداد 30 دقيقة':'⚡ 30 min setup',ar?'👤 ESS للموظفين فوراً':'👤 ESS instantly',ar?'🤖 AI 24/7':'🤖 AI 24/7',ar?'📤 تصدير بياناتك دائماً':'📤 Export anytime'].map((t,i)=><span key={i}>{t}</span>)}
           </div>
         </div>
@@ -468,44 +468,44 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 pb-10 border-b border-white/5">
             <div className="col-span-2 md:col-span-1">
               <DataLifeLogo className="h-32 mb-4"/>
-              <p className="text-xs text-gray-600 leading-relaxed mb-4">{ar?'نظام ERP المحاسبي المصري المتكامل — فاتورة ETA · رواتب · ESS · AI · تنبيهات ذكية':'Egyptian integrated accounting ERP — ETA · Payroll · ESS · AI · Smart alerts'}</p>
+              <p className="text-xs text-gray-400 leading-relaxed mb-4">{ar?'نظام ERP المحاسبي المصري المتكامل — فاتورة ETA · رواتب · ESS · AI · تنبيهات ذكية':'Egyptian integrated accounting ERP — ETA · Payroll · ESS · AI · Smart alerts'}</p>
               <div className="flex flex-wrap gap-2">
                 {['InstaPay','Vodafone Cash',ar?'تحويل بنكي':'Bank Transfer'].map((p,i)=>(
-                  <span key={i} className="text-xs px-2 py-1 rounded-md bg-white/4 text-gray-600 border border-white/5">{p}</span>
+                  <span key={i} className="text-xs px-2 py-1 rounded-md bg-white/4 text-gray-400 border border-white/5">{p}</span>
                 ))}
               </div>
             </div>
             <div>
-              <div className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-4">{ar?'المنتج':'Product'}</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">{ar?'المنتج':'Product'}</div>
               <ul className="space-y-2.5">
                 {[{l:ar?'المميزات':'Features',h:'#features'},{l:ar?'بوابة ESS':'ESS Portal',h:'#ess'},{l:ar?'القطاعات':'Verticals',h:'#verticals'},{l:ar?'الأسعار':'Pricing',h:'#pricing'},{l:ar?'المقارنة':'Compare',h:'#compare'}].map((l,i)=>(
-                  <li key={i}><button onClick={()=>scrollTo(l.h)} className="text-xs text-gray-600 hover:text-white transition-colors">{l.l}</button></li>
+                  <li key={i}><button onClick={()=>scrollTo(l.h)} className="text-xs text-gray-400 hover:text-white transition-colors">{l.l}</button></li>
                 ))}
               </ul>
             </div>
             <div>
-              <div className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-4">{ar?'قانوني':'Legal'}</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">{ar?'قانوني':'Legal'}</div>
               <ul className="space-y-2.5">
                 {/* every link had href="#" and went nowhere; SLA and Security had no page at all */}
                 {[{l:ar?'الدفع والاسترداد وحماية البيانات':'Payment, Refund & Data Protection',h:'/policies'},
                   {l:ar?'سياسة الخصوصية':'Privacy Policy',h:'/privacy'},
                   {l:ar?'شروط الاستخدام':'Terms',h:'/terms'}].map((l,i)=>(
-                  <li key={i}><a href={l.h} className="text-xs text-gray-600 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">{l.l}</a></li>
+                  <li key={i}><a href={l.h} className="text-xs text-gray-400 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">{l.l}</a></li>
                 ))}
               </ul>
             </div>
             <div>
-              <div className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-4">{ar?'للتواصل':'Contact'}</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">{ar?'للتواصل':'Contact'}</div>
               <ul className="space-y-2.5">
-                <li><a href="https://www.google.com/maps/search/?api=1&query=59%20Lebanon%20Mohandessein%20Giza%20Egypt" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">{ar?'٥٩ لبنان المهندسين الجيزة مصر':'59 Lebanon Mohandessein Giza Egypt'}</a></li>
-                <li><a href="tel:+201006008552" dir="ltr" className="text-xs text-gray-600 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">+20 100 600 8552</a></li>
-                <li><a href="mailto:info@datalifeai.com" dir="ltr" className="text-xs text-gray-600 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">info@datalifeai.com</a></li>
+                <li><a href="https://www.google.com/maps/search/?api=1&query=59%20Lebanon%20Mohandessein%20Giza%20Egypt" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">{ar?'٥٩ لبنان المهندسين الجيزة مصر':'59 Lebanon Mohandessein Giza Egypt'}</a></li>
+                <li><a href="tel:+201006008552" dir="ltr" className="text-xs text-gray-400 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">+20 100 600 8552</a></li>
+                <li><a href="mailto:info@datalifeai.com" dir="ltr" className="text-xs text-gray-400 hover:text-white transition-colors inline-flex items-center [@media(pointer:coarse)]:min-h-[44px]">info@datalifeai.com</a></li>
               </ul>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <p className="text-xs text-gray-700">© 2026 DataLife AI — {ar?'جميع الحقوق محفوظة | الجيزة، مصر':'All rights reserved | Giza, Egypt'}</p>
-            <p className="text-xs text-gray-700">{ar?'المحتوى القانوني قيد المراجعة القانونية النهائية':'Legal content pending final legal review'}</p>
+            <p className="text-xs text-gray-400">© 2026 DataLife AI — {ar?'جميع الحقوق محفوظة | الجيزة، مصر':'All rights reserved | Giza, Egypt'}</p>
+            <p className="text-xs text-gray-400">{ar?'المحتوى القانوني قيد المراجعة القانونية النهائية':'Legal content pending final legal review'}</p>
           </div>
         </div>
       </footer>

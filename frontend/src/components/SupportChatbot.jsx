@@ -287,10 +287,11 @@ const SupportChatbot = () => {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 ${isRTL ? 'left-6' : 'right-6'} z-50 w-16 h-16 bg-gradient-to-r from-[#28376B] to-[#1e2a5a] text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center group hover:scale-110`}
+        aria-label={isRTL ? 'المساعد' : 'Assistant'}
+        className={`fixed bottom-4 sm:bottom-6 ${isRTL ? 'left-4 sm:left-6' : 'right-4 sm:right-6'} z-50 w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#28376B] to-[#1e2a5a] text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center group hover:scale-110`}
         data-testid="chatbot-open-btn"
       >
-        <MessageCircle className="h-7 w-7 group-hover:scale-110 transition-transform" />
+        <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7 group-hover:scale-110 transition-transform" />
         {/* Pulse animation */}
         <span className="absolute w-full h-full rounded-full bg-[#28376B] animate-ping opacity-30"></span>
       </button>
@@ -299,10 +300,10 @@ const SupportChatbot = () => {
 
   return (
     <div 
-      className={`fixed bottom-6 ${isRTL ? 'left-6' : 'right-6'} z-50 transition-all duration-300`}
+      className={`fixed bottom-4 sm:bottom-6 ${isRTL ? 'left-4 sm:left-6' : 'right-4 sm:right-6'} z-50 transition-all duration-300`}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
-      <div className={`bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${isMinimized ? 'w-80 h-16' : 'w-96 h-[600px]'}`}>
+      <div className={`bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${isMinimized ? 'w-[calc(100vw-2rem)] sm:w-80 h-16' : 'w-[calc(100vw-2rem)] sm:w-96 h-[75vh] sm:h-[600px] max-h-[600px]'}`}>
         {/* Header */}
         <div className="bg-gradient-to-r from-[#28376B] to-[#1e2a5a] text-white p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
