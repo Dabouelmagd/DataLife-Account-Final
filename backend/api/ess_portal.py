@@ -85,7 +85,11 @@ def resolve_work_location(emp: dict, company: dict):
                   gps if gps.get("enabled", True) else None,
                   company.get("work_location")]
     loc = next((c for c in candidates if c and c.get("latitude") not in (None, "")), None)
-    remote = bool(gps.get("allow_remote") or company.get("allow_remote_checkin") or emp.get("remote_work_allowed"))
+    mode = gps.get("remote_mode") or ("all" if gps.get("allow_remote") else "none")
+    # "none" switches the per-employee exceptions off as well; "selected"
+    # lets through only the employees ticked on the GPS settings screen.
+    remote = bool(mode == "all" or company.get("allow_remote_checkin")
+                  or (mode != "none" and emp.get("remote_work_allowed")))
     return loc, remote
 
 

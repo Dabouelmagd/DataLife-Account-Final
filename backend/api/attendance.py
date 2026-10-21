@@ -516,13 +516,22 @@ async def save_gps_settings(data: dict, authorization: Optional[str] = Header(No
     if not (20 <= radius <= 5000):
         raise HTTPException(status_code=400, detail="نطاق الحضور بين 20 و5000 متر")
     
+    remote_mode = data.get("remote_mode")
+    if remote_mode not in ("none", "selected", "all"):
+        remote_mode = "all" if data.get("allow_remote") else "none"
+
     gps_settings = {
         "enabled": bool(data.get("enabled", True)),
         "latitude": lat,
         "longitude": lon,
         "radius_meters": radius,
         "address": data.get("address", ""),
-        "allow_remote": bool(data.get("allow_remote", False)),
+        # remote_mode: none = everyone inside the radius, selected = only the
+        # employees ticked in the list below may check in from anywhere,
+        # all = the whole company works remotely. allow_remote stays for the
+        # check-in code and older clients (true only for "all").
+        "remote_mode": remote_mode,
+        "allow_remote": remote_mode == "all",
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": user_data.get("user_id"),
     }
@@ -532,6 +541,48 @@ async def save_gps_settings(data: dict, authorization: Optional[str] = Header(No
         {"$set": {"gps_settings": gps_settings}}
     )
     return {"message": "تم حفظ إعدادات GPS بنجاح", "gps_settings": gps_settings}
+
+
+async def _gps_admin(authorization):
+    user_data = await verify_token_from_header(authorization)
+    if user_data.get("role") not in GPS_ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="إذن العمل عن بُعد لمدير الموارد البشرية أو الإدارة العليا")
+    return user_data
+
+
+@router.get("/remote-employees")
+async def list_remote_employees(authorization: Optional[str] = Header(None)):
+    """الموظفون مع حالة إذن العمل عن بُعد لكل واحد (للاستثناءات)"""
+    user_data = await _gps_admin(authorization)
+    emps = await db.employees.find(
+        {"company_id": user_data.get("company_id"), "status": {"$ne": "terminated"}},
+        {"_id": 0, "id": 1, "name": 1, "employee_code": 1, "department": 1, "branch": 1, "remote_work_allowed": 1},
+    ).sort("name", 1).to_list(5000)
+    for e in emps:
+        e["remote_work_allowed"] = bool(e.get("remote_work_allowed"))
+    return {"employees": emps}
+
+
+class RemoteEmployeesIn(BaseModel):
+    employee_ids: List[str] = []
+
+
+@router.put("/remote-employees")
+async def set_remote_employees(body: RemoteEmployeesIn, authorization: Optional[str] = Header(None)):
+    """تحديد الموظفين المسموح لهم بتسجيل الحضور من أي مكان"""
+    user_data = await _gps_admin(authorization)
+    company_id = user_data.get("company_id")
+    ids = list(dict.fromkeys(str(i) for i in body.employee_ids))[:5000]
+    now = datetime.now(timezone.utc).isoformat()
+    on = await db.employees.update_many(
+        {"company_id": company_id, "id": {"$in": ids}},
+        {"$set": {"remote_work_allowed": True, "remote_work_updated_at": now,
+                  "remote_work_updated_by": user_data.get("user_id")}})
+    await db.employees.update_many(
+        {"company_id": company_id, "id": {"$nin": ids}, "remote_work_allowed": True},
+        {"$set": {"remote_work_allowed": False, "remote_work_updated_at": now,
+                  "remote_work_updated_by": user_data.get("user_id")}})
+    return {"message": f"تم حفظ إذن العمل عن بُعد لـ {on.matched_count} موظف", "count": on.matched_count}
 
 
 @router.get("/today-status/{employee_id}")

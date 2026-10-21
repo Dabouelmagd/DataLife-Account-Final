@@ -16,7 +16,7 @@ export default function GPSSettings() {
 
   const [settings, setSettings] = useState({
     enabled: false, latitude: '', longitude: '',
-    radius_meters: 40, address: '', allow_remote: false,
+    radius_meters: 40, address: '', allow_remote: false, remote_mode: 'none',
   });
   const [locating, setLocating] = useState(false);
   const [saving, setSaving]     = useState(false);
@@ -28,9 +28,28 @@ export default function GPSSettings() {
   useEffect(() => {
     fetch(`${API}/api/attendance/gps-settings`, { headers })
       .then(r => r.json())
-      .then(d => { if (d.gps_settings && d.gps_settings.latitude) setSettings(s => ({ ...s, ...d.gps_settings })); })
+      .then(d => { if (d.gps_settings && d.gps_settings.latitude) setSettings(s => ({ ...s, ...d.gps_settings,
+        remote_mode: d.gps_settings.remote_mode || (d.gps_settings.allow_remote ? 'all' : 'none') })); })
       .catch(() => {});
+    loadRemote();
   }, []);
+
+  // ── per-employee remote-work exceptions ──
+  const [emps, setEmps] = useState([]);
+  const [remoteIds, setRemoteIds] = useState(new Set());
+  const [empQuery, setEmpQuery] = useState('');
+  const [empErr, setEmpErr] = useState('');
+  function loadRemote() {
+    fetch(`${API}/api/attendance/remote-employees`, { headers })
+      .then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : ''); return d; })
+      .then(d => { const list = d.employees || []; setEmps(list); setRemoteIds(new Set(list.filter(e => e.remote_work_allowed).map(e => e.id))); })
+      .catch(e => setEmpErr(e.message || (ar ? 'تعذّر تحميل الموظفين' : 'Could not load employees')));
+  }
+  const toggleEmp = (id) => setRemoteIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const shownEmps = emps.filter(e => {
+    const q = empQuery.trim().toLowerCase();
+    return !q || [e.name, e.employee_code, e.department, e.branch].some(v => (v || '').toString().toLowerCase().includes(q));
+  });
 
   const detectMyLocation = () => {
     setLocating(true);
@@ -51,9 +70,16 @@ export default function GPSSettings() {
     setSaving(true);
     try {
       const res = await fetch(`${API}/api/attendance/gps-settings`, {
-        method: 'POST', headers, body: JSON.stringify(settings),
+        method: 'POST', headers, body: JSON.stringify({ ...settings, allow_remote: settings.remote_mode === 'all' }),
       });
       const d = await res.json().catch(() => ({}));
+      if (res.ok && settings.remote_mode === 'selected') {
+        const r2 = await fetch(`${API}/api/attendance/remote-employees`, {
+          method: 'PUT', headers, body: JSON.stringify({ employee_ids: [...remoteIds] }),
+        });
+        const d2 = await r2.json().catch(() => ({}));
+        if (!r2.ok) { setMsg({ type: 'error', text: typeof d2.detail === 'string' ? d2.detail : (ar ? 'فشل حفظ الموظفين' : 'Saving employees failed') }); setSaving(false); return; }
+      }
       if (res.ok) setMsg({ type: 'success', text: ar ? '✅ تم حفظ إعدادات GPS' : '✅ GPS settings saved' });
       else        setMsg({ type: 'error', text: typeof d.detail === 'string' ? d.detail : (ar ? 'فشل الحفظ' : 'Save failed') });
     } catch { setMsg({ type: 'error', text: ar ? 'خطأ في الاتصال' : 'Connection error' }); }
@@ -173,18 +199,53 @@ export default function GPSSettings() {
         />
       </div>
 
-      {/* Allow remote */}
-      <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl">
+      {/* Remote work: nobody / selected employees / everyone */}
+      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
         <div>
-          <span className="text-sm font-medium text-amber-800 block">{ar ? 'السماح بالعمل عن بُعد' : 'Allow Remote Work'}</span>
-          <span className="text-xs text-amber-600">{ar ? 'الموظف يسجل حضوره من أي مكان' : 'Employee can check in from anywhere'}</span>
+          <span className="text-sm font-medium text-amber-800 block">{ar ? 'العمل عن بُعد' : 'Remote work'}</span>
+          <span className="text-xs text-amber-700">{ar ? 'مين يقدر يسجّل حضوره من أي مكان (خارج نطاق موقع الشركة)' : 'Who may check in from anywhere (outside the office radius)'}</span>
         </div>
-        <button
-          onClick={() => setSettings(s => ({ ...s, allow_remote: !s.allow_remote }))}
-          className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${settings.allow_remote ? 'bg-amber-500' : 'bg-gray-300'}`}
-        >
-          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${settings.allow_remote ? (isRTL ? 'right-1' : 'left-7') : (isRTL ? 'right-7' : 'left-1')}`} />
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" role="radiogroup" aria-label={ar ? 'العمل عن بُعد' : 'Remote work'}>
+          {[
+            ['none', ar ? 'لا أحد' : 'Nobody', ar ? 'الكل من موقع الشركة' : 'Everyone at the office'],
+            ['selected', ar ? 'موظفين محددين' : 'Selected employees', ar ? 'استثناءات تختارها' : 'Exceptions you pick'],
+            ['all', ar ? 'كل الموظفين' : 'All employees', ar ? 'من أي مكان' : 'From anywhere'],
+          ].map(([val, label, hint]) => (
+            <button key={val} type="button" role="radio" aria-checked={settings.remote_mode === val}
+              onClick={() => setSettings(s => ({ ...s, remote_mode: val }))}
+              className={`text-start px-3 py-2 rounded-lg border text-sm transition-colors ${settings.remote_mode === val
+                ? 'border-amber-500 bg-white ring-2 ring-amber-400 text-amber-900 font-bold'
+                : 'border-amber-200 bg-amber-50/50 text-amber-800 hover:bg-white'}`}>
+              <span className="block">{label}</span>
+              <span className="block text-xs font-normal text-amber-700">{hint}</span>
+            </button>
+          ))}
+        </div>
+
+        {settings.remote_mode === 'selected' && (
+          <div className="bg-white rounded-lg border border-amber-200 p-2 space-y-2">
+            <div className="flex items-center gap-2">
+              <input type="search" value={empQuery} onChange={e => setEmpQuery(e.target.value)}
+                placeholder={ar ? 'ابحث بالاسم أو الكود أو القسم' : 'Search by name, code or department'}
+                className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+              <span className="text-xs text-gray-600 whitespace-nowrap">{ar ? `المختارين: ${remoteIds.size}` : `Selected: ${remoteIds.size}`}</span>
+            </div>
+            {empErr && <p className="text-xs text-red-700">{empErr}</p>}
+            {!empErr && emps.length === 0 && <p className="text-xs text-gray-500 p-2">{ar ? 'لا يوجد موظفين' : 'No employees'}</p>}
+            <ul className="max-h-60 overflow-y-auto divide-y divide-gray-100">
+              {shownEmps.map(e => (
+                <li key={e.id}>
+                  <label className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-amber-50 rounded">
+                    <input type="checkbox" checked={remoteIds.has(e.id)} onChange={() => toggleEmp(e.id)} className="w-4 h-4 accent-amber-600" />
+                    <span className="text-sm text-gray-800 flex-1">{e.name}{e.employee_code ? <span className="text-xs text-gray-500"> · {e.employee_code}</span> : null}</span>
+                    {(e.department || e.branch) && <span className="text-xs text-gray-500">{[e.department, e.branch].filter(Boolean).join(' — ')}</span>}
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-gray-600">{ar ? 'باقي الموظفين لازم يكونوا داخل نطاق موقع الشركة. اضغط «حفظ» تحت عشان الاختيار يتسجّل.' : 'Everyone else must be inside the office radius. Press Save below to apply.'}</p>
+          </div>
+        )}
       </div>
 
       {/* Message */}
