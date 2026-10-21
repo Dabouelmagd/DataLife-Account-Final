@@ -6,8 +6,9 @@ services:
     volumes:
       - mongo_dl_data:/data/db
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: A0Vdpix2QHAB7rkhd5zN
+      # read from .env (never commit the password): MONGO_ROOT_PASSWORD=...
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
     networks:
       - datalife_net
 
