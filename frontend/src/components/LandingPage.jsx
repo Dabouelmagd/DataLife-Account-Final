@@ -82,16 +82,20 @@ export default function LandingPage() {
         : ['Deferred revenue EAS 48 by completion %','Installment schedule with delay alerts','Per-project/tower profitability','ESS: sales team tracks commissions'] },
   ];
 
+  // only what each product's own pages state (Oct 2026); «—» = not stated there
   const compareRows = [
-    { feat: ar?'فاتورة إلكترونية ETA':'ETA E-Invoice', dl: ar?'✓ مكتمل':'✓ Complete', qb:'✗', od:ar?'جزئي':'Partial', sap:ar?'بإضافة':'Add-on', local:ar?'متفاوت':'Varies' },
-    { feat: ar?'مسير رواتب قانون 148/2019':'Payroll Law 148/2019', dl:ar?'✓ 7 شرائح':'✓ 7 Brackets', qb:'✗', od:ar?'جزئي':'Partial', sap:ar?'بإضافة':'Add-on', local:'✓' },
-    { feat: ar?'بوابة ESS للموظفين + GPS':'ESS Portal + GPS', dl:ar?'✓ متكامل':'✓ Integrated', qb:'✗', od:ar?'محدود':'Limited', sap:ar?'Enterprise فقط':'Enterprise Only', local:'✗' },
-    { feat: ar?'صلاحيات متدرجة':'Role-Based Permissions', dl:ar?'✓ مرن':'✓ Flexible', qb:ar?'محدود':'Limited', od:'✓', sap:'✓', local:ar?'متفاوت':'Varies' },
-    { feat: ar?'مساعد AI محاسبي':'AI Accounting Assistant', dl:'✓ Claude AI', qb:'✗', od:'✗', sap:'✗', local:'✗' },
-    { feat: ar?'كشف الاحتيال Benford':'Benford Fraud Detection', dl:'✓', qb:'✗', od:'✗', sap:ar?'Enterprise فقط':'Enterprise', local:'✗' },
-    { feat: ar?'Treasury + Cash Runway':'Treasury + Cash Runway', dl:'✓', qb:'✗', od:'✗', sap:'✓', local:'✗' },
-    { feat: ar?'محركات القطاعات المصرية':'Egyptian Sector Engines', dl:ar?'✓ 5 قطاعات':'✓ 5 Sectors', qb:'✗', od:ar?'محدود':'Limited', sap:ar?'بإضافة':'Add-on', local:ar?'متفاوت':'Varies' },
-    { feat: ar?'نسخ احتياطي يومي':'Daily Backup', dl:ar?'✓ تلقائي':'✓ Auto', qb:ar?'سحابي':'Cloud', od:ar?'يدوي':'Manual', sap:'✓', local:'✗' },
+    { feat: ar?'فاتورة إلكترونية ETA':'ETA e-invoice', dl:'✓', wf:'—', df:'✓', ed:ar?'Ultimate فقط':'Ultimate only', od:'✓' },
+    { feat: ar?'إيصال إلكتروني لنقاط البيع':'POS e-receipt', dl:'✓', wf:'—', df:'✓', ed:'—', od:ar?'تطوير خاص':'custom work' },
+    { feat: ar?'رواتب مصرية (تأمينات 148/2019 + ضريبة كسب العمل)':'Egyptian payroll (insurance + salary tax)', dl:'✓', wf:ar?'رواتب عامة':'general payroll', df:ar?'غير محدد':'not specified', ed:'—', od:ar?'موديول منفصل':'separate module' },
+    { feat: ar?'حضور بالموقع GPS':'GPS attendance', dl:'✓', wf:'—', df:'—', ed:'—', od:'✓' },
+    { feat: ar?'بوابة الموظف':'Employee self-service', dl:'✓', wf:'—', df:'—', ed:'—', od:'✓' },
+    { feat: ar?'موظفين بدون سعر لكل موظف':'No per-employee charge', dl:'✓', wf:'✓', df:ar?'بيتحاسب لكل موظف':'per HR employee', ed:ar?'مفيش موارد بشرية':'no HR', od:ar?'بيتحاسب لكل مستخدم':'per user' },
+    { feat: ar?'تصنيع':'Manufacturing', dl:ar?'باقة إضافية':'add-on', wf:'—', df:ar?'Premium فقط':'Premium only', ed:ar?'Ultimate فقط':'Ultimate only', od:'✓' },
+    { feat: ar?'مقاولات وعقارات':'Construction & real estate', dl:ar?'باقة إضافية':'add-on', wf:'—', df:'✓', ed:'—', od:ar?'تطبيقات':'apps' },
+    { feat: ar?'طبي':'Medical', dl:ar?'باقة إضافية':'add-on', wf:'—', df:'✓', ed:'—', od:ar?'تطبيقات':'apps' },
+    { feat: ar?'نقاط بيع بدون إنترنت':'Offline POS', dl:'✓', wf:'—', df:ar?'Premium فقط':'Premium only', ed:ar?'إضافة':'add-on', od:'✓' },
+    { feat: ar?'مساعد ذكي داخل البرنامج':'In-app AI assistant', dl:'✓', wf:'—', df:'—', ed:'—', od:'—' },
+    { feat: ar?'السعر بالجنيه المصري':'Priced in EGP', dl:'✓', wf:'✓', df:ar?'بالدولار':'USD', ed:ar?'بالدولار':'USD', od:ar?'بالدولار':'USD' },
   ];
 
   const faqs = [
@@ -383,15 +387,15 @@ export default function LandingPage() {
             <h2 className="text-4xl font-black text-white mb-4">{ar?'DataLife مقابل البدائل':'DataLife vs Alternatives'}</h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
+            <table className="w-full text-sm border-collapse min-w-[760px]">
               <thead>
                 <tr className="border-b border-white/10">
                   <th className="text-right py-3 px-4 text-gray-300 font-semibold w-1/3">{ar?'الميزة':'Feature'}</th>
                   <th className="py-3 px-4 text-amber-400 font-bold bg-amber-500/5 rounded-t-lg">DataLife ⭐</th>
-                  <th className="py-3 px-4 text-gray-300">QuickBooks</th>
+                  <th className="py-3 px-4 text-gray-300">{ar?'وافق':'Wafeq'}</th>
+                  <th className="py-3 px-4 text-gray-300">{ar?'دفترة':'Daftra'}</th>
+                  <th className="py-3 px-4 text-gray-300">{ar?'إدارة':'Edara'}</th>
                   <th className="py-3 px-4 text-gray-300">Odoo</th>
-                  <th className="py-3 px-4 text-gray-300">SAP B1</th>
-                  <th className="py-3 px-4 text-gray-300">{ar?'برامج محلية':'Local SW'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -399,17 +403,17 @@ export default function LandingPage() {
                   <tr key={i} className={`border-b border-white/5 ${i%2===0?'bg-white/1':''}`}>
                     <td className="py-3 px-4 text-gray-300 font-medium">{r.feat}</td>
                     <td className="py-3 px-4 text-center text-green-400 font-semibold bg-amber-500/3">{r.dl}</td>
-                    <td className="py-3 px-4 text-center text-gray-400">{r.qb}</td>
-                    <td className="py-3 px-4 text-center text-gray-400">{r.od}</td>
-                    <td className="py-3 px-4 text-center text-gray-400">{r.sap}</td>
-                    <td className="py-3 px-4 text-center text-gray-400">{r.local}</td>
+                    <td className="py-3 px-4 text-center text-gray-300">{r.wf}</td>
+                    <td className="py-3 px-4 text-center text-gray-300">{r.df}</td>
+                    <td className="py-3 px-4 text-center text-gray-300">{r.ed}</td>
+                    <td className="py-3 px-4 text-center text-gray-300">{r.od}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div className="mt-6 p-4 rounded-xl bg-green-500/8 border border-green-500/20 text-green-400 text-sm font-semibold text-center">
-            🏆 {ar?'DataLife الوحيد في السوق المصري يجمع: ETA كامل + AI محاسبي + ESS موظفين + Benford + Cash Runway + تنبيهات ذكية — في منصة واحدة':'DataLife is the only platform in the Egyptian market combining: full ETA + AI accounting + ESS + Benford + Cash Runway + smart alerts — in one platform'}
+            🏆 {ar?'DataLife بيجمع في اشتراك واحد بالجنيه: الفاتورة والإيصال الإلكتروني + رواتب مصر + حضور بالموقع + بوابة الموظف + مساعد ذكي. المقارنة حسب المنشور على مواقع البرامج دي في أكتوبر 2026، و«—» معناها إنه مش مذكور عندهم.':'DataLife combines in one EGP subscription: e-invoice and e-receipt + Egyptian payroll + location attendance + employee portal + assistant. Based on what each product publishes (Oct 2026); «—» = not stated.'}
           </div>
         </div>
       </section>

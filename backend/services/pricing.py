@@ -23,6 +23,9 @@ DURATIONS = {
     "yearly": {"months": 12, "label": "سنوي", "label_en": "Yearly", "days": 365},
 }
 PLAN_ORDER = ("starter", "professional", "enterprise")
+MODULE_PLANS = ("hr-only", "financial-only", "inventory-only")
+# sector packs add accounts — they only make sense where the books are kept
+PACK_PLANS = PLAN_ORDER + ("financial-only",)
 
 
 def _plans():
@@ -54,15 +57,17 @@ def catalog() -> dict:
     """Everything the pricing page needs, from the server's own prices."""
     from services.industry_packs import PACKS
     plans = []
-    for key in PLAN_ORDER:
+    for key in PLAN_ORDER + MODULE_PLANS:
         m = _plans()[f"{key}_monthly"]
         prices = {d: plan_price(key, d) for d in DURATIONS if f"{key}_{d}" in _plans()}
         plans.append({"key": key, "name_ar": m["name_ar"].split(" — ")[0], "name_en": m["name_en"].split(" — ")[0],
                       "employees": m["employees"], "prices": prices,
+                      "kind": "module" if key in MODULE_PLANS else "full", "packs_allowed": key in PACK_PLANS,
                       "savings": {d: round(plan_price(key, "monthly") * DURATIONS[d]["months"] - v, 2)
                                   for d, v in prices.items()}})
     packs = [{"key": k, "name_ar": v["name_ar"], "name_en": v["name_en"], "note_ar": v.get("note_ar", ""),
-              "monthly": float(v.get("price_egp") or 0)} for k, v in PACKS.items()]
+              "monthly": float(v.get("price_egp") or 0),
+              "adds": [a[1] for a in v.get("accounts", [])]} for k, v in PACKS.items()]
     return {"plans": plans, "packs": packs, "durations": DURATIONS, "vat_rate": VAT_RATE,
             "vat_inclusive": True, "currency": "EGP"}
 
@@ -77,6 +82,8 @@ def quote(plan: str, duration: str, packs: Optional[list] = None, auto_renew: bo
     m = _plans()[f"{plan}_{duration}"]
     lines = [{"kind": "plan", "key": plan, "label": f"اشتراك {m['name_ar']}", "amount": base}]
     seen = []
+    if packs and plan not in PACK_PLANS:
+        raise ValueError("المجالات المتخصصة بتتضاف على باقة فيها الحسابات (المبتدئ أو المحترف أو المؤسسي أو المالية فقط)")
     for k in packs or []:
         if k in seen:
             continue

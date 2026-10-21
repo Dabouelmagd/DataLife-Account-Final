@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, FileText, RefreshCw, CreditCard, Building2, Zap, Crown, Upload } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, FileText, RefreshCw, CreditCard, Building2, Zap, Crown, Upload, Users, Calculator, Package } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
@@ -22,32 +22,78 @@ const PLAN_META = {
                   en: { tag: 'Growing businesses', emp: '11 – 100 employees', extra: ['25 GB storage', 'Priority support', 'Online onboarding session'] } },
   enterprise: { icon: Crown, ar: { tag: 'للمؤسسات والشركات الكبيرة', emp: 'موظفين بلا حد', extra: ['تخزين بلا حد', 'دعم بالهاتف ومدير حساب', 'تدريب فريقك ومراجعة الإعداد'] },
                 en: { tag: 'Large organisations', emp: 'Unlimited employees', extra: ['Unlimited storage', 'Phone support & account manager', 'Team training & setup review'] } },
+  'hr-only': { icon: Users, mod: 'hr', ar: { tag: 'لو محتاج الموارد البشرية والرواتب بس', emp: 'موظفين بلا حد', extra: ['دعم بالإيميل والتذاكر'] },
+               en: { tag: 'HR & payroll only', emp: 'Unlimited employees', extra: ['Email & ticket support'] } },
+  'financial-only': { icon: Calculator, mod: 'fin', ar: { tag: 'لو محتاج الحسابات والضرائب والفواتير بس', emp: 'من غير الموارد البشرية', extra: ['دعم بالإيميل والتذاكر'] },
+                      en: { tag: 'Accounting, tax & invoicing only', emp: 'No HR module', extra: ['Email & ticket support'] } },
+  'inventory-only': { icon: Package, mod: 'inv', ar: { tag: 'لو محتاج المخازن والمشتريات بس', emp: 'من غير الحسابات والرواتب', extra: ['دعم بالإيميل والتذاكر'] },
+                      en: { tag: 'Stock & purchasing only', emp: 'No accounting or HR', extra: ['Email & ticket support'] } },
 };
 
-// every plan includes all of this — grouped as the comparison shows it
-const ALL_FEATURES_AR = [
-  ['المحاسبة والمالية', ['دليل حسابات مصري جاهز', 'قيود يومية وأستاذ عام وميزان مراجعة', 'قائمة الدخل والمركز المالي والتدفقات', 'إقفال السنة المالية وإعادة الفتح', 'مراكز التكلفة', 'الأصول الثابتة — إهلاك محاسبي وضريبي واستبعاد', 'عملات أجنبية وفروق العملة وإعادة التقييم', 'البنوك والشيكات والتسوية البنكية', 'الخزينة والعهد']],
-  ['الضرائب والفاتورة الإلكترونية', ['ضريبة القيمة المضافة وإقرارها الشهري', 'الخصم والتحصيل ونموذج 41', 'ضريبة الدمغة وضريبة الجدول', 'ربط الفاتورة الإلكترونية ETA', 'الإيصال الإلكتروني لنقاط البيع', 'إشعارات دائنة ومدينة مرتبطة بالفاتورة الأصلية']],
-  ['المبيعات والمشتريات والمخزون', ['عروض أسعار وفواتير وتحصيل', 'كشف حساب عميل بفترة وحد ائتمان', 'مرتجعات للمخزن أو الحجر أو الإعدام', 'مشتريات وأوامر توريد', 'مخازن متعددة وجرد وتحويل', 'تكاليف الاستيراد على الأصناف', 'نقاط بيع تشتغل من غير إنترنت', 'ربط متجر إلكتروني (سلة)']],
-  ['الموارد البشرية والرواتب', ['ملف موظف بمستنداته وصورته', 'حضور بالبصمة واليدوي والموقع GPS — مع العمل عن بُعد لموظفين محددين', 'الورديات والإجازات والإضافي بنسب قانون العمل', 'مسير رواتب بضريبة كسب العمل والتأمينات (حدود 2026)', 'كشف رواتب كامل بفلتر الإدارة والفرع وتصدير Excel', 'ملفات تحويل الرواتب للبنوك وقسائم PDF', 'السلف والجزاءات ونهاية الخدمة', 'الصناديق والمساهمات — اختيارية لكل شركة', 'بيانات نماذج التأمينات 1 و6', 'تقييم الأداء ومؤشرات KPI', 'التوظيف ودليل المقابلات والاختبارات']],
-  ['بوابة الموظف', ['دخول لكل موظف يشوف بياناته بس', 'تسجيل الحضور من الموبايل بالموقع', 'طلب إجازة وسلفة وشوف القسيمة والتقييم', 'تثبيت البرنامج على الموبايل كتطبيق — لينك واحد datalifeaccount.com/staff']],
-  ['الإدارة والأمان', ['صلاحيات حسب الدور', 'موافقات بحدود مبالغ وإشعارات', 'سجل مراجعة لكل العمليات', 'استيراد Excel بيرفض الملف الغلط ويقول الصف', 'تصدير كل بيانات شركتك في أي وقت', 'نسخ احتياطي يومي مشفّر', 'مساعد ذكي يجاوب من داخل البرنامج', 'عربي وإنجليزي']],
+// every feature, and which single-module plan covers it ('all' = every plan)
+const FEATURES = [
+  { g: 'المحاسبة والمالية', ge: 'Accounting', mods: ['fin'], items: [
+    ['دليل حسابات مصري جاهز', 'Egyptian chart of accounts'], ['قيود يومية وأستاذ عام وميزان مراجعة', 'Journals, ledger, trial balance'],
+    ['قائمة الدخل والمركز المالي والتدفقات النقدية', 'P&L, balance sheet, cash flow'], ['إقفال السنة المالية وإعادة الفتح', 'Year-end close & reopen'],
+    ['مراكز التكلفة', 'Cost centres'], ['الأصول الثابتة — إهلاك محاسبي وضريبي واستبعاد', 'Fixed assets — book & tax depreciation'],
+    ['عملات أجنبية وفروق العملة وإعادة التقييم', 'Foreign currency & revaluation'], ['البنوك والشيكات والتسوية البنكية', 'Banks, cheques, bank reconciliation'],
+    ['الخزينة والعهد', 'Treasury & petty cash'], ['المشاريع وإيراداتها ومصروفاتها', 'Projects with revenue & costs']] },
+  { g: 'الضرائب والفاتورة الإلكترونية', ge: 'Tax & e-invoicing', mods: ['fin'], items: [
+    ['ضريبة القيمة المضافة وإقرارها الشهري', 'VAT and the monthly return'], ['الخصم والتحصيل ونموذج 41', 'Withholding tax & form 41'],
+    ['ضريبة الدمغة وضريبة الجدول', 'Stamp & table tax'], ['ربط الفاتورة الإلكترونية ETA', 'ETA e-invoice link'],
+    ['الإيصال الإلكتروني لنقاط البيع', 'POS e-receipt'], ['إشعارات دائنة ومدينة مرتبطة بالفاتورة الأصلية', 'Credit/debit notes linked to the original']] },
+  { g: 'المبيعات والعملاء', ge: 'Sales & customers', mods: ['fin'], items: [
+    ['عروض أسعار وفواتير وتحصيل', 'Quotes, invoices, collections'], ['كشف حساب عميل بفترة وحد ائتمان', 'Customer statement & credit limit'],
+    ['إدارة العملاء والمبيعات CRM', 'Customers & sales CRM']] },
+  { g: 'المخزون والمشتريات', ge: 'Stock & purchasing', mods: ['fin', 'inv'], items: [
+    ['الأصناف والمخازن المتعددة', 'Items & multiple warehouses'], ['الجرد والتحويل بين المخازن', 'Counts & transfers'],
+    ['المشتريات وأوامر التوريد والموردين', 'Purchases, supply orders, suppliers'], ['تكاليف الاستيراد على الأصناف', 'Import landed costs'],
+    ['المرتجعات للمخزن أو الحجر أو الإعدام', 'Returns to stock, quarantine or scrap'], ['نقاط بيع تشتغل من غير إنترنت', 'Offline POS'],
+    ['ربط متجر إلكتروني (سلة)', 'Online store link (Salla)']] },
+  { g: 'الموارد البشرية والرواتب', ge: 'HR & payroll', mods: ['hr'], items: [
+    ['ملف موظف بمستنداته وصورته', 'Employee file & documents'], ['حضور بالبصمة واليدوي والموقع GPS', 'Fingerprint, manual & GPS attendance'],
+    ['العمل عن بُعد لموظفين محددين', 'Remote work for chosen staff'], ['الورديات والإجازات', 'Shifts & leave'],
+    ['الإضافي بنسب قانون العمل', 'Overtime by Labour Law rates'], ['رواتب الشهر بضريبة كسب العمل والتأمينات (حدود 2026)', 'Monthly payroll with salary tax & insurance (2026 limits)'],
+    ['كشف رواتب كامل بفلتر الإدارة والفرع وتصدير Excel', 'Full payroll sheet by department/branch, Excel'], ['ملفات تحويل الرواتب للبنوك وقسائم PDF', 'Bank salary files & PDF payslips'],
+    ['السلف والجزاءات ونهاية الخدمة', 'Loans, penalties, end of service'], ['الصناديق والمساهمات — اختيارية لكل شركة', 'Payroll funds — optional per company'],
+    ['بيانات نماذج التأمينات 1 و6', 'Insurance forms 1 & 6 data'], ['تقييم الأداء ومؤشرات KPI', 'Appraisals & KPIs'],
+    ['التوظيف ودليل المقابلات والاختبارات', 'Recruitment guide & tests']] },
+  { g: 'بوابة الموظف', ge: 'Employee portal', mods: ['hr'], items: [
+    ['دخول لكل موظف يشوف بياناته بس', 'Each employee sees only their own data'], ['تسجيل الحضور من الموبايل بالموقع', 'Check in from the phone'],
+    ['طلب إجازة وسلفة وشوف القسيمة والتقييم', 'Leave & loan requests, payslips, appraisals'], ['تثبيت البرنامج على الموبايل كتطبيق', 'Installs on the phone like an app']] },
+  { g: 'الإدارة والأمان', ge: 'Admin & security', mods: ['all'], items: [
+    ['صلاحيات حسب الدور', 'Role permissions'], ['موافقات بحدود مبالغ وإشعارات', 'Approval limits & notifications'],
+    ['سجل مراجعة لكل العمليات', 'Audit trail'], ['استيراد Excel بيرفض الملف الغلط ويقول الصف', 'Excel import that names the wrong row'],
+    ['تصدير كل بيانات شركتك في أي وقت', 'Export all your data any time'], ['نسخ احتياطي يومي مشفّر', 'Daily encrypted backup'],
+    ['مساعد ذكي يجاوب من داخل البرنامج', 'In-app assistant'], ['عربي وإنجليزي', 'Arabic & English']] },
 ];
-const ALL_FEATURES_EN = [
-  ['Accounting', ['Egyptian chart of accounts', 'Journals, ledger, trial balance', 'P&L, balance sheet, cash flow', 'Year-end close & reopen', 'Cost centres', 'Fixed assets — book & tax depreciation', 'Foreign currency & revaluation', 'Banks, cheques, bank reconciliation', 'Treasury & petty cash']],
-  ['Tax & e-invoicing', ['VAT and the monthly return', 'Withholding tax & form 41', 'Stamp & table tax', 'ETA e-invoice link', 'POS e-receipt', 'Credit/debit notes linked to the original']],
-  ['Sales, purchases, stock', ['Quotes, invoices, collections', 'Customer statement & credit limit', 'Returns to stock, quarantine or scrap', 'Purchases & supply orders', 'Multiple warehouses, counts, transfers', 'Import landed costs', 'Offline POS', 'Online store link (Salla)']],
-  ['HR & payroll', ['Employee file & documents', 'Fingerprint, manual and GPS attendance — remote work for chosen staff', 'Shifts, leave, overtime by Labour Law rates', 'Payroll with salary tax & insurance (2026 limits)', 'Full payroll sheet by department/branch, Excel export', 'Bank salary files & PDF payslips', 'Loans, penalties, end of service', 'Payroll funds — optional per company', 'Insurance forms 1 & 6 data', 'Appraisals & KPIs', 'Recruitment guide & tests']],
-  ['Employee portal', ['Each employee sees only their own data', 'Check in from the phone by location', 'Leave & loan requests, payslips, appraisals', 'Installs on the phone — one link datalifeaccount.com/staff']],
-  ['Admin & security', ['Role permissions', 'Approval limits & notifications', 'Audit trail', 'Excel import that names the wrong row', 'Export all your data any time', 'Daily encrypted backup', 'In-app assistant', 'Arabic & English']],
-];
+const covers = (planKey, mods) => {
+  const m = (PLAN_META[planKey] || {}).mod;
+  return !m || mods.includes('all') || mods.includes(m);
+};
+const featuresFor = (planKey) => FEATURES.filter((g) => covers(planKey, g.mods));
 
 const COMPARE = [
-  ['employees', 'عدد الموظفين', 'Employees', ['حتى 10', 'من 11 لـ 100', 'بلا حد'], ['Up to 10', '11 – 100', 'Unlimited']],
-  ['storage', 'مساحة التخزين', 'Storage', ['5 جيجا', '25 جيجا', 'بلا حد'], ['5 GB', '25 GB', 'Unlimited']],
-  ['support', 'الدعم', 'Support', ['إيميل وتذاكر', 'أولوية', 'هاتف + مدير حساب'], ['Email & tickets', 'Priority', 'Phone + account manager']],
-  ['onboarding', 'التهيئة', 'Onboarding', ['أدلة وفيديو', 'جلسة أونلاين', 'تدريب الفريق'], ['Guides & video', 'Online session', 'Team training']],
+  ['employees', 'عدد الموظفين', 'Employees', { starter: ['حتى 10', 'Up to 10'], professional: ['من 11 لـ 100', '11 – 100'], enterprise: ['بلا حد', 'Unlimited'], 'hr-only': ['بلا حد', 'Unlimited'], 'financial-only': ['—', '—'], 'inventory-only': ['—', '—'] }],
+  ['storage', 'مساحة التخزين', 'Storage', { starter: ['5 جيجا', '5 GB'], professional: ['25 جيجا', '25 GB'], enterprise: ['بلا حد', 'Unlimited'], 'hr-only': ['5 جيجا', '5 GB'], 'financial-only': ['5 جيجا', '5 GB'], 'inventory-only': ['5 جيجا', '5 GB'] }],
+  ['support', 'الدعم', 'Support', { starter: ['إيميل وتذاكر', 'Email & tickets'], professional: ['أولوية', 'Priority'], enterprise: ['هاتف + مدير حساب', 'Phone + account manager'], 'hr-only': ['إيميل وتذاكر', 'Email & tickets'], 'financial-only': ['إيميل وتذاكر', 'Email & tickets'], 'inventory-only': ['إيميل وتذاكر', 'Email & tickets'] }],
+  ['onboarding', 'التهيئة', 'Onboarding', { starter: ['أدلة وفيديو', 'Guides & video'], professional: ['جلسة أونلاين', 'Online session'], enterprise: ['تدريب الفريق', 'Team training'], 'hr-only': ['أدلة وفيديو', 'Guides & video'], 'financial-only': ['أدلة وفيديو', 'Guides & video'], 'inventory-only': ['أدلة وفيديو', 'Guides & video'] }],
 ];
+
+function FeatureList({ ar, planKey, compact }) {
+  return (
+    <div className="grid gap-3 text-sm">
+      {featuresFor(planKey).map((g) => (
+        <div key={g.g}>
+          <p className="text-xs font-bold text-amber-300 mb-1">{ar ? g.g : g.ge}</p>
+          <ul className="grid gap-1">
+            {g.items.map(([a, e]) => <li key={a} className="flex gap-2"><Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-hidden />{ar ? a : e}</li>)}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const card = 'rounded-2xl border border-white/10 bg-white/[0.04]';
 
@@ -138,7 +184,7 @@ export default function PricingSection({ onStartTrial }) {
           {step === 1 && (
             <section aria-labelledby="st1">
               <h3 id="st1" className="sr-only">{ar ? 'اختار الباقة الأساسية' : 'Choose a base plan'}</h3>
-              <p className="text-center text-gray-300 mb-5">{ar ? 'كل باقة بتشغّل البرنامج كله — الفرق في عدد الموظفين والتخزين والدعم.' : 'Every plan runs the whole system — they differ in employees, storage and support.'}</p>
+              <p className="text-center text-gray-300 mb-5">{ar ? 'الباقات الكاملة فيها البرنامج كله — الفرق في عدد الموظفين والتخزين والدعم. ولو محتاج وحدة واحدة بس فيه باقات الوحدة الواحدة تحت.' : 'Full plans include the whole system — they differ in employees, storage and support. Single-module plans are below.'}</p>
               <div className="flex flex-wrap justify-center gap-2 mb-6">
                 {Object.keys(catalog.durations).map((d) => (
                   <button key={d} type="button" onClick={() => setDuration(d)} aria-pressed={duration === d}
@@ -147,12 +193,15 @@ export default function PricingSection({ onStartTrial }) {
                   </button>
                 ))}
               </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                {catalog.plans.map((p) => {
+              {[['full', ar ? 'الباقات الكاملة — البرنامج كله' : 'Full plans — the whole system'], ['module', ar ? 'أو باقة وحدة واحدة' : 'Or a single-module plan']].map(([kind, head]) => (
+              <div key={kind} className="mb-8">
+              <h4 className="text-white font-bold text-lg mb-3">{head}</h4>
+              <div className="grid gap-4 md:grid-cols-3 items-start">
+                {catalog.plans.filter((p) => (p.kind || 'full') === kind).map((p) => {
                   const meta = PLAN_META[p.key] || {}; const t = meta[ar ? 'ar' : 'en'] || {}; const Icon = meta.icon || Zap;
                   const chosen = plan === p.key;
                   return (
-                    <button key={p.key} type="button" onClick={() => setPlan(p.key)} aria-pressed={chosen}
+                    <button key={p.key} type="button" onClick={() => { setPlan(p.key); if (p.packs_allowed === false) setPacks([]); }} aria-pressed={chosen}
                       className={`text-start ${card} p-5 grid gap-3 transition-colors ${chosen ? 'ring-2 ring-amber-400 bg-white/[0.08]' : 'hover:bg-white/[0.06]'}`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="flex items-center gap-2 font-bold text-white text-lg"><Icon className="w-5 h-5 text-amber-400" aria-hidden />{ar ? p.name_ar : p.name_en}</span>
@@ -161,15 +210,17 @@ export default function PricingSection({ onStartTrial }) {
                       <span className="text-sm text-gray-300">{t.tag} · {t.emp}</span>
                       <span><b className="text-3xl text-white tabular-nums">{fmt(p.prices[duration])}</b> <span className="text-sm text-gray-300">{ar ? 'ج.م' : 'EGP'} / {durLabel(duration)}</span></span>
                       {duration !== 'monthly' && <span className="text-xs text-gray-400 tabular-nums">{ar ? `يعني ${fmt(p.prices[duration] / catalog.durations[duration].months)} ج.م في الشهر` : `${fmt(p.prices[duration] / catalog.durations[duration].months)} EGP a month`}</span>}
-                      <ul className="grid gap-1 text-sm">
-                        <li className="flex gap-2"><Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />{ar ? 'كل مميزات البرنامج' : 'Every feature of the system'}</li>
-                        {(t.extra || []).map((x) => <li key={x} className="flex gap-2"><Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />{x}</li>)}
+                      <span className={`text-center rounded-lg py-2 text-sm font-bold ${chosen ? 'bg-amber-500 text-black' : 'bg-white/10 text-white'}`}>{chosen ? (ar ? 'مختارة' : 'Selected') : (ar ? 'اختار' : 'Choose')}</span>
+                      <ul className="grid gap-1 text-sm border-t border-white/10 pt-3">
+                        {(t.extra || []).map((x) => <li key={x} className="flex gap-2 font-semibold text-white"><Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" aria-hidden />{x}</li>)}
                       </ul>
-                      <span className={`mt-1 text-center rounded-lg py-2 text-sm font-bold ${chosen ? 'bg-amber-500 text-black' : 'bg-white/10 text-white'}`}>{chosen ? (ar ? 'مختارة' : 'Selected') : (ar ? 'اختار' : 'Choose')}</span>
+                      <FeatureList ar={ar} planKey={p.key} />
                     </button>
                   );
                 })}
               </div>
+              </div>
+              ))}
               <Nav next={() => setStep(2)} nextLabel={ar ? 'التالي: المجالات المتخصصة' : 'Next: sector add-ons'} />
             </section>
           )}
@@ -178,6 +229,9 @@ export default function PricingSection({ onStartTrial }) {
             <section aria-labelledby="st2">
               <h3 id="st2" className="text-center text-white font-bold text-xl mb-2">{ar ? 'نشاطك محتاج مجال متخصص؟' : 'Does your sector need an add-on?'}</h3>
               <p className="text-center text-gray-300 mb-6">{ar ? 'اختياري — كل مجال بيضيف حساباته وشاشاته فوق الباقة الأساسية، وتقدر تضيفه أو توقفه بعدين.' : 'Optional — each adds its accounts and screens on top of the base plan; add or stop it later.'}</p>
+              {planObj && planObj.packs_allowed === false ? (
+                <p className={`${card} p-5 text-center text-gray-300`}>{ar ? 'المجالات المتخصصة بتضيف حسابات، فبتتضاف على الباقات الكاملة أو «المالية فقط». الباقة اللي اختارتها مالهاش مجالات — كمّل للإجمالي.' : 'Sector add-ons add accounts, so they go with full plans or Finance only. Continue to the total.'}</p>
+              ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {catalog.packs.map((k) => {
                   const on = packs.includes(k.key);
@@ -187,12 +241,14 @@ export default function PricingSection({ onStartTrial }) {
                         <input type="checkbox" checked={on} onChange={() => togglePack(k.key)} className="mt-1 w-4 h-4 accent-teal-500" />
                         <span className="font-semibold text-white">{ar ? k.name_ar : k.name_en}</span>
                       </span>
-                      {k.note_ar && ar && <span className="text-xs text-gray-400 ps-6">{k.note_ar}</span>}
+                      {k.note_ar && ar && <span className="text-xs text-gray-300 ps-6">{k.note_ar}</span>}
+                      {(k.adds || []).length > 0 && <ul className="text-xs text-gray-400 ps-6 list-disc ms-4">{k.adds.map((x) => <li key={x}>{x}</li>)}</ul>}
                       <span className="text-sm ps-6 tabular-nums"><b className="text-white">{fmt(Math.round(k.monthly * factor))}</b> {ar ? 'ج.م' : 'EGP'} / {durLabel(duration)}</span>
                     </label>
                   );
                 })}
               </div>
+              )}
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><Total />{quoteErr && <span className="text-red-300 text-sm">{quoteErr}</span>}</div>
               <Nav back={() => setStep(1)} next={() => setStep(3)} nextLabel={ar ? 'التالي: الإجمالي' : 'Next: total'} />
             </section>
@@ -332,44 +388,46 @@ function InvoiceStep({ ar, quote, planName, durLabel, loggedIn, onBack, onStartT
 }
 
 function Compare({ ar, catalog }) {
-  const groups = ar ? ALL_FEATURES_AR : ALL_FEATURES_EN;
+  const plans = catalog.plans;
+  const mark = (ok) => ok ? <Check className="inline w-4 h-4 text-teal-400" aria-label={ar ? 'متضمن' : 'included'} /> : <span className="text-gray-500" aria-label={ar ? 'غير متضمن' : 'not included'}>—</span>;
   return (
     <div className="max-w-6xl mx-auto grid gap-8">
       <div className="overflow-x-auto rounded-2xl border border-white/10">
-        <table className="w-full text-sm min-w-[560px]">
-          <thead><tr className="bg-white/5"><th className="text-start p-3">{ar ? 'الباقة' : 'Plan'}</th>
-            {catalog.plans.map((p) => <th key={p.key} className="p-3 text-center text-white">{ar ? p.name_ar : p.name_en}<span className="block text-xs text-gray-400 font-normal tabular-nums">{fmt(p.prices.monthly)} {ar ? 'ج.م / شهر' : 'EGP / mo'}</span></th>)}</tr></thead>
+        <table className="w-full text-sm min-w-[820px]">
+          <thead className="sticky top-0"><tr className="bg-[#0b1426]"><th className="text-start p-3 w-[32%]">{ar ? 'الخدمة' : 'Service'}</th>
+            {plans.map((p) => <th key={p.key} className="p-3 text-center text-white align-bottom">{ar ? p.name_ar : p.name_en}<span className="block text-xs text-gray-400 font-normal tabular-nums">{fmt(p.prices.monthly)} {ar ? 'ج.م / شهر' : 'EGP / mo'}</span></th>)}</tr></thead>
           <tbody>
-            {COMPARE.map(([k, la, le, va, ve]) => (
-              <tr key={k} className="border-t border-white/10"><td className="p-3 text-gray-300">{ar ? la : le}</td>{(ar ? va : ve).map((v, i) => <td key={i} className="p-3 text-center text-white">{v}</td>)}</tr>
+            {COMPARE.map(([k, la, le, vals]) => (
+              <tr key={k} className="border-t border-white/10"><td className="p-3 text-gray-300">{ar ? la : le}</td>{plans.map((p) => <td key={p.key} className="p-3 text-center text-white">{(vals[p.key] || ['—', '—'])[ar ? 0 : 1]}</td>)}</tr>
             ))}
-            <tr className="border-t border-white/10"><td className="p-3 text-gray-300">{ar ? 'كل مميزات البرنامج (تحت)' : 'Every feature (below)'}</td>{catalog.plans.map((p) => <td key={p.key} className="p-3 text-center"><Check className="inline w-4 h-4 text-teal-400" aria-label={ar ? 'متضمن' : 'included'} /></td>)}</tr>
-            <tr className="border-t border-white/10"><td className="p-3 text-gray-300">{ar ? 'المجالات المتخصصة' : 'Sector add-ons'}</td>{catalog.plans.map((p) => <td key={p.key} className="p-3 text-center text-gray-300">{ar ? 'إضافة اختيارية' : 'optional add-on'}</td>)}</tr>
+            {FEATURES.map((g) => (
+              <React.Fragment key={g.g}>
+                <tr className="bg-white/5"><td colSpan={plans.length + 1} className="p-2 px-3 font-bold text-amber-300">{ar ? g.g : g.ge}</td></tr>
+                {g.items.map(([a, e]) => (
+                  <tr key={a} className="border-t border-white/5"><td className="p-2.5 px-3 text-gray-200">{ar ? a : e}</td>{plans.map((p) => <td key={p.key} className="p-2.5 text-center">{mark(covers(p.key, g.mods))}</td>)}</tr>
+                ))}
+              </React.Fragment>
+            ))}
+            <tr className="border-t border-white/10"><td className="p-3 text-gray-300">{ar ? 'المجالات المتخصصة (تحت)' : 'Sector add-ons (below)'}</td>{plans.map((p) => <td key={p.key} className="p-3 text-center text-gray-300">{p.packs_allowed ? (ar ? 'إضافة اختيارية' : 'optional') : '—'}</td>)}</tr>
           </tbody>
         </table>
       </div>
 
       <div>
-        <h3 className="text-white font-bold text-xl mb-4">{ar ? 'اللي موجود في كل الباقات' : 'Included in every plan'}</h3>
+        <h3 className="text-white font-bold text-xl mb-4">{ar ? 'المجالات المتخصصة — كل مجال بيعمل إيه' : 'Sector add-ons — what each adds'}</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {groups.map(([g, items]) => (
-            <div key={g} className={`${card} p-5`}>
-              <h4 className="font-bold text-white mb-3">{g}</h4>
-              <ul className="grid gap-1.5 text-sm">{items.map((x) => <li key={x} className="flex gap-2"><Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-hidden />{x}</li>)}</ul>
+          {catalog.packs.map((k) => (
+            <div key={k.key} className={`${card} p-5 grid gap-2`}>
+              <div className="flex items-baseline justify-between gap-2"><h4 className="font-bold text-white">{ar ? k.name_ar : k.name_en}</h4><span className="tabular-nums text-white text-sm">{fmt(k.monthly)} {ar ? 'ج.م/شهر' : 'EGP/mo'}</span></div>
+              {ar && k.note_ar && <p className="text-sm text-gray-300">{k.note_ar}</p>}
+              {(k.adds || []).length > 0 && (<>
+                <p className="text-xs text-gray-400">{ar ? 'بيضيف للدليل المحاسبي:' : 'Adds these accounts:'}</p>
+                <ul className="grid gap-1 text-sm">{k.adds.map((x) => <li key={x} className="flex gap-2"><Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-hidden />{x}</li>)}</ul>
+              </>)}
             </div>
           ))}
         </div>
-      </div>
-
-      <div>
-        <h3 className="text-white font-bold text-xl mb-4">{ar ? 'المجالات المتخصصة — تتضاف على أي باقة' : 'Sector add-ons — on top of any plan'}</h3>
-        <div className="overflow-x-auto rounded-2xl border border-white/10">
-          <table className="w-full text-sm min-w-[520px]">
-            <thead><tr className="bg-white/5"><th className="text-start p-3">{ar ? 'المجال' : 'Sector'}</th><th className="text-start p-3">{ar ? 'بيضيف' : 'Adds'}</th><th className="p-3 text-end">{ar ? 'شهرياً' : 'Monthly'}</th></tr></thead>
-            <tbody>{catalog.packs.map((k) => <tr key={k.key} className="border-t border-white/10"><td className="p-3 text-white">{ar ? k.name_ar : k.name_en}</td><td className="p-3 text-gray-300">{k.note_ar}</td><td className="p-3 text-end tabular-nums text-white">{fmt(k.monthly)}</td></tr>)}</tbody>
-          </table>
-        </div>
-        <p className="text-xs text-gray-400 mt-2">{ar ? 'كل الأسعار بالجنيه المصري وشاملة ضريبة القيمة المضافة. المجال اللي بتشتريه مع مدة بياخد نفس خصم المدة.' : 'All prices in EGP, VAT included. An add-on bought for a period gets the same period discount.'}</p>
+        <p className="text-xs text-gray-400 mt-3">{ar ? 'كل الأسعار بالجنيه المصري وشاملة ضريبة القيمة المضافة. المجال اللي بتشتريه مع مدة بياخد نفس خصم المدة، وبيتضاف على الباقات الكاملة أو «المالية فقط».' : 'All prices in EGP, VAT included. An add-on bought for a period gets the same discount; it goes with full plans or Finance only.'}</p>
       </div>
     </div>
   );
@@ -377,7 +435,7 @@ function Compare({ ar, catalog }) {
 
 function Faq({ ar }) {
   const items = ar ? [
-    ['إيه الفرق بين الباقات؟', 'كل الباقات فيها البرنامج كله. الفرق في عدد الموظفين ومساحة التخزين ونوع الدعم والتهيئة.'],
+    ['إيه الفرق بين الباقات؟', 'الباقات الكاملة (المبتدئ والمحترف والمؤسسي) فيها البرنامج كله، والفرق في عدد الموظفين والتخزين والدعم. باقات الوحدة الواحدة فيها وحدة واحدة بس: الموارد البشرية، أو المالية، أو المخزون.'],
     ['إيه هي المجالات المتخصصة؟', 'إضافات لأنشطة معينة (مقاولات، تصنيع، عقارات، طبي، مطاعم…) بتضيف حساباتها وشاشاتها. اختيارية وتضيفها أو توقفها في أي وقت.'],
     ['الأسعار شاملة الضريبة؟', 'أيوه، كل الأسعار شاملة ضريبة القيمة المضافة 14%، والفاتورة بتوضح الضريبة اللي جوه السعر.'],
     ['التجديد التلقائي بيشتغل إزاي؟', 'قبل نهاية الاشتراك بـ 7 أيام بتتعمل فاتورة التجديد وتوصلك في البرنامج، وتدفعها بنفس طرق الدفع. الخصم التلقائي من الكارت هيتفعّل أول ما ربط البنك يخلص.'],

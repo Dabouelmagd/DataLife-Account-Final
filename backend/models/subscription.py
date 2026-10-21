@@ -81,50 +81,10 @@ class SubscriptionResponse(BaseModel):
     is_active: bool
 
 # Pricing configuration
-PLAN_PRICES = {
-    "starter": {
-        "3_months": 897,      # 299 * 3
-        "6_months": 1614,     # 299 * 6 - 10%
-        "9_months": 2153,     # 299 * 9 - 20%
-        "12_months": 2390,    # Annual price with discount
-        "lifetime": 7170      # 299 * 24
-    },
-    "professional": {
-        "3_months": 2397,     # 799 * 3
-        "6_months": 4314,     # 799 * 6 - 10%
-        "9_months": 5753,     # 799 * 9 - 20%
-        "12_months": 6392,    # Annual price with discount
-        "lifetime": 19176     # 799 * 24
-    },
-    "enterprise": {
-        "3_months": 4497,     # 1499 * 3
-        "6_months": 8094,     # 1499 * 6 - 10%
-        "9_months": 10793,    # 1499 * 9 - 20%
-        "12_months": 11992,   # Annual price with discount
-        "lifetime": 35976     # 1499 * 24
-    },
-    "hr-only": {
-        "3_months": 597,
-        "6_months": 1074,
-        "9_months": 1432,
-        "12_months": 1592,
-        "lifetime": 4776
-    },
-    "financial-only": {
-        "3_months": 747,
-        "6_months": 1345,
-        "9_months": 1793,
-        "12_months": 1992,
-        "lifetime": 5976
-    },
-    "inventory-only": {
-        "3_months": 537,
-        "6_months": 967,
-        "9_months": 1289,
-        "12_months": 1432,
-        "lifetime": 4296
-    },
-    "lifetime": {
-        "lifetime": 50000
-    }
-}
+# derived from the one price list (api/payments._MONTHLY): 3 months = 2.7,
+# 6 months = 5, 9 months = 7, a year = 8 months' price, lifetime = 24
+_M = {"starter": 449, "professional": 1099, "enterprise": 1999,
+      "hr-only": 249, "financial-only": 299, "inventory-only": 229}
+PLAN_PRICES = {k: {"3_months": int(round(v * 2.7)), "6_months": v * 5, "9_months": v * 7,
+                   "12_months": v * 8, "lifetime": v * 24} for k, v in _M.items()}
+PLAN_PRICES["lifetime"] = {"lifetime": 59970}

@@ -506,6 +506,14 @@ async def update_payment_request(
                 "description": "، ".join(l.get("label", "") for l in q.get("lines", [])) or f"اشتراك {plan}",
                 "payment_method": req.get("payment_method") or "تحويل",
             }, company_id)
+            # the same payment on both sets of books (customer expense / platform revenue), VAT split
+            if invoice and not invoice.get("error"):
+                from services.subscription_posting import post_subscription_payment
+                await post_subscription_payment(
+                    db, customer_company_id=company_id, user_id=user.get("id") or user.get("email"),
+                    net=invoice.get("net_amount"), vat=invoice.get("vat_amount"),
+                    description="، ".join(l.get("label", "") for l in q.get("lines", [])) or f"اشتراك {plan}",
+                    invoice_number=invoice.get("invoice_number"))
 
     await db.payment_requests.update_one(
         {"id": request_id},

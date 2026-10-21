@@ -394,145 +394,16 @@ const SubscriptionPage = () => {
           </CardContent>
         </Card>
 
-        {/* Duration Selector */}
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold mb-4">{isRTL ? 'اختر المدة' : 'Select Duration'}</h3>
-          <div className="flex flex-wrap gap-3">
-            {Object.entries(t.duration).map(([key, label]) => (
-              <Button
-                key={key}
-                variant={selectedDuration === key ? 'default' : 'outline'}
-                onClick={() => setSelectedDuration(key)}
-                className={selectedDuration === key ? 'bg-blue-600' : ''}
-                data-testid={`duration-${key}`}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {/* Main Plans */}
-          {['starter', 'professional', 'enterprise'].map((planId) => {
-            const plan = plans.find(p => p.id === planId);
-            const price = getPrice(planId, selectedDuration);
-            const isSelected = selectedPlan === planId;
-            const isProfessional = planId === 'professional';
-            
-            return (
-              <Card 
-                key={planId}
-                className={`relative overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-xl ${
-                  isSelected ? 'ring-2 ring-blue-500 shadow-lg scale-105' : ''
-                } ${isProfessional ? 'border-2 border-purple-400' : ''}`}
-                onClick={() => setSelectedPlan(planId)}
-                data-testid={`plan-${planId}`}
-              >
-                {isProfessional && (
-                  <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-purple-500 to-purple-600 text-white text-center py-1 text-sm font-semibold">
-                    {t.popular}
-                  </div>
-                )}
-                <div className={`h-2 bg-gradient-to-r ${getPlanColor(planId)}`} />
-                <CardHeader className={isProfessional ? 'mt-4' : ''}>
-                  <div className="flex items-center justify-between">
-                    <div className={`p-3 rounded-xl bg-gradient-to-r ${getPlanColor(planId)} text-white`}>
-                      {getPlanIcon(planId)}
-                    </div>
-                    {isSelected && (
-                      <Badge className="bg-blue-600 text-white">
-                        <Check className="h-4 w-4" />
-                      </Badge>
-                    )}
-                  </div>
-                  <CardTitle className="text-xl mt-4">{t.plans[planId]?.name}</CardTitle>
-                  <CardDescription>{t.plans[planId]?.desc}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-6">
-                    <span className="text-4xl font-bold">{price.toLocaleString()}</span>
-                    <span className="text-gray-500 ml-1">{t.currency}</span>
-                    <span className="text-gray-400 text-sm block">
-                      {t.duration[selectedDuration]}
-                    </span>
-                  </div>
-                  <ul className="space-y-3">
-                    {t.features[planId]?.map((feature, idx) => (
-                      <li key={idx} className="flex items-center gap-2 text-sm">
-                        <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Module-only Plans */}
-        {/* حزم الوحدات الفردية — تُخفى عمّن يملك باقة كاملة: عرض «المخزون فقط»
-            على مشترك في باقة شاملة هو عرض بتخفيض ما يملكه بالفعل. */}
-        {/* Hidden from anyone already working inside the app. The earlier rule
-            keyed on holding a FULL plan, which showed these to a company with
-            no subscription record at all — including the platform's own.
-            Someone signed in already has a working system; offering them
-            "inventory only" is offering a downgrade, not a choice. They belong
-            on the public pricing page, for people choosing a first plan. */}
-        {(!currentSubscription || currentSubscription.status === 'no_subscription')
-          && !FULL_PLANS.includes(currentSubscription?.plan)
-          && showPartialPlans && (<>
-        <h3 className="text-lg font-semibold mb-4">{isRTL ? 'حزم الوحدات الفردية' : 'Individual Module Packages'}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {['hr-only', 'financial-only', 'inventory-only'].map((planId) => {
-            const price = getPrice(planId, selectedDuration);
-            const isSelected = selectedPlan === planId;
-            
-            return (
-              <Card 
-                key={planId}
-                className={`transition-all duration-300 cursor-pointer hover:shadow-lg ${
-                  isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''
-                }`}
-                onClick={() => setSelectedPlan(planId)}
-                data-testid={`plan-${planId}`}
-              >
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="p-3 rounded-xl bg-gray-100 text-gray-600">
-                      {getPlanIcon(planId)}
-                    </div>
-                    {isSelected && (
-                      <Badge className="bg-blue-600 text-white">
-                        <Check className="h-4 w-4" />
-                      </Badge>
-                    )}
-                  </div>
-                  <CardTitle className="text-lg mt-4">{t.plans[planId]?.name}</CardTitle>
-                  <CardDescription>{t.plans[planId]?.desc}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div>
-                    <span className="text-3xl font-bold">{price.toLocaleString()}</span>
-                    <span className="text-gray-500 ml-1">{t.currency}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        </>)}
-
-        {!showPartialPlans && (!currentSubscription || currentSubscription.status === 'no_subscription') && (
-          <button onClick={() => setShowPartialPlans(true)}
-            className="mb-8 text-sm text-gray-500 hover:text-gray-700 underline">
-            {isRTL ? 'أحتاج وحدة واحدة فقط (الموارد البشرية أو المالية أو المخزون)'
-                   : 'I only need a single module'}
-          </button>
-        )}
+        {/* plans are chosen in «احسب اشتراكك وادفع» — one price list for the site and the app */}
+        <Card className="mb-8">
+          <CardContent className="p-6 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-bold text-lg">{isRTL ? 'اختار باقة أو جدّد أو ضيف مجال متخصص' : 'Choose, renew or add a sector add-on'}</p>
+              <p className="text-sm text-gray-600 mt-1">{isRTL ? 'الباقة الأساسية ← المجالات المتخصصة ← الإجمالي شامل الضريبة ← الفاتورة ← الدفع' : 'Base plan → add-ons → VAT-inclusive total → invoice → payment'}</p>
+            </div>
+            <Button onClick={() => setPageTab('build')} className="bg-[#1e3a8a] text-white">{isRTL ? 'احسب اشتراكك وادفع' : 'Build & pay'}</Button>
+          </CardContent>
+        </Card>
 
         {/* Error/Success Messages */}
         {error && (
@@ -548,28 +419,6 @@ const SubscriptionPage = () => {
           </div>
         )}
 
-        {/* Subscribe Button */}
-        <div className="flex justify-center">
-          <Button
-            size="lg"
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-6 text-lg"
-            onClick={handleSubscribe}
-            disabled={!selectedPlan || submitting}
-            data-testid="subscribe-button"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                {isRTL ? 'جاري المعالجة...' : 'Processing...'}
-              </>
-            ) : (
-              <>
-                <CreditCard className="h-5 w-5 mr-2" />
-                {currentSubscription?.status !== 'no_subscription' ? t.upgradeNow : t.subscribe}
-              </>
-            )}
-          </Button>
-        </div>
         </div>
       </div>
     </div>

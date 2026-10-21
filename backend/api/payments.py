@@ -14,21 +14,37 @@ router = APIRouter(prefix="/api/payments", tags=["payments"])
 # ═══════════════════════════════════════════
 # خطط الاشتراك بالجنيه المصري
 # ═══════════════════════════════════════════
-# سعر الصرف: 1 USD = 30 EGP
-EGP_TO_USD_RATE = 30
+# سعر الصرف التقريبي للعرض بالدولار فقط — الفاتورة دايماً بالجنيه
+EGP_TO_USD_RATE = 54
 
-PLANS = {
-    "starter_monthly":      {"plan": "starter",      "duration": "monthly",  "price_egp": 299,   "price_usd": 10,   "employees": 10,  "name_ar": "المبتدئ — شهري",       "name_en": "Starter — Monthly"},
-    "starter_3months":      {"plan": "starter",      "duration": "3months",  "price_egp": 797,   "price_usd": 27,   "employees": 10,  "name_ar": "المبتدئ — 3 أشهر",      "name_en": "Starter — 3 Months"},
-    "starter_yearly":       {"plan": "starter",      "duration": "yearly",   "price_egp": 2390,  "price_usd": 80,   "employees": 10,  "name_ar": "المبتدئ — سنوي",        "name_en": "Starter — Yearly"},
-    "professional_monthly": {"plan": "professional", "duration": "monthly",  "price_egp": 799,   "price_usd": 27,   "employees": 100, "name_ar": "المحترف — شهري",        "name_en": "Professional — Monthly"},
-    "professional_3months": {"plan": "professional", "duration": "3months",  "price_egp": 2157,  "price_usd": 72,   "employees": 100, "name_ar": "المحترف — 3 أشهر",      "name_en": "Professional — 3 Months"},
-    "professional_yearly":  {"plan": "professional", "duration": "yearly",   "price_egp": 6392,  "price_usd": 213,  "employees": 100, "name_ar": "المحترف — سنوي",        "name_en": "Professional — Yearly"},
-    "enterprise_monthly":   {"plan": "enterprise",   "duration": "monthly",  "price_egp": 1499,  "price_usd": 50,   "employees": -1,  "name_ar": "المؤسسي — شهري",        "name_en": "Enterprise — Monthly"},
-    "enterprise_3months":   {"plan": "enterprise",   "duration": "3months",  "price_egp": 4047,  "price_usd": 135,  "employees": -1,  "name_ar": "المؤسسي — 3 أشهر",      "name_en": "Enterprise — 3 Months"},
-    "enterprise_yearly":    {"plan": "enterprise",   "duration": "yearly",   "price_egp": 11992, "price_usd": 400,  "employees": -1,  "name_ar": "المؤسسي — سنوي",        "name_en": "Enterprise — Yearly"},
-    "enterprise_lifetime":  {"plan": "enterprise",   "duration": "lifetime", "price_egp": 49999, "price_usd": 1667, "employees": -1,  "name_ar": "المؤسسي — مدى الحياة",  "name_en": "Enterprise — Lifetime"},
+# monthly base prices (EGP, VAT included). 3 months = 2.7 months' price,
+# a year = 8 months' price. The single-module plans cover one module only.
+_MONTHLY = {
+    "starter":        (449,  "المبتدئ",           "Starter",        10),
+    "professional":   (1099, "المحترف",           "Professional",   100),
+    "enterprise":     (1999, "المؤسسي",           "Enterprise",     -1),
+    "hr-only":        (249,  "الموارد البشرية فقط", "HR only",        -1),
+    "financial-only": (299,  "المالية فقط",        "Finance only",   -1),
+    "inventory-only": (229,  "المخزون فقط",        "Inventory only", -1),
 }
+_PERIODS = {"monthly": (1, "شهري", "Monthly"), "3months": (2.7, "3 أشهر", "3 Months"), "yearly": (8, "سنوي", "Yearly")}
+
+
+def _build_plans():
+    out = {}
+    for plan, (m, ar, en, emp) in _MONTHLY.items():
+        for d, (f, dar, den) in _PERIODS.items():
+            egp = int(round(m * f))
+            out[f"{plan}_{d}"] = {"plan": plan, "duration": d, "price_egp": egp,
+                                  "price_usd": int(round(egp / EGP_TO_USD_RATE)), "employees": emp,
+                                  "name_ar": f"{ar} — {dar}", "name_en": f"{en} — {den}"}
+    out["enterprise_lifetime"] = {"plan": "enterprise", "duration": "lifetime", "price_egp": 1999 * 30,
+                                  "price_usd": int(round(1999 * 30 / EGP_TO_USD_RATE)), "employees": -1,
+                                  "name_ar": "المؤسسي — مدى الحياة", "name_en": "Enterprise — Lifetime"}
+    return out
+
+
+PLANS = _build_plans()
 
 PLAN_FEATURES = {
     "starter": {

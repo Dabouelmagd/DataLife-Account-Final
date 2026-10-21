@@ -1139,7 +1139,7 @@ async def send_renewal_reminder_email(
         resend.api_key = os.environ.get("RESEND_API_KEY", "")
         if not resend.api_key: return False
 
-        PLAN_PRICES = {"starter":"299 ج.م/شهر","professional":"799 ج.م/شهر","enterprise":"1,499 ج.م/شهر"}
+        PLAN_PRICES = {"starter":"449 ج.م/شهر","professional":"1,099 ج.م/شهر","enterprise":"1,999 ج.م/شهر"}
         urgency = "danger" if days_left <= 3 else ("warn" if days_left <= 7 else "info")
         urgency_icon = "🚨" if days_left <= 3 else ("⚠️" if days_left <= 7 else "📅")
 

@@ -42,3 +42,4 @@ payment_vouchers.py:  # posts through services.import_documents.post_two_line_en
 bank_reconciliation.py:/import  # the bank's own statement lines, stored for matching — the movements are already in the books; anything the books lack is posted from /statements/{id}/post-unmatched
 real_estate.py:/bookings/{booking_id}/schedule  # an instalment plan, not a transaction — money is posted when each instalment is collected (cheque collect / booking payment) and penalties post their own entry
 real_estate.py:/bookings/{booking_id}/reschedule  # replaces the unpaid part of the plan; nothing moves until collection
+admin_payments.py:/payment-requests/{request_id}  # approval posts through services.subscription_posting.post_subscription_payment (customer expense + platform revenue) after issuing the tax invoice
