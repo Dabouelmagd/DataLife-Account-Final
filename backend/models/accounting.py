@@ -364,6 +364,8 @@ DEFAULT_ACCOUNTS = [
     {"code": "211", "name": "رأس المال المدفوع", "name_en": "Paid-up Capital", "type": AccountType.EQUITY, "category": AccountCategory.CAPITAL, "parent_code": "21", "is_system": True},
     {"code": "212", "name": "جاري الشركاء", "name_en": "Partners' Current Account", "type": AccountType.EQUITY, "category": AccountCategory.EQUITY, "parent_code": "21"},
     {"code": "213", "name": "الأرباح (الخسائر) المرحلة", "name_en": "Retained Earnings (Losses)", "type": AccountType.EQUITY, "category": AccountCategory.RETAINED_EARNINGS, "parent_code": "21", "is_system": True},
+    # year-end closing: every revenue and expense balance is closed here, then the net goes to 213
+    {"code": "216", "name": "ملخص الدخل (إقفال السنة)", "name_en": "Income Summary (Year-End Close)", "type": AccountType.EQUITY, "category": AccountCategory.RETAINED_EARNINGS, "parent_code": "21"},
     
     # 22 - المخصصات والاحتياطيات (Provisions & Reserves)
     {"code": "22", "name": "المخصصات والاحتياطيات", "name_en": "Provisions & Reserves", "type": AccountType.LIABILITY, "category": AccountCategory.HEADER, "is_header": True, "parent_code": "2"},
@@ -701,5 +703,14 @@ DEFAULT_ACCOUNTS = [
     {"code": "4301", "name": "أرباح غير محققة — مخزون بين الشركات", "name_en": "Unrealised Intercompany Profit",
      "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "43"},
     {"code": "4351", "name": "إيراد الضريبة المؤجلة", "name_en": "Deferred Tax Income",
+     "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "42"},
+    # ── ضرائب أخرى على الفواتير وخصم تعجيل الدفع (الخصم النقدي) ──────
+    # 2545 ضريبة الجدول already exists above; stamp duty gets its own payable.
+    {"code": "2546", "name": "ضريبة الدمغة النسبية المستحقة", "name_en": "Proportional Stamp Duty Payable",
+     "type": AccountType.LIABILITY, "category": AccountCategory.CURRENT_LIABILITY, "parent_code": "254"},
+    # cash (early-payment) discount: a finance cost / income, never a VAT event
+    {"code": "3212", "name": "خصم نقدي مسموح به", "name_en": "Cash Discount Allowed",
+     "type": AccountType.EXPENSE, "category": AccountCategory.FINANCE_COST, "parent_code": "32"},
+    {"code": "4221", "name": "خصم نقدي مكتسب", "name_en": "Cash Discount Received",
      "type": AccountType.REVENUE, "category": AccountCategory.OTHER_REVENUE, "parent_code": "42"},
 ]

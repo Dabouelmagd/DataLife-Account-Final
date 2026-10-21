@@ -11,15 +11,18 @@ POS, Retail & F&B Engine — محرك نقاط البيع والتجزئة وا�
    Dr م/33610 مصروف تالف وهدر
    Cr م/125 مخزون (أو 311 في الجرد الدوري)
 """
+import asyncio
 import uuid
 from datetime import datetime, timezone, date
 from typing import Optional, List, Literal
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
+from pymongo.errors import DuplicateKeyError
 
 from database import db
 from dependencies import get_current_user
 from services import ops_posting as P
+from services import eta_receipt as ER
 
 router = APIRouter(prefix="/api/pos", tags=["POS & Retail"])
 
@@ -138,6 +141,14 @@ class SaleItem(BaseModel):
     unit_price: float = Field(0, ge=0)
 
 
+class ReceiptBuyer(BaseModel):
+    type:           Literal["P", "B", "F"] = "P"   # فرد / شركة / أجنبي
+    id:             Optional[str] = None           # الرقم القومي أو رقم التسجيل
+    name:           Optional[str] = None
+    mobile:         Optional[str] = None
+    payment_number: Optional[str] = None
+
+
 class SaleRequest(BaseModel):
     # was a free dict: a negative amount was accepted (a "sale" that took money
     # out of revenue), VAT larger than the sale was accepted, and an unknown
@@ -147,6 +158,60 @@ class SaleRequest(BaseModel):
     payment_method: Literal["cash", "card", "wallet"] = "cash"
     receipt_number: str = ""
     items:          List[SaleItem] = []
+    # idempotency key made by the till once per sale; a retried upload with the
+    # same key returns the first result. Old clients that send none get one here.
+    client_uuid:    Optional[str] = Field(None, min_length=8, max_length=64)
+    buyer:          Optional[ReceiptBuyer] = None
+
+
+_txn_index_ready = False
+
+
+async def _ensure_txn_index():
+    global _txn_index_ready
+    if not _txn_index_ready:
+        # partial: transactions recorded before client_uuid existed have none
+        await db.pos_transactions.create_index(
+            [("company_id", 1), ("client_uuid", 1)], unique=True, name="company_client_uuid",
+            partialFilterExpression={"client_uuid": {"$type": "string"}})
+        _txn_index_ready = True
+
+
+async def _claim_txn(company_id: str, shift_id: str, kind: str, client_uuid: str):
+    """Claim-before-post: the unique (company_id, client_uuid) row is written
+    first, so of two concurrent retries only one moves stock and totals.
+    Returns (claim, None) for the winner, (None, existing) for a duplicate."""
+    await _ensure_txn_index()
+    for _ in range(100):
+        claim = {"id": str(uuid.uuid4()), "company_id": company_id, "shift_id": shift_id, "type": kind,
+                 "client_uuid": client_uuid, "status": "processing",
+                 "claimed_at": datetime.now(timezone.utc).isoformat()}
+        try:
+            await db.pos_transactions.insert_one(claim)
+            claim.pop("_id", None)
+            return claim, None
+        except DuplicateKeyError:
+            pass
+        ex = await db.pos_transactions.find_one({"company_id": company_id, "client_uuid": client_uuid}, {"_id": 0})
+        if ex is None:
+            continue                                   # the other attempt failed and let go
+        if ex.get("shift_id") != shift_id or ex.get("type", "sale") != kind:
+            raise HTTPException(422, "معرّف العملية مستخدم لعملية أخرى")
+        if ex.get("status") != "processing":
+            return None, ex
+        await asyncio.sleep(0.05)                      # the first attempt is still posting
+    raise HTTPException(409, "العملية قيد المعالجة — أعد المحاولة بعد لحظات")
+
+
+async def _release(claim):
+    await db.pos_transactions.delete_one({"id": claim["id"], "status": "processing"})
+
+
+async def _duplicate_reply(company_id, txn, message):
+    receipt = await ER.receipt_summary(db, company_id, txn["id"]) or \
+        await ER.create_for_transaction(db, company_id, txn)
+    return {"message": message, "transaction_id": txn["id"], "transaction": txn,
+            "duplicate": True, "eta_receipt": receipt}
 
 
 async def _move_items(company_id, shift, items, user_id, receipt, sign):
@@ -182,24 +247,34 @@ async def record_sale(shift_id: str, data: SaleRequest,
     shift = await db.pos_shifts.find_one({"id": shift_id, "company_id": company_id}, {"_id": 0})
     if not shift:
         raise HTTPException(404, "الوردية غير موجودة")
-    if shift["status"] != "open":
-        raise HTTPException(400, "الوردية مغلقة")
     amount, vat = P.r2(data.amount), P.r2(data.vat)
     if vat >= amount:
         raise HTTPException(400, "الضريبة لا يمكن أن تساوي أو تتجاوز إجمالي البيع")
-
-    cost, items = await _move_items(company_id, shift, data.items, current_user["user_id"], data.receipt_number, -1)
+    claim, existing = await _claim_txn(company_id, shift_id, "sale", data.client_uuid or str(uuid.uuid4()))
+    if existing:
+        return await _duplicate_reply(company_id, existing, "البيع مسجّل من قبل")
+    try:
+        if shift["status"] != "open":
+            raise HTTPException(400, "الوردية مغلقة")
+        cost, items = await _move_items(company_id, shift, data.items, current_user["user_id"], data.receipt_number, -1)
+    except BaseException:
+        await _release(claim)
+        raise
     inc = {"total_sales": amount, "total_vat": vat, "transactions_count": 1, "total_cost": cost,
            f"total_{data.payment_method}_sales": amount}
     txn = {
-        "id": str(uuid.uuid4()), "company_id": company_id, "shift_id": shift_id, "type": "sale",
+        **claim, "status": "committed",
         "receipt_number": data.receipt_number, "amount": amount, "vat": vat, "cost": cost,
         "payment_method": data.payment_method, "items": items,
+        "buyer": data.buyer.model_dump() if data.buyer else None,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    await db.pos_transactions.insert_one(txn)
     await db.pos_shifts.update_one({"id": shift_id, "company_id": company_id}, {"$inc": inc})
-    return {"message": "تم تسجيل البيع", "transaction_id": txn["id"]}
+    await db.pos_transactions.update_one({"id": claim["id"]}, {"$set": txn})
+    # the sale stands whatever happens to its e-receipt (errors are kept on the receipt)
+    receipt = await ER.create_for_transaction(db, company_id, txn)
+    return {"message": "تم تسجيل البيع", "transaction_id": txn["id"], "transaction": txn,
+            "duplicate": False, "eta_receipt": receipt}
 
 
 class ReturnRequest(BaseModel):
@@ -209,6 +284,7 @@ class ReturnRequest(BaseModel):
     original_receipt: str = Field(min_length=1)
     reason:           Optional[str] = None
     items:            List[SaleItem] = []
+    client_uuid:      Optional[str] = Field(None, min_length=8, max_length=64)
 
 
 @router.post("/shifts/{shift_id}/return")
@@ -220,23 +296,32 @@ async def record_return(shift_id: str, data: ReturnRequest,
     shift = await db.pos_shifts.find_one({"id": shift_id, "company_id": company_id}, {"_id": 0})
     if not shift:
         raise HTTPException(404, "الوردية غير موجودة")
-    if shift["status"] != "open":
-        raise HTTPException(400, "الوردية مغلقة")
     amount, vat = P.r2(data.amount), P.r2(data.vat)
     if vat >= amount:
         raise HTTPException(400, "الضريبة لا يمكن أن تساوي أو تتجاوز قيمة المرتجع")
-    cost, items = await _move_items(company_id, shift, data.items, current_user["user_id"], data.original_receipt, +1)
+    claim, existing = await _claim_txn(company_id, shift_id, "return", data.client_uuid or str(uuid.uuid4()))
+    if existing:
+        return await _duplicate_reply(company_id, existing, "المرتجع مسجّل من قبل")
+    try:
+        if shift["status"] != "open":
+            raise HTTPException(400, "الوردية مغلقة")
+        cost, items = await _move_items(company_id, shift, data.items, current_user["user_id"], data.original_receipt, +1)
+    except BaseException:
+        await _release(claim)
+        raise
     txn = {
-        "id": str(uuid.uuid4()), "company_id": company_id, "shift_id": shift_id, "type": "return",
+        **claim, "status": "committed",
         "receipt_number": data.original_receipt, "amount": amount, "vat": vat, "cost": cost,
         "payment_method": data.payment_method, "items": items, "reason": data.reason,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    await db.pos_transactions.insert_one(txn)
     await db.pos_shifts.update_one({"id": shift_id, "company_id": company_id}, {"$inc": {
         "total_returns": amount, "total_returns_vat": vat, "returns_cost": cost, "returns_count": 1,
         f"{data.payment_method}_refunds": amount}})
-    return {"message": "تم تسجيل المرتجع", "transaction_id": txn["id"]}
+    await db.pos_transactions.update_one({"id": claim["id"]}, {"$set": txn})
+    receipt = await ER.create_for_transaction(db, company_id, txn)
+    return {"message": "تم تسجيل المرتجع", "transaction_id": txn["id"], "transaction": txn,
+            "duplicate": False, "eta_receipt": receipt}
 
 
 async def _close_lines(company_id: str, shift: dict, actual_cash: float, tolerance: float, date_str: str):
@@ -569,6 +654,120 @@ async def get_shift(shift_id: str, current_user: dict = Depends(get_current_user
     shift = await db.pos_shifts.find_one({"id": shift_id, "company_id": current_user["company_id"]}, {"_id": 0})
     if not shift:
         raise HTTPException(404, "الوردية غير موجودة")
-    shift["transactions"] = await db.pos_transactions.find(
-        {"shift_id": shift_id, "company_id": current_user["company_id"]}, {"_id": 0}).to_list(None)
+    company_id = current_user["company_id"]
+    txns = await db.pos_transactions.find(
+        {"shift_id": shift_id, "company_id": company_id, "status": {"$ne": "processing"}}, {"_id": 0}).to_list(None)
+    receipts = await db.eta_receipts.find(
+        {"company_id": company_id, "transaction_id": {"$in": [t["id"] for t in txns]}},
+        {"_id": 0, "transaction_id": 1, "status": 1, "uuid": 1, "error": 1, "long_id": 1}).to_list(None)
+    by_txn = {r.pop("transaction_id"): r for r in receipts}
+    for t in txns:
+        t["eta_receipt"] = by_txn.get(t["id"])
+    shift["transactions"] = txns
     return shift
+
+
+# ══════════════════════════════════════════════════════════════
+# 4. ETA E-RECEIPTS — الإيصال الإلكتروني لنقاط البيع
+# Not verified against the live ETA preprod — see services/eta_receipt.py.
+# ══════════════════════════════════════════════════════════════
+
+ETA_ADMIN_ROLES = {"Board Chairman", "رئيس مجلس الإدارة", "General Manager", "مدير عام", "المدير العام",
+                   "CEO", "المدير التنفيذي", "Financial Manager", "المدير المالي", "Super Admin", "admin", "owner"}
+
+
+class EtaPosSettingsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    environment:         Optional[Literal["preprod", "production"]] = None
+    device_serial:       Optional[str] = Field(None, max_length=100)
+    client_id:           Optional[str] = Field(None, max_length=200)
+    client_secret:       Optional[str] = Field(None, max_length=500)   # فارغ = بدون تغيير
+    pre_shared_key:      Optional[str] = Field(None, max_length=500)
+    pos_os_version:      Optional[str] = Field(None, max_length=100)
+    pos_model_framework: Optional[str] = Field(None, max_length=100)
+    activity_code:       Optional[str] = Field(None, max_length=10)
+    branch_code:         Optional[str] = Field(None, max_length=20)
+    default_item_code:   Optional[str] = Field(None, max_length=100)
+    default_item_type:   Optional[Literal["EGS", "GS1"]] = None
+    rin:                 Optional[str] = Field(None, max_length=20)
+    company_trade_name:  Optional[str] = Field(None, max_length=200)
+    governate:           Optional[str] = None
+    region_city:         Optional[str] = None
+    street:              Optional[str] = None
+    building_number:     Optional[str] = None
+    postal_code:         Optional[str] = None
+
+
+def _public_pos_settings(raw: dict) -> dict:
+    out = {k: v for k, v in raw.items() if k not in ("client_secret_enc", "pre_shared_key_enc", "company_id")}
+    out["has_client_secret"] = bool(raw.get("client_secret_enc"))
+    out["has_pre_shared_key"] = bool(raw.get("pre_shared_key_enc"))
+    return out
+
+
+@router.get("/eta-settings")
+async def get_eta_pos_settings(current_user: dict = Depends(get_current_user)):
+    company_id = current_user["company_id"]
+    raw = await db.company_eta_pos_settings.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    merged = await ER.load_settings(db, company_id)
+    return {"settings": _public_pos_settings(raw),
+            "effective": {k: merged[k] for k in ("rin", "company_trade_name", "branch_code", "activity_code",
+                                                  "device_serial", "environment", "address")},
+            "missing": ER.submit_problems(merged)}
+
+
+@router.put("/eta-settings")
+async def put_eta_pos_settings(req: EtaPosSettingsRequest, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") not in ETA_ADMIN_ROLES:
+        raise HTTPException(403, "تعديل إعدادات الإيصال الإلكتروني للإدارة فقط")
+    from services.eta_signer import encrypt
+    company_id = current_user["company_id"]
+    data = req.model_dump(exclude_none=True)
+    upd = {k: (v.strip() if isinstance(v, str) else v) for k, v in data.items()
+           if k not in ("client_secret", "pre_shared_key")}
+    if data.get("client_secret"):
+        upd["client_secret_enc"] = encrypt(data["client_secret"].encode())
+    if data.get("pre_shared_key"):
+        upd["pre_shared_key_enc"] = encrypt(data["pre_shared_key"].encode())
+    if "rin" in upd and upd["rin"] and (len(upd["rin"]) != 9 or not upd["rin"].isdigit()):
+        raise HTTPException(400, "رقم التسجيل الضريبي يجب أن يكون 9 أرقام")
+    upd["updated_at"] = datetime.now(timezone.utc).isoformat()
+    upd["updated_by"] = current_user.get("user_id")
+    await db.company_eta_pos_settings.update_one({"company_id": company_id},
+                                                 {"$set": upd, "$setOnInsert": {"company_id": company_id}}, upsert=True)
+    # receipts waiting for settings can be built now
+    built = await ER.build_waiting(db, company_id)
+    return {"message": "تم حفظ إعدادات الإيصال الإلكتروني", "built": built,
+            **(await get_eta_pos_settings(current_user))}
+
+
+@router.get("/eta-receipts")
+async def list_eta_receipts(status: Optional[Literal["pending", "submitted", "rejected", "error"]] = None,
+                            shift_id: Optional[str] = None, limit: int = 100,
+                            current_user: dict = Depends(get_current_user)):
+    company_id = current_user["company_id"]
+    q = {"company_id": company_id}
+    if status:
+        q["status"] = status
+    if shift_id:
+        q["shift_id"] = shift_id
+    rows = await db.eta_receipts.find(q, {"_id": 0, "document": 0}).sort("issued_at", -1).limit(max(1, min(limit, 500))).to_list(None)
+    counts = {}
+    for st in ("pending", "submitted", "rejected", "error"):
+        counts[st] = await db.eta_receipts.count_documents({"company_id": company_id, "status": st})
+    return {"receipts": rows, "counts": counts}
+
+
+@router.post("/eta-receipts/submit-now")
+async def submit_eta_receipts_now(current_user: dict = Depends(get_current_user)):
+    company_id = current_user["company_id"]
+    rebuilt = await ER.build_waiting(db, company_id, include_errors=True)
+    res = await ER.submit_pending_receipts(db, company_id)
+    r = res[0] if res else {"submitted": 0, "rejected": 0}
+    if r.get("skipped"):
+        msg = f"لم يُرسل شيء — {r['skipped']}"
+    elif r.get("error"):
+        msg = f"تعذّر الإرسال: {r['error']}"
+    else:
+        msg = f"أُرسل {r.get('submitted', 0)} إيصال — مرفوض {r.get('rejected', 0)}"
+    return {"message": msg, "rebuilt": rebuilt, "result": r}

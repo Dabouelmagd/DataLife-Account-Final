@@ -63,7 +63,7 @@ const InvoicesPage = () => {
   const [adjustmentCategories, setAdjustmentCategories] = useState(null);
   // payment on an approved invoice (foreign currency: payment rate + realized FX)
   const [payInvoice, setPayInvoice] = useState(null);
-  const [payForm, setPayForm] = useState({ amount: '', payment_date: '', payment_method: 'bank_transfer', exchange_rate: '', reference: '' });
+  const [payForm, setPayForm] = useState({ amount: '', discount_amount: '', payment_date: '', payment_method: 'bank_transfer', exchange_rate: '', reference: '' });
   const [payBusy, setPayBusy] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -150,8 +150,8 @@ const InvoicesPage = () => {
       percentage: 'نسبة %',
       fixedAmount: 'مبلغ ثابت',
       applyOn: 'التطبيق على',
-      beforeTax: 'قبل الضريبة',
-      afterTax: 'بعد الضريبة',
+      beforeTax: 'قبل الضريبة — يُخفِّض وعاء الضريبة',
+      afterTax: 'بعد الضريبة — لا يغيّر الضريبة',
       discountCategories: {
         contract_discount: 'خصم تعاقد',
         early_payment: 'خصم دفع مبكر',
@@ -248,8 +248,8 @@ const InvoicesPage = () => {
       percentage: 'Percentage %',
       fixedAmount: 'Fixed Amount',
       applyOn: 'Apply On',
-      beforeTax: 'Before Tax',
-      afterTax: 'After Tax',
+      beforeTax: 'Before tax — reduces the VAT base',
+      afterTax: 'After tax — VAT unchanged',
       discountCategories: {
         contract_discount: 'Contract Discount',
         early_payment: 'Early Payment',
@@ -394,7 +394,7 @@ const InvoicesPage = () => {
   const openPayment = async (invoice) => {
     const today = new Date().toISOString().split('T')[0];
     setPayInvoice(invoice);
-    setPayForm({ amount: String(invoice.amount_due ?? ''), payment_date: today, payment_method: 'bank_transfer', exchange_rate: '', reference: '' });
+    setPayForm({ amount: String(invoice.amount_due ?? ''), discount_amount: '', payment_date: today, payment_method: 'bank_transfer', exchange_rate: '', reference: '' });
     if (invoice.currency && invoice.currency !== 'EGP') {
       const rate = await fetchRateOn(invoice.currency, today);
       setPayForm(prev => ({ ...prev, exchange_rate: rate }));
@@ -411,7 +411,9 @@ const InvoicesPage = () => {
 
   const handleRecordPayment = async () => {
     const amount = Number(payForm.amount);
-    if (!(amount > 0)) { toast.error(isRTL ? 'أدخل مبلغ السداد' : 'Enter the amount'); return; }
+    const discount = Number(payForm.discount_amount) || 0;
+    if (!(amount > 0) && !(discount > 0)) { toast.error(isRTL ? 'أدخل مبلغ السداد' : 'Enter the amount'); return; }
+    if (discount < 0) { toast.error(isRTL ? 'الخصم النقدي لا يكون بالسالب' : 'The cash discount cannot be negative'); return; }
     const foreign = payInvoice.currency && payInvoice.currency !== 'EGP';
     setPayBusy(true);
     try {
@@ -419,7 +421,7 @@ const InvoicesPage = () => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          invoice_id: payInvoice.id, amount, payment_date: payForm.payment_date,
+          invoice_id: payInvoice.id, amount: amount || 0, discount_amount: discount, payment_date: payForm.payment_date,
           payment_method: payForm.payment_method, reference: payForm.reference || null,
           exchange_rate: foreign ? (Number(payForm.exchange_rate) || null) : null
         })
@@ -451,7 +453,13 @@ const InvoicesPage = () => {
           exchange_rate: formData.currency !== 'EGP' ? (Number(formData.exchange_rate) || null) : null,
           lines: formData.lines.map(line => ({
             ...line,
-            tax_type: 'vat'
+            tax_type: 'vat',
+            vat_category: line.vat_category || null,
+            other_taxes: (line.other_taxes || []).map(t => ({
+              tax_type: t.tax_type, sub_type: t.sub_type || null,
+              rate: FIXED_TAXES.includes(t.tax_type) ? 0 : (Number(t.rate) || 0),
+              amount: FIXED_TAXES.includes(t.tax_type) ? (Number(t.amount) || 0) : 0
+            }))
           })),
           adjustments: formData.adjustments || []
         })
@@ -677,60 +685,126 @@ const InvoicesPage = () => {
     }));
   };
 
-  const calculateLineTotals = (line) => {
-    const subtotal = line.quantity * line.unit_price;
-    const discountAmount = subtotal * (line.discount_percent / 100);
-    const afterDiscount = subtotal - discountAmount;
-    const taxAmount = afterDiscount * (line.tax_rate / 100);
-    const total = afterDiscount + taxAmount;
-    return { subtotal, discountAmount, taxAmount, total };
-  };
+  // Mirrors models/invoice.py: a before-tax invoice discount is spread onto
+  // the lines pro-rata (it lowers the VAT); table tax (T2/T3) is inside the
+  // VAT base; stamp duty (T5/T6) is not; T4 (withholding) is subtracted.
+  const r2 = (x) => Math.round((Number(x) + Number.EPSILON) * 100) / 100;
+  const FIXED_TAXES = ['T3', 'T6'];
 
-  const calculateAdjustmentAmount = (adj, baseBeforeTax, baseAfterTax) => {
-    const baseAmount = adj.base === 'before_tax' ? baseBeforeTax : baseAfterTax;
-    if (adj.calculation_type === 'percentage') {
-      return baseAmount * (adj.value / 100);
-    }
-    return adj.value;
+  const calculateLineTotals = (line, share = 0) => {
+    const subtotal = r2((Number(line.quantity) || 0) * (Number(line.unit_price) || 0));
+    const discountAmount = r2(subtotal * ((Number(line.discount_percent) || 0) / 100));
+    const net = r2(subtotal - discountAmount - share);
+    const taxes = line.other_taxes || [];
+    const t3 = taxes.filter(t => t.tax_type === 'T3').reduce((a, t) => a + r2(t.amount || 0), 0);
+    let inBase = 0; let added = 0; let withheld = 0;
+    taxes.forEach(t => {
+      const amt = FIXED_TAXES.includes(t.tax_type) ? r2(t.amount || 0)
+        : t.tax_type === 'T2' ? r2((net + t3) * (Number(t.rate) || 0) / 100)
+        : r2(net * (Number(t.rate) || 0) / 100);
+      if (t.tax_type === 'T4') withheld += amt;
+      else { added += amt; if (t.tax_type === 'T2' || t.tax_type === 'T3') inBase += amt; }
+    });
+    const standard = !line.vat_category || line.vat_category === 'standard';
+    const taxAmount = standard ? r2((net + inBase) * ((Number(line.tax_rate) || 0) / 100)) : 0;
+    const total = r2(net + taxAmount + added - withheld);
+    return { subtotal, discountAmount, share, net, taxAmount, otherTaxes: r2(added), withheld: r2(withheld), total };
   };
 
   const calculateInvoiceTotals = () => {
-    let subtotal = 0;
-    let totalDiscount = 0;
-    let totalTax = 0;
-
-    formData.lines.forEach(line => {
-      const lineTotals = calculateLineTotals(line);
-      subtotal += lineTotals.subtotal;
-      totalDiscount += lineTotals.discountAmount;
-      totalTax += lineTotals.taxAmount;
+    const adjustments = formData.adjustments || [];
+    const ownNets = formData.lines.map(l => {
+      const t = calculateLineTotals(l);
+      return r2(t.subtotal - t.discountAmount);
     });
-
-    const afterLineDiscount = subtotal - totalDiscount;
-    const afterTax = afterLineDiscount + totalTax;
-
-    // حساب خصومات وإضافات الفاتورة
-    let totalInvoiceDiscount = 0;
-    let totalInvoiceAddition = 0;
-
-    (formData.adjustments || []).forEach(adj => {
-      const amount = calculateAdjustmentAmount(adj, afterLineDiscount, afterTax);
-      if (adj.adjustment_type === 'discount') {
-        totalInvoiceDiscount += amount;
-      } else {
-        totalInvoiceAddition += amount;
+    const baseNet = r2(ownNets.reduce((a, b) => a + b, 0));
+    const adjAmounts = adjustments.map(() => 0);
+    let beforeDisc = 0;
+    adjustments.forEach((adj, i) => {
+      if (adj.adjustment_type === 'discount' && adj.base === 'before_tax') {
+        adjAmounts[i] = adj.calculation_type === 'percentage' ? r2(baseNet * ((Number(adj.value) || 0) / 100)) : r2(adj.value || 0);
+        beforeDisc += adjAmounts[i];
       }
     });
+    beforeDisc = Math.min(r2(beforeDisc), baseNet);
+    const shares = ownNets.map(n => (baseNet > 0 ? r2(beforeDisc * n / baseNet) : 0));
+    const diff = r2(beforeDisc - shares.reduce((a, b) => a + b, 0));
+    if (diff && shares.length) {
+      const big = ownNets.indexOf(Math.max(...ownNets));
+      shares[big] = r2(shares[big] + diff);
+    }
+    const lines = formData.lines.map((l, i) => calculateLineTotals(l, shares[i] || 0));
+    const sum = (k) => r2(lines.reduce((a, t) => a + t[k], 0));
+    const subtotal = sum('subtotal');
+    const totalDiscount = r2(sum('discountAmount') + sum('share'));
+    const totalTax = sum('taxAmount');
+    const otherTaxes = sum('otherTaxes');
+    const withheld = sum('withheld');
+    const afterDiscount = r2(subtotal - totalDiscount);
+    const gross = r2(afterDiscount + totalTax + otherTaxes - withheld);
 
-    const grandTotal = afterTax - totalInvoiceDiscount + totalInvoiceAddition;
-    return { 
-      subtotal, 
-      totalDiscount, 
-      totalTax, 
-      totalInvoiceDiscount, 
-      totalInvoiceAddition,
-      grandTotal 
+    let totalInvoiceDiscount = 0;
+    let totalInvoiceAddition = 0;
+    adjustments.forEach((adj, i) => {
+      if (adj.adjustment_type === 'discount' && adj.base === 'before_tax') return;
+      const base = adj.base === 'before_tax' ? afterDiscount : gross;
+      adjAmounts[i] = adj.calculation_type === 'percentage' ? r2(base * ((Number(adj.value) || 0) / 100)) : r2(adj.value || 0);
+      if (adj.adjustment_type === 'discount') totalInvoiceDiscount += adjAmounts[i];
+      else totalInvoiceAddition += adjAmounts[i];
+    });
+    const grandTotal = r2(gross - totalInvoiceDiscount + totalInvoiceAddition);
+    return {
+      lines, adjAmounts,
+      subtotal,
+      totalDiscount,
+      beforeTaxDiscount: r2(beforeDisc),
+      totalTax,
+      otherTaxes,
+      withheld,
+      totalInvoiceDiscount: r2(totalInvoiceDiscount),
+      totalInvoiceAddition: r2(totalInvoiceAddition),
+      grandTotal
     };
+  };
+
+  const VAT_CATEGORY_OPTIONS = [
+    { id: 'standard', ar: 'خاضع (السعر المكتوب)', en: 'Standard (rate typed)' },
+    { id: 'export', ar: 'تصدير — صفر (V001)', en: 'Export — 0% (V001)' },
+    { id: 'free_zone', ar: 'منطقة حرة — صفر (V002)', en: 'Free zone — 0% (V002)' },
+    { id: 'exempt', ar: 'معفى (V003)', en: 'Exempt (V003)' },
+    { id: 'non_taxable', ar: 'غير خاضع (V004)', en: 'Non-taxable (V004)' },
+  ];
+  const OTHER_TAX_OPTIONS = [
+    { id: 'T2', sub: 'Tbl01', ar: 'ضريبة جدول نسبية % (T2) — داخل وعاء القيمة المضافة', en: 'Table tax % (T2) — in VAT base' },
+    { id: 'T3', sub: 'Tbl02', ar: 'ضريبة جدول نوعية — مبلغ (T3) — داخل وعاء القيمة المضافة', en: 'Table tax fixed (T3) — in VAT base' },
+    { id: 'T5', sub: 'ST01', ar: 'دمغة نسبية % (T5)', en: 'Stamp duty % (T5)' },
+    { id: 'T6', sub: 'ST02', ar: 'دمغة نوعية — مبلغ (T6)', en: 'Stamp duty fixed (T6)' },
+    { id: 'T4', sub: 'W001', ar: 'خصم من المنبع % (T4) — يُطرح', en: 'Withholding % (T4) — deducted' },
+  ];
+
+  const addLineTax = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      lines: prev.lines.map((line, i) => (i === index
+        ? { ...line, other_taxes: [...(line.other_taxes || []), { tax_type: 'T5', sub_type: 'ST01', rate: 0.4, amount: 0 }] }
+        : line))
+    }));
+  };
+  const updateLineTax = (index, ti, patch) => {
+    setFormData(prev => ({
+      ...prev,
+      lines: prev.lines.map((line, i) => (i === index
+        ? { ...line, other_taxes: (line.other_taxes || []).map((t, k) => (k === ti ? { ...t, ...patch } : t)) }
+        : line))
+    }));
+  };
+  const removeLineTax = (index, ti) => {
+    setFormData(prev => ({
+      ...prev,
+      lines: prev.lines.map((line, i) => (i === index
+        ? { ...line, other_taxes: (line.other_taxes || []).filter((_, k) => k !== ti) }
+        : line))
+    }));
   };
 
   const getStatusBadge = (status) => {
@@ -1224,7 +1298,7 @@ const InvoicesPage = () => {
                       <div className="col-span-2">
                         <label className="text-xs text-gray-500">{text.total}</label>
                         <div className="p-2 rounded text-sm font-medium bg-gray-100">
-                          {calculateLineTotals(line).total.toLocaleString()}
+                          {(totals.lines[index] ? totals.lines[index].total : 0).toLocaleString()}
                         </div>
                       </div>
                       <div className="col-span-1">
@@ -1233,6 +1307,56 @@ const InvoicesPage = () => {
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         )}
+                      </div>
+                    </div>
+                    {/* VAT category + other taxes (table / stamp / withholding) */}
+                    <div className="mt-2 grid grid-cols-12 gap-2 items-start">
+                      <div className="col-span-12 md:col-span-4">
+                        <label htmlFor={`vatcat-${index}`} className="text-xs text-gray-500">
+                          {language === 'ar' ? 'فئة ضريبة القيمة المضافة' : 'VAT category'}
+                        </label>
+                        <select id={`vatcat-${index}`}
+                          className="w-full p-2 border rounded-md text-sm bg-white"
+                          value={line.vat_category || ''}
+                          onChange={(e) => updateLine(index, 'vat_category', e.target.value)}>
+                          <option value="">{language === 'ar' ? 'تلقائي — من بيانات العميل' : 'Auto — from the customer'}</option>
+                          {VAT_CATEGORY_OPTIONS.map(o => <option key={o.id} value={o.id}>{language === 'ar' ? o.ar : o.en}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-span-12 md:col-span-8 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">{language === 'ar' ? 'ضرائب أخرى على البند (جدول / دمغة)' : 'Other taxes on the line (table / stamp)'}</span>
+                          <Button type="button" variant="outline" size="sm" onClick={() => addLineTax(index)}>
+                            <Plus className="w-3 h-3 mr-1" />{language === 'ar' ? 'إضافة ضريبة' : 'Add tax'}
+                          </Button>
+                        </div>
+                        {(line.other_taxes || []).map((t, ti) => (
+                          <div key={ti} className="flex flex-wrap items-center gap-2">
+                            <select aria-label={language === 'ar' ? 'نوع الضريبة' : 'Tax type'}
+                              className="flex-1 min-w-[12rem] p-2 border rounded-md text-sm bg-white"
+                              value={t.tax_type}
+                              onChange={(e) => {
+                                const opt = OTHER_TAX_OPTIONS.find(o => o.id === e.target.value);
+                                updateLineTax(index, ti, { tax_type: e.target.value, sub_type: opt ? opt.sub : null });
+                              }}>
+                              {OTHER_TAX_OPTIONS.map(o => <option key={o.id} value={o.id}>{language === 'ar' ? o.ar : o.en}</option>)}
+                            </select>
+                            {FIXED_TAXES.includes(t.tax_type) ? (
+                              <Input type="number" step="0.01" min="0" className="w-28"
+                                aria-label={language === 'ar' ? 'المبلغ' : 'Amount'}
+                                value={t.amount} onChange={(e) => updateLineTax(index, ti, { amount: parseFloat(e.target.value) || 0 })} />
+                            ) : (
+                              <Input type="number" step="0.01" min="0" className="w-28"
+                                aria-label={language === 'ar' ? 'النسبة %' : 'Rate %'}
+                                value={t.rate} onChange={(e) => updateLineTax(index, ti, { rate: parseFloat(e.target.value) || 0 })} />
+                            )}
+                            <span className="text-xs text-gray-500">{FIXED_TAXES.includes(t.tax_type) ? formData.currency : '%'}</span>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeLineTax(index, ti)} className="text-red-500"
+                              aria-label={language === 'ar' ? 'حذف الضريبة' : 'Remove tax'}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -1348,11 +1472,7 @@ const InvoicesPage = () => {
                           <label className="text-xs text-gray-500">{text.total}</label>
                           <div className={`p-2 rounded text-sm font-medium ${adj.adjustment_type === 'discount' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                             {adj.adjustment_type === 'discount' ? '-' : '+'}
-                            {calculateAdjustmentAmount(
-                              adj, 
-                              totals.subtotal - totals.totalDiscount, 
-                              totals.subtotal - totals.totalDiscount + totals.totalTax
-                            ).toLocaleString()}
+                            {(totals.adjAmounts[index] || 0).toLocaleString()}
                           </div>
                         </div>
                         <div className="col-span-1">
@@ -1384,8 +1504,15 @@ const InvoicesPage = () => {
                 <div className="text-gray-600 dark:text-gray-400">{text.subtotal}:</div>
                 <div className="text-right font-medium">{totals.subtotal.toLocaleString()} {formData.currency}</div>
                 
-                <div className="text-gray-600 dark:text-gray-400">{text.discount} ({language === 'ar' ? 'الأسطر' : 'Lines'}):</div>
+                <div className="text-gray-600 dark:text-gray-400">{text.discount} ({language === 'ar' ? 'الأسطر + الخصم قبل الضريبة' : 'Lines + before-tax discount'}):</div>
                 <div className="text-right font-medium text-red-500">-{totals.totalDiscount.toLocaleString()} {formData.currency}</div>
+                {totals.beforeTaxDiscount > 0 && (
+                  <p className="col-span-2 text-xs text-gray-500">
+                    {language === 'ar'
+                      ? `منها خصم قبل الضريبة ${totals.beforeTaxDiscount.toLocaleString()} موزَّع على البنود — يُخفِّض ضريبة القيمة المضافة`
+                      : `incl. a before-tax discount of ${totals.beforeTaxDiscount.toLocaleString()} spread over the lines — it lowers the VAT`}
+                  </p>
+                )}
                 
                 {/* VAT 14% Highlighted */}
                 <div className="text-gray-600 dark:text-gray-400 flex items-center gap-2">
@@ -1396,10 +1523,22 @@ const InvoicesPage = () => {
                   <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded">14%</span>
                   {totals.totalTax.toLocaleString()} {formData.currency}
                 </div>
+                {totals.otherTaxes > 0 && (
+                  <>
+                    <div className="text-gray-600 dark:text-gray-400">{language === 'ar' ? 'ضريبة الجدول والدمغة:' : 'Table tax & stamp duty:'}</div>
+                    <div className="text-right font-medium">{totals.otherTaxes.toLocaleString()} {formData.currency}</div>
+                  </>
+                )}
+                {totals.withheld > 0 && (
+                  <>
+                    <div className="text-gray-600 dark:text-gray-400">{language === 'ar' ? 'خصم من المنبع (T4):' : 'Withholding (T4):'}</div>
+                    <div className="text-right font-medium text-red-500">-{totals.withheld.toLocaleString()} {formData.currency}</div>
+                  </>
+                )}
                 
                 {totals.totalInvoiceDiscount > 0 && (
                   <>
-                    <div className="text-gray-600 dark:text-gray-400">{text.totalDiscounts}:</div>
+                    <div className="text-gray-600 dark:text-gray-400">{text.totalDiscounts} ({language === 'ar' ? 'بعد الضريبة' : 'after tax'}):</div>
                     <div className="text-right font-medium text-red-500">-{totals.totalInvoiceDiscount.toLocaleString()} {formData.currency}</div>
                   </>
                 )}
@@ -1636,6 +1775,23 @@ const InvoicesPage = () => {
                 </label>
                 <Input type="number" step="0.01" min="0" value={payForm.amount}
                   onChange={(e) => setPayForm(prev => ({ ...prev, amount: e.target.value }))} />
+              </div>
+              <div>
+                <label htmlFor="pay-cash-discount" className="block text-sm font-medium mb-1 text-gray-700">
+                  {payInvoice.document_type === 'purchase_invoice'
+                    ? (isRTL ? `خصم نقدي مكتسب — تعجيل دفع (${payInvoice.currency})` : `Cash discount received (${payInvoice.currency})`)
+                    : (isRTL ? `خصم نقدي مسموح به — تعجيل دفع (${payInvoice.currency})` : `Cash discount allowed (${payInvoice.currency})`)}
+                </label>
+                <Input id="pay-cash-discount" type="number" step="0.01" min="0" value={payForm.discount_amount}
+                  onChange={(e) => {
+                    const disc = e.target.value;
+                    setPayForm(prev => ({ ...prev, discount_amount: disc,
+                      amount: String(Math.max(Math.round((Number(payInvoice.amount_due || 0) - (Number(disc) || 0)) * 100) / 100, 0)) }));
+                  }} />
+                <p className="text-xs text-gray-500 mt-1">
+                  {isRTL ? 'يُسوّي رصيد الفاتورة دون تحصيل ويُرحَّل لحساب الخصم النقدي — لا يغيّر ضريبة القيمة المضافة. المبلغ + الخصم ≤ المستحق.'
+                         : 'Settles part of the balance without cash and posts to the cash-discount account — VAT is not changed. Amount + discount ≤ due.'}
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

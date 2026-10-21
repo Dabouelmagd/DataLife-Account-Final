@@ -16,13 +16,63 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
+PERIOD_LOCKED_MSG = ("الفترة {period} مقفلة — لا يمكن إنشاء أو تعديل قيود بتاريخها. "
+                     "يفتحها المدير المالي من إقفال الفترات")
+
+
+class PeriodLockedError(ValueError):
+    """A date inside a closed month or a closed fiscal year. A ValueError, so
+    every caller that turns ValueError into a 400 keeps working."""
+
 
 class AccountingService:
     """خدمات المحاسبة"""
-    
+
     def __init__(self, db: AsyncIOMotorClient):
         self.db = db
-    
+
+    # ==========================================
+    # قفل الفترات — Period / fiscal-year lock
+    # ==========================================
+
+    async def _closed_reason(self, company_id: str, date_str: Optional[str]) -> Optional[str]:
+        """The label of what locks `date_str` (YYYY-MM month or fiscal year), or None if open."""
+        d = str(date_str or "")[:10]
+        if len(d) < 7 or not d[:4].isdigit() or not d[5:7].isdigit():
+            return None
+        if len(d) < 10:
+            d = d[:7] + "-01"
+        period = d[:7]
+        fp = await self.db.financial_periods.find_one(
+            {"company_id": company_id, "status": "closed",
+             "$or": [{"year": int(d[:4]), "month": int(d[5:7])}, {"period": period}]},
+            {"_id": 0, "period": 1})
+        if fp:
+            return period
+        fy = await self.db.fiscal_years.find_one(
+            {"company_id": company_id, "is_closed": True,
+             "start_date": {"$lte": d}, "end_date": {"$gte": d}}, {"_id": 0, "name": 1})
+        if fy:
+            return period
+        # the year-end record itself (also covers closings made before fiscal
+        # years were marked closed: those carry only the calendar year)
+        yc = await self.db.year_end_closings.find_one(
+            {"company_id": company_id,
+             "$or": [{"start_date": {"$lte": d}, "end_date": {"$gte": d}},
+                     {"start_date": {"$exists": False}, "fiscal_year": int(d[:4])}]},
+            {"_id": 0, "fiscal_year": 1})
+        if yc:
+            return period
+        return None
+
+    async def _assert_open(self, company_id: str, date_str: Optional[str]) -> None:
+        """The single period lock: refuses any create / post / edit dated inside
+        a closed month (financial_periods) or a closed fiscal year
+        (fiscal_years.is_closed / year_end_closings)."""
+        period = await self._closed_reason(company_id, date_str)
+        if period:
+            raise PeriodLockedError(PERIOD_LOCKED_MSG.format(period=period))
+
     # ==========================================
     # دليل الحسابات - Chart of Accounts
     # ==========================================
@@ -193,8 +243,11 @@ class AccountingService:
         )
         return counter["last_number"]
     
-    async def create_journal_entry(self, entry: JournalEntry) -> Dict:
-        """إنشاء قيد يومي جديد"""
+    async def create_journal_entry(self, entry: JournalEntry, *, _bypass_lock: bool = False) -> Dict:
+        """إنشاء قيد يومي جديد. `_bypass_lock` is for the year-end close/reopen
+        engine only (its own entries dated inside the year it locks)."""
+        if not _bypass_lock:
+            await self._assert_open(entry.company_id, entry.entry_date)
         # التحقق من توازن القيد
         total_debit = sum(line.debit for line in entry.lines)
         total_credit = sum(line.credit for line in entry.lines)
@@ -247,6 +300,7 @@ class AccountingService:
             "petty_cash", "letter_of_credit", "equity", "sales_invoice",
             "project_expense", "project_revenue", "supplier_payment",
             "inventory_count", "bank_opening", "bank_transaction", "payment_voucher",
+            "year_end_closing", "asset_purchase", "depreciation",
         }
         if entry.source_document_type not in VALID_SOURCE_TYPES:
             entry.source_document_type = "manual"
@@ -345,6 +399,7 @@ class AccountingService:
                 f"{debit_code if not debit_acc else ''} {credit_code if not credit_acc else ''}".strip())
 
         entry_date = entry.get("entry_date") or entry.get("date") or datetime.utcnow().strftime("%Y-%m-%d")
+        await self._assert_open(company_id, entry_date)
         for acc, dr, cr in ((debit_acc, amount, 0.0), (credit_acc, 0.0, amount)):
             nature = get_account_nature(AccountType(acc["account_type"]))
             cur = acc.get("current_balance", 0) or 0
@@ -375,7 +430,7 @@ class AccountingService:
         )
         return True
 
-    async def post_journal_entry(self, entry_id: str, user_id: str) -> bool:
+    async def post_journal_entry(self, entry_id: str, user_id: str, *, _bypass_lock: bool = False) -> bool:
         """ترحيل القيد إلى دفتر الأستاذ — IMMUTABLE after posting"""
         entry = await self.get_journal_entry(entry_id)
         if not entry:
@@ -397,23 +452,9 @@ class AccountingService:
         if td != tc:
             raise ValueError(f"Cannot post an unbalanced entry (debit {td} / credit {tc})")
 
-        # ── فحص الفترة المالية: هل مفتوحة؟ ──────────────────────
-        entry_date   = entry.get("entry_date", "")
-        if entry_date:
-            entry_period = entry_date[:7]   # YYYY-MM
-            entry_year   = entry_date[:4]   # YYYY
-            fp = await self.db.financial_periods.find_one({
-                "company_id": entry["company_id"],
-                "$or": [
-                    {"year": int(entry_year), "month": int(entry_date[5:7])},
-                    {"period": entry_period},
-                ]
-            }, {"_id": 0})
-            if fp and fp.get("status") == "closed":
-                raise ValueError(
-                    f"الفترة المالية {entry_period} مغلقة — "
-                    "لا يمكن الترحيل إليها. يتطلب صلاحية إعادة الفتح."
-                )
+        # ── فحص الفترة المالية: هل مفتوحة؟ (month and fiscal year) ──
+        if not _bypass_lock:
+            await self._assert_open(entry["company_id"], entry.get("entry_date", ""))
 
         # Set fiscal year and period automatically
         from datetime import datetime as _dt
@@ -487,8 +528,10 @@ class AccountingService:
         
         return True
     
-    async def reverse_journal_entry(self, entry_id: str, user_id: str, reversal_date: Optional[str] = None) -> Dict:
-        """عكس قيد يومي"""
+    async def reverse_journal_entry(self, entry_id: str, user_id: str, reversal_date: Optional[str] = None,
+                                    *, _bypass_lock: bool = False) -> Dict:
+        """عكس قيد يومي. `_bypass_lock`: year-end reopen only (the reversal of a
+        closing entry is dated inside the closed year it reopens)."""
         original = await self.get_journal_entry(entry_id)
         if not original:
             raise ValueError("Journal entry not found")
@@ -521,10 +564,12 @@ class AccountingService:
         # is closed (and possibly filed), today.
         if not reversal_date:
             orig = original.get("entry_date") or datetime.utcnow().strftime("%Y-%m-%d")
-            closed = await self.db.financial_periods.find_one(
-                {"company_id": original["company_id"], "status": "closed",
-                 "$or": [{"period": orig[:7]}, {"year": int(orig[:4]), "month": int(orig[5:7])}]}, {"_id": 1})
+            closed = None if _bypass_lock else await self._closed_reason(original["company_id"], orig)
             reversal_date = datetime.utcnow().strftime("%Y-%m-%d") if closed else orig[:10]
+        if not _bypass_lock:
+            # an explicit date, or today when the original's period is closed:
+            # either must itself be open
+            await self._assert_open(original["company_id"], reversal_date)
 
         reversed_entry = JournalEntry(
             company_id=original["company_id"],
@@ -539,13 +584,13 @@ class AccountingService:
             created_by=user_id
         )
 
-        result = await self.create_journal_entry(reversed_entry)
+        result = await self.create_journal_entry(reversed_entry, _bypass_lock=_bypass_lock)
 
         # The reversal used to stay a draft forever while the original was
         # marked "reversed": the original kept its full effect in the ledger
         # and every report, yet the screen said it was cancelled. Post the
         # reversal first; mark the original only once that has succeeded.
-        await self.post_journal_entry(result["id"], user_id)
+        await self.post_journal_entry(result["id"], user_id, _bypass_lock=_bypass_lock)
 
         await self.db.journal_entries.update_one(
             {"id": entry_id},
@@ -565,26 +610,70 @@ class AccountingService:
         company_id: str,
         account_id: Optional[str] = None,
         start_date: Optional[str] = None,
-        end_date: Optional[str] = None
-    ) -> List[Dict]:
-        """الحصول على قيود دفتر الأستاذ"""
-        query = {"company_id": company_id}
-        
+        end_date: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 500,
+    ) -> Dict:
+        """دفتر الأستاذ — one page of ledger rows with the total count, the
+        opening balance (everything before start_date) and a running balance.
+
+        It used to return at most 10,000 rows with no hint that the rest were
+        cut off, and no opening or running balance. With an account the
+        balances follow the account's nature; across all accounts they are
+        debit − credit (a balanced ledger nets to zero)."""
+        skip = max(int(skip or 0), 0)
+        limit = min(max(int(limit or 500), 1), 5000)
+        base = {"company_id": company_id}
+        opening = 0.0
+        sign = lambda d, c: d - c
         if account_id:
-            query["account_id"] = account_id
-        
-        if start_date and end_date:
-            query["entry_date"] = {"$gte": start_date, "$lte": end_date}
-        elif start_date:
-            query["entry_date"] = {"$gte": start_date}
-        elif end_date:
-            query["entry_date"] = {"$lte": end_date}
-        
-        entries = await self.db.general_ledger.find(
-            query, {"_id": 0}
-        ).sort("entry_date", 1).to_list(length=10000)
-        
-        return entries
+            base["account_id"] = account_id
+            account = await self.db.chart_of_accounts.find_one(
+                {"id": account_id, "company_id": company_id}, {"_id": 0, "account_type": 1, "opening_balance": 1})
+            if account:
+                if get_account_nature(AccountType(account["account_type"])) != "debit":
+                    sign = lambda d, c: c - d
+                opening = float(account.get("opening_balance", 0) or 0)
+
+        async def _net(match: Dict, extra: Optional[List] = None) -> float:
+            pipe = [{"$match": match}] + (extra or []) + [
+                {"$group": {"_id": None, "d": {"$sum": "$debit"}, "c": {"$sum": "$credit"}}}]
+            async for r in self.db.general_ledger.aggregate(pipe):
+                return sign(r.get("d", 0) or 0, r.get("c", 0) or 0)
+            return 0.0
+
+        if start_date:
+            opening += await _net({**base, "entry_date": {"$lt": start_date}})
+
+        query = dict(base)
+        rng = {}
+        if start_date:
+            rng["$gte"] = start_date
+        if end_date:
+            rng["$lte"] = end_date + "￿"     # inclusive of full timestamps
+        if rng:
+            query["entry_date"] = rng
+
+        order = [("entry_date", 1), ("created_at", 1), ("id", 1)]
+        total = await self.db.general_ledger.count_documents(query)
+        period_net = await _net(query)
+        running = opening
+        if skip:
+            running += await _net(query, [{"$sort": dict(order)}, {"$limit": skip}])
+        rows = await self.db.general_ledger.find(query, {"_id": 0}).sort(order).skip(skip).limit(limit).to_list(length=limit)
+        entries = []
+        for r in rows:
+            running = round(running + sign(float(r.get("debit", 0) or 0), float(r.get("credit", 0) or 0)), 2)
+            entries.append({**r, "running_balance": running})
+        return {
+            "entries": entries,
+            "total": total,
+            "opening_balance": round(opening, 2),
+            "closing_balance": round(opening + period_net, 2),
+            "skip": skip,
+            "limit": limit,
+            "has_more": skip + len(entries) < total,
+        }
     
     async def get_account_statement(
         self,
@@ -746,7 +835,7 @@ class AccountingService:
         ledger in the period — posted entries and, for a reversed one, both
         the original and its reversal, exactly as the ledger has them."""
         je_ids = await self.db.general_ledger.distinct("journal_entry_id", {
-            "company_id": company_id,
+            "company_id": company_id, "is_closing": {"$ne": True},
             "entry_date": {"$gte": start_date, "$lte": end_date + "\uffff"}})
         movement: Dict = {}
         async for je in self.db.journal_entries.find(
@@ -780,6 +869,9 @@ class AccountingService:
             {"$match": {
                 "company_id": company_id,
                 "entry_date": {"$gte": start_date, "$lte": end_date + "\uffff"},
+                # year-end closing entries (and their reversals) zero every
+                # revenue/expense account; a closed year must still show its result
+                "is_closing": {"$ne": True},
             }},
             {"$group": {"_id": "$account_id",
                         "debit": {"$sum": "$debit"}, "credit": {"$sum": "$credit"}}},

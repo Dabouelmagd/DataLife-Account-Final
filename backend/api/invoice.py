@@ -41,6 +41,11 @@ class CreatePartyRequest(BaseModel):
     building_number: Optional[str] = None
     national_id: Optional[str] = None
     country: str = "EG"
+    # عميل أجنبي / منطقة حرة — فئة القيمة المضافة الافتراضية ونوع المستلم (F)
+    is_foreign: bool = False
+    free_zone: bool = False
+    foreign_tax_id: Optional[str] = None
+    passport_number: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
     contact_person: Optional[str] = None
@@ -72,6 +77,58 @@ class InvoiceLineRequest(BaseModel):
     discount_percent: float = 0.0
     tax_type: str = "vat"
     tax_rate: float = 14.0
+    # standard | export | free_zone | exempt | non_taxable — empty → from the
+    # party (free zone / abroad) or the tax type
+    vat_category: Optional[str] = None
+    # [{tax_type: T2|T3|T4|T5|T6…, sub_type, rate, amount}] — table tax, stamp …
+    other_taxes: Optional[List[dict]] = None
+
+
+VAT_CATEGORIES = {"standard", "export", "free_zone", "exempt", "non_taxable"}
+
+
+def _build_lines(line_reqs, party: dict, document_type: str) -> list:
+    """Request lines → InvoiceLine, with the VAT category defaulted from the
+    party's flags and the other taxes checked."""
+    from models.invoice import default_vat_category, LineTax, VatCategory
+    default_cat = default_vat_category(party, document_type)
+    out = []
+    for line_req in line_reqs:
+        cat = (line_req.vat_category or "").strip().lower() or None
+        if cat and cat not in VAT_CATEGORIES:
+            raise HTTPException(status_code=400, detail=f"فئة ضريبة القيمة المضافة غير معروفة: {cat}")
+        if not cat and default_cat and line_req.tax_type == "vat":
+            cat = default_cat
+        taxes = []
+        for t in line_req.other_taxes or []:
+            tt = str(t.get("tax_type") or "").strip().upper()
+            if not tt:
+                continue
+            if not (tt.startswith("T") and tt[1:].isdigit()) or tt == "T1":
+                raise HTTPException(status_code=400,
+                                    detail=f"نوع الضريبة {tt} غير صحيح — استخدم T2…T12 (T1 هي القيمة المضافة)")
+            try:
+                rate, amount = float(t.get("rate") or 0), float(t.get("amount") or 0)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"قيمة ضريبة {tt} غير صحيحة")
+            if rate < 0 or amount < 0:
+                raise HTTPException(status_code=400, detail=f"ضريبة {tt} لا تكون بالسالب")
+            taxes.append(LineTax(tax_type=tt, sub_type=(t.get("sub_type") or None), rate=rate, amount=amount))
+        out.append(InvoiceLine(
+            line_number=0,
+            product_id=line_req.product_id,
+            product_code=line_req.product_code,
+            description=line_req.description,
+            unit=line_req.unit,
+            quantity=line_req.quantity,
+            unit_price=line_req.unit_price,
+            discount_percent=line_req.discount_percent,
+            tax_type=TaxType(line_req.tax_type),
+            tax_rate=line_req.tax_rate,
+            vat_category=VatCategory(cat) if cat else None,
+            other_taxes=taxes,
+        ))
+    return out
 
 
 class InvoiceAdjustmentRequest(BaseModel):
@@ -163,6 +220,8 @@ class RecordPaymentRequest(BaseModel):
     # foreign invoices: EGP per unit on the payment date (empty → looked up)
     exchange_rate: Optional[float] = None
     bank_account: Optional[str] = None        # account id/code to receive/pay from
+    # خصم نقدي (تعجيل دفع) في عملة الفاتورة: يسوي الرصيد دون تحصيل، ولا يمس الضريبة
+    discount_amount: float = 0.0
 
 
 # ==========================================
@@ -213,7 +272,11 @@ async def create_party(
         governate=request.governate,
         building_number=request.building_number,
         national_id=request.national_id,
-        country=request.country,
+        country=(request.country or "EG").strip().upper()[:2] or "EG",
+        is_foreign=request.is_foreign,
+        free_zone=request.free_zone,
+        foreign_tax_id=request.foreign_tax_id,
+        passport_number=request.passport_number,
         phone=request.phone,
         email=request.email,
         contact_person=request.contact_person,
@@ -237,6 +300,8 @@ async def update_party(
         raise HTTPException(status_code=404, detail="Party not found")
     service = InvoiceService(db)
     updates = request.dict(exclude_unset=True)
+    if "country" in updates:
+        updates["country"] = (updates["country"] or "EG").strip().upper()[:2] or "EG"
     result = await service.update_party(party_id, updates)
     if not result:
         raise HTTPException(status_code=404, detail="Party not found")
@@ -387,21 +452,7 @@ async def create_invoice(
                                           request.exchange_rate, request.document_date)
     
     # تحويل الأسطر
-    lines = []
-    for line_req in request.lines:
-        line = InvoiceLine(
-            line_number=0,
-            product_id=line_req.product_id,
-            product_code=line_req.product_code,
-            description=line_req.description,
-            unit=line_req.unit,
-            quantity=line_req.quantity,
-            unit_price=line_req.unit_price,
-            discount_percent=line_req.discount_percent,
-            tax_type=TaxType(line_req.tax_type),
-            tax_rate=line_req.tax_rate
-        )
-        lines.append(line)
+    lines = _build_lines(request.lines, party, request.document_type)
     
     # تحويل التعديلات (خصومات وإضافات)
     adjustments = []
@@ -462,26 +513,14 @@ async def update_invoice(
     current_user: dict = Depends(get_current_user)
 ):
     """تحديث فاتورة"""
-    await _own_invoice(invoice_id, current_user["company_id"])
+    existing = await _own_invoice(invoice_id, current_user["company_id"])
     await _check_dimensions(current_user["company_id"], request.cost_center_id, request.project_id)
     service = InvoiceService(db)
     
     # تحويل الأسطر
-    lines = []
-    for line_req in request.lines:
-        line = InvoiceLine(
-            line_number=0,
-            product_id=line_req.product_id,
-            product_code=line_req.product_code,
-            description=line_req.description,
-            unit=line_req.unit,
-            quantity=line_req.quantity,
-            unit_price=line_req.unit_price,
-            discount_percent=line_req.discount_percent,
-            tax_type=TaxType(line_req.tax_type),
-            tax_rate=line_req.tax_rate
-        )
-        lines.append(line)
+    _party = await db.parties.find_one({"id": existing.get("party_id"), "company_id": current_user["company_id"]},
+                                       {"_id": 0}) or {}
+    lines = _build_lines(request.lines, _party, existing.get("document_type") or request.document_type)
     
     # تحويل التعديلات (خصومات وإضافات)
     adjustments = []
@@ -601,6 +640,7 @@ async def record_payment(
         invoice_id=request.invoice_id,
         payment_date=request.payment_date,
         amount=request.amount,
+        discount_amount=max(float(request.discount_amount or 0), 0.0),
         payment_method=PaymentMethod(request.payment_method),
         reference=request.reference,
         notes=request.notes,

@@ -457,6 +457,14 @@ async def approve_journal_entry(
     return {"message": "تم اعتماد القيد بنجاح", "approved_by": current_user.get("name")}
 
 
+async def _assert_period_open(company_id: str, date_str) -> None:
+    """The service's single period lock, as an HTTP 400."""
+    try:
+        await AccountingService(db)._assert_open(company_id, date_str)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.put("/journal-entries/{entry_id}/cancel")
 async def cancel_journal_entry(
     entry_id: str,
@@ -469,13 +477,15 @@ async def cancel_journal_entry(
     )
     if not entry:
         raise HTTPException(status_code=404, detail="القيد غير موجود")
-    if entry.get("status") == "posted":
-        raise HTTPException(
-            status_code=400,
-            detail="لا يمكن إلغاء قيد مرحّل — أنشئ قيداً عكسياً بدلاً من ذلك"
-        )
     if entry.get("status") == "canceled":
         raise HTTPException(status_code=400, detail="القيد ملغي بالفعل")
+    if (entry.get("status") or "draft") != "draft":
+        # posted AND reversed entries: both reached the ledger
+        raise HTTPException(
+            status_code=400,
+            detail="لا يمكن إلغاء قيد مرحّل أو معكوس — يُلغى قيد المسودة فقط؛ أنشئ قيداً عكسياً بدلاً من ذلك"
+        )
+    await _assert_period_open(current_user["company_id"], entry.get("entry_date"))
     from datetime import datetime as _dt, timezone as _tz
     await db.journal_entries.update_one(
         {"id": entry_id},
@@ -509,17 +519,25 @@ async def update_journal_entry(
     )
     if not entry:
         raise HTTPException(status_code=404, detail="القيد غير موجود")
-    if entry.get("status") == "posted":
-        raise HTTPException(
-            status_code=400,
-            detail="IMMUTABILITY VIOLATION: القيد مرحّل — استخدم القيد العكسي لتصحيح الخطأ"
-        )
     if entry.get("status") == "canceled":
         raise HTTPException(status_code=400, detail="القيد ملغي ولا يمكن تعديله")
+    if (entry.get("status") or "draft") != "draft":
+        # a reversed entry was editable: its lines could be rewritten after the
+        # ledger (and its reversal) had recorded the original figures
+        raise HTTPException(
+            status_code=400,
+            detail="IMMUTABILITY VIOLATION: القيد مرحّل أو معكوس — يُعدَّل قيد المسودة فقط؛ استخدم القيد العكسي لتصحيح الخطأ"
+        )
     EDITABLE = {"description", "narration", "reference", "lines", "entry_date"}
     update = {k: v for k, v in data.items() if k in EDITABLE}
     if not update:
         raise HTTPException(status_code=400, detail="لا توجد حقول قابلة للتعديل")
+    await _assert_period_open(current_user["company_id"], entry.get("entry_date"))
+    if update.get("entry_date"):
+        await _assert_period_open(current_user["company_id"], update["entry_date"])
+        update["entry_date"] = str(update["entry_date"])[:10]
+        update["period"] = update["entry_date"][:7]
+        update["fiscal_year"] = update["entry_date"][:4]
     if "lines" in update:
         # keep each line's account code and name (the list and the ledger show them)
         fixed = []
@@ -673,16 +691,22 @@ async def get_ledger_entries(
     account_id: Optional[str] = Query(None, description="Account ID"),
     start_date: Optional[str] = Query(None, description="Start date"),
     end_date: Optional[str] = Query(None, description="End date"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(500, ge=1, le=5000),
     current_user: dict = Depends(get_current_user),
-    
 ):
-    """الحصول على قيود دفتر الأستاذ"""
+    """دفتر الأستاذ — paged (skip/limit), with the total count, the opening
+    balance before start_date and a running balance on each row. It used to
+    stop silently at 10,000 rows."""
     service = AccountingService(db)
-    entries = await service.get_ledger_entries(
+    res = await service.get_ledger_entries(
         current_user["company_id"],
-        account_id, start_date, end_date
+        account_id, start_date, end_date, skip=skip, limit=limit
     )
-    return {"entries": entries, "total": len(entries)}
+    res["pagination"] = {"skip": res["skip"], "limit": res["limit"], "total": res["total"],
+                         "page": res["skip"] // res["limit"] + 1,
+                         "pages": -(-res["total"] // res["limit"]), "has_more": res["has_more"]}
+    return res
 
 
 @router.get("/ledger/account-statement/{account_id}")

@@ -455,6 +455,21 @@ async def run_real_estate_daily_job():
         return None
 
 
+async def submit_pos_eta_receipts_job():
+    """Every 10 minutes: send pending POS e-receipts to the tax authority
+    (companies without complete POS e-receipt settings are left pending)."""
+    try:
+        from database import db as _db
+        from services.eta_receipt import submit_pending_receipts
+        res = await submit_pending_receipts(_db)
+        if res:
+            print(f"[{datetime.now()}] POS e-receipts: {res}")
+        return res
+    except Exception as e:
+        print(f"[{datetime.now()}] Error submitting POS e-receipts: {e}")
+        return None
+
+
 def start_scheduler():
     """Start the scheduler with all jobs"""
     
@@ -555,6 +570,16 @@ def start_scheduler():
         minutes=5,
         id='system_monitor',
         name='System Health Monitor',
+        replace_existing=True
+    )
+
+    # POS e-receipts to the tax authority — every 10 minutes
+    scheduler.add_job(
+        submit_pos_eta_receipts_job,
+        'interval',
+        minutes=10,
+        id='pos_eta_receipts',
+        name='POS ETA E-Receipts Submission',
         replace_existing=True
     )
 

@@ -465,10 +465,37 @@ export function TaxFormsPage() {
           <p className="text-slate-500">{res.company?.name} — رقم التسجيل <bdi dir="ltr">{res.company?.vat_registration || res.company?.tax_id || '—'}</bdi> — الفترة <bdi dir="ltr">{res.period}</bdi></p>
           <p className="text-slate-500 mb-3">آخر موعد للتقديم: <bdi dir="ltr">{res.due_date}</bdi></p>
           <p className="font-bold mt-2">{res.vat_output?.label}</p>
-          <Row l="قيمة المبيعات الخاضعة" v={res.vat_output?.sales_base} /><Row l="ضريبة المخرجات" v={res.vat_output?.vat_amount} />
+          {(res.vat_output?.lines || []).length > 0 && (
+            <table className="w-full text-sm my-1">
+              <thead className="text-xs text-slate-500"><tr><th className="text-start py-1">البند</th><th className="text-end py-1">القيمة</th><th className="text-end py-1">الضريبة</th></tr></thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {res.vat_output.lines.map((r) => (
+                  <tr key={`${r.key}-${r.rate ?? ''}`}><td className="py-1">{r.label}</td><td className="py-1 text-end"><N v={r.base} /></td><td className="py-1 text-end"><N v={r.vat} /></td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <Row l="إجمالي قيمة المبيعات (خاضعة وصفرية ومعفاة)" v={res.vat_output?.sales_base} /><Row l="ضريبة المخرجات" v={res.vat_output?.vat_amount} />
           <p className="font-bold mt-3">{res.vat_input?.label}</p>
+          {(res.vat_input?.lines || []).length > 0 && (
+            <table className="w-full text-sm my-1">
+              <thead className="text-xs text-slate-500"><tr><th className="text-start py-1">البند</th><th className="text-end py-1">القيمة</th><th className="text-end py-1">الضريبة</th></tr></thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {res.vat_input.lines.map((r) => (
+                  <tr key={`${r.key}-${r.rate ?? ''}`}><td className="py-1">{r.label}</td><td className="py-1 text-end"><N v={r.base} /></td><td className="py-1 text-end"><N v={r.vat} /></td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
           <Row l="قيمة المشتريات" v={res.vat_input?.purchase_base} /><Row l="ضريبة المدخلات" v={res.vat_input?.vat_amount} />
           <Row l={res.net_position?.status === 'رصيد دائن' ? 'رصيد دائن يُرحَّل' : 'صافي الضريبة المستحقة'} v={res.net_position?.net_vat_due || res.net_position?.vat_credit} b />
+          {Number(res.vat_table?.amount) !== 0 && (
+            <>
+              <p className="font-bold mt-3">{res.vat_table?.label}</p>
+              <Row l="ضريبة الجدول المستحقة" v={res.vat_table?.amount} />
+              <Row l="إجمالي المستحق (القيمة المضافة + الجدول)" v={res.net_position?.total_due} b />
+            </>
+          )}
         </div>
       )}
 

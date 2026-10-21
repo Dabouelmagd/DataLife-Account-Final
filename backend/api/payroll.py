@@ -9,6 +9,7 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 import uuid
+import asyncio
 
 from services.audit_helper import log_financial_action
 
@@ -48,6 +49,10 @@ class LoanRequest(BaseModel):
 
 class PayrollRunRequest(BaseModel):
     month: str  # YYYY-MM
+    # optional scope: a large company splits the month into runs by
+    # department and/or branch (one run document holds every employee)
+    department: Optional[str] = None
+    branch: Optional[str] = None
 
 
 class PayrollAdjustmentRequest(BaseModel):
@@ -146,11 +151,13 @@ async def calculate_attendance_for_payroll(
     employee_id: str, 
     month: str, 
     basic_salary: float,
-    hr_settings: dict
+    hr_settings: dict,
+    company_id: Optional[str] = None,
 ) -> AttendancePayrollSummary:
     """
     حساب تأثير الحضور على الراتب
     يجمع بيانات الحضور للشهر ويحسب الخصومات والمكافآت
+    (one employee; the payroll run prefetches all employees' records instead)
     """
     year, mon = map(int, month.split("-"))
     start_date = f"{month}-01"
@@ -160,11 +167,21 @@ async def calculate_attendance_for_payroll(
         end_date = f"{year}-{mon + 1:02d}-01"
     
     # جلب سجلات الحضور
-    records = await db.attendance_records.find({
-        "employee_id": employee_id,
-        "date": {"$gte": start_date, "$lt": end_date}
-    }, {"_id": 0}).to_list(length=None)
-    
+    q = {"employee_id": employee_id, "date": {"$gte": start_date, "$lt": end_date}}
+    if company_id:
+        q["company_id"] = company_id
+    records = await db.attendance_records.find(q, {"_id": 0}).to_list(length=None)
+    return attendance_summary_from_records(employee_id, month, basic_salary, hr_settings, records)
+
+
+def attendance_summary_from_records(
+    employee_id: str,
+    month: str,
+    basic_salary: float,
+    hr_settings: dict,
+    records: list,
+) -> AttendancePayrollSummary:
+    """The attendance arithmetic on already-fetched records of the month."""
     summary = AttendancePayrollSummary(
         employee_id=employee_id,
         month=month
@@ -1032,27 +1049,51 @@ async def payroll_sheet(run_id: str, department: Optional[str] = None, branch: O
                     headers={"Content-Disposition": f'attachment; filename="payroll_sheet_{run.get("month", "")}.xlsx"'})
 
 
+def _scopes_overlap(a: dict, b: dict) -> bool:
+    """Two runs of the same month may share an employee unless they name a
+    different value on at least one of department / branch."""
+    for k in ("department", "branch"):
+        va, vb = (a.get(k) or None), (b.get(k) or None)
+        if va and vb and va != vb:
+            return False
+    return True
+
+
 @router.post("/runs")
 async def create_payroll_run(
     request: PayrollRunRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """إنشاء مسير رواتب جديد"""
+    """إنشاء مسير رواتب جديد — للشركة كلها أو لإدارة/فرع بعينه.
+
+    A run embeds every employee's calculation in one document (≈1–3 KB per
+    employee; MongoDB caps a document at 16 MB). Large companies split the
+    month into runs by department and/or branch; two runs of the same month
+    must not be able to contain the same employee.
+    """
     company_id = current_user["company_id"]
-    
-    # التحقق من عدم وجود مسير للشهر
-    existing = await db.payroll_runs.find_one({
-        "company_id": company_id,
-        "month": request.month
-    })
-    if existing:
-        raise HTTPException(status_code=400, detail="يوجد مسير رواتب لهذا الشهر بالفعل")
-    
+    department = (request.department or "").strip() or None
+    branch = (request.branch or "").strip() or None
+    scope = {"department": department, "branch": branch}
+
+    # التحقق من عدم وجود مسير يغطي نفس الموظفين في نفس الشهر
+    async for existing in db.payroll_runs.find(
+            {"company_id": company_id, "month": request.month},
+            {"_id": 0, "id": 1, "department": 1, "branch": 1}):
+        if _scopes_overlap(existing, scope):
+            if not (existing.get("department") or existing.get("branch")) and not (department or branch):
+                raise HTTPException(status_code=400, detail="يوجد مسير رواتب لهذا الشهر بالفعل")
+            raise HTTPException(status_code=400, detail=(
+                "يوجد مسير رواتب لهذا الشهر يشمل نفس الموظفين"
+                + (f" (الإدارة: {existing.get('department')})" if existing.get("department") else "")
+                + (f" (الفرع: {existing.get('branch')})" if existing.get("branch") else "")
+                + " — لا يمكن تقسيم الشهر إلا إلى مسيرات لا تتداخل (إدارات مختلفة أو فروع مختلفة)"))
+
     # تحليل الشهر
     year, month_num = map(int, request.month.split("-"))
-    
+
     payroll_number = await generate_number(company_id, "PAY", "payroll_runs")
-    
+
     payroll = PayrollRun(
         company_id=company_id,
         payroll_number=payroll_number,
@@ -1061,242 +1102,235 @@ async def create_payroll_run(
         month_number=month_num,
         created_by=current_user["user_id"]
     )
-    
-    await db.payroll_runs.insert_one(payroll.dict())
-    
-    return {"message": "تم إنشاء مسير الرواتب بنجاح", "payroll_run": payroll.dict()}
+    doc = payroll.dict()
+    doc["department"] = department
+    doc["branch"] = branch
+
+    await db.payroll_runs.insert_one(doc)
+    doc.pop("_id", None)
+
+    return {"message": "تم إنشاء مسير الرواتب بنجاح", "payroll_run": doc}
 
 
-@router.post("/runs/{run_id}/calculate")
-async def calculate_payroll(
-    run_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """حساب الرواتب مع ربط الحضور"""
-    company_id = current_user["company_id"]
-    
-    payroll = await db.payroll_runs.find_one({
-        "id": run_id,
-        "company_id": company_id
-    })
-    
-    if not payroll:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
-    
-    if payroll["status"] not in ["draft", "calculated"]:
-        raise HTTPException(status_code=400, detail="لا يمكن حساب هذا المسير")
-    
-    settings = await get_payroll_settings(company_id)
-    hr_settings = await get_hr_settings(company_id)
-    
-    # الحصول على الموظفين النشطين
-    employees = await db.employees.find({
-        "company_id": company_id,
-        "is_active": True
-    }).to_list(length=None)
-    
-    employee_payrolls = []
-    totals = {
-        "basic_salary": 0,
-        "allowances": 0,
-        "gross_salary": 0,
-        "deductions": 0,
-        "net_salary": 0,
-        "social_insurance": 0,
-        "income_tax": 0,
-        "loans": 0,
-        "other_deductions": 0,
-        "late_deductions": 0,
-        "absence_deductions": 0,
-        "overtime_bonus": 0
-    }
-    
-    for emp in employees:
-        basic_salary = emp.get("basic_salary", 0)
-        
-        # ══ جلب ملف التأمين الضريبي (إن وجد) ══════════════════
-        # employee_tax_insurance_profiles — قانون 148/2019 + 91/2005
-        insurance_profile = await db.employee_insurance_profiles.find_one(
-            {"employee_id": emp["id"], "company_id": company_id}, {"_id": 0}
-        )
-        # أجر الاشتراك التأميني — من الملف أو من الراتب الأساسي
-        insured_salary = (
-            insurance_profile.get("insured_basic_salary") or
-            insurance_profile.get("insured_salary") or
-            basic_salary
-        ) if insurance_profile else basic_salary
-        
-        # البدلات المعفاة + التأمين الطبي الخاص (يُخصمان من الوعاء الضريبي)
-        allowances_exempt   = float(insurance_profile.get("allowances_tax_exempt",   0)) if insurance_profile else 0.0
-        medical_deduction   = float(insurance_profile.get("medical_insurance_deduction", 0)) if insurance_profile else 0.0
-        pension_deduction   = float(insurance_profile.get("pension_deduction",        0)) if insurance_profile else 0.0
-        bank_iban           = insurance_profile.get("bank_account_iban")               if insurance_profile else None
-        
-        # ==========================================
-        # حساب تأثير الحضور على الراتب
-        # ==========================================
-        attendance_summary = await calculate_attendance_for_payroll(
-            emp["id"], 
-            payroll["month"], 
-            basic_salary,
-            hr_settings
-        )
-        
-        # البدلات
-        allowances = []
-        emp_allowances = await db.allowances.find({
-            "employee_id": emp["id"],
-            "month": payroll["month"]
-        }).to_list(length=None)
-        
-        total_allowances = 0
-        for allow in emp_allowances:
-            allowances.append(PayrollAllowance(
-                allowance_type=AllowanceType.OTHER,
-                name=allow.get("type"),
-                amount=allow.get("amount", 0)
-            ))
-            total_allowances += allow.get("amount", 0)
-        
-        # إضافة مكافأة الأوفرتايم كبدل
-        if attendance_summary.overtime_bonus_amount > 0:
-            allowances.append(PayrollAllowance(
-                allowance_type=AllowanceType.OTHER,
-                name="مكافأة عمل إضافي",
-                name_en="Overtime Bonus",
-                amount=attendance_summary.overtime_bonus_amount
-            ))
-            total_allowances += attendance_summary.overtime_bonus_amount
-            totals["overtime_bonus"] += attendance_summary.overtime_bonus_amount
-        
-        gross_salary = basic_salary + total_allowances
-        
-        # الخصومات
-        deductions = []
-        
-        # 1. التأمينات الاجتماعية
-        # قانون 148/2019: التأمين على أجر الاشتراك (وليس الراتب الأساسي مباشرة)
-        # استخدام insured_salary من الملف التأميني إن وجد
-        emp_si, company_si = await calculate_social_insurance(insured_salary, settings)
-        if emp_si > 0:
-            deductions.append(PayrollDeduction(
-                deduction_type=DeductionType.SOCIAL_INSURANCE,
-                name="تأمينات اجتماعية",
-                name_en="Social Insurance",
-                amount=emp_si
-            ))
-            totals["social_insurance"] += emp_si
-        totals["company_social_insurance"] = totals.get("company_social_insurance", 0) + company_si
-        
-        # 2. ضريبة كسب العمل
-        # قانون 91/2005 م.38: الوعاء الضريبي =
-        #   الأجر الشامل - التأمينات الاجتماعية
-        #                 - البدلات المعفاة ضريبياً
-        #                 - اشتراكات التأمين الطبي الخاص
-        #                 - اشتراكات صندوق المعاشات الخاص
-        annual_taxable = max(
-            (gross_salary - emp_si - allowances_exempt - medical_deduction - pension_deduction) * 12,
-            0
-        )
-        monthly_tax = await calculate_income_tax(
-            annual_taxable, settings,
-            company_id=company_id,
-            tax_year=settings.get("tax_year", 2024)
-        )
-        if monthly_tax > 0:
-            deductions.append(PayrollDeduction(
-                deduction_type=DeductionType.INCOME_TAX,
-                name="ضريبة كسب العمل",
-                name_en="Income Tax",
-                amount=monthly_tax
-            ))
-            totals["income_tax"] += monthly_tax
-        
-        # 3. السُلف
-        loans = await get_employee_loans(emp["id"], payroll["month"], payroll["company_id"])
-        for loan in loans:
-            deductions.append(PayrollDeduction(
-                deduction_type=DeductionType.LOAN,
-                name="قسط سُلفة",
-                name_en="Loan Installment",
-                amount=loan["installment_amount"],
-                reference_id=loan["loan_id"]
-            ))
-            totals["loans"] += loan["installment_amount"]
-        
-        # 4. خصم التأخير (من الحضور)
-        if attendance_summary.late_deduction_amount > 0:
-            deductions.append(PayrollDeduction(
-                deduction_type=DeductionType.OTHER,
-                name="خصم تأخير",
-                name_en="Late Deduction",
-                amount=attendance_summary.late_deduction_amount
-            ))
-            totals["late_deductions"] += attendance_summary.late_deduction_amount
-            totals["other_deductions"] += attendance_summary.late_deduction_amount
-        
-        # 5. خصم الغياب (من الحضور)
-        if attendance_summary.absence_deduction_amount > 0:
-            deductions.append(PayrollDeduction(
-                deduction_type=DeductionType.OTHER,
-                name="خصم غياب",
-                name_en="Absence Deduction",
-                amount=attendance_summary.absence_deduction_amount
-            ))
-            totals["absence_deductions"] += attendance_summary.absence_deduction_amount
-            totals["other_deductions"] += attendance_summary.absence_deduction_amount
-        
-        # 6. خصومات أخرى (يدوية)
-        emp_deductions = await db.deductions.find({
-            "company_id": payroll["company_id"],
-            "employee_id": emp["id"],
-            "month": payroll["month"]
-        }).to_list(length=None)
-        
-        for ded in emp_deductions:
-            deductions.append(PayrollDeduction(
-                deduction_type=DeductionType.OTHER,
-                name=ded.get("type"),
-                amount=ded.get("amount", 0)
-            ))
-            totals["other_deductions"] += ded.get("amount", 0)
+# ── Payroll calculation ──────────────────────────────────────────
+# The calculation used to run six queries per employee (insurance profile,
+# attendance, allowances, loans, manual deductions, penalties): 5,000
+# employees ≈ 30,000 round-trips, past nginx's 60 s. Every input is now read
+# once per chunk of PREFETCH_CHUNK employees with {company_id, employee_id:
+# {$in: ids}} and grouped in memory; the arithmetic is unchanged
+# (_compute_employee_payroll is the old loop body). Runs above
+# BACKGROUND_THRESHOLD employees are calculated in a background task whose
+# progress is kept in payroll_jobs.
+PREFETCH_CHUNK = 500
+BACKGROUND_THRESHOLD = 300
+# MongoDB refuses a document over 16 MB; the run embeds every employee, so
+# refuse well before that and ask for the run to be split.
+MAX_RUN_DOC_BYTES = 12 * 1024 * 1024
+CALC_LOCK_MINUTES = 30
+_background_tasks: set = set()
 
-        # 7. الجزاءات — recorded in HR (الإجازات والإضافي والجزاءات) "to be
-        # deducted in payroll", but nothing read them, so no penalty was ever
-        # deducted. The month's penalties not yet deducted by an approved run.
+
+def _month_range(month: str) -> tuple:
+    year, mon = map(int, month.split("-"))
+    start = f"{month}-01"
+    end = f"{year + 1}-01-01" if mon == 12 else f"{year}-{mon + 1:02d}-01"
+    return start, end
+
+
+async def prefetch_payroll_inputs(company_id: str, month: str, emp_ids: list) -> dict:
+    """Everything the calculation reads per employee, for `emp_ids`, in six
+    queries per PREFETCH_CHUNK ids. Lists keep the collection's natural order,
+    as the per-employee queries returned them."""
+    start, end = _month_range(month)
+    out = {k: {} for k in ("profiles", "attendance", "allowances", "loans", "deductions", "penalties")}
+    for i in range(0, len(emp_ids), PREFETCH_CHUNK):
+        ids = emp_ids[i:i + PREFETCH_CHUNK]
+        base = {"company_id": company_id, "employee_id": {"$in": ids}}
+        async for p in db.employee_insurance_profiles.find(base, {"_id": 0}):
+            out["profiles"].setdefault(p.get("employee_id"), p)     # find_one took the first
+        async for r in db.attendance_records.find(
+                {**base, "date": {"$gte": start, "$lt": end}}, {"_id": 0}):
+            out["attendance"].setdefault(r.get("employee_id"), []).append(r)
+        async for a in db.allowances.find({**base, "month": month}, {"_id": 0}):
+            out["allowances"].setdefault(a.get("employee_id"), []).append(a)
+        async for loan in db.employee_loans.find({
+                **base, "status": {"$in": ["approved", "active"]},
+                "start_month": {"$lte": month}, "remaining_amount": {"$gt": 0}}, {"_id": 0}):
+            out["loans"].setdefault(loan.get("employee_id"), []).append({
+                "loan_id": loan["id"],
+                "loan_number": loan.get("loan_number"),
+                "installment_amount": loan.get("installment_amount", 0),
+                "remaining_amount": loan.get("remaining_amount", 0)})
+        async for d in db.deductions.find({**base, "month": month}, {"_id": 0}):
+            out["deductions"].setdefault(d.get("employee_id"), []).append(d)
         async for pen in db.penalties.find({
-                "company_id": payroll["company_id"], "employee_id": emp["id"],
-                "date": {"$gte": f"{payroll['month']}-01", "$lte": f"{payroll['month']}-31"},
+                **base, "date": {"$gte": f"{month}-01", "$lte": f"{month}-31"},
                 "status": {"$in": ["pending", "approved"]}}, {"_id": 0}):
-            amt = round(float(pen.get("amount") or 0), 2)
-            if amt <= 0:
-                continue
-            deductions.append(PayrollDeduction(
-                deduction_type=DeductionType.PENALTY,
-                name=f"جزاء — {pen.get('violation', '')}"[:120],
-                amount=amt,
-                reference_id=pen.get("id")
-            ))
-            totals["other_deductions"] += amt
-            totals["penalties"] = totals.get("penalties", 0) + amt
-        
-        total_deductions = sum(d.amount for d in deductions)
-        net_salary = gross_salary - total_deductions
-        
-        # تجميع بيانات الموظف مع بيانات الحضور
-        emp_payroll_data = {
-            "employee_id": emp["id"],
-            "employee_name": emp.get("name"),
-            "employee_code": emp.get("employee_code"),
-            "department": emp.get("department"),
-            "branch": emp.get("branch"),
-            "position": emp.get("position"),
-            "basic_salary": basic_salary,
-            "allowances": [a.dict() for a in allowances],
-            "total_allowances": total_allowances,
-            "deductions": [d.dict() for d in deductions],
-            "total_deductions": total_deductions,
-            "gross_salary": gross_salary,
+            out["penalties"].setdefault(pen.get("employee_id"), []).append(pen)
+    return out
+
+
+async def _compute_employee_payroll(emp: dict, month: str, company_id: str, settings: dict,
+                                    hr_settings: dict, inputs: dict, totals: dict) -> dict:
+    """One employee's payroll from prefetched inputs — no database access."""
+    eid = emp["id"]
+    basic_salary = emp.get("basic_salary", 0)
+
+    # ══ ملف التأمين الضريبي (إن وجد) — قانون 148/2019 + 91/2005 ══
+    insurance_profile = inputs["profiles"].get(eid)
+    # أجر الاشتراك التأميني — من الملف أو من الراتب الأساسي
+    insured_salary = (
+        insurance_profile.get("insured_basic_salary") or
+        insurance_profile.get("insured_salary") or
+        basic_salary
+    ) if insurance_profile else basic_salary
+
+    # البدلات المعفاة + التأمين الطبي الخاص (يُخصمان من الوعاء الضريبي)
+    allowances_exempt = float(insurance_profile.get("allowances_tax_exempt", 0)) if insurance_profile else 0.0
+    medical_deduction = float(insurance_profile.get("medical_insurance_deduction", 0)) if insurance_profile else 0.0
+    pension_deduction = float(insurance_profile.get("pension_deduction", 0)) if insurance_profile else 0.0
+    bank_iban = insurance_profile.get("bank_account_iban") if insurance_profile else None
+
+    # حساب تأثير الحضور على الراتب
+    attendance_summary = attendance_summary_from_records(
+        eid, month, basic_salary, hr_settings, inputs["attendance"].get(eid, []))
+
+    # البدلات
+    allowances = []
+    total_allowances = 0
+    for allow in inputs["allowances"].get(eid, []):
+        allowances.append(PayrollAllowance(
+            allowance_type=AllowanceType.OTHER,
+            name=allow.get("type"),
+            amount=allow.get("amount", 0)
+        ))
+        total_allowances += allow.get("amount", 0)
+
+    # إضافة مكافأة الأوفرتايم كبدل
+    if attendance_summary.overtime_bonus_amount > 0:
+        allowances.append(PayrollAllowance(
+            allowance_type=AllowanceType.OTHER,
+            name="مكافأة عمل إضافي",
+            name_en="Overtime Bonus",
+            amount=attendance_summary.overtime_bonus_amount
+        ))
+        total_allowances += attendance_summary.overtime_bonus_amount
+        totals["overtime_bonus"] += attendance_summary.overtime_bonus_amount
+
+    gross_salary = basic_salary + total_allowances
+
+    deductions = []
+
+    # 1. التأمينات الاجتماعية — على أجر الاشتراك (قانون 148/2019)
+    emp_si, company_si = await calculate_social_insurance(insured_salary, settings)
+    if emp_si > 0:
+        deductions.append(PayrollDeduction(
+            deduction_type=DeductionType.SOCIAL_INSURANCE,
+            name="تأمينات اجتماعية",
+            name_en="Social Insurance",
+            amount=emp_si
+        ))
+        totals["social_insurance"] += emp_si
+    totals["company_social_insurance"] = totals.get("company_social_insurance", 0) + company_si
+
+    # 2. ضريبة كسب العمل — قانون 91/2005 م.38: الوعاء = الأجر الشامل
+    #    - التأمينات - البدلات المعفاة - التأمين الطبي الخاص - صندوق المعاشات الخاص
+    annual_taxable = max(
+        (gross_salary - emp_si - allowances_exempt - medical_deduction - pension_deduction) * 12,
+        0
+    )
+    monthly_tax = await calculate_income_tax(
+        annual_taxable, settings,
+        company_id=company_id,
+        tax_year=settings.get("tax_year", 2024)
+    )
+    if monthly_tax > 0:
+        deductions.append(PayrollDeduction(
+            deduction_type=DeductionType.INCOME_TAX,
+            name="ضريبة كسب العمل",
+            name_en="Income Tax",
+            amount=monthly_tax
+        ))
+        totals["income_tax"] += monthly_tax
+
+    # 3. السُلف
+    for loan in inputs["loans"].get(eid, []):
+        deductions.append(PayrollDeduction(
+            deduction_type=DeductionType.LOAN,
+            name="قسط سُلفة",
+            name_en="Loan Installment",
+            amount=loan["installment_amount"],
+            reference_id=loan["loan_id"]
+        ))
+        totals["loans"] += loan["installment_amount"]
+
+    # 4. خصم التأخير (من الحضور)
+    if attendance_summary.late_deduction_amount > 0:
+        deductions.append(PayrollDeduction(
+            deduction_type=DeductionType.OTHER,
+            name="خصم تأخير",
+            name_en="Late Deduction",
+            amount=attendance_summary.late_deduction_amount
+        ))
+        totals["late_deductions"] += attendance_summary.late_deduction_amount
+        totals["other_deductions"] += attendance_summary.late_deduction_amount
+
+    # 5. خصم الغياب (من الحضور)
+    if attendance_summary.absence_deduction_amount > 0:
+        deductions.append(PayrollDeduction(
+            deduction_type=DeductionType.OTHER,
+            name="خصم غياب",
+            name_en="Absence Deduction",
+            amount=attendance_summary.absence_deduction_amount
+        ))
+        totals["absence_deductions"] += attendance_summary.absence_deduction_amount
+        totals["other_deductions"] += attendance_summary.absence_deduction_amount
+
+    # 6. خصومات أخرى (يدوية)
+    for ded in inputs["deductions"].get(eid, []):
+        deductions.append(PayrollDeduction(
+            deduction_type=DeductionType.OTHER,
+            name=ded.get("type"),
+            amount=ded.get("amount", 0)
+        ))
+        totals["other_deductions"] += ded.get("amount", 0)
+
+    # 7. الجزاءات المسجلة في الموارد البشرية ولم يخصمها مسير معتمد بعد
+    for pen in inputs["penalties"].get(eid, []):
+        amt = round(float(pen.get("amount") or 0), 2)
+        if amt <= 0:
+            continue
+        deductions.append(PayrollDeduction(
+            deduction_type=DeductionType.PENALTY,
+            name=f"جزاء — {pen.get('violation', '')}"[:120],
+            amount=amt,
+            reference_id=pen.get("id")
+        ))
+        totals["other_deductions"] += amt
+        totals["penalties"] = totals.get("penalties", 0) + amt
+
+    total_deductions = sum(d.amount for d in deductions)
+    net_salary = gross_salary - total_deductions
+
+    totals["basic_salary"] += basic_salary
+    totals["allowances"] += total_allowances
+    totals["gross_salary"] += gross_salary
+    totals["deductions"] += total_deductions
+    totals["net_salary"] += net_salary
+
+    return {
+        "employee_id": eid,
+        "employee_name": emp.get("name"),
+        "employee_code": emp.get("employee_code"),
+        "department": emp.get("department"),
+        "branch": emp.get("branch"),
+        "position": emp.get("position"),
+        "basic_salary": basic_salary,
+        "allowances": [a.dict() for a in allowances],
+        "total_allowances": total_allowances,
+        "deductions": [d.dict() for d in deductions],
+        "total_deductions": total_deductions,
+        "gross_salary": gross_salary,
         "insured_salary": insured_salary,          # أجر الاشتراك التأميني
         "employee_social_insurance": emp_si,
         "social_insurance": emp_si,
@@ -1305,30 +1339,72 @@ async def calculate_payroll(
         "allowances_exempt": allowances_exempt,     # بدلات معفاة ضريبياً
         "medical_deduction": medical_deduction,    # تأمين طبي خاص
         "bank_iban": bank_iban,                    # IBAN للصرف
-            "net_salary": net_salary,
-            # بيانات الحضور
-            "attendance_summary": {
-                "present_days": attendance_summary.present_days,
-                "absent_days": attendance_summary.absent_days,
-                "late_days": attendance_summary.late_days,
-                "total_late_minutes": attendance_summary.total_late_minutes,
-                "total_overtime_hours": round(attendance_summary.total_overtime_hours, 2),
-                "late_deduction": attendance_summary.late_deduction_amount,
-                "absence_deduction": attendance_summary.absence_deduction_amount,
-                "overtime_bonus": attendance_summary.overtime_bonus_amount
-            }
+        "net_salary": net_salary,
+        "attendance_summary": {
+            "present_days": attendance_summary.present_days,
+            "absent_days": attendance_summary.absent_days,
+            "late_days": attendance_summary.late_days,
+            "total_late_minutes": attendance_summary.total_late_minutes,
+            "total_overtime_hours": round(attendance_summary.total_overtime_hours, 2),
+            "late_deduction": attendance_summary.late_deduction_amount,
+            "absence_deduction": attendance_summary.absence_deduction_amount,
+            "overtime_bonus": attendance_summary.overtime_bonus_amount
         }
-        
-        employee_payrolls.append(emp_payroll_data)
-        
-        # تجميع الإجماليات
-        totals["basic_salary"] += basic_salary
-        totals["allowances"] += total_allowances
-        totals["gross_salary"] += gross_salary
-        totals["deductions"] += total_deductions
-        totals["net_salary"] += net_salary
-    
-    # تحديث مسير الرواتب
+    }
+
+
+class PayrollTooLarge(Exception):
+    pass
+
+
+def _bson_size(doc: dict) -> int:
+    import bson
+    try:
+        return len(bson.encode(doc))
+    except Exception:
+        # an exotic value bson cannot encode directly: a JSON estimate
+        import json
+        return len(json.dumps(doc, default=str, ensure_ascii=False).encode("utf-8"))
+
+
+def _run_employee_query(payroll: dict) -> dict:
+    q = {"company_id": payroll["company_id"], "is_active": True}
+    if payroll.get("department"):
+        q["department"] = payroll["department"]
+    if payroll.get("branch"):
+        q["branch"] = payroll["branch"]
+    return q
+
+
+async def _calculate_run(payroll: dict, job_id: Optional[str] = None) -> dict:
+    """Calculate and save a run (lock already held). Returns the summary."""
+    company_id = payroll["company_id"]
+    month = payroll["month"]
+    settings = await get_payroll_settings(company_id)
+    hr_settings = await get_hr_settings(company_id)
+
+    employees = await db.employees.find(_run_employee_query(payroll), {"_id": 0}).to_list(length=None)
+    if job_id:
+        await db.payroll_jobs.update_one({"id": job_id}, {"$set": {"total": len(employees)}})
+
+    employee_payrolls = []
+    totals = {
+        "basic_salary": 0, "allowances": 0, "gross_salary": 0, "deductions": 0,
+        "net_salary": 0, "social_insurance": 0, "income_tax": 0, "loans": 0,
+        "other_deductions": 0, "late_deductions": 0, "absence_deductions": 0,
+        "overtime_bonus": 0
+    }
+    for i in range(0, len(employees), PREFETCH_CHUNK):
+        chunk = employees[i:i + PREFETCH_CHUNK]
+        inputs = await prefetch_payroll_inputs(company_id, month, [e["id"] for e in chunk])
+        for emp in chunk:
+            employee_payrolls.append(await _compute_employee_payroll(
+                emp, month, company_id, settings, hr_settings, inputs, totals))
+        if job_id:
+            await db.payroll_jobs.update_one(
+                {"id": job_id}, {"$set": {"processed": len(employee_payrolls)}})
+            await asyncio.sleep(0)      # the arithmetic is CPU work: let other requests in between chunks
+
     update_data = {
         "employees": employee_payrolls,
         "total_employees": len(employee_payrolls),
@@ -1344,30 +1420,143 @@ async def calculate_payroll(
         "total_loans": round(totals["loans"], 2),
         "total_other_deductions": round(totals["other_deductions"], 2),
         "total_penalties": round(totals.get("penalties", 0), 2),
-        # إجماليات الحضور الجديدة
         "total_late_deductions": round(totals["late_deductions"], 2),
         "total_absence_deductions": round(totals["absence_deductions"], 2),
         "total_overtime_bonus": round(totals["overtime_bonus"], 2),
         "status": "calculated",
         "calculated_at": datetime.utcnow()
     }
-    
-    await db.payroll_runs.update_one({"id": run_id}, {"$set": update_data})
-    
+
+    # the saved document = the run as it is + this update
+    size = _bson_size({**{k: v for k, v in payroll.items() if k != "_id"}, **update_data})
+    if size > MAX_RUN_DOC_BYTES:
+        raise PayrollTooLarge(
+            f"حجم مسير الرواتب ({size / 1024 / 1024:.1f} ميجابايت لعدد {len(employee_payrolls)} موظف) "
+            f"يتجاوز الحد الآمن ({MAX_RUN_DOC_BYTES / 1024 / 1024:g} ميجابايت) لمستند واحد في قاعدة البيانات. "
+            "قسّم رواتب هذا الشهر إلى أكثر من مسير حسب الإدارة أو الفرع (عند إنشاء المسير) ثم احسب كل مسير على حدة.")
+
+    await db.payroll_runs.update_one({"id": payroll["id"], "company_id": company_id}, {"$set": update_data})
     return {
-        "message": "تم حساب الرواتب بنجاح",
-        "summary": {
-            "employees": len(employee_payrolls),
-            "gross_salary": round(totals["gross_salary"], 2),
-            "deductions": round(totals["deductions"], 2),
-            "net_salary": round(totals["net_salary"], 2),
-            "attendance_adjustments": {
-                "late_deductions": round(totals["late_deductions"], 2),
-                "absence_deductions": round(totals["absence_deductions"], 2),
-                "overtime_bonus": round(totals["overtime_bonus"], 2)
-            }
-        }
+        "employees": len(employee_payrolls),
+        "gross_salary": round(totals["gross_salary"], 2),
+        "deductions": round(totals["deductions"], 2),
+        "net_salary": round(totals["net_salary"], 2),
+        "attendance_adjustments": {
+            "late_deductions": round(totals["late_deductions"], 2),
+            "absence_deductions": round(totals["absence_deductions"], 2),
+            "overtime_bonus": round(totals["overtime_bonus"], 2)
+        },
+        "document_bytes": size,
     }
+
+
+async def _claim_calculation(run_id: str, company_id: str) -> Optional[dict]:
+    """Atomically take the run's calculation lock; None if another calculation
+    holds it (a lock older than CALC_LOCK_MINUTES is treated as abandoned)."""
+    now = datetime.utcnow()
+    stale = now - timedelta(minutes=CALC_LOCK_MINUTES)
+    res = await db.payroll_runs.update_one(
+        {"id": run_id, "company_id": company_id, "status": {"$in": ["draft", "calculated"]},
+         "$or": [{"calc_lock_at": None}, {"calc_lock_at": {"$lt": stale}}]},
+        {"$set": {"calc_lock_at": now}})
+    if not res.modified_count:
+        return None
+    return await db.payroll_runs.find_one({"id": run_id, "company_id": company_id}, {"_id": 0})
+
+
+async def _release_calculation(run_id: str, company_id: str) -> None:
+    await db.payroll_runs.update_one({"id": run_id, "company_id": company_id}, {"$unset": {"calc_lock_at": ""}})
+
+
+def _calc_locked(run: dict) -> bool:
+    at = run.get("calc_lock_at")
+    return bool(at) and at > datetime.utcnow() - timedelta(minutes=CALC_LOCK_MINUTES)
+
+
+async def _calculation_job(payroll: dict, job_id: str) -> None:
+    try:
+        summary = await _calculate_run(payroll, job_id)
+        await db.payroll_jobs.update_one({"id": job_id}, {"$set": {
+            "status": "done", "summary": summary, "finished_at": datetime.utcnow()}})
+    except Exception as e:                                  # noqa: BLE001 — reported on the job
+        if not isinstance(e, PayrollTooLarge):
+            logger.exception("payroll calculation job %s failed", job_id)
+        await db.payroll_jobs.update_one({"id": job_id}, {"$set": {
+            "status": "error", "error": str(e) if isinstance(e, PayrollTooLarge) else f"تعذّر حساب الرواتب: {e}",
+            "finished_at": datetime.utcnow()}})
+    finally:
+        await _release_calculation(payroll["id"], payroll["company_id"])
+
+
+@router.post("/runs/{run_id}/calculate")
+async def calculate_payroll(
+    run_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """حساب الرواتب مع ربط الحضور.
+
+    Up to BACKGROUND_THRESHOLD employees: calculated in the request, as before.
+    Above it: a payroll_jobs record is created, the calculation runs in the
+    background and the response is {"background": true, "job_id", "total"};
+    GET /runs/{id}/job reports progress. Only one calculation of a run at a time.
+    """
+    company_id = current_user["company_id"]
+
+    payroll = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id}, {"_id": 0})
+    if not payroll:
+        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+    if payroll["status"] not in ["draft", "calculated"]:
+        raise HTTPException(status_code=400, detail="لا يمكن حساب هذا المسير")
+
+    payroll = await _claim_calculation(run_id, company_id)
+    if not payroll:
+        raise HTTPException(status_code=409, detail="يجري حساب هذا المسير الآن — انتظر حتى ينتهي الحساب الحالي")
+
+    try:
+        total = await db.employees.count_documents(_run_employee_query(payroll))
+    except Exception:
+        await _release_calculation(run_id, company_id)
+        raise
+
+    if total > BACKGROUND_THRESHOLD:
+        job = {"id": str(uuid.uuid4()), "run_id": run_id, "company_id": company_id,
+               "status": "running", "processed": 0, "total": total, "error": None,
+               "created_by": current_user.get("user_id"), "created_at": datetime.utcnow()}
+        await db.payroll_jobs.insert_one(dict(job))
+        task = asyncio.create_task(_calculation_job(payroll, job["id"]))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+        return {"message": f"بدأ حساب رواتب {total} موظف في الخلفية",
+                "background": True, "job_id": job["id"], "total": total}
+
+    try:
+        summary = await _calculate_run(payroll)
+    except PayrollTooLarge as e:
+        raise HTTPException(status_code=413, detail=str(e))
+    finally:
+        await _release_calculation(run_id, company_id)
+    summary.pop("document_bytes", None)
+    return {"message": "تم حساب الرواتب بنجاح", "summary": summary}
+
+
+@router.get("/runs/{run_id}/job")
+async def get_calculation_job(run_id: str, current_user: dict = Depends(get_current_user)):
+    """تقدّم آخر عملية حساب في الخلفية لهذا المسير."""
+    company_id = current_user["company_id"]
+    jobs = await db.payroll_jobs.find({"run_id": run_id, "company_id": company_id}, {"_id": 0}) \
+        .sort("created_at", -1).limit(1).to_list(1)
+    if not jobs:
+        raise HTTPException(status_code=404, detail="لا توجد عملية حساب لهذا المسير")
+    j = jobs[0]
+    if j.get("status") == "running" and j.get("created_at") and \
+            j["created_at"] < datetime.utcnow() - timedelta(minutes=CALC_LOCK_MINUTES):
+        # the server restarted mid-job: the task is gone and the lock has expired
+        j["status"], j["error"] = "error", "انقطع الحساب (أُعيد تشغيل الخادم) — أعد حساب المسير"
+        await db.payroll_jobs.update_one({"id": j["id"]}, {"$set": {"status": "error", "error": j["error"]}})
+    total = j.get("total") or 0
+    j["percent"] = 100 if j.get("status") == "done" else (
+        round(100 * (j.get("processed") or 0) / total) if total else 0)
+    return j
 
 
 @router.post("/runs/{run_id}/approve")
@@ -1388,6 +1577,8 @@ async def approve_payroll(
     
     if payroll["status"] != "calculated":
         raise HTTPException(status_code=400, detail="يجب حساب الرواتب أولاً")
+    if _calc_locked(payroll):
+        raise HTTPException(status_code=409, detail="يجري إعادة حساب هذا المسير الآن — اعتمده بعد انتهاء الحساب")
     
     settings = await get_payroll_settings(company_id)
     
@@ -2079,10 +2270,20 @@ async def get_attendance_payroll_preview(
         "net_adjustment": 0
     }
     
+    # the month's attendance of all employees in one query per chunk, not one per employee
+    start, end = _month_range(month)
+    records_by_emp = {}
+    ids = [e["id"] for e in employees]
+    for i in range(0, len(ids), PREFETCH_CHUNK):
+        async for r in db.attendance_records.find(
+                {"company_id": company_id, "employee_id": {"$in": ids[i:i + PREFETCH_CHUNK]},
+                 "date": {"$gte": start, "$lt": end}}, {"_id": 0}):
+            records_by_emp.setdefault(r.get("employee_id"), []).append(r)
+
     for emp in employees:
         basic_salary = emp.get("basic_salary", 0)
-        summary = await calculate_attendance_for_payroll(
-            emp["id"], month, basic_salary, hr_settings
+        summary = attendance_summary_from_records(
+            emp["id"], month, basic_salary, hr_settings, records_by_emp.get(emp["id"], [])
         )
         
         previews.append({
@@ -2136,12 +2337,24 @@ async def _transfer_rows(payroll: dict, company_id: str) -> list:
     matched another company's employee picked up that company's bank details.
     Every lookup is now limited to the run's company. Net is rounded to 2
     decimals here, once, so the report, the bank file and the totals agree.
+    Employees and users are read in chunks of PREFETCH_CHUNK ids (two queries
+    per chunk instead of two per employee).
     """
+    run_emps = payroll.get("employees", []) or []
+    ids = list(dict.fromkeys(e.get("employee_id") for e in run_emps if e.get("employee_id")))
+    emp_docs, users = {}, {}
+    for i in range(0, len(ids), PREFETCH_CHUNK):
+        chunk = ids[i:i + PREFETCH_CHUNK]
+        async for d in db.employees.find({"company_id": company_id, "id": {"$in": chunk}}, {"_id": 0}):
+            emp_docs.setdefault(d["id"], d)
+        async for u in db.users.find({"company_id": company_id, "id": {"$in": chunk}},
+                                     {"_id": 0, "id": 1, "email": 1}):
+            users.setdefault(u["id"], u)
     rows = []
-    for emp in payroll.get("employees", []):
+    for emp in run_emps:
         eid = emp.get("employee_id")
-        emp_doc = await db.employees.find_one({"id": eid, "company_id": company_id}, {"_id": 0}) or {}
-        emp_user = await db.users.find_one({"id": eid, "company_id": company_id}, {"_id": 0, "email": 1}) or {}
+        emp_doc = emp_docs.get(eid) or {}
+        emp_user = users.get(eid) or {}
         pay_method = emp.get("payment_method") or ""
         if not pay_method or pay_method == "bank_transfer":
             pay_method = emp_doc.get("payment_method") or "bank_transfer"
@@ -2286,7 +2499,7 @@ async def export_payroll_csv(
             "صافي الراتب": emp.get("net_salary", 0),
             "طريقة الصرف": emp.get("payment_method", "بنك"),
         })
-    month_str = f"{run.get('year', '')}-{run.get('month', '')}"
+    month_str = _run_period(run)
     return Response(
         content=output.getvalue().encode("utf-8-sig"),
         media_type="text/csv",
@@ -2294,26 +2507,225 @@ async def export_payroll_csv(
     )
 
 
+def _run_period(run: dict) -> str:
+    """The run's month as YYYY-MM. `month` is stored as "YYYY-MM"; the files
+    used f"{year}-{month}" and printed "2026-2026-09". Very old runs kept the
+    month number alone, so a bare number is still combined with `year`."""
+    m = str(run.get("month") or "").strip()
+    if "-" in m:
+        return m
+    if m and run.get("year"):
+        return f"{run.get('year')}-{m.zfill(2)}"
+    return m
+
+
+# ── Bank salary files ────────────────────────────────────────────
+# A registry of bulk-upload layouts. IMPORTANT: apart from "generic", these
+# follow the layout commonly used by each bank's / wallet's bulk salary
+# template (a control/header record with the company debit account, value
+# date, total amount and record count, then one record per beneficiary, and
+# a trailer where the template uses one). Banks change their templates and
+# issue company-specific variants: every layout must be checked against the
+# template the company's own bank provides before the first upload.
+BANK_FILE_DISCLAIMER = ("هذه الصيغ مبنية على النماذج الشائعة لملفات الرواتب المجمّعة لدى البنوك والمحافظ، "
+                        "وليست النموذج الرسمي المعتمد لأي بنك. راجِع الملف مع النموذج الذي يسلّمه بنك الشركة "
+                        "قبل أول رفع، وعدّل إعدادات حساب الخصم وكود البنك.")
+
+
+def _fmt_date(d: str, style: str) -> str:
+    y, m, dd = d.split("-")
+    return {"ymd": f"{y}{m}{dd}", "dmy/": f"{dd}/{m}/{y}", "iso": d}[style]
+
+
+def _acct(r: dict) -> str:
+    return r["iban"].replace(" ", "").upper() or str(r["account_number"]).strip()
+
+
+def _wallet(r: dict) -> str:
+    return str(r["wallet_number"] or "").strip()
+
+
+def _bf_generic(rows, ctx):
+    method = ctx["method"]
+    if method == "bank_transfer":
+        out = [["م", "كود الموظف", "اسم الموظف", "الرقم القومي", "البنك", "رقم الحساب", "IBAN",
+                "المبلغ", "العملة", "المرجع", "البيان"]]
+    else:
+        out = [["م", "كود الموظف", "اسم الموظف", "الرقم القومي",
+                "رقم الموبايل / عنوان InstaPay" if method == "instapay" else "رقم محفظة فودافون كاش",
+                "المبلغ", "العملة", "المرجع", "البيان"]]
+    for i, r in enumerate(rows, 1):
+        head = [i, r["employee_code"], r["employee_name"], str(r["national_id"] or "").strip()]
+        if method == "bank_transfer":
+            out.append(head + [r["bank_name"], str(r["account_number"] or "").strip(),
+                               r["iban"].replace(" ", "").upper(), r["net_salary"], "EGP", r["ref"], ctx["memo"]])
+        else:
+            out.append(head + [_wallet(r), r["net_salary"], "EGP", r["ref"], ctx["memo"]])
+    return out
+
+
+def _bf_cib(rows, ctx):
+    # H / D / T records, no column-title row
+    out = [["H", ctx["debit_account"], _fmt_date(ctx["value_date"], "ymd"), len(rows), ctx["total"], "EGP",
+            ctx["file_ref"], ctx["bank_code"]]]
+    for i, r in enumerate(rows, 1):
+        out.append(["D", i, r["employee_name"], _acct(r), r["net_salary"], "EGP", r["ref"], "SALA",
+                    str(r["national_id"] or "").strip()])
+    out.append(["T", len(rows), ctx["total"]])
+    return out
+
+
+def _bf_qnb(rows, ctx):
+    out = [["H", ctx["bank_code"], ctx["debit_account"], _fmt_date(ctx["value_date"], "dmy/"), ctx["total"],
+            len(rows), "EGP", ctx["file_ref"]]]
+    for r in rows:
+        out.append(["D", _acct(r), r["employee_name"], r["net_salary"], "EGP", r["ref"], ctx["memo_en"]])
+    out.append(["T", len(rows), ctx["total"]])
+    return out
+
+
+def _bf_nbe(rows, ctx):
+    out = [["رقم حساب الخصم", "تاريخ القيمة", "عدد السجلات", "إجمالي المبلغ", "العملة", "كود البنك / الفرع"],
+           [ctx["debit_account"], _fmt_date(ctx["value_date"], "dmy/"), len(rows), ctx["total"], "EGP",
+            ctx["bank_code"]],
+           [],
+           ["م", "اسم المستفيد", "رقم الحساب", "IBAN", "المبلغ", "الرقم القومي", "البيان"]]
+    for i, r in enumerate(rows, 1):
+        out.append([i, r["employee_name"], str(r["account_number"] or "").strip(),
+                    r["iban"].replace(" ", "").upper(), r["net_salary"], str(r["national_id"] or "").strip(),
+                    ctx["memo"]])
+    out.append(["الإجمالي", "", "", "", ctx["total"], "", f"{len(rows)} سجل"])
+    return out
+
+
+def _bf_banque_misr(rows, ctx):
+    out = [["Debit Account", "Value Date", "Currency", "Total Amount", "Records Count", "Company Code"],
+           [ctx["debit_account"], _fmt_date(ctx["value_date"], "dmy/"), "EGP", ctx["total"], len(rows),
+            ctx["bank_code"]],
+           ["Seq", "Employee ID", "Beneficiary Name", "Account Number", "IBAN", "Amount", "National ID", "Narrative"]]
+    for i, r in enumerate(rows, 1):
+        out.append([i, r["employee_code"], r["employee_name"], str(r["account_number"] or "").strip(),
+                    r["iban"].replace(" ", "").upper(), r["net_salary"], str(r["national_id"] or "").strip(),
+                    ctx["memo_en"]])
+    return out
+
+
+def _bf_instapay(rows, ctx):
+    out = [["Debit Account", "Value Date", "Total Amount", "Records Count", "Currency"],
+           [ctx["debit_account"], _fmt_date(ctx["value_date"], "iso"), ctx["total"], len(rows), "EGP"],
+           ["Seq", "Mobile / IPA", "Beneficiary Name", "Amount", "Reference", "Description"]]
+    for i, r in enumerate(rows, 1):
+        out.append([i, _wallet(r), r["employee_name"], r["net_salary"], r["ref"], ctx["memo_en"]])
+    return out
+
+
+def _bf_vodafone(rows, ctx):
+    out = [["Corporate Account", "Value Date", "Total Amount", "Records Count"],
+           [ctx["debit_account"], _fmt_date(ctx["value_date"], "iso"), ctx["total"], len(rows)],
+           ["MSISDN", "Amount", "Name", "Reference"]]
+    for r in rows:
+        out.append([_wallet(r), r["net_salary"], r["employee_name"], r["ref"]])
+    return out
+
+
+BANK_FILE_FORMATS = {
+    "generic":            {"label_ar": "عام (CSV قابل للتحويل لأي بنك)", "label_en": "Generic",
+                           "methods": ("bank_transfer", "instapay", "vodafone_cash"), "needs_debit": False,
+                           "writer": _bf_generic},
+    "cib":                {"label_ar": "البنك التجاري الدولي CIB", "label_en": "CIB",
+                           "methods": ("bank_transfer",), "needs_debit": True, "writer": _bf_cib},
+    "nbe":                {"label_ar": "البنك الأهلي المصري", "label_en": "National Bank of Egypt",
+                           "methods": ("bank_transfer",), "needs_debit": True, "writer": _bf_nbe},
+    "banque_misr":        {"label_ar": "بنك مصر", "label_en": "Banque Misr",
+                           "methods": ("bank_transfer",), "needs_debit": True, "writer": _bf_banque_misr},
+    "qnb":                {"label_ar": "بنك QNB", "label_en": "QNB",
+                           "methods": ("bank_transfer",), "needs_debit": True, "writer": _bf_qnb},
+    "instapay_bulk":      {"label_ar": "InstaPay — تحويل مجمّع", "label_en": "InstaPay bulk",
+                           "methods": ("instapay",), "needs_debit": True, "writer": _bf_instapay},
+    "vodafone_cash_bulk": {"label_ar": "فودافون كاش — صرف مجمّع", "label_en": "Vodafone Cash bulk",
+                           "methods": ("vodafone_cash",), "needs_debit": True, "writer": _bf_vodafone},
+}
+
+
+def bank_file_formats_public() -> list:
+    return [{"id": k, "label_ar": v["label_ar"], "label_en": v["label_en"], "methods": list(v["methods"]),
+             "requires_debit_account": v["needs_debit"], "verified_template": False}
+            for k, v in BANK_FILE_FORMATS.items()]
+
+
+async def _bank_file_settings(company_id: str) -> dict:
+    s = await db.payroll_bank_file_settings.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    return {"debit_account_number": s.get("debit_account_number") or "",
+            "bank_code": s.get("bank_code") or "",
+            "value_date": s.get("value_date") or "",
+            "default_format": s.get("default_format") or "generic",
+            "updated_at": s.get("updated_at")}
+
+
+def render_bank_file(rows: list, ctx: dict, bank: str, file_type: str = "csv") -> tuple:
+    """(bytes, media_type, extension) of the bank file for `rows`."""
+    table = BANK_FILE_FORMATS[bank]["writer"](rows, ctx)
+    if file_type == "xlsx":
+        import io, xlsxwriter
+        buf = io.BytesIO()
+        wb = xlsxwriter.Workbook(buf, {"in_memory": True})
+        ws = wb.add_worksheet("Salaries")
+        money = wb.add_format({"num_format": "0.00"})
+        for ri, row in enumerate(table):
+            for ci, v in enumerate(row):
+                if isinstance(v, float):
+                    ws.write_number(ri, ci, v, money)
+                elif isinstance(v, int) and not isinstance(v, bool):
+                    ws.write_number(ri, ci, v)
+                else:
+                    # account numbers, IBANs, IDs and mobiles stay text (no
+                    # scientific notation, no lost leading zero)
+                    ws.write_string(ri, ci, str(v if v is not None else ""))
+        ws.set_column(0, max((len(r) for r in table), default=1), 20)
+        wb.close()
+        return buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
+    import csv, io
+    out = io.StringIO()
+    w = csv.writer(out, quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n")
+    for row in table:
+        # values are written as-is (no ="..." Excel trick): a bank portal that
+        # reads the CSV would take the quotes and = sign as part of the number.
+        w.writerow([f"{v:.2f}" if isinstance(v, float) else ("" if v is None else v) for v in row])
+    return out.getvalue().encode("utf-8-sig"), "text/csv; charset=utf-8", "csv"      # BOM so Excel reads the Arabic
+
+
 @router.get("/runs/{run_id}/export/bank-file")
 async def export_bank_transfer_file(
     run_id: str,
-    method: str = Query("bank_transfer"),
-    current_user: dict = Depends(get_current_user)
+    method: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    bank: str = "generic",            # plain defaults (still query params) so direct calls work
+    file_type: str = "csv",
+    value_date: Optional[str] = None,
 ):
     """ملف التحويل للبنك أو InstaPay أو فودافون كاش — طريقة واحدة لكل ملف.
 
-    The screen used to build this file in the browser: no BOM (Arabic came out
-    as symbols in Excel), title lines above the header (a bank upload expects
-    the header on row 1), no quoting (a comma in a name shifted every column),
-    every payment method mixed in one file and amounts unrounded. This is a
-    plain CSV — one header row, one row per employee paid by `method`, amounts
-    with 2 decimals, a reference per transfer — that a bank's bulk-upload
-    template can be filled from. It is a generic layout, not any one bank's
-    proprietary format. An employee without the account details the method
-    needs stops the file, naming who, rather than sending a blank transfer.
+    `bank` picks the layout from BANK_FILE_FORMATS: "generic" is the plain CSV
+    (one header row, one row per employee paid by `method`, amounts with 2
+    decimals, a reference per transfer) that any bank template can be filled
+    from; the others follow the common bulk-upload layout of CIB, NBE, Banque
+    Misr, QNB, InstaPay and Vodafone Cash with the company debit account, value
+    date, total and record count (bank-file-settings). Those layouts are NOT
+    the banks' official specifications and must be checked against the
+    template the company's bank provides. `file_type` = csv | xlsx.
+    An employee without the account details the method needs stops the file,
+    naming who, rather than sending a blank transfer.
     """
+    if bank not in BANK_FILE_FORMATS:
+        raise HTTPException(status_code=400, detail=f"صيغة البنك غير معروفة: {bank}")
+    fmt = BANK_FILE_FORMATS[bank]
+    method = method or fmt["methods"][0]
     if method not in ("bank_transfer", "instapay", "vodafone_cash"):
         raise HTTPException(status_code=400, detail="طريقة الصرف يجب أن تكون bank_transfer أو instapay أو vodafone_cash")
+    if method not in fmt["methods"]:
+        raise HTTPException(status_code=400, detail=f"صيغة {fmt['label_ar']} لا تصلح لطريقة الصرف المختارة")
+    if file_type not in ("csv", "xlsx"):
+        raise HTTPException(status_code=400, detail="نوع الملف csv أو xlsx")
     company_id = current_user["company_id"]
     payroll = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id}, {"_id": 0})
     if not payroll:
@@ -2325,7 +2737,22 @@ async def export_bank_transfer_file(
         # a bank file with masked accounts is useless and a full one is
         # exactly the data this role may not see
         raise HTTPException(status_code=403, detail="ملف التحويل البنكي لمدير الموارد البشرية أو المدير المالي أو الإدارة العليا فقط")
-    await _note_payroll_view(current_user, run_id, f"bank-file {method}",
+
+    settings = await _bank_file_settings(company_id)
+    if fmt["needs_debit"] and not settings["debit_account_number"]:
+        raise HTTPException(status_code=422, detail={
+            "message": "أدخل رقم حساب الخصم للشركة في إعدادات ملف البنك قبل تصدير هذه الصيغة.",
+            "errors": ["رقم حساب الخصم غير مسجل"]})
+    today = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d")    # Cairo
+    vd = value_date or settings["value_date"] or today
+    try:
+        datetime.strptime(vd, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="تاريخ القيمة بصيغة YYYY-MM-DD")
+    if vd < today and not value_date:
+        vd = today              # a saved date that has passed: banks refuse back-dated value dates
+
+    await _note_payroll_view(current_user, run_id, f"bank-file {method} {bank}",
                              ["salary", "national_id", "iban", "bank_account_number"])
 
     rows = [r for r in await _transfer_rows(payroll, company_id)
@@ -2355,43 +2782,70 @@ async def export_bank_transfer_file(
             "message": f"لم يُصدَّر الملف — {len(missing)} موظف بياناتهم ناقصة. أكملها في بيانات الموظف ثم صدّر مرة أخرى.",
             "errors": missing})
 
-    period = f"{payroll.get('year', '')}-{str(payroll.get('month', '')).zfill(2)}"
+    period = _run_period(payroll)
     ref_base = f"SAL-{payroll.get('payroll_number') or period}"
-
-    def text(v):
-        # values are written as-is (no ="..." Excel trick): a bank portal that
-        # reads the CSV would take the quotes and = sign as part of the number.
-        # Opened in Excel, long numbers should be imported as Text columns.
-        return str(v or "").strip()
-
-    import csv, io
-    out = io.StringIO()
-    w = csv.writer(out, quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n")
-    if method == "bank_transfer":
-        w.writerow(["م", "كود الموظف", "اسم الموظف", "الرقم القومي", "البنك", "رقم الحساب", "IBAN",
-                    "المبلغ", "العملة", "المرجع", "البيان"])
-    else:
-        w.writerow(["م", "كود الموظف", "اسم الموظف", "الرقم القومي",
-                    "رقم الموبايل / عنوان InstaPay" if method == "instapay" else "رقم محفظة فودافون كاش",
-                    "المبلغ", "العملة", "المرجع", "البيان"])
     total = 0.0
     for i, r in enumerate(rows, 1):
-        ref = f"{ref_base}-{r['employee_code'] or i}"
-        memo = f"راتب {period}"
-        head = [i, r["employee_code"], r["employee_name"], text(r["national_id"])]
-        amount = f"{r['net_salary']:.2f}"
-        if method == "bank_transfer":
-            w.writerow(head + [r["bank_name"], text(r["account_number"]), r["iban"].replace(" ", "").upper(),
-                               amount, "EGP", ref, memo])
-        else:
-            w.writerow(head + [text(r["wallet_number"].strip()), amount, "EGP", ref, memo])
+        r["ref"] = f"{ref_base}-{r['employee_code'] or i}"
         total = round(total + r["net_salary"], 2)
+    ctx = {"method": method, "period": period, "memo": f"راتب {period}", "memo_en": f"Salary {period}",
+           "debit_account": settings["debit_account_number"], "bank_code": settings["bank_code"],
+           "value_date": vd, "total": total, "file_ref": ref_base}
+    content, media_type, ext = render_bank_file(rows, ctx, bank, file_type)
+    name = f"salary_{method}_{period}" if bank == "generic" else f"salary_{bank}_{period}"
     return Response(
-        content=out.getvalue().encode("utf-8-sig"),       # BOM so Excel reads the Arabic
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="salary_{method}_{period}.csv"',
+        content=content, media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{name}.{ext}"',
                  "X-Transfer-Count": str(len(rows)), "X-Transfer-Total": f"{total:.2f}",
-                 "Access-Control-Expose-Headers": "X-Transfer-Count, X-Transfer-Total"})
+                 "X-Bank-Format": bank, "X-Value-Date": vd,
+                 "Access-Control-Expose-Headers": "X-Transfer-Count, X-Transfer-Total, X-Bank-Format, X-Value-Date"})
+
+
+class BankFileSettingsRequest(BaseModel):
+    debit_account_number: Optional[str] = ""
+    bank_code: Optional[str] = ""
+    value_date: Optional[str] = ""
+    default_format: Optional[str] = "generic"
+
+
+@router.get("/bank-file-settings")
+async def get_bank_file_settings(current_user: dict = Depends(get_current_user)):
+    """إعدادات ملفات تحويل الرواتب للبنوك + الصيغ المتاحة."""
+    if not _salary_ok(current_user):
+        raise HTTPException(status_code=403, detail="إعدادات ملف البنك لمن له صلاحية الاطلاع على الرواتب فقط")
+    return {"settings": await _bank_file_settings(current_user["company_id"]),
+            "formats": bank_file_formats_public(), "disclaimer": BANK_FILE_DISCLAIMER}
+
+
+@router.put("/bank-file-settings")
+async def update_bank_file_settings(request: BankFileSettingsRequest,
+                                    current_user: dict = Depends(get_current_user)):
+    from api.data_protection import has_pii_clearance
+    if not (_salary_ok(current_user) and has_pii_clearance(current_user)):
+        raise HTTPException(status_code=403, detail="تعديل إعدادات ملف البنك لمدير الموارد البشرية أو المدير المالي أو الإدارة العليا فقط")
+    acct = "".join(str(request.debit_account_number or "").split()).upper()
+    if acct and not (acct.isalnum() and 6 <= len(acct) <= 34):
+        raise HTTPException(status_code=400, detail="رقم حساب الخصم: أرقام/حروف فقط من 6 إلى 34 خانة (رقم حساب أو IBAN)")
+    code = str(request.bank_code or "").strip()
+    if len(code) > 20:
+        raise HTTPException(status_code=400, detail="كود البنك / الفرع لا يزيد عن 20 خانة")
+    vd = str(request.value_date or "").strip()
+    if vd:
+        try:
+            datetime.strptime(vd, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="تاريخ القيمة بصيغة YYYY-MM-DD")
+    fmt = request.default_format or "generic"
+    if fmt not in BANK_FILE_FORMATS:
+        raise HTTPException(status_code=400, detail="صيغة البنك غير معروفة")
+    company_id = current_user["company_id"]
+    await db.payroll_bank_file_settings.update_one(
+        {"company_id": company_id},
+        {"$set": {"company_id": company_id, "debit_account_number": acct, "bank_code": code,
+                  "value_date": vd, "default_format": fmt, "updated_at": datetime.utcnow(),
+                  "updated_by": current_user.get("user_id")}},
+        upsert=True)
+    return {"message": "تم حفظ إعدادات ملف البنك", "settings": await _bank_file_settings(company_id)}
 
 
 @router.get("/runs/{run_id}/export/excel")
@@ -2455,7 +2909,7 @@ async def export_payroll_excel(
         ws.write(last, c, totals[k] if salary_ok else None, tot)
     wb.close()
 
-    month_str = f"{run.get('year', '')}-{run.get('month', '')}"
+    month_str = _run_period(run)
     return Response(
         content=output.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

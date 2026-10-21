@@ -20,6 +20,12 @@ INDEXES = {
         [("company_id", 1), ("entry_number", -1)],
         [("entry_number_str", 1)],
         [("company_id", 1), ("approved_by", 1)],
+        # account statements / trial balance by account code over a period
+        [("company_id", 1), ("lines.account_code", 1), ("entry_date", 1)],
+        # NOT unique: entry numbers came from count-based generators for years
+        # and existing data can hold duplicates — a unique build would fail
+        # (and fail every startup). (company_id, entry_number) lookups use the
+        # non-unique ("company_id", "entry_number", -1) index above.
     ],
     "journal_counters": [
         [("company_id", 1)],
@@ -35,6 +41,7 @@ INDEXES = {
     "general_ledger": [
         [("company_id", 1), ("account_id", 1), ("entry_date", -1)],
         [("journal_entry_id", 1)],
+        [("company_id", 1), ("entry_date", 1)],
     ],
     "employees": [
         [("company_id", 1), ("status", 1)],
@@ -49,10 +56,26 @@ INDEXES = {
         [("eta_submission_id", 1)],              # SQL: eta_submission_id
         [("company_id", 1), ("eta_status", 1)],  # SQL: eta_status filter
         [("eta_item_code_type", 1)],              # SQL: eta_item_code_type (GS1/EGS)
+        # the shared invoice store (document_type / party_id / document_date):
+        # customer & supplier statements, sales lists by period
+        [("company_id", 1), ("document_type", 1), ("party_id", 1), ("document_date", 1)],
+        [("company_id", 1), ("document_type", 1), ("document_date", 1)],
+    ],
+    "payments": [
+        [("company_id", 1), ("invoice_id", 1)],
+    ],
+    "cheques": [
+        [("company_id", 1), ("customer_id", 1), ("direction", 1)],
     ],
     "payroll_runs": [
-        [("company_id", 1), ("month", -1)],
+        [("company_id", 1), ("month", -1)],      # serves (company_id, month) lookups too
         [("company_id", 1), ("status", 1)],
+    ],
+    "payroll_jobs": [
+        [("company_id", 1), ("run_id", 1), ("created_at", -1)],
+    ],
+    "payroll_bank_file_settings": [
+        [("company_id", 1)],
     ],
     "audit_logs": [
         [("company_id", 1), ("timestamp", -1)],
@@ -94,13 +117,31 @@ INDEXES = {
         [("company_id", 1), ("employee_id", 1)],
         [("company_id", 1), ("start_date", -1)],
     ],
+    # the collection the attendance API and payroll actually use
+    # ("attendance" above is a legacy name)
+    "attendance_records": [
+        [("company_id", 1), ("employee_id", 1), ("date", 1)],
+        [("company_id", 1), ("date", 1)],
+    ],
     "allowances": [
         [("company_id", 1), ("employee_id", 1)],
         [("company_id", 1), ("is_active", 1)],
+        [("company_id", 1), ("employee_id", 1), ("month", 1)],    # payroll: the run's month
     ],
     "deductions": [
         [("company_id", 1), ("employee_id", 1)],
         [("company_id", 1), ("is_active", 1)],
+        [("company_id", 1), ("employee_id", 1), ("month", 1)],
+    ],
+    "employee_loans": [
+        # payroll: status in (approved, active), start_month <= month
+        [("company_id", 1), ("employee_id", 1), ("status", 1), ("start_month", 1)],
+    ],
+    "penalties": [
+        [("company_id", 1), ("employee_id", 1), ("date", 1)],
+    ],
+    "employee_insurance_profiles": [
+        [("company_id", 1), ("employee_id", 1)],
     ],
     "treasury": [
         [("company_id", 1), ("transaction_date", -1)],
@@ -195,37 +236,54 @@ UNIQUE_INDEXES = {
 }
 
 
+async def ensure_indexes(db, verbose: bool = False) -> dict:
+    """Create every index above. Idempotent (create_index on an existing
+    identical index is a no-op) and failure-tolerant: a conflict (an index on
+    the same keys with other options or another name, duplicates blocking a
+    unique build, ...) is logged and skipped — it never stops startup.
+    Returns {"created": n, "skipped": [(collection, keys, error), ...]}."""
+    import logging
+    log = logging.getLogger("create_indexes")
+    created, skipped = 0, []
+
+    async def one(collection, idx, **opts):
+        nonlocal created
+        try:
+            await db[collection].create_index(idx, background=True, **opts)
+            created += 1
+            if verbose:
+                print(f"  ✅ {'[UNIQUE] ' if opts.get('unique') else ''}{collection}: {idx}")
+        except Exception as e:                       # noqa: BLE001 — tolerated by design
+            skipped.append((collection, idx, str(e)[:200]))
+            log.warning("index %s %s skipped: %s", collection, idx, e)
+            if verbose:
+                print(f"  ⚠️  {collection}: {idx}: {e}")
+
+    unique_ok = set()
+    for collection, idx in UNIQUE_INDEXES.items():          # data integrity first
+        before = created
+        await one(collection, idx, unique=True)
+        if created > before:
+            unique_ok.add((collection, tuple(idx)))
+    for collection, indexes in INDEXES.items():
+        for idx in indexes:
+            # the same keys as a unique index that exists would only conflict
+            # ("already exists with different options"); if the unique build
+            # failed (duplicates), the plain index still serves the lookups
+            if (collection, tuple(idx)) in unique_ok:
+                continue
+            await one(collection, idx)
+    return {"created": created, "skipped": skipped}
+
+
 async def create_indexes():
     print("=" * 55)
     print("DataLife — Creating Database Indexes")
     print("=" * 55)
     client = AsyncIOMotorClient(MONGO_URL)
     db = client[DB_NAME]
-    total = 0
-    
-    # ── 1. Unique indexes first (data integrity) ──────────────
-    print("\n── Unique Indexes ─────────────────────────────────")
-    for collection, idx in UNIQUE_INDEXES.items():
-        try:
-            await db[collection].create_index(idx, unique=True, background=True)
-            print(f"  ✅ [UNIQUE] {collection}: {idx}")
-            total += 1
-        except Exception as e:
-            print(f"  ⚠️  [UNIQUE] {collection}: {e}")
-    
-    # ── 2. Performance indexes ────────────────────────────────
-    print("\n── Performance Indexes ────────────────────────────")
-    for collection, indexes in INDEXES.items():
-        col = db[collection]
-        for idx in indexes:
-            try:
-                await col.create_index(idx, background=True)
-                print(f"  ✅ {collection}: {idx}")
-                total += 1
-            except Exception as e:
-                print(f"  ⚠️  {collection}: {e}")
-    
-    print(f"\n✅ Done — {total} indexes created ({len(UNIQUE_INDEXES)} unique + {total-len(UNIQUE_INDEXES)} performance)")
+    res = await ensure_indexes(db, verbose=True)
+    print(f"\n✅ Done — {res['created']} indexes ensured, {len(res['skipped'])} skipped")
     client.close()
 
 if __name__ == "__main__":

@@ -574,24 +574,29 @@ async def _customer_movements(company_id: str, customer_id: str):
        + each approved sales invoice (net of withholding)
        - each recorded payment
        - each incoming cheque on receipt, + the same cheque again if it bounced
-    """
+    Only the fields a movement needs are read (no invoice lines/items)."""
     rows = []
     invs = await db.invoices.find(
         {**sales_query(company_id), "party_id": customer_id,
          "status": {"$in": LIVE_STATUSES + ["credited"]}, "journal_entry_id": {"$exists": True, "$ne": None}},
-        {"_id": 0}).to_list(None)
+        {"_id": 0, "id": 1, "document_date": 1, "document_number": 1, "settle_amount": 1,
+         "grand_total": 1, "due_date": 1}).to_list(None)
     inv_ids = [i["id"] for i in invs]
     for inv in invs:
         rows.append({"date": inv.get("document_date"), "type": "invoice",
                      "reference": inv.get("document_number"), "description": "فاتورة مبيعات",
                      "debit": round(float(inv.get("settle_amount") or inv.get("grand_total") or 0), 2),
                      "credit": 0.0, "due_date": inv.get("due_date"), "invoice_id": inv["id"]})
-    async for pay in db.payments.find({"company_id": company_id, "invoice_id": {"$in": inv_ids}}, {"_id": 0}):
-        rows.append({"date": (pay.get("payment_date") or "")[:10], "type": "payment",
-                     "reference": pay.get("reference") or "", "description": "تحصيل",
-                     "debit": 0.0, "credit": round(float(pay.get("amount") or 0), 2)})
+    if inv_ids:
+        async for pay in db.payments.find({"company_id": company_id, "invoice_id": {"$in": inv_ids}},
+                                          {"_id": 0, "payment_date": 1, "reference": 1, "amount": 1}):
+            rows.append({"date": str(pay.get("payment_date") or "")[:10], "type": "payment",
+                         "reference": pay.get("reference") or "", "description": "تحصيل",
+                         "debit": 0.0, "credit": round(float(pay.get("amount") or 0), 2)})
     async for chq in db.cheques.find({"company_id": company_id, "customer_id": customer_id,
-                                      "direction": "incoming"}, {"_id": 0}):
+                                      "direction": "incoming"},
+                                     {"_id": 0, "receive_date": 1, "cheque_number": 1, "amount": 1,
+                                      "status": 1, "bounce_date": 1}):
         amt = round(float(chq.get("amount") or 0), 2)
         rows.append({"date": chq.get("receive_date"), "type": "cheque", "reference": chq.get("cheque_number"),
                      "description": f"شيك وارد رقم {chq.get('cheque_number', '')}", "debit": 0.0, "credit": amt})
@@ -600,7 +605,8 @@ async def _customer_movements(company_id: str, customer_id: str):
                          "description": f"ارتداد الشيك رقم {chq.get('cheque_number', '')}", "debit": amt, "credit": 0.0})
     async for note in db.invoices.find(
             {"company_id": company_id, "document_type": DocumentType.CREDIT_NOTE.value,
-             "party_id": customer_id, "journal_entry_id": {"$exists": True, "$ne": None}}, {"_id": 0}):
+             "party_id": customer_id, "journal_entry_id": {"$exists": True, "$ne": None}},
+            {"_id": 0, "document_date": 1, "document_number": 1, "original_invoice_number": 1, "grand_total": 1}):
         rows.append({"date": note.get("document_date"), "type": "credit_note",
                      "reference": note.get("document_number"),
                      "description": f"إشعار دائن على الفاتورة {note.get('original_invoice_number', '')}",
@@ -695,21 +701,90 @@ async def customers_with_balances(authorization: Optional[str] = Header(None)):
             "total_overdue": round(sum(c["overdue"] for c in customers), 2)}
 
 
+STATEMENT_UNPAGED_DAYS = 366       # a range up to a year comes back whole, as before
+STATEMENT_PAGE = 500
+
+
 @router.get("/customers/{customer_id}/statement")
-async def customer_statement(customer_id: str, authorization: Optional[str] = Header(None)):
+async def customer_statement(customer_id: str, authorization: Optional[str] = Header(None),
+                             date_from: Optional[str] = None, date_to: Optional[str] = None,
+                             skip: Optional[int] = None, limit: Optional[int] = None):
+    """كشف حساب العميل.
+
+    date_from / date_to (YYYY-MM-DD) bound the movements; what came before
+    date_from is one opening-balance row. Response keys as before: entries
+    (each with its running balance), balance (closing balance at date_to),
+    overdue (as of today, over the whole history) and open_invoices.
+    Without a limit, a range of up to STATEMENT_UNPAGED_DAYS returns every
+    entry as it always did; a longer range (a customer with years of history
+    and no dates) is paged: STATEMENT_PAGE entries, the latest page unless
+    `skip` is given. `pagination` says which slice came back."""
     user = await get_user(authorization)
     company_id = user.get("company_id")
     cust = await db.parties.find_one({"id": customer_id, **party_query(company_id, "customer")}, {"_id": 0})
     if not cust:
         raise HTTPException(404, "Customer not found")
-    rows = await _customer_movements(company_id, customer_id)
-    running = 0.0
+    for d in (date_from, date_to):
+        if d:
+            try:
+                datetime.strptime(d[:10], "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(400, "التاريخ بصيغة YYYY-MM-DD")
+    date_from = date_from[:10] if date_from else None
+    date_to = date_to[:10] if date_to else None
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(400, "تاريخ البداية بعد تاريخ النهاية")
+    if limit is not None and not (1 <= limit <= 5000):
+        raise HTTPException(400, "limit من 1 إلى 5000")
+    if skip is not None and skip < 0:
+        raise HTTPException(400, "skip لا يقل عن صفر")
+
+    all_rows = await _customer_movements(company_id, customer_id)
+    today = datetime.now().strftime("%Y-%m-%d")
+    overdue = _overdue(all_rows, today)
+
+    def day(r):
+        return (r["date"] or "")[:10]
+    before = [r for r in all_rows if date_from and day(r) < date_from]
+    rows = [r for r in all_rows if (not date_from or day(r) >= date_from) and (not date_to or day(r) <= date_to)]
+    opening = round(sum(r["debit"] - r["credit"] for r in before), 2)
+    running = opening
     for r in rows:
         running = round(running + r["debit"] - r["credit"], 2)
         r["balance"] = running
+    closing = running
+
+    # span of the requested range (or of the history when no dates were given)
+    start = date_from or (day(rows[0]) if rows else None)
+    end = date_to or (max(day(rows[-1]), today) if rows else today)
+    span = 0
+    if start and end:
+        try:
+            span = (datetime.strptime(end, "%Y-%m-%d") - datetime.strptime(start, "%Y-%m-%d")).days
+        except ValueError:
+            span = 0
+    total = len(rows)
+    paged = limit is not None or (span > STATEMENT_UNPAGED_DAYS and total > STATEMENT_PAGE)
+    page_rows, s0, lim = rows, 0, total
+    if paged:
+        lim = limit or STATEMENT_PAGE
+        s0 = skip if skip is not None else max(0, total - lim)
+        page_rows = rows[s0:s0 + lim]
+
+    entries = []
+    if before or (paged and s0 > 0):
+        # the balance brought forward into the first row shown
+        bf = page_rows[0]["balance"] - page_rows[0]["debit"] + page_rows[0]["credit"] if (paged and s0 > 0 and page_rows) else opening
+        entries.append({"date": (page_rows[0]["date"] if (paged and s0 > 0 and page_rows) else date_from),
+                        "type": "opening", "reference": "", "description": "رصيد افتتاحي / مرحّل",
+                        "debit": 0.0, "credit": 0.0, "balance": round(bf, 2)})
+    entries.extend(page_rows)
     open_invoices = await _open_sales_invoices(company_id, customer_id)
-    return {"customer": cust, "entries": rows, "balance": running,
-            "overdue": _overdue(rows, datetime.now().strftime("%Y-%m-%d")), "open_invoices": open_invoices}
+    return {"customer": cust, "entries": entries, "balance": closing, "opening_balance": opening,
+            "overdue": overdue, "open_invoices": open_invoices,
+            "date_from": date_from, "date_to": date_to,
+            "pagination": {"paged": paged, "skip": s0, "limit": lim, "total": total,
+                           "has_more": paged and s0 + lim < total, "has_previous": paged and s0 > 0}}
 
 
 @router.post("/customers/{customer_id}/receipts")

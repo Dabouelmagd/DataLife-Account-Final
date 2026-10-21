@@ -31,7 +31,6 @@ ACC = {
     "fx_unrealized_gain": "432",# أرباح فروق عملة غير محققة (نفس الحساب — مميّز بالوصف)
     # was 334 (bank charges & commissions): every unrealized loss landed in bank fees
     "fx_unrealized_loss": "33611",
-    "pnl":              "214",  # حساب الأرباح والخسائر
     "retained_earnings":"213",  # الأرباح (الخسائر) المرحلة
     "bank":             "162",
     "ar":               "131",
@@ -40,8 +39,6 @@ ACC = {
     "ic_payable":       "253",  # التزامات لشركات شقيقة
 }
 
-REVENUE_PATTERN  = "^4"   # حسابات الإيرادات (4xxx)
-EXPENSE_PATTERN  = "^3"   # حسابات المصروفات (3xxx)
 
 
 async def get_company(company_id: str) -> dict:
@@ -485,37 +482,173 @@ async def get_fx_revaluation(month: str, current_user: dict = Depends(get_curren
 # ══════════════════════════════════════════════════════════════
 # 3. YEAR-END CLOSING ENGINE — الإقفال السنوي
 # ══════════════════════════════════════════════════════════════
+#
+# Previously: accounts were picked by code prefix (^4 / ^3), so 413 sales
+# returns (an expense-type contra revenue) was "closed" as revenue; accounts
+# whose balance ran the other way were skipped and kept a balance; the summary
+# account was 214 (dividends paid); only status=posted entries were counted, so
+# a reversed original dropped out while its reversal stayed; the year was always
+# Jan–Dec; anyone could close; the year was never marked closed nor the next one
+# opened; and the closing record was written after the entries with no unique
+# key, so a double click closed the year twice.
+
+INCOME_SUMMARY_CODE = "216"     # ملخص الدخل — حساب وسيط للإقفال
+RETAINED_EARNINGS_CODE = "213"  # الأرباح (الخسائر) المرحلة
+
+
+def _year_end_roles():
+    return PERIOD_REOPEN_ROLES
+
+
+def _assert_year_end_role(current_user: dict):
+    if current_user.get("role") not in _year_end_roles() and not current_user.get("is_platform_admin"):
+        raise HTTPException(403, "الإقفال السنوي وإعادة فتح السنة مقصوران على الإدارة العليا والمدير المالي")
+
+
+async def _fiscal_year_range(company_id: str, data: dict) -> dict:
+    """{label, start_date, end_date, fiscal_year_doc} — from fiscal_years when
+    the company defined one, else the calendar year."""
+    fy_doc = None
+    if data.get("fiscal_year_id"):
+        fy_doc = await db.fiscal_years.find_one(
+            {"company_id": company_id, "id": data["fiscal_year_id"]}, {"_id": 0})
+        if not fy_doc:
+            raise HTTPException(404, "السنة المالية غير موجودة")
+    try:
+        label = int(data.get("fiscal_year") or (fy_doc or {}).get("end_date", "")[:4] or date.today().year)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "السنة المالية غير صحيحة")
+    if not fy_doc:
+        fy_doc = await db.fiscal_years.find_one({"company_id": company_id, "name": str(label)}, {"_id": 0}) \
+            or await db.fiscal_years.find_one(
+                {"company_id": company_id, "end_date": {"$regex": f"^{label}-"}}, {"_id": 0})
+    if fy_doc and fy_doc.get("start_date") and fy_doc.get("end_date"):
+        start, end = fy_doc["start_date"][:10], fy_doc["end_date"][:10]
+    else:
+        start, end = f"{label}-01-01", f"{label}-12-31"
+    if start > end:
+        raise HTTPException(400, "تاريخ بداية السنة المالية بعد نهايتها")
+    return {"label": label, "start_date": start, "end_date": end, "fiscal_year_doc": fy_doc}
+
+
+async def _closing_balances(company_id: str, start: str, end: str) -> dict:
+    """Every revenue/expense account (all categories: contra revenue, COGS, …)
+    with its net movement in [start, end] from the general ledger — the same
+    source as the trial balance and income statement. Earlier closing entries
+    are left out so a reopened-and-reclosed year sees its real figures."""
+    accounts = await AccountingService(db).get_all_accounts(company_id, False)
+    pl = {a["id"]: a for a in accounts
+          if a.get("account_type") in ("revenue", "expense")
+          and not (a.get("is_header") or a.get("account_category") == "header")}
+    movement = {}
+    async for r in db.general_ledger.aggregate([
+            {"$match": {"company_id": company_id, "is_closing": {"$ne": True},
+                        "entry_date": {"$gte": start, "$lte": end + "￿"}}},
+            {"$group": {"_id": "$account_id", "d": {"$sum": "$debit"}, "c": {"$sum": "$credit"}}}]):
+        movement[r["_id"]] = r
+    prior = 0.0
+    async for r in db.general_ledger.aggregate([
+            {"$match": {"company_id": company_id, "entry_date": {"$lt": start},
+                        "account_id": {"$in": list(pl)}}},
+            {"$group": {"_id": None, "d": {"$sum": "$debit"}, "c": {"$sum": "$credit"}}}]):
+        prior = round((r.get("c") or 0) - (r.get("d") or 0), 2)
+
+    rows, revenues, expenses = [], [], []
+    for aid, a in pl.items():
+        mv = movement.get(aid)
+        if not mv:
+            continue
+        net = round((mv.get("d") or 0) - (mv.get("c") or 0), 2)   # + debit balance, − credit balance
+        if abs(net) < 0.005:
+            continue
+        row = {"account_id": aid, "account_code": a["account_code"], "account_name": a.get("account_name", ""),
+               "account_type": a["account_type"], "account_category": a.get("account_category"),
+               "balance": abs(net), "balance_side": "debit" if net > 0 else "credit",
+               # the closing line takes the opposite side
+               "close_debit": round(-net, 2) if net < 0 else 0.0,
+               "close_credit": round(net, 2) if net > 0 else 0.0}
+        rows.append(row)
+        # presentation: revenue and contra revenue (returns, discounts) together
+        if a["account_type"] == "revenue" or a.get("account_category") == "contra_income":
+            revenues.append({"account_code": row["account_code"], "account_name": row["account_name"],
+                             "amount": round(-net, 2)})
+        else:
+            expenses.append({"account_code": row["account_code"], "account_name": row["account_name"],
+                             "amount": round(net, 2)})
+    rows.sort(key=lambda r: r["account_code"])
+    revenues.sort(key=lambda r: r["account_code"])
+    expenses.sort(key=lambda r: r["account_code"])
+    total_revenue = round(sum(r["amount"] for r in revenues), 2)
+    total_expense = round(sum(r["amount"] for r in expenses), 2)
+    return {"rows": rows, "revenues": revenues, "expenses": expenses,
+            "total_revenue": total_revenue, "total_expense": total_expense,
+            "net_income": round(total_revenue - total_expense, 2),
+            "prior_unclosed": prior}
+
+
+async def _calculate_closing(company_id: str, fy: dict) -> dict:
+    """Preview: what the close would post, without posting."""
+    b = await _closing_balances(company_id, fy["start_date"], fy["end_date"])
+    closed = await db.year_end_closings.find_one(
+        {"company_id": company_id, "fiscal_year": fy["label"]}, {"_id": 0, "status": 1, "closed_at": 1})
+    drafts = await db.journal_entries.count_documents(
+        {"company_id": company_id, "status": "draft",
+         "entry_date": {"$gte": fy["start_date"], "$lte": fy["end_date"] + "￿"}})
+    warnings = []
+    if drafts:
+        warnings.append(f"في السنة {drafts} قيد مسودة — رحّلها أو ألغِها قبل الإقفال")
+    if b["prior_unclosed"]:
+        warnings.append(f"أرصدة إيرادات/مصروفات من سنوات سابقة غير مقفلة ({b['prior_unclosed']:,.2f}) — "
+                        "أقفل السنوات السابقة أولاً")
+    return {
+        "fiscal_year": fy["label"], "start_date": fy["start_date"], "end_date": fy["end_date"],
+        "close_date": fy["end_date"],
+        "total_revenue": b["total_revenue"], "total_expense": b["total_expense"],
+        "net_income": b["net_income"], "result": "ربح" if b["net_income"] >= 0 else "خسارة",
+        "revenues": b["revenues"], "expenses": b["expenses"],
+        "accounts_to_close": b["rows"],
+        "income_summary_account": INCOME_SUMMARY_CODE,
+        "retained_earnings_account": RETAINED_EARNINGS_CODE,
+        "already_closed": bool(closed), "drafts_count": drafts, "warnings": warnings,
+    }
+
+
+async def _ensure_year_end_index():
+    try:
+        await db.year_end_closings.create_index(
+            [("company_id", 1), ("fiscal_year", 1)], unique=True, name="uniq_company_fiscal_year")
+    except Exception as e:      # legacy duplicates: the claim below still re-checks
+        import logging
+        logging.getLogger(__name__).warning(f"year_end_closings unique index: {e}")
+
+
+def _months(start: str, end: str) -> list:
+    y, m = int(start[:4]), int(start[5:7])
+    out = []
+    while (y, m) <= (int(end[:4]), int(end[5:7])):
+        out.append((y, m))
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return out
+
 
 @router.post("/year-end/close")
 async def year_end_closing(data: dict,
                            current_user: dict = Depends(get_current_user)):
     """
-    إقفال نهاية السنة المالية — 3 مراحل:
-
-    المرحلة أ — إقفال الإيرادات:
-      Dr كل حسابات الإيرادات (4xxx)  ← بأرصدتها
-      Cr م/214 حساب الأرباح والخسائر
-
-    المرحلة ب — إقفال المصروفات:
-      Dr م/214 حساب الأرباح والخسائر
-      Cr كل حسابات المصروفات (3xxx)  ← بأرصدتها
-
-    المرحلة ج — ترحيل صافي الربح/الخسارة:
-      Dr م/214 حساب الأرباح والخسائر  ← بصافي الربح
-      Cr م/213 الأرباح المرحلة
-
-      أو عند الخسارة:
-      Dr م/213 الأرباح المرحلة
-      Cr م/214 حساب الأرباح والخسائر
+    إقفال نهاية السنة المالية:
+      1) كل حسابات الإيرادات والمصروفات (بكل تصنيفاتها: مردودات، تكلفة مبيعات…)
+         تُقفل بأرصدتها أياً كان اتجاهها في حـ/216 ملخص الدخل
+      2) رصيد ملخص الدخل يُرحَّل إلى حـ/213 الأرباح (الخسائر) المرحلة
+      3) تُقفل السنة المالية وكل شهورها، وتُفتح السنة التالية
+    confirmed=false (الافتراضي) → معاينة فقط.
     """
-    company_id  = current_user["company_id"]
-    fiscal_year = int(data.get("fiscal_year", date.today().year))
-    close_date  = data.get("close_date", f"{fiscal_year}-12-31")
-    confirmed   = data.get("confirmed", False)
+    company_id = current_user["company_id"]
+    fy = await _fiscal_year_range(company_id, data or {})
+    label, start, end = fy["label"], fy["start_date"], fy["end_date"]
+    confirmed = bool((data or {}).get("confirmed", False))
 
     if not confirmed:
-        # Preview mode — calculate without posting
-        preview = await _calculate_closing(company_id, fiscal_year, close_date)
+        preview = await _calculate_closing(company_id, fy)
         return {
             "message":    "معاينة الإقفال — لم يُنفَّذ بعد",
             "confirmed":  False,
@@ -523,186 +656,305 @@ async def year_end_closing(data: dict,
             "next_step":  "أرسل confirmed=true لتنفيذ الإقفال الفعلي",
         }
 
-    # ── Check not already closed ────────────────────────────
-    existing = await db.year_end_closings.find_one(
-        {"company_id": company_id, "fiscal_year": fiscal_year})
-    if existing:
-        raise HTTPException(400, f"السنة {fiscal_year} مُقفَلة بالفعل")
-
+    _assert_year_end_role(current_user)
+    if end >= date.today().isoformat():
+        raise HTTPException(400, f"لا يمكن إقفال السنة المالية {label} قبل انتهائها ({end})")
     svc = AccountingService(db)
-    accounts = await svc.get_all_accounts(company_id, True)
-    by_code  = {a["account_code"]: a for a in accounts}
+    summary_acc = await svc.get_account_by_code(company_id, INCOME_SUMMARY_CODE)
+    if not summary_acc:
+        raise HTTPException(400, f"حساب ملخص الدخل ({INCOME_SUMMARY_CODE}) غير موجود في دليل الحسابات — "
+                                 "أضفه تحت حقوق الملكية ثم أعد الإقفال")
+    retained_acc = await svc.get_account_by_code(company_id, RETAINED_EARNINGS_CODE)
+    if not retained_acc:
+        raise HTTPException(400, f"حساب الأرباح المرحلة ({RETAINED_EARNINGS_CODE}) غير موجود في دليل الحسابات")
+    for a in (summary_acc, retained_acc):
+        if a.get("is_header") or a.get("account_category") == "header":
+            raise HTTPException(400, f"الحساب {a['account_code']} حساب تجميعي — لا يقبل قيد الإقفال")
+    drafts = await db.journal_entries.count_documents(
+        {"company_id": company_id, "status": "draft",
+         "entry_date": {"$gte": start, "$lte": end + "￿"}})
+    if drafts:
+        raise HTTPException(400, f"في السنة المالية {label} عدد {drafts} قيد مسودة — رحّلها أو ألغِها قبل الإقفال")
+    prev_closed = await db.year_end_closings.find_one(
+        {"company_id": company_id, "fiscal_year": label - 1}, {"_id": 1})
 
-    def acc(code, name_fb):
-        a = by_code.get(code, {})
-        return a.get("id", code), code, a.get("account_name", name_fb)
-
-    # ── جمع أرصدة نهاية السنة من قيود الأستاذ ─────────────
-    year_start = f"{fiscal_year}-01-01"
-    year_end   = f"{fiscal_year}-12-31"
-
-    async def sum_account(pattern, side):
-        pipeline = [
-            {"$match": {"company_id": company_id, "status": "posted",
-                        "entry_date": {"$gte": year_start, "$lte": year_end}}},
-            {"$unwind": "$lines"},
-            {"$match": {"lines.account_code": {"$regex": pattern}}},
-            {"$group": {"_id": "$lines.account_code",
-                        "name": {"$first": "$lines.account_name"},
-                        "debit": {"$sum": "$lines.debit"},
-                        "credit": {"$sum": "$lines.credit"}}}
-        ]
-        return await db.journal_entries.aggregate(pipeline).to_list(None)
-
-    revenue_accs  = await sum_account(REVENUE_PATTERN,  "credit")
-    expense_accs  = await sum_account(EXPENSE_PATTERN,  "debit")
-
-    pnl_id, pnl_code, pnl_name   = acc("214", "حساب الأرباح والخسائر")
-    ret_id, ret_code, ret_name    = acc("213", "الأرباح (الخسائر) المرحلة")
-
-    lines_a = []  # إقفال الإيرادات
-    lines_b = []  # إقفال المصروفات
-    total_revenue = total_expense = 0.0
-
-    # ── المرحلة أ: إقفال الإيرادات → حـ/214 ────────────────
-    for rev in revenue_accs:
-        net = rev["credit"] - rev["debit"]
-        if net <= 0:
-            continue
-        a = by_code.get(rev["_id"], {})
-        lines_a.append({
-            "line_id": str(uuid.uuid4()), "entry_id": None,
-            "account_id":   a.get("id", rev["_id"]),
-            "account_code": rev["_id"],
-            "account_name": rev["name"],
-            "debit": round(net, 2), "credit": 0,
-            "description": f"إقفال إيراد {fiscal_year}",
+    # ── claim the year first: a second request fails on the unique key ──
+    await _ensure_year_end_index()
+    now = datetime.now(timezone.utc).isoformat()
+    closing_id = str(uuid.uuid4())
+    from pymongo.errors import DuplicateKeyError
+    if await db.year_end_closings.find_one({"company_id": company_id, "fiscal_year": label}, {"_id": 1}):
+        raise HTTPException(400, f"السنة المالية {label} مُقفَلة بالفعل")
+    try:
+        await db.year_end_closings.insert_one({
+            "id": closing_id, "company_id": company_id, "fiscal_year": label,
+            "start_date": start, "end_date": end, "close_date": end,
+            "status": "in_progress", "closed_by": current_user["user_id"], "started_at": now,
         })
-        total_revenue += net
+    except DuplicateKeyError:
+        raise HTTPException(400, f"السنة المالية {label} مُقفَلة بالفعل")
 
-    if total_revenue > 0:
-        lines_a.append(await je_line(
-            company_id, "214", credit=round(total_revenue, 2),
-            desc=f"إجمالي الإيرادات {fiscal_year}"))
-        je_a_id = await post_je(company_id, current_user["user_id"], close_date,
-            f"إقفال الإيرادات — السنة المالية {fiscal_year}", lines_a)
-    else:
-        je_a_id = None
+    created = []
+    try:
+        b = await _closing_balances(company_id, start, end)
+        net_income = b["net_income"]
+        lines = []
+        for r in b["rows"]:
+            lines.append(JournalEntryLine(
+                account_id=r["account_id"], account_code=r["account_code"], account_name=r["account_name"],
+                debit=r["close_debit"], credit=r["close_credit"],
+                description=f"إقفال {r['account_name']} — {label}"))
+        dr = round(sum(l.debit for l in lines), 2)
+        cr = round(sum(l.credit for l in lines), 2)
+        diff = round(dr - cr, 2)          # = net income (credit to summary when > 0)
+        if abs(diff) >= 0.005:
+            lines.append(JournalEntryLine(
+                account_id=summary_acc["id"], account_code=summary_acc["account_code"],
+                account_name=summary_acc["account_name"],
+                debit=round(-diff, 2) if diff < 0 else 0.0, credit=round(diff, 2) if diff > 0 else 0.0,
+                description=f"ملخص الدخل — {label}"))
+        entries = []
+        if lines:
+            entries.append((f"إقفال الإيرادات والمصروفات في ملخص الدخل — السنة المالية {label}", lines))
+        if abs(net_income) >= 0.005:
+            amt = round(abs(net_income), 2)
+            profit = net_income > 0
+            entries.append((f"ترحيل صافي {'الربح' if profit else 'الخسارة'} إلى الأرباح المرحلة — {label}", [
+                JournalEntryLine(account_id=summary_acc["id"], account_code=summary_acc["account_code"],
+                                 account_name=summary_acc["account_name"],
+                                 debit=amt if profit else 0.0, credit=0.0 if profit else amt,
+                                 description=f"إقفال ملخص الدخل {label}"),
+                JournalEntryLine(account_id=retained_acc["id"], account_code=retained_acc["account_code"],
+                                 account_name=retained_acc["account_name"],
+                                 debit=0.0 if profit else amt, credit=amt if profit else 0.0,
+                                 description=f"صافي {'ربح' if profit else 'خسارة'} {label}"),
+            ]))
+        # all drafts first (validation), then post — a failure leaves nothing posted
+        for desc, ls in entries:
+            e = JournalEntry(company_id=company_id, entry_number=0, entry_date=end, description=desc,
+                             lines=ls, reference=f"YEC-{label}", source_document_type="year_end_closing",
+                             source_document_id=closing_id, created_by=current_user["user_id"])
+            res = await svc.create_journal_entry(e, _bypass_lock=True)
+            created.append(res["id"])
+        posted = []
+        for jid in created:
+            await svc.post_journal_entry(jid, current_user["user_id"], _bypass_lock=True)
+            posted.append(jid)
+            await db.journal_entries.update_one({"id": jid}, {"$set": {"is_year_end_closing": True,
+                                                                        "year_end_closing_id": closing_id}})
+            await db.general_ledger.update_many({"journal_entry_id": jid}, {"$set": {"is_closing": True}})
+    except Exception as ex:
+        # undo: reverse what was posted, drop drafts, release the claim
+        for jid in created:
+            je = await db.journal_entries.find_one({"id": jid}, {"_id": 0, "status": 1})
+            try:
+                if je and je.get("status") == "posted":
+                    rev = await svc.reverse_journal_entry(jid, current_user["user_id"], end, _bypass_lock=True)
+                    for x in (jid, rev["id"]):
+                        await db.general_ledger.update_many({"journal_entry_id": x}, {"$set": {"is_closing": True}})
+                elif je:
+                    await db.journal_entries.delete_one({"id": jid, "status": "draft"})
+            except Exception:
+                pass
+        await db.year_end_closings.delete_one({"id": closing_id})
+        if isinstance(ex, HTTPException):
+            raise
+        raise HTTPException(400, f"تعذّر الإقفال السنوي: {ex}")
 
-    # ── المرحلة ب: إقفال المصروفات → حـ/214 ────────────────
-    for exp in expense_accs:
-        net = exp["debit"] - exp["credit"]
-        if net <= 0:
+    # ── lock the year: fiscal year + every month; open the next year ──
+    closed_months = []
+    for y, m in _months(start, end):
+        fp = await db.financial_periods.find_one({"company_id": company_id, "year": y, "month": m}, {"_id": 0})
+        if fp and fp.get("status") == "closed":
             continue
-        a = by_code.get(exp["_id"], {})
-        lines_b.append({
-            "line_id": str(uuid.uuid4()), "entry_id": None,
-            "account_id":   a.get("id", exp["_id"]),
-            "account_code": exp["_id"],
-            "account_name": exp["name"],
-            "debit": 0, "credit": round(net, 2),
-            "description": f"إقفال مصروف {fiscal_year}",
-        })
-        total_expense += net
-
-    if total_expense > 0:
-        lines_b.append(await je_line(
-            company_id, "214", debit=round(total_expense, 2),
-            desc=f"إجمالي المصروفات {fiscal_year}"))
-        je_b_id = await post_je(company_id, current_user["user_id"], close_date,
-            f"إقفال المصروفات — السنة المالية {fiscal_year}", lines_b)
+        closed_months.append(f"{y}-{m:02d}")
+        await db.financial_periods.update_one(
+            {"company_id": company_id, "year": y, "month": m},
+            {"$set": {"company_id": company_id, "year": y, "month": m, "period": f"{y}-{m:02d}",
+                      "status": "closed", "reason": f"إقفال سنوي {label}", "closed_by": current_user["user_id"],
+                      "closed_at": now, "closed_by_year_end": closing_id}},
+            upsert=True)
+    fy_doc = fy["fiscal_year_doc"]
+    if fy_doc:
+        await db.fiscal_years.update_one({"company_id": company_id, "id": fy_doc["id"]},
+                                         {"$set": {"is_closed": True, "is_current": False, "closed_at": now}})
+        fy_id = fy_doc["id"]
     else:
-        je_b_id = None
+        fy_id = str(uuid.uuid4())
+        await db.fiscal_years.insert_one({"id": fy_id, "company_id": company_id, "name": str(label),
+                                          "start_date": start, "end_date": end, "is_closed": True,
+                                          "is_current": False, "closed_at": now, "created_at": now})
+    from datetime import timedelta
+    n_start = (date.fromisoformat(end) + timedelta(days=1)).isoformat()
+    ns = date.fromisoformat(n_start)
+    try:
+        n_end = (date(ns.year + 1, ns.month, ns.day) - timedelta(days=1)).isoformat()
+    except ValueError:
+        n_end = f"{int(end[:4]) + 1}{end[4:]}"
+    nxt = await db.fiscal_years.find_one({"company_id": company_id, "start_date": n_start}, {"_id": 0})
+    if not nxt:
+        nxt = {"id": str(uuid.uuid4()), "company_id": company_id, "name": str(label + 1),
+               "start_date": n_start, "end_date": n_end, "is_closed": False, "is_current": True,
+               "created_at": now}
+        await db.fiscal_years.update_many({"company_id": company_id, "is_current": True},
+                                          {"$set": {"is_current": False}})
+        await db.fiscal_years.insert_one(dict(nxt))
+        nxt.pop("_id", None)
+    elif not nxt.get("is_closed"):
+        await db.fiscal_years.update_many({"company_id": company_id, "is_current": True},
+                                          {"$set": {"is_current": False}})
+        await db.fiscal_years.update_one({"company_id": company_id, "id": nxt["id"]},
+                                         {"$set": {"is_current": True}})
 
-    # ── المرحلة ج: ترحيل صافي الربح إلى الأرباح المرحلة ───
-    net_income = round(total_revenue - total_expense, 2)
+    record = {
+        "status": "closed", "fiscal_year_id": fy_id,
+        "total_revenue": b["total_revenue"], "total_expense": b["total_expense"], "net_income": net_income,
+        "entry_ids": created, "je_closing_id": created[0] if created else None,
+        "je_retained_id": created[1] if len(created) > 1 else None,
+        "accounts_closed": len(b["rows"]), "closed_months": closed_months,
+        "next_fiscal_year_id": nxt["id"], "closed_at": now,
+    }
+    await db.year_end_closings.update_one({"id": closing_id}, {"$set": record})
+    try:
+        from services.audit_helper import log_event
+        await log_event(db, company_id, current_user, "year_end.closed", "accounting",
+                        "fiscal_year", str(label), None,
+                        {"net_income": net_income, "entries": created}, None,
+                        f"إقفال السنة المالية {label} — صافي {'ربح' if net_income >= 0 else 'خسارة'} {net_income:,.2f}")
+    except Exception:
+        pass
 
-    if net_income > 0:
-        lines_c = await asyncio.gather(
-            je_line(company_id, "214", debit=net_income,
-                    desc=f"إقفال حـ/أرباح وخسائر → أرباح مرحلة {fiscal_year}"),
-            je_line(company_id, "213", credit=net_income,
-                    desc=f"ترحيل صافي الربح {fiscal_year:,} إلى الأرباح المرحلة"),
-        )
-    else:
-        lines_c = await asyncio.gather(
-            je_line(company_id, "213", debit=abs(net_income),
-                    desc=f"ترحيل صافي الخسارة {fiscal_year}"),
-            je_line(company_id, "214", credit=abs(net_income),
-                    desc=f"إقفال حـ/أرباح وخسائر — خسارة {fiscal_year}"),
-        )
-    je_c_id = await post_je(company_id, current_user["user_id"], close_date,
-        f"ترحيل صافي {'الربح' if net_income >= 0 else 'الخسارة'} — {fiscal_year}",
-        list(lines_c))
-
-    # Save closing record
-    await db.year_end_closings.insert_one({
-        "company_id": company_id, "fiscal_year": fiscal_year,
-        "close_date": close_date,
-        "total_revenue": round(total_revenue, 2),
-        "total_expense": round(total_expense, 2),
-        "net_income":    net_income,
-        "je_revenue_id": je_a_id, "je_expense_id": je_b_id, "je_closing_id": je_c_id,
-        "closed_by": current_user["user_id"],
-        "closed_at": datetime.now(timezone.utc).isoformat(),
-    })
-
+    warnings = []
+    if not prev_closed and b["prior_unclosed"]:
+        warnings.append("توجد أرصدة إيرادات/مصروفات من سنوات سابقة غير مقفلة")
     return {
-        "message":       f"✅ تم إقفال السنة المالية {fiscal_year}",
-        "fiscal_year":   fiscal_year,
-        "close_date":    close_date,
+        "message":       f"✅ تم إقفال السنة المالية {label}",
+        "fiscal_year":   label,
+        "start_date":    start,
+        "close_date":    end,
         "financial_summary": {
-            "total_revenue":   round(total_revenue, 2),
-            "total_expense":   round(total_expense, 2),
+            "total_revenue":   b["total_revenue"],
+            "total_expense":   b["total_expense"],
             "net_income":      net_income,
             "result":          "ربح" if net_income >= 0 else "خسارة",
         },
         "journal_entries": {
-            "closing_revenues":  je_a_id,
-            "closing_expenses":  je_b_id,
-            "retained_earnings": je_c_id,
+            "closing_to_income_summary": record["je_closing_id"],
+            "retained_earnings":         record["je_retained_id"],
         },
-        "next_steps": [
-            f"افتح السنة المالية {fiscal_year+1}",
-            "تحقق من رصيد م/213 الأرباح المرحلة",
-            "اعكس قيود فروق العملة غير المحققة في أول {fiscal_year+1}",
-        ]
+        "closed_months": closed_months,
+        "next_fiscal_year": nxt,
+        "warnings": warnings,
     }
 
 
-async def _calculate_closing(company_id: str, fiscal_year: int, close_date: str) -> dict:
-    """Preview closing without posting"""
-    year_start = f"{fiscal_year}-01-01"
-    year_end   = f"{fiscal_year}-12-31"
+@router.post("/year-end/reopen")
+async def year_end_reopen(data: dict, current_user: dict = Depends(get_current_user)):
+    """إعادة فتح سنة مالية مقفلة — يعكس قيود الإقفال بتاريخها، ويعيد فتح السنة
+    والشهور التي أقفلها الإقفال السنوي. يتطلب مبرراً ويُسجَّل في سجل التدقيق."""
+    _assert_year_end_role(current_user)
+    company_id = current_user["company_id"]
+    justification = str((data or {}).get("justification") or "").strip()
+    if not justification:
+        raise HTTPException(400, "يجب ذكر مبرر إعادة فتح السنة المالية")
+    try:
+        label = int((data or {}).get("fiscal_year"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "حدد السنة المالية المراد إعادة فتحها")
+    rec = await db.year_end_closings.find_one({"company_id": company_id, "fiscal_year": label}, {"_id": 0})
+    if not rec:
+        raise HTTPException(400, f"السنة المالية {label} غير مقفلة")
+    later = await db.year_end_closings.find_one(
+        {"company_id": company_id, "fiscal_year": {"$gt": label}}, {"_id": 0, "fiscal_year": 1})
+    if later:
+        raise HTTPException(400, f"السنة {later['fiscal_year']} اللاحقة مقفلة — أعد فتحها أولاً")
+    # claim the reopen (a concurrent second request finds nothing to flip)
+    flipped = await db.year_end_closings.find_one_and_update(
+        {"company_id": company_id, "fiscal_year": label, "status": {"$ne": "reopening"}},
+        {"$set": {"status": "reopening"}})
+    if not flipped:
+        raise HTTPException(400, f"إعادة فتح السنة {label} قيد التنفيذ")
 
-    async def total(pattern, side):
-        r = await db.journal_entries.aggregate([
-            {"$match": {"company_id": company_id, "status": "posted",
-                        "entry_date": {"$gte": year_start, "$lte": year_end}}},
-            {"$unwind": "$lines"},
-            {"$match": {"lines.account_code": {"$regex": pattern}}},
-            {"$group": {"_id": None, "total": {"$sum": f"$lines.{side}"}}}
-        ]).to_list(1)
-        return round(r[0]["total"] if r else 0, 2)
+    svc = AccountingService(db)
+    ids = list(rec.get("entry_ids") or [])
+    for k in ("je_revenue_id", "je_expense_id", "je_closing_id", "je_retained_id"):   # legacy records
+        if rec.get(k) and rec[k] not in ids:
+            ids.append(rec[k])
+    close_date = rec.get("close_date") or rec.get("end_date") or f"{label}-12-31"
+    reversals = []
+    try:
+        for jid in reversed(ids):
+            je = await db.journal_entries.find_one({"id": jid, "company_id": company_id}, {"_id": 0, "status": 1})
+            if not je or je.get("status") != "posted":
+                continue
+            # the one sanctioned bypass: the reversal is dated inside the closed year
+            rev = await svc.reverse_journal_entry(jid, current_user["user_id"], close_date[:10], _bypass_lock=True)
+            reversals.append(rev["id"])
+            await db.journal_entries.update_one({"id": rev["id"]}, {"$set": {
+                "is_year_end_closing": True, "year_end_closing_id": rec.get("id"),
+                "description": f"عكس قيد الإقفال السنوي {label} — {justification[:200]}"}})
+            for x in (jid, rev["id"]):
+                await db.general_ledger.update_many({"journal_entry_id": x}, {"$set": {"is_closing": True}})
+    except Exception as ex:
+        await db.year_end_closings.update_one({"company_id": company_id, "fiscal_year": label},
+                                              {"$set": {"status": rec.get("status", "closed"),
+                                                        "reversed_on_failed_reopen": reversals}})
+        raise HTTPException(400, f"تعذّرت إعادة فتح السنة: {ex}")
 
-    rev = await total(REVENUE_PATTERN, "credit")
-    exp = await total(EXPENSE_PATTERN, "debit")
+    now = datetime.now(timezone.utc).isoformat()
+    # months the year-end close locked are reopened; months closed by hand stay closed
+    q = {"company_id": company_id, "status": "closed"}
+    if rec.get("id"):
+        q["closed_by_year_end"] = rec["id"]
+    else:
+        q["year"] = label
+    reopened = [p.get("period") async for p in db.financial_periods.find(q, {"_id": 0, "period": 1})]
+    await db.financial_periods.update_many(q, {"$set": {
+        "status": "open", "reopened_by": current_user["user_id"], "reopened_at": now,
+        "reopen_justification": justification}, "$unset": {"closed_by_year_end": ""}})
+    still_closed = [p.get("period") async for p in db.financial_periods.find(
+        {"company_id": company_id, "status": "closed",
+         "period": {"$gte": (rec.get("start_date") or f"{label}-01-01")[:7],
+                    "$lte": (rec.get("end_date") or f"{label}-12-31")[:7]}}, {"_id": 0, "period": 1})]
+    fy_q = {"company_id": company_id}
+    if rec.get("fiscal_year_id"):
+        fy_q["id"] = rec["fiscal_year_id"]
+    else:
+        fy_q["name"] = str(label)
+    await db.fiscal_years.update_many(fy_q, {"$set": {"is_closed": False, "reopened_at": now}})
+    hist = {k: v for k, v in rec.items() if k != "_id"}
+    hist.update({"status": "reopened", "reopened_by": current_user["user_id"], "reopened_at": now,
+                 "reopen_justification": justification, "reversal_ids": reversals})
+    await db.year_end_reopenings.insert_one(hist)
+    await db.year_end_closings.delete_one({"company_id": company_id, "fiscal_year": label})
+    try:
+        from services.audit_helper import log_event
+        await log_event(db, company_id, current_user, "year_end.reopened", "accounting",
+                        "fiscal_year", str(label),
+                        {"status": "closed", "net_income": rec.get("net_income"), "entries": ids},
+                        {"status": "open", "reversals": reversals}, None,
+                        f"إعادة فتح السنة المالية {label} — {justification}")
+    except Exception:
+        pass
     return {
-        "fiscal_year":   fiscal_year,
-        "total_revenue": rev,
-        "total_expense": exp,
-        "net_income":    round(rev - exp, 2),
-        "result":        "ربح" if rev >= exp else "خسارة",
+        "message": f"⚠️ تمت إعادة فتح السنة المالية {label} — قيود الإقفال عُكست وسُجّل ذلك في سجل التدقيق",
+        "fiscal_year": label,
+        "reversal_entries": reversals,
+        "reopened_months": reopened,
+        "still_closed_months": still_closed,
     }
 
 
 @router.get("/year-end/status")
 async def get_closing_status(current_user: dict = Depends(get_current_user)):
-    """حالة إقفال السنوات المالية"""
-    closings = await db.year_end_closings.find(
-        {"company_id": current_user["company_id"]}, {"_id": 0}
-    ).sort("fiscal_year", -1).to_list(10)
-    return {"closings": closings}
+    """حالة إقفال السنوات المالية + السنوات المعرّفة + سجل إعادة الفتح"""
+    cid = current_user["company_id"]
+    closings = await db.year_end_closings.find({"company_id": cid}, {"_id": 0}).sort("fiscal_year", -1).to_list(50)
+    years = await db.fiscal_years.find({"company_id": cid}, {"_id": 0}).sort("start_date", -1).to_list(50)
+    reopenings = await db.year_end_reopenings.find({"company_id": cid}, {"_id": 0}).sort(
+        "reopened_at", -1).to_list(20)
+    return {"closings": closings, "fiscal_years": years, "reopenings": reopenings,
+            "can_close": current_user.get("role") in _year_end_roles()}
 
 
 # ══════════════════════════════════════════════════════════════
@@ -928,20 +1180,37 @@ async def reopen_fiscal_period(
 
     if not justification:
         raise HTTPException(400, "يجب ذكر مبرر إعادة الفتح")
+    # It upserted "open" whatever the state — a period that was never closed
+    # got a fake reopen record and audit entry.
+    fp = await db.financial_periods.find_one(
+        {"company_id": company_id, "year": year, "month": month}, {"_id": 0})
+    if not fp or fp.get("status") != "closed":
+        raise HTTPException(400, f"الفترة {period} غير مقفلة — لا يوجد ما يُعاد فتحه")
+    # inside a closed fiscal year the month stays locked by the year itself
+    d = f"{period}-15"
+    yc = await db.year_end_closings.find_one(
+        {"company_id": company_id,
+         "$or": [{"start_date": {"$lte": d}, "end_date": {"$gte": d}},
+                 {"start_date": {"$exists": False}, "fiscal_year": year}]}, {"_id": 0, "fiscal_year": 1})
+    if yc:
+        raise HTTPException(400, f"الفترة {period} داخل السنة المالية {yc['fiscal_year']} المقفلة — "
+                                 "أعد فتح السنة من شاشة الإقفال السنوي")
 
     now = datetime.now(timezone.utc).isoformat()
     await db.financial_periods.update_one(
         {"company_id": company_id, "year": year, "month": month},
         {"$set": {"status": "open", "reopened_by": current_user["user_id"],
                   "reopened_at": now, "reopen_justification": justification}},
-        upsert=True
     )
-    # Audit log
-    await db.audit_trail.insert_one({
-        "company_id":  company_id, "action": "period.reopened",
-        "period":      period, "user_id": current_user["user_id"],
-        "justification": justification, "timestamp": now,
-    })
+    try:
+        from services.audit_helper import log_event
+        await log_event(db, company_id, current_user, "period.reopened", "accounting",
+                        "financial_period", period,
+                        {"status": "closed", "closed_by": fp.get("closed_by"), "closed_at": fp.get("closed_at")},
+                        {"status": "open", "justification": justification}, None,
+                        f"إعادة فتح الفترة {period} — {justification}")
+    except Exception:
+        pass
     return {
         "message":      f"⚠️ تم إعادة فتح الفترة {period} — مُسجَّل في سجل التدقيق",
         "period":       period,

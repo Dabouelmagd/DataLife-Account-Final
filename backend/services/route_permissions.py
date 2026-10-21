@@ -40,6 +40,7 @@ PREFIX_PERMISSIONS = [
     ("/api/invoice", {"invoices", FIN, "sales", "purchases"}),
     ("/api/eta", {"invoices", FIN}),
     ("/api/sales", {"sales", "invoices", FIN}),
+    ("/api/ecommerce", {"sales", "invoices", FIN}),   # store connections + web orders (role check inside)
     ("/api/purchases", {"purchases", FIN}),
     ("/api/inventory", {"inventory", "sales", "purchases", FIN}),
     ("/api/interviews", {"hr"}),
@@ -82,6 +83,9 @@ EXEMPT_PREFIXES = (
     "/api/auth", "/api/users/me", "/api/ess", "/api/attendance/check", "/api/attendance/my",
     "/api/notifications", "/api/push", "/api/tasks", "/api/chatbot", "/api/updates",
     "/api/permissions", "/api/companies/current", "/api/dashboard",
+    # public: online stores post orders here with no login; each request is
+    # authenticated by the HMAC signature of its body (api/ecommerce.py)
+    "/api/ecommerce/webhook",
 )
 
 PLATFORM_ROLES = {"Super Admin"}

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { toast } from 'sonner';
 import { useLanguage } from '../contexts/LanguageContext';
 import PayrollSheet from '../components/PayrollSheet';
+import PayrollBankFilePanel from '../components/PayrollBankFilePanel';
 
 const API = process.env.REACT_APP_BACKEND_URL + '/api/payroll';
 
@@ -93,6 +94,8 @@ export default function PayrollPage() {
   const [modalType, setModalType] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [formData, setFormData] = useState({});
+  // a calculation running in the background (runs above 300 employees)
+  const [calcJob, setCalcJob] = useState(null);  // { runId, processed, total }
 
   const text = {
     ar: {
@@ -290,6 +293,9 @@ export default function PayrollPage() {
     loadData();
   }, [fetchPayrollRuns, fetchLoans, fetchSettlements, fetchSettings, fetchEmployees]);
 
+  const runDepartments = [...new Set(employees.map(e => e.department).filter(Boolean))].sort();
+  const runBranches = [...new Set(employees.map(e => e.branch).filter(Boolean))].sort();
+
   const openModal = (type, item = null) => {
     setModalType(type);
     setSelectedItem(item);
@@ -369,6 +375,12 @@ export default function PayrollPage() {
       
       if (response.ok) {
         const data = await response.json();
+        if (action === 'calculate' && data.background) {
+          // large run: the server calculates in the background — poll its progress
+          setCalcJob({ runId, processed: 0, total: data.total || 0 });
+          toast.info(data.message || (language === 'ar' ? 'بدأ الحساب في الخلفية' : 'Calculating in the background'));
+          return;
+        }
         toast.success(data.message || (language === 'ar' ? 'تمت العملية بنجاح' : 'Action completed'));
         fetchPayrollRuns();
       } else {
@@ -380,6 +392,34 @@ export default function PayrollPage() {
       toast.error('Error');
     }
   };
+
+  const calcRunId = calcJob?.runId;
+  useEffect(() => {
+    if (!calcRunId) return undefined;
+    let stopped = false;
+    let timer = null;
+    const finish = () => { stopped = true; if (timer) clearInterval(timer); setCalcJob(null); fetchPayrollRuns(); };
+    const tick = async () => {
+      try {
+        const r = await fetch(`${API}/runs/${calcRunId}/job`, { headers: { Authorization: `Bearer ${getToken()}` } });
+        const j = await r.json().catch(() => ({}));
+        if (stopped) return;
+        if (!r.ok) { toast.error(j.detail || 'Error'); finish(); return; }
+        if (j.status === 'running') {
+          setCalcJob(prev => (prev ? { ...prev, processed: j.processed || 0, total: j.total || prev.total } : prev));
+          return;
+        }
+        if (j.status === 'done') toast.success(language === 'ar' ? `تم حساب رواتب ${j.total} موظف` : `Payroll calculated for ${j.total} employees`);
+        else toast.error(j.error || (language === 'ar' ? 'تعذّر حساب الرواتب' : 'Calculation failed'), { duration: 12000 });
+        finish();
+      } catch (e) {
+        // network hiccup: keep polling
+      }
+    };
+    timer = setInterval(tick, 2000);
+    tick();
+    return () => { stopped = true; clearInterval(timer); };
+  }, [calcRunId, fetchPayrollRuns, language]);
 
   // ─── Bank Transfer ─────────────────────
   const [bankModal, setBankModal]           = useState(null);  // run object
@@ -436,36 +476,6 @@ export default function PayrollPage() {
     }
   };
 
-  // The file is built by the server (/export/bank-file): one payment method per
-  // file, UTF-8 with BOM so Excel shows the Arabic, header on the first row,
-  // amounts with 2 decimals and a reference per transfer. The old browser-built
-  // CSV had none of that and mixed cash, bank and wallet rows in one file.
-  // It reflects the methods saved on the run — the choices in this window are
-  // saved when the payroll is paid.
-  const downloadBankFile = async (method) => {
-    if (!bankModal) return;
-    try {
-      const r = await fetch(`${API}/runs/${bankModal.id}/export/bank-file?method=${method}`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-      });
-      if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
-        const d = data.detail;
-        const msg = d && typeof d === 'object' ? [d.message, ...(d.errors || []).slice(0, 5)].join('\n') : (d || 'Error');
-        toast.error(msg);
-        return;
-      }
-      const blob = await r.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url; a.download = `salary_${method}_${bankReport?.month || ''}.csv`; a.click();
-      URL.revokeObjectURL(url);
-      const total = Number(r.headers.get('X-Transfer-Total') || 0);
-      toast.success(`${r.headers.get('X-Transfer-Count') || ''} ${language === 'ar' ? 'تحويل بإجمالي' : 'transfers, total'} ${total.toLocaleString('en-US', { minimumFractionDigits: 2 })} EGP`);
-    } catch (e) {
-      toast.error(language === 'ar' ? 'تعذّر تحميل الملف' : 'Download failed');
-    }
-  };
   // ─────────────────────────────────────────
 
   const handleSendPayslips = async (runId) => {
@@ -672,6 +682,18 @@ export default function PayrollPage() {
               </Button>
             </div>
             
+            {calcJob && (
+              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3" role="status" aria-live="polite">
+                <div className="flex justify-between text-sm text-blue-900 mb-2">
+                  <span>{language === 'ar' ? 'جاري حساب الرواتب في الخلفية…' : 'Calculating payroll in the background…'}</span>
+                  <span className="tabular-nums">{calcJob.processed} / {calcJob.total}</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-blue-100 overflow-hidden">
+                  <div className="h-2 bg-blue-600 transition-all"
+                    style={{ width: `${calcJob.total ? Math.min(100, Math.round(100 * calcJob.processed / calcJob.total)) : 0}%` }} />
+                </div>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
@@ -691,7 +713,8 @@ export default function PayrollPage() {
                   {payrollRuns.map(run => (
                     <tr key={run.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium">{run.payroll_number}</td>
-                      <td className="px-4 py-3 text-sm">{run.month}</td>
+                      <td className="px-4 py-3 text-sm">{run.month}{(run.department || run.branch) && (
+                        <span className="block text-xs text-gray-500">{[run.department, run.branch].filter(Boolean).join(' — ')}</span>)}</td>
                       <td className="px-4 py-3 text-sm">{run.total_employees}</td>
                       <td className="px-4 py-3 text-sm">{run.total_gross_salary?.toLocaleString()}</td>
                       <td className="px-4 py-3 text-sm text-red-600">{run.total_deductions?.toLocaleString()}</td>
@@ -701,7 +724,7 @@ export default function PayrollPage() {
                       <td className="px-4 py-3">
                         <div className="flex gap-1 justify-center">
                           {run.status === 'draft' && (
-                            <Button size="sm" onClick={() => handlePayrollAction(run.id, 'calculate')}>
+                            <Button size="sm" disabled={calcJob?.runId === run.id} onClick={() => handlePayrollAction(run.id, 'calculate')}>
                               <Calculator className="w-4 h-4 mr-1" />
                               {text.calculate}
                             </Button>
@@ -905,14 +928,39 @@ export default function PayrollPage() {
             <div className="p-6 space-y-4">
               {/* Create Payroll Form */}
               {modalType === 'payroll' && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">{text.month} *</label>
-                  <Input 
-                    type="month" 
-                    value={formData.month || ''} 
-                    onChange={e => setFormData({...formData, month: e.target.value})} 
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">{text.month} *</label>
+                    <Input 
+                      type="month" 
+                      value={formData.month || ''} 
+                      onChange={e => setFormData({...formData, month: e.target.value})} 
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="run-dept" className="block text-sm font-medium mb-1">{language === 'ar' ? 'الإدارة / القسم (اختياري)' : 'Department (optional)'}</label>
+                      <select id="run-dept" className="w-full p-2 border rounded-md" value={formData.department || ''}
+                        onChange={e => setFormData({ ...formData, department: e.target.value })}>
+                        <option value="">{language === 'ar' ? 'كل الإدارات' : 'All departments'}</option>
+                        {runDepartments.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="run-branch" className="block text-sm font-medium mb-1">{language === 'ar' ? 'الفرع (اختياري)' : 'Branch (optional)'}</label>
+                      <select id="run-branch" className="w-full p-2 border rounded-md" value={formData.branch || ''}
+                        onChange={e => setFormData({ ...formData, branch: e.target.value })}>
+                        <option value="">{language === 'ar' ? 'كل الفروع' : 'All branches'}</option>
+                        {runBranches.map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {language === 'ar'
+                      ? 'للشركات الكبيرة (آلاف الموظفين): قسّم الشهر إلى مسيرات حسب الإدارة أو الفرع — المسير الواحد يُحفظ كمستند واحد وله حد أقصى للحجم. لا يُسمح بمسيرين يشملان نفس الموظف.'
+                      : 'Large companies: split the month into runs by department or branch — one run is stored as a single document with a size limit. Two runs may not cover the same employee.'}
+                  </p>
+                </>
               )}
 
               {/* Create Loan Form */}
@@ -1139,18 +1187,9 @@ export default function PayrollPage() {
                     <h3 className="font-semibold text-gray-800 text-sm">
                       {language === 'ar' ? 'تفاصيل كل موظف — يمكن تغيير طريقة الدفع' : 'Per-employee payment method'}
                     </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { id: 'bank_transfer', ar: 'ملف البنك', en: 'Bank file' },
-                        { id: 'instapay', ar: 'ملف InstaPay', en: 'InstaPay file' },
-                        { id: 'vodafone_cash', ar: 'ملف فودافون كاش', en: 'Vodafone Cash file' },
-                      ].filter(m => (bankReport?.summary?.[m.id]?.count || 0) > 0).map(m => (
-                        <button key={m.id} onClick={() => downloadBankFile(m.id)} className="flex items-center gap-2 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg text-gray-700 font-medium">
-                          ⬇️ {language === 'ar' ? m.ar : m.en} (CSV)
-                        </button>
-                      ))}
-                    </div>
                   </div>
+                  <PayrollBankFilePanel runId={bankModal.id} month={bankReport?.month || bankModal.month}
+                    summary={bankReport?.summary} language={language} />
                   <div className="overflow-x-auto -mx-2 px-2"><table className="w-full text-sm min-w-[600px]">
                     <thead className="bg-gray-50 text-xs text-gray-600">
                       <tr>

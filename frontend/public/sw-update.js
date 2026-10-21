@@ -1,29 +1,12 @@
-// Auto-refresh when new JS bundle detected
-const BUNDLE_KEY = 'dl_bundle_hash';
-
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-
-self.addEventListener('fetch', event => {
-  const url = event.request.url;
-  if (url.includes('/static/js/main.') && url.endsWith('.js')) {
-    const hash = url.match(/main\.([a-f0-9]+)\.js/)?.[1];
-    if (hash) {
-      event.respondWith(
-        fetch(event.request).then(response => {
-          const stored = self.registration.scope + 'bundle_' + hash;
-          caches.open('dl-bundle').then(cache => {
-            const prev = localStorage?.getItem?.(BUNDLE_KEY);
-            if (prev && prev !== hash) {
-              // New bundle detected — notify all clients to reload
-              self.clients.matchAll().then(clients => {
-                clients.forEach(client => client.postMessage({ type: 'NEW_VERSION', hash }));
-              });
-            }
-          });
-          return response;
-        }).catch(() => caches.match(event.request))
-      );
-    }
-  }
+/* Retired. This worker was never registered by the app; it also called
+ * localStorage, which does not exist inside a service worker. Offline caching
+ * now lives in sw-pos.js (imported by sw-push.js). If a browser still has this
+ * file registered, it cleans up its cache and unregisters itself. */
+self.addEventListener('install', function () { self.skipWaiting(); });
+self.addEventListener('activate', function (event) {
+  event.waitUntil(
+    caches.delete('dl-bundle')
+      .catch(function () { return null; })
+      .then(function () { return self.registration.unregister(); })
+  );
 });

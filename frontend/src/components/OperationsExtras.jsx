@@ -1,6 +1,7 @@
 /**
  * شاشات عمليات القطاعات — كانت محركاتها في الخلفية بلا واجهة:
- *   PosShiftsPage        — ورديات نقاط البيع، البيع والمرتجع، الإقفال، التالف، تسويات البطاقات (/api/pos)
+ *   PosShiftsPage        — ورديات نقاط البيع، البيع والمرتجع، الإقفال، التالف، تسويات البطاقات،
+ *                          الإيصال الإلكتروني، والعمل بدون إنترنت (utils/posQueue) (/api/pos)
  *   ManufacturingPage    — قوائم المواد وأوامر الإنتاج وفروق التحميل (/api/manufacturing)
  *   RealEstatePage       — المشاريع والوحدات والحجوزات والشيكات والتسليم (/api/real-estate)
  *   LettersOfCreditPage  — الاعتمادات المستندية للاستيراد (/api/lc)
@@ -8,9 +9,10 @@
  * Every entry the server will post is previewed before saving; the server
  * recomputes it and refuses anything unbalanced or posted to a missing account.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { Loader2, Plus, X, Trash2, RefreshCw } from 'lucide-react';
+import { Loader2, Plus, X, Trash2, RefreshCw, WifiOff, Printer } from 'lucide-react';
+import * as posQueue from '../utils/posQueue';
 
 const API = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -160,6 +162,53 @@ const DelBtn = ({ onClick }) => (
 /* ═════════════════════════ نقاط البيع ═════════════════════════ */
 
 const PAY = { cash: 'نقدي', card: 'بطاقة', wallet: 'محفظة' };
+const ETA_ST = { pending: ['بانتظار الإرسال', 'amber'], submitted: ['مُرسل', 'green'], rejected: ['مرفوض', 'red'], error: ['خطأ', 'red'] };
+const EtaBadge = ({ r }) => {
+  if (!r) return <span className="text-slate-400">—</span>;
+  const [l, tone] = ETA_ST[r.status] || [r.status, 'slate'];
+  return <span title={r.error || r.uuid || ''}><Badge tone={tone}>{l}</Badge></span>;
+};
+const isNetErr = (e) => posQueue.isRetryable(e);
+const autoReceipt = (terminal) => {
+  const d = new Date(); const p = (n) => String(n).padStart(2, '0');
+  return `${terminal || 'POS'}-${String(d.getFullYear()).slice(2)}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+};
+const ETA_BLANK = { environment: 'preprod', device_serial: '', client_id: '', client_secret: '', pre_shared_key: '', pos_os_version: '',
+  activity_code: '', branch_code: '0', default_item_code: '', default_item_type: 'EGS' };
+
+/** Prints a simple 72mm receipt through a hidden frame — works offline. */
+function printReceipt({ shift, kind, payload, products, eta, pending }) {
+  const esc = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const names = Object.fromEntries((products || []).map((p) => [p.id, p.name]));
+  const rows = (payload.items || []).map((i) => `<tr><td>${esc(names[i.product_id] || i.product_id || 'صنف')}</td><td class="n">${esc(qtyFmt(i.qty))}</td></tr>`).join('');
+  const when = new Date().toLocaleString('en-GB');
+  const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>إيصال</title><style>
+    body{font-family:Tahoma,Arial,sans-serif;width:72mm;margin:0 auto;font-size:12px;color:#000}
+    h1{font-size:15px;text-align:center;margin:4px 0} .c{text-align:center} table{width:100%;border-collapse:collapse}
+    td{padding:2px 0} .n{text-align:left;direction:ltr} .t{border-top:1px dashed #000;font-weight:bold}
+    .mark{border:2px solid #000;text-align:center;font-weight:bold;padding:4px;margin:6px 0}
+    .u{font-size:9px;word-break:break-all;direction:ltr;text-align:center}</style></head><body>
+    <h1>${kind === 'return' ? 'إيصال مرتجع' : 'إيصال بيع'}</h1>
+    <p class="c">${esc(shift?.terminal_id)} — ${esc(shift?.cashier_name)}<br/><span dir="ltr">${esc(when)}</span></p>
+    <p>رقم الإيصال: <span dir="ltr">${esc(payload.receipt_number || payload.original_receipt || '')}</span></p>
+    ${rows ? `<table>${rows}</table>` : ''}
+    <table><tr class="t"><td>الإجمالي شامل الضريبة</td><td class="n">${esc(money(payload.amount))}</td></tr>
+    <tr><td>ضريبة القيمة المضافة</td><td class="n">${esc(money(payload.vat))}</td></tr>
+    <tr><td>${kind === 'return' ? 'طريقة الرد' : 'طريقة الدفع'}</td><td class="n">${esc(PAY[payload.payment_method])}</td></tr></table>
+    ${pending ? '<div class="mark">سيتم رفعه — حُفظ بدون إنترنت</div>' : ''}
+    ${eta?.uuid ? `<p class="c">الإيصال الإلكتروني</p><p class="u">${esc(eta.uuid)}</p>` : ''}
+    <p class="c">شكراً لزيارتكم</p></body></html>`;
+  const f = document.createElement('iframe');
+  f.setAttribute('aria-hidden', 'true');
+  Object.assign(f.style, { position: 'fixed', width: '0', height: '0', border: '0', right: '0', bottom: '0' });
+  document.body.appendChild(f);
+  const w = f.contentWindow;
+  w.document.open(); w.document.write(html); w.document.close();
+  setTimeout(() => {
+    try { w.focus(); w.print(); } catch (e) { /* print blocked */ }
+    setTimeout(() => f.remove(), 2000);
+  }, 100);
+}
 
 export function PosShiftsPage() {
   const [tab, setTab] = useState('shifts');
@@ -174,10 +223,32 @@ export function PosShiftsPage() {
   const [settle, setSettle] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [online, setOnline] = useState(posQueue.isOnline());
+  const [queued, setQueued] = useState([]);
+  const [printOn, setPrintOn] = useState(true);
+  const [eta, setEta] = useState(null);          // {settings, effective, missing}
+  const [etaForm, setEtaForm] = useState(null);
+  const [receipts, setReceipts] = useState(null); // {receipts, counts}
+  const [etaFilter, setEtaFilter] = useState('');
+  const [note, setNote] = useState('');
+  const activeRef = useRef(null);
+  activeRef.current = active;
 
   const load = async () => {
-    try { const { data: d } = await axios.get(`${API}/api/pos/shifts`, { ...auth(), params: { limit: 50 } }); setData(d); }
-    catch (e) { setData({ shifts: [], summary: {} }); setErr(errText(e, 'تعذّر تحميل الورديات')); }
+    try {
+      const { data: d } = await axios.get(`${API}/api/pos/shifts`, { ...auth(), params: { limit: 50 } });
+      setData(d); posQueue.cacheSet('shifts', d);
+    } catch (e) {
+      const cached = isNetErr(e) ? await posQueue.cacheGet('shifts') : null;
+      setData(cached || { shifts: [], summary: {} });
+      if (!cached) setErr(errText(e, 'تعذّر تحميل الورديات'));
+    }
+  };
+  const loadProducts = async () => {
+    try {
+      const { data: r } = await axios.get(`${API}/api/inventory/products`, { ...auth(), params: { limit: 500 } });
+      const list = r?.products || []; setProducts(list); posQueue.cacheSet('products', list);
+    } catch (e) { setProducts((await posQueue.cacheGet('products')) || []); }
   };
   const loadSpoil = async () => {
     const d = new Date(); const from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
@@ -188,13 +259,54 @@ export function PosShiftsPage() {
     try { const { data: r } = await axios.get(`${API}/api/pos/card-settlements`, auth()); setSettle(r); }
     catch (e) { setSettle({ settlements: [] }); }
   };
-  const openShift = async (id) => {
-    try { const { data: s } = await axios.get(`${API}/api/pos/shifts/${id}`, auth()); setActive(s); }
-    catch (e) { setErr(errText(e, 'تعذّر فتح الوردية')); }
+  const loadReceipts = async (status) => {
+    try {
+      const { data: r } = await axios.get(`${API}/api/pos/eta-receipts`, { ...auth(), params: status ? { status } : {} });
+      setReceipts(r);
+    } catch (e) { setReceipts((prev) => prev || { receipts: [], counts: {} }); }
   };
+  const loadEta = async () => {
+    try {
+      const { data: r } = await axios.get(`${API}/api/pos/eta-settings`, auth());
+      setEta(r); setEtaForm({ ...ETA_BLANK, ...r.settings, client_secret: '', pre_shared_key: '' });
+    } catch (e) { setEta({ settings: {}, effective: {}, missing: [] }); setEtaForm((f) => f || { ...ETA_BLANK }); }
+  };
+  const openShift = async (id) => {
+    try {
+      const { data: s } = await axios.get(`${API}/api/pos/shifts/${id}`, auth());
+      setActive(s); posQueue.cacheSet(`shift:${id}`, s);
+    } catch (e) {
+      const cached = isNetErr(e) ? await posQueue.cacheGet(`shift:${id}`) : null;
+      if (cached) setActive(cached);
+      else if (isNetErr(e)) {
+        const sh = (data?.shifts || []).find((x) => x.id === id);
+        if (sh) setActive({ ...sh, transactions: [] }); else setErr('لا توجد نسخة محفوظة من الوردية على هذا الجهاز');
+      } else setErr(errText(e, 'تعذّر فتح الوردية'));
+    }
+  };
+  const sendOp = (op) => axios.post(`${API}/api/pos/shifts/${op.shift_id}/${op.kind}`, { ...op.payload, client_uuid: op.client_uuid }, auth());
+  const afterFlush = async () => {
+    await load(); loadReceipts(etaFilter);
+    if (activeRef.current) await openShift(activeRef.current.id);
+  };
+  const flushNow = async () => {
+    const r = await posQueue.flush(sendOp);
+    if (r.sent) await afterFlush();
+    if (r.failed) setErr(`${r.failed} عملية رفضها الخادم — راجعها في قائمة العمليات المعلقة`);
+  };
+  const afterFlushRef = useRef(afterFlush);
+  afterFlushRef.current = afterFlush;
+  const sendRef = useRef(sendOp);
+  sendRef.current = sendOp;
+
   useEffect(() => {
-    load(); loadSpoil(); loadSettle();
-    getProducts().then(setProducts); getWarehouses().then(setWarehouses); getBanks().then(setBanks);
+    load(); loadSpoil(); loadSettle(); loadProducts(); loadReceipts(''); loadEta();
+    getWarehouses().then(setWarehouses); getBanks().then(setBanks);
+    const up = () => setOnline(true); const down = () => setOnline(false);
+    window.addEventListener('online', up); window.addEventListener('offline', down);
+    const unsub = posQueue.subscribe(setQueued);
+    const stop = posQueue.startAutoFlush((op) => sendRef.current(op), () => afterFlushRef.current());
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); unsub(); stop(); };
   }, []);
 
   const run = async (fn, after) => {
@@ -203,14 +315,40 @@ export function PosShiftsPage() {
     catch (e) { setErr(errText(e, 'تعذّر الحفظ')); } finally { setBusy(false); }
   };
 
-  const itemsBody = (items) => items.filter((i) => +i.qty > 0).map((i) => ({ product_id: i.product_id || null, qty: +i.qty }));
+  const itemsBody = (items) => items.filter((i) => i.product_id && +i.qty > 0).map((i) => ({ product_id: i.product_id, qty: +i.qty }));
   const saveOpen = () => run(() => axios.post(`${API}/api/pos/shifts/open`, {
     cashier_id: form.cashier_id.trim(), cashier_name: form.cashier_name.trim(), terminal_id: form.terminal_id || 'POS-01',
     opening_cash: +form.opening_cash || 0, shift_date: form.shift_date, warehouse_id: form.warehouse_id || null }, auth()), load);
-  const saveTxn = () => run(() => axios.post(`${API}/api/pos/shifts/${active.id}/${form.kind}`, form.kind === 'sale'
-    ? { amount: +form.amount, vat: +form.vat || 0, payment_method: form.payment_method, receipt_number: form.receipt_number, items: itemsBody(form.items) }
-    : { amount: +form.amount, vat: +form.vat || 0, payment_method: form.payment_method, original_receipt: form.receipt_number, reason: form.reason || null, items: itemsBody(form.items) },
-  auth()), async () => { await openShift(active.id); await load(); });
+
+  const saveTxn = async () => {
+    const kind = form.kind;
+    const shift = active;
+    const payload = kind === 'sale'
+      ? { amount: +form.amount, vat: +form.vat || 0, payment_method: form.payment_method,
+        receipt_number: form.receipt_number.trim() || autoReceipt(shift.terminal_id), items: itemsBody(form.items) }
+      : { amount: +form.amount, vat: +form.vat || 0, payment_method: form.payment_method,
+        original_receipt: form.receipt_number.trim(), reason: form.reason || null, items: itemsBody(form.items) };
+    const op = { client_uuid: form.client_uuid, kind, shift_id: shift.id, payload };
+    const keepOffline = async () => {
+      await posQueue.enqueue(op);
+      if (printOn) printReceipt({ shift, kind, payload, products, pending: true });
+      setForm(null); setNote('حُفظت العملية على الجهاز — سيتم رفعها تلقائياً عند عودة الاتصال');
+    };
+    setBusy(true); setErr(''); setNote('');
+    try {
+      if (!posQueue.isOnline()) { await keepOffline(); return; }
+      try {
+        const { data: r } = await sendOp(op);
+        if (printOn) printReceipt({ shift, kind, payload, products, eta: r.eta_receipt, pending: false });
+        setForm(null);
+        if (r.eta_receipt?.status === 'error') setNote(`سُجّلت العملية — الإيصال الإلكتروني: ${r.eta_receipt.error}`);
+        await openShift(shift.id); await load(); loadReceipts(etaFilter);
+      } catch (e) {
+        if (isNetErr(e)) await keepOffline();
+        else setErr(errText(e, 'تعذّر الحفظ'));
+      }
+    } finally { setBusy(false); }
+  };
   const closeBody = () => ({ actual_cash: +form.actual_cash, shortage_tolerance: +form.tolerance || 0, date: form.date });
   const doPreview = async () => {
     setBusy(true); setErr('');
@@ -224,10 +362,35 @@ export function PosShiftsPage() {
       qty: +i.qty, unit_cost: i.unit_cost === '' ? null : +i.unit_cost, reason: i.reason || 'تالف' })) }, auth()), loadSpoil);
   const saveSettle = () => run(() => axios.post(`${API}/api/pos/card-settlements`, {
     date: form.date, gross_amount: +form.gross_amount, commission: +form.commission || 0, bank_account: form.bank_account, reference: form.reference || null }, auth()), loadSettle);
+  const saveEta = async () => {
+    setBusy(true); setErr(''); setNote('');
+    const body = {};
+    Object.entries(etaForm).forEach(([k, v]) => {
+      if (!(k in ETA_BLANK)) return;
+      if ((k === 'client_secret' || k === 'pre_shared_key') && !v) return;   // empty = keep the stored one
+      body[k] = typeof v === 'string' ? v.trim() : v;
+    });
+    try {
+      const { data: r } = await axios.put(`${API}/api/pos/eta-settings`, body, auth());
+      setEta(r); setEtaForm({ ...ETA_BLANK, ...r.settings, client_secret: '', pre_shared_key: '' });
+      setNote(r.built ? `${r.message} — بُني ${r.built} إيصال كان ينتظر الإعدادات` : r.message);
+      loadReceipts(etaFilter);
+    } catch (e) { setErr(errText(e, 'تعذّر حفظ الإعدادات')); } finally { setBusy(false); }
+  };
+  const submitNow = async () => {
+    setBusy(true); setErr(''); setNote('');
+    try { const { data: r } = await axios.post(`${API}/api/pos/eta-receipts/submit-now`, {}, auth()); setNote(r.message); await loadReceipts(etaFilter); }
+    catch (e) { setErr(errText(e, 'تعذّر الإرسال')); } finally { setBusy(false); }
+  };
 
   const s = data?.summary || {};
   const blankItem = { product_id: '', qty: '' };
   const setItem = (i, k, v) => setForm({ ...form, items: form.items.map((x, j) => (j === i ? { ...x, [k]: v } : x)) });
+  const waiting = queued.filter((o) => !o.failed);
+  const rejectedOps = queued.filter((o) => o.failed);
+  const activeQueued = active ? queued.filter((o) => o.shift_id === active.id) : [];
+  const counts = receipts?.counts || {};
+  const setE = (k) => (e) => setEtaForm({ ...etaForm, [k]: e.target.value });
 
   return (
     <div className="p-4 md:p-6 space-y-4" dir="rtl">
@@ -236,12 +399,39 @@ export function PosShiftsPage() {
         {tab === 'spoilage' && <AddBtn onClick={() => { setErr(''); setForm({ kind: 'spoil', date: today(), warehouse_id: '', inventory_account: '125', notes: '', items: [{ product_id: '', product_name: '', qty: '', unit_cost: '', reason: 'تالف' }] }); }}>تسجيل تالف</AddBtn>}
         {tab === 'cards' && <AddBtn onClick={() => { setErr(''); setForm({ kind: 'settle', date: today(), gross_amount: '', commission: '', bank_account: banks[0]?.account_code || '162', reference: '' }); }}>تسوية بطاقات</AddBtn>}
       </Header>
-      <Tabs tabs={[['shifts', 'الورديات'], ['spoilage', 'التالف والهدر'], ['cards', 'تسويات البطاقات']]} value={tab} onChange={setTab} />
+
+      {!online && (
+        <div className="flex items-center gap-2 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 p-3 text-sm" role="status">
+          <WifiOff className="w-4 h-4 shrink-0" aria-hidden />
+          <span><b>يعمل بدون إنترنت</b> — المبيعات والمرتجعات تُحفظ على هذا الجهاز وتُرفع تلقائياً عند عودة الاتصال. الإقفال والإعدادات تحتاج اتصالاً.</span>
+        </div>
+      )}
+      {(waiting.length > 0 || rejectedOps.length > 0) && (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 text-sm space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span>عمليات بانتظار الرفع: <b><bdi dir="ltr">{waiting.length}</bdi></b></span>
+            {waiting[0]?.last_error && <span className="text-xs text-slate-500">آخر محاولة: {waiting[0].last_error}</span>}
+            {online && waiting.length > 0 && <button onClick={flushNow} className={btnSmall}>رفع الآن</button>}
+          </div>
+          {rejectedOps.map((o) => (
+            <div key={o.client_uuid} className="flex flex-wrap items-center gap-2 text-red-700">
+              <Badge tone="red">رفضها الخادم</Badge>
+              <span>{o.kind === 'return' ? 'مرتجع' : 'بيع'} <N v={o.payload.amount} /> — {o.last_error}</span>
+              <button onClick={() => posQueue.discard(o.client_uuid)} className={btnSmall}>حذف من الجهاز</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Tabs tabs={[['shifts', 'الورديات'], ['spoilage', 'التالف والهدر'], ['cards', 'تسويات البطاقات'], ['eta', 'الإيصال الإلكتروني']]} value={tab}
+        onChange={(t) => { setTab(t); setNote(''); if (t === 'eta') { loadEta(); loadReceipts(etaFilter); } }} />
+      {note && <p className="text-sm rounded-lg bg-blue-50 text-blue-900 p-3" role="status">{note}</p>}
 
       {tab === 'shifts' && (<>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <Stat label="إجمالي المبيعات" v={s.total_sales} /><Stat label="نقدي" v={s.total_cash} />
           <Stat label="بطاقات" v={s.total_card} /><Stat label="ورديات بعجز" v={s.cash_shortages} money={false} />
+          <Stat label="إيصالات إلكترونية بانتظار الإرسال" v={counts.pending || 0} money={false} />
         </div>
         {data === null ? <Spinner /> : (
           <Table head={['الكاشير', 'النقطة', 'التاريخ', '#المبيعات', '#المرتجعات', '#فرق النقدية', 'الحالة', '']} empty={data.shifts.length === 0 && 'لا توجد ورديات بعد.'}>
@@ -279,29 +469,87 @@ export function PosShiftsPage() {
           ))}
         </Table>
       </>))}
+
+      {tab === 'eta' && (etaForm === null ? <Spinner /> : (<>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Stat label="بانتظار الإرسال" v={counts.pending || 0} money={false} /><Stat label="مُرسلة" v={counts.submitted || 0} money={false} />
+          <Stat label="مرفوضة" v={counts.rejected || 0} money={false} /><Stat label="أخطاء بناء" v={counts.error || 0} money={false} />
+        </div>
+        {eta?.missing?.length > 0 && <p className="text-sm rounded-lg bg-amber-50 text-amber-800 p-3">الإيصالات تبقى بانتظار الإرسال حتى تكتمل: {eta.missing.join('، ')}. رقم التسجيل والاسم والعنوان تُؤخذ من إعدادات الفاتورة الإلكترونية.</p>}
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+          <p className="font-bold mb-3">إعدادات جهاز نقطة البيع لدى المنظومة</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <Label t="البيئة"><select value={etaForm.environment || 'preprod'} onChange={setE('environment')} className={input}>
+              <option value="preprod">تجريبية (Pre-production)</option><option value="production">الإنتاج</option></select></Label>
+            <Label t="الرقم التسلسلي للجهاز *"><input dir="ltr" value={etaForm.device_serial || ''} onChange={setE('device_serial')} className={input} /></Label>
+            <Label t="إصدار نظام التشغيل"><input dir="ltr" value={etaForm.pos_os_version || ''} onChange={setE('pos_os_version')} className={input} /></Label>
+            <Label t="Client ID *"><input dir="ltr" value={etaForm.client_id || ''} onChange={setE('client_id')} className={input} autoComplete="off" /></Label>
+            <Label t={eta?.settings?.has_client_secret ? 'Client Secret (محفوظ — اتركه فارغاً للإبقاء)' : 'Client Secret *'}>
+              <input dir="ltr" type="password" value={etaForm.client_secret || ''} onChange={setE('client_secret')} className={input} autoComplete="new-password" /></Label>
+            <Label t={eta?.settings?.has_pre_shared_key ? 'المفتاح المشترك (محفوظ)' : 'المفتاح المشترك (إن وُجد)'}>
+              <input dir="ltr" type="password" value={etaForm.pre_shared_key || ''} onChange={setE('pre_shared_key')} className={input} autoComplete="new-password" /></Label>
+            <Label t="كود النشاط"><input dir="ltr" value={etaForm.activity_code || ''} onChange={setE('activity_code')} placeholder={eta?.effective?.activity_code || ''} className={input} /></Label>
+            <Label t="كود الفرع"><input dir="ltr" value={etaForm.branch_code || ''} onChange={setE('branch_code')} className={input} /></Label>
+            <Label t="كود الصنف الافتراضي (للإيصال بلا أصناف مسعّرة)">
+              <div className="flex gap-2"><select value={etaForm.default_item_type || 'EGS'} onChange={setE('default_item_type')} className={`${input} w-24`}>
+                <option value="EGS">EGS</option><option value="GS1">GS1</option></select>
+                <input dir="ltr" value={etaForm.default_item_code || ''} onChange={setE('default_item_code')} className={input} /></div></Label>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={saveEta} disabled={busy || !online} className={btnPrimary}>{busy ? '…' : 'حفظ الإعدادات'}</button>
+            <button onClick={submitNow} disabled={busy || !online} className={btnGhost}>إرسال الإيصالات الآن</button>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">تُرسل الإيصالات تلقائياً كل 10 دقائق. لم يُختبر الربط بعد على بيئة المنظومة التجريبية — جرّب البيئة التجريبية أولاً.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Tabs tabs={[['', 'الكل'], ['pending', 'بانتظار الإرسال'], ['submitted', 'مُرسلة'], ['rejected', 'مرفوضة'], ['error', 'أخطاء']]} value={etaFilter}
+            onChange={(f) => { setEtaFilter(f); loadReceipts(f); }} />
+          <button onClick={() => loadReceipts(etaFilter)} aria-label="تحديث" className="p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800"><RefreshCw className="w-4 h-4" /></button>
+        </div>
+        {receipts === null ? <Spinner /> : (
+          <Table head={['الوقت', 'النوع', 'الإيصال', '#المبلغ', 'الحالة', 'الرقم لدى المنظومة / السبب']} empty={(receipts.receipts || []).length === 0 && 'لا توجد إيصالات.'}>
+            {(receipts.receipts || []).map((r) => (
+              <tr key={r.id}><td className="px-3 py-2"><bdi dir="ltr">{String(r.issued_at || '').slice(0, 16).replace('T', ' ')}</bdi></td>
+                <td className="px-3 py-2">{r.kind === 'return' ? <Badge tone="amber">مرتجع</Badge> : 'بيع'}</td>
+                <td className="px-3 py-2"><bdi dir="ltr">{r.receipt_number}</bdi></td><td className="px-3 py-2 text-end"><N v={r.amount} /></td>
+                <td className="px-3 py-2"><EtaBadge r={r} /></td>
+                <td className="px-3 py-2 text-xs max-w-xs break-all">{r.error || r.last_error ? <span className="text-red-700">{r.error || r.last_error}</span> : <bdi dir="ltr">{r.long_id || r.uuid || '—'}</bdi>}</td></tr>
+            ))}
+          </Table>
+        )}
+      </>))}
       {err && !form && <Err e={err} />}
 
       {active && !form && (
         <Modal wide title={`وردية ${active.cashier_name} — ${active.terminal_id}`} onClose={() => setActive(null)} footer={active.status === 'open' && <>
-          <button onClick={() => { setErr(''); setForm({ kind: 'return', amount: '', vat: '', payment_method: 'cash', receipt_number: '', reason: '', items: [blankItem] }); }} className={btnGhost}>مرتجع</button>
-          <button onClick={() => { setErr(''); setForm({ kind: 'sale', amount: '', vat: '', payment_method: 'cash', receipt_number: '', items: [blankItem] }); }} className={btnGhost}>تسجيل بيع</button>
-          <button onClick={() => { setErr(''); setPreview(null); setForm({ kind: 'close', actual_cash: '', tolerance: 50, date: active.shift_date }); }} className={btnPrimary}>إقفال الوردية</button></>}>
+          <label className="me-auto inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={printOn} onChange={(e) => setPrintOn(e.target.checked)} /><Printer className="w-4 h-4" aria-hidden /> طباعة الإيصال</label>
+          <button onClick={() => { setErr(''); setForm({ kind: 'return', client_uuid: posQueue.newClientUuid(), amount: '', vat: '', payment_method: 'cash', receipt_number: '', reason: '', items: [blankItem] }); }} className={btnGhost}>مرتجع</button>
+          <button onClick={() => { setErr(''); setForm({ kind: 'sale', client_uuid: posQueue.newClientUuid(), amount: '', vat: '', payment_method: 'cash', receipt_number: '', items: [blankItem] }); }} className={btnGhost}>تسجيل بيع</button>
+          <button onClick={() => { setErr(''); setPreview(null); setForm({ kind: 'close', actual_cash: '', tolerance: 50, date: active.shift_date }); }} disabled={!online || activeQueued.length > 0}
+            title={activeQueued.length ? 'ارفع العمليات المعلقة أولاً' : ''} className={btnPrimary}>إقفال الوردية</button></>}>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
             <Stat label="العهدة الافتتاحية" v={active.opening_cash} /><Stat label="مبيعات نقدية" v={active.total_cash_sales} />
             <Stat label="بطاقات ومحافظ" v={(active.total_card_sales || 0) + (active.total_wallet_sales || 0)} /><Stat label="مرتجعات" v={active.total_returns} />
           </div>
           {active.status === 'closed' && <p className="mb-3 text-sm">النقدية المتوقعة <N v={active.expected_cash} /> — المعدودة <N v={active.actual_cash} /> — الفرق <N v={active.cash_difference} /></p>}
-          <Table head={['الوقت', 'النوع', 'الإيصال', 'الدفع', '#المبلغ', '#الضريبة']} empty={(active.transactions || []).length === 0 && 'لا توجد عمليات بعد.'}>
+          <Table head={['الوقت', 'النوع', 'الإيصال', 'الدفع', '#المبلغ', '#الضريبة', 'الإيصال الإلكتروني']} empty={(active.transactions || []).length === 0 && activeQueued.length === 0 && 'لا توجد عمليات بعد.'}>
+            {activeQueued.map((o) => (
+              <tr key={o.client_uuid} className="bg-amber-50/60 dark:bg-amber-900/10"><td className="px-3 py-2"><bdi dir="ltr">{String(o.created_at || '').slice(11, 16)}</bdi></td>
+                <td className="px-3 py-2">{o.kind === 'return' ? <Badge tone="amber">مرتجع</Badge> : 'بيع'}</td>
+                <td className="px-3 py-2"><bdi dir="ltr">{o.payload.receipt_number || o.payload.original_receipt || '—'}</bdi></td><td className="px-3 py-2">{PAY[o.payload.payment_method]}</td>
+                <td className="px-3 py-2 text-end"><N v={o.payload.amount} /></td><td className="px-3 py-2 text-end"><N v={o.payload.vat} /></td>
+                <td className="px-3 py-2">{o.failed ? <Badge tone="red">رفضها الخادم</Badge> : <Badge tone="amber">سيتم رفعه</Badge>}</td></tr>
+            ))}
             {(active.transactions || []).map((t) => (
               <tr key={t.id}><td className="px-3 py-2"><bdi dir="ltr">{String(t.timestamp || '').slice(11, 16)}</bdi></td>
                 <td className="px-3 py-2">{t.type === 'return' ? <Badge tone="amber">مرتجع</Badge> : 'بيع'}</td>
                 <td className="px-3 py-2"><bdi dir="ltr">{t.receipt_number || '—'}</bdi></td><td className="px-3 py-2">{PAY[t.payment_method]}</td>
-                <td className="px-3 py-2 text-end"><N v={t.amount} /></td><td className="px-3 py-2 text-end"><N v={t.vat} /></td></tr>
+                <td className="px-3 py-2 text-end"><N v={t.amount} /></td><td className="px-3 py-2 text-end"><N v={t.vat} /></td>
+                <td className="px-3 py-2"><EtaBadge r={t.eta_receipt} /></td></tr>
             ))}
           </Table>
         </Modal>
       )}
-
       {form?.kind === 'open' && (
         <Modal title="فتح وردية" onClose={() => setForm(null)} footer={<>
           <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>

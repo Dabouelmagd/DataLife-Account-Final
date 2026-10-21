@@ -99,6 +99,7 @@ from api.sales import router as sales_router
 from api.enterprise_accounting import router as enterprise_router
 from api.super_admin import router as super_admin_router
 from api.compat_routes import router as compat_router
+from api.ecommerce import router as ecommerce_router
 from scheduler import start_scheduler, get_scheduler_status
 
 
@@ -218,6 +219,7 @@ app.include_router(financial_data_router)
 app.include_router(inventory_data_router)
 app.include_router(analytics_router)
 app.include_router(webhook_router)
+app.include_router(ecommerce_router)
 app.include_router(admin_companies_router)
 app.include_router(admin_users_router)
 app.include_router(admin_subscriptions_router)

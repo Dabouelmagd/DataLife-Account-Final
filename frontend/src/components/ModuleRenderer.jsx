@@ -9,6 +9,8 @@ import IndustryPackScreen from './IndustryPackScreen';
 import MedicalPage from './MedicalPage';
 import BankReconciliationPage from './BankReconciliationPage';
 import FxRevaluationPage from './FxRevaluationPage';
+import YearEndClosePage from './YearEndClosePage';
+import EcommercePage from './EcommercePage';
 import RecruitmentPage from '../pages/RecruitmentPage';
 import UnauthorizedPage from './UnauthorizedPage';
 
@@ -200,6 +202,8 @@ export const renderFinancialContent = ({
     'treasury': <TreasuryPage />,
     'bank-reconciliation': <BankReconciliationPage />,
     'fx-revaluation': <FxRevaluationPage language={language} />,
+    'year-end-close': <YearEndClosePage language={language} />,
+    'ecommerce': <EcommercePage language={language} />,
     'progress-claims': <ProgressClaimsPage />,
     'guarantees': <GuaranteesPage />,
     'tax-forms': <TaxFormsPage />,

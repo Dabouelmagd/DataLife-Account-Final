@@ -200,51 +200,77 @@ async def generate_form_10(
     else:
         date_to = f"{year}-{month:02d}-{(date(year, month+1, 1) - __import__('datetime').timedelta(days=1)).day:02d}"
 
-    # Everything comes from the ledger, NET (credit − debit), so:
-    #  - sales from any module count (the base used to read only the invoice
-    #    page, so Sales-module invoices showed VAT on a base of 0);
-    #  - drafts never count (purchases were taken with no status filter);
-    #  - returns / credit notes / reversals reduce the figures (one-sided sums
-    #    ignored them and overstated the tax due).
-    # Reversed originals are kept: their posted reversal nets them out in
-    # whichever month it is dated.
+    # VAT AMOUNTS come from the ledger, NET (credit − debit), so:
+    #  - sales from any module count (POS, sales module, imports …);
+    #  - drafts never count; returns / credit notes / reversals reduce them.
+    # The BASE was taken only from entries touching 260/137, so zero-rated,
+    # export, free-zone and exempt sales — which post no VAT — vanished from
+    # the return. The base is now built from the posted invoices themselves,
+    # line by line, grouped by VAT category and rate; entries from other
+    # modules (not invoices) are added as their own row from the ledger.
     entries = await db.journal_entries.find({
         "company_id": company_id, "status": {"$in": ["posted", "reversed"]},
         "entry_date": {"$gte": date_from, "$lte": date_to + "\uffff"},
-        "lines.account_code": {"$in": ["260", "137"]},
+        "lines.account_code": {"$in": ["260", "137", "2545"]},
     }, {"_id": 0}).to_list(None)
 
     BASE_ASSET_PREFIXES = ("11", "12", "14")        # fixed assets, inventory, projects bought with VAT
-    vat_output = vat_input = sales_base = purchase_base = 0.0
-    sales_docs = purchase_docs = credit_notes = debit_notes = 0
+    vat_output = vat_input = vat_table = 0.0
+    other_sales_base = other_sales_vat = other_purch_base = other_purch_vat = 0.0
+    credit_notes = debit_notes = 0
     for je in entries:
         L = je.get("lines", [])
         out = sum(l.get("credit", 0) - l.get("debit", 0) for l in L if l.get("account_code") == "260")
         inp = sum(l.get("debit", 0) - l.get("credit", 0) for l in L if l.get("account_code") == "137")
+        vat_table += sum(l.get("credit", 0) - l.get("debit", 0) for l in L if l.get("account_code") == "2545")
+        from_invoice = je.get("source_document_type") == "invoice"
         if out:
             vat_output += out
-            sales_base += sum(l.get("credit", 0) - l.get("debit", 0) for l in L
-                              if str(l.get("account_code", "")).startswith("4"))
-            sales_docs += out > 0
             credit_notes += out < 0
+            if not from_invoice:
+                other_sales_vat += out
+                other_sales_base += sum(l.get("credit", 0) - l.get("debit", 0) for l in L
+                                        if str(l.get("account_code", "")).startswith("4"))
         if inp:
             vat_input += inp
-            purchase_base += sum(l.get("debit", 0) - l.get("credit", 0) for l in L
-                                 if l.get("account_code") != "137" and (
-                                     str(l.get("account_code", "")).startswith("3")
-                                     or str(l.get("account_code", "")).startswith(BASE_ASSET_PREFIXES)))
-            purchase_docs += inp > 0
             debit_notes += inp < 0
-    vat_output, vat_input = round(vat_output, 2), round(vat_input, 2)
-    sales_base, purchase_base = round(sales_base, 2), round(purchase_base, 2)
-    vat_table = 0.0   # table tax needs its own account; none is posted yet
-    net_vat = round(vat_output - vat_input - vat_table, 2)
+            if not from_invoice:
+                other_purch_vat += inp
+                other_purch_base += sum(l.get("debit", 0) - l.get("credit", 0) for l in L
+                                        if l.get("account_code") != "137" and (
+                                            str(l.get("account_code", "")).startswith("3")
+                                            or str(l.get("account_code", "")).startswith(BASE_ASSET_PREFIXES)))
+
+    sales_rows, purchase_rows, counts = await _form10_invoice_rows(company_id, date_from, date_to)
+    if round(other_sales_base, 2) or round(other_sales_vat, 2):
+        sales_rows.append({"key": "other_modules", "label": "مبيعات خاضعة من وحدات أخرى (نقاط البيع وغيرها)",
+                           "category": "standard", "rate": None, "base": round(other_sales_base, 2),
+                           "vat": round(other_sales_vat, 2), "count": 0})
+    if round(other_purch_base, 2) or round(other_purch_vat, 2):
+        purchase_rows.append({"key": "other_modules", "label": "مشتريات خاضعة من وحدات أخرى",
+                              "category": "standard", "rate": None, "base": round(other_purch_base, 2),
+                              "vat": round(other_purch_vat, 2), "count": 0})
+
+    def _sum(rows, cats=None, field="base"):
+        return round(sum(r[field] for r in rows if r["key"] != "table_tax"
+                         and (cats is None or r["category"] in cats)), 2)
+
+    vat_output, vat_input, vat_table = round(vat_output, 2), round(vat_input, 2), round(vat_table, 2)
+    sales_base = _sum(sales_rows)
+    purchase_base = _sum(purchase_rows)
+    taxable_sales_base = _sum(sales_rows, {"standard"})
+    # table tax is a tax of its own on the same return: it is ADDED to what is
+    # due, not netted against VAT (it was subtracted, harmlessly, while always 0)
+    net_vat = round(vat_output - vat_input, 2)
+    total_due = round(max(net_vat, 0) + vat_table, 2)
 
     # monthly return, due within the month following the tax period (Law 67/2016, art. 16)
     nm_y, nm_m = (year + 1, 1) if month == 12 else (year, month + 1)
     due_date = (date(nm_y + (nm_m == 12), nm_m % 12 + 1, 1) - __import__('datetime').timedelta(days=1)).isoformat()
-    sales_invoices = [None] * sales_docs            # counts kept for the response shape below
-    purchase_invoices = [None] * purchase_docs
+    sales_invoices = [None] * counts["sales"]            # counts kept for the response shape below
+    purchase_invoices = [None] * counts["purchases"]
+    credit_notes = max(credit_notes, counts["sales_notes"])
+    debit_notes = max(debit_notes, counts["purchase_notes"])
 
     return {
         "form":       "نموذج 10 — إقرار ضريبة القيمة المضافة",
@@ -263,32 +289,147 @@ async def generate_form_10(
             "label":            "أولاً: ضريبة القيمة المضافة على المبيعات (المخرجات)",
             "account":          "م/260",
             "sales_base":       sales_base,
+            "taxable_base":     taxable_sales_base,
+            "export_sales":     _sum(sales_rows, {"export"}),
+            "free_zone_sales":  _sum(sales_rows, {"free_zone"}),
+            "exempt_sales":     _sum(sales_rows, {"exempt"}),
+            "non_taxable_sales": _sum(sales_rows, {"non_taxable"}),
             "vat_amount":       vat_output,
             "invoice_count":    len(sales_invoices),
             "credit_notes":     credit_notes,
+            "lines":            sales_rows,
         },
         "vat_input": {
             "label":            "ثانياً: ضريبة القيمة المضافة على المشتريات (المدخلات)",
             "account":          "م/137",
             "debit_notes":      debit_notes,
             "purchase_base":    purchase_base,
+            "taxable_base":     _sum(purchase_rows, {"standard"}),
             "vat_amount":       vat_input,
             "invoice_count":    len(purchase_invoices),
+            "lines":            purchase_rows,
         },
         "vat_table": {
             "label":  "ثالثاً: ضريبة الجدول (الخدمات والسلع الجدولية)",
+            "account": "م/2545",
             "amount": vat_table,
+            "base":   round(sum(r["base"] for r in sales_rows if r["key"] == "table_tax"), 2),
         },
         "net_position": {
             "vat_output":     vat_output,
             "vat_input":      vat_input,
             "vat_table":      vat_table,
+            "total_due":      total_due,
             "net_vat_due":    net_vat if net_vat > 0 else 0,
             "vat_credit":     abs(net_vat) if net_vat < 0 else 0,
             "status":         "مستحق السداد" if net_vat > 0 else ("رصيد دائن" if net_vat < 0 else "متعادل"),
         },
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+FORM10_CATEGORY_LABELS = {
+    "standard": "خاضعة بالسعر العام",
+    "export":   "صادرات (سعر صفر)",
+    "free_zone": "مبيعات لمناطق حرة (سعر صفر)",
+    "exempt":   "معفاة",
+    "non_taxable": "غير خاضعة",
+}
+FORM10_ORDER = {"standard": 0, "reduced": 1, "export": 2, "free_zone": 3, "exempt": 4,
+                "non_taxable": 5, "table_tax": 6, "other_modules": 7}
+POSTED_STATUSES = {"approved", "sent", "paid", "partially_paid", "credited"}
+
+
+def _line_category(ln: dict) -> str:
+    cat = ln.get("vat_category")
+    cat = getattr(cat, "value", cat)
+    if cat:
+        return str(cat)
+    tt = ln.get("tax_type") or "vat"
+    return {"exempt": "exempt", "zero_rated": "export"}.get(str(getattr(tt, "value", tt)), "standard")
+
+
+async def _form10_invoice_rows(company_id: str, date_from: str, date_to: str):
+    """Rows of Form 10 from the month's posted invoices and notes, in EGP:
+    standard 14%, each reduced rate, exports, free zone, exempt, non-taxable
+    and table tax — for sales and for purchases. A credit note on a sale
+    reduces sales; a debit note on a purchase (a return) reduces purchases."""
+    docs = await db.invoices.find({
+        "company_id": company_id,
+        "document_type": {"$in": ["sales_invoice", "purchase_invoice", "credit_note", "debit_note"]},
+        "document_date": {"$gte": date_from, "$lte": date_to + "\uffff"},
+    }, {"_id": 0}).to_list(None)
+    docs = [d for d in docs if d.get("status") in POSTED_STATUSES and d.get("journal_entry_id")]
+    orig_ids = list({d["original_invoice_id"] for d in docs if d.get("original_invoice_id")})
+    originals = {o["id"]: o.get("document_type") async for o in db.invoices.find(
+        {"company_id": company_id, "id": {"$in": orig_ids}}, {"_id": 0, "id": 1, "document_type": 1})} \
+        if orig_ids else {}
+
+    rows = {"sales": {}, "purchases": {}}
+    counts = {"sales": 0, "purchases": 0, "sales_notes": 0, "purchase_notes": 0}
+    for d in docs:
+        dt = d["document_type"]
+        if dt in ("credit_note", "debit_note"):
+            on_purchase = originals.get(d.get("original_invoice_id")) == "purchase_invoice"
+            side = "purchases" if on_purchase else "sales"
+            # sales: credit note −, debit note + ; purchases: debit note (return) −, credit note +
+            sign = (-1 if dt == "debit_note" else 1) if on_purchase else (-1 if dt == "credit_note" else 1)
+            counts["purchase_notes" if on_purchase else "sales_notes"] += 1
+        else:
+            side = "sales" if dt == "sales_invoice" else "purchases"
+            sign = 1
+            counts[side] += 1
+        fx = float(d.get("exchange_rate") or 1) if str(d.get("currency") or "EGP").upper() != "EGP" else 1.0
+        bucket = rows[side]
+        for ln in d.get("lines") or []:
+            cat = _line_category(ln)
+            rate = round(float(ln.get("tax_rate") or 0), 2) if cat == "standard" else 0.0
+            net = ln.get("net_amount")
+            if net is None or (not net and float(ln.get("subtotal") or 0)):
+                net = float(ln.get("subtotal") or 0) - float(ln.get("discount_amount") or 0) \
+                    - float(ln.get("invoice_discount") or 0)
+            net = float(net) * fx * sign
+            vat = float(ln.get("tax_amount") or 0) * fx * sign
+            if cat == "standard":
+                key = "standard" if rate == 14 else ("reduced" if rate > 0 else "exempt")
+                if key == "exempt":
+                    cat = "exempt"
+            else:
+                key = cat
+            rkey = (key, rate if key == "reduced" else None)
+            r = bucket.setdefault(rkey, {"key": key, "category": cat, "rate": rate if cat == "standard" else 0,
+                                         "base": 0.0, "vat": 0.0, "count": 0, "_docs": set()})
+            r["base"] += net
+            r["vat"] += vat
+            r["_docs"].add(d["id"])
+            table = sum(float(t.get("amount") or 0) for t in ln.get("other_taxes") or []
+                        if str(t.get("tax_type") or "").upper() in ("T2", "T3")) * fx * sign
+            if table:
+                t = bucket.setdefault(("table_tax", None), {"key": "table_tax", "category": "table_tax",
+                                                            "rate": None, "base": 0.0, "vat": 0.0,
+                                                            "count": 0, "_docs": set()})
+                t["base"] += net
+                t["vat"] += table
+                t["_docs"].add(d["id"])
+
+    def finish(bucket):
+        out = []
+        for r in bucket.values():
+            r["count"] = len(r.pop("_docs"))
+            r["base"], r["vat"] = round(r["base"], 2), round(r["vat"], 2)
+            if r["key"] == "standard":
+                r["label"] = "خاضعة بالسعر العام 14%"
+            elif r["key"] == "reduced":
+                r["label"] = f"خاضعة بسعر {r['rate']:g}%"
+            elif r["key"] == "table_tax":
+                r["label"] = "ضريبة الجدول (وعاؤها وقيمتها)"
+            else:
+                r["label"] = FORM10_CATEGORY_LABELS.get(r["key"], r["key"])
+            out.append(r)
+        out.sort(key=lambda r: (FORM10_ORDER.get(r["key"], 9), r["rate"] or 0))
+        return out
+
+    return finish(rows["sales"]), finish(rows["purchases"]), counts
 
 
 # ══════════════════════════════════════════════════════════════
@@ -538,7 +679,7 @@ async def create_e_receipt(
                     {
                         "taxType":    "T1",  # VAT
                         "amount":     line["vat_amount"],
-                        "subType":    "V001",
+                        "subType":    "V009" if round(line["vat_rate"] * 100, 2) == 14 else "V010",
                         "rate":       line["vat_rate"] * 100,
                     }
                 ] if line["vat_amount"] > 0 else [],

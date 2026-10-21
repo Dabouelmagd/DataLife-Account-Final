@@ -90,7 +90,12 @@ class Party(BaseModel):
     governate: Optional[str] = None        # المحافظة — مطلوبة للفاتورة الإلكترونية
     building_number: Optional[str] = None  # رقم المبنى — مطلوب للفاتورة الإلكترونية
     national_id: Optional[str] = None      # الرقم القومي (للأفراد فوق الحد)
-    country: str = "EG"
+    country: str = "EG"                    # ISO-3166 alpha-2 (EG, SA, US…)
+    # ── عميل أجنبي / منطقة حرة — يحددان فئة ضريبة القيمة المضافة الافتراضية ──
+    is_foreign: bool = False               # خارج مصر → تصدير (V001) ومستلم من النوع F
+    free_zone: bool = False                # منطقة حرة / استثمارية → V002
+    foreign_tax_id: Optional[str] = None   # رقم التسجيل الضريبي في بلده (للمستلم F)
+    passport_number: Optional[str] = None  # لفرد أجنبي
     phone: Optional[str] = None
     email: Optional[str] = None
     contact_person: Optional[str] = None
@@ -131,6 +136,57 @@ class Product(BaseModel):
 # Invoice Line Item
 # ==========================================
 
+class VatCategory(str, Enum):
+    """فئة ضريبة القيمة المضافة على السطر"""
+    STANDARD = "standard"         # خاضع بالسعر العام (14%) أو بسعر آخر
+    EXPORT = "export"             # تصدير — سعر صفر
+    FREE_ZONE = "free_zone"       # بيع لمنطقة حرة — سعر صفر
+    EXEMPT = "exempt"             # معفى
+    NON_TAXABLE = "non_taxable"   # غير خاضع
+
+
+# ETA tax types (code table "Tax Types"): T1 VAT, T2 table tax (%), T3 table tax
+# (fixed), T4 withholding (subtracted), T5 stamp duty (%), T6 stamp duty
+# (fixed), T7 entertainment, T8 resource development, T9 service charge,
+# T10 municipality, T11 medical insurance, T12 other.
+TAXES_IN_VAT_BASE = {"T2", "T3"}            # VAT is charged on net + table tax
+TAXES_DEDUCTED = {"T4"}                     # withholding reduces the line total
+TAXES_FIXED = {"T3", "T6"}                  # an amount, not a rate
+TABLE_TAX_TYPES = {"T2", "T3"}
+STAMP_TAX_TYPES = {"T5", "T6"}
+
+
+class LineTax(BaseModel):
+    """ضريبة أخرى على السطر (جدول / دمغة / خصم وتحصيل …) بأكواد المنظومة"""
+    tax_type: str                          # T2 | T3 | T4 | T5 | T6 | … T12
+    sub_type: Optional[str] = None         # e.g. Tbl01, Tbl02, ST01, ST02, W001
+    rate: float = 0.0                      # % for rate types
+    amount: float = 0.0                    # computed (rate types) or entered (T3/T6)
+
+
+def vat_category_of(line) -> str:
+    cat = getattr(line, "vat_category", None) if not isinstance(line, dict) else line.get("vat_category")
+    cat = getattr(cat, "value", cat)
+    if cat:
+        return str(cat)
+    tt = getattr(line, "tax_type", None) if not isinstance(line, dict) else line.get("tax_type")
+    tt = str(getattr(tt, "value", tt) or "vat")
+    return {"exempt": "exempt", "zero_rated": "export"}.get(tt, "standard")
+
+
+def default_vat_category(party: Optional[dict], document_type: str = "sales_invoice") -> Optional[str]:
+    """From the customer's flags: free zone → free_zone, abroad → export.
+    Only sales-side documents; an import's VAT is paid at customs, not here."""
+    party = party or {}
+    if document_type not in ("sales_invoice", "credit_note", "debit_note", "sales_quotation"):
+        return None
+    if party.get("free_zone"):
+        return VatCategory.FREE_ZONE.value
+    if party.get("is_foreign") or str(party.get("country") or "EG").upper()[:2] != "EG":
+        return VatCategory.EXPORT.value
+    return None
+
+
 class InvoiceLine(BaseModel):
     """سطر الفاتورة"""
     line_number: int
@@ -144,8 +200,18 @@ class InvoiceLine(BaseModel):
     discount_amount: float = 0.0
     tax_type: TaxType = TaxType.VAT
     tax_rate: float = 14.0
+    # before-tax invoice discount spread onto this line pro-rata to its net
+    # (calculate_invoice_totals sets it). It reduces the VAT base, and the ETA
+    # document reports it as part of the line discount.
+    invoice_discount: float = 0.0
+    vat_category: Optional[VatCategory] = None   # None → from tax_type
+    other_taxes: List[LineTax] = []        # ضريبة الجدول / الدمغة / …
     subtotal: float = 0.0                  # المجموع قبل الضريبة
-    tax_amount: float = 0.0                # مبلغ الضريبة
+    net_amount: float = 0.0                # الصافي بعد كل الخصومات (قبل الضرائب)
+    vat_base: float = 0.0                  # وعاء القيمة المضافة = الصافي + ضريبة الجدول
+    tax_amount: float = 0.0                # مبلغ ضريبة القيمة المضافة (T1)
+    other_taxes_amount: float = 0.0        # الضرائب الأخرى المضافة (عدا T4)
+    withholding_amount: float = 0.0        # T4 المخصومة من السطر
     total: float = 0.0                     # المجموع الكلي
     eta_code: Optional[str] = None         # كود ETA
 
@@ -238,10 +304,17 @@ class Invoice(BaseModel):
     subtotal: float = 0.0                  # المجموع قبل الخصم والضريبة
     total_discount: float = 0.0            # إجمالي خصم الأسطر
     total_after_discount: float = 0.0      # المجموع بعد خصم الأسطر
-    total_tax: float = 0.0                 # إجمالي الضريبة
+    total_tax: float = 0.0                 # إجمالي ضريبة القيمة المضافة (T1)
+    total_table_tax: float = 0.0           # ضريبة الجدول (T2 + T3)
+    total_stamp_tax: float = 0.0           # ضريبة الدمغة النسبية / النوعية (T5 + T6)
+    total_other_taxes: float = 0.0         # كل الضرائب الأخرى المضافة (جدول + دمغة + …)
+    total_line_withholding: float = 0.0    # T4 على الأسطر
     
     # Invoice Level Adjustments
-    total_invoice_discount: float = 0.0    # إجمالي خصومات الفاتورة
+    # before-tax discounts are spread onto the lines (they are inside
+    # total_discount and reduce VAT); this is the before-tax part, for display
+    total_before_tax_discount: float = 0.0
+    total_invoice_discount: float = 0.0    # خصومات بعد الضريبة على الإجمالي
     total_invoice_addition: float = 0.0    # إجمالي إضافات الفاتورة
     
     grand_total: float = 0.0               # الإجمالي الكلي
@@ -323,6 +396,9 @@ class Payment(BaseModel):
     invoice_id: str
     payment_date: str
     amount: float
+    # خصم نقدي (تعجيل دفع) مسموح به / مكتسب عند السداد — in the invoice
+    # currency. Settles AR/AP with the amount; VAT is NOT reduced by it.
+    discount_amount: float = 0.0
     payment_method: PaymentMethod = PaymentMethod.CASH
     reference: Optional[str] = None
     bank_account: Optional[str] = None
@@ -435,47 +511,140 @@ def calculate_line_totals(line: InvoiceLine) -> InvoiceLine:
 
     Amounts were stored unrounded (3 × 33.333 → 99.999, tax 13.99986), so an
     invoice, its entry and the ETA submission disagreed by fractions of a
-    piastre and the totals shown never matched the sum of the lines."""
+    piastre and the totals shown never matched the sum of the lines.
+
+    ETA order of calculation:
+      net      = sales total − line discount − share of before-tax invoice discount
+      T3       = fixed amount;  T2 = (net + T3) × rate      (table tax)
+      T1 (VAT) = (net + T2 + T3) × rate                     (standard lines only)
+      T5       = net × rate;    T6 = fixed amount            (stamp, not in VAT base)
+      T4       = net × rate, subtracted
+      total    = net + T1 + all other taxes − T4
+    """
     line.subtotal = round(line.quantity * line.unit_price, 2)
     if line.discount_percent > 0:
         line.discount_amount = line.subtotal * (line.discount_percent / 100)
     line.discount_amount = round(line.discount_amount or 0, 2)
-    after_discount = round(line.subtotal - line.discount_amount, 2)
-    if line.tax_type == TaxType.VAT:
-        line.tax_amount = round(after_discount * (line.tax_rate / 100), 2)
+    line.invoice_discount = round(line.invoice_discount or 0, 2)
+    net = round(line.subtotal - line.discount_amount - line.invoice_discount, 2)
+    line.net_amount = net
+
+    cat = vat_category_of(line)
+    if line.vat_category is None:
+        line.vat_category = VatCategory(cat)
+    taxes = sorted(line.other_taxes or [], key=lambda t: 0 if t.tax_type.upper() in TAXES_FIXED else 1)
+    in_base = added = withheld = 0.0
+    t3 = sum(round(t.amount or 0, 2) for t in taxes if t.tax_type.upper() == "T3")
+    for t in taxes:
+        t.tax_type = t.tax_type.upper()
+        if t.tax_type in TAXES_FIXED:
+            t.amount = round(t.amount or 0, 2)
+        elif t.tax_type == "T2":
+            t.amount = round((net + t3) * (t.rate or 0) / 100, 2)
+        else:
+            t.amount = round(net * (t.rate or 0) / 100, 2)
+        if t.tax_type in TAXES_DEDUCTED:
+            withheld += t.amount
+        else:
+            added += t.amount
+            if t.tax_type in TAXES_IN_VAT_BASE:
+                in_base += t.amount
+    line.other_taxes = taxes
+    line.vat_base = round(net + in_base, 2)
+    if line.tax_type == TaxType.VAT and cat == VatCategory.STANDARD.value:
+        line.tax_amount = round(line.vat_base * (line.tax_rate / 100), 2)
     else:
+        # export / free zone / exempt / non-taxable: no VAT, whatever the rate typed
         line.tax_amount = 0
-    line.total = round(after_discount + line.tax_amount, 2)
+        if cat != VatCategory.STANDARD.value:
+            line.tax_rate = 0.0
+    line.other_taxes_amount = round(added, 2)
+    line.withholding_amount = round(withheld, 2)
+    line.total = round(net + line.tax_amount + added - withheld, 2)
     return line
 
 
+def _spread_before_tax_discount(invoice: "Invoice", amount: float) -> None:
+    """Allocate a before-tax invoice discount to the lines pro-rata to each
+    line's net (after its own discount); the rounding piastre goes on the
+    largest line so the shares add up exactly."""
+    nets = [round(l.subtotal - l.discount_amount, 2) for l in invoice.lines]
+    base = round(sum(nets), 2)
+    for l in invoice.lines:
+        l.invoice_discount = 0.0
+    if amount <= 0 or base <= 0:
+        return
+    amount = min(round(amount, 2), base)
+    shares = [round(amount * n / base, 2) for n in nets]
+    diff = round(amount - sum(shares), 2)
+    if diff:
+        i = max(range(len(nets)), key=lambda k: nets[k])
+        shares[i] = round(shares[i] + diff, 2)
+    for l, s in zip(invoice.lines, shares):
+        l.invoice_discount = s
+
+
 def calculate_invoice_totals(invoice: Invoice) -> Invoice:
-    """حساب مجاميع الفاتورة مع الخصومات والإضافات"""
+    """حساب مجاميع الفاتورة مع الخصومات والإضافات
+
+    A discount granted BEFORE tax reduces the taxable value (Law 67/2016): it
+    is spread onto the lines as a line discount, so VAT is computed on the
+    reduced net (10% on 1,000 → VAT 126, total 1,026 — it used to be 140 /
+    1,040). An AFTER-tax discount stays on the grand total and the VAT is not
+    touched."""
+    def _is(v, enum_val):
+        return getattr(v, "value", v) == enum_val.value
+
+    # 1) before-tax discounts, measured on the lines' own net
+    own_net = round(sum(round(l.subtotal - l.discount_amount, 2) for l in invoice.lines), 2)
+    before_disc = 0.0
+    has_before = False
+    for adj in invoice.adjustments:
+        if _is(adj.adjustment_type, AdjustmentType.DISCOUNT) and _is(adj.base, AdjustmentBase.BEFORE_TAX):
+            has_before = True
+            if _is(adj.calculation_type, AdjustmentCalculation.PERCENTAGE):
+                adj.calculated_amount = round(own_net * (adj.value / 100), 2)
+            else:
+                adj.calculated_amount = round(adj.value, 2)
+            before_disc += adj.calculated_amount
+    if has_before:
+        _spread_before_tax_discount(invoice, round(before_disc, 2))
+        for i, line in enumerate(invoice.lines):
+            invoice.lines[i] = calculate_line_totals(line)
+    invoice.total_before_tax_discount = round(sum(l.invoice_discount for l in invoice.lines), 2)
+
     # حساب مجاميع الأسطر
     invoice.subtotal = round(sum(line.subtotal for line in invoice.lines), 2)
-    invoice.total_discount = round(sum(line.discount_amount for line in invoice.lines), 2)
+    invoice.total_discount = round(sum(line.discount_amount + line.invoice_discount for line in invoice.lines), 2)
     invoice.total_after_discount = round(invoice.subtotal - invoice.total_discount, 2)
     invoice.total_tax = round(sum(line.tax_amount for line in invoice.lines), 2)
-    
-    # حساب الخصومات والإضافات على مستوى الفاتورة
+    invoice.total_table_tax = round(sum(t.amount for l in invoice.lines for t in l.other_taxes
+                                        if t.tax_type in TABLE_TAX_TYPES), 2)
+    invoice.total_stamp_tax = round(sum(t.amount for l in invoice.lines for t in l.other_taxes
+                                        if t.tax_type in STAMP_TAX_TYPES), 2)
+    invoice.total_other_taxes = round(sum(l.other_taxes_amount for l in invoice.lines), 2)
+    invoice.total_line_withholding = round(sum(l.withholding_amount for l in invoice.lines), 2)
+    gross = round(invoice.total_after_discount + invoice.total_tax
+                  + invoice.total_other_taxes - invoice.total_line_withholding, 2)
+
+    # 2) after-tax discounts and all additions, on the grand total
     total_invoice_discount = 0.0
     total_invoice_addition = 0.0
     
     for adj in invoice.adjustments:
-        # تحديد قاعدة الحساب
-        if adj.base == AdjustmentBase.BEFORE_TAX:
-            base_amount = invoice.total_after_discount
-        else:  # AFTER_TAX
-            base_amount = invoice.total_after_discount + invoice.total_tax
+        is_discount = _is(adj.adjustment_type, AdjustmentType.DISCOUNT)
+        if is_discount and _is(adj.base, AdjustmentBase.BEFORE_TAX):
+            continue                                   # already in the lines
+        base_amount = invoice.total_after_discount if _is(adj.base, AdjustmentBase.BEFORE_TAX) else gross
         
         # حساب قيمة التعديل
-        if adj.calculation_type == AdjustmentCalculation.PERCENTAGE:
+        if _is(adj.calculation_type, AdjustmentCalculation.PERCENTAGE):
             adj.calculated_amount = round(base_amount * (adj.value / 100), 2)
         else:  # FIXED
             adj.calculated_amount = round(adj.value, 2)
         
         # تصنيف التعديل
-        if adj.adjustment_type == AdjustmentType.DISCOUNT:
+        if is_discount:
             total_invoice_discount += adj.calculated_amount
         else:  # ADDITION
             total_invoice_addition += adj.calculated_amount
@@ -483,12 +652,9 @@ def calculate_invoice_totals(invoice: Invoice) -> Invoice:
     invoice.total_invoice_discount = round(total_invoice_discount, 2)
     invoice.total_invoice_addition = round(total_invoice_addition, 2)
     
-    # الإجمالي الكلي = (المجموع بعد خصم الأسطر + الضريبة) - خصومات الفاتورة + إضافات الفاتورة
-    invoice.grand_total = round(
-        invoice.total_after_discount + invoice.total_tax - 
-        invoice.total_invoice_discount + invoice.total_invoice_addition, 
-        2
-    )
+    # الإجمالي = الصافي + القيمة المضافة + الضرائب الأخرى − الخصم من المنبع
+    #           − خصومات بعد الضريبة + إضافات الفاتورة
+    invoice.grand_total = round(gross - invoice.total_invoice_discount + invoice.total_invoice_addition, 2)
     invoice.amount_due = round(invoice.grand_total - invoice.amount_paid, 2)
     
     return invoice

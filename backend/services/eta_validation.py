@@ -74,11 +74,27 @@ def check_national_id(value) -> tuple:
 def validate_party(invoice: dict, party: dict = None) -> dict:
     """What the authority needs for this invoice's counterparty.
 
-    Returns {"ok", "type", "id", "error"}. type is "B" for a company and "P"
-    for an individual, which is what the submission payload expects.
+    Returns {"ok", "type", "id", "error"}. type is "B" for an Egyptian company,
+    "P" for an individual and "F" for a receiver abroad (party.is_foreign or a
+    country other than EG; "country" is returned too), which is what the
+    submission payload expects.
     """
     party = party or {}
     total = float(invoice.get("grand_total") or invoice.get("settle_amount") or 0)
+
+    # a receiver outside Egypt is type "F": its own country's tax number (or a
+    # passport for a person) — the 9-digit / 14-digit Egyptian rules do not apply
+    country = str(party.get("country") or "EG").strip().upper()[:2]
+    if party.get("is_foreign") or country != "EG":
+        foreign_id = str(party.get("foreign_tax_id") or party.get("tax_id") or party.get("tax_number")
+                         or party.get("passport_number") or "").strip()
+        foreign_id = normalise_digits(foreign_id) if foreign_id.translate(ARABIC_DIGITS).replace(" ", "").isdigit() \
+            else foreign_id
+        if country == "EG":
+            return {"ok": False, "type": "F", "id": foreign_id, "country": country,
+                    "error": "العميل مُعلَّم كأجنبي ودولته مصر — حدد كود دولته (حرفان، مثل SA أو US)"}
+        return {"ok": True, "type": "F", "id": foreign_id, "country": country, "error": None}
+
     raw_tax = invoice.get("party_tax_id") or party.get("tax_number") or party.get("tax_id")
     raw_national = (invoice.get("party_national_id") or party.get("national_id")
                     or party.get("passport_number"))

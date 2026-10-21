@@ -1,4 +1,8 @@
-/* Service Worker for Push Notifications */
+/* Service Worker for Push Notifications + offline app shell.
+ * The site's only service worker (root scope): src/index.js registers it in
+ * production and the notification settings register the same URL, so the two
+ * never replace each other. Offline caching lives in sw-pos.js. */
+try { importScripts('/sw-pos.js'); } catch (e) { /* offline cache unavailable — push still works */ }
 
 self.addEventListener('push', function(event) {
   let data = { title: 'DataLife Account', body: 'لديك إشعار جديد', icon: '/logo192.png', url: '/' };

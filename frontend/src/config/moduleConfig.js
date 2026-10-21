@@ -272,6 +272,8 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'medical',          name: isArabic ? '🏥 القطاع الطبي وأتعاب الأطباء' : '🏥 Medical & Doctor Fees' },
   { id: 'currencies',       name: isArabic ? '💱 العملات'           : '💱 Currencies' },
   { id: 'fx-revaluation',   name: isArabic ? '💱 فروق العملة وإعادة التقييم' : '💱 FX Revaluation' },
+  { id: 'year-end-close',   name: isArabic ? '📅 إقفال السنة المالية' : '📅 Year-End Close' },
+  { id: 'ecommerce',        name: isArabic ? '🛍️ المتجر الإلكتروني' : '🛍️ E-commerce Orders' },
   { id: 'reports',          name: isArabic ? '📊 التقارير المالية'  : '📊 Financial Reports' },
 ];
 

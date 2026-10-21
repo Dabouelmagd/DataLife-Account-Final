@@ -23,6 +23,32 @@ logger = logging.getLogger(__name__)
 
 PARTY_CODES = ("131", "251")      # AR / AP — the line that takes the rounding cent
 
+# accounts this module posts to that older charts may not have yet
+TABLE_TAX_ACCOUNT = "2545"        # ضريبة الجدول المستحقة
+STAMP_TAX_ACCOUNT = "2546"        # ضريبة الدمغة النسبية المستحقة
+OTHER_TAX_ACCOUNT = "254"         # الضرائب المستحقة (أي ضريبة أخرى T7…T12)
+CASH_DISCOUNT_ALLOWED = "3212"    # خصم نقدي مسموح به (مصروف تمويلي)
+CASH_DISCOUNT_RECEIVED = "4221"   # خصم نقدي مكتسب (إيراد تمويلي)
+
+
+def _line_tax_totals(invoice: Dict) -> Dict[str, float]:
+    """Non-VAT taxes on the lines, by account bucket (invoice currency)."""
+    out = {"table": 0.0, "stamp": 0.0, "other": 0.0, "wht": 0.0}
+    for ln in invoice.get("lines") or []:
+        for t in ln.get("other_taxes") or []:
+            tt = str(t.get("tax_type") or "").upper()
+            amt = float(t.get("amount") or 0)
+            key = "table" if tt in ("T2", "T3") else "stamp" if tt in ("T5", "T6") \
+                else "wht" if tt == "T4" else "other"
+            out[key] += amt
+    return {k: round(v, 2) for k, v in out.items()}
+
+
+def _table_tax_additions(invoice: Dict) -> float:
+    """Invoice-level additions of category table_tax (old way of entering it)."""
+    return round(sum(float(a.get("calculated_amount") or 0) for a in invoice.get("adjustments") or []
+                     if a.get("adjustment_type") == "addition" and a.get("category") == "table_tax"), 2)
+
 
 def _cur(v) -> str:
     return str(getattr(v, "value", v) or "EGP").upper()
@@ -336,12 +362,15 @@ class InvoiceService:
             # إنشاء فاتورة مؤقتة لحساب المجاميع
             temp_invoice = Invoice(**{**invoice, **updates})
             temp_invoice = calculate_invoice_totals(temp_invoice)
-            updates["subtotal"] = temp_invoice.subtotal
-            updates["total_discount"] = temp_invoice.total_discount
-            updates["total_after_discount"] = temp_invoice.total_after_discount
-            updates["total_tax"] = temp_invoice.total_tax
-            updates["grand_total"] = temp_invoice.grand_total
-            updates["amount_due"] = temp_invoice.amount_due
+            # the lines carry their share of a before-tax discount, and the
+            # adjustments their computed amounts — store those, not the input
+            updates["lines"] = [line.dict() for line in temp_invoice.lines]
+            updates["adjustments"] = [a.dict() for a in temp_invoice.adjustments]
+            for k in ("subtotal", "total_discount", "total_after_discount", "total_tax",
+                      "total_table_tax", "total_stamp_tax", "total_other_taxes", "total_line_withholding",
+                      "total_before_tax_discount", "total_invoice_discount", "total_invoice_addition",
+                      "grand_total", "amount_due"):
+                updates[k] = getattr(temp_invoice, k)
         
         updates["updated_at"] = datetime.utcnow().isoformat()
         
@@ -407,6 +436,14 @@ class InvoiceService:
         
         def find_account(code: str) -> Optional[Dict]:
             return next((a for a in accounts if a["account_code"] == code), None)
+
+        taxes = _line_tax_totals(invoice)
+        for code, needed in ((TABLE_TAX_ACCOUNT, taxes["table"] or _table_tax_additions(invoice)),
+                             (STAMP_TAX_ACCOUNT, taxes["stamp"])):
+            if needed and not find_account(code):
+                acc = await self.ensure_account(invoice["company_id"], code)
+                if acc:
+                    accounts.append(acc)
         
         lines = []
         # Invoice-level discount / addition (on the whole invoice, not a line).
@@ -504,17 +541,39 @@ class InvoiceService:
                     description=f"ضريبة القيمة المضافة 14% مخرجات"
                 ))
 
-            # خصم على إجمالي الفاتورة ← من ح/ مردودات ومسموحات المبيعات
-            # إضافة على الفاتورة (نقل، تركيب…) ← إلى ح/ إيرادات متنوعة
+            # ── دائن 3: الضرائب الأخرى على الأسطر (جدول / دمغة / …) ────
+            for key, code, text in (("table", TABLE_TAX_ACCOUNT, "ضريبة الجدول المستحقة"),
+                                    ("stamp", STAMP_TAX_ACCOUNT, "ضريبة الدمغة النسبية المستحقة"),
+                                    ("other", OTHER_TAX_ACCOUNT, "ضرائب أخرى مستحقة")):
+                acc = find_account(code) or find_account(OTHER_TAX_ACCOUNT)
+                if taxes[key] and acc:
+                    lines.append(_adj_line(acc, taxes[key], False,
+                                           f"{text} — فاتورة {invoice['document_number']}"))
+            # ── T4 على الأسطر: العميل يستقطعها — أصل ضريبي لدينا ────────
+            if taxes["wht"] and wht_asset_acc:
+                lines.append(_adj_line(wht_asset_acc, taxes["wht"], True,
+                                       f"خصم من المنبع (T4) — فاتورة {invoice['document_number']}"))
+
+            # خصم بعد الضريبة على إجمالي الفاتورة ← من ح/ مردودات ومسموحات المبيعات
+            # (الخصم قبل الضريبة موزَّع على الأسطر ومخصوم من الإيراد والضريبة)
+            # إضافة على الفاتورة (نقل، تركيب…) ← إلى ح/ إيرادات متنوعة، وضريبة
+            # الجدول المُدخلة كإضافة ← إلى ح/ ضريبة الجدول المستحقة (كانت 423)
             if inv_disc > 0:
                 disc_acc = find_account("413") or sales_acc
                 if disc_acc:
                     lines.append(_adj_line(disc_acc, inv_disc, True,
                                            f"خصم مسموح به على الفاتورة {invoice['document_number']}"))
-            if inv_add > 0:
+            table_add = min(_table_tax_additions(invoice), inv_add)
+            if table_add > 0:
+                tt_acc = find_account(TABLE_TAX_ACCOUNT) or find_account(OTHER_TAX_ACCOUNT) or sales_acc
+                if tt_acc:
+                    lines.append(_adj_line(tt_acc, table_add, False,
+                                           f"ضريبة الجدول — فاتورة {invoice['document_number']}"))
+            other_add = round(inv_add - table_add, 2)
+            if other_add > 0:
                 add_acc = find_account("423") or sales_acc
                 if add_acc:
-                    lines.append(_adj_line(add_acc, inv_add, False,
+                    lines.append(_adj_line(add_acc, other_add, False,
                                            f"إضافات على الفاتورة {invoice['document_number']}"))
         
         elif doc_type in (DocumentType.CREDIT_NOTE.value, DocumentType.DEBIT_NOTE.value):
@@ -552,8 +611,11 @@ class InvoiceService:
                 if not (customers and revenue):
                     raise ValueError("حسابات العملاء أو المبيعات غير موجودة في شجرة الحسابات")
             # adjustments on the note change the amount returned, so they move
-            # with the revenue/purchases line
+            # with the revenue/purchases line. Non-VAT taxes on a purchase are
+            # part of its cost; on a sale they reverse their own payables.
             net = round(float(invoice.get("total_after_discount") or 0) - inv_disc + inv_add, 2)
+            if purchase_side:
+                net = round(net + taxes["table"] + taxes["stamp"] + taxes["other"], 2)
             tax = round(float(invoice.get("total_tax") or 0), 2)
             total = round(float(invoice.get("grand_total") or 0), 2)
 
@@ -571,6 +633,16 @@ class InvoiceService:
                 lines.append(line(revenue, net, credit_note, f"{label} — مردودات/خصم على الفاتورة {ref}"))
             if tax and vat_out:
                 lines.append(line(vat_out, tax, credit_note, f"ضريبة {label} — {ref}"))
+            if not purchase_side:
+                for key, code in (("table", TABLE_TAX_ACCOUNT), ("stamp", STAMP_TAX_ACCOUNT),
+                                  ("other", OTHER_TAX_ACCOUNT)):
+                    acc = find_account(code) or find_account(OTHER_TAX_ACCOUNT)
+                    if taxes[key] and acc:
+                        lines.append(line(acc, taxes[key], credit_note, f"{acc['account_name']} — {label} {ref}"))
+            if taxes["wht"]:
+                wacc = find_account("261") if purchase_side else find_account("138")
+                if wacc:
+                    lines.append(line(wacc, taxes["wht"], not credit_note, f"خصم من المنبع (T4) — {label} {ref}"))
             lines.append(line(customers, total, not credit_note, f"{label} — {invoice.get('party_name', '')}"))
 
         elif doc_type == DocumentType.PURCHASE_INVOICE.value:
@@ -602,8 +674,16 @@ class InvoiceService:
             # the 300 threshold is in pounds — compare the EGP value of a foreign invoice
             _fx = float(invoice.get("exchange_rate") or 1) if _cur(invoice.get("currency")) != "EGP" else 1.0
             p_wht_amount  = round(purchase_base * p_wht_rate, 2) if purchase_base * _fx > 300 else 0
+            # T4 typed on the lines is the withholding itself (already out of
+            # grand_total) — it replaces the automatic rate
+            if taxes["wht"]:
+                p_wht_amount = 0
             # صافي المستحق للمورد = grand_total - WHT
             supplier_net  = round(invoice["grand_total"] - p_wht_amount, 2)
+            p_wht_amount = round(p_wht_amount + taxes["wht"], 2)
+            # table / stamp / other taxes paid to the supplier are not
+            # recoverable: they are part of the cost
+            other_cost = round(taxes["table"] + taxes["stamp"] + taxes["other"], 2)
             
             # ── مدين 1: المخزون / المصروفات ──────────────────────────
             if purchases_acc:
@@ -611,7 +691,7 @@ class InvoiceService:
                     account_id=purchases_acc["id"],
                     account_code=purchases_acc["account_code"],
                     account_name=purchases_acc["account_name"],
-                    debit=purchase_base,
+                    debit=round(purchase_base + other_cost, 2),
                     credit=0,
                     description=f"مشتريات — {invoice['party_name']}"
                 ))
@@ -640,7 +720,8 @@ class InvoiceService:
             
             # ── دائن 2: ضريبة الخصم والتحصيل مستحقة لمصلحة الضرائب ──
             if wht_pay_acc and p_wht_amount > 0:
-                wht_type_label = {0.05: "5% مهن حرة", 0.03: "3% خدمات"}.get(p_wht_rate, "1% توريدات")
+                wht_type_label = "T4 على الأسطر" if taxes["wht"] else \
+                    {0.05: "5% مهن حرة", 0.03: "3% خدمات"}.get(p_wht_rate, "1% توريدات")
                 lines.append(JournalEntryLine(
                     account_id=wht_pay_acc["id"],
                     account_code=wht_pay_acc["account_code"],
@@ -727,6 +808,30 @@ class InvoiceService:
         
         return result["id"]
     
+    async def ensure_account(self, company_id: str, code: str) -> Optional[Dict]:
+        """Add an account from the default chart to a company whose chart was
+        created before that account existed (2545/2546/3212/4221 …)."""
+        from models.accounting import DEFAULT_ACCOUNTS, ChartOfAccount, AccountType
+        found = await self.db.chart_of_accounts.find_one({"company_id": company_id, "account_code": code},
+                                                         {"_id": 0})
+        if found:
+            return found
+        spec = next((a for a in DEFAULT_ACCOUNTS if a["code"] == code), None)
+        if not spec:
+            return None
+        debit_types = {AccountType.ASSET, AccountType.EXPENSE}
+        acc = ChartOfAccount(
+            company_id=company_id, account_code=code, account_name=spec["name"],
+            account_name_en=spec.get("name_en"), account_type=spec["type"],
+            account_category=spec["category"], is_system=False, allow_posting=True,
+            normal_balance="debit" if spec["type"] in debit_types else "credit",
+            description="حساب فرعي يقبل حركات").dict()
+        acc["is_header"] = False
+        acc["parent_code"] = spec.get("parent_code")
+        await self.db.chart_of_accounts.insert_one(acc)
+        acc.pop("_id", None)
+        return acc
+
     async def _receive_purchase_stock(self, invoice: dict) -> None:
         """بضاعة مشتراة تدخل المخزون وتحدّث متوسط التكلفة المتحرك.
 
@@ -893,12 +998,23 @@ class InvoiceService:
         if invoice["status"] == DocumentStatus.CANCELLED.value:
             raise ValueError("Cannot record payment for cancelled invoice")
         
-        if payment.amount > invoice["amount_due"] + 0.004:
+        discount = round(float(payment.discount_amount or 0), 2)
+        if discount < 0:
+            raise ValueError("الخصم النقدي لا يكون بالسالب")
+        if invoice["document_type"] not in (DocumentType.SALES_INVOICE.value, DocumentType.PURCHASE_INVOICE.value) \
+                and discount:
+            raise ValueError("الخصم النقدي يُمنح على فواتير البيع والشراء فقط")
+        if payment.amount + discount > invoice["amount_due"] + 0.004:
             raise ValueError("Payment amount exceeds amount due")
 
         # ── سعر الصرف وفروق العملة المحققة ──────────────────────
+        # A cash (early-payment) discount closes part of the balance without
+        # money moving: AR/AP is settled by amount + discount, the bank by the
+        # amount, and the discount goes to 3212 (allowed) / 4221 (received).
+        # It is a finance cost/income — the invoice's VAT is not touched.
         cur = _cur(invoice.get("currency"))
         amount = round(float(payment.amount), 2)
+        settles = round(amount + discount, 2)
         if cur == "EGP":
             pay_rate = carry = 1.0
         else:
@@ -908,8 +1024,9 @@ class InvoiceService:
             if pay_rate <= 0:
                 pay_rate = await rate_on(self.db, invoice["company_id"], cur, payment.payment_date)
         cash_egp = round(amount * pay_rate, 2)
-        party_egp = round(amount * carry, 2)
-        closes = round(float(invoice["amount_due"]) - amount, 2) <= 0.004
+        party_egp = round(settles * carry, 2)
+        disc_egp = round(discount * carry, 2)
+        closes = round(float(invoice["amount_due"]) - settles, 2) <= 0.004
         if cur != "EGP" and closes and invoice.get("settle_amount_egp") is not None \
                 and not float(invoice.get("credited_amount") or 0):
             # last payment: close exactly what is left in EGP, so AR/AP ends
@@ -920,15 +1037,16 @@ class InvoiceService:
         payment.amount_egp = cash_egp
         payment.settled_egp = party_egp
         # sales: receiving more pounds than booked is a gain; purchases: paying more is a loss
-        raw = round(cash_egp - party_egp, 2)
+        raw = round(cash_egp + disc_egp - party_egp, 2)
         is_sales = invoice["document_type"] == DocumentType.SALES_INVOICE.value
         payment.fx_difference = raw if is_sales else -raw
+        payment.discount_amount = discount
 
         # إنشاء قيد السداد
         journal_entry_id = await self._create_payment_journal_entry(
             invoice, payment, user_id,
             fx={"currency": cur, "pay_rate": pay_rate, "carry": carry,
-                "cash_egp": cash_egp, "party_egp": party_egp})
+                "cash_egp": cash_egp, "party_egp": party_egp, "disc_egp": disc_egp})
         payment.journal_entry_id = journal_entry_id
         
         # حفظ السداد
@@ -936,8 +1054,9 @@ class InvoiceService:
         await self.db.payments.insert_one(payment_dict)
         payment_dict.pop("_id", None)
         
-        # تحديث الفاتورة
-        new_amount_paid = round(invoice["amount_paid"] + payment.amount, 2)
+        # تحديث الفاتورة — the discount settles the balance like money does
+        # (amount_paid is what is settled; cash_discount keeps the discount part)
+        new_amount_paid = round(invoice["amount_paid"] + settles, 2)
         new_amount_due = round((invoice.get("settle_amount") or invoice["grand_total"]) - new_amount_paid, 2)
         new_status = DocumentStatus.PAID.value if new_amount_due <= 0 else DocumentStatus.PARTIALLY_PAID.value
         
@@ -948,6 +1067,7 @@ class InvoiceService:
                 "amount_due": new_amount_due,
                 "status": new_status,
                 "settled_egp": round(float(invoice.get("settled_egp") or 0) + party_egp, 2),
+                "cash_discount": round(float(invoice.get("cash_discount") or 0) + discount, 2),
                 "updated_at": datetime.utcnow().isoformat()
             }}
         )
@@ -1031,9 +1151,18 @@ class InvoiceService:
         fx = fx or {}
         cur = fx.get("currency", "EGP")
         amount = round(float(payment.amount), 2)
+        discount = round(float(getattr(payment, "discount_amount", 0) or 0), 2)
+        disc_egp = fx.get("disc_egp", discount)
         cash_egp = fx.get("cash_egp", amount)
-        party_egp = fx.get("party_egp", amount)
-        diff = round(cash_egp - party_egp, 2)
+        party_egp = fx.get("party_egp", round(amount + discount, 2))
+        diff = round(cash_egp + disc_egp - party_egp, 2)
+        is_sales = invoice["document_type"] == DocumentType.SALES_INVOICE.value
+        disc_line = None
+        if discount:
+            code = CASH_DISCOUNT_ALLOWED if is_sales else CASH_DISCOUNT_RECEIVED
+            disc_acc = find_account(code) or await self.ensure_account(invoice["company_id"], code)
+            if not disc_acc:
+                raise ValueError(f"حساب الخصم النقدي ({code}) غير موجود في شجرة الحسابات")
 
         def jl(acc, debit, credit, text, foreign=None, rate=None):
             ln = JournalEntryLine(account_id=acc["id"], account_code=acc["account_code"],
@@ -1045,6 +1174,12 @@ class InvoiceService:
                 ln.debit_foreign = foreign if debit else 0.0
                 ln.credit_foreign = foreign if credit else 0.0
             return ln
+
+        if discount:
+            disc_text = (f"خصم نقدي مسموح به — فاتورة {invoice['document_number']}" if is_sales
+                         else f"خصم نقدي مكتسب — فاتورة {invoice['document_number']}")
+            disc_line = jl(disc_acc, disc_egp if is_sales else 0.0, 0.0 if is_sales else disc_egp,
+                           disc_text, discount, fx.get("carry"))
         
         lines = []
         # cash only for cash payments; anything else settles through the bank —
@@ -1072,21 +1207,23 @@ class InvoiceService:
         if invoice["document_type"] == DocumentType.SALES_INVOICE.value:
             # سداد فاتورة بيع: النقدية (مدين) - العملاء (دائن) ± فرق العملة
             customers_acc = find_account("131")
-            if cash_acc:
+            if cash_acc and cash_egp:
                 lines.append(jl(cash_acc, cash_egp, 0, f"سداد فاتورة {invoice['document_number']}",
                                 amount, fx.get("pay_rate")))
             if customers_acc:
                 lines.append(jl(customers_acc, 0, party_egp, f"سداد من {invoice['party_name']}",
-                                amount, fx.get("carry")))
+                                round(amount + discount, 2), fx.get("carry")))
         else:
             # سداد فاتورة شراء: الموردين (مدين) - النقدية (دائن) ± فرق العملة
             suppliers_acc = find_account("251")
             if suppliers_acc:
                 lines.append(jl(suppliers_acc, party_egp, 0, f"سداد فاتورة {invoice['document_number']}",
-                                amount, fx.get("carry")))
-            if cash_acc:
+                                round(amount + discount, 2), fx.get("carry")))
+            if cash_acc and cash_egp:
                 lines.append(jl(cash_acc, 0, cash_egp, f"سداد إلى {invoice['party_name']}",
                                 amount, fx.get("pay_rate")))
+        if disc_line:
+            lines.append(disc_line)
         if fx_line:
             lines.append(fx_line)
         

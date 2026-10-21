@@ -277,6 +277,34 @@ async def get_fixed_assets(current_user: dict = Depends(get_current_user)):
         asset["calculated_depreciation"] = _calculate_depreciation(asset, date.today().isoformat())
     return assets
 
+async def _post_entry(company_id: str, user_id: str, entry_date, description: str,
+                            debit_code: str, credit_code: str, amount: float,
+                            reference=None, source_type: str = "manual") -> str:
+    """Dr debit_code / Cr credit_code as a JournalEntry created and posted by
+    AccountingService (numbered, period-locked, written to the ledger)."""
+    from datetime import datetime, timezone
+    from services.accounting_service import AccountingService
+    from models.accounting import JournalEntry as _AccJE, JournalEntryLine as _AccLine
+    svc = AccountingService(db)
+    dr = await svc.get_account_by_code(company_id, debit_code)
+    cr = await svc.get_account_by_code(company_id, credit_code)
+    if not dr or not cr:
+        raise ValueError(f"الحساب {debit_code if not dr else credit_code} غير موجود في دليل الحسابات")
+    amount = round(float(amount), 2)
+    entry = _AccJE(
+        company_id=company_id, entry_number=0,
+        entry_date=str(entry_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"))[:10],
+        description=description, reference=reference, source_document_type=source_type,
+        created_by=user_id, lines=[
+            _AccLine(account_id=dr["id"], account_code=dr["account_code"], account_name=dr["account_name"],
+                     debit=amount, credit=0.0, description=description),
+            _AccLine(account_id=cr["id"], account_code=cr["account_code"], account_name=cr["account_name"],
+                     debit=0.0, credit=amount, description=description)])
+    res = await svc.create_journal_entry(entry)
+    await svc.post_journal_entry(res["id"], user_id)
+    return res["id"]
+
+
 @router.post("/assets")
 async def create_fixed_asset(asset_data: dict, current_user: dict = Depends(get_current_user)):
     # the old assets engine: assets are managed by /api/fixed-assets (real
@@ -320,30 +348,14 @@ async def create_fixed_asset(asset_data: dict, current_user: dict = Depends(get_
         "land": "111", "leasehold": "115", "goodwill": "116", "other": "116"
     }
     asset_acc_code = asset_account_map.get(asset_type, "116")
-    await db.journal_entries.insert_one({
-        "id": str(uuid.uuid4()), "company_id": company_id,
-        "date": asset_data.get("purchase_date"),
-        "description": f"شراء أصل ثابت: {asset['name']} ({asset_code})",
-        "debit_account": dep_info["name_ar"],
-        "debit_account_code": asset_acc_code,
-        "credit_account": "النقدية بالبنوك الجارية",
-        "credit_account_code": "162",
-        "amount": cost, "type": "journal", "reference": asset_code, "source": "asset_purchase",
-        "status": "draft",   # post_simple_journal_entry marks it posted only on success
-    })
-    # Update account balances for asset purchase
+    # a real JournalEntry through the service (entry number, period lock, ledger) —
+    # it used to be inserted raw into journal_entries, skipping all three
     try:
-        from services.accounting_service import AccountingService as _ACS_asset
-        _svc_asset = _ACS_asset(db)
-        _je_ref = await db.journal_entries.find_one(
-            {"company_id": company_id, "source": "asset_purchase", "reference": asset_code},
-            {"_id": 0}
-        )
-        if _je_ref:
-            await _svc_asset.post_simple_journal_entry(_je_ref, current_user.get("user_id", "system"))
+        await _post_entry(company_id, current_user.get("user_id", "system"),
+                                asset_data.get("purchase_date"),
+                                f"شراء أصل ثابت: {asset['name']} ({asset_code})",
+                                asset_acc_code, "162", cost, asset_code, "asset_purchase")
     except Exception as _e:
-        # Stays a draft, visible in the journal for manual posting — never a
-        # silent "posted" entry that is missing from the ledger.
         logger.error(f"asset purchase journal not posted ({asset_code}): {_e}")
     return asset
 
@@ -413,14 +425,10 @@ async def run_depreciation(request_data: dict, current_user: dict = Depends(get_
             continue
 
         accum_code = ACCUM.get(asset.get("asset_type", "other"), "22204")
-        je = {"id": str(_uuid.uuid4()), "company_id": company_id, "date": period_date,
-              "description": f"إهلاك {period}: {name} ({asset.get('asset_code', '')})",
-              "debit_account_code": "333", "credit_account_code": accum_code,
-              "amount": monthly, "type": "journal", "source": "depreciation",
-              "asset_id": asset["id"], "period": period, "status": "draft"}
-        await db.journal_entries.insert_one(dict(je))
         try:
-            await svc.post_simple_journal_entry(je, user_id)
+            await _post_entry(company_id, user_id, period_date,
+                                    f"إهلاك {period}: {name} ({asset.get('asset_code', '')})",
+                                    "333", accum_code, monthly, asset.get("asset_code"), "depreciation")
         except Exception as e:
             failed.append({"asset": name, "error": str(e)})   # stays a draft; asset NOT updated
             continue

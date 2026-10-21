@@ -53,6 +53,10 @@ const PartiesPage = () => {
     building_number: '',
     national_id: '',
     country: 'EG',
+    is_foreign: false,
+    free_zone: false,
+    foreign_tax_id: '',
+    passport_number: '',
     phone: '',
     email: '',
     contact_person: '',
@@ -199,6 +203,10 @@ const PartiesPage = () => {
       building_number: '',
       national_id: '',
       country: 'EG',
+      is_foreign: false,
+      free_zone: false,
+      foreign_tax_id: '',
+      passport_number: '',
       phone: '',
       email: '',
       contact_person: '',
@@ -221,6 +229,10 @@ const PartiesPage = () => {
       building_number: party.building_number || '',
       national_id: party.national_id || '',
       country: party.country || 'EG',
+      is_foreign: !!party.is_foreign,
+      free_zone: !!party.free_zone,
+      foreign_tax_id: party.foreign_tax_id || '',
+      passport_number: party.passport_number || '',
       phone: party.phone || '',
       email: party.email || '',
       contact_person: party.contact_person || '',
@@ -422,6 +434,43 @@ const PartiesPage = () => {
               <div>
                 <label className="block text-sm font-medium mb-1 text-gray-700">{language === 'ar' ? 'الرقم القومي (للأفراد)' : 'National ID (individuals)'}</label>
                 <Input dir="ltr" inputMode="numeric" maxLength={14} value={formData.national_id} onChange={(e) => setFormData(prev => ({ ...prev, national_id: e.target.value }))} />
+              </div>
+              {/* أجنبي / منطقة حرة — تحدد فئة القيمة المضافة الافتراضية للبنود ونوع المستلم في المنظومة */}
+              <div className="md:col-span-2 rounded-lg border border-gray-200 p-3 space-y-3">
+                <div className="flex flex-wrap gap-4">
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" checked={formData.is_foreign}
+                      onChange={(e) => setFormData(prev => ({ ...prev, is_foreign: e.target.checked,
+                        country: e.target.checked && (prev.country || 'EG') === 'EG' ? '' : prev.country }))} />
+                    {language === 'ar' ? 'عميل/مورد أجنبي (خارج مصر) — البيع له تصدير بسعر صفر' : 'Foreign party (outside Egypt) — sales are zero-rated exports'}
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" checked={formData.free_zone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, free_zone: e.target.checked }))} />
+                    {language === 'ar' ? 'منطقة حرة — البيع له بسعر صفر' : 'Free zone — sales are zero-rated'}
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label htmlFor="party-country" className="block text-sm font-medium mb-1 text-gray-700">{language === 'ar' ? 'الدولة (كود من حرفين)' : 'Country (2-letter code)'}</label>
+                    <Input id="party-country" dir="ltr" maxLength={2} placeholder="EG" value={formData.country}
+                      onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value.toUpperCase() }))} />
+                  </div>
+                  {(formData.is_foreign || (formData.country && formData.country !== 'EG')) && (
+                    <>
+                      <div>
+                        <label htmlFor="party-ftin" className="block text-sm font-medium mb-1 text-gray-700">{language === 'ar' ? 'الرقم الضريبي في بلده' : 'Foreign tax ID'}</label>
+                        <Input id="party-ftin" dir="ltr" value={formData.foreign_tax_id}
+                          onChange={(e) => setFormData(prev => ({ ...prev, foreign_tax_id: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label htmlFor="party-passport" className="block text-sm font-medium mb-1 text-gray-700">{language === 'ar' ? 'رقم جواز السفر (لفرد)' : 'Passport no. (individual)'}</label>
+                        <Input id="party-passport" dir="ltr" value={formData.passport_number}
+                          onChange={(e) => setFormData(prev => ({ ...prev, passport_number: e.target.value }))} />
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 text-gray-700">{text.address}</label>
