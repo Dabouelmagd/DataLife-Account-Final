@@ -115,6 +115,9 @@ class CompanyHRSettings(BaseModel):
     # التقريب
     round_late_minutes_to: int = 1              # تقريب التأخير إلى أقرب X دقيقة
     round_overtime_minutes_to: int = 15         # تقريب الأوفرتايم إلى أقرب X دقيقة
+
+    # بوابة الموظف: إظهار المرتب والقسائم للموظف في بوابته (False = تُحذف من ردود الـ API)
+    ess_show_salary: bool = True
     
     # التدقيق
     created_at: datetime = Field(default_factory=datetime.utcnow)

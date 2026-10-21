@@ -414,6 +414,22 @@ class PermissionMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http" and scope.get("path", "").startswith("/api/"):
+            # «معاينة بوابة الموظف» tokens: GET on the employee portal only —
+            # any write, and any other area, is refused here (always enforced)
+            try:
+                auth = dict(scope.get("headers") or []).get(b"authorization", b"").decode()
+                if auth.startswith("Bearer "):
+                    from services.route_permissions import is_preview_token, preview_refusal
+                    from services.auth_service import verify_token as _vt
+                    payload = _vt(auth[7:])
+                    if payload and is_preview_token(payload):
+                        why = preview_refusal(scope.get("method", ""), scope["path"])
+                        if why:
+                            return await self._refuse(send, 403, json.dumps(
+                                {"detail": why, "preview": True}, ensure_ascii=False).encode())
+            except Exception:
+                if await self._authenticated(scope):
+                    return await self._refuse(send, 503, self.LOOKUP_FAILED)
             # employee logins: their own portal only (always enforced)
             try:
                 from services.route_permissions import EMPLOYEE_ROLES, employee_may

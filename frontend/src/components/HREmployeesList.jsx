@@ -9,7 +9,8 @@
 import { copyText } from '../utils/copyText';
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { Loader2, Plus, Search, X, UserRound } from 'lucide-react';
+import { Loader2, Plus, Search, X, UserRound, Eye } from 'lucide-react';
+import { openEmployeePortalPreview } from '../utils/essPreview';
 
 const API = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -202,6 +203,7 @@ export default function HREmployeesList({ language = 'ar', onOpen }) {
                 <th className="text-start px-3 py-2 hidden md:table-cell">{ar ? 'القسم' : 'Department'}</th>
                 <th className="text-start px-3 py-2 hidden md:table-cell">{ar ? 'تاريخ التعيين' : 'Hired'}</th>
                 <th className="text-end px-3 py-2">{ar ? 'الأساسي' : 'Basic'}</th>
+                <th className="px-3 py-2"><span className="sr-only">{ar ? 'معاينة بوابة الموظف' : 'Preview portal'}</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -220,6 +222,14 @@ export default function HREmployeesList({ language = 'ar', onOpen }) {
                   <td className="px-3 py-2 hidden md:table-cell">{e.department || '—'}</td>
                   <td className="px-3 py-2 hidden md:table-cell"><bdi dir="ltr">{e.hire_date || '—'}</bdi></td>
                   <td className="px-3 py-2 text-end"><bdi dir="ltr" className="tabular-nums">{money(e.basic_salary)}</bdi></td>
+                  <td className="px-3 py-2 text-end">
+                    <button type="button" title={ar ? 'معاينة بوابة الموظف — تشوف اللي هو بيشوفه' : 'Preview employee portal'}
+                      aria-label={ar ? `معاينة بوابة الموظف: ${e.name}` : `Preview portal: ${e.name}`}
+                      onClick={async (ev) => { ev.stopPropagation(); const r = await openEmployeePortalPreview(e.id); if (!r.ok) setErr(r.error); }}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-100 dark:hover:bg-slate-700">
+                      <Eye className="w-4 h-4" aria-hidden />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

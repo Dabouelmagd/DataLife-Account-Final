@@ -13,8 +13,11 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { EmployeeAppraisals } from '../components/hr/Performance';
 import { getPosition } from '../utils/geo';
 import InstallAppHint from '../components/InstallAppHint';
+import { readPreviewToken } from '../utils/essPreview';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+const PREVIEW_MSG = 'ده عرض تجريبي — مفيش حاجة بتتحفظ';
+const SALARY_HIDDEN_NOTE = 'المرتب والقسائم مش ظاهرين في البوابة — لو محتاج قسيمتك اطلبها من الموارد البشرية';
 
 // ── Icons (inline SVG to avoid dependency issues) ──────────────
 const Icon = ({ d, size = 18, color = 'currentColor', className = '' }) => (
@@ -109,6 +112,13 @@ const EmployeeSelfService = () => {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
   const [photoFile, setPhotoFile] = useState(null);
+  // «معاينة بوابة الموظف»: opened by HR / the owner with a read-only token in
+  // ?preview= — every call uses it instead of the admin's own login, and
+  // nothing can be saved (the server refuses writes too)
+  const [previewToken] = useState(() => readPreviewToken());
+  const isPreview = !!previewToken;
+  const [loadError, setLoadError] = useState('');
+  const [showSalary, setShowSalary] = useState(true);
 
   // Modal states
   const [leaveModal, setLeaveModal] = useState(false);
@@ -132,8 +142,16 @@ const EmployeeSelfService = () => {
   const [checkOutDone, setCheckOutDone] = useState(false);
 
   const authHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem('token')}`,
+    Authorization: `Bearer ${previewToken || localStorage.getItem('token')}`,
   });
+
+  // writes are off in a preview: say so instead of sending the request
+  const previewBlocked = () => {
+    if (!isPreview) return false;
+    showToast(PREVIEW_MSG, 'error');
+    return true;
+  };
+  const closePreview = () => { window.close(); };
 
   const DOC_TYPES = [
     ['national_id', 'البطاقة الشخصية'], ['passport', 'جواز السفر'], ['certificate', 'شهادة علمية'],
@@ -143,6 +161,7 @@ const EmployeeSelfService = () => {
   ];
 
   const uploadDocument = async () => {
+    if (previewBlocked()) return;
     if (!docFile || !docForm.name.trim()) { setDocError('اختر الملف واكتب اسم المستند'); return; }
     if (docFile.size > 10 * 1024 * 1024) { setDocError('حجم الملف أكبر من 10 ميجابايت'); return; }
     setDocBusy(true); setDocError('');
@@ -173,13 +192,21 @@ const EmployeeSelfService = () => {
       // Try ESS endpoint first — returns own employee data
       const res = await axios.get(`${API}/api/ess/profile`, { headers: authHeaders() });
       setEmployee(res.data?.employee || res.data);
-    } catch {
-      // Fallback: build from user data
-      setEmployee({ name: user?.full_name || user?.name || '', ...user });
+      setShowSalary(res.data?.show_salary !== false);
+    } catch (e) {
+      if (previewToken) {
+        // never fall back to the signed-in admin's own data in a preview
+        setEmployee(null);
+        setLoadError((typeof e.response?.data?.detail === 'string' && e.response.data.detail)
+          || 'انتهت مدة المعاينة — افتحها تاني من ملف الموظف');
+      } else {
+        // Fallback: build from user data
+        setEmployee({ name: user?.full_name || user?.name || '', ...user });
+      }
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, previewToken]);
 
   const fetchPayroll = useCallback(async () => {
     try {
@@ -254,6 +281,7 @@ const EmployeeSelfService = () => {
   const getGPS = () => getPosition();
 
   const handleCheckIn = async () => {
+    if (previewBlocked()) return;
     setGpsLoading(true); setGpsError('');
     try {
       const pos = await getGPS();
@@ -272,6 +300,7 @@ const EmployeeSelfService = () => {
   };
 
   const handleCheckOut = async () => {
+    if (previewBlocked()) return;
     setGpsLoading(true); setGpsError('');
     try {
       const pos = await getGPS();
@@ -291,6 +320,7 @@ const EmployeeSelfService = () => {
 
   // ── Submit leave ─────────────────────────────────────────────
   const submitLeave = async () => {
+    if (previewBlocked()) return;
     try {
       await axios.post(`${API}/api/ess/requests/leave`, leaveForm, { headers: authHeaders() });
       showToast('✅ تم تقديم طلب الإجازة بنجاح');
@@ -305,6 +335,7 @@ const EmployeeSelfService = () => {
 
   // ── Submit loan ──────────────────────────────────────────────
   const submitLoan = async () => {
+    if (previewBlocked()) return;
     try {
       await axios.post(`${API}/api/ess/requests/loan`, loanForm, { headers: authHeaders() });
       showToast('✅ تم تقديم طلب السلفة بنجاح');
@@ -318,6 +349,7 @@ const EmployeeSelfService = () => {
 
   // ── Upload photo ─────────────────────────────────────────────
   const uploadPhoto = async (file) => {
+    if (previewBlocked()) return;
     const fd = new FormData();
     fd.append('file', file);   // /api/users/upload-photo reads the 'file' field
     try {
@@ -354,10 +386,16 @@ const EmployeeSelfService = () => {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center max-w-sm">
         <div className="text-5xl mb-4">⚠️</div>
-        <p className="text-gray-700 font-bold mb-2">{T.msg.notLinked}</p>
-        <button onClick={logout} className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl font-bold">
-          تسجيل خروج
-        </button>
+        <p className="text-gray-700 font-bold mb-2">{loadError || T.msg.notLinked}</p>
+        {isPreview ? (
+          <button onClick={closePreview} className="mt-4 px-6 py-2 bg-gray-700 text-white rounded-xl font-bold">
+            إغلاق المعاينة
+          </button>
+        ) : (
+          <button onClick={logout} className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl font-bold">
+            تسجيل خروج
+          </button>
+        )}
       </div>
     </div>
   );
@@ -370,7 +408,7 @@ const EmployeeSelfService = () => {
   // ── TABS ──────────────────────────────────────────────────────
   const TABS = [
     { id: 'profile',    label: T.tabs.profile,    icon: ICONS.user },
-    { id: 'salary',     label: T.tabs.salary,     icon: ICONS.salary },
+    ...(showSalary ? [{ id: 'salary', label: T.tabs.salary, icon: ICONS.salary }] : []),
     { id: 'leaves',     label: T.tabs.leaves,     icon: ICONS.calendar },
     { id: 'attendance', label: T.tabs.attendance, icon: ICONS.clock },
     { id: 'docs',       label: T.tabs.docs,       icon: ICONS.doc },
@@ -379,8 +417,15 @@ const EmployeeSelfService = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
+    <div className={`min-h-screen bg-gray-50 ${isPreview ? 'pt-11' : ''}`} dir="rtl">
       <Toast msg={toast.msg} type={toast.type} onClose={() => setToast({ msg: '', type: '' })} />
+      {isPreview && (
+        <div role="status" className="fixed top-0 inset-x-0 z-50 bg-amber-400 text-amber-950 text-sm font-bold px-4 py-2.5 flex items-center justify-center gap-3 shadow">
+          <Icon d={ICONS.eye} size={16} />
+          <span>معاينة — ده اللي الموظف بيشوفه، ومفيش حاجة بتتحفظ</span>
+          <button onClick={closePreview} className="mr-2 px-2.5 py-0.5 rounded-lg bg-amber-950/10 hover:bg-amber-950/20 text-xs">إغلاق</button>
+        </div>
+      )}
 
       {/* ── HEADER ── */}
       <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white">
@@ -395,11 +440,13 @@ const EmployeeSelfService = () => {
                   {(emp.name || 'م').charAt(0)}
                 </div>
               )}
-              <label className="absolute -bottom-1 -left-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-400">
-                <Icon d={ICONS.upload} size={10} color="#fff" />
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={e => { const f = e.target.files[0]; if (f) { setPhotoFile(f); uploadPhoto(f); } }} />
-              </label>
+              {!isPreview && (
+                <label className="absolute -bottom-1 -left-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-400">
+                  <Icon d={ICONS.upload} size={10} color="#fff" />
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={e => { const f = e.target.files[0]; if (f) { setPhotoFile(f); uploadPhoto(f); } }} />
+                </label>
+              )}
             </div>
             <div>
               <div className="font-bold text-base">{emp.name || user?.full_name}</div>
@@ -407,11 +454,19 @@ const EmployeeSelfService = () => {
               <div className="text-xs text-blue-300 mt-0.5">كود: {emp.employee_code || emp.id?.slice(-6) || '—'}</div>
             </div>
           </div>
-          <button onClick={logout}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all">
-            <Icon d={ICONS.logout} size={14} />
-            {T.btns.logout}
-          </button>
+          {isPreview ? (
+            <button onClick={closePreview}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all">
+              <Icon d={ICONS.x} size={14} />
+              إغلاق المعاينة
+            </button>
+          ) : (
+            <button onClick={logout}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all">
+              <Icon d={ICONS.logout} size={14} />
+              {T.btns.logout}
+            </button>
+          )}
         </div>
 
         {/* Tab bar */}
@@ -436,7 +491,7 @@ const EmployeeSelfService = () => {
         {activeTab === 'performance' && (
           <div className="bg-white rounded-2xl shadow-sm p-5">
             <h2 className="font-extrabold text-slate-900 mb-3">{isRTL ? 'تقييمات أدائي' : 'My performance reviews'}</h2>
-            <EmployeeAppraisals self />
+            <EmployeeAppraisals self token={previewToken} />
           </div>
         )}
 
@@ -486,6 +541,13 @@ const EmployeeSelfService = () => {
               </div>
             </div>
 
+            {!showSalary && (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm text-slate-600 flex items-center gap-2">
+                <Icon d={ICONS.shield} size={16} color="#64748b" />
+                {SALARY_HIDDEN_NOTE}
+              </div>
+            )}
+
             {/* Bank */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="bg-amber-50 border-b px-5 py-3 flex items-center gap-2">
@@ -510,7 +572,7 @@ const EmployeeSelfService = () => {
         )}
 
         {/* ══ SALARY TAB ═════════════════════════════════════════ */}
-        {activeTab === 'salary' && (
+        {activeTab === 'salary' && showSalary && (
           <div className="space-y-4">
             {latestSlip && (
               <div className="bg-white rounded-2xl border shadow-sm overflow-hidden" dir="rtl">
@@ -643,8 +705,8 @@ const EmployeeSelfService = () => {
             </div>
 
             {/* Request leave button */}
-            <button onClick={() => setLeaveModal(true)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow transition-all">
+            <button onClick={() => setLeaveModal(true)} disabled={isPreview} title={isPreview ? PREVIEW_MSG : undefined}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed">
               <Icon d={ICONS.plus} size={16} /> {T.leaves.requestLeave}
             </button>
 
@@ -725,7 +787,7 @@ const EmployeeSelfService = () => {
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-3">
-                  <button onClick={handleCheckIn} disabled={checkInDone || gpsLoading}
+                  <button onClick={handleCheckIn} disabled={isPreview || checkInDone || gpsLoading} title={isPreview ? PREVIEW_MSG : undefined}
                     className={`py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all
                       ${checkInDone
                         ? 'bg-green-100 text-green-600 cursor-default border border-green-200'
@@ -734,7 +796,7 @@ const EmployeeSelfService = () => {
                       : <Icon d={ICONS.map} size={16} />}
                     {checkInDone ? '✅ تم الحضور' : T.attendance.checkIn}
                   </button>
-                  <button onClick={handleCheckOut} disabled={!checkInDone || checkOutDone || gpsLoading}
+                  <button onClick={handleCheckOut} disabled={isPreview || !checkInDone || checkOutDone || gpsLoading} title={isPreview ? PREVIEW_MSG : undefined}
                     className={`py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all
                       ${checkOutDone
                         ? 'bg-green-100 text-green-600 cursor-default border border-green-200'
@@ -803,7 +865,7 @@ const EmployeeSelfService = () => {
               </div>
               <div className="flex justify-end gap-2 px-5 py-4 border-t">
                 <button onClick={() => { setDocModal(false); setDocError(''); }} className="px-4 py-2 rounded-lg border border-gray-300">إلغاء</button>
-                <button onClick={uploadDocument} disabled={docBusy} className="px-4 py-2 rounded-lg bg-purple-600 text-white font-bold disabled:opacity-50">
+                <button onClick={uploadDocument} disabled={docBusy || isPreview} className="px-4 py-2 rounded-lg bg-purple-600 text-white font-bold disabled:opacity-50">
                   {docBusy ? 'جاري الرفع…' : T.docs.upload}</button>
               </div>
             </div>
@@ -815,8 +877,8 @@ const EmployeeSelfService = () => {
             <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
               <div className="bg-purple-50 border-b px-5 py-3 flex items-center justify-between">
                 <span className="font-bold text-purple-900 text-sm">📎 {T.docs.title}</span>
-                <button onClick={() => setDocModal(true)}
-                  className="bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <button onClick={() => setDocModal(true)} disabled={isPreview} title={isPreview ? PREVIEW_MSG : undefined}
+                  className="bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
                   <Icon d={ICONS.upload} size={12} /> {T.docs.upload}
                 </button>
               </div>
@@ -824,8 +886,8 @@ const EmployeeSelfService = () => {
                 <div className="py-12 text-center">
                   <div className="text-4xl mb-3">📄</div>
                   <p className="text-gray-400 text-sm">لا توجد مستندات مرفوعة بعد</p>
-                  <button onClick={() => setDocModal(true)}
-                    className="mt-3 px-5 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl">
+                  <button onClick={() => setDocModal(true)} disabled={isPreview} title={isPreview ? PREVIEW_MSG : undefined}
+                    className="mt-3 px-5 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed">
                     رفع أول مستند
                   </button>
                 </div>
@@ -862,13 +924,13 @@ const EmployeeSelfService = () => {
         {activeTab === 'requests' && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setLeaveModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl flex flex-col items-center gap-2 shadow transition-all active:scale-95">
+              <button onClick={() => setLeaveModal(true)} disabled={isPreview} title={isPreview ? PREVIEW_MSG : undefined}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl flex flex-col items-center gap-2 shadow transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                 <Icon d={ICONS.calendar} size={22} />
                 <span className="text-sm">طلب إجازة</span>
               </button>
-              <button onClick={() => setLoanModal(true)}
-                className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-2xl flex flex-col items-center gap-2 shadow transition-all active:scale-95">
+              <button onClick={() => setLoanModal(true)} disabled={isPreview} title={isPreview ? PREVIEW_MSG : undefined}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-2xl flex flex-col items-center gap-2 shadow transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                 <Icon d={ICONS.salary} size={22} />
                 <span className="text-sm">طلب سلفة</span>
               </button>
@@ -950,7 +1012,7 @@ const EmployeeSelfService = () => {
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setLeaveModal(false)}
                   className="flex-1 border border-gray-200 text-gray-600 font-bold py-3 rounded-xl text-sm">{T.btns.cancel}</button>
-                <button onClick={submitLeave}
+                <button onClick={submitLeave} disabled={isPreview}
                   className="flex-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl text-sm">{T.btns.submit}</button>
               </div>
             </div>
@@ -999,7 +1061,7 @@ const EmployeeSelfService = () => {
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setLoanModal(false)}
                   className="flex-1 border border-gray-200 text-gray-600 font-bold py-3 rounded-xl text-sm">{T.btns.cancel}</button>
-                <button onClick={submitLoan}
+                <button onClick={submitLoan} disabled={isPreview}
                   className="flex-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-sm">{T.btns.submit}</button>
               </div>
             </div>

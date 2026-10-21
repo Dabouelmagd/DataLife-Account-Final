@@ -66,6 +66,11 @@ export default function HRSettingsPage() {
       workingHoursPerDay: 'ساعات العمل اليومية',
       workingDaysPerMonth: 'أيام العمل الشهرية',
       weekendDays: 'أيام العطلة الأسبوعية',
+
+      essSection: 'بوابة الموظف',
+      essDesc: 'الموظف بيشوف إيه في بوابته (/my-portal)',
+      essShowSalary: 'إظهار المرتب والقسائم للموظف في بوابته',
+      essShowSalaryHint: 'لو قفلتها، البوابة مش هتعرض المرتب ولا البدلات ولا الخصومات ولا قسائم المرتب — والسيرفر نفسه مش هيبعتها',
       
       save: 'حفظ الإعدادات',
       saving: 'جاري الحفظ...',
@@ -127,6 +132,11 @@ export default function HRSettingsPage() {
       workingHoursPerDay: 'Working Hours per Day',
       workingDaysPerMonth: 'Working Days per Month',
       weekendDays: 'Weekend Days',
+
+      essSection: 'Employee Portal',
+      essDesc: 'What employees see in their own portal (/my-portal)',
+      essShowSalary: 'Show salary and payslips to the employee in their portal',
+      essShowSalaryHint: 'When off, the portal shows no salary, allowances, deductions or payslips — the server does not send them',
       
       save: 'Save Settings',
       saving: 'Saving...',
@@ -532,6 +542,31 @@ export default function HRSettingsPage() {
                 ))}
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Employee portal */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-[#28376B]">
+              <Users className="w-5 h-5" />
+              {text.essSection}
+            </CardTitle>
+            <CardDescription>{text.essDesc}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <label htmlFor="ess-show-salary" className="font-medium">{text.essShowSalary}</label>
+              <input
+                id="ess-show-salary"
+                type="checkbox"
+                checked={settings?.ess_show_salary ?? true}
+                onChange={e => updateSetting('ess_show_salary', e.target.checked)}
+                className="w-5 h-5 accent-[#28376B]"
+                data-testid="ess-show-salary"
+              />
+            </div>
+            <p className="text-xs text-gray-500">{text.essShowSalaryHint}</p>
           </CardContent>
         </Card>
       </div>

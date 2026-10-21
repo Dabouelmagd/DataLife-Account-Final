@@ -46,6 +46,7 @@ import GuideWebPage from "./pages/GuideWebPage";
 import EmployeeSelfService from "./pages/EmployeeSelfService";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import StaffEntry from "./components/StaffEntry";
+import { isPreviewUrl } from "./utils/essPreview";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -74,6 +75,10 @@ const ProtectedRoute = ({ children, allowEmployee = false }) => {
   const { isAuthenticated, loading, user } = useAuth();
   let role = user?.role;
   if (!role) { try { role = JSON.parse(localStorage.getItem('user') || '{}').role; } catch { role = undefined; } }
+
+  // «معاينة بوابة الموظف»: the portal tab carries its own read-only token,
+  // so it opens whatever the admin's login state (and never redirects it)
+  if (allowEmployee && isPreviewUrl()) return children;
 
   if (loading) {
     return (

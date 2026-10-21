@@ -489,17 +489,18 @@ function summarise(rows) {
   };
 }
 
-export function EmployeeAppraisals({ employeeId, self = false }) {
+export function EmployeeAppraisals({ employeeId, self = false, token = null }) {
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(null);
   const [err, setErr] = useState('');
   useEffect(() => {
     if (!self && !employeeId) return;
     const url = self ? `${API}/api/ess/my-appraisals` : `${API}/api/performance/employee/${employeeId}/appraisals`;
-    axios.get(url, auth())
+    // token: the portal's «معاينة» passes its read-only preview token
+    axios.get(url, token ? { headers: { Authorization: `Bearer ${token}` } } : auth())
       .then((r) => { const d = self ? summarise(r.data.appraisals || []) : r.data; setData(d); setOpen(d.appraisals?.[0]?.appraisal_id || null); })
       .catch((e) => { setData({ appraisals: [] }); setErr(errText(e, 'تعذّر تحميل التقييمات')); });
-  }, [employeeId, self]);
+  }, [employeeId, self, token]);
 
   if (!data) return <Loading />;
   const rows = data.appraisals || [];

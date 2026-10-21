@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmployeeAppraisals } from '../components/hr/Performance';
+import { openEmployeePortalPreview } from '../utils/essPreview';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 const DOC_TYPE_AR = {
@@ -680,6 +681,11 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
                   </button>
                 </>
               )}
+              <button type="button" title="تفتح البوابة في تاب جديد زي ما الموظف بيشوفها بالظبط — للعرض بس، مفيش حاجة بتتحفظ"
+                onClick={async () => { setInviteError(''); const r = await openEmployeePortalPreview(employeeId); if (!r.ok) setInviteError(r.error); }}
+                className="px-3 py-1.5 rounded-lg border border-[#1e3a8a] text-[#1e3a8a] dark:text-blue-300 dark:border-blue-400 font-semibold hover:bg-blue-50 dark:hover:bg-slate-800">
+                👁 معاينة بوابة الموظف
+              </button>
             </div>
             {inviteError && <p className="mb-3 text-sm text-red-700" role="alert">{inviteError}</p>}
             {invite && (

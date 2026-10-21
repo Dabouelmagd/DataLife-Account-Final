@@ -111,6 +111,32 @@ def employee_may(path: str) -> bool:
     return any(path == p or path.startswith(p + "/") or path.startswith(p + "?") for p in EMPLOYEE_ALLOWED)
 
 
+# «معاينة بوابة الموظف»: HR / top management open the portal as one employee
+# (POST /api/ess/preview-token). That token is READ-ONLY and reaches the
+# employee portal reads only — checked here for every request, before any
+# route runs, so a route that forgot its own check still cannot write.
+PREVIEW_PREFIX = "preview:"
+PREVIEW_READONLY = "ده عرض تجريبي — مفيش حاجة بتتحفظ"
+PREVIEW_READ_METHODS = {"GET", "HEAD", "OPTIONS"}
+PREVIEW_DENIED = ("/api/ess/admin", "/api/ess/preview-token")
+
+
+def is_preview_token(payload) -> bool:
+    p = payload or {}
+    return bool(p.get("preview")) or str(p.get("user_id") or "").startswith(PREVIEW_PREFIX)
+
+
+def preview_refusal(method: str, path: str):
+    """None when a preview token may make this request, else the refusal text."""
+    if (method or "").upper() not in PREVIEW_READ_METHODS:
+        return PREVIEW_READONLY
+    if not (path == "/api/ess" or path.startswith("/api/ess/")):
+        return "المعاينة بتفتح بوابة الموظف بس"
+    if any(path == p or path.startswith(p + "/") for p in PREVIEW_DENIED):
+        return "المعاينة بتفتح بوابة الموظف بس"
+    return None
+
+
 # money figures under otherwise-open prefixes: /api/dashboard is open to every
 # login (each widget checks its own section), but these show company cash and
 # budgets, which HR-only staff should not see

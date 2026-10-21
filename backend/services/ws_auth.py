@@ -23,6 +23,11 @@ def _verify(token: str) -> Optional[dict]:
     payload = verify_token(token)
     if not payload or not payload.get("user_id"):
         return None
+    # «معاينة بوابة الموظف» tokens read the employee portal over REST only;
+    # the company sync socket would push live company data to them
+    from services.route_permissions import is_preview_token
+    if is_preview_token(payload):
+        return None
     return payload
 
 

@@ -32,6 +32,15 @@ router = APIRouter(prefix="/api/ess", tags=["Employee Self-Service"])
 
 async def get_employee_by_user(user_id: str, company_id: str) -> dict:
     """Get employee record linked to the logged-in user"""
+    # «معاينة بوابة الموظف»: a short-lived token issued to HR / top management
+    # carries user_id "preview:<employee id>" — it reads that employee of the
+    # SAME company (company_id comes from the signed token), nothing else
+    if str(user_id or "").startswith(PREVIEW_PREFIX):
+        emp = await db.employees.find_one(
+            {"id": str(user_id)[len(PREVIEW_PREFIX):], "company_id": company_id}, {"_id": 0})
+        if not emp:
+            raise HTTPException(404, "الموظف ده مش موجود في شركتك")
+        return emp
     emp = await db.employees.find_one(
         {"user_id": user_id, "company_id": company_id}, {"_id": 0}
     )
@@ -45,6 +54,90 @@ async def get_employee_by_user(user_id: str, company_id: str) -> dict:
     if not emp:
         raise HTTPException(403, "هذا الحساب غير مرتبط بملف موظف — تواصل مع الـ HR")
     return emp
+
+
+# ── Preview as employee (read-only) ───────────────────────────
+# The owner / HR opens the portal exactly as one employee sees it. The token
+# is refused for every write here AND centrally in PermissionMiddleware (any
+# non-GET, any path outside /api/ess) — see services/route_permissions.py.
+from services.route_permissions import PREVIEW_PREFIX, PREVIEW_READONLY, is_preview_token  # noqa: E402
+
+PREVIEW_MINUTES = 30
+PREVIEW_ROLES = {"Board Chairman", "رئيس مجلس الإدارة", "General Manager", "مدير عام", "المدير العام",
+                 "CEO", "المدير التنفيذي", "owner", "Super Admin", "مدير النظام", "admin",
+                 "HR Manager", "مدير الموارد البشرية", "مدير موارد بشرية"}
+
+
+def refuse_preview(current_user: dict) -> None:
+    if is_preview_token(current_user):
+        raise HTTPException(403, PREVIEW_READONLY)
+
+
+# ── Hide salary from the employee's own portal (company HR setting) ──
+# company_hr_settings.ess_show_salary (default True). When False nothing that
+# carries a pay figure leaves the server: the profile loses its salary,
+# allowance and deduction fields, appraisals lose raise figures, and the
+# payslip list / payslip download are refused.
+import re as _re  # noqa: E402
+_PAY_KEY = _re.compile(
+    r"(salary|allowance|deduction|wage|bonus|commission|increment|incentive|payable|net_pay|payslip"
+    r"|_rate$|^hourly|health_insurance_amount|medical_balance|medical_yearly_limit)", _re.I)
+SALARY_HIDDEN_NOTE = "الشركة مخلية المرتب والقسائم مش ظاهرين في البوابة — لو محتاج قسيمتك اطلبها من الموارد البشرية"
+
+
+async def ess_shows_salary(company_id: str) -> bool:
+    s = await db.company_hr_settings.find_one({"company_id": company_id}, {"_id": 0, "ess_show_salary": 1}) or {}
+    return s.get("ess_show_salary", True) is not False
+
+
+def strip_pay(value):
+    """Drop every pay-figure key, at any depth."""
+    if isinstance(value, dict):
+        return {k: strip_pay(v) for k, v in value.items() if not _PAY_KEY.search(str(k))}
+    if isinstance(value, list):
+        return [strip_pay(v) for v in value]
+    return value
+
+
+@router.post("/preview-token")
+async def issue_preview_token(data: dict, request: Request, current_user: dict = Depends(get_current_user)):
+    """«معاينة بوابة الموظف» — a 30-minute, read-only token that opens /my-portal
+    as one employee of the caller's own company. HR manager / top roles only."""
+    refuse_preview(current_user)
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(400, "الحساب ده مش مرتبط بشركة")
+    # judge by the role saved now, not the one in a token issued hours ago
+    u = await db.users.find_one({"id": current_user.get("user_id")},
+                                {"_id": 0, "role": 1, "company_id": 1, "is_platform_admin": 1, "full_name": 1})
+    role = (u or {}).get("role") or current_user.get("role")
+    if u and u.get("company_id") and u.get("company_id") != company_id and not u.get("is_platform_admin"):
+        raise HTTPException(403, "معاينة بوابة الموظف لموظفي شركتك بس")
+    if role not in PREVIEW_ROLES and not (u or {}).get("is_platform_admin"):
+        raise HTTPException(403, "معاينة بوابة الموظف للإدارة العليا ومدير الموارد البشرية بس")
+    employee_id = str((data or {}).get("employee_id") or "").strip()
+    if not employee_id:
+        raise HTTPException(400, "اختار الموظف")
+    emp = await db.employees.find_one({"id": employee_id, "company_id": company_id},
+                                      {"_id": 0, "id": 1, "name": 1})
+    if not emp:
+        raise HTTPException(404, "الموظف ده مش موجود في شركتك")
+    from services.auth_service import create_access_token
+    token = create_access_token({
+        "user_id": PREVIEW_PREFIX + emp["id"], "email": "", "company_id": company_id,
+        "role": "موظف", "preview": True, "preview_employee_id": emp["id"],
+        "preview_by": current_user.get("user_id"),
+    }, expires_delta=timedelta(minutes=PREVIEW_MINUTES))
+    try:
+        from services.audit_helper import log_event
+        ip = request.headers.get("X-Forwarded-For", getattr(request.client, "host", "")) if request else None
+        await log_event(db, company_id, {**current_user, "full_name": (u or {}).get("full_name")},
+                        action="ess_preview", module="hr", entity="employee", entity_id=emp["id"],
+                        description=f"معاينة بوابة الموظف: {emp.get('name', '')}", ip=ip)
+    except Exception:
+        pass                                      # the audit write never blocks the preview
+    return {"token": token, "expires_in": PREVIEW_MINUTES * 60, "employee_name": emp.get("name", ""),
+            "employee_id": emp["id"]}
 
 
 def haversine_distance(lat1, lon1, lat2, lon2) -> float:
@@ -115,6 +208,7 @@ def _geofence(emp: dict, company: dict, req, action: str) -> tuple:
 
 
 async def _gps_punch(kind: str, req, current_user: dict, request: Request = None) -> dict:
+    refuse_preview(current_user)
     from api.attendance_api import attendance_methods, gps_punch
     company_id = current_user["company_id"]
     if not (await attendance_methods(company_id))["gps"]:
@@ -192,6 +286,7 @@ async def my_attendance(
 @router.post("/requests/leave")
 async def request_leave_ess(data: dict, current_user: dict = Depends(get_current_user)):
     """تقديم طلب إجازة من الهاتف"""
+    refuse_preview(current_user)
     company_id = current_user["company_id"]
     emp = await get_employee_by_user(current_user["user_id"], company_id)
 
@@ -242,6 +337,7 @@ async def request_leave_ess(data: dict, current_user: dict = Depends(get_current
 @router.post("/requests/loan")
 async def request_loan_ess(data: dict, current_user: dict = Depends(get_current_user)):
     """تقديم طلب سلفة من الهاتف"""
+    refuse_preview(current_user)
     company_id = current_user["company_id"]
     emp = await get_employee_by_user(current_user["user_id"], company_id)
 
@@ -300,6 +396,7 @@ async def request_loan_ess(data: dict, current_user: dict = Depends(get_current_
 @router.post("/requests/overtime")
 async def request_overtime_ess(data: dict, current_user: dict = Depends(get_current_user)):
     """تقديم طلب وقت إضافي من الهاتف"""
+    refuse_preview(current_user)
     company_id = current_user["company_id"]
     emp = await get_employee_by_user(current_user["user_id"], company_id)
 
@@ -370,6 +467,9 @@ async def list_my_payslips(current_user: dict = Depends(get_current_user)):
     """قائمة كشوف الرواتب المتاحة للموظف"""
     company_id = current_user["company_id"]
     emp = await get_employee_by_user(current_user["user_id"], company_id)
+    if not await ess_shows_salary(company_id):
+        return {"employee": emp.get("name", ""), "payslips": [], "total": 0,
+                "salary_hidden": True, "message": SALARY_HIDDEN_NOTE}
 
     # payroll runs store their rows in "employees" and the month as "YYYY-MM";
     # this read "employees_data" and integer year/month, so the list was always empty
@@ -475,6 +575,8 @@ async def get_payslip_pdf(
     emp = await get_employee_by_user(current_user["user_id"], company_id)
     if not emp:                                   # was a 500 (emp["id"] on None)
         raise HTTPException(404, "لا يوجد ملف موظف مرتبط بحسابك — تواصل مع الموارد البشرية")
+    if not await ess_shows_salary(company_id):
+        raise HTTPException(403, SALARY_HIDDEN_NOTE)
 
     run = await db.payroll_runs.find_one(
         {"id": run_id, "company_id": company_id}, {"_id": 0})
@@ -749,7 +851,11 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
         n = safe["bank_account_number"]
         safe["bank_account_number"] = "•••••" + n[-4:]
 
-    return {"employee": safe, "company_id": company_id}
+    show = await ess_shows_salary(company_id)
+    if not show:
+        safe = strip_pay(safe)
+    return {"employee": safe, "company_id": company_id, "show_salary": show,
+            "preview": is_preview_token(current_user)}
 
 
 @router.get("/my-appraisals")
@@ -760,6 +866,8 @@ async def my_appraisals(current_user: dict = Depends(get_current_user)):
     rows = await db.employee_appraisals.find(
         {"company_id": company_id, "employee_id": emp["id"], "status": "approved"},
         {"_id": 0, "current_salary": 0, "created_by": 0, "approved_by": 0}).sort("review_date", -1).to_list(100)
+    if not await ess_shows_salary(company_id):
+        rows = strip_pay(rows)
     return {"appraisals": rows, "total": len(rows)}
 
 
@@ -810,6 +918,7 @@ async def upload_my_document(
     import os, aiofiles
     from models.employee_extended import EmployeeDocument, DocumentType
     from services.upload_limits import read_limited, MB
+    refuse_preview(current_user)
     emp = await get_employee_by_user(current_user["user_id"], current_user["company_id"])
     if not emp:
         raise HTTPException(status_code=404, detail="لا يوجد ملف موظف مرتبط بحسابك — تواصل مع الموارد البشرية")

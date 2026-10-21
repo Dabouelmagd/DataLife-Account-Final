@@ -2214,6 +2214,7 @@ class HRSettingsUpdateRequest(BaseModel):
     weekend_days: Optional[List[str]] = None
     round_late_minutes_to: Optional[int] = None
     round_overtime_minutes_to: Optional[int] = None
+    ess_show_salary: Optional[bool] = None       # إظهار المرتب والقسائم للموظف في بوابته
 
 
 @router.get("/hr-settings")
