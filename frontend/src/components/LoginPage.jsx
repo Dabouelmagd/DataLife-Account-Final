@@ -77,6 +77,7 @@ const LoginPage = () => {
   };
 
   const t = translations[language];
+  const staffMode = /(?:^|[?&])staff=1(?:&|$)/.test(window.location.search);
 
   const routeByRole = (user) => {
     const role = user?.role;
@@ -195,10 +196,12 @@ const LoginPage = () => {
           <span className="mt-3 h-1 w-16 rounded-full bg-gradient-to-l from-[#1e3a8a] to-emerald-500" aria-hidden />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">{t.title}</h2>
-            <p className="text-gray-600">{t.subtitle}</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{staffMode ? (language === 'ar' ? 'دخول الموظفين' : 'Employee sign-in') : t.title}</h2>
+            <p className="text-gray-600">{staffMode
+              ? (language === 'ar' ? 'سجّل حضورك واطلب إجازة وشوف قسيمة راتبك' : 'Check in, request leave and see your payslip')
+              : t.subtitle}</p>
           </div>
 
           {error && (

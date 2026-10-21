@@ -45,6 +45,7 @@ import AssetsModule from "./components/AssetsModule";
 import GuideWebPage from "./pages/GuideWebPage";
 import EmployeeSelfService from "./pages/EmployeeSelfService";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
+import StaffEntry from "./components/StaffEntry";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -102,6 +103,8 @@ function App() {
               <Route path="/features" element={<FeaturesPage />} />
               <Route path="/demo" element={<DemoPage onClose={() => window.history.back()} />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/staff" element={<StaffEntry />} />
+              <Route path="/app" element={<StaffEntry />} />
               <Route path="/register-company" element={<CompanyRegistrationPage />} />
               <Route 
                 path="/dashboard" 

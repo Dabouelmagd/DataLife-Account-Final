@@ -1,21 +1,28 @@
 {
-  "short_name": "DataLife",
+  "short_name": "داتا لايف",
   "name": "DataLife Account — نظام ERP متكامل",
   "description": "نظام ERP سحابي متكامل للشركات المصرية والعربية — محاسبة، HR، فواتير ETA، مبيعات CRM",
   "icons": [
     {
-      "src": "/datalife-logo-arabic.svg",
-      "type": "image/svg+xml",
-      "sizes": "any",
-      "purpose": "any maskable"
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
-      "src": "/og-image.jpg",
-      "type": "image/jpeg",
-      "sizes": "1200x630"
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": "/staff",
   "display": "standalone",
   "theme_color": "#1e3a8a",
   "background_color": "#0f1729",
@@ -28,6 +35,12 @@
   ],
   "shortcuts": [
     {
+      "name": "بوابة الموظف",
+      "short_name": "بوابتي",
+      "url": "/staff",
+      "description": "الحضور والإجازات وقسيمة الراتب"
+    },
+    {
       "name": "تسجيل الدخول",
       "short_name": "دخول",
       "url": "/login",
@@ -39,5 +52,6 @@
       "url": "/register",
       "description": "ابدأ تجربة مجانية 14 يوم"
     }
-  ]
+  ],
+  "scope": "/"
 }

@@ -90,7 +90,7 @@ export default function LandingPage() {
   const faqs = [
     { q: ar?'هل الموظف يرى رواتب زملائه؟':'Can employees see each other\'s salaries?', a: ar?'لا إطلاقاً. الموظف معزول في بوابة ESS ولا يرى أي بيانات الشركة أو الزملاء. الرقم القومي والـ IBAN مخفيان جزئياً.':'Absolutely not. The employee is isolated in ESS and cannot see any company or colleague data. National ID and IBAN are partially hidden.' },
     { q: ar?'كيف أمنح موظفاً صلاحية إضافية؟':'How to grant an employee additional permission?', a: ar?'إدارة المستخدمين → اختر الموظف → صلاحيات → فعّل الوحدة. تُطبَّق فوراً. HR Manager والمدير المالي يملكان هذه الصلاحية أيضاً.':'User Management → Select employee → Permissions → Activate module. Applied immediately. HR Manager and Financial Manager can also grant permissions.' },
-    { q: ar?'هل النظام معتمد من هيئة الضرائب المصرية؟':'Is the system certified by the Egyptian Tax Authority?', a: ar?'نعم — يرسل الفواتير مباشرة لمنظومة ETA بتوقيع CAdES-BES ويولد نماذج 41 و10 جاهزة للتقديم.':'Yes — sends invoices directly to ETA with CAdES-BES signature and generates forms 41 & 10 ready for submission.' },
+    { q: ar?'هل النظام متصل بمنظومة الفاتورة الإلكترونية؟':'Does it connect to the Egyptian e-invoicing system?', a: ar?'نعم — يرسل الفواتير لمنظومة ETA من خلال واجهتها الرسمية بتوقيع CAdES-BES (بعد تسجيل شركتك وبيانات الربط الخاصة بها)، ويجهّز بيانات نماذج 41 و10.':'Yes — it sends invoices to ETA through its official API with a CAdES-BES signature (once your company is registered and its credentials are set), and prepares the data for forms 41 and 10.' },
     { q: ar?'كيف يعمل تسجيل الحضور GPS؟':'How does GPS attendance work?', a: ar?'الموظف يضغط "تسجيل حضور" من بوابة ESS → النظام يحدد موقعه ويتحقق من المسافة من مقر العمل → يسجل مع الإحداثيات والوقت الفعلي.':'Employee taps "Check In" from ESS portal → System detects location and verifies distance from workplace → Records with coordinates and real time.' },
     { q: ar?'هل يمكن الترقية أو الإلغاء في أي وقت؟':'Can I upgrade or cancel anytime?', a: ar?'نعم من داخل التطبيق. الترقية فورية. الإلغاء يحفظ بياناتك 90 يوماً مع تصدير كامل JSON/Excel/CSV.':'Yes, from inside the app. Upgrade is immediate. Cancellation keeps your data for 90 days with full JSON/Excel/CSV export.' },
     { q: ar?'ما طرق الدفع المتاحة؟':'What payment methods are available?', a: ar?'InstaPay (01006008552) · فودافون كاش (01012625529) · تحويل بنكي · كود تفعيل. الدفع بالبطاقة قريباً. الفاتورة الضريبية مع VAT 14% تُرسَل تلقائياً.':'InstaPay (01006008552) · Vodafone Cash (01012625529) · Bank transfer · Activation code. Card payment coming soon. Tax invoice with 14% VAT sent automatically.' },
@@ -107,8 +107,8 @@ export default function LandingPage() {
 
       {/* ── NAV ── */}
       <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#060c1a]/95 backdrop-blur shadow-lg border-b border-white/5' : 'bg-transparent'}`}>
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <DataLifeLogo className="h-28" />
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 h-16 flex items-center justify-between gap-2">
+          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label={ar ? 'أعلى الصفحة' : 'Top'} className="shrink-0"><DataLifeLogo className="h-11 sm:h-12 md:h-14" /></button>
           <div className="hidden md:flex items-center gap-6">
             {navLinks.map(l => (
               <button key={l.href} onClick={() => scrollTo(l.href)}
@@ -117,7 +117,7 @@ export default function LandingPage() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher />
             {/* Quick dashboard access — always visible, checks role on click */}
             <button
@@ -136,21 +136,35 @@ export default function LandingPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
             </button>
-            <button onClick={() => navigate('/login')}
-              className="hidden sm:block text-sm font-semibold text-gray-300 hover:text-white px-4 py-2 rounded-lg border border-white/10 hover:border-white/20 transition-all">
+            <button onClick={() => navigate('/staff')}
+              className="text-xs sm:text-sm font-semibold text-gray-200 hover:text-white px-3 sm:px-4 py-2 rounded-lg border border-white/15 hover:border-white/30 transition-all whitespace-nowrap">
               {ar ? 'تسجيل الدخول' : 'Login'}
             </button>
             <button onClick={() => setTrialOpen(true)}
-              className="text-sm font-bold px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-black hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/25">
+              className="hidden sm:block text-sm font-bold px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-black hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/25">
               {ar ? 'ابدأ مجاناً' : 'Start Free'}
             </button>
-            <button className="md:hidden text-gray-300" onClick={() => setMenuOpen(!menuOpen)}>
+            <button className="md:hidden text-gray-300 p-1" aria-label={ar ? 'القائمة' : 'Menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
               {menuOpen ? <X size={22}/> : <Menu size={22}/>}
             </button>
           </div>
         </div>
         {menuOpen && (
           <div className="md:hidden bg-[#0a1020] border-t border-white/5 px-4 py-4 space-y-2">
+            <div className="grid grid-cols-2 gap-2 pb-3 mb-1 border-b border-white/5">
+              <button onClick={() => navigate('/login?staff=1')}
+                className="py-2.5 rounded-lg bg-teal-500/15 border border-teal-500/30 text-teal-300 text-sm font-bold">
+                {ar ? '👤 دخول الموظفين' : '👤 Employee login'}
+              </button>
+              <button onClick={() => navigate('/login')}
+                className="py-2.5 rounded-lg bg-white/5 border border-white/10 text-gray-200 text-sm font-bold">
+                {ar ? 'دخول الإدارة' : 'Admin login'}
+              </button>
+              <button onClick={() => { setMenuOpen(false); setTrialOpen(true); }}
+                className="col-span-2 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-black text-sm font-bold">
+                {ar ? 'ابدأ التجربة المجانية' : 'Start free trial'}
+              </button>
+            </div>
             {navLinks.map(l => (
               <button key={l.href} onClick={() => scrollTo(l.href)}
                 className="block w-full text-start text-sm text-gray-300 hover:text-white py-2">
@@ -162,38 +176,42 @@ export default function LandingPage() {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="min-h-screen flex items-center justify-center text-center px-4 pt-16 relative overflow-hidden"
+      <section className="min-h-[100svh] flex items-center justify-center text-center px-4 pt-24 pb-12 sm:pt-16 relative overflow-hidden"
         style={{background:'radial-gradient(ellipse 80% 60% at 50% -5%, rgba(30,64,175,.5), transparent 65%), #060c1a'}}>
         <div className="absolute inset-0 opacity-20"
           style={{backgroundImage:'linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px)',backgroundSize:'52px 52px'}}/>
         <div className="max-w-4xl mx-auto relative z-10">
           {/* ── Big Logo ── */}
-          <div className="flex justify-center mb-8">
-            <DataLifeLogo className="h-40 md:h-52 drop-shadow-2xl" />
+          <div className="hidden sm:flex justify-center mb-8">
+            <DataLifeLogo className="h-36 md:h-48 drop-shadow-2xl" />
           </div>
 
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400 text-sm font-semibold mb-8">
+          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs sm:text-sm font-semibold mb-6 sm:mb-8">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"/>
             {ar ? 'يدعم الربط مع منظومة الفاتورة الإلكترونية ETA' : 'Integrates with the ETA e-invoicing system'}
           </div>
-          <h1 className="text-5xl md:text-7xl font-black leading-tight mb-6">
-            {ar ? (<>نظام ERP المحاسبي<br className="hidden md:block"/><span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent"> المصري الأكثر اكتمالاً</span></>) : (<>Egypt&apos;s Most Complete<br/><span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Accounting ERP</span></>)}
+          <h1 className="text-[2.1rem] leading-[1.25] sm:text-5xl md:text-7xl font-black sm:leading-tight mb-5 sm:mb-6">
+            {ar ? (<><span className="block">نظام ERP المحاسبي</span><span className="block bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">المصري الأكثر اكتمالاً</span></>) : (<>Egypt&apos;s Most Complete<br/><span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Accounting ERP</span></>)}
           </h1>
-          <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
             {ar ? 'فاتورة ETA · رواتب قانون 148/2019 · بوابة موظف ESS · مساعد AI محاسبي · تنبيهات ذكية تُصلح نفسها تلقائياً' : 'ETA Invoice · Payroll Law 148/2019 · ESS Employee Portal · AI Accounting Assistant · Smart self-healing alerts'}
           </p>
-          <div className="flex flex-wrap justify-center gap-4 mb-14">
+          <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-4 mb-10 sm:mb-14 max-w-sm sm:max-w-none mx-auto">
             <button onClick={() => setTrialOpen(true)}
               className="px-8 py-4 rounded-xl font-bold text-base bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-xl shadow-amber-500/30 hover:from-amber-400 hover:to-orange-400 transition-all hover:-translate-y-0.5">
               {ar ? 'ابدأ التجربة المجانية' : 'Start Free Trial'}
+            </button>
+            <button onClick={() => navigate('/login?staff=1')}
+              className="sm:hidden px-8 py-4 rounded-xl font-bold text-base bg-teal-500/15 border border-teal-500/30 text-teal-200 hover:bg-teal-500/25 transition-all">
+              {ar ? '👤 دخول الموظفين' : '👤 Employee login'}
             </button>
             <button onClick={() => scrollTo('#features')}
               className="px-8 py-4 rounded-xl font-bold text-base bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
               {ar ? '🎬 استعرض المميزات' : '🎬 Explore Features'}
             </button>
           </div>
-          <div className="flex flex-wrap justify-center gap-8 pt-8 border-t border-white/5">
-            {[{n:'946+',l:ar?'نقطة API':'API Points'},{n:'89+',l:ar?'محرك متخصص':'Engines'},{n:'99.5%',l:'SLA'},{n:'100%',l:ar?'امتثال ETA':'ETA Compliant'}].map((s,i)=>(
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-6 sm:gap-8 pt-8 border-t border-white/5">
+            {[{n:'946+',l:ar?'نقطة API':'API Points'},{n:'89+',l:ar?'محرك متخصص':'Engines'},{n:'99.5%',l:'SLA'},{n:'ETA',l:ar?'ربط الفاتورة الإلكترونية':'e-invoice link'}].map((s,i)=>(
               <div key={i} className="text-center">
                 <div className="text-2xl md:text-3xl font-black text-white">{s.n}</div>
                 <div className="text-xs text-gray-500 mt-1">{s.l}</div>
@@ -415,7 +433,7 @@ export default function LandingPage() {
       <section className="py-24 px-4 text-center"
         style={{background:'radial-gradient(ellipse 60% 70% at 50% 50%, rgba(30,64,175,.3), transparent 68%), #0a1020'}}>
         <div className="max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400 text-sm font-semibold mb-8">
+          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs sm:text-sm font-semibold mb-6 sm:mb-8">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"/>
             {ar?'جاهز للتشغيل التجاري الآن':'Ready for Commercial Operation Now'}
           </div>

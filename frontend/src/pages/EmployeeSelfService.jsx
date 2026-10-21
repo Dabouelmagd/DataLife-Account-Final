@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { EmployeeAppraisals } from '../components/hr/Performance';
 import { getPosition } from '../utils/geo';
+import InstallAppHint from '../components/InstallAppHint';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -430,6 +431,7 @@ const EmployeeSelfService = () => {
 
       {/* ── CONTENT ── */}
       <div className="max-w-4xl mx-auto px-4 py-6">
+        <InstallAppHint className="mb-4" />
 
         {activeTab === 'performance' && (
           <div className="bg-white rounded-2xl shadow-sm p-5">
