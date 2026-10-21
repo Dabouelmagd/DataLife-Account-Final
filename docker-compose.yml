@@ -21,7 +21,7 @@ services:
       - mongo_dl
     env_file: .env
     ports:
-      - "8003:8000"
+      - "127.0.0.1:8003:8000"   # only the host nginx (localhost) reaches it
     volumes:
       - uploads_data:/app/uploads
       - logs_data:/app/logs
@@ -45,7 +45,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "3003:80"
+      - "127.0.0.1:3003:80"     # only the host nginx (localhost) reaches it
     networks:
       - datalife_net
 
