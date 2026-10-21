@@ -1,3 +1,11 @@
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, EmailStr
@@ -91,15 +99,15 @@ async def send_contact_message(contact: ContactMessage):
                 <div class="content">
                     <div class="field">
                         <div class="label">الاسم:</div>
-                        <div class="value">{contact.name}</div>
+                        <div class="value">{_h(contact.name)}</div>
                     </div>
                     <div class="field">
                         <div class="label">البريد الإلكتروني:</div>
-                        <div class="value">{contact.email}</div>
+                        <div class="value">{_h(contact.email)}</div>
                     </div>
                     <div class="field">
                         <div class="label">الرسالة:</div>
-                        <div class="value">{contact.message}</div>
+                        <div class="value">{_h(contact.message)}</div>
                     </div>
                     <div class="field">
                         <div class="label">التاريخ:</div>
@@ -139,12 +147,12 @@ async def send_contact_message(contact: ContactMessage):
                     <h2>شكراً لتواصلك معنا! 🙏</h2>
                 </div>
                 <div class="content">
-                    <p>مرحباً <strong>{contact.name}</strong>،</p>
+                    <p>مرحباً <strong>{_h(contact.name)}</strong>،</p>
                     <p>شكراً لتواصلك مع فريق DataLife. لقد استلمنا رسالتك وسنقوم بالرد عليك في أقرب وقت ممكن.</p>
                     
                     <div class="message">
                         <strong>رسالتك:</strong>
-                        <p>{contact.message}</p>
+                        <p>{_h(contact.message)}</p>
                     </div>
                     
                     <p>مع أطيب التحيات،<br>فريق DataLife</p>

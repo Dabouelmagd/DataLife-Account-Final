@@ -125,8 +125,15 @@ async def update_user_role(
         "updated_at": get_current_timestamp()
     }
     
-    # If upgrading to admin role, give full permissions
-    if new_role in ADMIN_ROLES:
+    from models.permission import ROLE_PERMISSIONS
+    from .admin_common import PLATFORM_ADMIN_ROLES
+    if new_role not in ROLE_PERMISSIONS and new_role not in PLATFORM_ADMIN_ROLES:
+        raise HTTPException(status_code=400, detail="Invalid role")
+
+    # Only a platform role makes a platform admin. ADMIN_ROLES holds company
+    # roles too (General Manager, CEO): making a customer's user a GM used to
+    # give them is_platform_admin over every company.
+    if new_role in PLATFORM_ADMIN_ROLES:
         update_data["permissions"] = ALL_SYSTEM_PERMISSIONS
         update_data["is_platform_admin"] = True
     

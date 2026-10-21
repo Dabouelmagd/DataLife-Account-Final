@@ -220,6 +220,128 @@ async def _post_claim_entry(company_id: str, user_id: str, date: str, descriptio
     return {"id": je["id"], "debit": dr, "credit": cr}
 
 
+# ── contracting-labour social insurance — تأمينات العمالة غير المنتظمة (المقاولات) ──
+# Law 148/2019 charges a contribution for irregular labour on contracting
+# works, assessed by the NOSI office on the works' value. The percentage
+# depends on the kind of work and the office's assessment, so it is a company
+# setting, 0 (off) until the company enters the rate confirmed with its NOSI
+# office. It is applied to the claim's current value excluding VAT.
+#   subcontractor claims: withheld from the subcontractor → 255 payable
+#   owner claims (owner_mode):
+#     off               nothing
+#     withheld_by_owner the owner deducts it from our claim and remits it:
+#                       Dr expense (3367) / less receivable 131
+#     payable_by_us     we pay the office ourselves: Dr expense / Cr 255
+CI_DEFAULTS = {"rate_pct": 0.0, "apply_to_subcontractor": True, "owner_mode": "off",
+               "expense_account": "3367", "payable_account": "255"}
+CI_OWNER_MODES = ("off", "withheld_by_owner", "payable_by_us")
+CI_NOTE = ("نسبة تأمينات العمالة في المقاولات تحددها الهيئة القومية للتأمين الاجتماعي حسب نوع الأعمال — "
+           "القيمة الافتراضية 0 (غير مفعّلة)؛ أدخل النسبة بعد تأكيدها من مكتب التأمينات المختص")
+
+
+async def _ci_settings(company_id: str) -> dict:
+    saved = await db.contracting_insurance_settings.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    return {**CI_DEFAULTS, **{k: saved[k] for k in CI_DEFAULTS if k in saved}}
+
+
+def _ci_rate(data: dict, settings: dict) -> float:
+    """Percent for this claim: the claim's own figure if sent, else the setting."""
+    raw = data.get("contracting_insurance_pct")
+    pct = settings["rate_pct"] if raw in (None, "") else raw
+    try:
+        pct = float(pct or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "نسبة تأمينات العمالة غير صحيحة")
+    if not 0 <= pct <= 25:
+        raise HTTPException(400, "نسبة تأمينات العمالة بين 0 و25%")
+    return round(pct, 4)
+
+
+@router.get("/contracting-insurance/settings")
+async def get_contracting_insurance_settings(current_user: dict = Depends(get_user)):
+    return {"settings": await _ci_settings(current_user.get("company_id")), "defaults": CI_DEFAULTS,
+            "owner_modes": {"off": "لا تُحتسب على مستخلصات المالك",
+                            "withheld_by_owner": "يخصمها المالك من المستخلص ويوردها",
+                            "payable_by_us": "تسددها الشركة للتأمينات بنفسها"},
+            "note": CI_NOTE}
+
+
+@router.put("/contracting-insurance/settings")
+async def update_contracting_insurance_settings(data: dict, current_user: dict = Depends(get_user)):
+    company_id = current_user.get("company_id")
+    upd = {}
+    if "rate_pct" in data:
+        upd["rate_pct"] = _ci_rate({"contracting_insurance_pct": data["rate_pct"]}, CI_DEFAULTS)
+    if "apply_to_subcontractor" in data:
+        upd["apply_to_subcontractor"] = bool(data["apply_to_subcontractor"])
+    if "owner_mode" in data:
+        if data["owner_mode"] not in CI_OWNER_MODES:
+            raise HTTPException(400, "owner_mode: off | withheld_by_owner | payable_by_us")
+        upd["owner_mode"] = data["owner_mode"]
+    for k in ("expense_account", "payable_account"):
+        if k in data:
+            code = str(data[k] or "").strip()
+            acc = await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": code}, {"_id": 0})
+            if not acc or acc.get("is_header") or acc.get("allow_posting") is False:
+                raise HTTPException(400, f"الحساب {code} غير موجود أو تجميعي لا يقبل قيوداً")
+            upd[k] = code
+    if not upd:
+        raise HTTPException(400, "لا توجد قيم للتحديث")
+    upd["updated_at"] = datetime.now(timezone.utc).isoformat()
+    upd["updated_by"] = current_user.get("user_id")
+    await db.contracting_insurance_settings.update_one(
+        {"company_id": company_id}, {"$set": upd, "$setOnInsert": {"company_id": company_id}}, upsert=True)
+    return {"message": "تم حفظ إعدادات تأمينات العمالة في المقاولات",
+            "settings": await _ci_settings(company_id), "note": CI_NOTE}
+
+
+@router.get("/contracting-insurance/report/{project_id}")
+async def contracting_insurance_report(project_id: str, contract_value: Optional[float] = None,
+                                       current_user: dict = Depends(get_user)):
+    """تأمينات العمالة على مشروع — لفتح ملف المشروع لدى التأمينات وتسويته عند الإغلاق."""
+    company_id = current_user.get("company_id")
+    settings = await _ci_settings(company_id)
+    claims = await db.progress_claims.find({"company_id": company_id, "project_id": project_id},
+                                           {"_id": 0}).sort("claim_date", 1).to_list(1000)
+    rows, t = [], {"owner_value": 0.0, "sub_value": 0.0, "withheld_from_subcontractors": 0.0,
+                   "withheld_by_owner": 0.0, "payable_by_company": 0.0}
+    for c in claims:
+        amt = round(float(c.get("contracting_insurance_amount") or 0), 2)
+        mode = c.get("contracting_insurance_mode") or ("subcontractor" if amt and c.get("claim_type") == "subcontractor" else "off")
+        value = round(float(c.get("current_claim") or 0), 2)
+        if c.get("claim_type") == "subcontractor":
+            t["sub_value"] += value
+            t["withheld_from_subcontractors"] += amt
+        else:
+            t["owner_value"] += value
+            if mode == "withheld_by_owner":
+                t["withheld_by_owner"] += amt
+            elif mode == "payable_by_us":
+                t["payable_by_company"] += amt
+        rows.append({"claim_id": c.get("id"), "claim_number": c.get("claim_number"),
+                     "claim_type": c.get("claim_type"), "claim_date": c.get("claim_date"),
+                     "partner_name": c.get("partner_name"), "current_claim": value,
+                     "rate_pct": c.get("contracting_insurance_pct", 0), "amount": amt, "mode": mode,
+                     "journal_entry_id": c.get("journal_entry_id")})
+    t = {k: round(v, 2) for k, v in t.items()}
+    due = round(t["withheld_from_subcontractors"] + t["payable_by_company"], 2)
+    out = {"project_id": project_id, "settings": settings, "claims": rows, "totals": {
+               **t, "due_to_nosi_from_company": due,
+               "total_contributions": round(due + t["withheld_by_owner"], 2),
+               "payable_account": settings["payable_account"]},
+           "note": CI_NOTE + " — المبالغ المستحقة تُسدَّد من حساب " + settings["payable_account"] +
+                   "؛ هذا التقرير لا يتتبع السداد للهيئة."}
+    if contract_value:
+        if contract_value < 0:
+            raise HTTPException(400, "قيمة العقد لا تكون سالبة")
+        est = round(contract_value * settings["rate_pct"] / 100, 2)
+        out["opening_estimate"] = {"contract_value": round(contract_value, 2), "rate_pct": settings["rate_pct"],
+                                   "estimated_contribution": est,
+                                   "recorded_so_far": out["totals"]["total_contributions"],
+                                   "remaining_vs_estimate": round(est - out["totals"]["total_contributions"], 2)}
+    return out
+
+
 @router.post("/progress-claims")
 async def create_progress_claim(data: dict, current_user: dict = Depends(get_user)):
     """مستخلص للمالك (claim_type=owner) — المعيار المصري 8.
@@ -254,11 +376,22 @@ async def create_progress_claim(data: dict, current_user: dict = Depends(get_use
     net = round(current - ret_amt - adv_ded - wht_amt, 2)
     if net < 0:
         raise HTTPException(400, "المحتجزات والدفعة المقدمة والخصم أكبر من قيمة المستخلص")
+    ci = await _ci_settings(company_id)
+    is_owner = data.get("claim_type", "owner") == "owner"
+    ci_mode = ci["owner_mode"] if is_owner else "off"
+    ci_pct = _ci_rate(data, ci) if ci_mode != "off" else 0.0
+    ci_amt = round(current * ci_pct / 100, 2)
+    if ci_mode == "withheld_by_owner":
+        net = round(net - ci_amt, 2)          # the owner pays us less
+        if net < 0:
+            raise HTTPException(400, "الاستقطاعات وتأمينات العمالة أكبر من قيمة المستخلص")
     ar_amount = round(net + vat_amt, 2)
 
     data.update({"current_claim": current, "retention_amount": ret_amt, "vat_rate": vat_rate,
                  "vat_amount": vat_amt, "withholding_tax_rate": wht_rate, "wht_type": wht_kind,
-                 "withholding_tax_amount": wht_amt, "net_payable": net, "ar_amount": ar_amount})
+                 "withholding_tax_amount": wht_amt, "net_payable": net, "ar_amount": ar_amount,
+                 "contracting_insurance_pct": ci_pct, "contracting_insurance_amount": ci_amt,
+                 "contracting_insurance_mode": ci_mode if ci_amt else "off"})
 
     je = None
     if data.get("claim_type", "owner") == "owner":
@@ -274,6 +407,10 @@ async def create_progress_claim(data: dict, current_user: dict = Depends(get_use
                 (("257",), adv_ded, 0, "استهلاك دفعة مقدمة مستلمة من المالك", proj),
                 (("414", "431", "412"), 0, current, f"إيراد مستخلص أعمال رقم {no} — {party}", proj),
                 (("260",), 0, vat_amt, f"ضريبة القيمة المضافة {vat_rate*100:g}% على المستخلص", proj),
+                ((ci["expense_account"],), ci_amt, 0,
+                 f"تأمينات العمالة في المقاولات {ci_pct:g}% — مستخلص رقم {no}", proj),
+                ((ci["payable_account"],), 0, ci_amt if ci_mode == "payable_by_us" else 0,
+                 f"تأمينات العمالة المستحقة للهيئة {ci_pct:g}% — مستخلص رقم {no}", proj),
             ], "claim", data["id"])
         data["journal_entry_id"] = je["id"]
 
@@ -323,15 +460,20 @@ async def create_subcontractor_claim(data: dict, current_user: dict = Depends(ge
     vat_amt = round(current_claim * vat_rate, 2)
     wht_rate, wht_type = _wht_rate(data, "contracts")
     wht_amt = round(current_claim * wht_rate, 2)
-    net_payable = round(current_claim - ret_amt - adv_recovery - wht_amt, 2)
+    ci = await _ci_settings(company_id)
+    ci_pct = _ci_rate(data, ci) if ci["apply_to_subcontractor"] else 0.0
+    ci_amt = round(current_claim * ci_pct / 100, 2)
+    net_payable = round(current_claim - ret_amt - adv_recovery - wht_amt - ci_amt, 2)
     if net_payable < 0:
-        raise HTTPException(400, "المحتجزات والدفعة المقدمة والخصم أكبر من قيمة المستخلص")
+        raise HTTPException(400, "المحتجزات والدفعة المقدمة والخصم وتأمينات العمالة أكبر من قيمة المستخلص")
     sub_ap = round(net_payable + vat_amt, 2)
 
     data.update({"current_claim": current_claim, "retention_amount": ret_amt, "vat_rate": vat_rate,
                  "vat_amount": vat_amt, "withholding_tax_amount": wht_amt, "withholding_tax_rate": wht_rate,
                  "wht_type": wht_type, "advance_recovery": adv_recovery, "net_payable": net_payable,
-                 "ar_amount": sub_ap})
+                 "ar_amount": sub_ap, "contracting_insurance_pct": ci_pct,
+                 "contracting_insurance_amount": ci_amt,
+                 "contracting_insurance_mode": "subcontractor" if ci_amt else "off"})
 
     no, party = data.get("claim_number", ""), data.get("partner_name", "")
     proj = {"project_id": data.get("project_id")}
@@ -345,6 +487,8 @@ async def create_subcontractor_claim(data: dict, current_user: dict = Depends(ge
             (("261",), 0, wht_amt, f"خصم وتحصيل {wht_rate*100:g}% مستحق لمصلحة الضرائب", proj),
             (("263",), 0, ret_amt, f"ضمان حسن التنفيذ محتجز {ret_pct:g}% من مقاول الباطن", proj),
             (("1351", "135"), 0, adv_recovery, "استرداد دفعة مقدمة لمقاول الباطن", proj),
+            ((ci["payable_account"],), 0, ci_amt,
+             f"تأمينات العمالة {ci_pct:g}% مستقطعة من مقاول الباطن {party} — مستحقة للهيئة", proj),
         ], "subcontractor_claim", data["id"])
     data["journal_entry_id"] = je["id"]
     data["je_balanced"] = True
@@ -357,7 +501,7 @@ async def create_subcontractor_claim(data: dict, current_user: dict = Depends(ge
         "journal_summary": {
             "debit_cost": current_claim, "debit_vat_input": vat_amt,
             "credit_payable": sub_ap, "credit_wht": wht_amt, "credit_retention": ret_amt,
-            "credit_adv_recovery": adv_recovery, "balanced": True,
+            "credit_adv_recovery": adv_recovery, "credit_contracting_insurance": ci_amt, "balanced": True,
             "wht_type": wht_type, "wht_rate_pct": round(wht_rate * 100, 1),
         },
     }
@@ -387,6 +531,8 @@ async def get_subcontractor_claims(project_id: str, current_user: dict = Depends
             "total_wht_deducted": round(total_wht, 2),
             "total_retention_held": round(total_retention, 2),
             "total_net_payable": round(total_net, 2),
+            "total_contracting_insurance": round(sum(float(c.get("contracting_insurance_amount") or 0)
+                                                     for c in claims), 2),
         }
     }
 
@@ -444,14 +590,18 @@ async def update_boq_item(boq_item_id: str, data: dict, current_user: dict = Dep
     if not await db.project_boq.find_one({"id": boq_item_id, "company_id": current_user.get("company_id")}, {"_id": 1}):
         raise HTTPException(status_code=404, detail="BOQ item not found")
     from datetime import datetime, timezone
+    # the body went straight into $set: company_id/id could be overwritten
+    data = {k: data[k] for k in ("unit_price", "planned_qty", "description", "unit", "notes") if k in data}
+    if not data:
+        raise HTTPException(status_code=400, detail="لا توجد حقول للتعديل")
     if "unit_price" in data or "planned_qty" in data:
-        item = await db.project_boq.find_one({"id": boq_item_id}, {"_id": 0})
+        item = await db.project_boq.find_one({"id": boq_item_id, "company_id": current_user.get("company_id")}, {"_id": 0})
         if item:
             up  = data.get("unit_price",  item.get("unit_price",  0))
             qty = data.get("planned_qty", item.get("planned_qty", 0))
             data["planned_amount"] = round(up * qty, 2)
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
-    await db.project_boq.update_one({"id": boq_item_id}, {"$set": data})
+    await db.project_boq.update_one({"id": boq_item_id, "company_id": current_user.get("company_id")}, {"$set": data})
     return {"message": "تم تعديل بند المقايسة"}
 
 

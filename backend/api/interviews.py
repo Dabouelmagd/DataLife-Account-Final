@@ -7,6 +7,7 @@ permission through PermissionMiddleware, and onboarding creates the employee
 record and links the portal login in one place.
 """
 
+import re as _re
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -165,7 +166,7 @@ async def list_questions(department: Optional[str] = None, role: Optional[str] =
     if difficulty:
         q["difficulty"] = difficulty.value
     if search:
-        q["question"] = {"$regex": search[:80], "$options": "i"}
+        q["question"] = {"$regex": _re.escape(str(search)[:80]), "$options": "i"}
     questions = await db.interview_questions.find(q, {"_id": 0}).sort("created_at", -1).to_list(limit)
     return {"questions": questions, "total": len(questions)}
 
@@ -249,7 +250,7 @@ async def list_candidates(job_profile_id: Optional[str] = None, stage: Optional[
     if stage:
         q["stage"] = stage.value
     if search:
-        q["name"] = {"$regex": search[:80], "$options": "i"}
+        q["name"] = {"$regex": _re.escape(str(search)[:80]), "$options": "i"}
     candidates = await db.candidates.find(q, {"_id": 0}).sort("created_at", -1).to_list(limit)
     return {"candidates": candidates, "total": len(candidates)}
 

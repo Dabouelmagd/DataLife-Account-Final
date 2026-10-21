@@ -3,6 +3,14 @@ Email Service for Payroll Notifications
 خدمة البريد الإلكتروني لإشعارات الرواتب
 """
 
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 import os
 import asyncio
 import logging
@@ -66,7 +74,7 @@ async def send_payslip_notification(
         for a in allowances_breakdown:
             allow_rows += f"""
             <tr>
-              <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#374151;">{a.get('name','بدل')}</td>
+              <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#374151;">{_h(a.get('name','بدل'))}</td>
               <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#059669;font-weight:600;text-align:left;">+ {float(a.get('amount',0)):,.2f} ج.م</td>
             </tr>"""
 
@@ -76,7 +84,7 @@ async def send_payslip_notification(
         for d in deductions_breakdown:
             ded_rows += f"""
             <tr>
-              <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#374151;">{d.get('name','خصم')}</td>
+              <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#374151;">{_h(d.get('name','خصم'))}</td>
               <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#dc2626;font-weight:600;text-align:left;">- {float(d.get('amount',0)):,.2f} ج.م</td>
             </tr>"""
 
@@ -122,7 +130,7 @@ async def send_payslip_notification(
     <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700;">قسيمة الراتب الشهرية</h1>
     <p style="color:#bfdbfe;margin:6px 0 0;font-size:13px;">Monthly Payslip — {month_en}</p>
     <div style="margin-top:12px;background:rgba(255,255,255,0.15);border-radius:8px;padding:8px 16px;display:inline-block;">
-      <span style="color:#e0f2fe;font-size:13px;font-weight:600;">{company_name}</span>
+      <span style="color:#e0f2fe;font-size:13px;font-weight:600;">{_h(company_name)}</span>
     </div>
   </div>
 
@@ -135,7 +143,7 @@ async def send_payslip_notification(
       <table style="width:100%;border-collapse:collapse;">
         <tr>
           <td style="padding:5px 0;color:#6b7280;font-size:13px;width:40%;">الاسم:</td>
-          <td style="padding:5px 0;color:#111827;font-weight:600;font-size:13px;">{employee_name}</td>
+          <td style="padding:5px 0;color:#111827;font-weight:600;font-size:13px;">{_h(employee_name)}</td>
         </tr>
         {'<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">كود الموظف:</td><td style="padding:5px 0;color:#111827;font-size:13px;">' + employee_id + '</td></tr>' if employee_id else ''}
         {'<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">القسم:</td><td style="padding:5px 0;color:#111827;font-size:13px;">' + department + '</td></tr>' if department else ''}
@@ -214,9 +222,9 @@ async def send_payslip_notification(
 
   <!-- Footer -->
   <div style="background:#1e3a8a;border-radius:0 0 12px 12px;padding:20px;text-align:center;">
-    <p style="color:#bfdbfe;margin:0;font-size:12px;">{company_name} — نظام إدارة الموارد البشرية</p>
+    <p style="color:#bfdbfe;margin:0;font-size:12px;">{_h(company_name)} — نظام إدارة الموارد البشرية</p>
     <p style="color:#64748b;margin:6px 0 0;font-size:11px;">هذا البريد الإلكتروني تم إرساله تلقائياً — لا تقم بالرد عليه</p>
-    <p style="color:#64748b;margin:4px 0 0;font-size:11px;">This is an automated email from {company_name} ERP System</p>
+    <p style="color:#64748b;margin:4px 0 0;font-size:11px;">This is an automated email from {_h(company_name)} ERP System</p>
   </div>
 
 </div>
@@ -318,16 +326,16 @@ async def send_payroll_approved_notification(
 <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;">
   <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:24px;text-align:center;">
     <h1 style="color:#fff;margin:0;font-size:20px;">✅ تم اعتماد مسير الرواتب</h1>
-    <p style="color:#bfdbfe;margin:8px 0 0;font-size:13px;">{month_ar} — {company_name}</p>
+    <p style="color:#bfdbfe;margin:8px 0 0;font-size:13px;">{month_ar} — {_h(company_name)}</p>
   </div>
   <div style="padding:24px;">
-    <p style="color:#374151;">مرحباً {manager_name}،</p>
+    <p style="color:#374151;">مرحباً {_h(manager_name)}،</p>
     <p style="color:#374151;">تم اعتماد مسير رواتب شهر <strong>{month_ar}</strong> بنجاح.</p>
     <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:16px 0;border-right:4px solid #10b981;">
       <p style="margin:0;color:#065f46;"><strong>عدد الموظفين:</strong> {total_employees} موظف</p>
       <p style="margin:8px 0 0;color:#065f46;"><strong>إجمالي الرواتب الصافية:</strong> {total_net:,.2f} ج.م</p>
     </div>
-    <p style="color:#6b7280;font-size:12px;margin-top:20px;">تم الإرسال تلقائياً من نظام {company_name}</p>
+    <p style="color:#6b7280;font-size:12px;margin-top:20px;">تم الإرسال تلقائياً من نظام {_h(company_name)}</p>
   </div>
 </div>
 </body>

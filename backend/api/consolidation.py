@@ -25,6 +25,7 @@ trial balance / worksheet. Now:
 Groups created before this change have no link_status, so their
 subsidiaries are treated as pending until they accept.
 """
+import re as _re
 import uuid, asyncio
 from datetime import datetime, timezone, date
 from typing import Optional, List
@@ -137,7 +138,7 @@ async def get_account_balance(
         {"$match": {"company_id": company_id, "status": "posted",
                     "entry_date": {"$gte": date_from, "$lte": date_to}}},
         {"$unwind": "$lines"},
-        {"$match": {"lines.account_code": {"$regex": f"^{account_prefix}"}}},
+        {"$match": {"lines.account_code": {"$regex": "^" + _re.escape(str(account_prefix))}}},
         {"$group": {"_id": None,
                     "debit":  {"$sum": "$lines.debit"},
                     "credit": {"$sum": "$lines.credit"}}},

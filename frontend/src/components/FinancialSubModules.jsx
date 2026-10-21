@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useDialogRefs } from '../hooks/useDialog';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -17,6 +18,7 @@ const matchesSearch = (row, q) => !q || Object.values(row || {}).some(
 
 // Journal Entries Component
 export const JournalEntriesModule = ({ language, userRole }) => {
+  const dialogRef = useDialogRefs();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -311,9 +313,9 @@ export const JournalEntriesModule = ({ language, userRole }) => {
       {/* View Details Modal */}
       {showViewModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-313', () => setShowViewModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-313" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل القيد' : 'Entry Details'}</h3>
+              <h3 id="fsm-dialog-313" className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل القيد' : 'Entry Details'}</h3>
               <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <div className="space-y-4">
@@ -354,9 +356,9 @@ export const JournalEntriesModule = ({ language, userRole }) => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-356', () => setShowDeleteModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-356" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <h3 id="fsm-dialog-356" className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
               <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <p className="text-gray-700 mb-6">
@@ -377,9 +379,9 @@ export const JournalEntriesModule = ({ language, userRole }) => {
       {/* Add New Entry Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-379', () => setShowAddModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-379" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'قيد جديد' : 'New Journal Entry'}</h3>
+              <h3 id="fsm-dialog-379" className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'قيد جديد' : 'New Journal Entry'}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -510,9 +512,9 @@ export const JournalEntriesModule = ({ language, userRole }) => {
       {/* Edit Entry Modal */}
       {showEditModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-512', () => setShowEditModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-512" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل القيد' : 'Edit Entry'}</h3>
+              <h3 id="fsm-dialog-512" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل القيد' : 'Edit Entry'}</h3>
               <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -645,9 +647,9 @@ export const JournalEntriesModule = ({ language, userRole }) => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-647', () => setShowDeleteModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-647" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <h3 id="fsm-dialog-647" className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
               <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <p className="text-gray-700 mb-6">
@@ -668,7 +670,7 @@ export const JournalEntriesModule = ({ language, userRole }) => {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+          <div role="status" aria-live="polite" className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
             <div className="text-green-600 text-5xl mb-4">✓</div>
             <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
           </div>
@@ -680,6 +682,7 @@ export const JournalEntriesModule = ({ language, userRole }) => {
 
 // Treasury/Cash Module
 export const TreasuryModule = ({ language, userRole }) => {
+  const dialogRef = useDialogRefs();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -940,9 +943,9 @@ export const TreasuryModule = ({ language, userRole }) => {
       {/* View Details Modal */}
       {showViewModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-942', () => setShowViewModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-942" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل الحركة' : 'Transaction Details'}</h3>
+              <h3 id="fsm-dialog-942" className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل الحركة' : 'Transaction Details'}</h3>
               <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <div className="space-y-4">
@@ -981,9 +984,9 @@ export const TreasuryModule = ({ language, userRole }) => {
       {/* Add New Entry Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-983', () => setShowAddModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-983" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'قيد جديد' : 'New Journal Entry'}</h3>
+              <h3 id="fsm-dialog-983" className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'قيد جديد' : 'New Journal Entry'}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -1115,9 +1118,9 @@ export const TreasuryModule = ({ language, userRole }) => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-1117', () => setShowDeleteModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-1117" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <h3 id="fsm-dialog-1117" className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
               <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <p className="text-gray-700 mb-6">
@@ -1138,9 +1141,9 @@ export const TreasuryModule = ({ language, userRole }) => {
       {/* Add Transaction Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-1140', () => setShowAddModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-1140" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'حركة جديدة' : 'New Transaction'}</h3>
+              <h3 id="fsm-dialog-1140" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'حركة جديدة' : 'New Transaction'}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -1235,9 +1238,9 @@ export const TreasuryModule = ({ language, userRole }) => {
       {/* Edit Transaction Modal */}
       {showEditModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-1237', () => setShowEditModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-1237" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل الحركة' : 'Edit Transaction'}</h3>
+              <h3 id="fsm-dialog-1237" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل الحركة' : 'Edit Transaction'}</h3>
               <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -1330,7 +1333,7 @@ export const TreasuryModule = ({ language, userRole }) => {
 
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+          <div role="status" aria-live="polite" className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
             <div className="text-green-600 text-5xl mb-4">✓</div>
             <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
           </div>
@@ -1342,6 +1345,7 @@ export const TreasuryModule = ({ language, userRole }) => {
 
 // Custody Module
 export const CustodyModule = ({ language, userRole }) => {
+  const dialogRef = useDialogRefs();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -1628,9 +1632,9 @@ export const CustodyModule = ({ language, userRole }) => {
       {/* Add Custody Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-1630', () => setShowAddModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-1630" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'عهدة جديدة' : 'New Custody'}</h3>
+              <h3 id="fsm-dialog-1630" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'عهدة جديدة' : 'New Custody'}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -1724,9 +1728,9 @@ export const CustodyModule = ({ language, userRole }) => {
       {/* Edit Custody Modal */}
       {showEditModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-1726', () => setShowEditModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-1726" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل العهدة' : 'Edit Custody'}</h3>
+              <h3 id="fsm-dialog-1726" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل العهدة' : 'Edit Custody'}</h3>
               <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -1839,9 +1843,9 @@ export const CustodyModule = ({ language, userRole }) => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-1841', () => setShowDeleteModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-1841" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <h3 id="fsm-dialog-1841" className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
               <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <p className="text-gray-700 mb-6">
@@ -1862,7 +1866,7 @@ export const CustodyModule = ({ language, userRole }) => {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+          <div role="status" aria-live="polite" className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
             <div className="text-green-600 text-5xl mb-4">✓</div>
             <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
           </div>
@@ -1874,6 +1878,7 @@ export const CustodyModule = ({ language, userRole }) => {
 
 // Accounts Module - Chart of Accounts with Egyptian Standard Support
 export const AccountsModule = ({ language, userRole }) => {
+  const dialogRef = useDialogRefs();
   const API_URL = process.env.REACT_APP_BACKEND_URL;
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -2318,9 +2323,9 @@ export const AccountsModule = ({ language, userRole }) => {
       {/* Add Account Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-2320', () => setShowAddModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-2320" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'حساب جديد' : 'New Account'}</h3>
+              <h3 id="fsm-dialog-2320" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'حساب جديد' : 'New Account'}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -2417,9 +2422,9 @@ export const AccountsModule = ({ language, userRole }) => {
       {/* View Account Modal */}
       {showViewModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-2419', () => setShowViewModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-2419" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تفاصيل الحساب' : 'Account Details'}</h3>
+              <h3 id="fsm-dialog-2419" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تفاصيل الحساب' : 'Account Details'}</h3>
               <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <div className="space-y-4">
@@ -2459,9 +2464,9 @@ export const AccountsModule = ({ language, userRole }) => {
       {/* Edit Account Modal */}
       {showEditModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-2461', () => setShowEditModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-2461" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل الحساب' : 'Edit Account'}</h3>
+              <h3 id="fsm-dialog-2461" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل الحساب' : 'Edit Account'}</h3>
               <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -2564,9 +2569,9 @@ export const AccountsModule = ({ language, userRole }) => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-2566', () => setShowDeleteModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-2566" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <h3 id="fsm-dialog-2566" className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
               <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <p className="text-gray-700 mb-6">
@@ -2587,7 +2592,7 @@ export const AccountsModule = ({ language, userRole }) => {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+          <div role="status" aria-live="polite" className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
             <div className="text-green-600 text-5xl mb-4">✓</div>
             <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
           </div>
@@ -2599,6 +2604,7 @@ export const AccountsModule = ({ language, userRole }) => {
 
 // Suppliers Module
 export const SuppliersModule = ({ language, userRole }) => {
+  const dialogRef = useDialogRefs();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -2863,9 +2869,9 @@ export const SuppliersModule = ({ language, userRole }) => {
       {/* Add Supplier Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-2865', () => setShowAddModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-2865" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'مورد جديد' : 'New Supplier'}</h3>
+              <h3 id="fsm-dialog-2865" className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'مورد جديد' : 'New Supplier'}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -2975,9 +2981,9 @@ export const SuppliersModule = ({ language, userRole }) => {
       {/* View Supplier Modal */}
       {showViewModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-2977', () => setShowViewModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-2977" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تفاصيل المورد' : 'Supplier Details'}</h3>
+              <h3 id="fsm-dialog-2977" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تفاصيل المورد' : 'Supplier Details'}</h3>
               <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <div className="space-y-4">
@@ -3016,9 +3022,9 @@ export const SuppliersModule = ({ language, userRole }) => {
       {/* Edit Supplier Modal */}
       {showEditModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-3018', () => setShowEditModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-3018" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل بيانات المورد' : 'Edit Supplier'}</h3>
+              <h3 id="fsm-dialog-3018" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل بيانات المورد' : 'Edit Supplier'}</h3>
               <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -3116,9 +3122,9 @@ export const SuppliersModule = ({ language, userRole }) => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-3118', () => setShowDeleteModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-3118" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <h3 id="fsm-dialog-3118" className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
               <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <p className="text-gray-700 mb-6">
@@ -3139,7 +3145,7 @@ export const SuppliersModule = ({ language, userRole }) => {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+          <div role="status" aria-live="polite" className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
             <div className="text-green-600 text-5xl mb-4">✓</div>
             <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
           </div>
@@ -3151,6 +3157,7 @@ export const SuppliersModule = ({ language, userRole }) => {
 
 // Inventory Module
 export const InventoryModule = ({ language, userRole }) => {
+  const dialogRef = useDialogRefs();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -3492,9 +3499,9 @@ export const InventoryModule = ({ language, userRole }) => {
       {/* Add Item Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-3xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-3xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-3494', () => setShowAddModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-3494" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'صنف جديد' : 'New Item'}</h3>
+              <h3 id="fsm-dialog-3494" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'صنف جديد' : 'New Item'}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -3657,9 +3664,9 @@ export const InventoryModule = ({ language, userRole }) => {
       {/* View Item Modal */}
       {showViewModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-3659', () => setShowViewModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-3659" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تفاصيل الصنف' : 'Item Details'}</h3>
+              <h3 id="fsm-dialog-3659" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تفاصيل الصنف' : 'Item Details'}</h3>
               <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3712,9 +3719,9 @@ export const InventoryModule = ({ language, userRole }) => {
       {/* Edit Item Modal */}
       {showEditModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-3xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-3xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-3714', () => setShowEditModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-3714" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل الصنف' : 'Edit Item'}</h3>
+              <h3 id="fsm-dialog-3714" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل الصنف' : 'Edit Item'}</h3>
               <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -3872,9 +3879,9 @@ export const InventoryModule = ({ language, userRole }) => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-3874', () => setShowDeleteModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-3874" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <h3 id="fsm-dialog-3874" className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
               <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <p className="text-gray-700 mb-6">
@@ -3895,7 +3902,7 @@ export const InventoryModule = ({ language, userRole }) => {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+          <div role="status" aria-live="polite" className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
             <div className="text-green-600 text-5xl mb-4">✓</div>
             <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
           </div>
@@ -3907,6 +3914,7 @@ export const InventoryModule = ({ language, userRole }) => {
 
 // Financial Reports Module
 export const FinancialReportsModule = ({ language, userRole }) => {
+  const dialogRef = useDialogRefs();
   const isRTL = language === 'ar';
   const [financialReportTab, setFinancialReportTab] = useState('overview');
   const [financialPeriod, setFinancialPeriod] = useState('monthly');
@@ -4890,9 +4898,9 @@ export const FinancialReportsModule = ({ language, userRole }) => {
             {/* View Transaction Modal */}
             {showViewModal && selectedTransaction && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
-                <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+                <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-4892', () => setShowViewModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-4892" dir={isRTL ? 'rtl' : 'ltr'}>
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تفاصيل الحركة' : 'Transaction Details'}</h3>
+                    <h3 id="fsm-dialog-4892" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تفاصيل الحركة' : 'Transaction Details'}</h3>
                     <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
                   </div>
                   <div className="space-y-4">
@@ -4931,9 +4939,9 @@ export const FinancialReportsModule = ({ language, userRole }) => {
             {/* Edit Transaction Modal */}
             {showEditModal && selectedTransaction && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowEditModal(false)}>
-                <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+                <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-4933', () => setShowEditModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-4933" dir={isRTL ? 'rtl' : 'ltr'}>
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل الحركة' : 'Edit Transaction'}</h3>
+                    <h3 id="fsm-dialog-4933" className="text-2xl font-bold text-blue-600">{language === 'ar' ? 'تعديل الحركة' : 'Edit Transaction'}</h3>
                     <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
                   </div>
                   <form onSubmit={(e) => {
@@ -4989,9 +4997,9 @@ export const FinancialReportsModule = ({ language, userRole }) => {
             {/* Delete Confirmation Modal */}
             {showDeleteModal && selectedTransaction && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
-                <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+                <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-4991', () => setShowDeleteModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-4991" dir={isRTL ? 'rtl' : 'ltr'}>
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+                    <h3 id="fsm-dialog-4991" className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
                     <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
                   </div>
                   <p className="text-gray-700 mb-6">
@@ -5012,7 +5020,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
             {/* Success Modal */}
             {showSuccessModal && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+                <div role="status" aria-live="polite" className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
                   <div className="text-green-600 text-5xl mb-4">✓</div>
                   <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
                 </div>
@@ -5140,6 +5148,7 @@ export const FinancialReportsModule = ({ language, userRole }) => {
 
 // Customers Module
 export const CustomersModule = ({ language, userRole }) => {
+  const dialogRef = useDialogRefs();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -5456,7 +5465,7 @@ export const CustomersModule = ({ language, userRole }) => {
       {/* Add Customer Modal - Professional Design */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl transform transition-all" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl transform transition-all" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-5458', () => setShowAddModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-5458" dir={isRTL ? 'rtl' : 'ltr'}>
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-blue-500 to-cyan-600 p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
@@ -5465,7 +5474,7 @@ export const CustomersModule = ({ language, userRole }) => {
                     <Plus className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white">{language === 'ar' ? 'عميل جديد' : 'New Customer'}</h3>
+                    <h3 id="fsm-dialog-5458" className="text-2xl font-bold text-white">{language === 'ar' ? 'عميل جديد' : 'New Customer'}</h3>
                     <p className="text-blue-100 text-sm">{language === 'ar' ? 'املأ بيانات العميل' : 'Fill customer details'}</p>
                   </div>
                 </div>
@@ -5583,7 +5592,7 @@ export const CustomersModule = ({ language, userRole }) => {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+          <div role="status" aria-live="polite" className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
             <div className="text-green-600 text-5xl mb-4">✓</div>
             <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
           </div>
@@ -5595,6 +5604,7 @@ export const CustomersModule = ({ language, userRole }) => {
 
 // Bank Module
 export const BankModule = ({ language, userRole }) => {
+  const dialogRef = useDialogRefs();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -5836,9 +5846,9 @@ export const BankModule = ({ language, userRole }) => {
       {/* View Details Modal */}
       {showViewModal && selectedTransaction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowViewModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-5838', () => setShowViewModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-5838" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل المعاملة' : 'Transaction Details'}</h3>
+              <h3 id="fsm-dialog-5838" className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'تفاصيل المعاملة' : 'Transaction Details'}</h3>
               <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <div className="space-y-4">
@@ -5879,9 +5889,9 @@ export const BankModule = ({ language, userRole }) => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedTransaction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-5881', () => setShowDeleteModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-5881" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
+              <h3 id="fsm-dialog-5881" className="text-2xl font-bold text-red-600">{language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}</h3>
               <button onClick={() => setShowDeleteModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <p className="text-gray-700 mb-6">
@@ -5902,9 +5912,9 @@ export const BankModule = ({ language, userRole }) => {
       {/* Add New Entry Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} ref={dialogRef('fsm-dialog-5904', () => setShowAddModal(false))} role="dialog" aria-modal="true" aria-labelledby="fsm-dialog-5904" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'قيد جديد' : 'New Journal Entry'}</h3>
+              <h3 id="fsm-dialog-5904" className="text-2xl font-bold text-[#28376B]">{language === 'ar' ? 'قيد جديد' : 'New Journal Entry'}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
@@ -6035,7 +6045,7 @@ export const BankModule = ({ language, userRole }) => {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+          <div role="status" aria-live="polite" className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
             <div className="text-green-600 text-5xl mb-4">✓</div>
             <p className="text-lg font-semibold text-gray-800">{successMessage}</p>
           </div>

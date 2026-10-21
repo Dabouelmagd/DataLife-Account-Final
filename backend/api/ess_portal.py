@@ -502,7 +502,7 @@ async def get_payslip_pdf(
 
     # Arabic needs a font that has its letters and text shaped right-to-left;
     # Helvetica drew every Arabic word as boxes
-    from services.arabic_pdf import font_name, ar
+    from services.arabic_pdf import font_name, ar, ar_para
     F, FB = font_name(), font_name(bold=True)
     money = lambda v: f"{float(v or 0):,.2f}"
 
@@ -514,8 +514,8 @@ async def get_payslip_pdf(
     sub = ParagraphStyle("s", fontName=F, fontSize=11, alignment=TA_CENTER, spaceAfter=4,
                          textColor=colors.HexColor("#475569"))
     note = ParagraphStyle("n", fontName=F, fontSize=8, alignment=TA_CENTER, textColor=colors.grey)
-    story = [Paragraph(ar(company.get("name") or company.get("company_name") or ""), title),
-             Paragraph(ar(f"قسيمة راتب — {_month_ar(period)}"), sub), Spacer(1, 0.4*cm)]
+    story = [Paragraph(ar_para(company.get("name") or company.get("company_name") or ""), title),
+             Paragraph(ar_para(f"قسيمة راتب — {_month_ar(period)}"), sub), Spacer(1, 0.4*cm)]
 
     # tables read right to left: value column on the left, label on the right
     def grid(rows, head=None, widths=(6*cm, 11*cm), head_color="#1E3A5F", total=False):
@@ -555,7 +555,7 @@ async def get_payslip_pdf(
                              ("FONTSIZE", (0, 0), (-1, -1), 13), ("ALIGN", (1, 0), (1, 0), "RIGHT"),
                              ("TOPPADDING", (0, 0), (-1, -1), 9), ("BOTTOMPADDING", (0, 0), (-1, -1), 9)]))
     story += [net, Spacer(1, 0.8*cm),
-              Paragraph(ar("هذه القسيمة سرية وخاصة بالموظف — صادرة من نظام داتا لايف أكاونت"), note)]
+              Paragraph(ar_para("هذه القسيمة سرية وخاصة بالموظف — صادرة من نظام داتا لايف أكاونت"), note)]
     doc.build(story)
     buf.seek(0)
     filename = f"payslip_{period}.pdf"

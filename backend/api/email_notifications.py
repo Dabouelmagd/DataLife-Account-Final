@@ -3,6 +3,14 @@ Email Notifications API
 نظام إشعارات البريد الإلكتروني
 """
 
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 import os
 import asyncio
 import logging
@@ -89,7 +97,7 @@ def get_email_template(title: str, content: str, footer_text: str = "DataLife Ac
                         <!-- Header -->
                         <tr>
                             <td style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); padding: 30px; text-align: center;">
-                                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">{title}</h1>
+                                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">{_h(title)}</h1>
                             </td>
                         </tr>
                         <!-- Content -->
@@ -151,11 +159,11 @@ def get_transaction_alert_template(transaction_type: str, amount: float, bank_na
         </tr>
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #e9ecef; font-weight: bold;">البنك:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{bank_name}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{_h(bank_name)}</td>
         </tr>
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #e9ecef; font-weight: bold;">الوصف:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{description}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{_h(description)}</td>
         </tr>
         <tr>
             <td style="padding: 10px; font-weight: bold;">التاريخ:</td>
@@ -170,7 +178,7 @@ def get_payslip_template(employee_name: str, month: str, basic_salary: float,
                          allowances: float, deductions: float, net_salary: float) -> str:
     """قالب كشف الراتب"""
     content = f"""
-    <p style="font-size: 18px;">مرحباً <strong>{employee_name}</strong>،</p>
+    <p style="font-size: 18px;">مرحباً <strong>{_h(employee_name)}</strong>،</p>
     <p>نرفق لك كشف راتبك عن شهر <strong>{month}</strong>:</p>
     
     <table width="100%" style="border-collapse: collapse; margin: 20px 0;">
@@ -212,7 +220,7 @@ def get_contract_expiry_template(employee_name: str, contract_end: str, days_rem
     <table width="100%" style="border-collapse: collapse;">
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #e9ecef; font-weight: bold;">الموظف:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{employee_name}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{_h(employee_name)}</td>
         </tr>
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #e9ecef; font-weight: bold;">تاريخ انتهاء العقد:</td>
@@ -239,11 +247,11 @@ def get_invoice_due_template(invoice_number: str, customer_name: str, amount: fl
     <table width="100%" style="border-collapse: collapse;">
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #e9ecef; font-weight: bold;">رقم الفاتورة:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{invoice_number}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{_h(invoice_number)}</td>
         </tr>
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #e9ecef; font-weight: bold;">العميل:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{customer_name}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{_h(customer_name)}</td>
         </tr>
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #e9ecef; font-weight: bold;">المبلغ:</td>
@@ -280,12 +288,12 @@ def get_approval_needed_template(request_type: str, requester_name: str,
         </tr>
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #e9ecef; font-weight: bold;">مقدم الطلب:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{requester_name}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">{_h(requester_name)}</td>
         </tr>
         {amount_row}
         <tr>
             <td style="padding: 10px; font-weight: bold;">الوصف:</td>
-            <td style="padding: 10px;">{description}</td>
+            <td style="padding: 10px;">{_h(description)}</td>
         </tr>
     </table>
     

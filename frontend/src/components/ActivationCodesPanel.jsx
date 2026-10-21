@@ -2,6 +2,7 @@
  * ActivationCodesPanel — إدارة أكواد التفعيل
  * Super Admin ينشئ أكواداً للعملاء
  */
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
@@ -97,7 +98,7 @@ export default function ActivationCodesPanel() {
   };
 
   const copyCode = (code) => {
-    navigator.clipboard.writeText(code);
+    copyText(code);
     setCopied(code);
     setTimeout(() => setCopied(null), 2000);
   };

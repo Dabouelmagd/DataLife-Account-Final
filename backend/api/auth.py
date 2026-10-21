@@ -324,43 +324,10 @@ async def reset_password(request_data: dict):
             "otp_sent": True}
 
 
-@router.post("/set-password")
-async def set_user_password(request_data: dict):
-    """Set a specific password for a user (admin use only)"""
-    email = request_data.get("email")
-    new_password = request_data.get("password")
-    admin_key = request_data.get("admin_key")
-    
-    # Admin key from environment variable
-    expected_admin_key = os.environ.get("ADMIN_KEY", "")
-    if not expected_admin_key or admin_key != expected_admin_key:
-        raise HTTPException(status_code=403, detail="Invalid admin key")
-    
-    if not email or not new_password:
-        raise HTTPException(status_code=400, detail="Email and password are required")
-    
-    # Get user
-    user = await get_user_by_email(db, email)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Hash new password
-    import bcrypt
-    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-    
-    # Update password in database
-    await db.users.update_one(
-        {"id": user.id},
-        {"$set": {
-            "password": hashed_password.decode('utf-8'),
-            "password_hash": hashed_password.decode('utf-8')
-        }}
-    )
-    
-    return {
-        "message": "Password updated successfully",
-        "email": email
-    }
+# POST /set-password was removed: a single shared ADMIN_KEY in the request body
+# (compared with ==, no rate limit, no login) set ANY user's password, platform
+# admins included. Nothing in the frontend called it. Password changes go
+# through the OTP reset flow or the logged-in change-password route.
 
 @router.post("/change-password")
 async def change_password(
@@ -569,8 +536,21 @@ async def get_user_permissions(
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid token")
     
-    # Get target user
+    # Get target user — inside the caller's company only (any login could read
+    # any company's user role/permissions by id); an employee login only itself
     target_user = await get_user_by_id(db, user_id)
+    is_platform = payload.get("is_platform_admin") or payload.get("role") == "Super Admin"
+    if not is_platform:
+        caller = await db.users.find_one({"id": payload.get("user_id")},
+                                         {"_id": 0, "role": 1, "company_id": 1, "is_platform_admin": 1}) or {}
+        is_platform = bool(caller.get("is_platform_admin"))
+        caller_company = caller.get("company_id") or payload.get("company_id")
+        caller_role = caller.get("role") or payload.get("role")
+        if not is_platform:
+            if not target_user or not caller_company or getattr(target_user, "company_id", None) != caller_company:
+                raise HTTPException(status_code=404, detail="User not found")
+            if caller_role in ("Employee", "موظف") and user_id != payload.get("user_id"):
+                raise HTTPException(status_code=403, detail="Insufficient permissions")
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -1242,7 +1222,8 @@ async def verify_login_code(data: dict, request: Request = None):
     await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}})
     await _sec.record(db, _sec.TWO_FACTOR_OK, email=user.get("email"), user_id=user["id"],
                       company_id=user.get("company_id"), ip=_sec.client_ip(request))
-    user.pop("password_hash", None)
+    for _secret_field in ("password_hash", "password", "temp_password"):
+        user.pop(_secret_field, None)
     resp = JSONResponse({"access_token": token, "token_type": "bearer", "user": user})
     set_file_cookie(resp, user)          # lets <img> load protected files
     return resp
@@ -1320,7 +1301,8 @@ async def refresh_access_token(current_user: dict = Depends(get_current_user),
         from services.auth_service import revoke_token as _revoke, persist_revocation as _persist
         _revoke(old)
         await _persist(db, old)
-    user.pop("password_hash", None)
+    for _secret_field in ("password_hash", "password", "temp_password"):
+        user.pop(_secret_field, None)
     resp = JSONResponse({"access_token": token, "token_type": "bearer", "user": jsonable_encoder(user)})
     set_file_cookie(resp, user)      # the uploads cookie is renewed with it
     return resp

@@ -1,3 +1,11 @@
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 from fastapi import APIRouter, HTTPException, Header
 from typing import Optional, List
 import os
@@ -936,11 +944,11 @@ async def create_approval_notification(request_id: str, user_id: str, company_id
         if action == "new_request":
             u = await db.users.find_one({"id": user_id, "company_id": company_id}, {"_id": 0, "email": 1, "full_name": 1}) or {}
             if u.get("email"):
-                band = f"<p>الشريحة: {req['band_label']}</p>" if req.get("band_label") else ""
+                band = f"<p>الشريحة: {_h(req['band_label'])}</p>" if req.get("band_label") else ""
                 html = f"""<div dir="rtl" style="font-family:Tahoma,Arial;line-height:1.8">
-      <p>مرحباً {u.get('full_name') or ''}،</p>
-      <p>طلب <b>{req.get('type_name_ar') or ''}</b> بانتظار اعتمادك: <b>{what}</b>{money}</p>
-      <p>مقدم الطلب: {req.get('requester_name') or ''}</p>{band}
+      <p>مرحباً {_h(u.get('full_name') or '')}،</p>
+      <p>طلب <b>{_h(req.get('type_name_ar') or '')}</b> بانتظار اعتمادك: <b>{_h(what)}</b>{money}</p>
+      <p>مقدم الطلب: {_h(req.get('requester_name') or '')}</p>{band}
       <p>افتح صفحة الموافقات في DataLife Account لاعتماده أو رفضه.</p></div>"""
                 await send_email([u["email"]], f"طلب موافقة: {what}{money}", html)
     except Exception:

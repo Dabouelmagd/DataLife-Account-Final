@@ -3,6 +3,7 @@
  * الموظف يضغط زر واحد → يتحدد موقعه → يسجّل حضوره
  */
 
+import { parseServerDate } from '../utils/dates';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
@@ -163,7 +164,7 @@ export default function GPSAttendance({ employeeId, employeeName }) {
               <CheckCircle className="w-4 h-4" />
               <span>{ar ? 'وقت الحضور:' : 'Check-in:'}</span>
               <span className="font-bold">
-                {new Date(status.check_in_time).toLocaleTimeString(ar ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                {parseServerDate(status.check_in_time)?.toLocaleTimeString(ar ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' }) ?? '—'}
               </span>
               {status.is_late && (
                 <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
@@ -177,7 +178,7 @@ export default function GPSAttendance({ employeeId, employeeName }) {
               <CheckCircle className="w-4 h-4" />
               <span>{ar ? 'وقت الانصراف:' : 'Check-out:'}</span>
               <span className="font-bold">
-                {new Date(status.check_out_time).toLocaleTimeString(ar ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                {parseServerDate(status.check_out_time)?.toLocaleTimeString(ar ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' }) ?? '—'}
               </span>
               {status.work_hours > 0 && (
                 <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">

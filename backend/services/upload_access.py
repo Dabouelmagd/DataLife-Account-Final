@@ -78,25 +78,61 @@ async def caller_company(db, authorization: str = None, cookie: str = None):
     raise HTTPException(status_code=401, detail="سجّل الدخول لعرض هذا الملف")
 
 
-async def may_read(db, company_id: str, relative_path: str) -> bool:
-    """Does this company own the file?
+EMPLOYEE_ROLES = {"Employee", "موظف"}
+PLATFORM_ROLES = {"Super Admin"}
 
-    Employee documents and photos are matched against the employee record that
-    references them. Anything else (company logos, receipts a user uploaded to
-    their own company's records) is allowed to a signed-in user of any company
-    only when no owner can be determined — those are not personal documents.
+
+async def _caller(db, user_id):
+    if not user_id:
+        return {}
+    return await db.users.find_one({"id": user_id},
+                                   {"_id": 0, "id": 1, "role": 1, "company_id": 1,
+                                    "employee_id": 1, "is_platform_admin": 1}) or {}
+
+
+async def may_read(db, company_id: str, relative_path: str, user_id: str = None) -> bool:
+    """May this caller read the file? Deny by default.
+
+    Folders, as the upload routes write them:
+      employees/{employee_id}_{...}  documents and photos on an employee record
+                                     (api/employees_extended, api/ess_portal)
+      users/{...}, photos/{user_id}_{...}  profile photos (api/users)
+      receipts/{company_id}_{...}    subscription payment receipts (api/payments)
+      documents/{company_id}/{...}   document library (api/documents)
+      logos/{...}                    legacy company logos (now stored inline)
+    Anything else is refused. An employee login (موظف) reads only its own
+    employee files and profile photos of its company.
     """
     url = f"/api/uploads/{relative_path}"
-    if relative_path.startswith("employees/"):
+    caller = await _caller(db, user_id)
+    is_platform = bool(caller.get("is_platform_admin")) or caller.get("role") in PLATFORM_ROLES
+    is_employee = caller.get("role") in EMPLOYEE_ROLES
+    folder = relative_path.split("/", 1)[0] if "/" in relative_path else ""
+    rest = relative_path[len(folder) + 1:] if folder else ""
+
+    if folder == "employees":
         owner = await db.employees.find_one(
             {"$or": [{"documents.file_url": url}, {"photo_url": url}]},
-            {"_id": 0, "company_id": 1})
-        if owner:
-            return owner.get("company_id") == company_id
-        return False               # an employee file with no owner is not served
-    if relative_path.startswith("users/"):
-        owner = await db.users.find_one({"profile_photo_url": url}, {"_id": 0, "company_id": 1})
-        if owner:
-            return owner.get("company_id") == company_id
-        return False
-    return True                    # logos and similar: any signed-in user
+            {"_id": 0, "id": 1, "company_id": 1, "user_id": 1})
+        if not owner or not company_id or owner.get("company_id") != company_id:
+            return False           # an employee file with no owner is not served
+        if is_employee:
+            return bool(user_id) and (owner.get("user_id") == user_id
+                                      or (caller.get("employee_id") and owner.get("id") == caller.get("employee_id")))
+        return True
+    if folder in ("users", "photos"):
+        owner = await db.users.find_one({"$or": [{"profile_photo_url": url}, {"profile_photo": url}]},
+                                        {"_id": 0, "company_id": 1})
+        if not owner:
+            return False
+        return is_platform or (bool(company_id) and owner.get("company_id") == company_id)
+    if folder == "receipts":
+        # the platform admin verifies transfers; a company sees its own receipts
+        if is_platform:
+            return True
+        return bool(company_id) and not is_employee and rest.startswith(f"{company_id}_")
+    if folder == "documents":
+        return bool(company_id) and not is_employee and rest.startswith(f"{company_id}/")
+    if folder == "logos":
+        return bool(company_id) or is_platform     # not personal: any signed-in user
+    return False

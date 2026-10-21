@@ -5,6 +5,14 @@ Super Admin ينشر تحديث → يرسل إيميل لكل الشركات ا
 → البيانات لا تُمس أبداً
 """
 
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 from fastapi import APIRouter, Depends, HTTPException
 from services.auth_service import verify_token
 from fastapi import Header
@@ -56,11 +64,11 @@ def _build_update_email(update: dict, lang: str = "ar") -> tuple[str, str]:
     <div dir="{'rtl' if lang=='ar' else 'ltr'}" style="font-family:Cairo,sans-serif;max-width:560px;margin:0 auto;background:#f9fafb;padding:24px">
       <div style="background:linear-gradient(135deg,{badge_color},{badge_color}cc);border-radius:12px 12px 0 0;padding:20px 24px">
         <p style="color:rgba(255,255,255,.8);margin:0;font-size:12px">DataLife Account</p>
-        <h2 style="color:#fff;margin:6px 0 0;font-size:20px">{title}</h2>
+        <h2 style="color:#fff;margin:6px 0 0;font-size:20px">{_h(title)}</h2>
         {f'<span style="background:rgba(255,255,255,.2);color:#fff;font-size:11px;padding:2px 10px;border-radius:100px">v{ver}</span>' if ver else ''}
       </div>
       <div style="background:#fff;border-radius:0 0 12px 12px;padding:24px;border:1px solid #e5e7eb;border-top:none">
-        <p style="color:#374151;line-height:1.7;margin:0">{desc}</p>
+        <p style="color:#374151;line-height:1.7;margin:0">{_h(desc)}</p>
         {feat_html}
         <div style="margin-top:20px;padding:14px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe">
           <p style="color:#1e40af;font-size:13px;margin:0">

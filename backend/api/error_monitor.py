@@ -8,6 +8,14 @@ Error Monitor & Auto-Healer — نظام مراقبة الأخطاء والإص�
 يعمل كل 5 دقائق + عند الطلب
 """
 
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 import os, time, psutil, asyncio, logging
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Header, HTTPException
@@ -213,7 +221,7 @@ async def send_alert(issues: list, stats: dict):
         issues_html = "".join([
             f"""<div style="margin:8px 0;padding:10px;background:{'#fff1f1' if i['severity']=='critical' else '#fffbeb'};
                 border-right:3px solid {'#ef4444' if i['severity']=='critical' else '#f59e0b'};border-radius:6px">
-                <strong>{severity_emoji.get(i['severity'],'⚠️')} {i['title']}</strong><br>
+                <strong>{severity_emoji.get(i['severity'],'⚠️')} {_h(i['title'])}</strong><br>
                 <small>القيمة: {i.get('value','')} | الإجراء: {i.get('action','')}</small>
             </div>"""
             for i in issues

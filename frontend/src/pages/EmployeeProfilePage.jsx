@@ -1,3 +1,4 @@
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   User, Upload, FileText, Calendar, DollarSign, Clock, 
@@ -691,7 +692,7 @@ const EmployeeProfilePage = ({ employeeId, onBack, language = 'ar' }) => {
                 <input readOnly value={invite.invite_link} dir="ltr" onFocus={(e) => e.target.select()}
                   className="w-full px-2 py-1.5 rounded border border-sky-200 bg-white font-mono text-xs" />
                 <div className="flex gap-2">
-                  <button onClick={() => navigator.clipboard?.writeText(invite.invite_link)}
+                  <button onClick={() => copyText(invite.invite_link)}
                     className="px-3 py-1.5 rounded-lg border border-sky-300 text-sky-800 font-semibold">نسخ الرابط</button>
                   <a target="_blank" rel="noreferrer"
                     href={`https://wa.me/?text=${encodeURIComponent(`رابط تفعيل حسابك في بوابة الموظف (صالح ${invite.expires_in_days} أيام، يُستخدم مرة واحدة):\n${invite.invite_link}`)}`}

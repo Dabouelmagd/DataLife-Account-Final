@@ -1,8 +1,8 @@
+import MonthInput from '../components/ui/MonthInput';
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
@@ -430,10 +430,10 @@ const HRComprehensiveReportsPage = ({ language: propLanguage }) => {
             </div>
             <div className="w-48">
               <Label className="mb-2 block">{t.month}</Label>
-              <Input
-                type="month"
+              <MonthInput
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
               />
             </div>
             <Button onClick={fetchReportData} disabled={loading}>

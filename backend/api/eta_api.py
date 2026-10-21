@@ -221,6 +221,41 @@ async def _signer_for(settings: dict):
     raise HTTPException(400, "لم تُضبط شهادة التوقيع — المنظومة ترفض المستندات غير الموقَّعة (الإصدار 1.0)")
 
 
+async def _note_original_uuid(company_id: str, note: dict, settings: dict) -> str:
+    """A credit/debit note goes to the authority as document type C/D whose
+    "references" carry the original invoice's ETA uuid. The original must be
+    our own SALES invoice, accepted (Valid) by the authority, not cancelled
+    there, issued by the same taxpayer to the same receiver; the note's own
+    lines are sent (partial quantities are fine) and must be positive."""
+    if not note.get("original_invoice_id"):
+        raise HTTPException(400, "الإشعار غير مرتبط بفاتورة أصلية — لا يُرسل للمنظومة")
+    orig = await db.invoices.find_one({"id": note["original_invoice_id"], "company_id": company_id}, {"_id": 0})
+    if not orig:
+        raise HTTPException(400, "الفاتورة الأصلية للإشعار غير موجودة")
+    if orig.get("document_type") != "sales_invoice":
+        raise HTTPException(400, "الإشعار على فاتورة شراء لا يُرسل للمنظومة — يرسله المورد على فاتورته")
+    uuid_ = orig.get("eta_uuid") or orig.get("eta_document_uuid")
+    st = str(orig.get("eta_status") or "").lower()
+    if not uuid_:
+        raise HTTPException(400, f"الفاتورة الأصلية {orig.get('document_number')} لم تُرسل للمنظومة — أرسلها أولاً")
+    if st == "cancelled":
+        raise HTTPException(400, "الفاتورة الأصلية ملغاة على المنظومة — لا يُرسل عليها إشعار")
+    if st != "valid":
+        raise HTTPException(400, f"الفاتورة الأصلية حالتها على المنظومة «{orig.get('eta_status')}» — "
+                                 "الإشعار يُرسل بعد قبولها (Valid). حدّث حالتها من «مزامنة الحالة»")
+    if note.get("party_id") != orig.get("party_id"):
+        raise HTTPException(400, "مستلم الإشعار يجب أن يكون عميل الفاتورة الأصلية نفسه")
+    tin = str(settings.get("tax_registration_number") or "").strip()
+    if orig.get("eta_issuer_id") and str(orig["eta_issuer_id"]) != tin:
+        raise HTTPException(400, "رقم التسجيل الضريبي للمُصدِر تغيّر منذ إرسال الفاتورة الأصلية — "
+                                 "الإشعار يصدر من نفس المُصدِر")
+    lines = note.get("lines") or []
+    if not lines or any(float(l.get("quantity") or 0) <= 0 or float(l.get("unit_price") or 0) < 0 for l in lines) \
+            or float(note.get("grand_total") or 0) <= 0:
+        raise HTTPException(400, "مبالغ وكميات الإشعار تُرسل موجبة (نوع المستند C/D يحدد الاتجاه)")
+    return uuid_
+
+
 async def prepare_signed_document(company_id: str, invoice: dict, settings: dict) -> tuple:
     """(document with signature, canonical string). Raises 400 in Arabic on
     anything the authority would reject."""
@@ -243,10 +278,8 @@ async def prepare_signed_document(company_id: str, invoice: dict, settings: dict
     products = {p["id"]: p async for p in db.products.find(
         {"company_id": company_id, "id": {"$in": ids}}, {"_id": 0})} if ids else {}
     original_uuid = None
-    if invoice.get("original_invoice_id"):
-        orig = await db.invoices.find_one({"id": invoice["original_invoice_id"], "company_id": company_id},
-                                          {"_id": 0, "eta_uuid": 1})
-        original_uuid = (orig or {}).get("eta_uuid")
+    if invoice.get("document_type") in ("credit_note", "debit_note"):
+        original_uuid = await _note_original_uuid(company_id, invoice, settings)
     try:
         doc = build_document(invoice, settings, company.get("name", ""), receiver, products, original_uuid)
         canonical = serialize(doc)
@@ -305,6 +338,7 @@ async def submit_to_eta(company_id: str, invoice_id: str, user: dict) -> dict:
             "eta_status": "Submitted", "eta_submission_id": sub_id, "eta_submission_uuid": sub_id,
             "eta_uuid": d.get("uuid"), "eta_document_uuid": d.get("uuid"), "eta_long_id": d.get("longId"),
             "eta_hash_key": d.get("hashKey"), "eta_submission_date": now, "eta_public_url": qr,
+            "eta_issuer_id": doc.get("issuer", {}).get("id"), "eta_references": doc.get("references"),
             "eta_qr": qr, "eta_rejection_reason": None, **_qr_png(qr)}})
         return {"success": True, "message": "تم إرسال الفاتورة — المنظومة تتحقق منها خلال دقائق",
                 "submission_uuid": sub_id, "document_uuid": d.get("uuid"), "long_id": d.get("longId"),
@@ -600,13 +634,42 @@ async def get_eta_submissions(
     }
 
 
+ETA_CANCEL_WINDOW_DAYS = 7      # the authority's default; settings.cancel_window_days overrides
+
+
+def _cancel_window_open(invoice: dict, days: int, now: Optional[datetime] = None) -> bool:
+    """The issuer may cancel within `days` of the document being received
+    (we keep the submission time). Unknown time → let the authority decide."""
+    raw = invoice.get("eta_validated_at") or invoice.get("eta_submission_date")
+    if not raw:
+        return True
+    try:
+        t = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    return (now or datetime.now(timezone.utc)) - t <= timedelta(days=days)
+
+
+@router.post("/cancel/{invoice_id}")
+async def cancel_invoice_on_eta_post(invoice_id: str, body: dict = Body(default={}),
+                                     current_user: dict = Depends(get_current_user)):
+    """نفس الإلغاء — بالسبب في جسم الطلب {"reason": "..."}"""
+    return await cancel_invoice_on_eta(invoice_id, (body or {}).get("reason") or "إلغاء الفاتورة", current_user)
+
+
 @router.put("/cancel/{invoice_id}")
 async def cancel_invoice_on_eta(
     invoice_id: str,
     reason: str = "إلغاء الفاتورة",
     current_user: dict = Depends(get_current_user)
 ):
-    """إلغاء فاتورة على منظومة ETA — SQL: eta_status = 'Cancelled'"""
+    """إلغاء فاتورة على منظومة ETA: PUT documents/state/{uuid}/state
+    {"status": "cancelled", "reason"} خلال مهلة الإلغاء (7 أيام افتراضياً).
+
+    Built from the authority's SDK description; not yet exercised against the
+    live / pre-production system."""
     company_id = current_user["company_id"]
     invoice = await db.invoices.find_one({"id": invoice_id, "company_id": company_id}, {"_id": 0})
     if not invoice:
@@ -623,9 +686,20 @@ async def cancel_invoice_on_eta(
         raise HTTPException(status_code=400,
             detail=f"لا يمكن إلغاء فاتورة بحالة '{current_eta_status}'")
     
+    if not str(reason or "").strip():
+        raise HTTPException(status_code=400, detail="سبب الإلغاء مطلوب")
+    if await db.invoices.find_one({"company_id": company_id, "original_invoice_id": invoice_id,
+                                   "document_type": {"$in": ["credit_note", "debit_note"]},
+                                   "eta_status": {"$in": ["Submitted", "Valid", "submitted", "valid"]}}, {"_id": 1}):
+        raise HTTPException(status_code=400, detail="على الفاتورة إشعارات مُرسلة للمنظومة — ألغِ الإشعارات أولاً "
+                                                    "أو صحّح بإشعار دائن")
     settings = await db.company_eta_settings.find_one({"company_id": company_id}, {"_id": 0})
     if not settings:
         raise HTTPException(status_code=400, detail="إعدادات ETA غير مكتملة")
+    window = int(settings.get("cancel_window_days") or ETA_CANCEL_WINDOW_DAYS)
+    if not _cancel_window_open(invoice, window):
+        raise HTTPException(status_code=400, detail=(
+            f"انتهت مهلة الإلغاء على المنظومة ({window} أيام من الإرسال) — صحّح الفاتورة بإشعار دائن"))
     
     try:
         token = await get_eta_token(company_id, settings)
@@ -641,10 +715,11 @@ async def cancel_invoice_on_eta(
         
         if response.status_code in (200, 202):
             await db.invoices.update_one(
-                {"id": invoice_id},
+                {"id": invoice_id, "company_id": company_id},
                 {"$set": {
                     "eta_status":         "Cancelled",   # SQL: eta_status = 'Cancelled'
                     "eta_cancelled_date": datetime.now(timezone.utc).isoformat(),
+                    "eta_cancel_reason":  reason,
                     "status":             "cancelled",
                 }}
             )

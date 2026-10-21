@@ -7,6 +7,7 @@
  * to 33611; the entry reverses itself on the 1st of the next month, and a
  * month can only be run once. The invoices keep their original rate.
  */
+import MonthInput from './ui/MonthInput';
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { RefreshCw, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
@@ -87,7 +88,7 @@ export default function FxRevaluationPage({ language = 'ar' }) {
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap items-end gap-3">
         <label className="text-sm">
           <span className="block text-gray-600 mb-1">{ar ? 'الشهر' : 'Month'}</span>
-          <input type="month" value={month} onChange={(e) => setMonth(e.target.value)}
+          <MonthInput value={month} onChange={(e) => setMonth(e.target.value)}
             className="h-10 px-3 border border-gray-300 rounded-lg text-sm" />
         </label>
         <button onClick={run} disabled={busy || !month}

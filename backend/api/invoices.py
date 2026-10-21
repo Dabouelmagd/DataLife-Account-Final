@@ -1,3 +1,11 @@
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 from services.audit_helper import log_financial_action
 from fastapi import APIRouter, HTTPException, Header, Depends
 from pydantic import BaseModel, Field
@@ -359,6 +367,7 @@ async def record_payment(
     
     # Create payment record
     payment = {
+        "invoice_id": invoice.get("id"),
         "invoice_number": invoice_number,
         "company_id": company_id,
         "amount": payment_amount,
@@ -506,7 +515,7 @@ def generate_invoice_email_html(invoice: dict) -> str:
     for item in invoice.get("items", []):
         items_html += f"""
         <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;">{item.get('description')}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">{_h(item.get('description'))}</td>
             <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">{item.get('quantity')}</td>
             <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">{item.get('unit_price'):,.2f}</td>
             <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">{item.get('total'):,.2f}</td>
@@ -537,15 +546,15 @@ def generate_invoice_email_html(invoice: dict) -> str:
         <div class="container">
             <div class="header">
                 <h1>DataLife Account</h1>
-                <p>Invoice #{invoice.get('invoice_number')}</p>
+                <p>Invoice #{_h(invoice.get('invoice_number'))}</p>
             </div>
             
             <div class="invoice-info">
                 <div>
                     <strong>Bill To:</strong><br>
-                    {invoice.get('customer_name', '-')}<br>
-                    {invoice.get('customer_email', '')}<br>
-                    {invoice.get('customer_phone', '')}<br>
+                    {_h(invoice.get('customer_name', '-'))}<br>
+                    {_h(invoice.get('customer_email', ''))}<br>
+                    {_h(invoice.get('customer_phone', ''))}<br>
                     {invoice.get('customer_address', '')}
                 </div>
                 <div style="text-align: right;">
@@ -576,7 +585,7 @@ def generate_invoice_email_html(invoice: dict) -> str:
                 <div class="grand-total">Total: {invoice.get('grand_total', 0):,.2f} {invoice.get('currency', 'EGP')}</div>
             </div>
             
-            {f"<p><strong>Notes:</strong> {invoice.get('notes')}</p>" if invoice.get('notes') else ""}
+            {f"<p><strong>Notes:</strong> {_h(invoice.get('notes'))}</p>" if invoice.get('notes') else ""}
             
             <div class="footer">
                 <p>Thank you for your business!</p>

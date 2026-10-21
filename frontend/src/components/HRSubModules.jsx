@@ -1,3 +1,4 @@
+import MonthInput from './ui/MonthInput';
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -1804,8 +1805,7 @@ export const AllowancesModule = ({ language, userRole }) => {
                   <Calendar className="h-4 w-4 inline mr-2" />
                   {language === 'ar' ? 'الشهر' : 'Month'}
                 </label>
-                <input
-                  type="month"
+                <MonthInput
                   value={newAllowance.month}
                   onChange={(e) => setNewAllowance({ ...newAllowance, month: e.target.value })}
                   className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all bg-gray-50"
@@ -2382,8 +2382,7 @@ export const DeductionsModule = ({ language, userRole }) => {
                   <Calendar className="h-4 w-4 inline mr-2" />
                   {language === 'ar' ? 'الشهر' : 'Month'}
                 </label>
-                <input
-                  type="month"
+                <MonthInput
                   value={newDeduction.month}
                   onChange={(e) => setNewDeduction({ ...newDeduction, month: e.target.value })}
                   className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-gray-50"

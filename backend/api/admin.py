@@ -164,7 +164,7 @@ async def run_diagnostic(secret_key: str = None):
     admins = await db.users.find({
         "$or": [{"role": "Super Admin"}, {"role": "رئيس مجلس الإدارة"},
                 {"email": "dalia@datalifeai.com"}, {"email": "info@datalifeai.com"}]
-    }, {"_id": 0, "password_hash": 0}).to_list(length=20)
+    }, {"_id": 0, "password_hash": 0, "password": 0, "temp_password": 0}).to_list(length=20)
     
     for admin in admins:
         diagnostic["super_admins"].append({
@@ -368,7 +368,7 @@ async def get_company_users(company_id: str, authorization: Optional[str] = Head
     """Get all users for a specific company"""
     await verify_admin(authorization)
     return await db.users.find(
-        {"company_id": company_id}, {"_id": 0, "password_hash": 0, "password": 0}
+        {"company_id": company_id}, {"_id": 0, "password_hash": 0, "password": 0, "temp_password": 0}
     ).to_list(length=None)
 
 

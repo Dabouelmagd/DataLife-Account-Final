@@ -1,3 +1,11 @@
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 import logging
 from typing import Optional, List
 from datetime import datetime, timedelta
@@ -274,7 +282,7 @@ class TrialService:
                 </div>
                 
                 <div style="padding: 20px;">
-                    <h2>Hi {trial.first_name},</h2>
+                    <h2>Hi {_h(trial.first_name)},</h2>
                     
                     <p>Your free 14-day trial is now active! We've set up your account with sample data so you can start exploring immediately.</p>
                     
@@ -287,7 +295,7 @@ class TrialService:
                     </div>
                     
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="https://app.datalife.com/login?email={trial.email}" style="background-color: #28376B; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Access Your Trial Account</a>
+                        <a href="https://app.datalife.com/login?email={_h(trial.email)}" style="background-color: #28376B; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Access Your Trial Account</a>
                     </div>
                     
                     <h3>Get Started:</h3>

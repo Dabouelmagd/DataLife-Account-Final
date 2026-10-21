@@ -24,6 +24,7 @@ Mapped shortcuts:
   GET /api/dashboard/budget-variance → /api/budget/variance-report
 """
 
+import re as _re
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, Header, HTTPException
@@ -54,8 +55,8 @@ async def get_accounts_compat(
         query["account_type"] = account_type
     if search:
         query["$or"] = [
-            {"account_name": {"$regex": search, "$options": "i"}},
-            {"account_code": {"$regex": search, "$options": "i"}},
+            {"account_name": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+            {"account_code": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
         ]
     accounts = await db.chart_of_accounts.find(query, {"_id": 0}) \
         .sort("account_code", 1).to_list(None)

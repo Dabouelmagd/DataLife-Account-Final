@@ -3,6 +3,14 @@ Audit Email Notifications
 إشعارات البريد الإلكتروني لسجل التدقيق
 """
 
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 import os
 import smtplib
 import asyncio
@@ -77,7 +85,7 @@ def get_audit_email_template(title: str, content: str, alert_type: str = "info")
                         <tr>
                             <td style="background: {color['bg']}; padding: 25px; text-align: center;">
                                 <span style="font-size: 40px;">{color['icon']}</span>
-                                <h1 style="color: #ffffff; margin: 10px 0 0 0; font-size: 22px;">{title}</h1>
+                                <h1 style="color: #ffffff; margin: 10px 0 0 0; font-size: 22px;">{_h(title)}</h1>
                             </td>
                         </tr>
                         <!-- Content -->
@@ -118,15 +126,15 @@ def get_user_deleted_template(deleted_user_name: str, deleted_user_email: str,
     <table width="100%" style="border-collapse: collapse; margin-bottom: 20px;">
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #e9ecef; font-weight: bold; width: 40%;">الاسم:</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{deleted_user_name}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{_h(deleted_user_name)}</td>
         </tr>
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #e9ecef; font-weight: bold;">البريد الإلكتروني:</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{deleted_user_email}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{_h(deleted_user_email)}</td>
         </tr>
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #e9ecef; font-weight: bold;">الشركة:</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{company_name or 'غير محدد'}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{_h(company_name or 'غير محدد')}</td>
         </tr>
     </table>
     
@@ -134,11 +142,11 @@ def get_user_deleted_template(deleted_user_name: str, deleted_user_email: str,
     <table width="100%" style="border-collapse: collapse;">
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #e9ecef; font-weight: bold; width: 40%;">الاسم:</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{deleted_by_name}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{_h(deleted_by_name)}</td>
         </tr>
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #e9ecef; font-weight: bold;">البريد الإلكتروني:</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{deleted_by_email}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{_h(deleted_by_email)}</td>
         </tr>
         <tr>
             <td style="padding: 12px; font-weight: bold;">التاريخ والوقت:</td>
@@ -214,11 +222,11 @@ def get_permissions_changed_template(user_name: str, user_email: str,
     <table width="100%" style="border-collapse: collapse; margin-bottom: 20px;">
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #e9ecef; font-weight: bold; width: 40%;">المستخدم:</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{user_name}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{_h(user_name)}</td>
         </tr>
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #e9ecef; font-weight: bold;">البريد الإلكتروني:</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{user_email}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{_h(user_email)}</td>
         </tr>
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #e9ecef; font-weight: bold;">عدد الصلاحيات:</td>
@@ -233,7 +241,7 @@ def get_permissions_changed_template(user_name: str, user_email: str,
     <table width="100%" style="border-collapse: collapse;">
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #e9ecef; font-weight: bold; width: 40%;">الاسم:</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{changed_by_name}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e9ecef;">{_h(changed_by_name)}</td>
         </tr>
         <tr>
             <td style="padding: 12px; font-weight: bold;">التاريخ والوقت:</td>
@@ -269,8 +277,8 @@ def get_daily_audit_report_template(date: str, stats: dict, recent_logs: List[di
                     {log.get('action_ar', log.get('action'))}
                 </span>
             </td>
-            <td style="padding: 8px; border-bottom: 1px solid #e9ecef;">{log.get('entity_name', '-')}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #e9ecef;">{log.get('performed_by_name', '-')}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e9ecef;">{_h(log.get('entity_name', '-'))}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e9ecef;">{_h(log.get('performed_by_name', '-'))}</td>
         </tr>
         """
     
@@ -500,7 +508,7 @@ async def send_subscription_notification(
         duration_ar = duration_names.get(duration, duration)
         
         content = f"""
-        <p style="font-size: 16px; color: #333;">مرحباً <strong>{company_name}</strong>،</p>
+        <p style="font-size: 16px; color: #333;">مرحباً <strong>{_h(company_name)}</strong>،</p>
         
         <p style="font-size: 16px; color: #333;">
             تم تفعيل اشتراكك في نظام <strong>DataLife Account</strong> بنجاح!
@@ -537,8 +545,8 @@ async def send_subscription_notification(
             admin_content = f"""
             <p style="font-size: 16px; color: #333;">تم تفعيل اشتراك جديد:</p>
             <ul>
-                <li><strong>الشركة:</strong> {company_name}</li>
-                <li><strong>البريد:</strong> {company_email}</li>
+                <li><strong>الشركة:</strong> {_h(company_name)}</li>
+                <li><strong>البريد:</strong> {_h(company_email)}</li>
                 <li><strong>الباقة:</strong> {plan_ar}</li>
                 <li><strong>المدة:</strong> {duration_ar}</li>
             </ul>
@@ -561,10 +569,10 @@ async def send_company_registration_notification(
     try:
         # إشعار للشركة
         company_content = f"""
-        <p style="font-size: 16px; color: #333;">مرحباً <strong>{admin_name}</strong>،</p>
+        <p style="font-size: 16px; color: #333;">مرحباً <strong>{_h(admin_name)}</strong>،</p>
         
         <p style="font-size: 16px; color: #333;">
-            تم تسجيل شركة <strong>{company_name}</strong> بنجاح في نظام DataLife Account!
+            تم تسجيل شركة <strong>{_h(company_name)}</strong> بنجاح في نظام DataLife Account!
         </p>
         
         <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0;">
@@ -592,9 +600,9 @@ async def send_company_registration_notification(
         admin_content = f"""
         <p style="font-size: 16px; color: #333;">تم تسجيل شركة جديدة:</p>
         <ul>
-            <li><strong>الشركة:</strong> {company_name}</li>
-            <li><strong>البريد:</strong> {company_email}</li>
-            <li><strong>المدير:</strong> {admin_name}</li>
+            <li><strong>الشركة:</strong> {_h(company_name)}</li>
+            <li><strong>البريد:</strong> {_h(company_email)}</li>
+            <li><strong>المدير:</strong> {_h(admin_name)}</li>
             <li><strong>الوقت:</strong> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}</li>
         </ul>
         """
@@ -628,7 +636,7 @@ async def send_subscription_expiry_warning(
             title = "تذكير بتجديد الاشتراك"
         
         content = f"""
-        <p style="font-size: 16px; color: #333;">عزيزي <strong>{company_name}</strong>،</p>
+        <p style="font-size: 16px; color: #333;">عزيزي <strong>{_h(company_name)}</strong>،</p>
         
         <p style="font-size: 16px; color: #333;">
             نود تذكيركم بأن اشتراككم في DataLife Account سينتهي خلال 

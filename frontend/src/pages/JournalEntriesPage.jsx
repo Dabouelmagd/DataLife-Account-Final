@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
@@ -7,8 +7,38 @@ import {
   RotateCcw, ChevronDown, ChevronUp, Loader2, AlertCircle
 } from 'lucide-react';
 import { QuickEntryButtons } from '../components/QuickEntryButtons';
+import Combobox from '../components/ui/Combobox';
+import useDialog from '../hooks/useDialog';
+import { parseAmount, sanitizeAmountInput } from '../utils/numbers';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+// Each form line carries a stable _key (React key + DOM ids) and the raw text
+// typed in the amount boxes; debit/credit stay numeric (null = empty).
+let lineSeq = 0;
+const newLine = (l = {}) => {
+  const debit = parseAmount(l.debit);
+  const credit = parseAmount(l.credit);
+  return {
+    _key: `ln${++lineSeq}`,
+    account_id: l.account_id || '',
+    description: l.description || '',
+    debit: debit || null,
+    credit: credit || null,
+    debitText: debit ? String(debit) : '',
+    creditText: credit ? String(credit) : '',
+  };
+};
+const blankEntry = () => ({
+  entry_date: new Date().toISOString().split('T')[0], reference: '', description: '',
+  lines: [newLine(), newLine()],
+});
+const toPayloadLine = ({ _key, debitText, creditText, ...l }) => ({ ...l, debit: l.debit ?? 0, credit: l.credit ?? 0 });
+const snapshot = (e) => JSON.stringify({
+  d: e.entry_date, r: e.reference, s: e.description,
+  l: e.lines.map((x) => [x.account_id, x.description, x.debit ?? null, x.credit ?? null]),
+});
+const sum = (lines, side) => lines.reduce((t, l) => t + (l[side] ?? 0), 0);
 
 const JournalEntriesPage = () => {
   const { language } = useLanguage();
@@ -27,15 +57,9 @@ const JournalEntriesPage = () => {
   });
 
   // Form state for new entry
-  const [newEntry, setNewEntry] = useState({
-    entry_date: new Date().toISOString().split('T')[0],
-    reference: '',
-    description: '',
-    lines: [
-      { account_id: '', debit: 0, credit: 0, description: '' },
-      { account_id: '', debit: 0, credit: 0, description: '' }
-    ]
-  });
+  const [newEntry, setNewEntry] = useState(blankEntry);
+  const openedAs = useRef('');                       // form snapshot when the modal opened
+  const [focusId, setFocusId] = useState(null);      // DOM id to focus after the next render
 
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -43,10 +67,6 @@ const JournalEntriesPage = () => {
   const [review, setReview] = useState({ months: {}, can_review: false });
   const [notice, setNotice] = useState(null);       // {type, text}
   const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
-  const blankEntry = () => ({
-    entry_date: new Date().toISOString().split('T')[0], reference: '', description: '',
-    lines: [{ account_id: '', debit: 0, credit: 0, description: '' }, { account_id: '', debit: 0, credit: 0, description: '' }],
-  });
   const fetchReview = async () => {
     try { setReview((await axios.get(`${API_URL}/api/accounting/journal-entries/review/summary`, auth())).data); }
     catch { /* the month bar is optional */ }
@@ -196,9 +216,14 @@ const JournalEntriesPage = () => {
     setFormError('');
     
     // Validate
-    const totalDebit = newEntry.lines.reduce((sum, l) => sum + (parseFloat(l.debit) || 0), 0);
-    const totalCredit = newEntry.lines.reduce((sum, l) => sum + (parseFloat(l.credit) || 0), 0);
-    
+    const totalDebit = sum(newEntry.lines, 'debit');
+    const totalCredit = sum(newEntry.lines, 'credit');
+
+    if (newEntry.lines.some((l) => !(l.debit > 0) && !(l.credit > 0))) {
+      setFormError(language === 'ar' ? 'أدخل مبلغاً مديناً أو دائناً في كل سطر' : 'Enter a debit or credit amount on every line');
+      return;
+    }
+
     if (Math.abs(totalDebit - totalCredit) > 0.01) {
       setFormError(language === 'ar' ? 'القيد غير متوازن' : 'Entry is not balanced');
       return;
@@ -216,7 +241,7 @@ const JournalEntriesPage = () => {
 
     try {
       setSubmitting(true);
-      const lines = newEntry.lines.map((l) => ({ ...l, debit: parseFloat(l.debit) || 0, credit: parseFloat(l.credit) || 0 }));
+      const lines = newEntry.lines.map(toPayloadLine);
       const { data } = editingId
         ? await axios.put(`${API_URL}/api/accounting/journal-entries/${editingId}`, { ...newEntry, lines }, auth())
         : await axios.post(`${API_URL}/api/accounting/journal-entries`, { ...newEntry, lines, submit_for_review: true }, auth());
@@ -268,13 +293,36 @@ const JournalEntriesPage = () => {
 
   const openEdit = (entry) => {
     setEditingId(entry.id);
-    setNewEntry({
+    const form = {
       entry_date: (entry.entry_date || '').slice(0, 10), reference: entry.reference || '', description: entry.description || '',
-      lines: (entry.lines || []).map((l) => ({ account_id: l.account_id, debit: l.debit || 0, credit: l.credit || 0, description: l.description || '' })),
-    });
+      lines: (entry.lines || []).map((l) => newLine(l)),
+    };
+    setNewEntry(form);
+    openedAs.current = snapshot(form);
     setFormError('');
     setShowCreateModal(true);
   };
+
+  const openNew = () => {
+    openedAs.current = snapshot(newEntry);
+    setShowCreateModal(true);
+  };
+
+  const closeModal = () => { setShowCreateModal(false); setEditingId(null); setNewEntry(blankEntry()); };
+  // Escape: ask before throwing away typed lines
+  const requestClose = () => {
+    if (snapshot(newEntry) !== openedAs.current
+      && !window.confirm(language === 'ar' ? 'لديك تعديلات غير محفوظة. إغلاق النموذج؟' : 'Discard unsaved changes?')) return;
+    closeModal();
+  };
+  const dialogRef = useDialog(showCreateModal, requestClose);
+
+  useEffect(() => {
+    if (!focusId) return;
+    const el = document.getElementById(focusId);
+    if (el) el.focus();
+    setFocusId(null);
+  }, [focusId, newEntry.lines]);
 
   const handleReverseEntry = async (entryId) => {
     if (!window.confirm(t.confirmReverse)) return;
@@ -293,18 +341,33 @@ const JournalEntriesPage = () => {
   };
 
   const addLine = () => {
-    setNewEntry({
-      ...newEntry,
-      lines: [...newEntry.lines, { account_id: '', debit: 0, credit: 0, description: '' }]
+    const line = newLine();
+    setNewEntry((prev) => ({ ...prev, lines: [...prev.lines, line] }));
+    setFocusId(`je-acc-${line._key}`);
+  };
+
+  // typing in an amount box: keep the text, store the number (null when empty);
+  // a positive amount on one side clears the other side, as before
+  const setAmount = (index, side, raw) => {
+    const text = sanitizeAmountInput(raw);
+    const val = parseAmount(text);
+    const other = side === 'debit' ? 'credit' : 'debit';
+    setNewEntry((prev) => {
+      const lines = [...prev.lines];
+      const l = { ...lines[index], [side]: val, [`${side}Text`]: text };
+      if (val > 0) { l[other] = null; l[`${other}Text`] = ''; }
+      lines[index] = l;
+      return { ...prev, lines };
     });
   };
 
   const removeLine = (index) => {
     if (newEntry.lines.length <= 2) return;
-    setNewEntry({
-      ...newEntry,
-      lines: newEntry.lines.filter((_, i) => i !== index)
-    });
+    const rest = newEntry.lines.filter((_, i) => i !== index);
+    setNewEntry({ ...newEntry, lines: rest });
+    // the removed row held focus — move it to the neighbouring row's account
+    const next = rest[Math.min(index, rest.length - 1)];
+    if (next) setFocusId(`je-acc-${next._key}`);
   };
 
   const updateLine = (index, field, value) => {
@@ -337,8 +400,12 @@ const JournalEntriesPage = () => {
     );
   };
 
-  const totalDebit = newEntry.lines.reduce((sum, l) => sum + (parseFloat(l.debit) || 0), 0);
-  const totalCredit = newEntry.lines.reduce((sum, l) => sum + (parseFloat(l.credit) || 0), 0);
+  const totalDebit = sum(newEntry.lines, 'debit');
+  const totalCredit = sum(newEntry.lines, 'credit');
+  const accountOptions = accounts.map((acc) => ({
+    value: acc.id, code: acc.account_code, label: `${acc.account_code} - ${acc.account_name}`,
+    keywords: [acc.account_name_en, acc.name_en].filter(Boolean).join(' '),
+  }));
   const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
 
   return (
@@ -351,7 +418,7 @@ const JournalEntriesPage = () => {
             <p className="text-gray-600 mt-1">{t.subtitle}</p>
           </div>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={openNew}
             className="flex items-center gap-2 bg-[#28376B] text-white px-4 py-2 rounded-lg hover:bg-[#1e2a52] transition-colors"
             data-testid="new-entry-btn"
           >
@@ -521,7 +588,14 @@ const JournalEntriesPage = () => {
                               <RotateCcw className="w-4 h-4" />
                             </button>
                           )}
-                          <button className="p-1 text-gray-400">
+                          <button
+                            type="button"
+                            className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                            aria-expanded={expandedEntry === entry.id}
+                            aria-controls={`je-lines-${entry.id}`}
+                            aria-label={`${t.lines} ${entry.entry_number_str || entry.entry_number || ''}`}
+                            onClick={() => setExpandedEntry(expandedEntry === entry.id ? null : entry.id)}
+                          >
                             {expandedEntry === entry.id ? (
                               <ChevronUp className="w-4 h-4" />
                             ) : (
@@ -532,7 +606,7 @@ const JournalEntriesPage = () => {
                       </td>
                     </tr>
                     {expandedEntry === entry.id && (
-                      <tr>
+                      <tr id={`je-lines-${entry.id}`}>
                         <td colSpan="8" className="px-4 py-4 bg-gray-50">
                           <div className="text-sm font-medium mb-2">{t.lines}:</div>
                           <table className="w-full text-sm">
@@ -569,9 +643,10 @@ const JournalEntriesPage = () => {
       {/* Create Entry Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b sticky top-0 bg-white">
-              <h2 className="text-xl font-bold text-[#28376B]">{editingId ? (language === 'ar' ? 'تعديل القيد' : 'Edit entry') : t.createEntry}</h2>
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="je-modal-title"
+            className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b sticky top-0 bg-white z-30">
+              <h2 id="je-modal-title" className="text-xl font-bold text-[#28376B]">{editingId ? (language === 'ar' ? 'تعديل القيد' : 'Edit entry') : t.createEntry}</h2>
               <p className="text-xs text-gray-500 mt-1">
                 {language === 'ar' ? 'يُحفظ القيد «تحت المراجعة»، ويُرحَّل لدفتر الأستاذ بعد اعتماد المدير المالي أو رئيس الحسابات.' : 'Saved for review; posted after approval.'}
               </p>
@@ -579,7 +654,7 @@ const JournalEntriesPage = () => {
             
             <div className="p-6 space-y-4">
               {formError && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
+                <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2" role="alert">
                   <AlertCircle className="w-5 h-5" />
                   {formError}
                 </div>
@@ -587,8 +662,10 @@ const JournalEntriesPage = () => {
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.date}</label>
+                  <label htmlFor="je-date" className="block text-sm font-medium text-gray-700 mb-1">{t.date}</label>
                   <input
+                    id="je-date"
+                    data-autofocus
                     type="date"
                     value={newEntry.entry_date}
                     onChange={(e) => setNewEntry({ ...newEntry, entry_date: e.target.value })}
@@ -596,8 +673,9 @@ const JournalEntriesPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.reference}</label>
+                  <label htmlFor="je-ref" className="block text-sm font-medium text-gray-700 mb-1">{t.reference}</label>
                   <input
+                    id="je-ref"
                     type="text"
                     value={newEntry.reference}
                     onChange={(e) => setNewEntry({ ...newEntry, reference: e.target.value })}
@@ -606,8 +684,9 @@ const JournalEntriesPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.description}</label>
+                  <label htmlFor="je-desc" className="block text-sm font-medium text-gray-700 mb-1">{t.description}</label>
                   <input
+                    id="je-desc"
                     type="text"
                     value={newEntry.description}
                     onChange={(e) => setNewEntry({ ...newEntry, description: e.target.value })}
@@ -618,7 +697,7 @@ const JournalEntriesPage = () => {
               </div>
 
               {/* Entry Lines */}
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
@@ -630,83 +709,84 @@ const JournalEntriesPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {newEntry.lines.map((line, index) => (
-                      <tr key={index} className="border-t">
+                    {newEntry.lines.map((line, index) => {
+                      const n = index + 1;
+                      const isLast = index === newEntry.lines.length - 1;
+                      const lineLabel = (what) => (isRTL ? `${what} — السطر ${n}` : `${what} — line ${n}`);
+                      return (
+                      <tr key={line._key} className="border-t">
                         <td className="px-3 py-2">
-                          <select
+                          <Combobox
+                            id={`je-acc-${line._key}`}
                             value={line.account_id}
-                            onChange={(e) => updateLine(index, 'account_id', e.target.value)}
-                            className="w-full border rounded px-2 py-1 text-sm"
-                          >
-                            <option value="">{t.selectAccount}</option>
-                            {accounts.map((acc) => (
-                              <option key={acc.id} value={acc.id}>
-                                {acc.account_code} - {acc.account_name}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(v) => updateLine(index, 'account_id', v)}
+                            options={accountOptions}
+                            placeholder={t.selectAccount}
+                            emptyText={isRTL ? 'لا يوجد حساب مطابق' : 'No matching account'}
+                            aria-label={lineLabel(t.account)}
+                            inputClassName="w-full border rounded px-2 py-1 text-sm"
+                          />
                         </td>
                         <td className="px-3 py-2">
                           <input
                             type="text"
                             value={line.description}
                             onChange={(e) => updateLine(index, 'description', e.target.value)}
+                            aria-label={lineLabel(t.description)}
                             className="w-full border rounded px-2 py-1 text-sm"
                           />
                         </td>
                         <td className="px-3 py-2">
                           <input
-                            type="number"
-                            value={line.debit || ''}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setNewEntry(prev => {
-                                const updatedLines = [...prev.lines];
-                                updatedLines[index] = { ...updatedLines[index], debit: val, credit: val > 0 ? 0 : updatedLines[index].credit };
-                                return { ...prev, lines: updatedLines };
-                              });
-                            }}
-                            className="w-full border rounded px-2 py-1 text-sm text-green-600"
-                            min="0"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
+                            dir="ltr"
+                            autoComplete="off"
+                            value={line.debitText}
+                            onChange={(e) => setAmount(index, 'debit', e.target.value)}
+                            aria-label={lineLabel(t.debit)}
+                            className="w-full border rounded px-2 py-1 text-sm text-green-600 tabular-nums"
                             placeholder="0"
                           />
                         </td>
                         <td className="px-3 py-2">
                           <input
-                            type="number"
-                            value={line.credit || ''}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setNewEntry(prev => {
-                                const updatedLines = [...prev.lines];
-                                updatedLines[index] = { ...updatedLines[index], credit: val, debit: val > 0 ? 0 : updatedLines[index].debit };
-                                return { ...prev, lines: updatedLines };
-                              });
+                            type="text"
+                            inputMode="decimal"
+                            dir="ltr"
+                            autoComplete="off"
+                            value={line.creditText}
+                            onChange={(e) => setAmount(index, 'credit', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && isLast && !e.nativeEvent.isComposing) { e.preventDefault(); addLine(); }
                             }}
-                            className="w-full border rounded px-2 py-1 text-sm text-red-600"
-                            min="0"
-                            step="0.01"
+                            aria-label={lineLabel(t.credit)}
+                            className="w-full border rounded px-2 py-1 text-sm text-red-600 tabular-nums"
                             placeholder="0"
                           />
                         </td>
                         <td className="px-3 py-2 text-center">
                           {newEntry.lines.length > 2 && (
                             <button
+                              type="button"
                               onClick={() => removeLine(index)}
+                              aria-label={lineLabel(t.removeLine)}
+                              title={t.removeLine}
                               className="text-red-500 hover:text-red-700"
                             >
-                              <X className="w-4 h-4" />
+                              <X className="w-4 h-4" aria-hidden="true" />
                             </button>
                           )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                   <tfoot className="bg-gray-50 border-t">
                     <tr>
                       <td colSpan="2" className="px-3 py-2">
                         <button
+                          type="button"
                           onClick={addLine}
                           className="text-[#28376B] text-sm font-medium flex items-center gap-1"
                         >
@@ -732,7 +812,7 @@ const JournalEntriesPage = () => {
 
             <div className="p-6 border-t flex justify-end gap-3 sticky bottom-0 bg-white">
               <button
-                onClick={() => { setShowCreateModal(false); setEditingId(null); setNewEntry(blankEntry()); }}
+                onClick={closeModal}
                 className="px-4 py-2 border rounded-lg hover:bg-gray-50"
               >
                 {t.cancel}

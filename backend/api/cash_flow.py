@@ -10,6 +10,7 @@ Automated Cash Flow Engine — محرك قائمة التدفقات النقدي
   + بنود غير نقدية (إهلاك، مخصصات)
   + تغيرات رأس المال العامل (عملاء، مخزون، موردون)
 """
+import re as _re
 import asyncio
 from datetime import datetime, timezone, date
 from typing import Optional
@@ -149,7 +150,7 @@ async def get_account_balance(
             "entry_date": {"$gte": date_from, "$lte": date_to + "\uffff"},
         }},
         {"$unwind": "$lines"},
-        {"$match": {"lines.account_code": {"$regex": f"^{account_code}"}}},
+        {"$match": {"lines.account_code": {"$regex": "^" + _re.escape(str(account_code))}}},
         {"$group": {"_id": None,
                     "debit":  {"$sum": "$lines.debit"},
                     "credit": {"$sum": "$lines.credit"}}},
@@ -175,7 +176,7 @@ async def get_account_balance_period(
             "entry_date": {"$lte": as_of},
         }},
         {"$unwind": "$lines"},
-        {"$match": {"lines.account_code": {"$regex": f"^{account_code}"}}},
+        {"$match": {"lines.account_code": {"$regex": "^" + _re.escape(str(account_code))}}},
         {"$group": {"_id": None,
                     "debit":  {"$sum": "$lines.debit"},
                     "credit": {"$sum": "$lines.credit"}}},

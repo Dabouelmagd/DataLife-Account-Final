@@ -1,3 +1,4 @@
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect } from 'react';
 import PaymentsAdminPanel from './PaymentsAdminPanel';
 import PaymentMethodsPanel from './PaymentMethodsPanel';
@@ -379,7 +380,7 @@ const AdminDashboard = () => {
   };
 
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
+    copyText(text);
     showToastMessage(t.copied, 'success');
   };
 
@@ -1860,7 +1861,7 @@ const AdminDashboard = () => {
                               {company.id?.substring(0, 8)}...
                               <button 
                                 onClick={() => {
-                                  navigator.clipboard.writeText(company.id);
+                                  copyText(company.id);
                                   showToastMessage(isRTL ? 'تم نسخ ID' : 'ID copied!', 'success');
                                 }}
                                 className="ml-1 text-blue-500 hover:text-blue-700"
@@ -1879,7 +1880,7 @@ const AdminDashboard = () => {
                             {company.company_code && (
                               <button 
                                 onClick={() => {
-                                  navigator.clipboard.writeText(company.company_code);
+                                  copyText(company.company_code);
                                   showToastMessage(isRTL ? 'تم نسخ الكود' : 'Code copied!', 'success');
                                 }}
                                 className="text-blue-500 hover:text-blue-700"

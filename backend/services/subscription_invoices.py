@@ -16,6 +16,14 @@ books — not on the customer's company, which is where the subscription is an
 expense.
 """
 
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 import logging
 import os
 from datetime import datetime, timezone
@@ -109,15 +117,15 @@ def render_html(invoice: dict) -> str:
         f"<td style='padding:6px 10px;text-align:left' dir='ltr'>{v}</td></tr>" for k, v in rows)
     return f"""<div dir="rtl" style="font-family:Tahoma,Arial;max-width:640px;line-height:1.8;color:#111">
   <h2 style="margin:0 0 4px">فاتورة ضريبية</h2>
-  <p style="margin:0;color:#555">رقم {invoice.get('invoice_number')} — بتاريخ {invoice.get('issue_date')}</p>
+  <p style="margin:0;color:#555">رقم {_h(invoice.get('invoice_number'))} — بتاريخ {invoice.get('issue_date')}</p>
   <table style="width:100%;margin-top:16px;border-collapse:collapse;font-size:14px">
     <tr><td style="padding:6px 10px;width:50%;vertical-align:top">
-      <b>المورّد</b><br>{seller.get('name','')}<br>
+      <b>المورّد</b><br>{_h(seller.get('name',''))}<br>
       {('الرقم الضريبي: ' + seller['tax_id']) if seller.get('tax_id') else
        '<span style="color:#b45309">الرقم الضريبي غير مُعد على الخادم</span>'}<br>
       {seller.get('address','')}
     </td><td style="padding:6px 10px;vertical-align:top">
-      <b>العميل</b><br>{buyer.get('name','')}<br>
+      <b>العميل</b><br>{_h(buyer.get('name',''))}<br>
       {('الرقم الضريبي: ' + buyer['tax_id']) if buyer.get('tax_id') else 'بدون رقم ضريبي'}<br>
       {buyer.get('address','')}
     </td></tr>
@@ -125,7 +133,7 @@ def render_html(invoice: dict) -> str:
   <table style="width:100%;margin-top:16px;border-collapse:collapse;font-size:14px;border:1px solid #e5e7eb">
     <tr style="background:#f8fafc"><th style="padding:8px 10px;text-align:right">البند</th>
       <th style="padding:8px 10px;text-align:left">المبلغ ({invoice.get('currency','EGP')})</th></tr>
-    <tr><td style="padding:6px 10px">{invoice.get('description','اشتراك')}</td>
+    <tr><td style="padding:6px 10px">{_h(invoice.get('description','اشتراك'))}</td>
       <td style="padding:6px 10px;text-align:left" dir="ltr">{money(invoice.get('net_amount'))}</td></tr>
     {body}
     <tr style="background:#f1f5f9;font-weight:bold"><td style="padding:8px 10px">الإجمالي المستحق</td>

@@ -7,6 +7,7 @@ Advanced Financial Engine — المحرك المالي المتقدم
 3. Year-End Closing — إقفال سنوي (إيرادات / مصروفات → أرباح مرحلة)
 4. Inter-Company — قيود تسوية بين الشركات التابعة
 """
+import re as _re
 import uuid, asyncio
 from datetime import datetime, timezone, date
 from typing import Optional, List
@@ -521,7 +522,7 @@ async def _fiscal_year_range(company_id: str, data: dict) -> dict:
     if not fy_doc:
         fy_doc = await db.fiscal_years.find_one({"company_id": company_id, "name": str(label)}, {"_id": 0}) \
             or await db.fiscal_years.find_one(
-                {"company_id": company_id, "end_date": {"$regex": f"^{label}-"}}, {"_id": 0})
+                {"company_id": company_id, "end_date": {"$regex": "^" + _re.escape(str(label)) + "-"}}, {"_id": 0})
     if fy_doc and fy_doc.get("start_date") and fy_doc.get("end_date"):
         start, end = fy_doc["start_date"][:10], fy_doc["end_date"][:10]
     else:

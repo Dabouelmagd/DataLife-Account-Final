@@ -10,6 +10,14 @@ Only a SHA-256 of the code is stored, it expires in 10 minutes, and a
 challenge is thrown away after 5 wrong tries — so a leaked password cannot be
 walked through by guessing.
 """
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 import hashlib
 import os
 import secrets
@@ -83,7 +91,7 @@ async def send_code_email(email: str, name: str, code: str) -> bool:
         if not _rs.api_key:
             return False
         html = f"""<div dir="rtl" style="font-family:Tahoma,Arial;line-height:1.9">
-          <p>مرحباً {name or ''},</p>
+          <p>مرحباً {_h(name or '')},</p>
           <p>رمز تسجيل الدخول الخاص بك:</p>
           <p style="font-size:30px;font-weight:bold;letter-spacing:8px;font-family:monospace">{code}</p>
           <p style="color:#666;font-size:13px">صالح {CHALLENGE_MINUTES} دقائق. إذا لم تحاول تسجيل الدخول،

@@ -1,3 +1,4 @@
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -477,7 +478,7 @@ const PaymentPage = () => {
                   <p className="text-gray-700">{isRTL ? 'حول المبلغ عبر إنستاباي إلى الرقم:' : 'Transfer via InstaPay to:'}</p>
                   <div className="bg-gray-50 p-4 rounded-lg flex items-center justify-between">
                     <span className="font-mono text-xl font-bold">00201006008552</span>
-                    <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText('00201006008552'); toast.success(isRTL ? 'تم النسخ' : 'Copied!'); }}>
+                    <Button variant="outline" size="sm" onClick={() => { copyText('00201006008552'); toast.success(isRTL ? 'تم النسخ' : 'Copied!'); }}>
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
@@ -488,7 +489,7 @@ const PaymentPage = () => {
                   <p className="text-gray-700">{isRTL ? 'حول المبلغ عبر فودافون كاش إلى الرقم:' : 'Transfer via Vodafone Cash to:'}</p>
                   <div className="bg-gray-50 p-4 rounded-lg flex items-center justify-between">
                     <span className="font-mono text-xl font-bold">00201012625529</span>
-                    <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText('00201012625529'); toast.success(isRTL ? 'تم النسخ' : 'Copied!'); }}>
+                    <Button variant="outline" size="sm" onClick={() => { copyText('00201012625529'); toast.success(isRTL ? 'تم النسخ' : 'Copied!'); }}>
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>

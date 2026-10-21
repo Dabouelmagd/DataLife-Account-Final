@@ -2,6 +2,7 @@
 Attendance API - واجهة الحضور والانصراف
 """
 
+import re as _re
 from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File
 from typing import Optional, List
 from datetime import datetime, date, timedelta
@@ -563,6 +564,13 @@ async def get_attendance_record(
     return record
 
 
+ATTENDANCE_EDITABLE = {
+    "check_in", "check_out", "check_in_device", "check_out_device", "shift_id", "shift_name",
+    "status", "is_holiday", "is_weekend", "break_start", "break_end", "break_duration",
+    "notes", "excuse_reason", "is_excused",
+}
+
+
 @router.put("/records/{record_id}")
 async def update_attendance_record(
     record_id: str,
@@ -577,6 +585,21 @@ async def update_attendance_record(
     
     if not record:
         raise HTTPException(status_code=404, detail="السجل غير موجود")
+
+    # Only the editable fields of the record. The raw body went into $set, so it
+    # could move the record to another employee / company or overwrite the
+    # computed minutes and hours payroll deducts from.
+    request = {k: v for k, v in (request or {}).items() if k in ATTENDANCE_EDITABLE}
+    if "status" in request:
+        try:
+            request["status"] = AttendanceStatus(request["status"]).value
+        except ValueError:
+            raise HTTPException(status_code=400, detail="حالة الحضور غير صحيحة")
+    if request.get("shift_id"):
+        if not await db.work_shifts.find_one({"id": request["shift_id"], "company_id": current_user["company_id"]}, {"_id": 1}):
+            raise HTTPException(status_code=400, detail="الوردية غير موجودة")
+    if not request:
+        raise HTTPException(status_code=400, detail="لا توجد حقول قابلة للتعديل")
     
     # إعادة حساب ساعات العمل إذا تم تغيير الأوقات
     if "check_in" in request or "check_out" in request:
@@ -585,8 +608,9 @@ async def update_attendance_record(
         
         if check_in and check_out:
             shift = None
-            if record.get("shift_id"):
-                shift = await db.work_shifts.find_one({"id": record["shift_id"]}, {"_id": 0})
+            shift_id = request.get("shift_id") or record.get("shift_id")
+            if shift_id:
+                shift = await db.work_shifts.find_one({"id": shift_id, "company_id": current_user["company_id"]}, {"_id": 0})
             
             break_duration = shift.get("break_duration", 60) if shift else 60
             request["actual_working_hours"] = calculate_working_hours(check_in, check_out, break_duration)
@@ -607,7 +631,7 @@ async def update_attendance_record(
     request["updated_at"] = datetime.utcnow()
     
     await db.attendance_records.update_one(
-        {"id": record_id},
+        {"id": record_id, "company_id": current_user["company_id"]},
         {"$set": request}
     )
     
@@ -933,7 +957,7 @@ async def get_holidays(
     query = {"company_id": current_user["company_id"]}
     
     if year:
-        query["date"] = {"$regex": f"^{year}"}
+        query["date"] = {"$regex": "^" + _re.escape(str(year))}
     
     holidays = await db.holidays.find(query, {"_id": 0}).sort("date", 1).to_list(length=None)
     return {"holidays": holidays}

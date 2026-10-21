@@ -82,7 +82,7 @@ export default function LandingPage() {
     { feat: ar?'كشف الاحتيال Benford':'Benford Fraud Detection', dl:'✓', qb:'✗', od:'✗', sap:ar?'Enterprise فقط':'Enterprise', local:'✗' },
     { feat: ar?'Treasury + Cash Runway':'Treasury + Cash Runway', dl:'✓', qb:'✗', od:'✗', sap:'✓', local:'✗' },
     { feat: ar?'محركات القطاعات المصرية':'Egyptian Sector Engines', dl:ar?'✓ 5 قطاعات':'✓ 5 Sectors', qb:'✗', od:ar?'محدود':'Limited', sap:ar?'بإضافة':'Add-on', local:ar?'متفاوت':'Varies' },
-    { feat: ar?'نسخ احتياطي 3-2-1 مشفر':'Encrypted 3-2-1 Backup', dl:ar?'✓ تلقائي':'✓ Auto', qb:ar?'سحابي':'Cloud', od:ar?'يدوي':'Manual', sap:'✓', local:'✗' },
+    { feat: ar?'نسخ احتياطي يومي':'Daily Backup', dl:ar?'✓ تلقائي':'✓ Auto', qb:ar?'سحابي':'Cloud', od:ar?'يدوي':'Manual', sap:'✓', local:'✗' },
     { feat: ar?'سعر الشركة الصغيرة':'SME Price', dl:ar?'299 ج.م/شهر':'EGP 299/mo', qb:ar?'1,200+ ج.م':'EGP 1,200+', od:ar?'900+ ج.م':'EGP 900+', sap:ar?'3,000+ ج.م':'EGP 3,000+', local:ar?'500-800 ج.م':'EGP 500-800' },
     { feat: ar?'وقت التهيئة':'Setup Time', dl:ar?'30 دقيقة':'30 Minutes', qb:ar?'يومان':'2 Days', od:ar?'أسبوع+':'Week+', sap:ar?'شهر+':'Month+', local:ar?'3-7 أيام':'3-7 Days' },
   ];
@@ -174,7 +174,7 @@ export default function LandingPage() {
 
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400 text-sm font-semibold mb-8">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"/>
-            {ar ? 'مُطابق لهيئة الضرائب المصرية ETA 2024' : 'Certified — Egyptian Tax Authority ETA 2024'}
+            {ar ? 'يدعم الربط مع منظومة الفاتورة الإلكترونية ETA' : 'Integrates with the ETA e-invoicing system'}
           </div>
           <h1 className="text-5xl md:text-7xl font-black leading-tight mb-6">
             {ar ? (<>نظام ERP المحاسبي<br className="hidden md:block"/><span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent"> المصري الأكثر اكتمالاً</span></>) : (<>Egypt&apos;s Most Complete<br/><span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Accounting ERP</span></>)}
@@ -206,7 +206,7 @@ export default function LandingPage() {
       {/* ── TRUST BAR ── */}
       <div className="bg-[#0a1020]/80 border-y border-white/5 py-3">
         <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-center gap-6">
-          {[ar?'🔒 AES-256 تشفير':'🔒 AES-256 Encryption', ar?'📋 قانون 151/2020':'📋 Law 151/2020', ar?'🧾 فاتورة ETA معتمدة':'🧾 ETA Certified', ar?'🤖 مساعد AI 24/7':'🤖 AI Assistant 24/7', ar?'👤 بوابة ESS للموظفين':'👤 ESS Employee Portal', ar?'⚡ نسخ احتياطي 3-2-1':'⚡ 3-2-1 Backup'].map((t,i)=>(
+          {[ar?'🔒 اتصال مشفر HTTPS':'🔒 HTTPS Encrypted', ar?'📋 أدوات حماية البيانات الشخصية':'📋 Personal-data tools', ar?'🧾 ربط الفاتورة الإلكترونية ETA':'🧾 ETA e-invoice integration', ar?'🤖 مساعد AI 24/7':'🤖 AI Assistant 24/7', ar?'👤 بوابة ESS للموظفين':'👤 ESS Employee Portal', ar?'⚡ نسخ احتياطي يومي':'⚡ Daily Backup'].map((t,i)=>(
             <span key={i} className="text-xs font-semibold text-gray-500">{t}</span>
           ))}
         </div>

@@ -4,6 +4,7 @@ Professional Email Service
 """
 
 import os
+from html import escape as _esc_html
 import smtplib
 import ssl
 import logging
@@ -12,6 +13,13 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
+
+
+def _e(value) -> str:
+    """HTML-escape a value placed in an email body (names, company names,
+    reasons are typed by users: a company named "<a href=...>" put a phishing
+    link in every email the system sent about it)."""
+    return _esc_html("" if value is None else str(value), quote=True)
 
 # ══════════════════════════════════════════════════════════════
 # DataLife Official Logo (base64 encoded — auto-renders in email)
@@ -59,7 +67,7 @@ class ProfessionalEmailService:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title}</title>
+    <title>{_e(title)}</title>
     <!--[if mso]>
     <style type="text/css">
         table {{border-collapse: collapse;}}
@@ -86,7 +94,7 @@ class ProfessionalEmailService:
                                 </tr>
                                 <tr>
                                     <td align="center">
-                                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">{title}</h1>
+                                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">{_e(title)}</h1>
                                     </td>
                                 </tr>
                             </table>
@@ -145,7 +153,7 @@ class ProfessionalEmailService:
         <div style="background-color: {c['bg']}; border-right: 4px solid {c['border']}; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
             <p style="margin: 0; color: {c['text']}; font-size: 14px;">
                 <span style="font-size: 18px; margin-left: 8px;">{c['icon']}</span>
-                {text}
+                {_e(text)}
             </p>
         </div>
         '''
@@ -168,10 +176,10 @@ class ProfessionalEmailService:
             html += f'''
             <tr style="background-color: {bg_color};">
                 <td style="padding: 14px 20px; border-bottom: 1px solid #e2e8f0; font-weight: {label_weight}; color: {text_color}; width: 40%;">
-                    {row.get('label', '')}
+                    {_e(row.get('label', ''))}
                 </td>
                 <td style="padding: 14px 20px; border-bottom: 1px solid #e2e8f0; text-align: left; color: {row.get('color', text_color)}; font-size: {value_size}; font-weight: {'700' if is_last else '500'};">
-                    {row.get('value', '')}
+                    {_e(row.get('value', ''))}
                 </td>
             </tr>
             '''
@@ -185,8 +193,8 @@ class ProfessionalEmailService:
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 25px auto;">
             <tr>
                 <td align="center" style="background: linear-gradient(135deg, {color} 0%, #1e3a5f 100%); border-radius: 8px;">
-                    <a href="{url}" target="_blank" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px;">
-                        {text}
+                    <a href="{_e(url)}" target="_blank" style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px;">
+                        {_e(text)}
                     </a>
                 </td>
             </tr>
@@ -203,10 +211,10 @@ class ProfessionalEmailService:
             <td align="center" width="{width}%" style="padding: 15px;">
                 <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px;">
                     <p style="margin: 0 0 8px 0; font-size: 28px; font-weight: 700; color: {stat.get('color', '#1e40af')};">
-                        {stat.get('value', '0')}
+                        {_e(stat.get('value', '0'))}
                     </p>
                     <p style="margin: 0; font-size: 13px; color: #64748b;">
-                        {stat.get('label', '')}
+                        {_e(stat.get('label', ''))}
                     </p>
                 </div>
             </td>
@@ -223,10 +231,10 @@ class ProfessionalEmailService:
         """بريد الترحيب بالموظف الجديد"""
         content = f'''
         <p style="font-size: 16px; color: #334155; line-height: 1.8; margin: 0 0 20px 0;">
-            مرحباً <strong style="color: #1e40af;">{employee_name}</strong>،
+            مرحباً <strong style="color: #1e40af;">{_e(employee_name)}</strong>،
         </p>
         <p style="font-size: 16px; color: #334155; line-height: 1.8; margin: 0 0 20px 0;">
-            يسعدنا انضمامك إلى فريق <strong>{company_name}</strong>! 🎉
+            يسعدنا انضمامك إلى فريق <strong>{_e(company_name)}</strong>! 🎉
         </p>
         
         {self._create_info_box("تم إنشاء حسابك بنجاح على نظام DataLife Account", "success")}
@@ -269,10 +277,10 @@ class ProfessionalEmailService:
         
         content = f'''
         <p style="font-size: 16px; color: #334155; line-height: 1.8; margin: 0 0 20px 0;">
-            مرحباً <strong style="color: #1e40af;">{employee_name}</strong>،
+            مرحباً <strong style="color: #1e40af;">{_e(employee_name)}</strong>،
         </p>
         <p style="font-size: 16px; color: #334155; line-height: 1.8; margin: 0 0 10px 0;">
-            نرفق لك كشف راتبك عن شهر <strong>{month} {year}</strong>
+            نرفق لك كشف راتبك عن شهر <strong>{_e(month)} {_e(year)}</strong>
         </p>
         
         {self._create_stats_row(stats)}
@@ -314,7 +322,7 @@ class ProfessionalEmailService:
         
         content = f'''
         <p style="font-size: 16px; color: #334155; line-height: 1.8; margin: 0 0 20px 0;">
-            مرحباً <strong style="color: #1e40af;">{employee_name}</strong>،
+            مرحباً <strong style="color: #1e40af;">{_e(employee_name)}</strong>،
         </p>
         
         {self._create_info_box(f"تم {'الموافقة على' if is_approved else 'رفض'} طلب إجازتك", "success" if is_approved else "error")}
@@ -330,7 +338,7 @@ class ProfessionalEmailService:
             content += f'''
             <div style="background-color: #fef2f2; border-radius: 8px; padding: 15px 20px; margin: 20px 0;">
                 <p style="margin: 0 0 5px 0; color: #991b1b; font-weight: 600;">سبب الرفض:</p>
-                <p style="margin: 0; color: #7f1d1d;">{rejection_reason}</p>
+                <p style="margin: 0; color: #7f1d1d;">{_e(rejection_reason)}</p>
             </div>
             '''
         
@@ -353,16 +361,16 @@ class ProfessionalEmailService:
         
         content = f'''
         <p style="font-size: 16px; color: #334155; line-height: 1.8; margin: 0 0 20px 0;">
-            عزيزي/عزيزتي <strong style="color: #1e40af;">{customer_name}</strong>،
+            عزيزي/عزيزتي <strong style="color: #1e40af;">{_e(customer_name)}</strong>،
         </p>
         <p style="font-size: 16px; color: #334155; line-height: 1.8; margin: 0 0 20px 0;">
-            نرفق لك فاتورة رقم <strong>#{invoice_number}</strong>
+            نرفق لك فاتورة رقم <strong>#{_e(invoice_number)}</strong>
         </p>
         
         <div style="background: linear-gradient(135deg, #1e40af 0%, #1e3a5f 100%); border-radius: 12px; padding: 25px; text-align: center; margin: 20px 0;">
             <p style="margin: 0 0 5px 0; color: rgba(255,255,255,0.8); font-size: 14px;">المبلغ المستحق</p>
             <p style="margin: 0; color: #ffffff; font-size: 36px; font-weight: 700;">{amount:,.2f} ج.م</p>
-            <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.7); font-size: 13px;">تاريخ الاستحقاق: {due_date}</p>
+            <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.7); font-size: 13px;">تاريخ الاستحقاق: {_e(due_date)}</p>
         </div>
         
         {self._create_info_box(f"يرجى السداد قبل تاريخ الاستحقاق لتجنب أي رسوم تأخير", "warning")}
@@ -370,7 +378,7 @@ class ProfessionalEmailService:
         {self._create_button("عرض الفاتورة", f"https://datalifeaccount.com/invoices/{invoice_number}")}
         
         <p style="font-size: 14px; color: #64748b; line-height: 1.7; margin: 20px 0 0 0;">
-            شكراً لتعاملكم مع <strong>{company_name}</strong>
+            شكراً لتعاملكم مع <strong>{_e(company_name)}</strong>
         </p>
         '''
         return self._get_base_template(f"فاتورة #{invoice_number}", content, "#f59e0b")
@@ -444,7 +452,7 @@ class ProfessionalEmailService:
         
         content = f'''
         <p style="font-size: 16px; color: #334155; line-height: 1.8; margin: 0 0 20px 0;">
-            مرحباً <strong style="color: #1e40af;">{user_name}</strong>،
+            مرحباً <strong style="color: #1e40af;">{_e(user_name)}</strong>،
         </p>
         <p style="font-size: 16px; color: #334155; line-height: 1.8; margin: 0 0 20px 0;">
             تلقينا طلباً لإعادة تعيين كلمة المرور الخاصة بحسابك.
@@ -471,7 +479,7 @@ class ProfessionalEmailService:
         
         content = f'''
         <p style="font-size: 16px; color: #334155; line-height: 1.8; margin: 0 0 20px 0;">
-            مرحباً <strong style="color: #1e40af;">{admin_name}</strong>،
+            مرحباً <strong style="color: #1e40af;">{_e(admin_name)}</strong>،
         </p>
         
         {self._create_info_box("تم إضافة موظف جديد إلى النظام", "info")}
@@ -617,16 +625,16 @@ async def send_payment_invoice_email(
   <div class="header">
     <div class="logo">🏢 DataLife Account</div>
     <div class="invoice-title">فاتورة ضريبية رسمية | Official Tax Invoice</div>
-    <div style="margin-top:16px;font-size:13px;opacity:0.8">رقم الفاتورة: <strong>{invoice_number}</strong></div>
+    <div style="margin-top:16px;font-size:13px;opacity:0.8">رقم الفاتورة: <strong>{_e(invoice_number)}</strong></div>
   </div>
   <div class="body">
     <div class="badge">✅ تم تأكيد الدفع | Payment Confirmed</div>
-    <div class="row"><span class="label">الشركة | Company</span><span class="value">{company_name}</span></div>
-    <div class="row"><span class="label">الخطة | Plan</span><span class="value">{PLAN_NAMES.get(plan, plan)}</span></div>
-    <div class="row"><span class="label">مدة الاشتراك | Duration</span><span class="value">{DURATION_NAMES.get(duration, duration)}</span></div>
-    <div class="row"><span class="label">طريقة الدفع | Payment Method</span><span class="value">{PAYMENT_NAMES.get(payment_method, payment_method)}</span></div>
-    {f'<div class="row"><span class="label">رقم المرجع | Reference</span><span class="value">{reference}</span></div>' if reference else ''}
-    <div class="row"><span class="label">تاريخ الدفع | Payment Date</span><span class="value">{paid_date}</span></div>
+    <div class="row"><span class="label">الشركة | Company</span><span class="value">{_e(company_name)}</span></div>
+    <div class="row"><span class="label">الخطة | Plan</span><span class="value">{_e(PLAN_NAMES.get(plan, plan))}</span></div>
+    <div class="row"><span class="label">مدة الاشتراك | Duration</span><span class="value">{_e(DURATION_NAMES.get(duration, duration))}</span></div>
+    <div class="row"><span class="label">طريقة الدفع | Payment Method</span><span class="value">{_e(PAYMENT_NAMES.get(payment_method, payment_method))}</span></div>
+    {f'<div class="row"><span class="label">رقم المرجع | Reference</span><span class="value">{_e(reference)}</span></div>' if reference else ''}
+    <div class="row"><span class="label">تاريخ الدفع | Payment Date</span><span class="value">{_e(paid_date)}</span></div>
     
     <div style="margin-top:20px;padding-top:16px;border-top:2px solid #e5e7eb;">
       <div class="row"><span class="label">المبلغ قبل الضريبة</span><span class="value">{amount_before_vat:,.2f} ج.م</span></div>
@@ -769,9 +777,9 @@ async def send_welcome_email(
   <!-- BODY -->
   <div class="body">
     <p class="greeting">
-      مرحباً <strong>{user_name or company_name}</strong>،<br><br>
+      مرحباً <strong>{_e(user_name or company_name)}</strong>،<br><br>
       شكراً لتسجيلك في <strong>DataLife Account</strong> — النظام المحاسبي وإدارة الموارد البشرية
-      المصمم خصيصاً للشركات المصرية. سجّلت بنجاح شركة <strong>{company_name}</strong>
+      المصمم خصيصاً للشركات المصرية. سجّلت بنجاح شركة <strong>{_e(company_name)}</strong>
       وأصبح حسابك جاهزاً للاستخدام الفوري.
     </p>
 
@@ -822,11 +830,11 @@ async def send_welcome_email(
       <h4>📋 بيانات حسابك</h4>
       <div class="info-row">
         <span class="info-label">اسم الشركة</span>
-        <span class="info-value">{company_name}</span>
+        <span class="info-value">{_e(company_name)}</span>
       </div>
       <div class="info-row">
         <span class="info-label">البريد الإلكتروني</span>
-        <span class="info-value">{company_email}</span>
+        <span class="info-value">{_e(company_email)}</span>
       </div>
       <div class="info-row">
         <span class="info-label">نوع الحساب</span>
@@ -889,7 +897,7 @@ def _email_base(header_gradient: str, icon: str, title: str, subtitle: str, badg
     LOGO_SVG = _logo_img(160)
 
     cta_block = f"""<div style="text-align:center;margin:28px 0;">
-      <a href="{cta_url}" style="display:inline-block;background:{badge_color};color:white;text-decoration:none;padding:15px 44px;border-radius:12px;font-size:15px;font-weight:800;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(0,0,0,0.2);">{cta_text}</a>
+      <a href="{_e(cta_url)}" style="display:inline-block;background:{badge_color};color:white;text-decoration:none;padding:15px 44px;border-radius:12px;font-size:15px;font-weight:800;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(0,0,0,0.2);">{_e(cta_text)}</a>
     </div>""" if cta_url else ""
 
     return f"""<!DOCTYPE html>
@@ -939,11 +947,11 @@ body{{background:#f1f5f9;font-family:'Segoe UI',Tahoma,Arial,sans-serif;directio
   <div class="head">
     <div style="margin-bottom:14px">{LOGO_SVG}</div>
     <div class="big-icon">{icon}</div>
-    <h1>{title}</h1>
-    <p>{subtitle}</p>
+    <h1>{_e(title)}</h1>
+    <p>{_e(subtitle)}</p>
   </div>
   <div style="background:{badge_color};padding:0 32px">
-    <div class="badge-strip">{badge_text}</div>
+    <div class="badge-strip">{_e(badge_text)}</div>
   </div>
   <div class="body">
     {body_html}
@@ -983,7 +991,7 @@ async def send_password_reset_email(user_name: str, email: str, otp: str) -> boo
         if not resend.api_key: return False
 
         body = f"""
-<p class="greeting">مرحباً <strong>{user_name}</strong>،<br><br>
+<p class="greeting">مرحباً <strong>{_e(user_name)}</strong>،<br><br>
 تلقينا طلباً لإعادة تعيين كلمة المرور لحسابك في DataLife Account.
 استخدم الكود التالي لإتمام العملية:</p>
 
@@ -998,7 +1006,7 @@ async def send_password_reset_email(user_name: str, email: str, otp: str) -> boo
 </div>
 
 <div class="info-card">
-  <div class="info-row"><span class="il">البريد الإلكتروني</span><span class="iv">{email}</span></div>
+  <div class="info-row"><span class="il">البريد الإلكتروني</span><span class="iv">{_e(email)}</span></div>
   <div class="info-row"><span class="il">الكود</span><span class="iv" style="font-family:monospace;font-size:18px;color:#dc2626;letter-spacing:4px">{otp}</span></div>
   <div class="info-row"><span class="il">ينتهي خلال</span><span class="iv">15 دقيقة</span></div>
 </div>"""
@@ -1034,11 +1042,11 @@ async def send_password_changed_email(user_name: str, email: str) -> bool:
 
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         body = f"""
-<p class="greeting">مرحباً <strong>{user_name}</strong>،<br><br>
+<p class="greeting">مرحباً <strong>{_e(user_name)}</strong>،<br><br>
 تم تغيير كلمة المرور لحسابك في DataLife Account بنجاح.</p>
 
 <div class="alert success">
-  ✅ تم تحديث كلمة المرور بنجاح في {now}
+  ✅ تم تحديث كلمة المرور بنجاح في {_e(now)}
 </div>
 
 <div class="alert danger">
@@ -1049,8 +1057,8 @@ async def send_password_changed_email(user_name: str, email: str) -> bool:
 </div>
 
 <div class="info-card">
-  <div class="info-row"><span class="il">البريد الإلكتروني</span><span class="iv">{email}</span></div>
-  <div class="info-row"><span class="il">وقت التغيير</span><span class="iv">{now}</span></div>
+  <div class="info-row"><span class="il">البريد الإلكتروني</span><span class="iv">{_e(email)}</span></div>
+  <div class="info-row"><span class="il">وقت التغيير</span><span class="iv">{_e(now)}</span></div>
   <div class="info-row"><span class="il">الحالة</span><span class="iv" style="color:#16a34a">✅ تم التغيير بنجاح</span></div>
 </div>"""
 
@@ -1085,13 +1093,13 @@ async def send_login_alert_email(user_name: str, email: str, ip: str = "", time_
 
         now = time_str or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         body = f"""
-<p class="greeting">مرحباً <strong>{user_name}</strong>،<br><br>
+<p class="greeting">مرحباً <strong>{_e(user_name)}</strong>،<br><br>
 تم تسجيل الدخول إلى حسابك في DataLife Account.</p>
 
 <div class="info-card">
-  <div class="info-row"><span class="il">البريد الإلكتروني</span><span class="iv">{email}</span></div>
-  <div class="info-row"><span class="il">وقت الدخول</span><span class="iv">{now}</span></div>
-  {f'<div class="info-row"><span class="il">عنوان IP</span><span class="iv" style="font-family:monospace">{ip}</span></div>' if ip else ''}
+  <div class="info-row"><span class="il">البريد الإلكتروني</span><span class="iv">{_e(email)}</span></div>
+  <div class="info-row"><span class="il">وقت الدخول</span><span class="iv">{_e(now)}</span></div>
+  {f'<div class="info-row"><span class="il">عنوان IP</span><span class="iv" style="font-family:monospace">{_e(ip)}</span></div>' if ip else ''}
 </div>
 
 <div class="alert warn">
@@ -1136,17 +1144,17 @@ async def send_renewal_reminder_email(
         urgency_icon = "🚨" if days_left <= 3 else ("⚠️" if days_left <= 7 else "📅")
 
         body = f"""
-<p class="greeting">مرحباً <strong>{company_name}</strong>،<br><br>
+<p class="greeting">مرحباً <strong>{_e(company_name)}</strong>،<br><br>
 نود تذكيركم بأن اشتراككم في DataLife Account سينتهي قريباً. جددوا الآن لضمان الاستمرارية بدون انقطاع.</p>
 
 <div class="alert {urgency}">
-  {urgency_icon} <strong>متبقي {days_left} {'يوم' if days_left == 1 else 'أيام'} فقط</strong> — ينتهي الاشتراك في {end_date}
+  {urgency_icon} <strong>متبقي {days_left} {'يوم' if days_left == 1 else 'أيام'} فقط</strong> — ينتهي الاشتراك في {_e(end_date)}
 </div>
 
 <div class="info-card">
-  <div class="info-row"><span class="il">الشركة</span><span class="iv">{company_name}</span></div>
-  <div class="info-row"><span class="il">الخطة الحالية</span><span class="iv">{plan}</span></div>
-  <div class="info-row"><span class="il">تاريخ الانتهاء</span><span class="iv" style="color:#dc2626">{end_date}</span></div>
+  <div class="info-row"><span class="il">الشركة</span><span class="iv">{_e(company_name)}</span></div>
+  <div class="info-row"><span class="il">الخطة الحالية</span><span class="iv">{_e(plan)}</span></div>
+  <div class="info-row"><span class="il">تاريخ الانتهاء</span><span class="iv" style="color:#dc2626">{_e(end_date)}</span></div>
   <div class="info-row"><span class="il">السعر</span><span class="iv">{PLAN_PRICES.get(plan,"—")}</span></div>
 </div>
 
@@ -1184,7 +1192,7 @@ async def send_subscription_expired_email(company_name: str, email: str, plan: s
         if not resend.api_key: return False
 
         body = f"""
-<p class="greeting">مرحباً <strong>{company_name}</strong>،<br><br>
+<p class="greeting">مرحباً <strong>{_e(company_name)}</strong>،<br><br>
 انتهت صلاحية اشتراكك في DataLife Account. بياناتك محفوظة ومؤمّنة، لكن تم تعليق الوصول مؤقتاً.</p>
 
 <div class="alert danger">
@@ -1193,8 +1201,8 @@ async def send_subscription_expired_email(company_name: str, email: str, plan: s
 </div>
 
 <div class="info-card">
-  <div class="info-row"><span class="il">الشركة</span><span class="iv">{company_name}</span></div>
-  <div class="info-row"><span class="il">الخطة المنتهية</span><span class="iv">{plan}</span></div>
+  <div class="info-row"><span class="il">الشركة</span><span class="iv">{_e(company_name)}</span></div>
+  <div class="info-row"><span class="il">الخطة المنتهية</span><span class="iv">{_e(plan)}</span></div>
   <div class="info-row"><span class="il">حالة البيانات</span><span class="iv" style="color:#16a34a">✅ محفوظة ومؤمّنة</span></div>
   <div class="info-row"><span class="il">مهلة التجديد</span><span class="iv" style="color:#dc2626">30 يوم من تاريخ الانتهاء</span></div>
 </div>
@@ -1235,18 +1243,18 @@ async def send_maintenance_email(
         if not resend.api_key: return False
 
         body = f"""
-<p class="greeting">مرحباً <strong>{company_name}</strong>،<br><br>
+<p class="greeting">مرحباً <strong>{_e(company_name)}</strong>،<br><br>
 نعلمكم بأنه سيتم إجراء أعمال صيانة مجدولة على نظام DataLife Account. خلال هذه الفترة قد يكون النظام غير متاح مؤقتاً.</p>
 
 <div class="alert warn">
   🔧 <strong>فترة الصيانة المجدولة:</strong><br>
-  تبدأ: {start_time} | المدة المتوقعة: {duration}
+  تبدأ: {_e(start_time)} | المدة المتوقعة: {_e(duration)}
 </div>
 
 <div class="info-card">
-  <div class="info-row"><span class="il">وقت البدء</span><span class="iv">{start_time}</span></div>
-  <div class="info-row"><span class="il">المدة المتوقعة</span><span class="iv">{duration}</span></div>
-  {f'<div class="info-row"><span class="il">السبب</span><span class="iv">{reason}</span></div>' if reason else ''}
+  <div class="info-row"><span class="il">وقت البدء</span><span class="iv">{_e(start_time)}</span></div>
+  <div class="info-row"><span class="il">المدة المتوقعة</span><span class="iv">{_e(duration)}</span></div>
+  {f'<div class="info-row"><span class="il">السبب</span><span class="iv">{_e(reason)}</span></div>' if reason else ''}
   <div class="info-row"><span class="il">الحالة بعد الصيانة</span><span class="iv" style="color:#16a34a">✅ أداء وأمان أفضل</span></div>
 </div>
 
@@ -1288,11 +1296,11 @@ async def send_account_status_email(
 
         if is_suspended:
             body = f"""
-<p class="greeting">مرحباً <strong>{company_name}</strong>،<br><br>
+<p class="greeting">مرحباً <strong>{_e(company_name)}</strong>،<br><br>
 تم تعليق حسابكم في DataLife Account مؤقتاً.</p>
 
 <div class="alert danger">
-  🚫 <strong>سبب التعليق:</strong> {reason or 'انتهاء فترة الاشتراك أو مخالفة شروط الاستخدام'}
+  🚫 <strong>سبب التعليق:</strong> {_e(reason or 'انتهاء فترة الاشتراك أو مخالفة شروط الاستخدام')}
 </div>
 
 <div class="info-card">
@@ -1307,7 +1315,7 @@ async def send_account_status_email(
             cta_url, cta_text = "mailto:info@datalifeai.com", "📧 تواصل معنا"
         else:
             body = f"""
-<p class="greeting">مرحباً <strong>{company_name}</strong>،<br><br>
+<p class="greeting">مرحباً <strong>{_e(company_name)}</strong>،<br><br>
 يسعدنا إعلامكم بأنه تم إعادة تفعيل حسابكم في DataLife Account بنجاح.</p>
 
 <div class="alert success">

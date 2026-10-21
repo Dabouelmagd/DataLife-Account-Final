@@ -21,6 +21,7 @@ import {
   Printer, FileDown, File, Upload
 } from 'lucide-react';
 import ImportButton from './ImportButton';
+import { escapeHtml } from '../utils/escapeHtml';
 
 const PurchasesModule = () => {
   const { token } = useAuth();
@@ -229,7 +230,7 @@ const PurchasesModule = () => {
       <!DOCTYPE html>
       <html dir="${isRTL ? 'rtl' : 'ltr'}">
       <head>
-        <title>${isRTL ? 'أمر شراء' : 'Purchase Order'} #${order.order_number}</title>
+        <title>${isRTL ? 'أمر شراء' : 'Purchase Order'} #${escapeHtml(order.order_number)}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'}; }
           .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
@@ -247,19 +248,19 @@ const PurchasesModule = () => {
       <body>
         <div class="header">
           <h1>${isRTL ? 'أمر شراء' : 'PURCHASE ORDER'}</h1>
-          <p>${isRTL ? 'رقم الطلب' : 'Order Number'}: <strong>${order.order_number}</strong></p>
-          <p>${isRTL ? 'التاريخ' : 'Date'}: ${order.created_at?.slice(0, 10)}</p>
+          <p>${isRTL ? 'رقم الطلب' : 'Order Number'}: <strong>${escapeHtml(order.order_number)}</strong></p>
+          <p>${isRTL ? 'التاريخ' : 'Date'}: ${escapeHtml(order.created_at?.slice(0, 10))}</p>
         </div>
         
         <div class="info-grid">
           <div class="info-box">
             <h3>${isRTL ? 'معلومات المورد' : 'Supplier Information'}</h3>
-            <p><strong>${order.supplier_name}</strong></p>
+            <p><strong>${escapeHtml(order.supplier_name)}</strong></p>
           </div>
           <div class="info-box">
             <h3>${isRTL ? 'تفاصيل الطلب' : 'Order Details'}</h3>
-            <p>${isRTL ? 'الحالة' : 'Status'}: ${order.status}</p>
-            <p>${isRTL ? 'تاريخ التسليم' : 'Delivery Date'}: ${order.expected_delivery || '-'}</p>
+            <p>${isRTL ? 'الحالة' : 'Status'}: ${escapeHtml(order.status)}</p>
+            <p>${isRTL ? 'تاريخ التسليم' : 'Delivery Date'}: ${escapeHtml(order.expected_delivery || '-')}</p>
           </div>
         </div>
         
@@ -277,17 +278,17 @@ const PurchasesModule = () => {
             ${(order.items || []).map((item, idx) => `
               <tr>
                 <td>${idx + 1}</td>
-                <td>${item.description}</td>
-                <td>${item.quantity}</td>
-                <td>${item.unit_price?.toLocaleString()} EGP</td>
-                <td>${(item.quantity * item.unit_price).toLocaleString()} EGP</td>
+                <td>${escapeHtml(item.description)}</td>
+                <td>${escapeHtml(item.quantity)}</td>
+                <td>${escapeHtml(item.unit_price?.toLocaleString())} EGP</td>
+                <td>${escapeHtml((item.quantity * item.unit_price).toLocaleString())} EGP</td>
               </tr>
             `).join('')}
           </tbody>
         </table>
         
         <table class="totals">
-          <tr><td><strong>${isRTL ? 'الإجمالي' : 'Total'}</strong></td><td><strong>${order.total_amount?.toLocaleString()} EGP</strong></td></tr>
+          <tr><td><strong>${isRTL ? 'الإجمالي' : 'Total'}</strong></td><td><strong>${escapeHtml(order.total_amount?.toLocaleString())} EGP</strong></td></tr>
         </table>
         
         <div class="footer"><p>DataLife Account ERP System</p></div>
@@ -305,19 +306,19 @@ const PurchasesModule = () => {
       <div style="font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'};">
         <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
           <h1 style="margin: 0; color: #1a365d;">${isRTL ? 'أمر شراء' : 'PURCHASE ORDER'}</h1>
-          <p style="margin: 10px 0;">${isRTL ? 'رقم الطلب' : 'Order Number'}: <strong>${order.order_number}</strong></p>
-          <p style="margin: 5px 0;">${isRTL ? 'التاريخ' : 'Date'}: ${order.created_at?.slice(0, 10)}</p>
+          <p style="margin: 10px 0;">${isRTL ? 'رقم الطلب' : 'Order Number'}: <strong>${escapeHtml(order.order_number)}</strong></p>
+          <p style="margin: 5px 0;">${isRTL ? 'التاريخ' : 'Date'}: ${escapeHtml(order.created_at?.slice(0, 10))}</p>
         </div>
         
         <div style="display: flex; gap: 20px; margin-bottom: 30px;">
           <div style="flex: 1; padding: 15px; background: #f7fafc; border-radius: 8px;">
             <h3 style="margin: 0 0 10px 0; color: #2d3748;">${isRTL ? 'معلومات المورد' : 'Supplier Information'}</h3>
-            <p style="margin: 5px 0;"><strong>${order.supplier_name}</strong></p>
+            <p style="margin: 5px 0;"><strong>${escapeHtml(order.supplier_name)}</strong></p>
           </div>
           <div style="flex: 1; padding: 15px; background: #f7fafc; border-radius: 8px;">
             <h3 style="margin: 0 0 10px 0; color: #2d3748;">${isRTL ? 'تفاصيل الطلب' : 'Order Details'}</h3>
-            <p style="margin: 5px 0;">${isRTL ? 'الحالة' : 'Status'}: ${order.status}</p>
-            <p style="margin: 5px 0;">${isRTL ? 'تاريخ التسليم' : 'Delivery Date'}: ${order.expected_delivery || '-'}</p>
+            <p style="margin: 5px 0;">${isRTL ? 'الحالة' : 'Status'}: ${escapeHtml(order.status)}</p>
+            <p style="margin: 5px 0;">${isRTL ? 'تاريخ التسليم' : 'Delivery Date'}: ${escapeHtml(order.expected_delivery || '-')}</p>
           </div>
         </div>
         
@@ -335,10 +336,10 @@ const PurchasesModule = () => {
             ${(order.items || []).map((item, idx) => `
               <tr>
                 <td style="border: 1px solid #e2e8f0; padding: 10px;">${idx + 1}</td>
-                <td style="border: 1px solid #e2e8f0; padding: 10px;">${item.description}</td>
-                <td style="border: 1px solid #e2e8f0; padding: 10px;">${item.quantity}</td>
-                <td style="border: 1px solid #e2e8f0; padding: 10px;">${item.unit_price?.toLocaleString()} EGP</td>
-                <td style="border: 1px solid #e2e8f0; padding: 10px;">${(item.quantity * item.unit_price).toLocaleString()} EGP</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${escapeHtml(item.description)}</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${escapeHtml(item.quantity)}</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${escapeHtml(item.unit_price?.toLocaleString())} EGP</td>
+                <td style="border: 1px solid #e2e8f0; padding: 10px;">${escapeHtml((item.quantity * item.unit_price).toLocaleString())} EGP</td>
               </tr>
             `).join('')}
           </tbody>
@@ -347,7 +348,7 @@ const PurchasesModule = () => {
         <table style="width: 300px; margin-${isRTL ? 'right' : 'left'}: auto;">
           <tr style="font-weight: bold; background: #ebf8ff;">
             <td style="padding: 10px;"><strong>${isRTL ? 'الإجمالي' : 'Total'}</strong></td>
-            <td style="padding: 10px;"><strong>${order.total_amount?.toLocaleString()} EGP</strong></td>
+            <td style="padding: 10px;"><strong>${escapeHtml(order.total_amount?.toLocaleString())} EGP</strong></td>
           </tr>
         </table>
         

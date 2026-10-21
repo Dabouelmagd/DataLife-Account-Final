@@ -1,3 +1,4 @@
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -490,7 +491,7 @@ const CouponManagementPage = () => {
   };
 
   const copyToClipboard = (code) => {
-    navigator.clipboard.writeText(code);
+    copyText(code);
     toast.success(isRTL ? 'تم نسخ الكود' : 'Code copied');
   };
 

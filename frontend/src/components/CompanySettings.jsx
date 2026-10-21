@@ -1,3 +1,4 @@
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect } from 'react';
 import SecurityTab from './settings/SecurityTab';
 import { useAuth } from '../contexts/AuthContext';
@@ -5,6 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
 import { Building2, User, Key, Globe, Users, ClipboardList, Shield, Scale } from 'lucide-react';
 import CompanyPoliciesPage from './CompanyPoliciesPage';
+import DataExportPage from '../pages/DataExportPage';
 import axios from 'axios';
 import { Toaster, toast } from 'sonner';
 import ImageCropper from './ImageCropper';
@@ -346,7 +348,7 @@ const CompanySettings = () => {
   };
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(subscriptionCode);
+    copyText(subscriptionCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -395,6 +397,7 @@ const CompanySettings = () => {
     ...(canManageEmployees ? [{ id: 'permissions', label: language === 'ar' ? 'الصلاحيات' : 'Permissions', icon: Shield }] : []),
     ...(canManageEmployees ? [{ id: 'activity', label: language === 'ar' ? 'سجل النشاطات' : 'Activity Log', icon: ClipboardList }] : []),
     ...(canManageEmployees ? [{ id: 'policies', label: language === 'ar' ? 'سياسات الشركة' : 'Company policies', icon: Scale }] : []),
+    ...(canManageEmployees ? [{ id: 'data-export', label: language === 'ar' ? 'تصدير بيانات الشركة' : 'Export company data', icon: Scale }] : []),
     { id: 'subscription', label: language === 'ar' ? 'الاشتراك' : 'Subscription', icon: Key },
     { id: 'security', label: language === 'ar' ? 'الأمان' : 'Security', icon: Shield },
     { id: 'language', label: language === 'ar' ? 'اللغة' : 'Language', icon: Globe },
@@ -508,6 +511,7 @@ const CompanySettings = () => {
 
 
         {activeTab === 'policies' && canManageEmployees && <CompanyPoliciesPage />}
+        {activeTab === 'data-export' && canManageEmployees && <DataExportPage />}
 
         {activeTab === 'language' && (
           <LanguageTab

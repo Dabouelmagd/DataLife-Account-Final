@@ -1,3 +1,4 @@
+import MonthInput from '../components/ui/MonthInput';
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -301,11 +302,10 @@ const AllowancesPage = ({ language: propLanguage }) => {
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <Label className="whitespace-nowrap">{language === 'ar' ? 'الشهر:' : 'Month:'}</Label>
-              <Input
-                type="month"
+              <MonthInput
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-40"
+                className="flex h-9 w-40 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
               />
             </div>
             <div className="flex items-center gap-2 flex-1 min-w-[200px]">

@@ -1,3 +1,4 @@
+import MonthInput from '../components/ui/MonthInput';
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Clock, Calendar, Users, UserCheck, UserX, Timer,
@@ -448,8 +449,7 @@ const AttendancePage = ({ language = 'ar' }) => {
           ) : (
             <div className="flex items-center gap-4 flex-wrap">
               <label className="text-sm font-medium">{language === 'ar' ? 'الشهر' : 'Month'}:</label>
-              <input
-                type="month"
+              <MonthInput
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"

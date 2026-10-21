@@ -15,6 +15,7 @@ High Availability + Materialized Balances + Smart Archiving
 4. Background Aggregation Jobs
    تحديث الأرصدة المُجمَّعة في الخلفية دون تأثير على الأداء
 """
+import re as _re
 import uuid, asyncio, re
 from datetime import datetime, timezone, date
 from dateutil.relativedelta import relativedelta
@@ -502,7 +503,7 @@ async def explain_query(
                     "entry_date": {"$gte": df, "$lt": dt},
                 }},
                 {"$unwind": "$lines"},
-                {"$match": {"lines.account_code": {"$regex": f"^{account_prefix}"}}},
+                {"$match": {"lines.account_code": {"$regex": "^" + _re.escape(str(account_prefix))}}},
                 {"$group": {"_id": "$lines.account_code",
                             "debit": {"$sum": "$lines.debit"},
                             "credit": {"$sum": "$lines.credit"}}},

@@ -346,7 +346,8 @@ export default function InventoryPage() {
         address: '',
         phone: '',
         is_default: false,
-        allow_negative: false
+        allow_negative: false,
+        warehouse_type: 'main'
       });
     } else if (type === 'category') {
       setFormData(item || {
@@ -731,6 +732,13 @@ export default function InventoryPage() {
                       {language === 'ar' ? 'افتراضي' : 'Default'}
                     </span>
                   )}
+                  {(warehouse.warehouse_type || 'main') !== 'main' && (
+                    <span className="mt-2 ms-1 inline-block px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded">
+                      {warehouse.warehouse_type === 'quarantine'
+                        ? (language === 'ar' ? 'حجر/فحص — لا يُباع' : 'Quarantine — not sellable')
+                        : (language === 'ar' ? 'تالف — لا يُباع' : 'Scrap — not sellable')}
+                    </span>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -1078,9 +1086,20 @@ export default function InventoryPage() {
                     <label className="block text-sm font-medium mb-1">{language === 'ar' ? 'العنوان' : 'Address'}</label>
                     <Input value={formData.address || ''} onChange={e => setFormData({...formData, address: e.target.value})} />
                   </div>
+                  <div>
+                    <label htmlFor="warehouse-type" className="block text-sm font-medium mb-1">{language === 'ar' ? 'نوع المخزن' : 'Warehouse type'}</label>
+                    <select id="warehouse-type" value={formData.warehouse_type || 'main'}
+                      onChange={e => setFormData({...formData, warehouse_type: e.target.value,
+                        ...(e.target.value !== 'main' ? { is_default: false } : {})})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                      <option value="main">{language === 'ar' ? 'رئيسي — مخزون للبيع' : 'Main — stock for sale'}</option>
+                      <option value="quarantine">{language === 'ar' ? 'حجر/فحص — مرتجعات تحت الفحص (لا تُباع)' : 'Quarantine — returns awaiting inspection (not sellable)'}</option>
+                      <option value="scrap">{language === 'ar' ? 'تالف — لا يُباع' : 'Scrap — not sellable'}</option>
+                    </select>
+                  </div>
                   <div className="flex items-center gap-4">
                     <label className="flex items-center gap-2">
-                      <input type="checkbox" checked={formData.is_default || false} onChange={e => setFormData({...formData, is_default: e.target.checked})} />
+                      <input type="checkbox" checked={formData.is_default || false} disabled={(formData.warehouse_type || 'main') !== 'main'} onChange={e => setFormData({...formData, is_default: e.target.checked})} />
                       {language === 'ar' ? 'مخزن افتراضي' : 'Default Warehouse'}
                     </label>
                     <label className="flex items-center gap-2">

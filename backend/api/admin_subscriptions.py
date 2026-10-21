@@ -1,3 +1,11 @@
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 import logging
 """
 Admin Subscriptions API
@@ -266,7 +274,7 @@ async def assign_subscription_to_company(
                     <h1 style="color:#fff;margin:0;font-size:22px">🎉 تم تفعيل اشتراكك</h1>
                 </div>
                 <div style="background:#fff;border:1px solid #e5e7eb;border-radius:0 0 12px 12px;padding:24px">
-                    <p style="color:#374151;font-size:16px">عزيزي عميل <strong>{company_name}</strong>،</p>
+                    <p style="color:#374151;font-size:16px">عزيزي عميل <strong>{_h(company_name)}</strong>،</p>
                     <p style="color:#374151">يسعدنا إخبارك بأنه تم تفعيل اشتراكك في <strong>داتا لايف اكونت</strong> بنجاح.</p>
                     <div style="background:#f0f9ff;border-radius:8px;padding:16px;margin:16px 0;border-right:4px solid #1e3a8a">
                         <p style="margin:4px 0;color:#1e3a8a"><strong>الخطة:</strong> {plan_ar}</p>

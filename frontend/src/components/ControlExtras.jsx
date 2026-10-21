@@ -7,6 +7,7 @@
  * The fraud checks only read; consolidation adjustments are working papers and
  * are never posted to any company's ledger — previews say so.
  */
+import { copyText } from '../utils/copyText';
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
@@ -1092,7 +1093,7 @@ export function ConsolidationPage() {
     catch (e) { setErr(errText(e, 'تعذّر تسجيل الرد')); }
   };
   const copyId = () => {
-    try { navigator.clipboard.writeText(data.my_company_id); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch (e) { setCopied(false); }
+    try { copyText(data.my_company_id); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch (e) { setCopied(false); }
   };
 
   const open = (data?.groups || []).find((g) => g.id === openId);

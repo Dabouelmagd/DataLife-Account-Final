@@ -1,3 +1,11 @@
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional, List
@@ -214,6 +222,14 @@ async def get_customer_invoices(
     return invoices
 
 
+def _payments_query(company_id: str, invoices: list) -> dict:
+    """invoice_payments of these invoices, inside the portal token's company."""
+    ids = [i.get("id") for i in invoices if i.get("id")]
+    numbers = [i.get("invoice_number") for i in invoices if i.get("invoice_number")]
+    return {"company_id": company_id,
+            "$or": [{"invoice_id": {"$in": ids}}, {"invoice_number": {"$in": numbers}}]}
+
+
 @router.get("/invoices/{invoice_number}")
 async def get_customer_invoice(
     invoice_number: str,
@@ -222,18 +238,23 @@ async def get_customer_invoice(
     """Get single invoice details"""
     customer_data = await verify_customer_token(authorization)
     customer_id = customer_data.get("customer_id")
+    company_id = customer_data.get("company_id")
+    if not customer_id or not company_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
     
     invoice = await db.invoices.find_one(
-        {"invoice_number": invoice_number, "customer_id": customer_id},
+        {"invoice_number": invoice_number, "customer_id": customer_id, "company_id": company_id},
         {"_id": 0}
     )
     
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     
-    # Get payments for this invoice
+    # Payments of THIS invoice in the vendor's company only. The lookup was by
+    # invoice number alone, and every company numbers its invoices INV-0001...,
+    # so a customer saw other companies' payments for the same number.
     payments = await db.invoice_payments.find(
-        {"invoice_number": invoice_number},
+        _payments_query(company_id, [invoice]),
         {"_id": 0}
     ).sort("date", -1).to_list(length=None)
     
@@ -255,7 +276,8 @@ async def initiate_payment(
     customer_id = customer_data.get("customer_id")
     
     invoice = await db.invoices.find_one(
-        {"invoice_number": invoice_number, "customer_id": customer_id}
+        {"invoice_number": invoice_number, "customer_id": customer_id,
+         "company_id": customer_data.get("company_id")}
     )
     
     if not invoice:
@@ -279,18 +301,19 @@ async def get_customer_payments(authorization: Optional[str] = Header(None)):
     """Get all payments made by customer"""
     customer_data = await verify_customer_token(authorization)
     customer_id = customer_data.get("customer_id")
+    company_id = customer_data.get("company_id")
+    if not customer_id or not company_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
     
-    # Get all invoice numbers for this customer
     invoices = await db.invoices.find(
-        {"customer_id": customer_id},
-        {"invoice_number": 1}
+        {"customer_id": customer_id, "company_id": company_id},
+        {"_id": 0, "id": 1, "invoice_number": 1}
     ).to_list(length=None)
+    if not invoices:
+        return []
     
-    invoice_numbers = [i.get("invoice_number") for i in invoices]
-    
-    # Get payments
     payments = await db.invoice_payments.find(
-        {"invoice_number": {"$in": invoice_numbers}},
+        _payments_query(company_id, invoices),
         {"_id": 0}
     ).sort("date", -1).to_list(length=None)
     
@@ -428,11 +451,11 @@ async def invite_customer(
                 "subject": f"دعوة للوصول إلى بوابة العملاء - {company_name}",
                 "html": f"""
                 <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2>مرحباً {name}!</h2>
-                    <p>تمت دعوتك للوصول إلى بوابة العملاء الخاصة بـ {company_name}.</p>
+                    <h2>مرحباً {_h(name)}!</h2>
+                    <p>تمت دعوتك للوصول إلى بوابة العملاء الخاصة بـ {_h(company_name)}.</p>
                     <p>يمكنك تسجيل الدخول باستخدام:</p>
                     <ul>
-                        <li><strong>البريد الإلكتروني:</strong> {email}</li>
+                        <li><strong>البريد الإلكتروني:</strong> {_h(email)}</li>
                         <li><strong>كلمة المرور المؤقتة:</strong> {temp_password}</li>
                     </ul>
                     <p>يرجى تغيير كلمة المرور بعد تسجيل الدخول.</p>

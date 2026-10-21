@@ -8,6 +8,7 @@
  * Every amount is previewed as the entry the server will post; the server
  * recomputes it and refuses anything that does not reconcile.
  */
+import MonthInput from './ui/MonthInput';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Loader2, Plus, X, Trash2 } from 'lucide-react';
@@ -375,7 +376,7 @@ export default function MedicalPage() {
           {tab === 'services' && (
             <div className="space-y-3">
               <label className="inline-flex items-center gap-2"><span className="text-slate-600">الشهر</span>
-                <input type="month" className="px-3 py-1.5 border border-slate-300 rounded-lg" value={month} onChange={(e) => setMonth(e.target.value)} /></label>
+                <MonthInput className="px-3 py-1.5 border border-slate-300 rounded-lg" value={month} onChange={(e) => setMonth(e.target.value)} /></label>
               {services.length === 0 ? <p className="text-slate-500 py-8 text-center">لا توجد خدمات في هذا الشهر. سجّل أول خدمة من «خدمة جديدة».</p> : (
                 <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
                   <table className="w-full">

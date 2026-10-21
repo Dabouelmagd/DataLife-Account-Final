@@ -58,6 +58,12 @@ const InvoicesPage = () => {
   const [dnMode, setDnMode] = useState('items');         // items | amount
   const [dnForm, setDnForm] = useState({ items: [], amount: '', reason: '' });
   const [dnBusy, setDnBusy] = useState(false);
+  // sales credit note: per-line quantity + what happens to the returned goods
+  const [creditNote, setCreditNote] = useState(null);    // the sales invoice being credited
+  const [cnCtx, setCnCtx] = useState(null);              // returnable lines, warehouses, ETA link
+  const [cnMode, setCnMode] = useState('items');         // items | amount
+  const [cnForm, setCnForm] = useState({ items: [], amount: '', reason: '' });
+  const [cnBusy, setCnBusy] = useState(false);
   const [currencies, setCurrencies] = useState([]);
   const [baseCurrency, setBaseCurrency] = useState('EGP');
   const [adjustmentCategories, setAdjustmentCategories] = useState(null);
@@ -517,6 +523,66 @@ const InvoicesPage = () => {
     } catch (e) {
       alert(e.message || (isRTL ? 'تعذّر إصدار الإشعار' : 'Could not issue the note'));
     } finally { setDnBusy(false); }
+  };
+
+  const openCreditNote = async (invoice) => {
+    setCnMode('items'); setCnBusy(false); setCnCtx(null);
+    setCnForm({ items: [], amount: '', reason: '' });
+    setCreditNote(invoice);
+    try {
+      const res = await fetch(`${API}/sales-invoices/${invoice.id}/credit-note-context`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || '');
+      const main = (d.warehouses || []).find((w) => w.warehouse_type === 'main');
+      const quarantine = (d.warehouses || []).find((w) => w.warehouse_type === 'quarantine');
+      setCnCtx(d);
+      setCnForm({ amount: '', reason: '', items: (d.lines || []).map((l) => ({
+        ...l, quantity_original: l.quantity, quantity: 0, disposition: 'restock',
+        warehouse_id: main ? main.id : '', quarantine_id: quarantine ? quarantine.id : '',
+      })) });
+    } catch (e) {
+      toast.error(e.message || text.error);
+      setCreditNote(null);
+    }
+  };
+
+  const setCnItem = (idx, patch) =>
+    setCnForm((f) => ({ ...f, items: f.items.map((x, i) => (i === idx ? { ...x, ...patch } : x)) }));
+
+  const submitCreditNote = async () => {
+    if (!cnForm.reason.trim()) { toast.error(isRTL ? 'سبب الإشعار مطلوب' : 'A reason is required'); return; }
+    const body = { reason: cnForm.reason.trim() };
+    if (cnMode === 'items') {
+      const items = cnForm.items.filter((i) => Number(i.quantity) > 0).map((i) => ({
+        line_number: i.line_number, quantity: Number(i.quantity), disposition: i.disposition,
+        warehouse_id: i.disposition === 'quarantine' ? i.quarantine_id
+          : i.disposition === 'restock' ? (i.warehouse_id || null) : null,
+      }));
+      if (!items.length) { toast.error(isRTL ? 'حدد الكميات المرتجعة' : 'Enter the returned quantities'); return; }
+      if (items.some((i) => i.disposition === 'quarantine' && !i.warehouse_id)) {
+        toast.error(isRTL ? 'اختر مخزن الحجر/الفحص' : 'Choose the quarantine warehouse'); return;
+      }
+      body.items = items;
+    } else {
+      if (!(Number(cnForm.amount) > 0)) { toast.error(isRTL ? 'أدخل مبلغ الإشعار' : 'Enter the amount'); return; }
+      body.amount = Number(cnForm.amount);
+    }
+    setCnBusy(true);
+    try {
+      const res = await fetch(`${API}/sales-invoices/${creditNote.id}/credit-note`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify(body),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || '');
+      toast.success(d.message);
+      setCreditNote(null); fetchInvoices();
+    } catch (e) {
+      toast.error(e.message || (isRTL ? 'تعذّر إصدار الإشعار' : 'Could not issue the note'));
+    } finally { setCnBusy(false); }
   };
 
   const handleApproveInvoice = async (invoiceId) => {
@@ -1045,7 +1111,7 @@ const InvoicesPage = () => {
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         {getStatusBadge(invoice.status)}
-                        {invoice.eta_status === 'submitted' && (
+                        {['submitted', 'valid'].includes(String(invoice.eta_status || '').toLowerCase()) && (
                           <Badge className="bg-green-100 text-green-800 text-xs flex items-center gap-1 w-fit">
                             <Building className="w-3 h-3" />
                             {text.etaSubmitted}
@@ -1091,10 +1157,20 @@ const InvoicesPage = () => {
                           </Button>
                         )}
 
+                        {/* Credit note — returns / price corrections on a posted sales invoice */}
+                        {['approved', 'partially_paid', 'paid'].includes(invoice.status) &&
+                         invoice.document_type === 'sales_invoice' && (
+                          <Button variant="ghost" size="icon" onClick={() => openCreditNote(invoice)}
+                            title={isRTL ? 'إشعار دائن (مردود مبيعات)' : 'Credit note (sales return)'}
+                            className="text-rose-600 hover:text-rose-700">
+                            <RotateCcw className="w-4 h-4" />
+                          </Button>
+                        )}
+
                         {/* Submit to ETA button - Only for approved sales invoices */}
                         {invoice.status === 'approved' && 
-                         invoice.document_type === 'sales_invoice' && 
-                         invoice.eta_status !== 'submitted' && (
+                         ['sales_invoice', 'credit_note'].includes(invoice.document_type) && 
+                         !['submitted', 'valid'].includes(String(invoice.eta_status || '').toLowerCase()) && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1594,68 +1670,183 @@ const InvoicesPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* View Invoice Modal */}
-      <Dialog open={!!selectedInvoice} onOpenChange={() => setSelectedInvoice(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          {/* Debit note — correcting a posted purchase invoice */}
-          {debitNote && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
-                <div className="flex justify-between items-center p-5 border-b">
-                  <h3 className="font-bold text-gray-900">{isRTL ? 'إشعار مدين — مردود مشتريات' : 'Debit note — purchase return'}</h3>
-                  <Button variant="ghost" size="icon" onClick={() => setDebitNote(null)}><X className="w-5 h-5" /></Button>
+      {/* Debit note — correcting a posted purchase invoice */}
+      {debitNote && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex justify-between items-center p-5 border-b">
+              <h3 className="font-bold text-gray-900">{isRTL ? 'إشعار مدين — مردود مشتريات' : 'Debit note — purchase return'}</h3>
+              <Button variant="ghost" size="icon" onClick={() => setDebitNote(null)}><X className="w-5 h-5" /></Button>
+            </div>
+            <div className="p-5 space-y-4 text-sm">
+              <div className="bg-amber-50 rounded-xl p-3">
+                <p className="font-bold text-gray-800">{debitNote.document_number} — {debitNote.party_name}</p>
+                <p className="text-gray-600">{isRTL ? 'قيمة الفاتورة:' : 'Invoice:'} {Number(debitNote.grand_total || 0).toLocaleString()}</p>
+              </div>
+              <div className="flex gap-2">
+                {[['items', isRTL ? 'مردود أصناف' : 'Returned items'], ['amount', isRTL ? 'خصم بمبلغ' : 'Discount']].map(([k, l]) => (
+                  <button key={k} onClick={() => setDnMode(k)}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold ${dnMode === k ? 'bg-amber-600 text-white' : 'border border-gray-300 text-gray-700'}`}>{l}</button>
+                ))}
+              </div>
+              {dnMode === 'items' ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500">{isRTL ? 'الكمية المرتجعة لا تتجاوز كمية الفاتورة، وتخرج من المخزون.' : 'Returned quantities leave stock.'}</p>
+                  {dnForm.items.map((it, idx) => (
+                    <div key={idx} className="flex items-center gap-2 border border-gray-200 rounded-lg p-2">
+                      <span className="flex-1 truncate">{it.description}
+                        <span className="text-xs text-gray-400"> ({isRTL ? 'بالفاتورة' : 'on invoice'} {it.max})</span></span>
+                      <Input type="number" min="0" max={it.max} step="any" value={it.quantity} dir="ltr"
+                        aria-label={it.description}
+                        onChange={(e) => setDnForm((f) => ({ ...f, items: f.items.map((x, i) => i === idx ? { ...x, quantity: Math.min(Number(e.target.value) || 0, x.max) } : x) }))}
+                        className="w-24 px-2 py-1.5 border border-gray-300 rounded-lg tabular-nums" />
+                      <span className="text-xs text-gray-500 w-20 text-left tabular-nums">{((Number(it.quantity) || 0) * it.unit_price).toLocaleString()}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="p-5 space-y-4 text-sm">
-                  <div className="bg-amber-50 rounded-xl p-3">
-                    <p className="font-bold text-gray-800">{debitNote.document_number} — {debitNote.party_name}</p>
-                    <p className="text-gray-600">{isRTL ? 'قيمة الفاتورة:' : 'Invoice:'} {Number(debitNote.grand_total || 0).toLocaleString()}</p>
+              ) : (
+                <label className="block"><span className="text-gray-600">{isRTL ? 'مبلغ الإشعار (شامل الضريبة)' : 'Amount (incl. VAT)'}</span>
+                  <Input type="number" min="0" step="0.01" dir="ltr" value={dnForm.amount}
+                    onChange={(e) => setDnForm((f) => ({ ...f, amount: e.target.value }))}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg tabular-nums" /></label>
+              )}
+              <label className="block"><span className="text-gray-600">{isRTL ? 'السبب' : 'Reason'}</span>
+                <input value={dnForm.reason} onChange={(e) => setDnForm((f) => ({ ...f, reason: e.target.value }))}
+                  placeholder={isRTL ? 'تالف، خطأ في الصنف، خصم…' : 'Damaged, wrong item, discount…'}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg" /></label>
+              <p className="text-xs text-gray-500">
+                {isRTL ? 'يُرحَّل فوراً: يقلّل رصيد المورد والمشتريات وضريبة المدخلات، وتخرج البضاعة من المخزون.'
+                        : 'Posted immediately: reduces the supplier balance, purchases and input VAT; goods leave stock.'}
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 p-5 border-t">
+              <Button variant="outline" onClick={() => setDebitNote(null)}>{isRTL ? 'إلغاء' : 'Cancel'}</Button>
+              <Button onClick={submitDebitNote} disabled={dnBusy} className="bg-amber-600 hover:bg-amber-700 text-white">
+                {dnBusy ? (isRTL ? 'جارٍ الإصدار…' : 'Issuing…') : (isRTL ? 'إصدار الإشعار' : 'Issue note')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Credit note — sales return with a disposition per line */}
+      {creditNote && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="flex justify-between items-center p-5 border-b">
+              <h3 className="font-bold text-gray-900">{isRTL ? 'إشعار دائن — مردود مبيعات' : 'Credit note — sales return'}</h3>
+              <Button variant="ghost" size="icon" onClick={() => setCreditNote(null)} aria-label={isRTL ? 'إغلاق' : 'Close'}><X className="w-5 h-5" /></Button>
+            </div>
+            <div className="p-5 space-y-4 text-sm">
+              <div className="bg-rose-50 rounded-xl p-3 space-y-1">
+                <p className="font-bold text-gray-800">{creditNote.document_number} — {creditNote.party_name}</p>
+                <p className="text-gray-600">{isRTL ? 'المتبقي القابل للرد:' : 'Remaining creditable:'} {Number(cnCtx?.invoice?.remaining ?? creditNote.grand_total ?? 0).toLocaleString()} {creditNote.currency}</p>
+              </div>
+              {cnCtx?.eta && (
+                <div className={`rounded-xl p-3 text-xs flex items-start gap-2 ${cnCtx.eta.can_submit_note ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-800'}`}>
+                  <Building className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">
+                      {isRTL ? 'الربط بالمنظومة: ' : 'ETA link: '}
+                      {cnCtx.eta.eta_status || (isRTL ? 'غير مُرسلة' : 'not submitted')}
+                      {cnCtx.eta.eta_uuid && <span className="font-mono" dir="ltr"> · {cnCtx.eta.eta_uuid}</span>}
+                    </p>
+                    <p>{cnCtx.eta.message}</p>
                   </div>
+                </div>
+              )}
+              {!cnCtx ? (
+                <p className="text-gray-500">{isRTL ? 'جارٍ التحميل…' : 'Loading…'}</p>
+              ) : (
+                <>
                   <div className="flex gap-2">
-                    {[['items', isRTL ? 'مردود أصناف' : 'Returned items'], ['amount', isRTL ? 'خصم بمبلغ' : 'Discount']].map(([k, l]) => (
-                      <button key={k} onClick={() => setDnMode(k)}
-                        className={`px-3 py-2 rounded-lg text-xs font-semibold ${dnMode === k ? 'bg-amber-600 text-white' : 'border border-gray-300 text-gray-700'}`}>{l}</button>
+                    {[['items', isRTL ? 'مردود أصناف' : 'Returned items'], ['amount', isRTL ? 'خصم بمبلغ' : 'Price correction']].map(([k, l]) => (
+                      <button key={k} type="button" onClick={() => setCnMode(k)}
+                        className={`px-3 py-2 rounded-lg text-xs font-semibold ${cnMode === k ? 'bg-rose-600 text-white' : 'border border-gray-300 text-gray-700'}`}>{l}</button>
                     ))}
                   </div>
-                  {dnMode === 'items' ? (
+                  {cnMode === 'items' ? (
                     <div className="space-y-2">
-                      <p className="text-xs text-gray-500">{isRTL ? 'الكمية المرتجعة لا تتجاوز كمية الفاتورة، وتخرج من المخزون.' : 'Returned quantities leave stock.'}</p>
-                      {dnForm.items.map((it, idx) => (
-                        <div key={idx} className="flex items-center gap-2 border border-gray-200 rounded-lg p-2">
-                          <span className="flex-1 truncate">{it.description}
-                            <span className="text-xs text-gray-400"> ({isRTL ? 'بالفاتورة' : 'on invoice'} {it.max})</span></span>
-                          <input type="number" min="0" max={it.max} step="any" value={it.quantity} dir="ltr"
-                            aria-label={it.description}
-                            onChange={(e) => setDnForm((f) => ({ ...f, items: f.items.map((x, i) => i === idx ? { ...x, quantity: Math.min(Number(e.target.value) || 0, x.max) } : x) }))}
-                            className="w-24 px-2 py-1.5 border border-gray-300 rounded-lg tabular-nums" />
-                          <span className="text-xs text-gray-500 w-20 text-left tabular-nums">{((Number(it.quantity) || 0) * it.unit_price).toLocaleString()}</span>
-                        </div>
-                      ))}
+                      <p className="text-xs text-gray-500">
+                        {isRTL ? 'لكل بند: الكمية المرتجعة ومصيرها — إرجاع لمخزن البيع بتكلفته الأصلية، أو حجر للفحص (لا يُباع حتى الإفراج)، أو إعدام (تُحمَّل تكلفته على التالف والهدر).'
+                               : 'Per line: quantity and disposition — restock at original cost, quarantine for inspection (not sellable until released), or scrap (cost to waste & spoilage).'}
+                      </p>
+                      {cnForm.items.map((it, idx) => {
+                        const sellable = (cnCtx.warehouses || []).filter((w) => w.warehouse_type === 'main');
+                        const held = (cnCtx.warehouses || []).filter((w) => w.warehouse_type === 'quarantine');
+                        return (
+                          <div key={it.line_number} className="border border-gray-200 rounded-lg p-2 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="flex-1 truncate">{it.description}
+                                <span className="text-xs text-gray-400"> ({isRTL ? 'المتاح للرد' : 'returnable'} {it.returnable} / {it.quantity_original})</span></span>
+                              <Input type="number" min="0" max={it.returnable} step="any" value={it.quantity} dir="ltr"
+                                aria-label={isRTL ? `الكمية المرتجعة — ${it.description}` : `Returned quantity — ${it.description}`}
+                                disabled={!(it.returnable > 0)}
+                                onChange={(e) => setCnItem(idx, { quantity: Math.max(0, Math.min(Number(e.target.value) || 0, it.returnable)) })}
+                                className="w-24 px-2 py-1.5 border border-gray-300 rounded-lg tabular-nums" />
+                              <span className="text-xs text-gray-500 w-20 text-left tabular-nums">{((Number(it.quantity) || 0) * Number(it.unit_price || 0)).toLocaleString()}</span>
+                            </div>
+                            {it.product_id && Number(it.quantity) > 0 && (
+                              <div className="flex flex-wrap items-center gap-2 text-xs">
+                                {[['restock', isRTL ? 'إرجاع للمخزون' : 'Restock'], ['quarantine', isRTL ? 'حجر/فحص' : 'Quarantine'], ['scrap', isRTL ? 'إعدام' : 'Scrap']].map(([k, l]) => (
+                                  <label key={k} className={`px-2 py-1 rounded-lg border cursor-pointer ${it.disposition === k ? 'border-rose-500 bg-rose-50 text-rose-700' : 'border-gray-300 text-gray-600'}`}>
+                                    <input type="radio" className="sr-only" name={`disp-${it.line_number}`} checked={it.disposition === k}
+                                      onChange={() => setCnItem(idx, { disposition: k })} />{l}
+                                  </label>
+                                ))}
+                                {it.disposition === 'restock' && (
+                                  <select value={it.warehouse_id} onChange={(e) => setCnItem(idx, { warehouse_id: e.target.value })}
+                                    aria-label={isRTL ? 'مخزن الإرجاع' : 'Restock warehouse'}
+                                    className="px-2 py-1 border border-gray-300 rounded-lg">
+                                    <option value="">{isRTL ? 'المخزن الرئيسي' : 'Main warehouse'}</option>
+                                    {sellable.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                  </select>
+                                )}
+                                {it.disposition === 'quarantine' && (held.length ? (
+                                  <select value={it.quarantine_id} onChange={(e) => setCnItem(idx, { quarantine_id: e.target.value })}
+                                    aria-label={isRTL ? 'مخزن الحجر' : 'Quarantine warehouse'}
+                                    className="px-2 py-1 border border-gray-300 rounded-lg">
+                                    {held.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                  </select>
+                                ) : (
+                                  <span className="text-amber-700">{isRTL ? 'أنشئ مخزناً من نوع «حجر/فحص» أولاً' : 'Create a quarantine warehouse first'}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <label className="block"><span className="text-gray-600">{isRTL ? 'مبلغ الإشعار (شامل الضريبة)' : 'Amount (incl. VAT)'}</span>
-                      <input type="number" min="0" step="0.01" dir="ltr" value={dnForm.amount}
-                        onChange={(e) => setDnForm((f) => ({ ...f, amount: e.target.value }))}
+                      <Input type="number" min="0" step="0.01" dir="ltr" value={cnForm.amount}
+                        onChange={(e) => setCnForm((f) => ({ ...f, amount: e.target.value }))}
                         className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg tabular-nums" /></label>
                   )}
-                  <label className="block"><span className="text-gray-600">{isRTL ? 'السبب' : 'Reason'}</span>
-                    <input value={dnForm.reason} onChange={(e) => setDnForm((f) => ({ ...f, reason: e.target.value }))}
-                      placeholder={isRTL ? 'تالف، خطأ في الصنف، خصم…' : 'Damaged, wrong item, discount…'}
+                  <label className="block"><span className="text-gray-600">{isRTL ? 'السبب (مطلوب)' : 'Reason (required)'}</span>
+                    <input value={cnForm.reason} onChange={(e) => setCnForm((f) => ({ ...f, reason: e.target.value }))}
+                      placeholder={isRTL ? 'مرتجع عميل، عيب صناعة، خطأ في السعر…' : 'Customer return, defect, price error…'}
                       className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg" /></label>
                   <p className="text-xs text-gray-500">
-                    {isRTL ? 'يُرحَّل فوراً: يقلّل رصيد المورد والمشتريات وضريبة المدخلات، وتخرج البضاعة من المخزون.'
-                            : 'Posted immediately: reduces the supplier balance, purchases and input VAT; goods leave stock.'}
+                    {isRTL ? 'يُرحَّل فوراً: يعكس المبيعات وضريبة المخرجات ويخفّض رصيد العميل. الضريبة بنفس نسب الفاتورة الأصلية.'
+                           : 'Posted immediately: reverses sales and output VAT and reduces the customer balance, at the original rates.'}
                   </p>
-                </div>
-                <div className="flex justify-end gap-2 p-5 border-t">
-                  <Button variant="outline" onClick={() => setDebitNote(null)}>{isRTL ? 'إلغاء' : 'Cancel'}</Button>
-                  <Button onClick={submitDebitNote} disabled={dnBusy} className="bg-amber-600 hover:bg-amber-700 text-white">
-                    {dnBusy ? (isRTL ? 'جارٍ الإصدار…' : 'Issuing…') : (isRTL ? 'إصدار الإشعار' : 'Issue note')}
-                  </Button>
-                </div>
-              </div>
+                </>
+              )}
             </div>
-          )}
+            <div className="flex justify-end gap-2 p-5 border-t">
+              <Button variant="outline" onClick={() => setCreditNote(null)}>{isRTL ? 'إلغاء' : 'Cancel'}</Button>
+              <Button onClick={submitCreditNote} disabled={cnBusy || !cnCtx || !cnCtx.can_issue} className="bg-rose-600 hover:bg-rose-700 text-white">
+                {cnBusy ? (isRTL ? 'جارٍ الإصدار…' : 'Issuing…') : (isRTL ? 'إصدار الإشعار' : 'Issue note')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* View Invoice Modal */}
+      <Dialog open={!!selectedInvoice} onOpenChange={() => setSelectedInvoice(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedInvoice && (
             <>
               <DialogHeader>

@@ -3,6 +3,15 @@ Sales Management API — نظام المبيعات الشامل
 عروض أسعار | فواتير مبيعات | CRM | الاشتراكات | العملاء
 """
 
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
+import re as _re
 from fastapi import APIRouter, HTTPException, Header, Query
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
@@ -48,10 +57,10 @@ async def list_customers(
     q = {"company_id": company_id}
     if search:
         q["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"phone": {"$regex": search, "$options": "i"}},
-            {"email": {"$regex": search, "$options": "i"}},
-            {"code": {"$regex": search, "$options": "i"}},
+            {"name": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+            {"phone": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+            {"email": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+            {"code": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
         ]
     if status: q["status"] = status
     if type:   q["type"] = type
@@ -190,8 +199,8 @@ async def list_quotations(
     company_id = user.get("company_id")
     q = {"company_id": company_id}
     if search: q["$or"] = [
-        {"quote_number": {"$regex": search, "$options": "i"}},
-        {"customer_name": {"$regex": search, "$options": "i"}},
+        {"quote_number": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+        {"customer_name": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
     ]
     if status:      q["status"] = status
     if customer_id: q["customer_id"] = customer_id
@@ -388,8 +397,8 @@ async def list_sales_invoices(
     company_id = user.get("company_id")
     q = sales_query(company_id)
     if search: q["$or"] = [
-        {"document_number": {"$regex": search, "$options": "i"}},
-        {"party_name":      {"$regex": search, "$options": "i"}},
+        {"document_number": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+        {"party_name":      {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
     ]
     if status:         q["status"] = status
     if payment_status: q["status"] = {"paid": "paid", "partial": "partially_paid",
@@ -999,17 +1008,19 @@ async def send_quotation_email(
         resend.api_key = os.environ.get("RESEND_API_KEY", "")
         if resend.api_key and customer_email:
             items_html = "".join([
-                f"<tr><td>{i.get('description','')}</td><td>{i.get('quantity',0)}</td><td>{i.get('unit_price',0):,.2f}</td><td>{i.get('total',0):,.2f}</td></tr>"
+                f"<tr><td>{_h(i.get('description',''))}</td><td>{i.get('quantity',0)}</td><td>{i.get('unit_price',0):,.2f}</td><td>{i.get('total',0):,.2f}</td></tr>"
                 for i in quote.get("items", [])
             ])
+            # a display name with < > " or a newline could forge the header
+            sender_name = _re.sub(r'[<>"\r\n,;]', '', str(company.get('name') or 'DataLife'))[:60] or 'DataLife'
             resend.Emails.send({
-                "from": f"{company.get('name','DataLife')} <noreply@datalifeaccount.com>",
+                "from": f"{sender_name} <noreply@datalifeaccount.com>",
                 "to": [customer_email],
                 "subject": f"عرض سعر رقم {quote.get('quote_number','')} - {company.get('name','')}",
                 "html": f"""
                 <div dir="rtl" style="font-family:Arial;max-width:600px;margin:0 auto">
-                <h2 style="color:#1e3a8a">عرض سعر - {company.get('name','')}</h2>
-                <p>عزيزي {quote.get('customer_name','')},</p>
+                <h2 style="color:#1e3a8a">عرض سعر - {_h(company.get('name',''))}</h2>
+                <p>عزيزي {_h(quote.get('customer_name',''))},</p>
                 <p>يسعدنا تقديم عرض السعر التالي لكم:</p>
                 <table border="1" cellpadding="8" style="width:100%;border-collapse:collapse">
                 <tr style="background:#1e3a8a;color:white"><th>الوصف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>

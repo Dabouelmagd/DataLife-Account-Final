@@ -1,3 +1,11 @@
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 from fastapi import APIRouter, HTTPException, Response, Header
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -338,13 +346,13 @@ async def send_report_email(pdf_buffer: BytesIO, report_type: str, recipient: st
     html_body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #28376B 0%, #1e2a52 100%); padding: 25px; border-radius: 10px; text-align: center; color: white;">
-            <h1 style="margin: 0; font-size: 24px;">📊 {report_title} Sales Report</h1>
+            <h1 style="margin: 0; font-size: 24px;">📊 {_h(report_title)} Sales Report</h1>
             <p style="margin: 10px 0 0; opacity: 0.9;">تقرير المبيعات {"الأسبوعي" if report_type == "weekly" else "الشهري"}</p>
         </div>
         
         <div style="padding: 25px; background: #fff; border: 1px solid #eee; border-radius: 0 0 10px 10px;">
             <p style="font-size: 16px; color: #333;">
-                Please find attached the {report_title.lower()} sales report for the period:<br>
+                Please find attached the {_h(report_title.lower())} sales report for the period:<br>
                 <strong>{period['start']} to {period['end']}</strong>
             </p>
             

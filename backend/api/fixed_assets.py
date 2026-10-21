@@ -2,6 +2,7 @@
 Fixed Assets Engine API — محرك الأصول الثابتة
 قانون الضرائب المصري 91/2005 المادتان 25 و26
 """
+import re as _re
 import uuid, calendar, re, logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -448,7 +449,7 @@ async def _year_posted(company_id: str, asset_id: str, year: int):
     """Accounting and tax depreciation already posted for this asset in `year`."""
     acc = tax = 0.0
     async for e in db.depreciation_entries.find(
-            {"company_id": company_id, "asset_id": asset_id, "period": {"$regex": f"^{year}"}},
+            {"company_id": company_id, "asset_id": asset_id, "period": {"$regex": "^" + _re.escape(str(year))}},
             {"_id": 0, "accounting_dep": 1, "tax_dep": 1}):
         acc += float(e.get("accounting_dep") or 0)
         tax += float(e.get("tax_dep") or 0)
@@ -537,7 +538,7 @@ async def _plan_asset(company_id: str, asset: dict, period: str, kind: str, py: 
     # year used to be allowed together, depreciating the asset twice
     prev = await db.depreciation_entries.find(
         {"company_id": company_id, "asset_id": asset["id"],
-         "period": {"$in": [period, str(py)]} if kind == "monthly" else {"$regex": f"^{py}"}},
+         "period": {"$in": [period, str(py)]} if kind == "monthly" else {"$regex": "^" + _re.escape(str(py))}},
         {"_id": 0, "period": 1}).to_list(None)
     legacy = [p for p in (asset.get("depreciated_periods") or [])
               if p == period or (kind == "annual" and str(p).startswith(str(py)))]

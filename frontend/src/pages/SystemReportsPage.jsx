@@ -1,8 +1,8 @@
+import MonthInput from '../components/ui/MonthInput';
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -424,11 +424,10 @@ ${t.totalProjects},${summary.totalProjects}
                 </button>
               ))}
             </div>
-            <Input
-              type="month"
+            <MonthInput
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-40 bg-white/10 border-white/20 text-white"
+              className="flex h-9 w-40 rounded-md border px-3 py-1 text-sm shadow-sm bg-white/10 border-white/20 text-white [&_option]:text-gray-900"
             />
             <Button variant="outline" onClick={fetchAllData} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
               <RefreshCw className="w-4 h-4 me-2" />

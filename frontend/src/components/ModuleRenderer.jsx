@@ -11,6 +11,7 @@ import BankReconciliationPage from './BankReconciliationPage';
 import FxRevaluationPage from './FxRevaluationPage';
 import YearEndClosePage from './YearEndClosePage';
 import EcommercePage from './EcommercePage';
+import InsuranceFormsPage from './hr/InsuranceForms';
 import RecruitmentPage from '../pages/RecruitmentPage';
 import UnauthorizedPage from './UnauthorizedPage';
 
@@ -160,6 +161,7 @@ export const renderHRContent = ({
     'hr-appraisals': <AppraisalsPage />,
     'hr-tools': <HRToolsPage />,
     'hr-end-of-service': <EndOfServicePage />,
+    'hr-insurance-forms': <InsuranceFormsPage />,
     'hr-loans-custody': <LoansCustodyPage />,
     'hr-commissions': <CommissionsPage />,
     'gov-payments': <GovPaymentsPage />,

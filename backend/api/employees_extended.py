@@ -3,6 +3,15 @@ Extended Employee API with Shifts, Documents, and Enhanced Payroll
 واجهة الموظفين المحسنة مع الورديات والمستندات وتفاصيل المرتب
 """
 
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
+import re as _re
 from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Form
 from typing import Optional, List
 from datetime import datetime, date
@@ -194,10 +203,10 @@ async def get_employees(
         query["is_active"] = is_active
     if search:
         query["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"name_en": {"$regex": search, "$options": "i"}},
-            {"employee_code": {"$regex": search, "$options": "i"}},
-            {"email": {"$regex": search, "$options": "i"}}
+            {"name": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+            {"name_en": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+            {"employee_code": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+            {"email": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}}
         ]
     
     employees = await db.employees.find(query, {"_id": 0}).sort("name", 1).to_list(length=None)
@@ -727,6 +736,14 @@ async def create_shift(
     return {"message": "تم إنشاء الوردية بنجاح", "shift": shift.dict()}
 
 
+SHIFT_EDITABLE = {
+    "name", "name_en", "shift_type", "start_time", "end_time", "break_start", "break_end",
+    "break_duration", "working_hours", "overtime_starts_after", "working_days", "overtime_rate",
+    "holiday_rate", "night_rate", "allow_late_minutes", "deduct_after_late", "require_checkout",
+    "is_active",
+}
+
+
 @router.put("/shifts/{shift_id}")
 async def update_shift(
     shift_id: str,
@@ -741,10 +758,21 @@ async def update_shift(
     
     if not shift:
         raise HTTPException(status_code=404, detail="الوردية غير موجودة")
-    
+
+    # Only the shift's own settings: the raw body went into $set, so it could
+    # rewrite company_id (moving the shift to another company) or id.
+    updates = {k: v for k, v in (request or {}).items() if k in SHIFT_EDITABLE}
+    if "shift_type" in updates:
+        try:
+            updates["shift_type"] = ShiftType(updates["shift_type"]).value
+        except ValueError:
+            raise HTTPException(status_code=400, detail="نوع الوردية غير صحيح")
+    if not updates:
+        raise HTTPException(status_code=400, detail="لا توجد حقول قابلة للتعديل")
+
     await db.work_shifts.update_one(
-        {"id": shift_id},
-        {"$set": request}
+        {"id": shift_id, "company_id": current_user["company_id"]},
+        {"$set": updates}
     )
     
     return {"message": "تم تحديث الوردية بنجاح"}
@@ -1153,10 +1181,10 @@ async def invite_employee_to_portal(employee_id: str, data: dict = None,
     link = portal_invites.PORTAL_BASE + token
     company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1}) or {}
     html = f"""<div dir="rtl" style="font-family:Tahoma,Arial;line-height:1.8">
-      <p>مرحباً {user.get('full_name') or ''}،</p>
-      <p>دعتك <b>{company.get('name','')}</b> لاستخدام بوابة الموظف: راتبك، إجازاتك، حضورك، ومستنداتك.</p>
+      <p>مرحباً {_h(user.get('full_name') or '')}،</p>
+      <p>دعتك <b>{_h(company.get('name',''))}</b> لاستخدام بوابة الموظف: راتبك، إجازاتك، حضورك، ومستنداتك.</p>
       <p><a href="{link}" style="background:#1e3a8a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">تفعيل حسابي واختيار كلمة المرور</a></p>
-      <p style="color:#666;font-size:13px">الرابط صالح {portal_invites.INVITE_DAYS} أيام ويُستخدم مرة واحدة. اسم الدخول: {email}</p></div>"""
+      <p style="color:#666;font-size:13px">الرابط صالح {portal_invites.INVITE_DAYS} أيام ويُستخدم مرة واحدة. اسم الدخول: {_h(email)}</p></div>"""
     # Resend, like the password-reset codes: SMTP is not configured on the
     # server, and the SMTP helper returned False without sending.
     sent = False

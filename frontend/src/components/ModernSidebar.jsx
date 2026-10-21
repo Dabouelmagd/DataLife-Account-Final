@@ -1,3 +1,4 @@
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect, useCallback } from 'react';
 import IndustryPacksNav from './IndustryPacksNav';
 
@@ -105,7 +106,7 @@ const ModernSidebar = ({
   const copyCode = () => {
     const code = user?.subscription_code || user?.company_id?.slice(0, 8).toUpperCase();
     if (code) {
-      navigator.clipboard.writeText(code);
+      copyText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }

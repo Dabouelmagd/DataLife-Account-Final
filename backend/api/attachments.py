@@ -212,8 +212,17 @@ active_connections: dict = {}  # company_id -> list of WebSocket connections
 
 @router.websocket("/ws/sync/{company_id}")
 async def websocket_sync(websocket: WebSocket, company_id: str):
-    """WebSocket endpoint for real-time data sync across devices"""
-    await websocket.accept()
+    """WebSocket endpoint for real-time data sync across devices (staff JWT
+    required: ?token= or a first {"type":"auth","token":...} message). The
+    room is the caller's own company (or, with no company, their user id)."""
+    from services.ws_auth import authenticate_websocket, reject
+    payload = await authenticate_websocket(websocket)
+    if not payload:
+        return
+    own_room = payload.get("company_id") or payload.get("user_id")
+    if not own_room or company_id != own_room:
+        await reject(websocket)
+        return
     
     # Add to active connections
     if company_id not in active_connections:

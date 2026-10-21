@@ -58,14 +58,60 @@ DEFAULT_POLICY = {
     "resignation_factor_10_plus": 1.0,
     # هل تخضع مكافأة نهاية الخدمة لضريبة كسب العمل؟ يقرره محاسب الشركة
     "eos_taxable": False,
+    # ── الوقت الإضافي — معاملات أجر الساعة (قيم افتراضية قابلة للتعديل) ──
+    # These defaults are what Law 12/2003 (art. 85) gave: +35% day, +70% night,
+    # double pay for work on the weekly rest day or an official holiday. Law
+    # 14/2025 replaced it; the company must confirm the multipliers against the
+    # new law and its executive regulations (اللائحة التنفيذية) and its own
+    # contracts before relying on them — nothing here asserts the new values.
+    "overtime_day_rate": 1.35,
+    "overtime_night_rate": 1.70,
+    "overtime_rest_day_rate": 2.0,
+    "overtime_holiday_rate": 2.0,
+    # أجر الساعة على الأساسي (كما يصرف كشف الرواتب) أو الشامل (أساسي + بدلات ثابتة)
+    "overtime_wage_base": "basic",
 }
-# fallback only when the company never saved payroll HR settings
-OT_FALLBACK = {"day": 1.35, "night": 1.70, "holiday": 2.00}
+OT_TYPES = {"day": "نهاري", "night": "ليلي", "rest_day": "يوم الراحة الأسبوعية", "holiday": "عطلة رسمية"}
+OT_POLICY_KEY = {"day": "overtime_day_rate", "night": "overtime_night_rate",
+                 "rest_day": "overtime_rest_day_rate", "holiday": "overtime_holiday_rate"}
+# payroll (api/payroll.py attendance_summary_from_records) pays overtime from
+# db.company_hr_settings with these keys; the policy writes them there too so
+# the calculator and the payroll sheet use one set of numbers. Payroll has no
+# rest-day bucket — see effective_overtime().
+OT_PAYROLL_KEY = {"day": "overtime_rate", "night": "overtime_night_rate", "holiday": "overtime_holiday_rate"}
+OT_WAGE_BASES = ("basic", "total")
+OT_NOTE = ("معاملات الوقت الإضافي قيم افتراضية قابلة للتعديل مأخوذة من القانون السابق 12/2003 "
+           "(35% نهاري، 70% ليلي، الضعف في يوم الراحة والعطلات الرسمية) — على الشركة مراجعتها على "
+           "قانون العمل 14/2025 ولائحته التنفيذية")
 
 
 async def get_policy(company_id: str) -> dict:
     saved = await db.hr_policy_settings.find_one({"company_id": company_id}, {"_id": 0}) or {}
     return {**DEFAULT_POLICY, **{k: saved[k] for k in DEFAULT_POLICY if k in saved}}
+
+
+async def effective_overtime(company_id: str, policy: dict = None) -> dict:
+    """The overtime numbers that are actually paid. Day/night/holiday come
+    from the payroll HR settings when the company has them (that is what the
+    payroll sheet multiplies by — they can also be edited on the payroll
+    settings screen), otherwise from the HR policy. The rest-day rate exists
+    only in the policy."""
+    policy = policy or await get_policy(company_id)
+    hr = await db.company_hr_settings.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    rates, source = {}, {}
+    for t, pk in OT_POLICY_KEY.items():
+        hk = OT_PAYROLL_KEY.get(t)
+        if hk and _num(hr.get(hk)) > 0:
+            rates[t], source[t] = _num(hr[hk]), "payroll_hr_settings"
+        else:
+            rates[t], source[t] = _num(policy.get(pk)) or DEFAULT_POLICY[pk], "hr_policy"
+    base = policy.get("overtime_wage_base") if policy.get("overtime_wage_base") in OT_WAGE_BASES else "basic"
+    return {"rates": rates, "rate_source": source, "wage_base": base,
+            # same divisors payroll uses (standard days per month × hours per day)
+            "days_per_month": _num(hr.get("standard_working_days_per_month")) or 22.0,
+            "hours_per_day": _num(hr.get("standard_working_hours_per_day")) or 8.0,
+            "payroll_settings_saved": bool(hr),
+            "enabled_in_payroll": hr.get("overtime_enabled", True) is not False}
 
 
 def _num(v) -> float:
@@ -218,8 +264,12 @@ POLICY_ROLES = {"HR Manager", "مدير الموارد البشرية", "General
 
 @router.get("/policy")
 async def read_policy(current_user: dict = Depends(get_current_user)):
-    return {"policy": await get_policy(current_user["company_id"]),
-            "defaults": DEFAULT_POLICY, "note": POLICY_NOTE}
+    policy = await get_policy(current_user["company_id"])
+    ot = await effective_overtime(current_user["company_id"], policy)
+    # show the overtime multipliers payroll actually uses
+    shown = {**policy, **{OT_POLICY_KEY[t]: r for t, r in ot["rates"].items()}}
+    return {"policy": shown, "defaults": DEFAULT_POLICY, "note": POLICY_NOTE,
+            "overtime": ot, "overtime_note": OT_NOTE}
 
 
 @router.put("/policy")
@@ -233,18 +283,36 @@ async def update_policy(data: dict, current_user: dict = Depends(get_current_use
         if isinstance(default, bool):
             upd[k] = bool(data[k])
             continue
+        if k == "overtime_wage_base":
+            if data[k] not in OT_WAGE_BASES:
+                raise HTTPException(400, "أساس أجر الساعة: basic (الأساسي) أو total (الشامل)")
+            upd[k] = data[k]
+            continue
         v = _num(data[k])
         if v < 0 or (k.startswith("resignation_factor") and v > 1):
             raise HTTPException(400, f"قيمة غير صحيحة للحقل {k}")
+        # a multiplier is the whole hour's pay: below 1 would pay overtime
+        # less than a normal hour
+        if k in OT_POLICY_KEY.values() and not 1 <= v <= 5:
+            raise HTTPException(400, f"معامل الوقت الإضافي {k} يكون بين 1 و5 (مثلاً 1.35 = الأجر + 35%)")
         upd[k] = v
     if not upd:
         raise HTTPException(400, "لا توجد قيم للتحديث")
+    company_id = current_user["company_id"]
     upd["updated_at"] = datetime.now(timezone.utc).isoformat()
     upd["updated_by"] = current_user["user_id"]
     await db.hr_policy_settings.update_one(
-        {"company_id": current_user["company_id"]},
-        {"$set": upd, "$setOnInsert": {"company_id": current_user["company_id"]}}, upsert=True)
-    return {"message": "تم حفظ سياسة الموارد البشرية", "policy": await get_policy(current_user["company_id"])}
+        {"company_id": company_id},
+        {"$set": upd, "$setOnInsert": {"company_id": company_id}}, upsert=True)
+    # the payroll sheet pays from company_hr_settings — keep it on the same numbers
+    sync = {OT_PAYROLL_KEY[t]: upd[pk] for t, pk in OT_POLICY_KEY.items() if t in OT_PAYROLL_KEY and pk in upd}
+    if sync:
+        await db.company_hr_settings.update_one(
+            {"company_id": company_id},
+            {"$set": {**sync, "updated_at": upd["updated_at"]}, "$setOnInsert": {"company_id": company_id}},
+            upsert=True)
+    return {"message": "تم حفظ سياسة الموارد البشرية", "policy": (await read_policy(current_user))["policy"],
+            "synced_to_payroll": sorted(sync)}
 
 
 # ══════════════════════════════════════════════════════════════
@@ -442,47 +510,73 @@ async def calc_leave_encashment(
 async def calculate_overtime(data: dict,
                              current_user: dict = Depends(get_current_user)):
     """
-    احتساب الأجر الإضافي بنفس معاملات كشف الرواتب (إعدادات الموارد البشرية).
-    كان هذا الحاسب يستخدم 1.35/1.70/2.0 ثابتة بينما الكشف يصرف بمعاملات
-    الإعدادات، فيختلف المبلغ المعروض عن المصروف.
+    احتساب الأجر الإضافي من سياسة الشركة (نهاري / ليلي / يوم الراحة / عطلة رسمية)
+    وبنفس قاسم أجر الساعة الذي يستخدمه كشف الرواتب:
+        أجر الساعة = (الأساسي أو الشامل حسب السياسة) ÷ (أيام العمل في الشهر × ساعات اليوم)
+        أجر الساعات = الساعات × أجر الساعة × المعامل
     """
     company_id  = current_user["company_id"]
     emp = await get_employee(company_id, data.get("employee_id"))
+    ot = await effective_overtime(company_id)
+    rates = ot["rates"]
 
-    hr = await db.company_hr_settings.find_one({"company_id": company_id}, {"_id": 0}) or {}
-    rates = {"day": _num(hr.get("overtime_rate")) or OT_FALLBACK["day"],
-             "night": _num(hr.get("overtime_night_rate")) or OT_FALLBACK["night"],
-             "holiday": _num(hr.get("overtime_holiday_rate")) or OT_FALLBACK["holiday"]}
-    hours_per_day = _num(hr.get("standard_working_hours_per_day")) or 8.0
+    base_wage = monthly_wage(emp) if ot["wage_base"] == "total" else round(_num(emp.get("basic_salary")), 2)
+    divisor = ot["days_per_month"] * ot["hours_per_day"]
+    hourly_rate = round(base_wage / divisor, 4) if divisor else 0.0
 
-    monthly_salary = monthly_wage(emp)
-    hourly_rate    = round(monthly_salary / (30 * hours_per_day), 4)
-
+    entries = data.get("entries", []) or []
+    if not entries:
+        raise HTTPException(400, "أدخل يوماً واحداً على الأقل")
     results = []
+    by_type = {t: {"label": OT_TYPES[t], "hours": 0.0, "multiplier": rates[t], "amount": 0.0} for t in OT_TYPES}
     total_pay = 0.0
-    for entry in data.get("entries", []) or []:
+    for entry in entries:
         hours = _num(entry.get("hours"))
         if hours <= 0 or hours > 24:
             raise HTTPException(400, "عدد الساعات في اليوم يجب أن يكون بين 0 و24")
         ot_type = entry.get("type", "day")
         if ot_type not in rates:
-            raise HTTPException(400, "نوع الوقت الإضافي: نهاري أو ليلي أو عطلة")
+            raise HTTPException(400, "نوع الوقت الإضافي: نهاري أو ليلي أو يوم الراحة أو عطلة رسمية")
         multiplier = rates[ot_type]
         ot_pay = round(hours * hourly_rate * multiplier, 2)
         total_pay += ot_pay
+        by_type[ot_type]["hours"] += hours
+        by_type[ot_type]["amount"] = round(by_type[ot_type]["amount"] + ot_pay, 2)
         results.append({
-            "date": entry.get("date"), "hours": hours, "type": ot_type,
+            "date": entry.get("date"), "hours": hours, "type": ot_type, "type_label": OT_TYPES[ot_type],
             "multiplier": multiplier, "hourly_base": hourly_rate, "ot_pay": ot_pay,
+            "premium": round(hours * hourly_rate * (multiplier - 1), 2),
         })
+
+    warnings = []
+    if not ot["payroll_settings_saved"]:
+        warnings.append("لم تُحفظ إعدادات الموارد البشرية للرواتب بعد — احفظ معاملات الوقت الإضافي من السياسة "
+                        "حتى يصرف كشف الرواتب بنفس القيم")
+    if ot["wage_base"] == "total":
+        warnings.append("كشف الرواتب يحسب أجر الساعة على الراتب الأساسي فقط — المبلغ هنا (على الشامل) سيختلف عن المصروف")
+    if by_type["rest_day"]["hours"]:
+        warnings.append("كشف الرواتب لا يفرّق ساعات يوم الراحة — تُسجَّل في الحضور كساعات عطلة (holiday_overtime) "
+                        "وتُصرف بمعامل العطلة")
+    if not ot["enabled_in_payroll"]:
+        warnings.append("الوقت الإضافي معطّل في إعدادات الموارد البشرية للرواتب — لن يُصرف في الكشف")
 
     return {
         "employee_id":    emp["id"],
         "employee_name":  emp.get("name", ""),
+        "wage_base":      ot["wage_base"],
+        "base_wage":      base_wage,
+        "days_per_month": ot["days_per_month"],
+        "hours_per_day":  ot["hours_per_day"],
         "hourly_rate":    hourly_rate,
+        "formula":        f"{base_wage:,.2f} ÷ ({ot['days_per_month']:g} يوم × {ot['hours_per_day']:g} ساعة) = {hourly_rate:,.4f} للساعة",
         "total_ot_pay":   round(total_pay, 2),
         "ot_breakdown":   results,
+        "by_type":        by_type,
         "rates":          rates,
-        "rates_source":   "إعدادات الموارد البشرية" if hr else "قيم افتراضية (35%/70%/100% — القانون السابق)",
+        "rate_source":    ot["rate_source"],
+        "rates_source":   "إعدادات الموارد البشرية للرواتب" if ot["payroll_settings_saved"] else "سياسة الشركة (قيم افتراضية)",
+        "warnings":       warnings,
+        "note":           OT_NOTE,
     }
 
 
@@ -698,9 +792,14 @@ async def generate_form_1(employee_id: str,
     company = await db.companies.find_one({"id": company_id}, {"_id": 0}) or {}
     profile = await db.employee_insurance_profiles.find_one(
         {"employee_id": employee_id, "company_id": company_id}, {"_id": 0}) or {}
+    # the payroll's insurance wage rule (insured_basic_salary → insured_salary
+    # → basic, within the limits); this read insured_basic_salary only
+    from api.insurance_forms import insurance_wage
+    wage = await insurance_wage(company_id, emp, profile)
 
     return {
         "form_name":        "استمارة رقم (1) — إخطار التحاق عامل",
+        "full_form":        f"/api/insurance-forms/form1/{employee_id}",
         "law_reference":    "قانون التأمينات الاجتماعية 148/2019",
         "submission_note":  "تُقدَّم للهيئة خلال المدة المقررة من تاريخ الالتحاق",
         "employer_data": {
@@ -722,7 +821,8 @@ async def generate_form_1(employee_id: str,
             "hire_date":        emp.get("hire_date", ""),
             "job_title":        emp.get("position") or emp.get("job_title", ""),
             "department":       emp.get("department", ""),
-            "insured_salary":   profile.get("insured_basic_salary", emp.get("basic_salary", 0)),
+            "insured_salary":   wage["insurable_wage"],
+            "declared_insured_salary": wage["declared_wage"],
             "variable_salary":  profile.get("insured_variable_salary", 0),
             "insurance_number": profile.get("insurance_number", ""),
             "bank_iban":        profile.get("bank_account_iban", ""),
@@ -804,6 +904,9 @@ async def generate_form_6(
         {"employee_id": employee_id, "company_id": company_id}, {"_id": 0}) or {}
     policy = await get_policy(company_id)
 
+    from api.insurance_forms import insurance_wage, last_payroll_wage
+    wage = await insurance_wage(company_id, emp, profile)
+    last_run = await last_payroll_wage(company_id, employee_id)
     service_yrs = calc_service_years(emp.get("hire_date", ""), termination_date)
     last_salary = monthly_wage(emp)
     # the form ignored the resignation factor that the calculator applied
@@ -815,6 +918,7 @@ async def generate_form_6(
 
     return {
         "form_name":       "استمارة رقم (6) — إخطار انتهاء خدمة عامل",
+        "full_form":       f"/api/insurance-forms/form6/{employee_id}",
         "law_reference":   "قانون التأمينات الاجتماعية 148/2019",
         "submission_note": "تُقدَّم للهيئة خلال المدة المقررة من تاريخ انتهاء الخدمة",
         "employer_data": {
@@ -830,7 +934,7 @@ async def generate_form_6(
             "termination_date": termination_date,
             "termination_reason": TERMINATION_REASONS.get(termination_reason, termination_reason),
             "service_years":    round(service_yrs, 2),
-            "last_insured_salary": profile.get("insured_basic_salary", emp.get("basic_salary", 0)),
+            "last_insured_salary": (last_run or {}).get("insured_salary") or wage["insurable_wage"],
         },
         "entitlements": {
             "gratuity_amount":      gratuity,

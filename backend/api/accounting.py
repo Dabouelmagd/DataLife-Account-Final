@@ -3,6 +3,7 @@ API للنظام المحاسبي
 Accounting API Routes
 """
 
+import re as _re
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional, List
 from datetime import datetime
@@ -621,7 +622,7 @@ async def post_reviewed_entries(body: PostPeriodIn, current_user: dict = Depends
     if not _re.fullmatch(r"\d{4}-\d{2}", body.period or ""):
         raise HTTPException(status_code=400, detail="الشهر بصيغة YYYY-MM")
     cid = current_user["company_id"]
-    month = {"company_id": cid, "status": "draft", "entry_date": {"$regex": f"^{body.period}"}}
+    month = {"company_id": cid, "status": "draft", "entry_date": {"$regex": "^" + _re.escape(str(body.period))}}
     ready = await db.journal_entries.find({**month, "review_status": "reviewed"},
                                           {"_id": 0, "id": 1, "entry_number_str": 1}).to_list(None)
     waiting = await db.journal_entries.count_documents({**month, "review_status": "pending_review"})
@@ -751,7 +752,7 @@ async def get_financial_summary(
     async def agg(pattern, side):
         result = await db.journal_entries.aggregate([
             {"$match": match_base}, {"$unwind": "$lines"},
-            {"$match": {"lines.account_code": {"$regex": f"^{pattern}"}}},
+            {"$match": {"lines.account_code": {"$regex": "^" + _re.escape(str(pattern))}}},
             {"$group": {"_id": None, "d": {"$sum": "$lines.debit"}, "c": {"$sum": "$lines.credit"}}}
         ]).to_list(1)
         if not result: return 0
@@ -760,7 +761,7 @@ async def get_financial_summary(
     async def net(pattern):
         result = await db.journal_entries.aggregate([
             {"$match": match_base}, {"$unwind": "$lines"},
-            {"$match": {"lines.account_code": {"$regex": f"^{pattern}"}}},
+            {"$match": {"lines.account_code": {"$regex": "^" + _re.escape(str(pattern))}}},
             {"$group": {"_id": None, "d": {"$sum": "$lines.debit"}, "c": {"$sum": "$lines.credit"}}}
         ]).to_list(1)
         if not result: return 0

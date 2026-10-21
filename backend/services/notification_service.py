@@ -1,3 +1,11 @@
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 import asyncio
 import logging
 from typing import Dict, Any, Optional
@@ -250,20 +258,20 @@ class NotificationService:
             </div>
             
             <div style="padding: 20px;">
-                <h2>Thank you for your payment, {payment.company_name}!</h2>
+                <h2>Thank you for your payment, {_h(payment.company_name)}!</h2>
                 
-                <p>Your subscription to <strong>{payment.plan_name}</strong> has been successfully activated.</p>
+                <p>Your subscription to <strong>{_h(payment.plan_name)}</strong> has been successfully activated.</p>
                 
                 <div style="background-color: #f5f5f5; padding: 15px; margin: 20px 0;">
                     <h3>Payment Details:</h3>
                     <p><strong>Transaction ID:</strong> {payment.transaction_id}</p>
                     <p><strong>Amount:</strong> {payment.amount} {payment.currency}</p>
-                    <p><strong>Plan:</strong> {payment.plan_name}</p>
-                    <p><strong>Billing Cycle:</strong> {payment.billing_cycle.title()}</p>
+                    <p><strong>Plan:</strong> {_h(payment.plan_name)}</p>
+                    <p><strong>Billing Cycle:</strong> {_h(payment.billing_cycle.title())}</p>
                     <p><strong>Payment Date:</strong> {payment.completed_at.strftime('%B %d, %Y at %I:%M %p')}</p>
                 </div>
                 
-                <p>You can now access all features of your {payment.plan_name} plan. If you have any questions, please don't hesitate to contact our support team.</p>
+                <p>You can now access all features of your {_h(payment.plan_name)} plan. If you have any questions, please don't hesitate to contact our support team.</p>
                 
                 <div style="text-align: center; margin: 30px 0;">
                     <a href="https://app.datalife.com/login" style="background-color: #28376B; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Access Your Account</a>
@@ -294,15 +302,15 @@ class NotificationService:
             </div>
             
             <div style="padding: 20px;">
-                <h2>Hello {payment.company_name},</h2>
+                <h2>Hello {_h(payment.company_name)},</h2>
                 
-                <p>Unfortunately, we were unable to process your payment for the <strong>{payment.plan_name}</strong> plan.</p>
+                <p>Unfortunately, we were unable to process your payment for the <strong>{_h(payment.plan_name)}</strong> plan.</p>
                 
                 <div style="background-color: #f5f5f5; padding: 15px; margin: 20px 0;">
                     <h3>Payment Details:</h3>
                     <p><strong>Transaction ID:</strong> {payment.transaction_id}</p>
                     <p><strong>Amount:</strong> {payment.amount} {payment.currency}</p>
-                    <p><strong>Plan:</strong> {payment.plan_name}</p>
+                    <p><strong>Plan:</strong> {_h(payment.plan_name)}</p>
                     <p><strong>Attempted:</strong> {payment.updated_at.strftime('%B %d, %Y at %I:%M %p')}</p>
                 </div>
                 

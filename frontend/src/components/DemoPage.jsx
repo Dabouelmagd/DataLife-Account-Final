@@ -1,3 +1,4 @@
+import MonthInput from './ui/MonthInput';
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -1917,8 +1918,7 @@ const DemoPage = ({ onClose }) => {
                   <label className="text-sm font-medium mb-2 block">
                     {language === 'ar' ? 'الشهر' : 'Month'}
                   </label>
-                  <input 
-                    type="month"
+                  <MonthInput 
                     className="w-full border rounded px-3 py-2"
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}

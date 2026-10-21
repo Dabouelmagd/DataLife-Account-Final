@@ -5,6 +5,7 @@ Payroll API with Accounting Integration
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Response
 import os
+import re
 from typing import Optional, List
 from datetime import datetime, timedelta
 from pydantic import BaseModel
@@ -78,7 +79,7 @@ async def generate_number(company_id: str, prefix: str, collection: str) -> str:
     year = datetime.now().year
     count = await db[collection].count_documents({
         "company_id": company_id,
-        f"{prefix.lower()}_number": {"$regex": f"^{prefix}-{year}"}
+        f"{prefix.lower()}_number": {"$regex": f"^{re.escape(prefix)}-{year}"}
     })
     return f"{prefix}-{year}-{str(count + 1).zfill(5)}"
 
@@ -994,10 +995,30 @@ def _masked_run_rows(run: dict, user: dict) -> list:
     return [mask_employee(e, user) for e in run.get("employees", [])]
 
 
+async def _require_payroll_access(user: dict) -> None:
+    """Payslips, the payroll sheet and every export: HR (hr permission), the
+    payroll/finance roles with salary clearance, or a top role. The middleware
+    only checks the /api/payroll prefix and may be in "log" mode; employees see
+    their own payslip through /api/ess only."""
+    from services.route_permissions import EMPLOYEE_ROLES, effective_permissions
+    stored = await db.users.find_one({"id": user.get("user_id")},
+                                     {"_id": 0, "role": 1, "permissions": 1, "is_platform_admin": 1}) or {}
+    role = stored.get("role") or user.get("role")
+    if role in EMPLOYEE_ROLES:
+        raise HTTPException(403, "قسيمة راتبك من بوابة الموظف")
+    if stored.get("is_platform_admin") or user.get("is_platform_admin"):
+        return
+    from api.data_protection import TOP_ROLES as _TOP, PAYROLL_ROLES as _PAY
+    if role in _TOP or role in _PAY or "hr" in effective_permissions({**stored, "role": role}):
+        return
+    raise HTTPException(403, "ليس لديك صلاحية الاطلاع على الرواتب")
+
+
 @router.get("/runs/{run_id}/sheet")
 async def payroll_sheet(run_id: str, department: Optional[str] = None, branch: Optional[str] = None,
                         format: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     """كشف المرتبات بكل مشتملاته لكل موظف — مع فلتر بالإدارة / القسم والفرع، وتصدير Excel."""
+    await _require_payroll_access(current_user)
     run = await db.payroll_runs.find_one({"id": run_id, "company_id": current_user["company_id"]}, {"_id": 0})
     if not run:
         raise HTTPException(404, "مسير الرواتب غير موجود")
@@ -2155,6 +2176,7 @@ async def get_payslip(
     current_user: dict = Depends(get_current_user)
 ):
     """الحصول على قسيمة الراتب"""
+    await _require_payroll_access(current_user)
     payroll = await db.payroll_runs.find_one({
         "id": run_id,
         "company_id": current_user["company_id"]
@@ -2467,6 +2489,7 @@ async def export_payroll_csv(
     current_user: dict = Depends(get_current_user)
 ):
     """تصدير كشف الرواتب بصيغة CSV متوافق مع Excel"""
+    await _require_payroll_access(current_user)
     run = await db.payroll_runs.find_one(
         {"id": run_id, "company_id": current_user["company_id"]}, {"_id": 0}
     )
@@ -2716,6 +2739,7 @@ async def export_bank_transfer_file(
     An employee without the account details the method needs stops the file,
     naming who, rather than sending a blank transfer.
     """
+    await _require_payroll_access(current_user)
     if bank not in BANK_FILE_FORMATS:
         raise HTTPException(status_code=400, detail=f"صيغة البنك غير معروفة: {bank}")
     fmt = BANK_FILE_FORMATS[bank]
@@ -2854,6 +2878,7 @@ async def export_payroll_excel(
     current_user: dict = Depends(get_current_user)
 ):
     """تصدير كشف الرواتب بصيغة Excel (.xlsx) مع تنسيق عربي"""
+    await _require_payroll_access(current_user)
     run = await db.payroll_runs.find_one(
         {"id": run_id, "company_id": current_user["company_id"]}, {"_id": 0}
     )

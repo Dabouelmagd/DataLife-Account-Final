@@ -6,6 +6,7 @@
  * live under «إدارة المستخدمين»; this lists employees, adds one, and opens the
  * employee's profile (photo, CV, documents, allowances, portal).
  */
+import { copyText } from '../utils/copyText';
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Loader2, Plus, Search, X, UserRound } from 'lucide-react';
@@ -83,7 +84,7 @@ export default function HREmployeesList({ language = 'ar', onOpen }) {
     catch (e) { const d = e?.response?.data?.detail; setErr(typeof d === 'string' ? d : (ar ? 'تعذّر إرسال الدعوات' : 'Could not invite')); }
     finally { setBusy(false); }
   };
-  const copy = (t) => { try { navigator.clipboard.writeText(t); } catch { /* no clipboard */ } };
+  const copy = (t) => { try { copyText(t); } catch { /* no clipboard */ } };
 
   const makeFiles = async () => {
     const ids = Object.keys(pick).filter((k) => pick[k]);

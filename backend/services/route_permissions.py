@@ -8,9 +8,9 @@ actually make (treasury reads suppliers from /api/invoice, sales reads stock
 from /api/inventory...). A prefix is allowed if the user has ANY of its
 permissions.
 
-Rollout: PermissionMiddleware runs in "log" mode first (records what WOULD be
-refused, blocks nothing). scripts/permission_denials.py summarises it; once
-the legitimate cases are exempted, set PERMISSION_ENFORCEMENT=enforce.
+PermissionMiddleware enforces by default (PERMISSION_ENFORCEMENT=enforce).
+Set PERMISSION_ENFORCEMENT=log to only record what would be refused
+(scripts/permission_denials.py summarises it) while adding a missing mapping.
 """
 from models.permission import ROLE_PERMISSIONS
 
@@ -35,6 +35,7 @@ PREFIX_PERMISSIONS = [
     ("/api/db-performance", {FIN}),   # trial-balance snapshots / indexes (moved off /api/performance, which is HR)
     ("/api/data-protection", {"hr", "settings"}),   # personal-data requests; finer role checks inside
     ("/api/company-policies", {"settings", "hr", FIN}),   # read by HR/finance; writes need a top role (checked inside)
+    ("/api/data-export", {"settings", FIN, "hr"}),   # whole-company export; top roles only (checked inside)
     ("/api/consolidation", {FIN}),
     ("/api/invoices", {"invoices", FIN, "sales", "purchases"}),
     ("/api/invoice", {"invoices", FIN, "sales", "purchases"}),
@@ -46,6 +47,7 @@ PREFIX_PERMISSIONS = [
     ("/api/interviews", {"hr"}),
     ("/api/assessments", {"hr"}),   # التقييمات مع التوظيف      # recruitment lives with HR
     ("/api/payroll", {"hr"}),
+    ("/api/documents", {"hr", FIN, "settings"}),   # contracts and HR documents — was open to every login
     ("/api/hr", {"hr"}),
     ("/api/employees", {"hr"}),
     ("/api/attendance-pro", {"hr"}),
@@ -57,6 +59,7 @@ PREFIX_PERMISSIONS = [
     # a prefix matches only up to "/", so /api/hr-engine is its own area.
     ("/api/hr-advanced", {"hr"}),
     ("/api/hr-engine", {"hr"}),
+    ("/api/insurance-forms", {"hr"}),   # استمارات التأمينات 1 و6 (أجور وأرقام قومية)
     ("/api/performance", {"hr"}),
     ("/api/projects", {"projects", FIN}),
     ("/api/payment-vouchers", {FIN}),

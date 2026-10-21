@@ -11,6 +11,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import MonthInput from './ui/MonthInput';
 import { Loader2, Plus, X, Printer, Download, RotateCcw } from 'lucide-react';
 
 const API = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
@@ -141,7 +142,9 @@ const POLICY_FIELDS = [
   ['resignation_factor_5_to_10', 'معامل الاستقالة 5–10 سنوات'], ['resignation_factor_10_plus', 'معامل الاستقالة بعد 10 سنوات'],
 ];
 const LEAVE_AR = { annual: 'سنوية', casual: 'عارضة', sick: 'مرضية', unpaid: 'بدون أجر' };
-const OT_AR = { day: 'نهاري', night: 'ليلي', holiday: 'عطلة رسمية' };
+const OT_AR = { day: 'نهاري', night: 'ليلي', rest_day: 'يوم الراحة الأسبوعية', holiday: 'عطلة رسمية' };
+const OT_RATE_FIELDS = [['overtime_day_rate', 'معامل النهاري'], ['overtime_night_rate', 'معامل الليلي'],
+  ['overtime_rest_day_rate', 'معامل يوم الراحة'], ['overtime_holiday_rate', 'معامل العطلة الرسمية']];
 
 export function HRToolsPage() {
   const emps = useEmployees();
@@ -186,6 +189,13 @@ export function HRToolsPage() {
     setBusy(true); clear();
     try { const { data } = await axios.post(`${API}/api/hr-engine/overtime/calculate`, { employee_id: empId, entries: ot.map((x) => ({ ...x, hours: +x.hours })) }, auth()); setOtRes(data); }
     catch (e) { setErr(errText(e, 'تعذّر الحساب')); } finally { setBusy(false); }
+  };
+  const saveOtRates = async () => {
+    setBusy(true); clear();
+    const body = { overtime_wage_base: policy.overtime_wage_base || 'basic' };
+    OT_RATE_FIELDS.forEach(([k]) => { body[k] = +policy[k]; });
+    try { const { data } = await axios.put(`${API}/api/hr-engine/policy`, body, auth()); setPolicy(data.policy); setMsg(`${data.message} — وطُبّقت على إعدادات الرواتب`); }
+    catch (e) { setErr(errText(e, 'تعذّر الحفظ')); } finally { setBusy(false); }
   };
   const applyPen = async () => {
     setBusy(true); clear();
@@ -261,10 +271,27 @@ export function HRToolsPage() {
           </div>
           {otRes && (
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-sm space-y-1">
-              <p>أجر الساعة: <N v={otRes.hourly_rate} /> — المعاملات ({otRes.rates_source}): نهاري <L>×{otRes.rates.day}</L>، ليلي <L>×{otRes.rates.night}</L>، عطلة <L>×{otRes.rates.holiday}</L></p>
-              {otRes.ot_breakdown.map((b, i) => <p key={i}><L>{b.date}</L> — <L>{b.hours}</L> ساعة {OT_AR[b.type]} = <N v={b.ot_pay} /></p>)}
+              <p>أجر الساعة ({otRes.wage_base === 'total' ? 'على الأجر الشامل' : 'على الأجر الأساسي'}): <L>{otRes.formula}</L></p>
+              <p>المعاملات ({otRes.rates_source}): {Object.entries(OT_AR).map(([k, v]) => <span key={k} className="me-2">{v} <L>×{otRes.rates[k]}</L></span>)}</p>
+              {otRes.ot_breakdown.map((b, i) => <p key={i}><L>{b.date}</L> — <L>{b.hours}</L> ساعة {OT_AR[b.type]} × <L>{b.multiplier}</L> = <N v={b.ot_pay} /></p>)}
+              <div className="flex flex-wrap gap-3 pt-1">{Object.entries(otRes.by_type || {}).filter(([, t]) => t.hours).map(([k, t]) => <span key={k}>{t.label}: <L>{t.hours}</L> ساعة = <N v={t.amount} /></span>)}</div>
               <p className="font-extrabold">الإجمالي: <N v={otRes.total_ot_pay} /> ج.م</p>
-              <p className="text-xs text-slate-500">المعاملات تُضبط من إعدادات الموارد البشرية في الرواتب، وهي نفسها التي يصرف بها الكشف.</p>
+              {(otRes.warnings || []).map((w, i) => <p key={i} className="text-xs text-amber-700">{w}</p>)}
+              <p className="text-xs text-slate-500">{otRes.note}</p>
+            </div>
+          )}
+          {policy && (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+              <p className="font-bold">معاملات الوقت الإضافي (سياسة الشركة — يصرف بها كشف الرواتب)</p>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {OT_RATE_FIELDS.map(([k, label]) => (
+                  <Field key={k} label={label}><input type="number" step="0.05" min="1" dir="ltr" value={policy[k] ?? ''} onChange={(e) => setPolicy({ ...policy, [k]: e.target.value })} className={input} /></Field>
+                ))}
+                <Field label="أساس أجر الساعة"><select value={policy.overtime_wage_base || 'basic'} onChange={(e) => setPolicy({ ...policy, overtime_wage_base: e.target.value })} className={input}>
+                  <option value="basic">الأساسي</option><option value="total">الشامل</option></select></Field>
+              </div>
+              <p className="text-xs text-amber-700">القيم الافتراضية من القانون السابق 12/2003 (35% نهاري، 70% ليلي، الضعف في يوم الراحة والعطلات) — راجعها على قانون العمل 14/2025 ولائحته التنفيذية. يوم الراحة غير منفصل في كشف الرواتب (يُصرف بمعامل العطلة).</p>
+              <button onClick={saveOtRates} disabled={busy} className={btn}>حفظ المعاملات</button>
             </div>
           )}
         </div>
@@ -602,7 +629,7 @@ export function LoansCustodyPage() {
               <Field label="السبب"><input value={f.reason} onChange={(e) => setF('reason', e.target.value)} className={input} /></Field>
               <Field label="مبلغ السلفة"><input type="number" dir="ltr" value={f.loan_amount} onChange={(e) => setF('loan_amount', e.target.value)} className={input} /></Field>
               <Field label="القسط الشهري"><input type="number" dir="ltr" value={f.monthly_payment} onChange={(e) => setF('monthly_payment', e.target.value)} className={input} /></Field>
-              <Field label="أول شهر خصم"><input type="month" value={f.start_month} onChange={(e) => setF('start_month', e.target.value)} className={input} /></Field>
+              <Field label="أول شهر خصم"><MonthInput value={f.start_month} onChange={(e) => setF('start_month', e.target.value)} className={input} /></Field>
               <Field label="تاريخ الصرف"><input type="date" value={f.grant_date} onChange={(e) => setF('grant_date', e.target.value)} className={input} /></Field>
               <Field label="الصرف من"><select value={f.payment_source} onChange={(e) => setF('payment_source', e.target.value)} className={input}>{PAY_SRC.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
               {+f.loan_amount > 0 && +f.monthly_payment > 0 && <p className="self-end text-slate-600">عدد الأقساط: <L>{Math.ceil(f.loan_amount / f.monthly_payment)}</L></p>}
@@ -689,7 +716,7 @@ export function CommissionsPage() {
         <>
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
             <div className="flex flex-wrap items-end gap-2">
-              <Field label="الشهر"><input type="month" value={period} onChange={(e) => { setPeriod(e.target.value); setPv(null); }} className={input} /></Field>
+              <Field label="الشهر"><MonthInput value={period} onChange={(e) => { setPeriod(e.target.value); setPv(null); }} className={input} /></Field>
             </div>
             {data.rules.length === 0 ? <p className="text-slate-500">لا توجد قواعد عمولات بعد.</p> : (
               <div className="overflow-x-auto">

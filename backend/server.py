@@ -42,6 +42,7 @@ from api.fixed_assets import router as fixed_assets_router
 from api.treasury import router as treasury_router
 from api.bank_reconciliation import router as bank_reconciliation_router
 from api.hr_engine import router as hr_engine_router
+from api.insurance_forms import router as insurance_forms_router
 from api.tax_reports import router as tax_reports_router
 from api.inventory_engine import router as inventory_engine_router
 from api.financial_engine import router as financial_engine_router
@@ -59,6 +60,8 @@ from api.consolidation import router as consolidation_router
 from api.deferred_tax import router as deferred_tax_router
 from api.eta_signing import router as eta_signing_router
 from api.company_policies import router as company_policies_router
+from api.data_export import router as data_export_router
+from api.backup_status import router as backup_status_router
 from api.performance_engine import router as performance_router
 from api.fraud_detection import router as fraud_router
 from api.petty_cash import router as petty_cash_router
@@ -156,7 +159,7 @@ async def serve_upload(file_path: str, request: _Req):
 
     _user_id, company_id = await _ua.caller_company(
         _db, request.headers.get("authorization"), request.cookies.get(_ua.COOKIE_NAME))
-    if not company_id or not await _ua.may_read(_db, company_id, file_path):
+    if not await _ua.may_read(_db, company_id, file_path, _user_id):
         from services import security_log as _sec
         await _sec.record(_db, _sec.FILE_DENIED, user_id=_user_id, company_id=company_id,
                           ip=_sec.client_ip(request), detail=f"/api/uploads/{file_path}"[:200])
@@ -244,6 +247,7 @@ app.include_router(fixed_assets_router)
 app.include_router(treasury_router)
 app.include_router(bank_reconciliation_router)
 app.include_router(hr_engine_router)
+app.include_router(insurance_forms_router)
 app.include_router(tax_reports_router)
 app.include_router(inventory_engine_router)
 app.include_router(financial_engine_router)
@@ -261,6 +265,8 @@ app.include_router(consolidation_router)
 app.include_router(deferred_tax_router)
 app.include_router(eta_signing_router)
 app.include_router(company_policies_router)
+app.include_router(data_export_router)
+app.include_router(backup_status_router)
 app.include_router(performance_router)
 app.include_router(fraud_router)
 app.include_router(petty_cash_router)
@@ -377,11 +383,17 @@ class PermissionMiddleware:
     Permissions were checked in the frontend only; any logged-in company user
     could call payroll, ledger, treasury... APIs directly. The map is in
     services/route_permissions.py. PERMISSION_ENFORCEMENT:
-      "log" (default) — blocks nothing, records what would have been refused
-                        in permission_audit (see scripts/permission_denials.py);
-      "enforce"       — refuses with 403.
-    Never breaks a request on its own error: lookup failures let it through.
+      "enforce" (default) — refuses with 403;
+      "log"               — blocks nothing, records what would have been refused
+                            in permission_audit (see scripts/permission_denials.py).
+    Fails closed: if the user/permission lookup itself errors for a request
+    carrying a valid token, the request is refused (503) instead of let
+    through. The top company roles (and roles such as مدير النظام that have no
+    ROLE_PERMISSIONS entry) always pass, so enforcement cannot lock an owner out.
     """
+    TOP_ROLES = {"Board Chairman", "رئيس مجلس الإدارة", "General Manager", "مدير عام", "المدير العام",
+                 "CEO", "المدير التنفيذي", "owner", "Super Admin", "مدير النظام"}
+    LOOKUP_FAILED = '{"detail":"تعذر التحقق من صلاحياتك الآن، حاول مرة أخرى بعد قليل"}'.encode()
     TTL = 60
 
     def __init__(self, app):
@@ -420,7 +432,8 @@ class PermissionMiddleware:
                         await send({"type": "http.response.body", "body": body})
                         return
             except Exception:
-                pass
+                if await self._authenticated(scope):
+                    return await self._refuse(send, 503, self.LOOKUP_FAILED)
             try:
                 from services.route_permissions import required_for, effective_permissions, PLATFORM_ROLES
                 need = required_for(scope["path"])
@@ -459,17 +472,42 @@ class PermissionMiddleware:
                             except Exception:
                                 pass      # a plan lookup failure must never lock a company out
 
-                        if user and not user.get("is_platform_admin") and not (effective_permissions(user) & need[1]):
-                            await self._record(scope, user, need)
-                            if os.environ.get("PERMISSION_ENFORCEMENT", "log") == "enforce":
+                        if not user:          # deleted user, valid token: judge by the token's role
+                            user = {"role": payload.get("role"), "permissions": [],
+                                    "company_id": payload.get("company_id"), "email": payload.get("email")}
+                        if (not user.get("is_platform_admin") and user.get("role") not in self.TOP_ROLES
+                                and not (effective_permissions(user) & need[1])):
+                            try:
+                                await self._record(scope, user, need)
+                            except Exception:
+                                pass      # the audit write is best-effort
+                            if os.environ.get("PERMISSION_ENFORCEMENT", "enforce") != "log":
                                 body = ('{"detail":"ليس لديك صلاحية الوصول إلى هذا القسم"}').encode()
-                                await send({"type": "http.response.start", "status": 403,
-                                            "headers": [(b"content-type", b"application/json; charset=utf-8")]})
-                                await send({"type": "http.response.body", "body": body})
-                                return
+                                return await self._refuse(send, 403, body)
             except Exception:
-                pass
+                # fail closed: an authenticated request whose permissions could
+                # not be checked is refused, not let through
+                if await self._authenticated(scope):
+                    return await self._refuse(send, 503, self.LOOKUP_FAILED)
         await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _refuse(send, status, body):
+        await send({"type": "http.response.start", "status": status,
+                    "headers": [(b"content-type", b"application/json; charset=utf-8"),
+                                (b"content-length", str(len(body)).encode())]})
+        await send({"type": "http.response.body", "body": body})
+
+    @staticmethod
+    async def _authenticated(scope) -> bool:
+        try:
+            auth = dict(scope.get("headers") or []).get(b"authorization", b"").decode()
+            if not auth.startswith("Bearer "):
+                return False
+            from services.auth_service import verify_token as _vt
+            return bool(_vt(auth[7:]))
+        except Exception:
+            return False
 
     async def _record(self, scope, user, need):
         import time
@@ -486,7 +524,7 @@ class PermissionMiddleware:
             "company_id": user.get("company_id"), "role": user.get("role"),
             "method": scope.get("method"), "path": scope.get("path"), "prefix": need[0],
             "required_any_of": sorted(need[1]),
-            "mode": os.environ.get("PERMISSION_ENFORCEMENT", "log")})
+            "mode": os.environ.get("PERMISSION_ENFORCEMENT", "enforce")})
 
 
 app.add_middleware(PermissionMiddleware)

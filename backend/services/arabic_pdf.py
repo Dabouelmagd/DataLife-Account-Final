@@ -83,3 +83,12 @@ def ar(text) -> str:
 def available() -> bool:
     """Whether Arabic will actually render — for a health check or a warning."""
     return _register()
+
+
+def ar_para(text) -> str:
+    """`ar(text)` made safe for a reportlab Paragraph, which parses its text as
+    markup: a candidate named "<font size=80>..." or an "&" in a company name
+    broke or rewrote the PDF. Escaped after shaping, so the bidi reordering
+    cannot split an entity such as "&amp;"."""
+    from xml.sax.saxutils import escape
+    return escape(ar(text))

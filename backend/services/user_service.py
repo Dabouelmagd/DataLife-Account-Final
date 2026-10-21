@@ -126,14 +126,17 @@ async def get_users_by_company(db: AsyncIOMotorClient, company_id: str) -> List[
         users.append(User(**user_data))
     return users
 
-async def update_user_role(db: AsyncIOMotorClient, user_id: str, role: str) -> Optional[User]:
-    """Update a user's role"""
-    result = await db.users.update_one(
-        {"id": user_id},
-        {"$set": {"role": role}}
-    )
-    
-    if result.modified_count > 0:
+async def update_user_role(db: AsyncIOMotorClient, user_id: str, role: str,
+                           company_id: Optional[str] = None) -> Optional[User]:
+    """Update a user's role — only inside `company_id`.
+
+    The update matched on id alone and the caller checked the company AFTER
+    writing, so a manager could change any company's user role by id."""
+    if not company_id:
+        return None
+    flt = {"id": user_id, "company_id": company_id}
+    result = await db.users.update_one(flt, {"$set": {"role": role}})
+    if result.matched_count > 0:
         return await get_user_by_id(db, user_id)
     return None
 

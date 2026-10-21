@@ -607,13 +607,25 @@ async def cancel_invoice(
     
     if invoice["status"] in [DocumentStatus.PAID.value, DocumentStatus.PARTIALLY_PAID.value]:
         raise HTTPException(status_code=400, detail="Cannot cancel paid invoice")
-    
-    await db.invoices.update_one(
-        {"id": invoice_id},
-        {"$set": {"status": DocumentStatus.CANCELLED.value, "updated_at": datetime.utcnow().isoformat()}}
-    )
-    
-    return {"message": "تم إلغاء الفاتورة بنجاح"}
+    # a document the tax authority has (submitted / valid) exists there whatever
+    # we do here: cancelling it locally only would leave it on the taxpayer's
+    # ETA record. It is cancelled on ETA (within the allowed window) or
+    # corrected by a credit note.
+    eta_st = str(invoice.get("eta_status") or "").lower()
+    if (invoice.get("eta_uuid") or invoice.get("eta_document_uuid")) and eta_st in ("valid", "submitted"):
+        raise HTTPException(status_code=400, detail=(
+            "الفاتورة مُرسلة/مقبولة على منظومة الفاتورة الإلكترونية ولا تُلغى محلياً. "
+            "أصدر إشعاراً دائناً عليها (POST /api/invoice/sales-invoices/{id}/credit-note)، "
+            "أو اطلب إلغاءها من المنظومة خلال المهلة المسموحة (PUT /api/eta/cancel/{id})"))
+
+    try:
+        r = await service.cancel_invoice(invoice, current_user["user_id"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    msg = "تم إلغاء الفاتورة بنجاح"
+    if r["reversed_entries"]:
+        msg += f" وعكس {r['reversed_entries']} قيد وإرجاع حركة المخزون"
+    return {"message": msg, **r}
 
 
 # ==========================================
@@ -775,7 +787,8 @@ async def export_invoice_pdf(
         "purchase_order": "أمر شراء"
     }
     title = doc_types.get(invoice["document_type"], "فاتورة")
-    elements.append(Paragraph(arabic_text(title), title_style))
+    from xml.sax.saxutils import escape as _xesc
+    elements.append(Paragraph(_xesc(arabic_text(title)), title_style))
     
     # Invoice info
     info_data = [
@@ -1869,3 +1882,199 @@ async def create_purchase_debit_note(invoice_id: str, data: dict,
         "updated_at": datetime.now(timezone.utc).isoformat()}})
     return {"message": f"تم إصدار الإشعار المدين {created['document_number']} وترحيله",
             "debit_note": approved or created, "invoice_remaining": round(remaining - total, 2)}
+
+
+# ══════════════════════════════════════════
+# SALES CREDIT NOTES — returns with a disposition per line
+# ══════════════════════════════════════════
+# A returned item does not always go back on the shelf: it may need
+# inspection first (quarantine warehouse, not sellable) or be scrapped on
+# arrival (no stock; its cost becomes a loss, 33610 تالف وهدر). The note's
+# revenue / VAT reversal is the same whatever happens to the goods.
+
+ETA_ACCEPTED = ("valid", "submitted")
+NOTE_LIVE_STATUSES = ("approved", "partially_paid", "paid")
+
+
+def _eta_link(inv: dict) -> dict:
+    """Where the original stands on the e-invoicing system, for the note."""
+    st = str(inv.get("eta_status") or "").strip()
+    uuid_ = inv.get("eta_uuid") or inv.get("eta_document_uuid")
+    if not uuid_:
+        return {"linked": False, "eta_status": st or None, "eta_uuid": None, "can_submit_note": False,
+                "message": "الفاتورة الأصلية لم تُرسل للمنظومة — أرسلها أولاً ليمكن إرسال الإشعار"}
+    if st.lower() == "valid":
+        return {"linked": True, "eta_status": st, "eta_uuid": uuid_, "can_submit_note": True,
+                "message": "الإشعار سيُرسل مرتبطاً بالفاتورة الأصلية (references)"}
+    if st.lower() == "cancelled":
+        return {"linked": True, "eta_status": st, "eta_uuid": uuid_, "can_submit_note": False,
+                "message": "الفاتورة الأصلية ملغاة على المنظومة — لا يصدر عليها إشعار"}
+    return {"linked": True, "eta_status": st, "eta_uuid": uuid_, "can_submit_note": False,
+            "message": f"حالة الأصل على المنظومة «{st}» — حدّث الحالة؛ الإشعار يُرسل بعد أن تصبح Valid"}
+
+
+async def _returned_by_line(company_id: str, invoice_id: str) -> dict:
+    """original line_number → quantity already credited on earlier notes."""
+    out = {}
+    async for n in db.invoices.find({"company_id": company_id, "document_type": DocumentType.CREDIT_NOTE.value,
+                                     "original_invoice_id": invoice_id, "status": {"$ne": "cancelled"}},
+                                    {"_id": 0, "lines": 1}):
+        for l in n.get("lines") or []:
+            k = l.get("original_line_number")
+            if k is not None:
+                out[int(k)] = round(out.get(int(k), 0) + float(l.get("quantity") or 0), 3)
+    return out
+
+
+@router.get("/sales-invoices/{invoice_id}/credit-note-context")
+async def credit_note_context(invoice_id: str, current_user: dict = Depends(get_current_user)):
+    """What can still be returned on a sales invoice, the warehouses a
+    return can go to, and the original's ETA status."""
+    company_id = current_user["company_id"]
+    inv = await db.invoices.find_one({"id": invoice_id, "company_id": company_id,
+                                      "document_type": DocumentType.SALES_INVOICE.value}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "فاتورة البيع غير موجودة")
+    done = await _returned_by_line(company_id, inv["id"])
+    lines = []
+    for l in inv.get("lines") or []:
+        n = int(l.get("line_number") or 0)
+        lines.append({"line_number": n, "product_id": l.get("product_id"), "description": l.get("description"),
+                      "unit": l.get("unit"), "quantity": l.get("quantity"), "unit_price": l.get("unit_price"),
+                      "tax_rate": l.get("tax_rate"), "returned": done.get(n, 0.0),
+                      "returnable": round(float(l.get("quantity") or 0) - done.get(n, 0.0), 3)})
+    whs = await db.warehouses.find({"company_id": company_id, "is_active": {"$ne": False}},
+                                   {"_id": 0, "id": 1, "name": 1, "code": 1, "warehouse_type": 1}).to_list(None)
+    for w in whs:
+        w["warehouse_type"] = w.get("warehouse_type") or "main"
+    settle = round(float(inv.get("settle_amount") or inv.get("grand_total") or 0), 2)
+    return {"invoice": {"id": inv["id"], "document_number": inv.get("document_number"),
+                        "status": inv.get("status"), "currency": inv.get("currency"),
+                        "remaining": round(settle - float(inv.get("credited_amount") or 0), 2)},
+            "lines": lines, "warehouses": whs, "eta": _eta_link(inv),
+            "can_issue": bool(inv.get("journal_entry_id")) and inv.get("status") in NOTE_LIVE_STATUSES}
+
+
+@router.post("/sales-invoices/{invoice_id}/credit-note")
+async def create_sales_credit_note(invoice_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """إشعار دائن على فاتورة بيع: مردودات كلية/جزئية لكل بند مع مصير البضاعة
+    (restock | quarantine | scrap)، أو خصم بمبلغ بلا بضاعة.
+
+    body: {reason, date?, notes?, items: [{line_number, quantity, disposition,
+           warehouse_id?}]}  — or {reason, amount, vat_percent?} for a pure
+           price correction."""
+    from models.invoice import LineTax, VatCategory
+    company_id = current_user["company_id"]
+    inv = await db.invoices.find_one(
+        {"$or": [{"id": invoice_id}, {"document_number": invoice_id}], "company_id": company_id,
+         "document_type": DocumentType.SALES_INVOICE.value}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "فاتورة البيع غير موجودة")
+    if not inv.get("journal_entry_id") or inv.get("status") not in NOTE_LIVE_STATUSES:
+        raise HTTPException(400, "الإشعار الدائن يصدر على فاتورة معتمدة ومرحّلة فقط")
+    reason = str(data.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(400, "سبب الإشعار مطلوب")
+    if str(inv.get("eta_status") or "").lower() == "cancelled":
+        raise HTTPException(400, "الفاتورة ملغاة على منظومة الضرائب — لا يصدر عليها إشعار")
+
+    settle = round(float(inv.get("settle_amount") or inv.get("grand_total") or 0), 2)
+    already = round(float(inv.get("credited_amount") or 0), 2)
+    remaining = round(settle - already, 2)
+    if remaining <= 0:
+        raise HTTPException(400, "تم رد قيمة هذه الفاتورة بالكامل")
+
+    service = InvoiceService(db)
+    requested = data.get("items") or []
+    lines, extra, goods = [], [], False
+    if requested:
+        done = await _returned_by_line(company_id, inv["id"])
+        by_no = {int(l.get("line_number") or 0): l for l in inv.get("lines") or []}
+        for it in requested:
+            qty = round(float(it.get("quantity") or 0), 3)
+            if qty <= 0:
+                continue
+            n = int(it.get("line_number") or 0)
+            orig = by_no.get(n)
+            if not orig:
+                raise HTTPException(400, f"البند رقم {n} غير موجود في الفاتورة")
+            left = round(float(orig.get("quantity") or 0) - done.get(n, 0.0), 3)
+            if qty > left + 1e-6:
+                raise HTTPException(400, f"الكمية المرتجعة ({qty:g}) أكبر من المتبقي للبند {n} ({left:g})")
+            disp = str(it.get("disposition") or "restock").lower()
+            if disp not in ("restock", "quarantine", "scrap"):
+                raise HTTPException(400, "مصير البضاعة: restock أو quarantine أو scrap")
+            wh = it.get("warehouse_id") or None
+            if orig.get("product_id"):
+                goods = True
+                if disp == "quarantine" and (not wh or await service.warehouse_type(company_id, wh) != "quarantine"):
+                    raise HTTPException(400, f"اختر مخزن حجر/فحص للبند {n}")
+                if disp == "restock":
+                    wh = wh or orig.get("warehouse_id") or "main"
+                    if await service.warehouse_type(company_id, wh) != "main":
+                        raise HTTPException(400, f"الإرجاع للمخزون يكون لمخزن بيع — البند {n}")
+                if wh and wh != "main" and not await db.warehouses.find_one({"id": wh, "company_id": company_id},
+                                                                            {"_id": 1}):
+                    raise HTTPException(400, "المخزن غير موجود")
+            ratio = qty / float(orig.get("quantity") or qty)
+            taxes = [LineTax(tax_type=t.get("tax_type"), sub_type=t.get("sub_type"), rate=float(t.get("rate") or 0),
+                             amount=round(float(t.get("amount") or 0) * ratio, 2))
+                     for t in orig.get("other_taxes") or []]
+            cat = orig.get("vat_category")
+            lines.append(InvoiceLine(
+                line_number=len(lines) + 1, product_id=orig.get("product_id"), product_code=orig.get("product_code"),
+                description=(orig.get("description") or "مردود")[:300], unit=orig.get("unit") or "unit",
+                quantity=qty, unit_price=float(orig.get("unit_price") or 0),
+                discount_percent=float(orig.get("discount_percent") or 0),
+                tax_type=TaxType(orig.get("tax_type") or "vat"), tax_rate=float(orig.get("tax_rate") or 0),
+                vat_category=VatCategory(cat) if cat else None, other_taxes=taxes, eta_code=orig.get("eta_code")))
+            extra.append({"original_line_number": n, "return_disposition": disp if orig.get("product_id") else None,
+                          "warehouse_id": wh, "unit_cost": orig.get("cost_at_sale")})
+    else:
+        amount = round(float(data.get("amount") or 0), 2)
+        if amount <= 0:
+            raise HTTPException(400, "حدد البنود المرتجعة أو مبلغ الإشعار")
+        vat_rate = float(data.get("vat_percent", 14) or 0)
+        net = round(amount / (1 + vat_rate / 100), 2) if vat_rate else amount
+        lines.append(InvoiceLine(line_number=1, description=reason[:300], quantity=1, unit_price=net,
+                                 tax_rate=vat_rate))
+        extra.append({})
+    if not lines:
+        raise HTTPException(400, "لا توجد بنود في الإشعار")
+
+    note = Invoice(
+        company_id=company_id, document_type=DocumentType.CREDIT_NOTE, document_number="",
+        document_date=data.get("date") or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        party_id=inv["party_id"], party_name=inv.get("party_name", ""), party_tax_id=inv.get("party_tax_id"),
+        party_address=inv.get("party_address"), lines=lines,
+        original_invoice_id=inv["id"], original_invoice_number=inv.get("document_number"),
+        credit_reason=reason, restock=goods, notes=data.get("notes"),
+        cost_center_id=inv.get("cost_center_id"), project_id=inv.get("project_id"),
+        created_by=current_user.get("user_id"))
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1}) or {}
+    created = await service.create_invoice(note, company.get("name", ""))
+    total = round(float(created.get("grand_total") or 0), 2)
+    if total <= 0 or total > remaining + 0.005:
+        await db.invoices.delete_one({"id": created["id"]})       # never leave a half-made note
+        raise HTTPException(400, f"قيمة الإشعار ({total:,.2f}) يجب أن تكون موجبة ولا تتجاوز المتبقي ({remaining:,.2f})")
+    # the per-line disposition is not on the InvoiceLine model: kept on the stored lines
+    sets = {}
+    for i, x in enumerate(extra):
+        for k, v in x.items():
+            if v is not None:
+                sets[f"lines.{i}.{k}"] = v
+    if sets:
+        await db.invoices.update_one({"id": created["id"]}, {"$set": sets})
+    try:
+        approved = await service.approve_invoice(created["id"], current_user.get("user_id"))
+    except ValueError as e:
+        raise HTTPException(400, f"تعذر ترحيل الإشعار {created['document_number']}: {e}")
+    new_credited = round(already + total, 2)
+    await db.invoices.update_one({"id": inv["id"], "company_id": company_id}, {"$set": {
+        "credited_amount": new_credited,
+        "amount_due": round(max(settle - new_credited - float(inv.get("amount_paid") or 0), 0), 2),
+        "status": "credited" if new_credited >= settle - 0.005 else inv.get("status"),
+        "updated_at": datetime.now(timezone.utc).isoformat()}})
+    final = await db.invoices.find_one({"id": created["id"]}, {"_id": 0}) or approved
+    return {"message": f"تم إصدار الإشعار الدائن {created['document_number']} وترحيله",
+            "credit_note": final, "invoice_remaining": round(remaining - total, 2), "eta": _eta_link(inv)}

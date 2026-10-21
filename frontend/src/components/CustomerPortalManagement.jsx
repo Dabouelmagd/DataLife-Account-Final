@@ -1,3 +1,4 @@
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -142,7 +143,7 @@ const CustomerPortalManagement = () => {
   };
 
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
+    copyText(text);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };

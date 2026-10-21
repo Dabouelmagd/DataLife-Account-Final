@@ -8,6 +8,7 @@ from typing import Optional, List
 from datetime import datetime, date
 from pydantic import BaseModel
 import uuid
+import re
 
 from database import db
 from api.users import get_current_user
@@ -36,6 +37,22 @@ class WarehouseRequest(BaseModel):
     manager_id: Optional[str] = None
     is_default: bool = False
     allow_negative: bool = False
+    # main: stock for sale | quarantine: returns awaiting inspection (counted,
+    # not sellable) | scrap: damaged goods (counted, not sellable)
+    warehouse_type: str = "main"
+
+
+WAREHOUSE_TYPES = ("main", "quarantine", "scrap")
+
+
+def _check_warehouse_type(request: "WarehouseRequest") -> str:
+    t = (request.warehouse_type or "main").strip().lower()
+    if t not in WAREHOUSE_TYPES:
+        raise HTTPException(400, "نوع المخزن: main (رئيسي/بيع) أو quarantine (حجر/فحص) أو scrap (تالف)")
+    if t != "main" and request.is_default:
+        # POS and invoices draw on the default warehouse
+        raise HTTPException(400, "المخزن الافتراضي يكون مخزن بيع (رئيسي) — لا يكون حجراً أو تالفاً")
+    return t
 
 
 class CategoryRequest(BaseModel):
@@ -260,6 +277,7 @@ async def create_warehouse(
     })
     if existing:
         raise HTTPException(status_code=400, detail="كود المخزن موجود بالفعل")
+    wtype = _check_warehouse_type(request)
     
     # إذا كان المخزن الافتراضي، إلغاء الافتراضي من الآخرين
     if request.is_default:
@@ -273,8 +291,9 @@ async def create_warehouse(
         **request.dict()
     )
     
-    await db.warehouses.insert_one(warehouse.dict())
-    return {"message": "تم إنشاء المخزن بنجاح", "warehouse": warehouse.dict()}
+    doc = {**warehouse.dict(), "warehouse_type": wtype}   # not on the Warehouse model
+    await db.warehouses.insert_one(dict(doc))
+    return {"message": "تم إنشاء المخزن بنجاح", "warehouse": doc}
 
 
 @router.put("/warehouses/{warehouse_id}")
@@ -290,6 +309,11 @@ async def update_warehouse(
     })
     if not warehouse:
         raise HTTPException(status_code=404, detail="المخزن غير موجود")
+    wtype = _check_warehouse_type(request)
+    if wtype != (warehouse.get("warehouse_type") or "main") and await db.stocks.find_one(
+            {"company_id": current_user["company_id"], "warehouse_id": warehouse_id, "quantity": {"$gt": 0}},
+            {"_id": 1}):
+        raise HTTPException(400, "لا يتغير نوع مخزن به أرصدة — انقل الأرصدة أولاً")
     
     if request.is_default:
         await db.warehouses.update_many(
@@ -298,6 +322,7 @@ async def update_warehouse(
         )
     
     update_data = request.dict()
+    update_data["warehouse_type"] = wtype
     update_data["updated_at"] = datetime.utcnow()
     
     await db.warehouses.update_one(
@@ -503,6 +528,7 @@ async def get_products(
     query = {"company_id": current_user["company_id"]}
     
     if search:
+        search = re.escape(str(search)[:80])     # user text is a literal, not a pattern
         query["$or"] = [
             {"code": {"$regex": search, "$options": "i"}},
             {"name": {"$regex": search, "$options": "i"}},
@@ -520,13 +546,19 @@ async def get_products(
     products = await db.products.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(length=None)
     
     # إضافة معلومات المخزون
+    held_ids = [w["id"] async for w in db.warehouses.find(
+        {"company_id": current_user["company_id"], "warehouse_type": {"$in": ["quarantine", "scrap"]}},
+        {"_id": 0, "id": 1})]
     for product in products:
         stocks = await db.stocks.find(
-            {"product_id": product["id"]},
-            {"_id": 0, "warehouse_name": 1, "quantity": 1, "available_qty": 1}
+            {"company_id": current_user["company_id"], "product_id": product["id"]},
+            {"_id": 0, "warehouse_id": 1, "warehouse_name": 1, "quantity": 1, "available_qty": 1}
         ).to_list(length=None)
         product["stocks"] = stocks
         product["total_stock"] = sum(s.get("quantity", 0) for s in stocks)
+        # quarantine / scrap stock is counted but never available for sale
+        product["sellable_stock"] = sum(s.get("quantity", 0) for s in stocks
+                                        if s.get("warehouse_id") not in held_ids)
         
         # التحقق من المخزون المنخفض
         if product.get("reorder_level", 0) > 0:
@@ -1711,3 +1743,35 @@ async def close_inventory_period(data: dict = {}, current_user: dict = Depends(g
              "created_at": datetime.utcnow().isoformat()}
     await db.inventory_closes.insert_one(dict(close))
     return close
+
+
+# ==========================================
+# Quarantine release (نتيجة فحص المرتجعات)
+# ==========================================
+
+@router.post("/quarantine/{movement_id}/release")
+async def release_quarantine(movement_id: str, body: dict, current_user: dict = Depends(get_current_user)):
+    """بضاعة مرتجعة في مخزن الحجر: decision=pass → تحويل لمخزن بيع بنفس
+    التكلفة | decision=scrap → إعدام (جرد مستمر: من حـ/ 33610 تالف وهدر إلى
+    حـ/ 125). body: {decision, quantity?, target_warehouse_id?, date?, reason?}"""
+    from services.invoice_service import InvoiceService
+    try:
+        return await InvoiceService(db).release_quarantine(
+            current_user["company_id"], movement_id, body.get("decision"), current_user.get("user_id"),
+            quantity=body.get("quantity"), target_warehouse_id=body.get("target_warehouse_id"),
+            date_str=body.get("date"), reason=body.get("reason"))
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/quarantine")
+async def list_quarantine(current_user: dict = Depends(get_current_user)):
+    """المرتجعات المحتجزة للفحص (لم يُفرج عنها بالكامل)."""
+    rows = await db.stock_movements.find(
+        {"company_id": current_user["company_id"], "quarantine_status": {"$in": ["held", "partial"]}},
+        {"_id": 0}).sort("movement_date", -1).to_list(500)
+    for r in rows:
+        r["remaining"] = round(float(r.get("quantity") or 0) - float(r.get("released_qty") or 0), 3)
+    return {"items": rows}

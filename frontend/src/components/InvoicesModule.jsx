@@ -24,6 +24,7 @@ import {
 import AttachmentsManager from './AttachmentsManager';
 import ImportButton from './ImportButton';
 import useRealTimeSync from '../hooks/useRealTimeSync';
+import { escapeHtml } from '../utils/escapeHtml';
 
 const InvoicesModule = () => {
   const { token } = useAuth();
@@ -204,7 +205,7 @@ const InvoicesModule = () => {
       <!DOCTYPE html>
       <html dir="${isRTL ? 'rtl' : 'ltr'}">
       <head>
-        <title>${isRTL ? 'فاتورة' : 'Invoice'} #${invoice.invoice_number}</title>
+        <title>${isRTL ? 'فاتورة' : 'Invoice'} #${escapeHtml(invoice.invoice_number)}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'}; }
           .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
@@ -228,26 +229,26 @@ const InvoicesModule = () => {
       <body>
         <div class="header">
           <h1>${isRTL ? 'فاتورة' : 'INVOICE'}</h1>
-          <p>${isRTL ? 'رقم الفاتورة' : 'Invoice Number'}: <strong>${invoice.invoice_number}</strong></p>
-          <p>${isRTL ? 'التاريخ' : 'Date'}: ${invoice.issue_date || new Date().toLocaleDateString()}</p>
-          <span class="status ${invoice.status === 'paid' ? 'status-paid' : 'status-pending'}">
-            ${invoice.status === 'paid' ? (isRTL ? 'مدفوعة' : 'PAID') : (isRTL ? 'معلقة' : 'PENDING')}
+          <p>${isRTL ? 'رقم الفاتورة' : 'Invoice Number'}: <strong>${escapeHtml(invoice.invoice_number)}</strong></p>
+          <p>${isRTL ? 'التاريخ' : 'Date'}: ${escapeHtml(invoice.issue_date || new Date().toLocaleDateString())}</p>
+          <span class="status ${escapeHtml(invoice.status === 'paid' ? 'status-paid' : 'status-pending')}">
+            ${escapeHtml(invoice.status === 'paid' ? (isRTL ? 'مدفوعة' : 'PAID') : (isRTL ? 'معلقة' : 'PENDING'))}
           </span>
         </div>
         
         <div class="info-grid">
           <div class="info-box">
             <h3>${isRTL ? 'معلومات العميل' : 'Customer Information'}</h3>
-            <p><strong>${invoice.customer_name}</strong></p>
-            <p>${invoice.customer_email || ''}</p>
-            <p>${invoice.customer_phone || ''}</p>
-            <p>${invoice.customer_address || ''}</p>
+            <p><strong>${escapeHtml(invoice.customer_name)}</strong></p>
+            <p>${escapeHtml(invoice.customer_email || '')}</p>
+            <p>${escapeHtml(invoice.customer_phone || '')}</p>
+            <p>${escapeHtml(invoice.customer_address || '')}</p>
           </div>
           <div class="info-box">
             <h3>${isRTL ? 'تفاصيل الفاتورة' : 'Invoice Details'}</h3>
-            <p>${isRTL ? 'نوع الفاتورة' : 'Type'}: ${invoice.invoice_type === 'etax' ? (isRTL ? 'إلكترونية' : 'E-Tax') : (isRTL ? 'عادية' : 'Regular')}</p>
-            <p>${isRTL ? 'تاريخ الاستحقاق' : 'Due Date'}: ${invoice.due_date || '-'}</p>
-            ${invoice.customer_tax_id ? `<p>${isRTL ? 'الرقم الضريبي' : 'Tax ID'}: ${invoice.customer_tax_id}</p>` : ''}
+            <p>${isRTL ? 'نوع الفاتورة' : 'Type'}: ${escapeHtml(invoice.invoice_type === 'etax' ? (isRTL ? 'إلكترونية' : 'E-Tax') : (isRTL ? 'عادية' : 'Regular'))}</p>
+            <p>${isRTL ? 'تاريخ الاستحقاق' : 'Due Date'}: ${escapeHtml(invoice.due_date || '-')}</p>
+            ${invoice.customer_tax_id ? `<p>${isRTL ? 'الرقم الضريبي' : 'Tax ID'}: ${escapeHtml(invoice.customer_tax_id)}</p>` : ''}
           </div>
         </div>
         
@@ -273,12 +274,12 @@ const InvoicesModule = () => {
               return `
                 <tr>
                   <td>${idx + 1}</td>
-                  <td>${item.description}</td>
-                  <td>${item.quantity}</td>
-                  <td>${item.unit_price.toLocaleString()} EGP</td>
-                  <td>${item.discount || 0}%</td>
-                  <td>${item.tax_rate || 0}%</td>
-                  <td>${total.toLocaleString()} EGP</td>
+                  <td>${escapeHtml(item.description)}</td>
+                  <td>${escapeHtml(item.quantity)}</td>
+                  <td>${escapeHtml(item.unit_price.toLocaleString())} EGP</td>
+                  <td>${escapeHtml(item.discount || 0)}%</td>
+                  <td>${escapeHtml(item.tax_rate || 0)}%</td>
+                  <td>${escapeHtml(total.toLocaleString())} EGP</td>
                 </tr>
               `;
             }).join('')}
@@ -288,19 +289,19 @@ const InvoicesModule = () => {
         <table class="totals">
           <tr>
             <td>${isRTL ? 'المجموع الفرعي' : 'Subtotal'}</td>
-            <td>${(invoice.subtotal || 0).toLocaleString()} EGP</td>
+            <td>${escapeHtml((invoice.subtotal || 0).toLocaleString())} EGP</td>
           </tr>
           <tr>
             <td>${isRTL ? 'الخصم' : 'Discount'}</td>
-            <td>-${(invoice.total_discount || 0).toLocaleString()} EGP</td>
+            <td>-${escapeHtml((invoice.total_discount || 0).toLocaleString())} EGP</td>
           </tr>
           <tr>
             <td>${isRTL ? 'الضريبة' : 'Tax'} (14%)</td>
-            <td>${(invoice.total_tax || 0).toLocaleString()} EGP</td>
+            <td>${escapeHtml((invoice.total_tax || 0).toLocaleString())} EGP</td>
           </tr>
           <tr class="grand-total">
             <td>${isRTL ? 'الإجمالي' : 'Grand Total'}</td>
-            <td>${(invoice.total_amount || 0).toLocaleString()} EGP</td>
+            <td>${escapeHtml((invoice.total_amount || 0).toLocaleString())} EGP</td>
           </tr>
         </table>
         
@@ -358,26 +359,26 @@ const InvoicesModule = () => {
       <div style="font-family: Arial, sans-serif; padding: 20px; direction: ${isRTL ? 'rtl' : 'ltr'};">
         <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
           <h1 style="margin: 0; color: #1a365d; font-size: 28px;">${isRTL ? 'فاتورة' : 'INVOICE'}</h1>
-          <p style="margin: 10px 0;">${isRTL ? 'رقم الفاتورة' : 'Invoice Number'}: <strong>${invoice.invoice_number}</strong></p>
-          <p style="margin: 5px 0;">${isRTL ? 'التاريخ' : 'Date'}: ${invoice.issue_date || new Date().toLocaleDateString()}</p>
-          <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; background: ${invoice.status === 'paid' ? '#c6f6d5' : '#fefcbf'}; color: ${invoice.status === 'paid' ? '#22543d' : '#744210'};">
-            ${invoice.status === 'paid' ? (isRTL ? 'مدفوعة' : 'PAID') : (isRTL ? 'معلقة' : 'PENDING')}
+          <p style="margin: 10px 0;">${isRTL ? 'رقم الفاتورة' : 'Invoice Number'}: <strong>${escapeHtml(invoice.invoice_number)}</strong></p>
+          <p style="margin: 5px 0;">${isRTL ? 'التاريخ' : 'Date'}: ${escapeHtml(invoice.issue_date || new Date().toLocaleDateString())}</p>
+          <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; background: ${escapeHtml(invoice.status === 'paid' ? '#c6f6d5' : '#fefcbf')}; color: ${escapeHtml(invoice.status === 'paid' ? '#22543d' : '#744210')};">
+            ${escapeHtml(invoice.status === 'paid' ? (isRTL ? 'مدفوعة' : 'PAID') : (isRTL ? 'معلقة' : 'PENDING'))}
           </span>
         </div>
         
         <div style="display: flex; gap: 20px; margin-bottom: 30px;">
           <div style="flex: 1; padding: 15px; background: #f7fafc; border-radius: 8px;">
             <h3 style="margin: 0 0 10px 0; color: #2d3748; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">${isRTL ? 'معلومات العميل' : 'Customer Information'}</h3>
-            <p style="margin: 5px 0;"><strong>${invoice.customer_name}</strong></p>
-            <p style="margin: 5px 0;">${invoice.customer_email || ''}</p>
-            <p style="margin: 5px 0;">${invoice.customer_phone || ''}</p>
-            <p style="margin: 5px 0;">${invoice.customer_address || ''}</p>
+            <p style="margin: 5px 0;"><strong>${escapeHtml(invoice.customer_name)}</strong></p>
+            <p style="margin: 5px 0;">${escapeHtml(invoice.customer_email || '')}</p>
+            <p style="margin: 5px 0;">${escapeHtml(invoice.customer_phone || '')}</p>
+            <p style="margin: 5px 0;">${escapeHtml(invoice.customer_address || '')}</p>
           </div>
           <div style="flex: 1; padding: 15px; background: #f7fafc; border-radius: 8px;">
             <h3 style="margin: 0 0 10px 0; color: #2d3748; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">${isRTL ? 'تفاصيل الفاتورة' : 'Invoice Details'}</h3>
-            <p style="margin: 5px 0;">${isRTL ? 'نوع الفاتورة' : 'Type'}: ${invoice.invoice_type === 'etax' ? (isRTL ? 'إلكترونية' : 'E-Tax') : (isRTL ? 'عادية' : 'Regular')}</p>
-            <p style="margin: 5px 0;">${isRTL ? 'تاريخ الاستحقاق' : 'Due Date'}: ${invoice.due_date || '-'}</p>
-            ${invoice.customer_tax_id ? `<p style="margin: 5px 0;">${isRTL ? 'الرقم الضريبي' : 'Tax ID'}: ${invoice.customer_tax_id}</p>` : ''}
+            <p style="margin: 5px 0;">${isRTL ? 'نوع الفاتورة' : 'Type'}: ${escapeHtml(invoice.invoice_type === 'etax' ? (isRTL ? 'إلكترونية' : 'E-Tax') : (isRTL ? 'عادية' : 'Regular'))}</p>
+            <p style="margin: 5px 0;">${isRTL ? 'تاريخ الاستحقاق' : 'Due Date'}: ${escapeHtml(invoice.due_date || '-')}</p>
+            ${invoice.customer_tax_id ? `<p style="margin: 5px 0;">${isRTL ? 'الرقم الضريبي' : 'Tax ID'}: ${escapeHtml(invoice.customer_tax_id)}</p>` : ''}
           </div>
         </div>
         
@@ -397,10 +398,10 @@ const InvoicesModule = () => {
               return `
                 <tr>
                   <td style="border: 1px solid #e2e8f0; padding: 10px;">${idx + 1}</td>
-                  <td style="border: 1px solid #e2e8f0; padding: 10px;">${item.description}</td>
-                  <td style="border: 1px solid #e2e8f0; padding: 10px;">${item.quantity}</td>
-                  <td style="border: 1px solid #e2e8f0; padding: 10px;">${item.unit_price.toLocaleString()} EGP</td>
-                  <td style="border: 1px solid #e2e8f0; padding: 10px;">${total.toLocaleString()} EGP</td>
+                  <td style="border: 1px solid #e2e8f0; padding: 10px;">${escapeHtml(item.description)}</td>
+                  <td style="border: 1px solid #e2e8f0; padding: 10px;">${escapeHtml(item.quantity)}</td>
+                  <td style="border: 1px solid #e2e8f0; padding: 10px;">${escapeHtml(item.unit_price.toLocaleString())} EGP</td>
+                  <td style="border: 1px solid #e2e8f0; padding: 10px;">${escapeHtml(total.toLocaleString())} EGP</td>
                 </tr>
               `;
             }).join('')}
@@ -410,15 +411,15 @@ const InvoicesModule = () => {
         <table style="width: 300px; margin-${isRTL ? 'right' : 'left'}: auto;">
           <tr>
             <td style="padding: 8px;">${isRTL ? 'المجموع الفرعي' : 'Subtotal'}</td>
-            <td style="padding: 8px;">${(invoice.subtotal || 0).toLocaleString()} EGP</td>
+            <td style="padding: 8px;">${escapeHtml((invoice.subtotal || 0).toLocaleString())} EGP</td>
           </tr>
           <tr>
             <td style="padding: 8px;">${isRTL ? 'الضريبة' : 'Tax'} (14%)</td>
-            <td style="padding: 8px;">${(invoice.total_tax || 0).toLocaleString()} EGP</td>
+            <td style="padding: 8px;">${escapeHtml((invoice.total_tax || 0).toLocaleString())} EGP</td>
           </tr>
           <tr style="font-size: 18px; font-weight: bold; background: #ebf8ff;">
             <td style="padding: 8px;">${isRTL ? 'الإجمالي' : 'Grand Total'}</td>
-            <td style="padding: 8px;">${(invoice.total_amount || 0).toLocaleString()} EGP</td>
+            <td style="padding: 8px;">${escapeHtml((invoice.total_amount || 0).toLocaleString())} EGP</td>
           </tr>
         </table>
         

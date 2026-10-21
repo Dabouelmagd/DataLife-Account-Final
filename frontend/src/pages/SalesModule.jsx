@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { escapeHtml } from '../utils/escapeHtml';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
@@ -516,24 +517,24 @@ function QuotationsTab({ headers, ar, showMsg, setTab, fetchStats }) {
         .footer { border-top: 2px solid #1e3a8a; margin-top: 20px; padding-top: 10px; font-size: 12px; color: #666; }
       </style></head><body>
       <div class="header">
-        <div><h1 style="color:#1e3a8a;margin:0">عرض سعر</h1><p style="margin:4px 0;color:#666">رقم: ${q.quote_number}</p></div>
+        <div><h1 style="color:#1e3a8a;margin:0">عرض سعر</h1><p style="margin:4px 0;color:#666">رقم: ${escapeHtml(q.quote_number)}</p></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:15px">
-        <div><strong>مقدم إلى:</strong><br/>${q.customer_name}<br/>${q.customer_address||''}</div>
-        <div style="text-align:left"><strong>التاريخ:</strong> ${new Date(q.date).toLocaleDateString('ar-EG')}<br/>
-        <strong>الصلاحية:</strong> ${q.validity_days} يوم</div>
+        <div><strong>مقدم إلى:</strong><br/>${escapeHtml(q.customer_name)}<br/>${escapeHtml(q.customer_address||'')}</div>
+        <div style="text-align:left"><strong>التاريخ:</strong> ${escapeHtml(new Date(q.date).toLocaleDateString('ar-EG'))}<br/>
+        <strong>الصلاحية:</strong> ${escapeHtml(q.validity_days)} يوم</div>
       </div>
       <table>
         <tr><th>الوصف</th><th>الكمية</th><th>الوحدة</th><th>سعر الوحدة</th><th>الإجمالي</th></tr>
-        ${(q.items||[]).map(item => `<tr><td>${item.description}</td><td>${item.quantity}</td><td>${item.unit||'-'}</td><td>${Number(item.unit_price).toLocaleString()}</td><td>${Number(item.total).toLocaleString()}</td></tr>`).join('')}
-        <tr class="total-row"><td colspan="4">المجموع</td><td>${Number(q.subtotal||0).toLocaleString()}</td></tr>
-        ${q.discount_amount > 0 ? `<tr><td colspan="4">الخصم (${q.discount_percent}%)</td><td>- ${Number(q.discount_amount||0).toLocaleString()}</td></tr>` : ''}
-        <tr><td colspan="4">ضريبة القيمة المضافة (${q.vat_percent||14}%)</td><td>${Number(q.vat_amount||0).toLocaleString()}</td></tr>
-        <tr class="total-row"><td colspan="4">الإجمالي النهائي</td><td>${Number(q.total||0).toLocaleString()} ج.م</td></tr>
+        ${(q.items||[]).map(item => `<tr><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.quantity)}</td><td>${escapeHtml(item.unit||'-')}</td><td>${escapeHtml(Number(item.unit_price).toLocaleString())}</td><td>${escapeHtml(Number(item.total).toLocaleString())}</td></tr>`).join('')}
+        <tr class="total-row"><td colspan="4">المجموع</td><td>${escapeHtml(Number(q.subtotal||0).toLocaleString())}</td></tr>
+        ${q.discount_amount > 0 ? `<tr><td colspan="4">الخصم (${escapeHtml(q.discount_percent)}%)</td><td>- ${escapeHtml(Number(q.discount_amount||0).toLocaleString())}</td></tr>` : ''}
+        <tr><td colspan="4">ضريبة القيمة المضافة (${escapeHtml(q.vat_percent||14)}%)</td><td>${escapeHtml(Number(q.vat_amount||0).toLocaleString())}</td></tr>
+        <tr class="total-row"><td colspan="4">الإجمالي النهائي</td><td>${escapeHtml(Number(q.total||0).toLocaleString())} ج.م</td></tr>
       </table>
-      ${q.terms ? `<p><strong>الشروط والأحكام:</strong> ${q.terms}</p>` : ''}
-      ${q.notes ? `<p><strong>ملاحظات:</strong> ${q.notes}</p>` : ''}
-      <div class="footer">شكراً لتعاملكم معنا • صالح لمدة ${q.validity_days} يوم من تاريخ الإصدار</div>
+      ${q.terms ? `<p><strong>الشروط والأحكام:</strong> ${escapeHtml(q.terms)}</p>` : ''}
+      ${q.notes ? `<p><strong>ملاحظات:</strong> ${escapeHtml(q.notes)}</p>` : ''}
+      <div class="footer">شكراً لتعاملكم معنا • صالح لمدة ${escapeHtml(q.validity_days)} يوم من تاريخ الإصدار</div>
       </body></html>
     `;
     const w = window.open('', '_blank');

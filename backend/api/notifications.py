@@ -183,8 +183,18 @@ async def verify_token_from_header(authorization: str):
 
 @router.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
-    """WebSocket endpoint for real-time notifications"""
-    await manager.connect(websocket, user_id)
+    """WebSocket endpoint for real-time notifications (staff JWT required:
+    ?token= or a first {"type":"auth","token":...} message)"""
+    from services.ws_auth import authenticate_websocket, reject
+    payload = await authenticate_websocket(websocket)
+    if not payload:
+        return
+    if payload.get("user_id") != user_id:
+        await reject(websocket)
+        return
+    if user_id not in manager.active_connections:
+        manager.active_connections[user_id] = []
+    manager.active_connections[user_id].append(websocket)
     try:
         while True:
             # Keep connection alive

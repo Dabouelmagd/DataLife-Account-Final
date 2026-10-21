@@ -30,6 +30,13 @@ OTHER_TAX_ACCOUNT = "254"         # الضرائب المستحقة (أي ضري
 CASH_DISCOUNT_ALLOWED = "3212"    # خصم نقدي مسموح به (مصروف تمويلي)
 CASH_DISCOUNT_RECEIVED = "4221"   # خصم نقدي مكتسب (إيراد تمويلي)
 
+# warehouses: only "main" stock is sold; quarantine (awaiting inspection) and
+# scrap hold quantities that no invoice / POS sale may draw on
+WAREHOUSE_TYPES = ("main", "quarantine", "scrap")
+NON_SELLABLE_TYPES = ("quarantine", "scrap")
+RETURN_DISPOSITIONS = ("restock", "quarantine", "scrap")
+WRITE_OFF_ACCOUNT = "33610"       # مصروف تالف وهدر
+
 
 def _line_tax_totals(invoice: Dict) -> Dict[str, float]:
     """Non-VAT taxes on the lines, by account bucket (invoice currency)."""
@@ -796,7 +803,9 @@ class InvoiceService:
                 {"_id": 0, "document_type": 1})
             note_on_purchase = bool(orig) and orig.get("document_type") == DocumentType.PURCHASE_INVOICE.value
         if doc_type == DocumentType.CREDIT_NOTE.value and invoice.get("restock", True) and not note_on_purchase:
-            await self._create_cogs_entry(invoice, user_id, reverse=True, post_entry=(method == "perpetual"))
+            # each returned line goes where its disposition says: back on the
+            # shelf, into a quarantine warehouse awaiting inspection, or scrapped
+            await self._sales_return_stock(invoice, user_id, method)
         elif doc_type == DocumentType.DEBIT_NOTE.value and invoice.get("restock", True) and note_on_purchase:
             # goods handed back to the supplier leave the warehouse
             for line in invoice.get("lines", []):
@@ -831,6 +840,53 @@ class InvoiceService:
         await self.db.chart_of_accounts.insert_one(acc)
         acc.pop("_id", None)
         return acc
+
+    async def cancel_invoice(self, invoice: dict, user_id: str, reason: str = "") -> Dict:
+        """إلغاء فاتورة — يعكس كل ما رحّلته، لا الحالة فقط.
+
+        Cancelling an approved invoice used to change its status and nothing
+        else: the revenue, VAT, receivable, cost of sales and the stock it moved
+        all stayed in the books. Now the posted entries are reversed (dated on
+        the original date while its period is open, otherwise today — the
+        accounting service decides) and the goods move back. Paid invoices and
+        approved notes are refused by the caller / here."""
+        company_id = invoice["company_id"]
+        doc_type = invoice.get("document_type")
+        if invoice.get("status") == DocumentStatus.CANCELLED.value:
+            raise ValueError("الفاتورة ملغاة بالفعل")
+        posted = bool(invoice.get("journal_entry_id"))
+        if posted and doc_type in (DocumentType.CREDIT_NOTE.value, DocumentType.DEBIT_NOTE.value):
+            raise ValueError("الإشعار المعتمد لا يُلغى — أصدر إشعاراً مقابلاً لتصحيحه")
+        reversed_ids = []
+        if posted:
+            je = await self.db.journal_entries.find_one(
+                {"id": invoice["journal_entry_id"], "company_id": company_id}, {"_id": 0, "status": 1})
+            if je and je.get("status") == "posted":
+                r = await self.accounting.reverse_journal_entry(invoice["journal_entry_id"], user_id)
+                reversed_ids.append((r or {}).get("id"))
+            # the cost-of-sales entry carries the invoice number as its reference
+            async for ce in self.db.journal_entries.find(
+                    {"company_id": company_id, "reference": f"COGS-{invoice.get('document_number')}",
+                     "status": "posted"}, {"_id": 0, "id": 1}):
+                r = await self.accounting.reverse_journal_entry(ce["id"], user_id)
+                reversed_ids.append((r or {}).get("id"))
+            # goods back where they came from
+            if doc_type == DocumentType.SALES_INVOICE.value:
+                await self._create_cogs_entry(invoice, user_id, reverse=True, post_entry=False)
+            elif doc_type == DocumentType.PURCHASE_INVOICE.value:
+                for line in invoice.get("lines", []):
+                    if line.get("product_id") and float(line.get("quantity", 0) or 0) > 0:
+                        await self.db.stocks.update_one(
+                            {"company_id": company_id, "product_id": line["product_id"],
+                             "warehouse_id": line.get("warehouse_id", "main")},
+                            {"$inc": {"quantity": -float(line["quantity"])}})
+        await self.db.invoices.update_one(
+            {"id": invoice["id"], "company_id": company_id},
+            {"$set": {"status": DocumentStatus.CANCELLED.value, "cancel_reason": reason[:300],
+                      "cancelled_by": user_id, "cancelled_at": datetime.utcnow().isoformat(),
+                      "reversal_entry_ids": [x for x in reversed_ids if x],
+                      "updated_at": datetime.utcnow().isoformat()}})
+        return {"reversed_entries": len([x for x in reversed_ids if x])}
 
     async def _receive_purchase_stock(self, invoice: dict) -> None:
         """بضاعة مشتراة تدخل المخزون وتحدّث متوسط التكلفة المتحرك.
@@ -879,13 +935,214 @@ class InvoiceService:
 
     async def moving_average_cost(self, company_id: str, product_id: str) -> float:
         """Weighted average cost held on the stock record (0 if unknown)."""
+        held = await self.non_sellable_warehouse_ids(company_id)
         rows = await self.db.stocks.find(
-            {"company_id": company_id, "product_id": product_id}, {"_id": 0}).to_list(None)
+            {"company_id": company_id, "product_id": product_id,
+             **({"warehouse_id": {"$nin": held}} if held else {})}, {"_id": 0}).to_list(None)
         qty = sum(float(r.get("quantity") or 0) for r in rows)
         value = sum(float(r.get("quantity") or 0) * float(r.get("unit_cost") or 0) for r in rows)
         if qty > 0:
             return round(value / qty, 4)
         return round(float(next((r.get("unit_cost") for r in rows if r.get("unit_cost")), 0) or 0), 4)
+
+    # ── warehouse types: main (sellable) | quarantine | scrap ──────────
+    async def warehouse_type(self, company_id: str, warehouse_id: Optional[str]) -> str:
+        """main | quarantine | scrap. The pseudo id "main" (lines that name no
+        warehouse) and any warehouse saved before the type existed are main."""
+        if not warehouse_id:
+            return "main"
+        wh = await self.db.warehouses.find_one({"id": warehouse_id, "company_id": company_id},
+                                               {"_id": 0, "warehouse_type": 1})
+        t = (wh or {}).get("warehouse_type") or "main"
+        return t if t in WAREHOUSE_TYPES else "main"
+
+    async def non_sellable_warehouse_ids(self, company_id: str) -> List[str]:
+        """Quarantine / scrap warehouses: their stock is counted but never sold."""
+        rows = await self.db.warehouses.find(
+            {"company_id": company_id, "warehouse_type": {"$in": list(NON_SELLABLE_TYPES)}},
+            {"_id": 0, "id": 1}).to_list(None)
+        return [r["id"] for r in rows if r.get("id")]
+
+    async def default_sellable_warehouse(self, company_id: str) -> str:
+        rows = await self.db.warehouses.find({"company_id": company_id, "is_active": {"$ne": False}},
+                                             {"_id": 0, "id": 1, "is_default": 1, "warehouse_type": 1}).to_list(None)
+        ok = [w for w in rows if (w.get("warehouse_type") or "main") not in NON_SELLABLE_TYPES]
+        pick = next((w for w in ok if w.get("is_default")), None) or (ok[0] if ok else None)
+        return (pick or {}).get("id") or "main"
+
+    async def _return_unit_cost(self, company_id: str, line: dict) -> float:
+        cost = float(line.get("unit_cost") or 0)
+        if not cost and line.get("product_id"):
+            cost = await self.moving_average_cost(company_id, line["product_id"])
+        if not cost and line.get("product_id"):
+            prod = await self.db.products.find_one({"id": line["product_id"], "company_id": company_id},
+                                                   {"_id": 0, "cost_price": 1}) or {}
+            cost = float(prod.get("cost_price") or 0)
+        return round(cost, 4)
+
+    async def _post_cost_entry(self, invoice: dict, user_id: str, debits: list, credit_code_options: tuple,
+                               credit_amount: float, reference: str, description: str) -> Optional[str]:
+        """Small balanced entry: debits [(code_options, amount, text)], one credit."""
+        accounts = await self.accounting.get_all_accounts(invoice["company_id"])
+
+        def acc_of(codes):
+            return next((a for c in codes for a in accounts if a["account_code"] == c), None)
+        cr = acc_of(credit_code_options)
+        lines = []
+        for codes, amount, text in debits:
+            if round(amount, 2) <= 0:
+                continue
+            acc = acc_of(codes)
+            if not acc and WRITE_OFF_ACCOUNT in codes:
+                acc = await self.ensure_account(invoice["company_id"], WRITE_OFF_ACCOUNT)
+            if not acc:
+                raise ValueError(f"الحساب {codes[0]} غير موجود في شجرة الحسابات")
+            lines.append(JournalEntryLine(account_id=acc["id"], account_code=acc["account_code"],
+                                          account_name=acc["account_name"], debit=round(amount, 2), credit=0.0,
+                                          description=text))
+        if not lines or round(credit_amount, 2) <= 0:
+            return None
+        if not cr:
+            raise ValueError(f"الحساب {credit_code_options[0]} غير موجود في شجرة الحسابات")
+        dr_total = round(sum(l.debit for l in lines), 2)
+        lines.append(JournalEntryLine(account_id=cr["id"], account_code=cr["account_code"],
+                                      account_name=cr["account_name"], debit=0.0, credit=dr_total,
+                                      description=description))
+        _tag_dimensions(lines, invoice)
+        entry = JournalEntry(company_id=invoice["company_id"], entry_number=0,
+                             entry_date=invoice.get("document_date") or datetime.utcnow().strftime("%Y-%m-%d"),
+                             reference=reference, description=description, lines=lines,
+                             source_document_type="invoice", source_document_id=invoice.get("id"),
+                             created_by=user_id)
+        res = await self.accounting.create_journal_entry(entry)
+        await self.accounting.post_journal_entry(res["id"], user_id)
+        return res["id"]
+
+    async def _sales_return_stock(self, invoice: dict, user_id: str, method: str) -> Dict:
+        """Goods coming back on a sales credit note, line by line:
+
+          restock     stock_in to a sellable warehouse at the cost it left at
+          quarantine  stock_in to a quarantine warehouse — counted, never sold,
+                      until POST /api/inventory/quarantine/{movement}/release
+          scrap       no stock_in; the cost is a loss (33610 تالف وهدر)
+
+        Perpetual: one entry Dr 125 (restock + quarantine) + Dr 33610 (scrap)
+        / Cr 314 — the cost of sales the original invoice posted is reversed
+        either way, and what was scrapped becomes an expense instead.
+        Periodic: quantities only (purchases are already expensed, the count
+        adjusts). The note's own revenue / VAT entry is untouched."""
+        from services import ops_posting as P
+        company_id = invoice["company_id"]
+        back = scrapped = 0.0
+        summary = {"restock": 0.0, "quarantine": 0.0, "scrap": 0.0}
+        for ln in invoice.get("lines", []):
+            pid, qty = ln.get("product_id"), float(ln.get("quantity", 0) or 0)
+            if not pid or qty <= 0:
+                continue
+            disp = str(ln.get("return_disposition") or "restock").lower()
+            if disp not in RETURN_DISPOSITIONS:
+                raise ValueError(f"طريقة إرجاع غير معروفة: {disp}")
+            cost = await self._return_unit_cost(company_id, ln)
+            value = round(qty * cost, 2)
+            summary[disp] = round(summary[disp] + qty, 3)
+            if disp == "scrap":
+                scrapped += value
+                continue
+            wh = ln.get("warehouse_id") or ("main" if disp == "restock" else None)
+            wtype = await self.warehouse_type(company_id, wh) if wh else None
+            if disp == "restock" and wtype in NON_SELLABLE_TYPES:
+                raise ValueError("الإرجاع للمخزون يكون لمخزن بيع — اختر «حجر/فحص» لمخزن الحجر")
+            if disp == "quarantine" and wtype != "quarantine":
+                raise ValueError("اختر مخزن حجر/فحص (نوعه quarantine) للبضاعة المرتجعة تحت الفحص")
+            kw = dict(date_str=invoice.get("document_date") or "", source_type="credit_note",
+                      source_id=invoice.get("id"), user_id=user_id, product_name=ln.get("description") or "")
+            await P.stock_in(self.db, company_id, pid, wh, qty, cost, mtype="return_in", **kw)
+            if disp == "quarantine":
+                mv = await self.db.stock_movements.find_one(
+                    {"company_id": company_id, "source_document_id": invoice.get("id"), "product_id": pid,
+                     "warehouse_id": wh, "movement_type": "return_in", "quarantine_status": {"$exists": False}},
+                    {"_id": 0, "id": 1})
+                if mv:
+                    await self.db.stock_movements.update_one({"id": mv["id"]}, {"$set": {
+                        "quarantine_status": "held", "released_qty": 0.0, "releases": [],
+                        "source_document_number": invoice.get("document_number")}})
+            back += value
+        entry_id = None
+        if method == "perpetual" and round(back + scrapped, 2) > 0:
+            try:
+                ref = invoice.get("document_number")
+                entry_id = await self._post_cost_entry(
+                    invoice, user_id,
+                    [(("125", "122", "121"), back, f"بضاعة مرتجعة للمخزون — إشعار {ref}"),
+                     ((WRITE_OFF_ACCOUNT,), scrapped, f"مرتجعات تالفة أُعدمت — إشعار {ref}")],
+                    ("314", "311"), back + scrapped, f"COGS-{ref}",
+                    f"عكس تكلفة البضاعة المباعة — إشعار دائن {ref}")
+            except Exception as e:
+                logger.error(f"return cost entry failed for {invoice.get('document_number')}: {e}")
+        if invoice.get("id"):
+            await self.db.invoices.update_one({"id": invoice["id"], "company_id": company_id}, {"$set": {
+                "return_summary": {**summary, "restocked_cost": round(back, 2), "scrapped_cost": round(scrapped, 2),
+                                   "cost_entry_id": entry_id}}})
+        return summary
+
+    async def release_quarantine(self, company_id: str, movement_id: str, decision: str, user_id: str,
+                                 quantity: Optional[float] = None, target_warehouse_id: Optional[str] = None,
+                                 date_str: Optional[str] = None, reason: Optional[str] = None) -> Dict:
+        """Inspection result for goods held in quarantine.
+
+        pass   → transfer to a sellable warehouse at the same cost (no entry:
+                 the value never left inventory 125)
+        scrap  → out of stock; perpetual: Dr 33610 تالف وهدر / Cr 125.
+                 Periodic: quantities only."""
+        from services import ops_posting as P
+        mv = await self.db.stock_movements.find_one({"id": movement_id, "company_id": company_id}, {"_id": 0})
+        if not mv or not mv.get("quarantine_status"):
+            raise LookupError("حركة الحجر غير موجودة")
+        if mv["quarantine_status"] == "released":
+            raise ValueError("تم الإفراج عن هذه الكمية بالكامل")
+        decision = {"pass": "pass", "passed": "pass", "restock": "pass", "main": "pass", "transfer": "pass",
+                    "scrap": "scrap", "fail": "scrap", "failed": "scrap", "write_off": "scrap"}.get(
+            str(decision or "").lower())
+        if not decision:
+            raise ValueError("القرار يكون pass (اجتاز الفحص) أو scrap (إعدام)")
+        remaining = round(float(mv.get("quantity") or 0) - float(mv.get("released_qty") or 0), 3)
+        qty = round(float(quantity if quantity is not None else remaining), 3)
+        if qty <= 0 or qty > remaining + 1e-9:
+            raise ValueError(f"الكمية يجب أن تكون بين 0 و{remaining:g}")
+        stock = await P.get_stock(self.db, company_id, mv["product_id"], mv["warehouse_id"])
+        if float(stock.get("quantity") or 0) + 1e-9 < qty:
+            raise ValueError("رصيد مخزن الحجر أقل من الكمية المطلوبة")
+        cost = float(mv.get("unit_cost") or 0)
+        date_str = date_str or datetime.utcnow().strftime("%Y-%m-%d")
+        kw = dict(date_str=date_str, source_type="quarantine_release", source_id=movement_id,
+                  user_id=user_id, product_name=mv.get("product_name") or "")
+        entry_id, target = None, None
+        if decision == "pass":
+            target = target_warehouse_id or await self.default_sellable_warehouse(company_id)
+            if await self.warehouse_type(company_id, target) in NON_SELLABLE_TYPES:
+                raise ValueError("المخزن المستلم يجب أن يكون مخزن بيع (رئيسي)")
+            await P.stock_out(self.db, company_id, mv["product_id"], mv["warehouse_id"], qty, cost,
+                              mtype="transfer_out", **kw)
+            await P.stock_in(self.db, company_id, mv["product_id"], target, qty, cost, mtype="transfer_in", **kw)
+        else:
+            await P.stock_out(self.db, company_id, mv["product_id"], mv["warehouse_id"], qty, cost,
+                              mtype="damage", **kw)
+            value = round(qty * cost, 2)
+            if await self.inventory_method(company_id) == "perpetual" and value > 0:
+                ref = mv.get("source_document_number") or movement_id[:8]
+                entry_id = await self._post_cost_entry(
+                    {"company_id": company_id, "document_date": date_str, "id": movement_id}, user_id,
+                    [((WRITE_OFF_ACCOUNT,), value, f"إعدام مرتجع فشل الفحص — {ref}")],
+                    ("125", "122", "121"), value, f"WO-{ref}",
+                    f"إعدام بضاعة من مخزن الحجر — {reason or ref}")
+        released = round(float(mv.get("released_qty") or 0) + qty, 3)
+        rec = {"decision": decision, "quantity": qty, "date": date_str, "target_warehouse_id": target,
+               "journal_entry_id": entry_id, "reason": reason, "by": user_id}
+        await self.db.stock_movements.update_one({"id": movement_id}, {
+            "$set": {"released_qty": released,
+                     "quarantine_status": "released" if released >= float(mv.get("quantity") or 0) - 1e-9 else "partial"},
+            "$push": {"releases": rec}})
+        return {**rec, "remaining": round(remaining - qty, 3)}
 
     async def _create_cogs_entry(self, invoice: dict, user_id: str, reverse: bool = False,
                                  post_entry: bool = True) -> None:
@@ -924,6 +1181,7 @@ class InvoiceService:
             
             # حساب إجمالي التكلفة من بنود الفاتورة
             total_cost = 0.0
+            line_costs = {}
             for line in invoice.get("lines", []):
                 qty      = float(line.get("quantity", 0))
                 # was: unit_price * 0.7 — a 30% margin invented and posted to the
@@ -938,7 +1196,18 @@ class InvoiceService:
                         {"_id": 0, "cost_price": 1}) or {}
                     cost = float(prod.get("cost_price") or 0)
                 total_cost += qty * cost
-            
+                if not reverse and cost:
+                    line_costs[str(line.get("line_number") or "")] = round(cost, 4)
+            # the cost each line left the warehouse at: a later return puts the
+            # goods back (or writes them off) at this cost, not today's average
+            if line_costs and invoice.get("id"):
+                sets = {f"lines.{i}.cost_at_sale": line_costs[str(l.get("line_number") or "")]
+                        for i, l in enumerate(invoice.get("lines", []))
+                        if str(l.get("line_number") or "") in line_costs}
+                if sets:
+                    await self.db.invoices.update_one({"id": invoice["id"], "company_id": invoice["company_id"]},
+                                                      {"$set": sets})
+
             total_cost = round(total_cost, 2)
             if total_cost <= 0:
                 return  # No cost to record

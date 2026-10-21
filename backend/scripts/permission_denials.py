@@ -19,7 +19,7 @@ def main():
     db = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     rows = list(db.permission_audit.find({"at": {"$gte": since}}, {"_id": 0}))
-    mode = os.environ.get("PERMISSION_ENFORCEMENT", "log")
+    mode = os.environ.get("PERMISSION_ENFORCEMENT", "enforce")
     print(f"mode: {mode} | last {days} days | {len(rows)} would-be refusals (deduplicated per user/area/hour)")
     if not rows:
         print("nothing — every request matched the user's permissions")

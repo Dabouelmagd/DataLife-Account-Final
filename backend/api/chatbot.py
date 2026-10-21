@@ -154,12 +154,24 @@ async def _prepare(data: SendIn, request: Optional[Request]):
     return session_id, history
 
 
-async def _save(session_id: str, data: SendIn, reply: str) -> str:
+def _owner(request: Optional[Request]) -> Optional[str]:
+    """The signed-in user sending the message, if any (the widget is also public)."""
+    try:
+        auth = (request.headers.get("authorization") or "") if request else ""
+        if auth.startswith("Bearer "):
+            from services.auth_service import verify_token
+            return (verify_token(auth[7:]) or {}).get("user_id")
+    except Exception:
+        pass
+    return None
+
+
+async def _save(session_id: str, data: SendIn, reply: str, owner: Optional[str] = None) -> str:
     ts = _now()
     await db.chatbot_sessions.update_one(
         {"session_id": session_id},
         {
-            "$setOnInsert": {"session_id": session_id, "created_at": ts},
+            "$setOnInsert": {"session_id": session_id, "created_at": ts, "user_id": owner},
             "$set": {"updated_at": ts, "language": data.language},
             "$push": {"messages": {
                 "$each": [
@@ -181,7 +193,7 @@ async def send_message(data: SendIn, request: Request = None):
     reply = await support_ai.answer(history) if history else None
     if not reply:
         reply = _answer(data.message, data.language)
-    ts = await _save(session_id, data, reply)
+    ts = await _save(session_id, data, reply, _owner(request))
     return {"session_id": session_id, "message": reply, "timestamp": ts}
 
 
@@ -207,7 +219,7 @@ async def stream_message(data: SendIn, request: Request = None):
         if not reply:
             reply = _answer(data.message, data.language)
             yield _sse({"type": "delta", "text": reply})
-        ts = await _save(session_id, data, reply)
+        ts = await _save(session_id, data, reply, _owner(request))
         yield _sse({"type": "done", "session_id": session_id, "message": reply, "timestamp": ts})
 
     # X-Accel-Buffering: nginx would otherwise hold the whole answer and the
@@ -223,8 +235,15 @@ async def chat(data: SendIn, request: Request = None):
 
 
 @router.delete("/session/{session_id}")
-async def clear_session(session_id: str):
-    await db.chatbot_sessions.delete_one({"session_id": session_id})
+async def clear_session(session_id: str, request: Request):
+    """Delete a conversation — signed in, and only one's own. It was open to
+    anyone, for any session id."""
+    owner = _owner(request)
+    if not owner:
+        raise HTTPException(status_code=401, detail="سجّل الدخول لحذف المحادثة")
+    res = await db.chatbot_sessions.delete_one({"session_id": session_id, "user_id": owner})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Session not found")
     return {"message": "Session cleared"}
 
 

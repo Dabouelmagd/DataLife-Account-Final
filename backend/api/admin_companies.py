@@ -122,7 +122,7 @@ async def get_company_details(
     # Get users
     users = await db.users.find(
         {"company_id": company_id},
-        {"_id": 0, "password_hash": 0}
+        {"_id": 0, "password_hash": 0, "password": 0, "temp_password": 0}
     ).to_list(length=100)
     
     # Get recent activity

@@ -13,6 +13,7 @@ Routes:
   GET  /api/super-admin/access-logs        Audit access log
 """
 
+import re as _re
 import os
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -93,8 +94,8 @@ async def list_tenants(
         query["is_active"] = False
     if search:
         query["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"email": {"$regex": search, "$options": "i"}}
+            {"name": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+            {"email": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}}
         ]
 
     skip = (page - 1) * limit

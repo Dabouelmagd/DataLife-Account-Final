@@ -131,7 +131,7 @@ const SupportChatbot = () => {
       let streamed = false;
       try {
         const res = await fetch(`${API_URL}/api/chatbot/stream`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+          method: 'POST', headers: chatHeaders(), body
         });
         if (res.ok && res.body && res.body.getReader) {
           const reader = res.body.getReader();
@@ -171,7 +171,7 @@ const SupportChatbot = () => {
       if (streamed) return;
 
       const response = await fetch(`${API_URL}/api/chatbot/send`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+        method: 'POST', headers: chatHeaders(), body
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || 'Error');
@@ -188,12 +188,24 @@ const SupportChatbot = () => {
     }
   };
 
+  // a signed-in user's conversation is recorded as theirs (so they can delete it)
+  const chatHeaders = () => {
+    const t = localStorage.getItem('token');
+    return t ? { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` } : { 'Content-Type': 'application/json' };
+  };
+
   const clearChat = async () => {
     if (sessionId) {
       try {
-        await fetch(`${API_URL}/api/chatbot/session/${sessionId}`, {
-          method: 'DELETE'
-        });
+        // only a signed-in user can delete (their own) conversation on the server;
+        // a visitor's chat is just cleared on screen
+        const authToken = localStorage.getItem('token');
+        if (authToken) {
+          await fetch(`${API_URL}/api/chatbot/session/${sessionId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${authToken}` }
+          });
+        }
       } catch (e) {
         console.error('Error clearing session:', e);
       }

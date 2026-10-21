@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 export const useRealTimeSync = (onUpdate) => {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -26,6 +26,10 @@ export const useRealTimeSync = (onUpdate) => {
       wsRef.current = new WebSocket(fullUrl);
 
       wsRef.current.onopen = () => {
+        // the server closes (4401) a socket that does not authenticate within 5s;
+        // sent as a message so the token stays out of URLs and proxy logs
+        const authToken = localStorage.getItem('token');
+        if (authToken) wsRef.current?.send(JSON.stringify({ type: 'auth', token: authToken }));
         setIsConnected(true);
         reconnectAttempts.current = 0;
       };
@@ -56,8 +60,9 @@ export const useRealTimeSync = (onUpdate) => {
         }
       };
 
-      wsRef.current.onclose = () => {
+      wsRef.current.onclose = (event) => {
         setIsConnected(false);
+        if (event?.code === 4401) return; // not signed in / wrong room: retrying cannot help
 
         // Attempt to reconnect
         if (reconnectAttempts.current < maxReconnectAttempts) {

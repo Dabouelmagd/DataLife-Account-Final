@@ -7,6 +7,7 @@
  * paid, and optionally an ETA submission. Orders whose SKUs are not mapped
  * wait in "needs mapping" until they are mapped and retried.
  */
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Store, Plus, Copy, RefreshCw, Trash2, Loader2, Check, KeyRound, Link2, X } from 'lucide-react';
@@ -40,8 +41,8 @@ const EMPTY = {
 function CopyField({ label, value, ar }) {
   const [done, setDone] = useState(false);
   const copy = async () => {
-    try { await navigator.clipboard.writeText(value); setDone(true); setTimeout(() => setDone(false), 1500); }
-    catch { window.prompt(ar ? 'انسخ القيمة' : 'Copy the value', value); }
+    if (await copyText(value)) { setDone(true); setTimeout(() => setDone(false), 1500); }
+    else window.prompt(ar ? 'انسخ القيمة' : 'Copy the value', value);
   };
   return (
     <div>

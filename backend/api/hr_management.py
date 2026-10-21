@@ -3,6 +3,7 @@ HR Management API - Deductions, Allowances, Shifts
 إدارة الموارد البشرية - الخصومات، البدلات، الورديات
 """
 
+import re as _re
 from fastapi import APIRouter, HTTPException, Depends, Header, Query
 from typing import Optional, List
 from datetime import datetime
@@ -148,7 +149,7 @@ async def get_deductions(
     
     if month:
         # Filter by month (date starts with YYYY-MM)
-        query["date"] = {"$regex": f"^{month}"}
+        query["date"] = {"$regex": "^" + _re.escape(str(month))}
     
     if employee_id:
         query["employee_id"] = employee_id
@@ -284,7 +285,7 @@ async def get_allowances(
     query = {"company_id": current_user["company_id"]}
     
     if month:
-        query["date"] = {"$regex": f"^{month}"}
+        query["date"] = {"$regex": "^" + _re.escape(str(month))}
     
     if employee_id:
         query["employee_id"] = employee_id
@@ -588,7 +589,7 @@ async def get_deductions_stats(
     """Get deductions statistics"""
     query = {"company_id": current_user["company_id"]}
     if month:
-        query["date"] = {"$regex": f"^{month}"}
+        query["date"] = {"$regex": "^" + _re.escape(str(month))}
     
     pipeline = [
         {"$match": query},
@@ -626,7 +627,7 @@ async def get_allowances_stats(
     """Get allowances statistics"""
     query = {"company_id": current_user["company_id"]}
     if month:
-        query["date"] = {"$regex": f"^{month}"}
+        query["date"] = {"$regex": "^" + _re.escape(str(month))}
     
     pipeline = [
         {"$match": query},

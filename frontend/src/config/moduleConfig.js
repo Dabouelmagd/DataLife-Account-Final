@@ -233,6 +233,7 @@ export const getHRSubModules = (isArabic) => [
   { id: 'hr-appraisals',     name: isArabic ? '📈 تقييم الأداء'                 : '📈 Performance Appraisals' },
   { id: 'hr-tools',          name: isArabic ? '🗓️ الإجازات والإضافي والجزاءات' : '🗓️ Leave, Overtime & Penalties' },
   { id: 'hr-end-of-service', name: isArabic ? '🧾 التسوية وإخلاء الطرف'        : '🧾 Final Settlement & Clearance' },
+  { id: 'hr-insurance-forms', name: isArabic ? '🛡️ نماذج التأمينات (1 و6)' : '🛡️ Insurance Forms 1 & 6' },
   { id: 'hr-loans-custody',  name: isArabic ? '💳 السلف والعهد'                 : '💳 Loans & Custody' },
   { id: 'hr-commissions',    name: isArabic ? '🎯 عمولات المندوبين'             : '🎯 Sales Commissions' },
   { id: 'data-protection',   name: isArabic ? '🔐 طلبات البيانات الشخصية'       : '🔐 Personal Data Requests' },

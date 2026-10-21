@@ -1,3 +1,4 @@
+import MonthInput from '../components/ui/MonthInput';
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   DollarSign, Users, Calendar, Calculator, CheckCircle, 
@@ -931,10 +932,10 @@ export default function PayrollPage() {
                 <>
                   <div>
                     <label className="block text-sm font-medium mb-1">{text.month} *</label>
-                    <Input 
-                      type="month" 
-                      value={formData.month || ''} 
-                      onChange={e => setFormData({...formData, month: e.target.value})} 
+                    <MonthInput
+                      value={formData.month || ''}
+                      onChange={e => setFormData({...formData, month: e.target.value})}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -999,10 +1000,10 @@ export default function PayrollPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">{text.startMonth} *</label>
-                    <Input 
-                      type="month" 
-                      value={formData.start_month || ''} 
-                      onChange={e => setFormData({...formData, start_month: e.target.value})} 
+                    <MonthInput
+                      value={formData.start_month || ''}
+                      onChange={e => setFormData({...formData, start_month: e.target.value})}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                     />
                   </div>
                   <div>

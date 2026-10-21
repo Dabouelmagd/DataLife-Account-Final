@@ -397,7 +397,7 @@ def _render_pdf(report: dict, company_name: str) -> bytes:
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle)
-    from services.arabic_pdf import ar, font_name
+    from services.arabic_pdf import ar, ar_para, font_name
 
     regular, bold = font_name(), font_name(bold=True)
     title = ParagraphStyle("t", fontName=bold, fontSize=16, alignment=2, spaceAfter=4)
@@ -413,8 +413,8 @@ def _render_pdf(report: dict, company_name: str) -> bytes:
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=18 * mm, leftMargin=18 * mm,
                             topMargin=16 * mm, bottomMargin=16 * mm,
                             title="تقرير المرشح")
-    flow = [Paragraph(ar(f"تقرير المرشح — {report.get('candidate_name','')}"), title),
-            Paragraph(ar(f"{company_name} · {report.get('job_title') or '—'} · "
+    flow = [Paragraph(ar_para(f"تقرير المرشح — {report.get('candidate_name','')}"), title),
+            Paragraph(ar_para(f"{company_name} · {report.get('job_title') or '—'} · "
                          f"{(report.get('generated_at') or '')[:10]}"), sub)]
 
     def table(rows, widths):
@@ -434,7 +434,7 @@ def _render_pdf(report: dict, company_name: str) -> bytes:
         return t
 
     # the decision line first — it is what the reader came for
-    flow.append(Paragraph(ar("الخلاصة"), head))
+    flow.append(Paragraph(ar_para("الخلاصة"), head))
     interview = report.get("interview_score")
     aptitude = report.get("aptitude_score")
     flow.append(table([
@@ -446,7 +446,7 @@ def _render_pdf(report: dict, company_name: str) -> bytes:
     ], [60 * mm, 110 * mm]))
 
     if report.get("interview_breakdown"):
-        flow.append(Paragraph(ar("تفصيل المقابلات"), head))
+        flow.append(Paragraph(ar_para("تفصيل المقابلات"), head))
         rows = [[ar("المعيار"), ar("المتوسط"), ar("الوزن"), ar("المساهمة")]]
         for b in report["interview_breakdown"]:
             rows.append([ar(b["label"]), ar(f"{b['avg_score']} / 5"),
@@ -454,7 +454,7 @@ def _render_pdf(report: dict, company_name: str) -> bytes:
         flow.append(table(rows, [70 * mm, 33 * mm, 33 * mm, 34 * mm]))
 
     if report.get("area_scores"):
-        flow.append(Paragraph(ar("القدرات بالمجالات"), head))
+        flow.append(Paragraph(ar_para("القدرات بالمجالات"), head))
         names = {"numerical": "عددي", "verbal": "لفظي", "logical": "منطقي",
                  "attention": "دقة ملاحظة", "situational": "مواقف عملية"}
         rows = [[ar("المجال"), ar("الدرجة من 10")]]
@@ -463,7 +463,7 @@ def _render_pdf(report: dict, company_name: str) -> bytes:
         flow.append(table(rows, [100 * mm, 70 * mm]))
 
     if report.get("personality_type"):
-        flow.append(Paragraph(ar("ملف الشخصية (استرشادي)"), head))
+        flow.append(Paragraph(ar_para("ملف الشخصية (استرشادي)"), head))
         from services.assessment_scoring import axis_summary, is_unclear
         unclear = is_unclear(report.get("personality_clarity") or {})
         rows_p = [
@@ -478,9 +478,9 @@ def _render_pdf(report: dict, company_name: str) -> bytes:
                               f" · يميل إلى {ax['lean_name']} ({ax['strength']})")])
         flow.append(table(rows_p, [50 * mm, 120 * mm]))
         if unclear:
-            flow.append(Paragraph(ar("الإجابات لم تحسم معظم المحاور، فالنمط أعلاه غير واضح ولا يُعتمد عليه."), note))
+            flow.append(Paragraph(ar_para("الإجابات لم تحسم معظم المحاور، فالنمط أعلاه غير واضح ولا يُعتمد عليه."), note))
         flow.append(Spacer(1, 4))
-        flow.append(Paragraph(ar(
+        flow.append(Paragraph(ar_para(
             "هذه النتيجة استرشادية لفهم أسلوب العمل المفضّل، ولم تدخل في أي درجة أو توصية. "
             "أدوات أنماط الشخصية لا تتنبأ بالأداء الوظيفي وقد تعطي نمطاً مختلفاً عند إعادة "
             "الاختبار، فلا تُبنى عليها قرارات القبول أو الرفض."), note))
@@ -489,17 +489,17 @@ def _render_pdf(report: dict, company_name: str) -> bytes:
                          ("concerns_notes", "التحفظات")):
         items = report.get(key) or []
         if items:
-            flow.append(Paragraph(ar(heading), head))
+            flow.append(Paragraph(ar_para(heading), head))
             for item in items:
-                flow.append(Paragraph(ar(f"• {item}"), body))
+                flow.append(Paragraph(ar_para(f"• {item}"), body))
 
     if report.get("ai_summary"):
-        flow.append(Paragraph(ar("ملخص المدير"), head))
+        flow.append(Paragraph(ar_para("ملخص المدير"), head))
         for para in str(report["ai_summary"]).split("\n"):
             if para.strip():
-                flow.append(Paragraph(ar(para.strip()), body))
+                flow.append(Paragraph(ar_para(para.strip()), body))
                 flow.append(Spacer(1, 3))
-        flow.append(Paragraph(ar("ملخص مُولَّد آلياً — يُقرأ كمساعدة لا كبديل عن قراءة التقرير."), note))
+        flow.append(Paragraph(ar_para("ملخص مُولَّد آلياً — يُقرأ كمساعدة لا كبديل عن قراءة التقرير."), note))
 
     doc.build(flow)
     return buf.getvalue()

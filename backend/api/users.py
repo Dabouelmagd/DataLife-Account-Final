@@ -1,3 +1,11 @@
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 from fastapi import APIRouter, HTTPException, Depends, Header
 from models.user import UserCreate, UserResponse
 from models.permission import get_role_permissions, ROLE_PERMISSIONS
@@ -65,6 +73,11 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 # Roles that own/administer a company. A company must always keep one active.
 OWNER_ROLES = ["رئيس مجلس الإدارة", "General Manager", "مدير عام", "CEO",
                "المدير التنفيذي", "Board Chairman"]
+
+# Never sent back by a profile endpoint (/me returned the bcrypt hash).
+USER_SECRET_PROJECTION = {"_id": 0, "password": 0, "password_hash": 0, "temp_password": 0,
+                          "two_factor_secret": 0, "totp_secret": 0, "backup_codes": 0,
+                          "reset_otp": 0, "otp": 0}
 
 # Get database instance
 from database import get_database
@@ -141,10 +154,10 @@ async def add_user(
                 <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
                     <h2 style="color: #333; text-align: center;">🎉 مرحباً بك في الفريق!</h2>
                     <p style="color: #666; font-size: 16px; text-align: center;">
-                        تمت دعوتك للانضمام إلى <strong>{company_name}</strong> على منصة DataLife Account
+                        تمت دعوتك للانضمام إلى <strong>{_h(company_name)}</strong> على منصة DataLife Account
                     </p>
                     <p style="color: #666; font-size: 14px; text-align: center;">
-                        تمت الدعوة بواسطة: <strong>{inviter_name}</strong>
+                        تمت الدعوة بواسطة: <strong>{_h(inviter_name)}</strong>
                     </p>
                     
                     <div style="background: #fff; border: 2px solid #667eea; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -152,7 +165,7 @@ async def add_user(
                         <table style="width: 100%; border-collapse: collapse;">
                             <tr>
                                 <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">البريد الإلكتروني:</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold;">{user_data.email}</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold;">{_h(user_data.email)}</td>
                             </tr>
                             <tr>
                                 <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">كلمة المرور:</td>
@@ -273,7 +286,7 @@ async def resend_invitation(
             <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
                 <h2 style="color: #333; text-align: center;">📧 إعادة إرسال الدعوة</h2>
                 <p style="color: #666; font-size: 16px; text-align: center;">
-                    تم إعادة إرسال دعوتك للانضمام إلى <strong>{company_name}</strong>
+                    تم إعادة إرسال دعوتك للانضمام إلى <strong>{_h(company_name)}</strong>
                 </p>
                 
                 <div style="background: #fff; border: 2px solid #667eea; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -281,7 +294,7 @@ async def resend_invitation(
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
                             <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">البريد الإلكتروني:</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold;">{user.get('email')}</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold;">{_h(user.get('email'))}</td>
                         </tr>
                         <tr>
                             <td style="padding: 10px; color: #666;">كلمة المرور الجديدة:</td>
@@ -412,12 +425,12 @@ async def invite_employee(
                 <h1 style="color: white; margin: 0; text-align: center;">🎉 دعوة للانضمام</h1>
             </div>
             <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
-                <h2 style="color: #333; text-align: center;">مرحباً {invite_data.full_name}!</h2>
+                <h2 style="color: #333; text-align: center;">مرحباً {_h(invite_data.full_name)}!</h2>
                 <p style="color: #666; font-size: 16px; text-align: center;">
-                    تمت دعوتك للانضمام إلى <strong>{company_name}</strong> على منصة DataLife Account
+                    تمت دعوتك للانضمام إلى <strong>{_h(company_name)}</strong> على منصة DataLife Account
                 </p>
                 <p style="color: #666; font-size: 14px; text-align: center;">
-                    تمت الدعوة بواسطة: <strong>{inviter_name}</strong>
+                    تمت الدعوة بواسطة: <strong>{_h(inviter_name)}</strong>
                 </p>
                 
                 <div style="background: #fff; border: 2px solid #10b981; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -425,7 +438,7 @@ async def invite_employee(
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
                             <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666; width: 40%;">البريد الإلكتروني:</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold;">{invite_data.email}</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333; font-weight: bold;">{_h(invite_data.email)}</td>
                         </tr>
                         <tr>
                             <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">كلمة المرور المؤقتة:</td>
@@ -544,6 +557,19 @@ async def list_company_users(
     
     return [user_to_response(user) for user in users]
 
+# How senior each role is: a manager may hand out roles up to their own level,
+# never above it (an HR manager could otherwise make themselves Board Chairman).
+ROLE_LEVEL = {r: 3 for r in OWNER_ROLES}
+ROLE_LEVEL.update({r: 2 for r in ("Financial Manager", "المدير المالي", "Chief Accountant", "رئيس الحسابات",
+                                   "HR Manager", "مدير الموارد البشرية", "Project Manager", "مدير المشاريع")})
+ROLE_LEVEL.update({r: 1 for r in ("Accountant", "محاسب")})
+ROLE_LEVEL.update({r: 0 for r in ("Employee", "موظف")})
+
+
+def role_level(role: str) -> int:
+    return ROLE_LEVEL.get(role or "", 0)
+
+
 @router.put("/{user_id}/role", response_model=UserResponse)
 async def update_role(
     user_id: str,
@@ -551,22 +577,42 @@ async def update_role(
     current_user: dict = Depends(get_current_user)
 ):
     """Update a user's role (requires General Manager role)"""
-    # Check if current user has permission to assign roles
-    check_user_permission(current_user.get("role"), "assign_roles")
-    
-    # Validate role
+    # the role in the token may be stale (demoted since login): use the stored one
+    caller = await db.users.find_one({"id": current_user.get("user_id")}, {"_id": 0, "role": 1, "is_platform_admin": 1}) or {}
+    caller_role = caller.get("role") or current_user.get("role")
+    is_platform = bool(caller.get("is_platform_admin")) or caller_role == "Super Admin"
+    if not is_platform:
+        check_user_permission(caller_role, "assign_roles")
+
+    # Validate role (allowlist)
     if role not in ROLE_PERMISSIONS:
         raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(ROLE_PERMISSIONS.keys())}")
-    
-    # Update role
-    user = await update_user_role(db, user_id, role)
+
+    if user_id == current_user.get("user_id"):
+        raise HTTPException(status_code=400, detail="لا يمكنك تغيير دورك بنفسك")
+
+    company_id = current_user.get("company_id")
+    target = await db.users.find_one({"id": user_id, "company_id": company_id}, {"_id": 0, "role": 1, "is_active": 1})
+    if not target or not company_id:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not is_platform:
+        if role_level(role) > role_level(caller_role):
+            raise HTTPException(status_code=403, detail="لا يمكنك منح دور أعلى من دورك")
+        if role_level(target.get("role")) > role_level(caller_role):
+            raise HTTPException(status_code=403, detail="لا يمكنك تعديل دور مستخدم أعلى منك")
+
+    # never leave a company without an active owner
+    if target.get("role") in OWNER_ROLES and role not in OWNER_ROLES and target.get("is_active", True):
+        others = await db.users.count_documents({
+            "company_id": company_id, "id": {"$ne": user_id},
+            "role": {"$in": OWNER_ROLES}, "is_active": {"$ne": False}})
+        if others == 0:
+            raise HTTPException(status_code=409, detail="لا يمكن تغيير دور آخر مدير للشركة — عيّن مديراً آخر أولاً")
+
+    user = await update_user_role(db, user_id, role, company_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Check if updated user belongs to same company
-    if user.company_id != current_user.get("company_id"):
-        raise HTTPException(status_code=403, detail="Cannot modify users from other companies")
-    
     return user_to_response(user)
 
 @router.delete("/{user_id}")
@@ -742,7 +788,7 @@ async def update_my_profile(data: dict, authorization: Optional[str] = Header(No
         {"id": payload.get("user_id")},
         {"$set": update_data}
     )
-    user = await db.users.find_one({"id": payload.get("user_id")}, {"_id": 0, "password": 0})
+    user = await db.users.find_one({"id": payload.get("user_id")}, USER_SECRET_PROJECTION)
     return user
 
 
@@ -753,8 +799,10 @@ async def update_user_details(
     current_user: dict = Depends(get_current_user)
 ):
     """Update user details"""
-    # Check permissions
-    is_manager = current_user.get("role") in ['General Manager', 'CEO', 'Board Chairman', 'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة']
+    # Check permissions — with the stored role (the token's may be stale)
+    caller = await db.users.find_one({"id": current_user.get("user_id")}, {"_id": 0, "role": 1, "is_platform_admin": 1}) or {}
+    caller_role = caller.get("role") or current_user.get("role")
+    is_manager = caller_role in ['General Manager', 'CEO', 'Board Chairman', 'مدير عام', 'المدير التنفيذي', 'رئيس مجلس الإدارة']
     is_own_account = user_id == current_user.get("user_id")
     
     # Users can only edit their own name/email, managers can edit everything
@@ -771,28 +819,44 @@ async def update_user_details(
         raise HTTPException(status_code=404, detail="User not found")
     
     # Check company isolation
-    if user.get("company_id") != current_user.get("company_id"):
+    if not current_user.get("company_id") or user.get("company_id") != current_user.get("company_id"):
         raise HTTPException(status_code=403, detail="Cannot modify users from other companies")
     
     # Build update dict
     update_dict = {}
     if update_data.full_name:
         update_dict["full_name"] = update_data.full_name
-    if update_data.email:
+    if update_data.email and update_data.email.strip().lower() != (user.get("email") or "").lower():
+        # Changing another owner's email is an account takeover (then a reset
+        # code goes to the new address): an owner changes their own email; a
+        # manager may change it only for users below the owner level.
+        if not is_own_account and user.get("role") in OWNER_ROLES and not caller.get("is_platform_admin"):
+            raise HTTPException(status_code=403, detail="لا يمكن تغيير بريد مدير آخر — يغيّره صاحب الحساب بنفسه")
         # Check if email is already taken
-        existing = await db.users.find_one({"email": update_data.email, "id": {"$ne": user_id}})
+        new_email = update_data.email.strip().lower()
+        existing = await db.users.find_one({"email": new_email, "id": {"$ne": user_id}})
         if existing:
             raise HTTPException(status_code=400, detail="Email already in use")
-        update_dict["email"] = update_data.email
-    if update_data.role and is_manager:
+        update_dict["email"] = new_email
+    if update_data.role and is_manager and update_data.role != user.get("role"):
         if update_data.role not in ROLE_PERMISSIONS:
             raise HTTPException(status_code=400, detail="Invalid role")
+        if is_own_account:
+            raise HTTPException(status_code=400, detail="لا يمكنك تغيير دورك بنفسك")
+        if role_level(update_data.role) > role_level(caller_role) or role_level(user.get("role")) > role_level(caller_role):
+            raise HTTPException(status_code=403, detail="لا يمكنك منح دور أعلى من دورك")
+        if user.get("role") in OWNER_ROLES and update_data.role not in OWNER_ROLES:
+            others = await db.users.count_documents({
+                "company_id": user.get("company_id"), "id": {"$ne": user_id},
+                "role": {"$in": OWNER_ROLES}, "is_active": {"$ne": False}})
+            if others == 0:
+                raise HTTPException(status_code=409, detail="لا يمكن تغيير دور آخر مدير للشركة — عيّن مديراً آخر أولاً")
         update_dict["role"] = update_data.role
     
     # Update user
     if update_dict:
         await db.users.update_one(
-            {"id": user_id},
+            {"id": user_id, "company_id": current_user.get("company_id")},
             {"$set": update_dict}
         )
     
@@ -868,7 +932,7 @@ async def get_my_profile(authorization: Optional[str] = Header(None)):
     payload = vt(authorization.replace("Bearer ", ""))
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid token")
-    user = await db.users.find_one({"id": payload.get("user_id")}, {"_id": 0, "password": 0})
+    user = await db.users.find_one({"id": payload.get("user_id")}, USER_SECRET_PROJECTION)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user

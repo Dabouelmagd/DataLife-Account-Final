@@ -2,6 +2,7 @@
  * AssistantsPanel — إدارة مساعدي الـ Owner
  * Super Admin يضيف مساعدين بصلاحيات محددة
  */
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
@@ -152,7 +153,7 @@ export default function AssistantsPanel() {
           {msg.password && (
             <div className="mt-2 flex items-center gap-2">
               <code className="bg-green-100 px-3 py-1 rounded-lg font-mono font-bold text-green-900">{msg.password}</code>
-              <button onClick={() => navigator.clipboard.writeText(msg.password)} className="text-green-600 hover:text-green-800">
+              <button onClick={() => copyText(msg.password)} className="text-green-600 hover:text-green-800">
                 <Copy className="w-4 h-4" />
               </button>
             </div>

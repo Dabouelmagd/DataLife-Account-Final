@@ -47,6 +47,7 @@ import {
   ProjectDetailDialog,
   TaskDetailDialog
 } from './projects';
+import { escapeHtml } from '../utils/escapeHtml';
 
 // Alias for backwards compatibility
 const TaskList = TasksList;
@@ -360,18 +361,18 @@ const ProjectsModule = () => {
 
     const expenseRows = expenses.map(e => `
       <tr>
-        <td>${e.date || '—'}</td>
-        <td>${isRTL ? (EXP_CAT[e.category] || e.category) : e.category}</td>
-        <td>${e.description || '—'}</td>
-        <td style="text-align:left">${fmt(e.amount)} ج.م</td>
+        <td>${escapeHtml(e.date || '—')}</td>
+        <td>${escapeHtml(isRTL ? (EXP_CAT[e.category] || e.category) : e.category)}</td>
+        <td>${escapeHtml(e.description || '—')}</td>
+        <td style="text-align:left">${escapeHtml(fmt(e.amount))} ج.م</td>
       </tr>`).join('');
 
     const revenueRows = revenues.map(r => `
       <tr>
-        <td>${r.date || '—'}</td>
-        <td>${isRTL ? (REV_CAT[r.category] || r.category) : r.category}</td>
-        <td>${r.description || '—'}</td>
-        <td style="text-align:left">${fmt(r.amount)} ج.م</td>
+        <td>${escapeHtml(r.date || '—')}</td>
+        <td>${escapeHtml(isRTL ? (REV_CAT[r.category] || r.category) : r.category)}</td>
+        <td>${escapeHtml(r.description || '—')}</td>
+        <td style="text-align:left">${escapeHtml(fmt(r.amount))} ج.م</td>
       </tr>`).join('');
 
     const printContent = `
@@ -379,7 +380,7 @@ const ProjectsModule = () => {
       <html dir="${isRTL ? 'rtl' : 'ltr'}">
       <head>
         <meta charset="UTF-8">
-        <title>${project.name}</title>
+        <title>${escapeHtml(project.name)}</title>
         <style>
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: Arial, sans-serif; padding: 24px; direction: ${isRTL ? 'rtl' : 'ltr'}; color: #1a202c; font-size: 13px; }
@@ -412,48 +413,48 @@ const ProjectsModule = () => {
 
         <!-- HEADER -->
         <div class="header">
-          <h1>${project.name}</h1>
-          <p>${project.description || ''}</p>
+          <h1>${escapeHtml(project.name)}</h1>
+          <p>${escapeHtml(project.description || '')}</p>
           <p style="margin-top:6px; font-size:11px; color:#718096">
-            ${isRTL ? 'تاريخ التقرير:' : 'Report Date:'} ${new Date().toLocaleDateString('ar-EG')}
+            ${isRTL ? 'تاريخ التقرير:' : 'Report Date:'} ${escapeHtml(new Date().toLocaleDateString('ar-EG'))}
             &nbsp;|&nbsp;
-            ${isRTL ? 'حالة المشروع:' : 'Status:'} ${project.status || '—'}
-            ${project.start_date ? `&nbsp;|&nbsp; ${isRTL?'البداية:':'Start:'} ${project.start_date}` : ''}
-            ${project.end_date   ? `&nbsp;|&nbsp; ${isRTL?'النهاية:':'End:'} ${project.end_date}` : ''}
+            ${isRTL ? 'حالة المشروع:' : 'Status:'} ${escapeHtml(project.status || '—')}
+            ${project.start_date ? `&nbsp;|&nbsp; ${isRTL?'البداية:':'Start:'} ${escapeHtml(project.start_date)}` : ''}
+            ${project.end_date   ? `&nbsp;|&nbsp; ${isRTL?'النهاية:':'End:'} ${escapeHtml(project.end_date)}` : ''}
           </p>
         </div>
 
         <!-- PROGRESS -->
         <div class="section">
-          <p style="font-weight:bold; margin-bottom:6px">${isRTL ? 'التقدم:' : 'Progress:'} ${project.progress || 0}%</p>
+          <p style="font-weight:bold; margin-bottom:6px">${isRTL ? 'التقدم:' : 'Progress:'} ${escapeHtml(project.progress || 0)}%</p>
           <div class="progress-bar">
-            <div class="progress-fill" style="width:${Math.min(100, project.progress || 0)}%"></div>
+            <div class="progress-fill" style="width:${escapeHtml(Math.min(100, project.progress || 0))}%"></div>
           </div>
         </div>
 
         <!-- FINANCIAL KPIs -->
         <div class="kpis">
           <div class="kpi">
-            <div class="val">${fmt(totalRev)} ج.م</div>
+            <div class="val">${escapeHtml(fmt(totalRev))} ج.م</div>
             <div class="lbl">${isRTL ? 'إجمالي الإيرادات' : 'Total Revenue'}</div>
           </div>
           <div class="kpi">
-            <div class="val">${fmt(totalExp)} ج.م</div>
+            <div class="val">${escapeHtml(fmt(totalExp))} ج.م</div>
             <div class="lbl">${isRTL ? 'إجمالي المصروفات' : 'Total Expenses'}</div>
           </div>
-          <div class="kpi ${profitLoss >= 0 ? 'profit' : 'loss'}">
-            <div class="val" style="color:${profitLoss >= 0 ? '#276749' : '#c53030'}">${fmt(Math.abs(profitLoss))} ج.م</div>
-            <div class="lbl">${profitLoss >= 0 ? (isRTL?'صافي الربح':'Net Profit') : (isRTL?'صافي الخسارة':'Net Loss')}</div>
+          <div class="kpi ${escapeHtml(profitLoss >= 0 ? 'profit' : 'loss')}">
+            <div class="val" style="color:${escapeHtml(profitLoss >= 0 ? '#276749' : '#c53030')}">${escapeHtml(fmt(Math.abs(profitLoss)))} ج.م</div>
+            <div class="lbl">${escapeHtml(profitLoss >= 0 ? (isRTL?'صافي الربح':'Net Profit') : (isRTL?'صافي الخسارة':'Net Loss'))}</div>
           </div>
           <div class="kpi neutral">
-            <div class="val">${fmt(budget)} ج.م</div>
+            <div class="val">${escapeHtml(fmt(budget))} ج.م</div>
             <div class="lbl">${isRTL ? 'الميزانية المعتمدة' : 'Approved Budget'}</div>
           </div>
         </div>
 
         <!-- REVENUES TABLE -->
         <div class="section">
-          <div class="section-title">💰 ${isRTL ? 'الإيرادات' : 'Revenues'} (${revenues.length})</div>
+          <div class="section-title">💰 ${isRTL ? 'الإيرادات' : 'Revenues'} (${escapeHtml(revenues.length)})</div>
           ${revenues.length === 0 ? `<p style="color:#718096; font-size:12px">${isRTL?'لا توجد إيرادات مسجلة':'No revenues recorded'}</p>` : `
           <table>
             <thead>
@@ -468,7 +469,7 @@ const ProjectsModule = () => {
               ${revenueRows}
               <tr class="total-row">
                 <td colspan="3">${isRTL ? 'إجمالي الإيرادات' : 'Total Revenues'}</td>
-                <td>${fmt(totalRev)} ج.م</td>
+                <td>${escapeHtml(fmt(totalRev))} ج.م</td>
               </tr>
             </tbody>
           </table>`}
@@ -476,7 +477,7 @@ const ProjectsModule = () => {
 
         <!-- EXPENSES TABLE -->
         <div class="section">
-          <div class="section-title">📋 ${isRTL ? 'المصروفات' : 'Expenses'} (${expenses.length})</div>
+          <div class="section-title">📋 ${isRTL ? 'المصروفات' : 'Expenses'} (${escapeHtml(expenses.length)})</div>
           ${expenses.length === 0 ? `<p style="color:#718096; font-size:12px">${isRTL?'لا توجد مصروفات مسجلة':'No expenses recorded'}</p>` : `
           <table>
             <thead>
@@ -491,7 +492,7 @@ const ProjectsModule = () => {
               ${expenseRows}
               <tr class="total-row">
                 <td colspan="3">${isRTL ? 'إجمالي المصروفات' : 'Total Expenses'}</td>
-                <td>${fmt(totalExp)} ج.م</td>
+                <td>${escapeHtml(fmt(totalExp))} ج.م</td>
               </tr>
             </tbody>
           </table>`}
@@ -504,24 +505,24 @@ const ProjectsModule = () => {
             <tbody>
               <tr>
                 <td>${isRTL ? 'إجمالي الإيرادات' : 'Total Revenues'}</td>
-                <td style="text-align:left; font-weight:bold; color:#276749">${fmt(totalRev)} ج.م</td>
+                <td style="text-align:left; font-weight:bold; color:#276749">${escapeHtml(fmt(totalRev))} ج.م</td>
               </tr>
               <tr>
                 <td>${isRTL ? 'إجمالي المصروفات' : 'Total Expenses'}</td>
-                <td style="text-align:left; font-weight:bold; color:#c53030">${fmt(totalExp)} ج.م</td>
+                <td style="text-align:left; font-weight:bold; color:#c53030">${escapeHtml(fmt(totalExp))} ج.م</td>
               </tr>
-              <tr class="${profitLoss >= 0 ? 'profit-row' : 'loss-row'}">
-                <td>${profitLoss >= 0 ? (isRTL?'صافي الربح':'Net Profit') : (isRTL?'صافي الخسارة':'Net Loss')}</td>
-                <td style="text-align:left">${fmt(Math.abs(profitLoss))} ج.م</td>
+              <tr class="${escapeHtml(profitLoss >= 0 ? 'profit-row' : 'loss-row')}">
+                <td>${escapeHtml(profitLoss >= 0 ? (isRTL?'صافي الربح':'Net Profit') : (isRTL?'صافي الخسارة':'Net Loss'))}</td>
+                <td style="text-align:left">${escapeHtml(fmt(Math.abs(profitLoss)))} ج.م</td>
               </tr>
               ${budget > 0 ? `
               <tr>
                 <td>${isRTL ? 'الميزانية المعتمدة' : 'Approved Budget'}</td>
-                <td style="text-align:left">${fmt(budget)} ج.م</td>
+                <td style="text-align:left">${escapeHtml(fmt(budget))} ج.م</td>
               </tr>
               <tr>
                 <td>${isRTL ? 'المتبقي من الميزانية' : 'Budget Remaining'}</td>
-                <td style="text-align:left; font-weight:bold">${fmt(budget - totalExp)} ج.م</td>
+                <td style="text-align:left; font-weight:bold">${escapeHtml(fmt(budget - totalExp))} ج.م</td>
               </tr>` : ''}
             </tbody>
           </table>
@@ -529,7 +530,7 @@ const ProjectsModule = () => {
 
         <!-- TASKS TABLE -->
         <div class="section">
-          <div class="section-title">✅ ${isRTL ? 'المهام' : 'Tasks'} (${projectTasks.length})</div>
+          <div class="section-title">✅ ${isRTL ? 'المهام' : 'Tasks'} (${escapeHtml(projectTasks.length)})</div>
           ${projectTasks.length === 0 ? `<p style="color:#718096; font-size:12px">${isRTL?'لا توجد مهام':'No tasks'}</p>` : `
           <table>
             <thead>
@@ -543,10 +544,10 @@ const ProjectsModule = () => {
             <tbody>
               ${projectTasks.map(t => `
                 <tr>
-                  <td>${t.title || '—'}</td>
-                  <td>${t.status || '—'}</td>
-                  <td>${t.priority || '—'}</td>
-                  <td>${t.due_date || '—'}</td>
+                  <td>${escapeHtml(t.title || '—')}</td>
+                  <td>${escapeHtml(t.status || '—')}</td>
+                  <td>${escapeHtml(t.priority || '—')}</td>
+                  <td>${escapeHtml(t.due_date || '—')}</td>
                 </tr>`).join('')}
             </tbody>
           </table>`}
@@ -609,37 +610,37 @@ const ProjectsModule = () => {
       <div style="font-family:Arial,sans-serif;padding:20px;direction:${isRTL?'rtl':'ltr'};color:#1a202c;">
 
         <div style="text-align:center;margin-bottom:20px;padding-bottom:12px;border-bottom:3px solid #1e3a8a;">
-          <h1 style="margin:0;color:#1e3a8a;font-size:20px">${project.name}</h1>
-          <p style="color:#4a5568;font-size:12px;margin-top:4px">${project.description || ''}</p>
+          <h1 style="margin:0;color:#1e3a8a;font-size:20px">${escapeHtml(project.name)}</h1>
+          <p style="color:#4a5568;font-size:12px;margin-top:4px">${escapeHtml(project.description || '')}</p>
           <p style="color:#718096;font-size:11px;margin-top:4px">
-            ${isRTL?'تاريخ التقرير:':'Report Date:'} ${new Date().toLocaleDateString('ar-EG')} |
-            ${isRTL?'الحالة:':'Status:'} ${project.status || '—'}
+            ${isRTL?'تاريخ التقرير:':'Report Date:'} ${escapeHtml(new Date().toLocaleDateString('ar-EG'))} |
+            ${isRTL?'الحالة:':'Status:'} ${escapeHtml(project.status || '—')}
           </p>
         </div>
 
         <!-- KPIs -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
           <div style="background:#ebf8ff;border:1px solid #bee3f8;border-radius:8px;padding:12px;text-align:center">
-            <div style="font-size:16px;font-weight:900;color:#1e3a8a">${fmt(totalRev)} ج.م</div>
+            <div style="font-size:16px;font-weight:900;color:#1e3a8a">${escapeHtml(fmt(totalRev))} ج.م</div>
             <div style="font-size:10px;color:#4a5568;margin-top:2px">${isRTL?'إجمالي الإيرادات':'Total Revenue'}</div>
           </div>
           <div style="background:#ebf8ff;border:1px solid #bee3f8;border-radius:8px;padding:12px;text-align:center">
-            <div style="font-size:16px;font-weight:900;color:#1e3a8a">${fmt(totalExp)} ج.م</div>
+            <div style="font-size:16px;font-weight:900;color:#1e3a8a">${escapeHtml(fmt(totalExp))} ج.م</div>
             <div style="font-size:10px;color:#4a5568;margin-top:2px">${isRTL?'إجمالي المصروفات':'Total Expenses'}</div>
           </div>
-          <div style="background:${profitLoss>=0?'#f0fff4':'#fff5f5'};border:1px solid ${profitLoss>=0?'#9ae6b4':'#fed7d7'};border-radius:8px;padding:12px;text-align:center">
-            <div style="font-size:16px;font-weight:900;color:${profitLoss>=0?'#276749':'#c53030'}">${fmt(Math.abs(profitLoss))} ج.م</div>
-            <div style="font-size:10px;color:#4a5568;margin-top:2px">${profitLoss>=0?(isRTL?'صافي الربح':'Net Profit'):(isRTL?'صافي الخسارة':'Net Loss')}</div>
+          <div style="background:${escapeHtml(profitLoss>=0?'#f0fff4':'#fff5f5')};border:1px solid ${escapeHtml(profitLoss>=0?'#9ae6b4':'#fed7d7')};border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:16px;font-weight:900;color:${escapeHtml(profitLoss>=0?'#276749':'#c53030')}">${escapeHtml(fmt(Math.abs(profitLoss)))} ج.م</div>
+            <div style="font-size:10px;color:#4a5568;margin-top:2px">${escapeHtml(profitLoss>=0?(isRTL?'صافي الربح':'Net Profit'):(isRTL?'صافي الخسارة':'Net Loss'))}</div>
           </div>
           <div style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center">
-            <div style="font-size:16px;font-weight:900;color:#1e3a8a">${fmt(budget)} ج.م</div>
+            <div style="font-size:16px;font-weight:900;color:#1e3a8a">${escapeHtml(fmt(budget))} ج.م</div>
             <div style="font-size:10px;color:#4a5568;margin-top:2px">${isRTL?'الميزانية':'Budget'}</div>
           </div>
         </div>
 
         <!-- REVENUES -->
         <h3 style="color:#1e3a8a;border-bottom:2px solid #bee3f8;padding-bottom:6px;margin-bottom:10px;font-size:14px">
-          💰 ${isRTL?'الإيرادات':'Revenues'} (${revenues.length})
+          💰 ${isRTL?'الإيرادات':'Revenues'} (${escapeHtml(revenues.length)})
         </h3>
         ${revenues.length === 0
           ? `<p style="color:#718096;font-size:12px;margin-bottom:16px">${isRTL?'لا توجد إيرادات مسجلة':'No revenues recorded'}</p>`
@@ -652,21 +653,21 @@ const ProjectsModule = () => {
               </tr></thead>
               <tbody>
                 ${revenues.map(r => `<tr>
-                  <td style="${tdStyle}">${r.date||'—'}</td>
-                  <td style="${tdStyle}">${isRTL?(REV_CAT[r.category]||r.category):r.category}</td>
-                  <td style="${tdStyle}">${r.description||'—'}</td>
-                  <td style="${tdStyle};font-weight:bold;color:#276749">${fmt(r.amount)} ج.م</td>
+                  <td style="${tdStyle}">${escapeHtml(r.date||'—')}</td>
+                  <td style="${tdStyle}">${escapeHtml(isRTL?(REV_CAT[r.category]||r.category):r.category)}</td>
+                  <td style="${tdStyle}">${escapeHtml(r.description||'—')}</td>
+                  <td style="${tdStyle};font-weight:bold;color:#276749">${escapeHtml(fmt(r.amount))} ج.م</td>
                 </tr>`).join('')}
                 <tr style="background:#f0fff4">
                   <td colspan="3" style="${tdStyle};font-weight:bold">${isRTL?'إجمالي الإيرادات':'Total Revenues'}</td>
-                  <td style="${tdStyle};font-weight:bold;color:#276749">${fmt(totalRev)} ج.م</td>
+                  <td style="${tdStyle};font-weight:bold;color:#276749">${escapeHtml(fmt(totalRev))} ج.م</td>
                 </tr>
               </tbody>
             </table>`}
 
         <!-- EXPENSES -->
         <h3 style="color:#1e3a8a;border-bottom:2px solid #bee3f8;padding-bottom:6px;margin-bottom:10px;font-size:14px">
-          📋 ${isRTL?'المصروفات':'Expenses'} (${expenses.length})
+          📋 ${isRTL?'المصروفات':'Expenses'} (${escapeHtml(expenses.length)})
         </h3>
         ${expenses.length === 0
           ? `<p style="color:#718096;font-size:12px;margin-bottom:16px">${isRTL?'لا توجد مصروفات مسجلة':'No expenses recorded'}</p>`
@@ -679,14 +680,14 @@ const ProjectsModule = () => {
               </tr></thead>
               <tbody>
                 ${expenses.map(e => `<tr>
-                  <td style="${tdStyle}">${e.date||'—'}</td>
-                  <td style="${tdStyle}">${isRTL?(EXP_CAT[e.category]||e.category):e.category}</td>
-                  <td style="${tdStyle}">${e.description||'—'}</td>
-                  <td style="${tdStyle};font-weight:bold;color:#c53030">${fmt(e.amount)} ج.م</td>
+                  <td style="${tdStyle}">${escapeHtml(e.date||'—')}</td>
+                  <td style="${tdStyle}">${escapeHtml(isRTL?(EXP_CAT[e.category]||e.category):e.category)}</td>
+                  <td style="${tdStyle}">${escapeHtml(e.description||'—')}</td>
+                  <td style="${tdStyle};font-weight:bold;color:#c53030">${escapeHtml(fmt(e.amount))} ج.م</td>
                 </tr>`).join('')}
                 <tr style="background:#fff5f5">
                   <td colspan="3" style="${tdStyle};font-weight:bold">${isRTL?'إجمالي المصروفات':'Total Expenses'}</td>
-                  <td style="${tdStyle};font-weight:bold;color:#c53030">${fmt(totalExp)} ج.م</td>
+                  <td style="${tdStyle};font-weight:bold;color:#c53030">${escapeHtml(fmt(totalExp))} ج.م</td>
                 </tr>
               </tbody>
             </table>`}
@@ -697,21 +698,21 @@ const ProjectsModule = () => {
         </h3>
         <table style="${tableStyle}">
           <tbody>
-            <tr><td style="${tdStyle}">${isRTL?'إجمالي الإيرادات':'Revenues'}</td><td style="${tdStyle};font-weight:bold;color:#276749">${fmt(totalRev)} ج.م</td></tr>
-            <tr><td style="${tdStyle}">${isRTL?'إجمالي المصروفات':'Expenses'}</td><td style="${tdStyle};font-weight:bold;color:#c53030">${fmt(totalExp)} ج.م</td></tr>
-            <tr style="background:${profitLoss>=0?'#f0fff4':'#fff5f5'}">
-              <td style="${tdStyle};font-weight:bold">${profitLoss>=0?(isRTL?'صافي الربح':'Net Profit'):(isRTL?'صافي الخسارة':'Net Loss')}</td>
-              <td style="${tdStyle};font-weight:bold;color:${profitLoss>=0?'#276749':'#c53030'}">${fmt(Math.abs(profitLoss))} ج.م</td>
+            <tr><td style="${tdStyle}">${isRTL?'إجمالي الإيرادات':'Revenues'}</td><td style="${tdStyle};font-weight:bold;color:#276749">${escapeHtml(fmt(totalRev))} ج.م</td></tr>
+            <tr><td style="${tdStyle}">${isRTL?'إجمالي المصروفات':'Expenses'}</td><td style="${tdStyle};font-weight:bold;color:#c53030">${escapeHtml(fmt(totalExp))} ج.م</td></tr>
+            <tr style="background:${escapeHtml(profitLoss>=0?'#f0fff4':'#fff5f5')}">
+              <td style="${tdStyle};font-weight:bold">${escapeHtml(profitLoss>=0?(isRTL?'صافي الربح':'Net Profit'):(isRTL?'صافي الخسارة':'Net Loss'))}</td>
+              <td style="${tdStyle};font-weight:bold;color:${escapeHtml(profitLoss>=0?'#276749':'#c53030')}">${escapeHtml(fmt(Math.abs(profitLoss)))} ج.م</td>
             </tr>
             ${budget > 0 ? `
-            <tr><td style="${tdStyle}">${isRTL?'الميزانية المعتمدة':'Approved Budget'}</td><td style="${tdStyle}">${fmt(budget)} ج.م</td></tr>
-            <tr><td style="${tdStyle}">${isRTL?'المتبقي من الميزانية':'Budget Remaining'}</td><td style="${tdStyle};font-weight:bold">${fmt(budget - totalExp)} ج.م</td></tr>` : ''}
+            <tr><td style="${tdStyle}">${isRTL?'الميزانية المعتمدة':'Approved Budget'}</td><td style="${tdStyle}">${escapeHtml(fmt(budget))} ج.م</td></tr>
+            <tr><td style="${tdStyle}">${isRTL?'المتبقي من الميزانية':'Budget Remaining'}</td><td style="${tdStyle};font-weight:bold">${escapeHtml(fmt(budget - totalExp))} ج.م</td></tr>` : ''}
           </tbody>
         </table>
 
         <!-- TASKS -->
         <h3 style="color:#1e3a8a;border-bottom:2px solid #bee3f8;padding-bottom:6px;margin-bottom:10px;font-size:14px">
-          ✅ ${isRTL?'المهام':'Tasks'} (${projectTasks.length})
+          ✅ ${isRTL?'المهام':'Tasks'} (${escapeHtml(projectTasks.length)})
         </h3>
         ${projectTasks.length === 0
           ? `<p style="color:#718096;font-size:12px">${isRTL?'لا توجد مهام':'No tasks'}</p>`
@@ -724,10 +725,10 @@ const ProjectsModule = () => {
               </tr></thead>
               <tbody>
                 ${projectTasks.map(t => `<tr>
-                  <td style="${tdStyle}">${t.title||'—'}</td>
-                  <td style="${tdStyle}">${t.status||'—'}</td>
-                  <td style="${tdStyle}">${t.priority||'—'}</td>
-                  <td style="${tdStyle}">${t.due_date||'—'}</td>
+                  <td style="${tdStyle}">${escapeHtml(t.title||'—')}</td>
+                  <td style="${tdStyle}">${escapeHtml(t.status||'—')}</td>
+                  <td style="${tdStyle}">${escapeHtml(t.priority||'—')}</td>
+                  <td style="${tdStyle}">${escapeHtml(t.due_date||'—')}</td>
                 </tr>`).join('')}
               </tbody>
             </table>`}

@@ -1,3 +1,5 @@
+import re as _re
+import re as _re
 from fastapi import APIRouter, HTTPException, Header, UploadFile, File, Form
 from typing import Optional, List
 import os
@@ -272,8 +274,8 @@ async def get_documents(
         query["file_type"] = file_type
     if search:
         query["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"description": {"$regex": search, "$options": "i"}},
+            {"name": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
+            {"description": {"$regex": _re.escape(str(search)[:80]), "$options": "i"}},
             {"tags": {"$in": [search]}}
         ]
     
@@ -548,8 +550,8 @@ async def advanced_search(
         "company_id": company_id,
         "is_archived": False,
         "$or": [
-            {"name": {"$regex": q, "$options": "i"}},
-            {"description": {"$regex": q, "$options": "i"}},
+            {"name": {"$regex": _re.escape(str(q)[:80]), "$options": "i"}},
+            {"description": {"$regex": _re.escape(str(q)[:80]), "$options": "i"}},
             {"tags": {"$in": [q]}}
         ]
     }

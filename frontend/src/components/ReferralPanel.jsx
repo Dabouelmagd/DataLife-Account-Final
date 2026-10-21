@@ -1,3 +1,4 @@
+import { copyText } from '../utils/copyText';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
@@ -28,7 +29,7 @@ export default function ReferralPanel() {
 
   const copyLink = () => {
     if (!data?.referral_link) return;
-    navigator.clipboard.writeText(data.referral_link);
+    copyText(data.referral_link);
     setCopied(true);
     toast.success(ar ? '✅ تم نسخ الرابط' : '✅ Link copied');
     setTimeout(() => setCopied(false), 2000);

@@ -9,6 +9,7 @@
  * depreciation, disposal), which also reads the older records. Every entry is
  * previewed from the server before it is posted.
  */
+import MonthInput from './ui/MonthInput';
 import { useLanguage } from '../contexts/LanguageContext';
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
@@ -433,7 +434,7 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
             {m.kind === 'dep' && (
               <div className="space-y-3 text-sm">
                 <div className="flex flex-wrap gap-3 items-end">
-                  <label className="text-xs text-gray-500">{t('شهر','Month')}<input type="month" className={field} value={f.period?.length === 7 ? f.period : ''} onChange={e=>setForm('period', e.target.value)} /></label>
+                  <label className="text-xs text-gray-500">{t('شهر','Month')}<MonthInput className={field} value={f.period?.length === 7 ? f.period : ''} onChange={e=>setForm('period', e.target.value)} /></label>
                   <label className="text-xs text-gray-500">{t('أو سنة كاملة','or a full year')}<input type="number" dir="ltr" className={field} value={f.period?.length === 4 ? f.period : ''} placeholder="2026" onChange={e=>setForm('period', e.target.value)} /></label>
                 </div>
                 <p className="text-xs text-gray-500">{t('لا يُكرَّر إهلاك نفس الفترة، ولا يُجمع تشغيل سنوي مع تشغيل شهري لنفس السنة. الإهلاك الشهري يعمل تلقائياً يوم 1 من كل شهر — استخدم هذا الزر لشهر فائت أو لسنة كاملة.','A period is never posted twice; annual and monthly runs of the same year cannot be mixed. Monthly depreciation runs automatically on the 1st — use this for a missed month or a full year.')}</p>

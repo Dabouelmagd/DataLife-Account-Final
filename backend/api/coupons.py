@@ -1,3 +1,11 @@
+from html import escape as _html_escape
+
+
+def _h(v):
+    """HTML-escape a user-typed value placed in an email/HTML body."""
+    return _html_escape("" if v is None else str(v), quote=True)
+
+
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -479,7 +487,7 @@ async def send_coupon_email(data: SendCouponEmail, authorization: Optional[str] 
         
         <div style="padding: 30px; background: #f8f9fa; border-radius: 0 0 10px 10px;">
             <p style="font-size: 16px; color: #333;">
-                Dear {recipient_name},<br><br>
+                Dear {_h(recipient_name)},<br><br>
                 We're excited to offer you an exclusive discount on your next subscription!
             </p>
             
@@ -794,7 +802,7 @@ async def check_expiring_and_notify(admin_email: str = "info@datalifeai.com", au
         coupon_rows += f"""
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #eee;"><code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px;">{coupon['code']}</code></td>
-            <td style="padding: 12px; border-bottom: 1px solid #eee;">{coupon['name_en']}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #eee;">{_h(coupon['name_en'])}</td>
             <td style="padding: 12px; border-bottom: 1px solid #eee;">{discount_text}</td>
             <td style="padding: 12px; border-bottom: 1px solid #eee; color: {'#dc3545' if coupon['days_left'] <= 1 else '#ffc107'}; font-weight: bold;">{days_text}</td>
         </tr>

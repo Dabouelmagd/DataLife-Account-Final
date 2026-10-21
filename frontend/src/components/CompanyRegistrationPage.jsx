@@ -1,3 +1,4 @@
+import { copyText } from '../utils/copyText';
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -514,7 +515,7 @@ const CompanyRegistrationPage = () => {
             <div className="flex gap-3">
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(subscriptionCode);
+                  copyText(subscriptionCode);
                   const btn = document.getElementById('copy-btn-reg');
                   if (btn) {
                     btn.textContent = language === 'ar' ? 'تم النسخ!' : 'Copied!';
