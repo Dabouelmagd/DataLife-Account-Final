@@ -144,10 +144,55 @@ class ProductionOrderRequest(BaseModel):
     materials: List[ProductionMaterial] = []
     bom_id:          Optional[str] = None
     warehouse_id:    Optional[str] = None       # مخزن الخامات
-    # where the materials' cost sits: 121 raw materials (default) or 125 when
-    # they were bought through a perpetual purchase invoice, which posts to 125
-    materials_account: Literal["121", "125"] = "121"
+    # where the materials' cost sits. Empty = the account the company's
+    # purchases actually post to (ops_posting.stock_account "raw": 121 under
+    # the perpetual method, 311 under the periodic one). An override is only
+    # accepted for 121 or 125 (materials bought as goods through a perpetual
+    # purchase invoice sit in 125) and is ignored under the periodic method.
+    materials_account: Optional[Literal["121", "125"]] = None
+    # predetermined overhead rate, absorbed automatically at close
+    # (Dr 126 / Cr 3181): a % of material cost, or an amount per unit produced
+    overhead_basis:  Optional[Literal["material_pct", "per_unit"]] = None
+    overhead_rate:   float = Field(0, ge=0)
     notes:           Optional[str] = None
+
+
+async def _raw_account(company_id: str, override: Optional[str]) -> str:
+    default = await P.stock_account(db, company_id, "raw")
+    if default == "311":                 # periodic: purchases were expensed to 311
+        return default
+    return override if override in ("121", "125") else default
+
+
+def _overhead_amount(order: dict, actual_qty: float) -> float:
+    basis, rate = order.get("overhead_basis"), float(order.get("overhead_rate") or 0)
+    if not basis or rate <= 0:
+        return 0.0
+    if basis == "material_pct":
+        return P.r2(float(order.get("total_materials_cost") or 0) * rate / 100)
+    return P.r2(actual_qty * rate)
+
+
+async def _rollback(company_id: str, user_id: str, je_ids: list, moved: list, date_str: str, source_id: str):
+    """Undo a half-finished operation: stock moves first, then the entries.
+
+    moved: [(direction, product_id, warehouse_id, qty, unit_cost, name)] where
+    direction "out" was a stock_out (put it back) and "in" a stock_in (take it out).
+    """
+    from services.accounting_service import AccountingService
+    for direction, pid, wh, qty, cost, name in reversed(moved):
+        try:
+            fn = P.stock_in if direction == "out" else P.stock_out
+            await fn(db, company_id, pid, wh, qty, cost, date_str=date_str, source_type="production_order",
+                     source_id=source_id, user_id=user_id, mtype="production_rollback", product_name=name)
+        except Exception:
+            pass
+    svc = AccountingService(db)
+    for je in reversed([j for j in je_ids if j]):
+        try:
+            await svc.reverse_journal_entry(je, user_id)
+        except Exception:
+            pass
 
 
 async def _materials(company_id: str, req: ProductionOrderRequest, wh: str) -> list:
@@ -187,9 +232,12 @@ async def preview_production_order(req: ProductionOrderRequest, current_user: di
     company_id = current_user["company_id"]
     wh = req.warehouse_id or await P.default_warehouse_id(db, company_id)
     mats = await _materials(company_id, req, wh)
-    raw_acc = "311" if await P.inventory_method(db, company_id) == "periodic" else req.materials_account
+    raw_acc = await _raw_account(company_id, req.materials_account)
     total = P.r2(sum(m["total_cost"] for m in mats))
-    return {"materials": mats, "total_materials_cost": total, "credit_account": raw_acc, "debit_account": ACC["wip"]}
+    overhead = _overhead_amount({"overhead_basis": req.overhead_basis, "overhead_rate": req.overhead_rate,
+                                 "total_materials_cost": total}, req.planned_qty)
+    return {"materials": mats, "total_materials_cost": total, "credit_account": raw_acc, "debit_account": ACC["wip"],
+            "inventory_method": await P.inventory_method(db, company_id), "overhead_at_planned_qty": overhead}
 
 
 @router.post("/production-orders")
@@ -209,46 +257,57 @@ async def create_production_order(req: ProductionOrderRequest,
     product_name = req.product_name or prod.get("name", "")
     wh = req.warehouse_id or await P.default_warehouse_id(db, company_id)
     materials = await _materials(company_id, req, wh)
-    raw_acc = "311" if await P.inventory_method(db, company_id) == "periodic" else req.materials_account
+    raw_acc = await _raw_account(company_id, req.materials_account)
     # total = sum of the ROUNDED line credits; the unrounded sum used for the
     # debit could differ by a piastre and the entry was refused as unbalanced
     total_materials = P.r2(sum(m["total_cost"] for m in materials))
     if total_materials <= 0:
         raise HTTPException(400, "تكلفة الخامات صفر — أدخل تكلفة الوحدة للخامات بلا رصيد")
+    if req.overhead_basis and req.overhead_rate <= 0:
+        raise HTTPException(400, "أدخل معدل التحميل أو اترك أساس التحميل فارغاً")
     order_id = str(uuid.uuid4())
+    user_id = current_user["user_id"]
 
+    # Stock was validated in _materials (require_stock). Post, then move stock;
+    # if a move or the order insert fails, the moves done so far are put back
+    # and the entry is reversed — nothing is left half-done.
     lines = [await je_line(company_id, ACC["wip"], debit=total_materials,
                            desc=f"صرف خامات لأمر إنتاج {req.order_number} — {product_name}")]
     for mat in materials:
         lines.append(await je_line(company_id, raw_acc, credit=mat["total_cost"],
                                    desc=f"صرف {mat['name']} ({mat['qty']:g} × {mat['unit_cost']:g})"))
-    je_id = await post_je(company_id, current_user["user_id"], req.start_date,
+    je_id = await post_je(company_id, user_id, req.start_date,
                           f"صرف مواد خام — أمر إنتاج {req.order_number}", lines, order_id)
-
-    # stock moves only after the entry posted, and only for real products —
-    # the old {"product_id": None} filter decremented an arbitrary stock row
-    for mat in materials:
-        if mat["product_id"]:
-            await P.stock_out(db, company_id, mat["product_id"], wh, mat["qty"], mat["unit_cost"],
-                              date_str=req.start_date, source_type="production_order", source_id=order_id,
-                              user_id=current_user["user_id"], mtype="production_out", product_name=mat["name"])
-
-    order = {
-        "id": order_id, "company_id": company_id,
-        "order_number": req.order_number,
-        "product_id": req.product_id, "product_name": product_name,
-        "planned_qty": req.planned_qty, "actual_qty": 0,
-        "status": "open", "bom_id": req.bom_id, "warehouse_id": wh,
-        "materials": materials, "materials_account": raw_acc,
-        "total_materials_cost": total_materials,
-        "total_labor_cost": 0.0, "total_foh_applied": 0.0,
-        "total_actual_cost": total_materials,
-        "start_date": req.start_date, "end_date": None,
-        "material_je_id": je_id, "notes": req.notes,
-        "created_by": current_user["user_id"],
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    await db.production_orders.insert_one(order); order.pop("_id", None)
+    moved = []
+    try:
+        # only real products move — the old {"product_id": None} filter
+        # decremented an arbitrary stock row
+        for mat in materials:
+            if mat["product_id"]:
+                await P.stock_out(db, company_id, mat["product_id"], wh, mat["qty"], mat["unit_cost"],
+                                  date_str=req.start_date, source_type="production_order", source_id=order_id,
+                                  user_id=user_id, mtype="production_out", product_name=mat["name"])
+                moved.append(("out", mat["product_id"], wh, mat["qty"], mat["unit_cost"], mat["name"]))
+        order = {
+            "id": order_id, "company_id": company_id,
+            "order_number": req.order_number,
+            "product_id": req.product_id, "product_name": product_name,
+            "planned_qty": req.planned_qty, "actual_qty": 0,
+            "status": "open", "bom_id": req.bom_id, "warehouse_id": wh,
+            "materials": materials, "materials_account": raw_acc,
+            "total_materials_cost": total_materials,
+            "total_labor_cost": 0.0, "total_foh_applied": 0.0,
+            "total_actual_cost": total_materials,
+            "start_date": req.start_date, "end_date": None,
+            "material_je_id": je_id, "notes": req.notes,
+            "overhead_basis": req.overhead_basis, "overhead_rate": req.overhead_rate if req.overhead_basis else 0,
+            "created_by": user_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.production_orders.insert_one(order); order.pop("_id", None)
+    except Exception:
+        await _rollback(company_id, user_id, [je_id], moved, req.start_date, order_id)
+        raise
     return {
         "message": f"تم فتح أمر الإنتاج {req.order_number}",
         "order": order,
@@ -284,8 +343,8 @@ async def allocate_production_costs(order_id: str, data: AllocateCostsRequest,
     order = await db.production_orders.find_one({"id": order_id, "company_id": company_id}, {"_id": 0})
     if not order:
         raise HTTPException(404, "أمر الإنتاج غير موجود")
-    if order.get("status") == "closed":
-        raise HTTPException(400, "أمر الإنتاج مُغلَق — لا يمكن إضافة تكاليف")
+    if order.get("status") != "open":
+        raise HTTPException(400, "أمر الإنتاج مُغلَق أو جارٍ إغلاقه — لا يمكن إضافة تكاليف")
 
     labor_cost = P.r2(data.labor_cost)
     total_foh = P.r2(sum(P.r2(f.amount) for f in data.foh_costs))
@@ -326,6 +385,12 @@ class CompleteOrderRequest(BaseModel):
     actual_qty: Optional[float] = Field(None, gt=0)
     date: Optional[str] = None
     warehouse_id: Optional[str] = None     # مخزن الإنتاج التام
+    # a yield above 10× the planned quantity is almost always a typo
+    # (an extra zero); it is refused unless explicitly confirmed
+    confirm_yield: bool = False
+
+
+YIELD_CAP = 10
 
 
 @router.post("/production-orders/{order_id}/complete")
@@ -333,53 +398,100 @@ async def complete_production_order(order_id: str, data: CompleteOrderRequest,
                                     current_user: dict = Depends(get_current_user)):
     """
     إتمام الإنتاج — نقل من WIP إلى مخزون الإنتاج التام
-    Dr م/122 مخزون الإنتاج التام
-    Cr م/126 إنتاج تحت التشغيل (إقفال بالتكلفة الفعلية)
+
+    0. إن كان للأمر معدل تحميل محدد مسبقاً: Dr م/126 / Cr م/3181 (يُحمَّل تلقائياً)
+    الجرد المستمر:  Dr م/122 مخزون الإنتاج التام / Cr م/126 (إقفال بالتكلفة الفعلية)
+    الجرد الدوري:   Dr م/311 / Cr م/126 — تكلفة الإنتاج تعود إلى وعاء التكلفة،
+                    والكمية تدخل المخزن فقط؛ جرد آخر الفترة هو الذي يُثبت قيمة
+                    المخزون التام (122/125) مقابل 311، كما تفعل فواتير الشراء
+                    والبيع في الجرد الدوري. ترحيل 122 هنا كان يحسبه مرتين.
     """
     company_id = current_user["company_id"]
+    user_id = current_user["user_id"]
     order = await db.production_orders.find_one({"id": order_id, "company_id": company_id}, {"_id": 0})
     if not order:
         raise HTTPException(404, "أمر الإنتاج غير موجود")
     if order.get("status") != "open":
         raise HTTPException(400, "أمر الإنتاج مُغلَق بالفعل")
+
+    planned = float(order.get("planned_qty") or 0)
+    actual_qty = float(data.actual_qty if data.actual_qty is not None else planned)
+    if actual_qty <= 0:
+        raise HTTPException(400, "الكمية المنتجة فعلاً يجب أن تكون أكبر من صفر")
+    if planned > 0 and actual_qty > planned * YIELD_CAP and not data.confirm_yield:
+        raise HTTPException(400, f"الكمية الفعلية ({actual_qty:g}) أكبر من {YIELD_CAP} أضعاف المخطط ({planned:g}) — "
+                                 "راجع الرقم أو أكّد الكمية صراحةً")
+    yield_qty = round(actual_qty - planned, 4)
+    yield_pct = round(yield_qty / planned * 100, 2) if planned > 0 else None
+
     # claim first: two clicks used to post the finished goods twice
     claimed = await db.production_orders.update_one({"id": order_id, "company_id": company_id, "status": "open"},
                                                     {"$set": {"status": "closing"}})
     if not claimed.modified_count:
         raise HTTPException(409, "جارٍ إغلاق أمر الإنتاج بالفعل")
 
-    actual_qty = float(data.actual_qty or order["planned_qty"])
     end_date = data.date or date.today().isoformat()
-    total_cost = P.r2(order["total_actual_cost"])
-    unit_cost = round(total_cost / actual_qty, 4)
     fg_wh = data.warehouse_id or order.get("warehouse_id") or await P.default_warehouse_id(db, company_id)
+    periodic = await P.inventory_method(db, company_id) == "periodic"
+    je_ids, moved = [], []
     try:
+        overhead = _overhead_amount(order, actual_qty)
+        oh_je = None
+        if overhead > 0:
+            oh_lines = [
+                await je_line(company_id, ACC["wip"], debit=overhead,
+                              desc=f"تحميل تكاليف غير مباشرة بالمعدل المحدد مسبقاً — أمر {order['order_number']}"),
+                await je_line(company_id, ACC["foh_applied"], credit=overhead,
+                              desc=f"تكاليف صناعية غير مباشرة محملة — أمر {order['order_number']}"),
+            ]
+            oh_je = await post_je(company_id, user_id, end_date,
+                                  f"تحميل تكاليف صناعية بالمعدل — أمر {order['order_number']}", oh_lines, order_id)
+            je_ids.append(oh_je)
+        total_cost = P.r2(float(order["total_actual_cost"]) + overhead)
+        unit_cost = round(total_cost / actual_qty, 4)
+        debit_acc = "311" if periodic else ACC["finished_goods"]
         lines = [
-            await je_line(company_id, ACC["finished_goods"], debit=total_cost,
-                          desc=f"استلام منتج تام — {order['product_name']} ({actual_qty:g} وحدة @ {unit_cost:g})"),
+            await je_line(company_id, debit_acc, debit=total_cost,
+                          desc=(f"تكلفة إنتاج {order['product_name']} — تعود لوعاء التكلفة (جرد دوري)" if periodic else
+                                f"استلام منتج تام — {order['product_name']} ({actual_qty:g} وحدة @ {unit_cost:g})")),
             await je_line(company_id, ACC["wip"], credit=total_cost,
                           desc=f"إغلاق أمر إنتاج {order['order_number']} بالتكلفة الفعلية {total_cost:,.2f}"),
         ]
-        je_id = await post_je(company_id, current_user["user_id"], end_date,
+        je_id = await post_je(company_id, user_id, end_date,
                               f"إتمام أمر إنتاج {order['order_number']} — {order['product_name']}", lines, order_id)
+        je_ids.append(je_id)
+
+        # finished goods enter at a weighted average with what is already on hand
+        await P.stock_in(db, company_id, order["product_id"], fg_wh, actual_qty, unit_cost, date_str=end_date,
+                         source_type="production_order", source_id=order_id, user_id=user_id,
+                         mtype="production_in", product_name=order["product_name"])
+        moved.append(("in", order["product_id"], fg_wh, actual_qty, unit_cost, order["product_name"]))
+        update = {"$set": {
+            "status": "closed", "actual_qty": actual_qty, "unit_cost": unit_cost,
+            "yield_variance_qty": yield_qty, "yield_variance_pct": yield_pct,
+            "total_actual_cost": total_cost,
+            "end_date": end_date, "close_je_id": je_id, "fg_warehouse_id": fg_wh,
+            "close_debit_account": debit_acc}}
+        if overhead > 0:
+            update["$set"]["total_foh_applied"] = P.r2(float(order.get("total_foh_applied") or 0) + overhead)
+            update["$set"]["overhead_applied_at_close"] = overhead
+            # pushed like a manual allocation so /overhead-variance picks it up
+            update["$push"] = {"cost_allocations": {"date": end_date, "labor": 0.0, "foh": overhead,
+                                                    "je_id": oh_je, "auto": True}}
+        await db.production_orders.update_one({"id": order_id, "company_id": company_id, "status": "closing"}, update)
     except Exception:
+        await _rollback(company_id, user_id, je_ids, moved, end_date, order_id)
         await db.production_orders.update_one({"id": order_id, "company_id": company_id}, {"$set": {"status": "open"}})
         raise
 
-    # finished goods enter at a weighted average with what is already on hand —
-    # the old $set unit_cost replaced the average of existing stock outright
-    await P.stock_in(db, company_id, order["product_id"], fg_wh, actual_qty, unit_cost, date_str=end_date,
-                     source_type="production_order", source_id=order_id, user_id=current_user["user_id"],
-                     mtype="production_in", product_name=order["product_name"])
-    await db.production_orders.update_one({"id": order_id, "company_id": company_id}, {"$set": {
-        "status": "closed", "actual_qty": actual_qty, "unit_cost": unit_cost,
-        "end_date": end_date, "close_je_id": je_id, "fg_warehouse_id": fg_wh}})
     return {
         "message": f"تم إغلاق أمر الإنتاج {order['order_number']}",
         "product": order["product_name"], "actual_qty": actual_qty,
-        "total_cost": total_cost, "unit_cost": unit_cost,
-        "journal": {"id": je_id,
-                    "debit":  f"م/{ACC['finished_goods']} مخزون الإنتاج التام {total_cost:,.2f}",
+        "planned_qty": planned, "yield_variance_qty": yield_qty, "yield_variance_pct": yield_pct,
+        "overhead_applied": overhead,
+        "total_cost": total_cost, "unit_cost": unit_cost, "inventory_method": "periodic" if periodic else "perpetual",
+        "journal": {"id": je_id, "overhead_id": oh_je,
+                    "debit":  f"م/{debit_acc} {total_cost:,.2f}",
                     "credit": f"م/{ACC['wip']} إنتاج تحت التشغيل {total_cost:,.2f}"},
     }
 

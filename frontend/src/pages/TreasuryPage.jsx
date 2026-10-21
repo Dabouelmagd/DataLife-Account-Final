@@ -34,9 +34,9 @@ const T = {
     receiveCheque: 'استلام شيك من عميل', issueCheque: 'إصدار شيك لمورد', incoming: 'وارد', outgoing: 'صادر',
     party: 'الطرف', number: 'رقم الشيك', due: 'الاستحقاق', status: 'الحالة', actions: 'إجراء',
     customer: 'العميل', supplier: 'المورد', payerBank: 'بنك العميل', noCheques: 'لا توجد شيكات',
-    deposit: 'إيداع بالبنك', collect: 'تم التحصيل', bounce: 'مرتد', clear: 'تم الصرف', fees: 'مصاريف الارتداد',
+    deposit: 'إيداع بالبنك', collect: 'تم التحصيل', bounce: 'مرتد', clear: 'تم الصرف', stop: 'إلغاء الشيك', stopReason: 'سبب الإلغاء (إيقاف صرف / تالف / استُرد من المورد)', fees: 'مصاريف الارتداد',
     reason: 'سبب الارتداد', confirm: 'تأكيد وترحيل', pending: 'تحت التحصيل',
-    st: { received: 'مستلم', under_collection: 'تحت التحصيل', collected: 'محصّل', bounced: 'مرتد', issued: 'صادر — لم يُصرف', cleared: 'صُرف' },
+    st: { received: 'مستلم', under_collection: 'تحت التحصيل', collected: 'محصّل', bounced: 'مرتد', issued: 'صادر — لم يُصرف', cleared: 'صُرف', cancelled: 'ملغى' },
   },
   en: {
     title: 'Treasury & banks', cash: 'Treasury', bank: 'Bank', cheques: 'Cheques',
@@ -49,9 +49,9 @@ const T = {
     receiveCheque: 'Receive customer cheque', issueCheque: 'Issue supplier cheque', incoming: 'In', outgoing: 'Out',
     party: 'Party', number: 'Cheque no.', due: 'Due', status: 'Status', actions: 'Action',
     customer: 'Customer', supplier: 'Supplier', payerBank: "Customer's bank", noCheques: 'No cheques',
-    deposit: 'Deposit', collect: 'Collected', bounce: 'Bounced', clear: 'Cleared', fees: 'Bounce fees',
+    deposit: 'Deposit', collect: 'Collected', bounce: 'Bounced', clear: 'Cleared', stop: 'Cancel cheque', stopReason: 'Reason (stop payment / spoiled / returned by supplier)', fees: 'Bounce fees',
     reason: 'Reason', confirm: 'Confirm and post', pending: 'Under collection',
-    st: { received: 'Received', under_collection: 'Under collection', collected: 'Collected', bounced: 'Bounced', issued: 'Issued — not cleared', cleared: 'Cleared' },
+    st: { received: 'Received', under_collection: 'Under collection', collected: 'Collected', bounced: 'Bounced', issued: 'Issued — not cleared', cleared: 'Cleared', cancelled: 'Cancelled' },
   },
 };
 
@@ -59,10 +59,13 @@ const T = {
 const NEXT = {
   received: [['deposit', 'deposit', (id, d) => ({ cheque_id: id, deposit_date: d, bank_account_code: BANK })]],
   under_collection: [
-    ['collect', 'collect', (id, d) => ({ cheque_id: id, collection_date: d, bank_account_code: BANK })],
+    ['collect', 'collect', (id, d, x) => ({ cheque_id: id, collection_date: d, bank_account_code: x.cheque.bank_account_code || BANK })],
     ['bounce', 'bounce', (id, d, x) => ({ cheque_id: id, bounce_date: d, bounce_fees: Number(x.fees) || 0, bounce_reason: x.reason || undefined })],
   ],
-  issued: [['clear', 'clear-outgoing', (id, d) => ({ cheque_id: id, clear_date: d, bank_account_code: BANK })]],
+  issued: [
+    ['clear', 'clear-outgoing', (id, d, x) => ({ cheque_id: id, clear_date: d, bank_account_code: x.cheque.bank_account_code || BANK })],
+    ['stop', 'cancel', (id, d, x) => ({ cheque_id: id, cancel_date: d, reason: x.reason || undefined })],
+  ],
 };
 
 export default function TreasuryPage() {
@@ -273,7 +276,7 @@ export default function TreasuryPage() {
                           <td className="px-4 py-2.5 whitespace-nowrap">
                             {(NEXT[c.status] || []).map(([key, endpoint, build]) => (
                               <button key={key} onClick={() => { setAction({ cheque: c, key, endpoint, build, date: today(), fees: '', reason: '' }); setMsg({ type: '', text: '' }); }}
-                                className={`me-1.5 px-2.5 py-1 rounded text-xs font-semibold ${key === 'bounce' ? 'text-red-700 border border-red-200 hover:bg-red-50' : 'text-[#1e3a8a] border border-[#1e3a8a]/30 hover:bg-blue-50'}`}>{t[key]}</button>
+                                className={`me-1.5 px-2.5 py-1 rounded text-xs font-semibold ${key === 'bounce' || key === 'stop' ? 'text-red-700 border border-red-200 hover:bg-red-50' : 'text-[#1e3a8a] border border-[#1e3a8a]/30 hover:bg-blue-50'}`}>{t[key]}</button>
                             ))}
                           </td>
                         </tr>
@@ -436,11 +439,15 @@ export default function TreasuryPage() {
                     <input value={action.reason} onChange={(e) => setAction({ ...action, reason: e.target.value })} className={`${input} mt-1`} /></label>
                 </>
               )}
+              {action.key === 'stop' && (
+                <label className="block"><span className="text-slate-600">{t.stopReason}</span>
+                  <input value={action.reason} onChange={(e) => setAction({ ...action, reason: e.target.value })} className={`${input} mt-1`} /></label>
+              )}
             </div>
             {msg.text && <p className={`mx-5 mb-3 text-sm ${msg.type === 'err' ? 'text-red-700' : 'text-emerald-700'}`} role="status">{msg.text}</p>}
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-200">
               <button onClick={() => setAction(null)} className="px-4 py-2 rounded-md border border-slate-300 text-sm">{t.cancel}</button>
-              <button onClick={runAction} disabled={busy} className={`px-4 py-2 rounded-md text-white text-sm font-semibold disabled:opacity-50 ${action.key === 'bounce' ? 'bg-red-700' : 'bg-[#1e3a8a]'}`}>{busy ? '…' : t.confirm}</button>
+              <button onClick={runAction} disabled={busy} className={`px-4 py-2 rounded-md text-white text-sm font-semibold disabled:opacity-50 ${action.key === 'bounce' || action.key === 'stop' ? 'bg-red-700' : 'bg-[#1e3a8a]'}`}>{busy ? '…' : t.confirm}</button>
             </div>
           </div>
         </div>

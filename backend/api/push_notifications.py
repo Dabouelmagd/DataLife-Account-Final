@@ -11,7 +11,14 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
-from pywebpush import webpush, WebPushException
+import asyncio
+try:
+    from pywebpush import webpush, WebPushException
+except Exception:          # library missing: in-app notifications still work
+    webpush = None
+
+    class WebPushException(Exception):
+        response = None
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/push", tags=["push-notifications"])
@@ -97,27 +104,45 @@ async def unsubscribe_push(
     return {"success": True, "message": "Unsubscribed from push notifications"}
 
 
+def _visible(user_id: str, company_id: str) -> dict:
+    """The rows a user sees: their own, their company's broadcasts."""
+    return {"$or": [{"user_id": user_id}, {"company_id": company_id, "broadcast": True}]}
+
+
+def _shape(n: dict) -> dict:
+    """db.notifications rows carry title/body (new) or title_ar/message_ar (older)."""
+    return {**n, "title": n.get("title") or n.get("title_ar") or n.get("title_en") or "",
+            "body": n.get("body") or n.get("message_ar") or n.get("message_en") or "",
+            "link": n.get("link") or n.get("url") or ""}
+
+
 @router.get("/notifications")
 async def get_notifications(
     authorization: Optional[str] = Header(None),
     limit: int = 20,
     skip: int = 0
 ):
-    """Get user notifications (in-app)"""
+    """Get user notifications (in-app) — the same store as /api/notifications,
+    plus platform-wide announcements."""
     user_data = await verify_user(authorization)
     user_id = user_data.get("user_id")
     company_id = user_data.get("company_id")
-    
-    query = {"$or": [{"user_id": user_id}, {"company_id": company_id}, {"target": "all"}]}
-    
-    notifications = await db.user_notifications.find(
+
+    query = _visible(user_id, company_id)
+    notifications = await db.notifications.find(
         query, {"_id": 0}
     ).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
-    
-    total = await db.user_notifications.count_documents(query)
-    unread = await db.user_notifications.count_documents({**query, "read": False})
-    
-    return {"notifications": notifications, "total": total, "unread": unread}
+    total = await db.notifications.count_documents(query)
+    unread = await db.notifications.count_documents({**query, "read": False})
+
+    # platform-wide announcements (send_push_to_all) still live in user_notifications
+    legacy_q = {"$or": [{"user_id": user_id}, {"target": "all"}]}
+    legacy = await db.user_notifications.find(legacy_q, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+    unread += await db.user_notifications.count_documents({**legacy_q, "read": False})
+    total += len(legacy)
+    merged = sorted([_shape(n) for n in notifications + legacy],
+                    key=lambda n: str(n.get("created_at") or ""), reverse=True)[:limit]
+    return {"notifications": merged, "total": total, "unread": unread}
 
 
 @router.put("/notifications/read")
@@ -128,10 +153,13 @@ async def mark_notifications_read(
     user_data = await verify_user(authorization)
     user_id = user_data.get("user_id")
     company_id = user_data.get("company_id")
-    
-    query = {"$or": [{"user_id": user_id}, {"company_id": company_id}, {"target": "all"}]}
-    await db.user_notifications.update_many(query, {"$set": {"read": True}})
-    
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.notifications.update_many({**_visible(user_id, company_id), "read": False},
+                                       {"$set": {"read": True, "read_at": now}})
+    # only the user's own legacy rows: marking a company/global row read
+    # used to mark it read for everyone
+    await db.user_notifications.update_many({"user_id": user_id}, {"$set": {"read": True}})
     return {"success": True}
 
 
@@ -141,24 +169,25 @@ async def mark_single_notification_read(
     authorization: Optional[str] = Header(None)
 ):
     """Mark a single notification as read"""
-    from services.auth_service import verify_token as _vt
-    _u = _vt((authorization or "").replace("Bearer ", "")) or {}
-    if not _u.get("user_id"):
-        raise HTTPException(status_code=401, detail="تسجيل الدخول مطلوب")
-    if not await db.user_notifications.find_one({"id": notification_id, "$or": [{"user_id": _u["user_id"]}, {"company_id": _u.get("company_id"), "user_id": {"$in": [None, ""]}}]}, {"_id": 1}):
+    user_data = await verify_user(authorization)
+    user_id = user_data.get("user_id")
+    q = {"id": notification_id, "user_id": user_id}
+    if await db.notifications.find_one(q, {"_id": 1}):
+        await db.notifications.update_one(q, {"$set": {"read": True}})
+    elif await db.user_notifications.find_one(q, {"_id": 1}):
+        await db.user_notifications.update_one(q, {"$set": {"read": True}})
+    else:
         raise HTTPException(status_code=404, detail="Notification not found")
-    await verify_user(authorization)
-    await db.user_notifications.update_one({"id": notification_id}, {"$set": {"read": True}})
     return {"success": True}
 
 
-def send_push_notification(subscription_info: dict, payload: dict) -> bool:
-    """Send a push notification to a single subscription"""
+def send_push_notification(subscription_info: dict, payload: dict):
+    """Send one push (blocking — call through asyncio.to_thread).
+    True = delivered, False = the subscription is gone (404/410),
+    None = not sent for another reason (keys missing, network) — keep it."""
+    if webpush is None or not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
+        return None
     try:
-        if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
-            logger.warning("VAPID keys not configured")
-            return False
-        
         webpush(
             subscription_info={
                 "endpoint": subscription_info["endpoint"],
@@ -171,78 +200,81 @@ def send_push_notification(subscription_info: dict, payload: dict) -> bool:
         return True
     except WebPushException as e:
         logger.error(f"Push failed: {e}")
-        if e.response and e.response.status_code in [404, 410]:
+        resp = getattr(e, "response", None)
+        if resp is not None and getattr(resp, "status_code", None) in (404, 410):
             return False
-        return False
+        return None
     except Exception as e:
         logger.error(f"Push error: {e}")
-        return False
+        return None
 
 
-async def send_push_to_user(user_id: str, title: str, body: str, url: str = "/", tag: str = None):
-    """Send push notification to a specific user"""
+async def _push_subscriptions(db_, query: dict, payload: dict, cap: int):
+    subscriptions = await db_.push_subscriptions.find(
+        {**query, "is_active": True}, {"_id": 0}).to_list(length=cap)
+    for sub in subscriptions:
+        try:
+            ok = await asyncio.to_thread(send_push_notification, sub, payload)
+        except Exception as e:
+            logger.error(f"Push error: {e}")
+            ok = None
+        if ok is False:   # only a gone subscription is retired
+            await db_.push_subscriptions.update_one(
+                {"endpoint": sub["endpoint"]}, {"$set": {"is_active": False}})
+
+
+async def push_to_devices(db_, user_id: str, title: str, body: str, url: str = "/", tag: str = None):
+    """Web push to a user's subscribed browsers only (no in-app row). Never raises."""
     import uuid
-    
+    try:
+        payload = {"title": title, "body": body, "icon": "/logo192.png", "url": url or "/",
+                   "tag": tag or str(uuid.uuid4())}
+        await _push_subscriptions(db_ if db_ is not None else db, {"user_id": user_id}, payload, 10)
+    except Exception as e:
+        logger.error(f"Push error: {e}")
+
+
+async def send_push_to_user(user_id: str, title: str, body: str, url: str = "/", tag: str = None,
+                            company_id: str = None):
+    """In-app row in db.notifications (what the bell reads) + web push."""
+    import uuid
     notification = {
-        "id": str(uuid.uuid4()),
+        "id": f"notif_{uuid.uuid4().hex[:16]}",
+        "type": "system", "kind": "system",
         "user_id": user_id,
-        "title": title,
-        "body": body,
-        "url": url,
+        "company_id": company_id,
+        "title": title, "body": body, "link": url, "url": url,
+        "title_ar": title, "title_en": title, "message_ar": body, "message_en": body,
         "tag": tag,
         "read": False,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
-    await db.user_notifications.insert_one(notification)
-    
-    subscriptions = await db.push_subscriptions.find(
-        {"user_id": user_id, "is_active": True}, {"_id": 0}
-    ).to_list(length=10)
-    
-    payload = {"title": title, "body": body, "icon": "/logo192.png", "url": url, "tag": tag or str(uuid.uuid4())}
-    
-    for sub in subscriptions:
-        success = send_push_notification(sub, payload)
-        if not success:
-            await db.push_subscriptions.update_one(
-                {"endpoint": sub["endpoint"]}, {"$set": {"is_active": False}}
-            )
+    await db.notifications.insert_one(notification)
+    await push_to_devices(db, user_id, title, body, url, tag or notification["id"])
 
 
 async def send_push_to_company(company_id: str, title: str, body: str, url: str = "/", tag: str = None):
-    """Send push notification to all users in a company"""
+    """Company broadcast row in db.notifications + push to the company's browsers."""
     import uuid
-    
     notification = {
-        "id": str(uuid.uuid4()),
-        "company_id": company_id,
-        "title": title,
-        "body": body,
-        "url": url,
+        "id": f"notif_{uuid.uuid4().hex[:16]}",
+        "type": "system", "kind": "system",
+        "company_id": company_id, "broadcast": True,
+        "title": title, "body": body, "link": url, "url": url,
+        "title_ar": title, "title_en": title, "message_ar": body, "message_en": body,
         "tag": tag,
         "read": False,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
-    await db.user_notifications.insert_one(notification)
-    
-    subscriptions = await db.push_subscriptions.find(
-        {"company_id": company_id, "is_active": True}, {"_id": 0}
-    ).to_list(length=100)
-    
+    await db.notifications.insert_one(notification)
     payload = {"title": title, "body": body, "icon": "/logo192.png", "url": url, "tag": tag or str(uuid.uuid4())}
-    
-    for sub in subscriptions:
-        success = send_push_notification(sub, payload)
-        if not success:
-            await db.push_subscriptions.update_one(
-                {"endpoint": sub["endpoint"]}, {"$set": {"is_active": False}}
-            )
+    await _push_subscriptions(db, {"company_id": company_id}, payload, 100)
 
 
 async def send_push_to_all(title: str, body: str, url: str = "/", tag: str = None):
     """Send push notification to all subscribed users"""
     import uuid
-    
+
     notification = {
         "id": str(uuid.uuid4()),
         "target": "all",
@@ -254,19 +286,8 @@ async def send_push_to_all(title: str, body: str, url: str = "/", tag: str = Non
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.user_notifications.insert_one(notification)
-    
-    subscriptions = await db.push_subscriptions.find(
-        {"is_active": True}, {"_id": 0}
-    ).to_list(length=1000)
-    
     payload = {"title": title, "body": body, "icon": "/logo192.png", "url": url, "tag": tag or str(uuid.uuid4())}
-    
-    for sub in subscriptions:
-        success = send_push_notification(sub, payload)
-        if not success:
-            await db.push_subscriptions.update_one(
-                {"endpoint": sub["endpoint"]}, {"$set": {"is_active": False}}
-            )
+    await _push_subscriptions(db, {}, payload, 1000)
 
 
 @router.post("/send-test")
@@ -277,6 +298,7 @@ async def send_test_push(authorization: Optional[str] = Header(None)):
     
     await send_push_to_user(
         user_id=user_id,
+        company_id=user_data.get("company_id"),
         title="DataLife Account",
         body="تم تفعيل إشعارات Push بنجاح! Push notifications activated successfully!",
         url="/",

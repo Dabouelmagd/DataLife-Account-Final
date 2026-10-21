@@ -29,7 +29,8 @@ ACC = {
     "fx_gain":          "432",  # أرباح فروق عملة محققة
     "fx_loss":          "33611",  # خسائر فروق عملة محققة
     "fx_unrealized_gain": "432",# أرباح فروق عملة غير محققة (نفس الحساب — مميّز بالوصف)
-    "fx_unrealized_loss": "334",
+    # was 334 (bank charges & commissions): every unrealized loss landed in bank fees
+    "fx_unrealized_loss": "33611",
     "pnl":              "214",  # حساب الأرباح والخسائر
     "retained_earnings":"213",  # الأرباح (الخسائر) المرحلة
     "bank":             "162",
@@ -48,24 +49,19 @@ async def get_company(company_id: str) -> dict:
 
 
 async def get_rate(company_id: str, currency: str, as_of: str) -> float:
-    """Get exchange rate EGP per 1 unit of foreign currency"""
-    if currency.upper() == "EGP":
-        return 1.0
-    rate = await db.exchange_rates.find_one(
-        {"company_id": company_id, "currency": currency,
-         "date": {"$lte": as_of}},
-        {"_id": 0}, sort=[("date", -1)]
-    )
-    if not rate:
-        raise HTTPException(400, f"لا يوجد سعر صرف لـ {currency} في {as_of} — أضف السعر أولاً")
-    return float(rate["rate"])
+    """EGP per 1 unit of foreign currency — the one shared lookup (services/fx.py)
+    that reads every format the rate screens save. This used to read only
+    {currency, date}, which the currencies screen never writes."""
+    from services.fx import rate_on
+    return await rate_on(db, company_id, currency, as_of)
 
 
 async def get_acc(company_id: str, code: str) -> dict:
-    a = await db.chart_of_accounts.find_one(
-        {"company_id": company_id, "account_code": code}, {"_id": 0}
-    )
-    return a or {"id": code, "account_code": code, "account_name": f"حساب {code}"}
+    """The company's account, or an Arabic 400. It used to fall back to a stub
+    {"id": code}: the entry then pointed at an account that does not exist
+    and posting either failed or the amount vanished from every report."""
+    from services.fx import strict_account
+    return await strict_account(db, company_id, code)
 
 
 async def je_line(company_id: str, code: str,
@@ -81,24 +77,32 @@ async def je_line(company_id: str, code: str,
         "credit": round(credit, 2),
         "description": desc,
     }
-    if fx_currency:
-        line["currency"]   = fx_currency
-        line["fx_amount"]  = fx_amount
-        line["fx_rate"]    = fx_rate
+    if fx_currency and str(fx_currency).upper() != "EGP":
+        # the JournalEntryLine multi-currency fields (the old keys were dropped by the model)
+        line["currency_id"]    = str(fx_currency).upper()
+        line["exchange_rate"]  = float(fx_rate or 1)
+        line["debit_foreign"]  = round(float(fx_amount or 0), 2) if debit else 0.0
+        line["credit_foreign"] = round(float(fx_amount or 0), 2) if credit else 0.0
     return line
 
 
 async def post_je(company_id: str, user_id: str, date_str: str,
-                  description: str, lines: list, src_id: str = None) -> str:
+                  description: str, lines: list, src_id: str = None,
+                  source_type: str = "manual", reference: str = None,
+                  is_reversal: bool = False, reversal_of: str = None) -> str:
     svc = AccountingService(db)
     entry = JournalEntry(
         company_id=company_id, entry_number=0, entry_date=date_str,
-        description=description, lines=lines,
-        source_document_type="manual", source_document_id=src_id,
+        description=description, lines=lines, reference=reference,
+        source_document_type=source_type, source_document_id=src_id,
+        is_reversal=is_reversal, reversal_of=reversal_of,
         created_by=user_id,
     )
-    result = await svc.create_journal_entry(entry)
-    await svc.post_journal_entry(result["id"], user_id)
+    try:
+        result = await svc.create_journal_entry(entry)
+        await svc.post_journal_entry(result["id"], user_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     return result["id"]
 
 
@@ -134,6 +138,21 @@ async def record_realized_fx(data: dict,
     payment_rate    = float(data.get("payment_rate",  0))   # سعر يوم السداد
     payment_date    = data.get("payment_date", date.today().isoformat())
     direction       = data.get("direction", "payable")  # payable | receivable
+
+    if invoice_id:
+        inv = await db.invoices.find_one({"id": invoice_id, "company_id": company_id},
+                                         {"_id": 0, "currency": 1})
+        if inv and str(inv.get("currency") or "EGP").upper() != "EGP":
+            # record_payment already posts the realized difference in the
+            # payment entry; posting it here too would count it twice
+            raise HTTPException(400, "فروق العملة المحققة لفواتير العملة الأجنبية تُرحَّل تلقائياً "
+                                     "عند تسجيل السداد على الفاتورة — لا تُسجَّل يدوياً")
+    if foreign_amount <= 0:
+        raise HTTPException(400, "المبلغ بالعملة الأجنبية يجب أن يكون أكبر من صفر")
+    if original_rate <= 0:
+        raise HTTPException(400, "أدخل سعر الصرف الأصلي (سعر يوم الفاتورة)")
+    if payment_rate <= 0:
+        payment_rate = await get_rate(company_id, currency, payment_date)
 
     egp_original = round(foreign_amount * original_rate, 2)
     egp_payment  = round(foreign_amount * payment_rate,  2)
@@ -223,124 +242,244 @@ async def record_realized_fx(data: dict,
 #    إعادة تقييم الأرصدة في نهاية الفترة
 # ══════════════════════════════════════════════════════════════
 
+def _cc(v) -> str:
+    """Currency code from a str, or an Enum the driver stored as-is."""
+    return str(getattr(v, "value", v) or "EGP").upper()
+
+
+def _month_bounds(month: str):
+    """'2026-10' → ('2026-10-31', '2026-11-01')."""
+    import calendar
+    y, m = int(month[:4]), int(month[5:7])
+    last = f"{y:04d}-{m:02d}-{calendar.monthrange(y, m)[1]:02d}"
+    ny, nm = (y + 1, 1) if m == 12 else (y, m + 1)
+    return last, f"{ny:04d}-{nm:02d}-01"
+
+
+async def _open_foreign_on(inv: dict, as_of: str) -> float:
+    """What was still open on an invoice at `as_of`, in its own currency:
+    the net owed less payments and credit/debit notes dated on or before it.
+    The old revaluation used grand_total, so a half-paid invoice was revalued
+    in full."""
+    owed = float(inv.get("settle_amount") or inv.get("grand_total") or 0)
+    paid = 0.0
+    async for p in db.payments.find({"invoice_id": inv["id"], "company_id": inv["company_id"]},
+                                    {"_id": 0, "amount": 1, "payment_date": 1}):
+        if str(p.get("payment_date") or "")[:10] <= as_of:
+            paid += float(p.get("amount") or 0)
+    noted = 0.0
+    async for n in db.invoices.find({"original_invoice_id": inv["id"], "company_id": inv["company_id"],
+                                     "status": {"$nin": ["draft", "cancelled"]}},
+                                    {"_id": 0, "grand_total": 1, "document_date": 1}):
+        if str(n.get("document_date") or "")[:10] <= as_of:
+            noted += float(n.get("grand_total") or 0)
+    return round(owed - paid - noted, 2)
+
+
+async def _foreign_account_balance(company_id: str, account_id: str, as_of: str):
+    """(foreign balance, EGP book balance) of a foreign-currency bank/cash
+    account from its posted journal lines up to `as_of` (debit − credit)."""
+    foreign = egp = 0.0
+    async for je in db.journal_entries.find(
+            {"company_id": company_id, "status": {"$in": ["posted", "reversed"]},
+             "entry_date": {"$lte": as_of}, "lines.account_id": account_id},
+            {"_id": 0, "lines": 1}):
+        for l in je.get("lines", []):
+            if l.get("account_id") != account_id:
+                continue
+            egp += float(l.get("debit") or 0) - float(l.get("credit") or 0)
+            foreign += float(l.get("debit_foreign") or 0) - float(l.get("credit_foreign") or 0)
+    return round(foreign, 2), round(egp, 2)
+
+
 @router.post("/fx/revalue")
 async def revalue_foreign_balances(data: dict,
                                    current_user: dict = Depends(get_current_user)):
     """
-    إعادة تقييم أرصدة العملات الأجنبية في نهاية الفترة
-    (البنوك الأجنبية + العملاء والموردين الأجانب)
+    إعادة تقييم أرصدة العملات الأجنبية في نهاية الشهر — معيار المحاسبة المصري 13
+    (العملاء والموردون بعملة أجنبية + حسابات البنوك/الخزائن بعملة أجنبية)
 
-    القيد: إن كان الجنيه انخفض (ارتفع سعر الدولار):
-    Dr م/112 البنك (بالجنيه)      ← الزيادة
-    Cr م/432 أرباح فرق عملة غير محققة
+    body: {"month": "YYYY-MM"} (أو "date") — اختياري "currency" لعملة واحدة
 
-    أو العكس:
-    Dr م/334 خسائر فرق عملة غير محققة
-    Cr م/112 البنك
+    - الرصيد المفتوح فقط (بعد السداد والإشعارات حتى آخر الشهر) × سعر الإقفال
+    - العملاء/البنوك (أصول): ارتفاع السعر ربح ← م/432، انخفاضه خسارة ← م/33611
+    - الموردون (التزام): ارتفاع السعر خسارة ← م/33611، انخفاضه ربح ← م/432
+    - سعر الفاتورة الأصلي لا يتغيّر — يُحفظ التقييم في fx_revaluations
+    - قيد عكسي تلقائي أول يوم من الشهر التالي
+    - تشغيل واحد فقط لكل شركة وشهر
     """
-    company_id   = current_user["company_id"]
-    revalue_date = data.get("date", date.today().isoformat())
-    currency     = data.get("currency", "USD")
+    company_id = current_user["company_id"]
+    user_id    = current_user["user_id"]
+    month = str(data.get("month") or data.get("date") or date.today().isoformat())[:7]
+    try:
+        revalue_date, reversal_date = _month_bounds(month)
+    except (ValueError, IndexError):
+        raise HTTPException(400, "الشهر غير صحيح — استخدم الصيغة YYYY-MM")
+    only = str(data.get("currency") or "").upper() or None
 
-    # Get closing rate for the period
-    closing_rate = await get_rate(company_id, currency, revalue_date)
+    # one run per company + month: claim the month atomically, refuse a second run
+    run_id = str(uuid.uuid4())
+    prior = await db.fx_revaluations.find_one_and_update(
+        {"company_id": company_id, "month": month},
+        {"$setOnInsert": {"id": run_id, "company_id": company_id, "month": month,
+                          "status": "running", "created_by": user_id,
+                          "created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True)
+    if prior:
+        raise HTTPException(400, f"تمت إعادة تقييم العملات لشهر {month} بالفعل "
+                                 f"(القيد {prior.get('journal_entry_id') or '—'}) — لا يُعاد التشغيل مرتين")
 
-    # Find all foreign currency balances (bank accounts + AR + AP)
-    # We look for open transactions with this currency
-    open_items = await db.invoices.find({
-        "company_id": company_id,
-        "currency": currency,
-        "status": {"$nin": ["paid", "cancelled", "draft"]},
-    }, {"_id": 0}).to_list(None)
+    async def _release():
+        await db.fx_revaluations.delete_one({"company_id": company_id, "month": month, "id": run_id})
 
-    results   = []
-    je_lines  = []
-    total_adj = 0.0
+    try:
+        ar, ap = await get_acc(company_id, ACC["ar"]), await get_acc(company_id, ACC["ap"])
+        gain_acc = await get_acc(company_id, ACC["fx_unrealized_gain"])
+        loss_acc = await get_acc(company_id, ACC["fx_unrealized_loss"])
 
-    for item in open_items:
-        foreign_amt  = float(item.get("grand_total", 0))
-        book_rate    = float(item.get("exchange_rate", closing_rate))
-        book_egp     = round(foreign_amt * book_rate, 2)
-        new_egp      = round(foreign_amt * closing_rate, 2)
-        diff         = round(new_egp - book_egp, 2)
-        if abs(diff) < 0.01:
-            continue
+        inv_q = {"company_id": company_id,
+                 "document_type": {"$in": ["sales_invoice", "purchase_invoice"]},
+                 "currency": {"$nin": [None, "", "EGP"]},
+                 "status": {"$nin": ["draft", "cancelled"]},
+                 "journal_entry_id": {"$nin": [None, ""]},
+                 "document_date": {"$lte": revalue_date}}
+        if only:
+            inv_q["currency"] = only
+        invoices = await db.invoices.find(inv_q, {"_id": 0}).to_list(None)
 
-        doc_type = item.get("document_type", "")
-        is_receivable = "sales" in doc_type
+        acc_q = {"company_id": company_id, "currency_id": {"$nin": [None, "", "EGP"]},
+                 "account_type": "asset", "is_active": {"$ne": False}}
+        if only:
+            acc_q["currency_id"] = only
+        fx_accounts = [a for a in await db.chart_of_accounts.find(acc_q, {"_id": 0}).to_list(None)
+                       if not a.get("is_header")]
 
-        if diff > 0:
-            # Unrealized gain
-            credit_acc = ACC["fx_unrealized_gain"]
-            if is_receivable:
-                je_lines.append(await je_line(
-                    company_id, ACC["ar"], debit=diff,
-                    desc=f"إعادة تقييم {currency} — فاتورة {item.get('document_number','')}"))
-                je_lines.append(await je_line(
-                    company_id, credit_acc, credit=diff,
-                    desc=f"ربح فرق عملة غير محقق — {currency} بسعر {closing_rate}"))
+        currencies = sorted({_cc(i["currency"]) for i in invoices} |
+                            {_cc(a["currency_id"]) for a in fx_accounts})
+        if not currencies:
+            await _release()
+            return {"message": "لا توجد أرصدة بعملات أجنبية لإعادة تقييمها", "month": month}
+        rates = {c: await get_rate(company_id, c, revalue_date) for c in currencies}
+
+        items, lines = [], []
+        total_gain = total_loss = 0.0
+
+        def _post(acc_line, diff, is_asset, text):
+            """diff = new EGP − book EGP of the balance. Asset up / liability
+            down is a gain; asset down / liability up is a loss."""
+            nonlocal total_gain, total_loss
+            gain = (diff > 0) == is_asset
+            amt = round(abs(diff), 2)
+            lines.append({"account_id": acc_line["id"], "account_code": acc_line["account_code"],
+                          "account_name": acc_line["account_name"],
+                          # asset: debit when it rises; liability: credit when it rises
+                          "debit": amt if (diff > 0) == is_asset else 0.0,
+                          "credit": 0.0 if (diff > 0) == is_asset else amt,
+                          "description": text})
+            if gain:
+                total_gain += amt
             else:
-                je_lines.append(await je_line(
-                    company_id, ACC["fx_unrealized_gain"], credit=diff,
-                    desc=f"ربح فرق عملة غير محقق مورد — {currency}"))
-                je_lines.append(await je_line(
-                    company_id, ACC["ap"], debit=diff,
-                    desc=f"إعادة تقييم — فاتورة {item.get('document_number','')}"))
-        else:
-            # Unrealized loss
-            abs_d = abs(diff)
-            if is_receivable:
-                je_lines.append(await je_line(
-                    company_id, ACC["fx_unrealized_loss"], debit=abs_d,
-                    desc=f"خسارة فرق عملة غير محقق — {currency}"))
-                je_lines.append(await je_line(
-                    company_id, ACC["ar"], credit=abs_d,
-                    desc=f"إعادة تقييم عميل — {currency} بسعر {closing_rate}"))
-            else:
-                je_lines.append(await je_line(
-                    company_id, ACC["ap"], credit=abs_d,
-                    desc=f"إعادة تقييم مورد — {currency}"))
-                je_lines.append(await je_line(
-                    company_id, ACC["fx_unrealized_loss"], debit=abs_d,
-                    desc=f"خسارة فرق عملة غير محقق — {currency}"))
+                total_loss += amt
+            return "gain" if gain else "loss"
 
-        # Update invoice exchange rate
-        await db.invoices.update_one(
-            {"id": item["id"]},
-            {"$set": {"exchange_rate": closing_rate, "egp_value": new_egp}}
-        )
-        results.append({
-            "document_number": item.get("document_number",""),
-            "foreign_amount":  foreign_amt,
-            "currency":        currency,
-            "book_rate":       book_rate,
-            "closing_rate":    closing_rate,
-            "book_egp":        book_egp,
-            "new_egp":         new_egp,
-            "adjustment":      diff,
-        })
-        total_adj += diff
+        for inv in invoices:
+            cur = _cc(inv["currency"])
+            open_fc = await _open_foreign_on(inv, revalue_date)
+            if open_fc <= 0.004:
+                continue
+            book_rate = float(inv.get("exchange_rate") or 1)
+            book_egp, new_egp = round(open_fc * book_rate, 2), round(open_fc * rates[cur], 2)
+            diff = round(new_egp - book_egp, 2)
+            if abs(diff) < 0.01:
+                continue
+            is_ar = inv["document_type"] == "sales_invoice"
+            nature = _post(ar if is_ar else ap, diff, is_ar,
+                           f"إعادة تقييم {'عميل' if is_ar else 'مورد'} — فاتورة {inv.get('document_number', '')} "
+                           f"{open_fc:,.2f} {cur} من {book_rate} إلى {rates[cur]}")
+            items.append({"kind": "receivable" if is_ar else "payable", "invoice_id": inv["id"],
+                          "document_number": inv.get("document_number"), "party_name": inv.get("party_name"),
+                          "currency": cur, "open_foreign": open_fc, "book_rate": book_rate,
+                          "closing_rate": rates[cur], "book_egp": book_egp, "new_egp": new_egp,
+                          "adjustment": diff, "nature": nature})
 
-    if not je_lines:
-        return {"message": "لا فروق عملة غير محققة — الأرصدة مُقيَّمة بالسعر الحالي",
-                "currency": currency, "closing_rate": closing_rate}
+        for acc in fx_accounts:
+            cur = _cc(acc["currency_id"])
+            fc, book_egp = await _foreign_account_balance(company_id, acc["id"], revalue_date)
+            if abs(fc) < 0.005 and abs(book_egp) < 0.005:
+                continue
+            new_egp = round(fc * rates[cur], 2)
+            diff = round(new_egp - book_egp, 2)
+            if abs(diff) < 0.01:
+                continue
+            nature = _post(acc, diff, True,
+                           f"إعادة تقييم {acc['account_name']} — {fc:,.2f} {cur} بسعر {rates[cur]}")
+            items.append({"kind": "account", "account_id": acc["id"], "account_code": acc["account_code"],
+                          "account_name": acc["account_name"], "currency": cur, "open_foreign": fc,
+                          "book_egp": book_egp, "closing_rate": rates[cur], "new_egp": new_egp,
+                          "adjustment": diff, "nature": nature})
 
-    je_id = await post_je(company_id, current_user["user_id"], revalue_date,
-        f"إعادة تقييم {currency} بسعر {closing_rate} — {revalue_date}",
-        je_lines, revalue_date)
+        if not lines:
+            await _release()
+            return {"message": "لا فروق عملة غير محققة — الأرصدة مُقيَّمة بسعر الإقفال",
+                    "month": month, "rates": rates}
 
+        total_gain, total_loss = round(total_gain, 2), round(total_loss, 2)
+        if total_gain:
+            lines.append({"account_id": gain_acc["id"], "account_code": gain_acc["account_code"],
+                          "account_name": gain_acc["account_name"], "debit": 0.0, "credit": total_gain,
+                          "description": f"أرباح فروق عملة غير محققة — إعادة تقييم {month}"})
+        if total_loss:
+            lines.append({"account_id": loss_acc["id"], "account_code": loss_acc["account_code"],
+                          "account_name": loss_acc["account_name"], "debit": total_loss, "credit": 0.0,
+                          "description": f"خسائر فروق عملة غير محققة — إعادة تقييم {month}"})
+
+        rate_txt = "، ".join(f"{c} {r}" for c, r in rates.items())
+        je_id = await post_je(company_id, user_id, revalue_date,
+                              f"إعادة تقييم العملات الأجنبية — {month} ({rate_txt})", lines,
+                              src_id=run_id, source_type="adjustment", reference=f"FXREV-{month}")
+        # auto-reversal on the 1st of next month: balances go back to the
+        # carrying rate, so a payment next month realizes the full difference
+        # against the invoice rate without counting this month's part twice
+        rev_lines = [{**l, "debit": l["credit"], "credit": l["debit"],
+                      "description": "عكس: " + l["description"]} for l in lines]
+        rev_id = await post_je(company_id, user_id, reversal_date,
+                               f"عكس إعادة تقييم العملات — {month}", rev_lines,
+                               src_id=run_id, source_type="adjustment", reference=f"FXREV-{month}-R",
+                               is_reversal=True, reversal_of=je_id)
+    except Exception:
+        await _release()
+        raise
+
+    run = {"revalue_date": revalue_date, "reversal_date": reversal_date, "rates": rates,
+           "items": items, "total_gain": total_gain, "total_loss": total_loss,
+           "net": round(total_gain - total_loss, 2), "journal_entry_id": je_id,
+           "reversal_entry_id": rev_id, "status": "posted",
+           "posted_at": datetime.now(timezone.utc).isoformat()}
+    await db.fx_revaluations.update_one({"company_id": company_id, "month": month, "id": run_id},
+                                        {"$set": run})
     return {
-        "message":      f"تم إعادة تقييم {len(results)} بند بعملة {currency}",
-        "currency":     currency,
-        "closing_rate": closing_rate,
-        "revalue_date": revalue_date,
-        "total_adjustment": round(total_adj, 2),
-        "fx_nature":    "ربح غير محقق" if total_adj > 0 else "خسارة غير محققة",
-        "detail":       results,
-        "journal_entry_id": je_id,
-        "law": "المعيار المحاسبي المصري 13 — البند 23: الأرصدة النقدية بالعملة الأجنبية",
-        "reversal_note": "يُعكَس هذا القيد في أول يوم من الفترة التالية",
+        "message": f"تمت إعادة تقييم {len(items)} رصيد بعملات أجنبية لشهر {month}",
+        "id": run_id, "month": month, **run,
+        "law": "المعيار المحاسبي المصري 13 — الأرصدة النقدية بالعملة الأجنبية تُقيَّم بسعر الإقفال",
     }
+
+
+@router.get("/fx/revaluations")
+async def list_fx_revaluations(current_user: dict = Depends(get_current_user)):
+    """سجل تشغيلات إعادة تقييم العملات للشركة (الأحدث أولاً)."""
+    runs = await db.fx_revaluations.find(
+        {"company_id": current_user["company_id"], "status": "posted"},
+        {"_id": 0, "items": 0}).sort("month", -1).to_list(240)
+    return {"runs": runs, "total": len(runs)}
+
+
+@router.get("/fx/revaluations/{month}")
+async def get_fx_revaluation(month: str, current_user: dict = Depends(get_current_user)):
+    run = await db.fx_revaluations.find_one(
+        {"company_id": current_user["company_id"], "month": month[:7]}, {"_id": 0})
+    if not run:
+        raise HTTPException(404, "لا توجد إعادة تقييم لهذا الشهر")
+    return run
 
 
 # ══════════════════════════════════════════════════════════════

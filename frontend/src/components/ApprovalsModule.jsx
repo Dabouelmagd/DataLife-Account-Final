@@ -19,6 +19,7 @@ import {
   RefreshCw, Settings, Plus, Inbox, ArrowRight, History, Wifi, WifiOff
 } from 'lucide-react';
 import AttachmentsManager from './AttachmentsManager';
+import ApprovalThresholdSettings from './ApprovalThresholdSettings';
 import useRealTimeSync from '../hooks/useRealTimeSync';
 
 const ApprovalsModule = () => {
@@ -291,10 +292,15 @@ const ApprovalsModule = () => {
 
           <div className="mt-4 flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
-              {request.amount && (
-                <span className="font-semibold text-green-600">
+              {request.amount ? (
+                <span className="font-semibold text-green-600" data-testid={`amount-${request.id}`}>
                   {parseFloat(request.amount).toLocaleString()} {request.currency}
                 </span>
+              ) : null}
+              {request.band_label && (
+                <Badge variant="outline" className="text-xs" title={isRTL ? 'شريحة المبلغ' : 'Amount band'}>
+                  {isRTL ? 'شريحة' : 'Band'} {request.band_label}
+                </Badge>
               )}
               <span className="text-gray-500">
                 {request.created_at?.slice(0, 10)}
@@ -581,6 +587,7 @@ const ApprovalsModule = () => {
               </div>
             </CardContent>
           </Card>
+          <ApprovalThresholdSettings token={token} isRTL={isRTL} />
         </TabsContent>
       </Tabs>
 

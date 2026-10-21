@@ -65,6 +65,11 @@ class Currency(str, Enum):
     AED = "AED"    # درهم إماراتي
     USD = "USD"    # دولار أمريكي
     EUR = "EUR"    # يورو
+    GBP = "GBP"    # جنيه إسترليني
+    KWD = "KWD"    # دينار كويتي
+    QAR = "QAR"    # ريال قطري
+    BHD = "BHD"    # دينار بحريني
+    OMR = "OMR"    # ريال عماني
 
 
 # ==========================================
@@ -214,7 +219,13 @@ class Invoice(BaseModel):
     
     # Financial Info
     currency: Currency = Currency.EGP
+    # EGP per one unit of `currency` on the document date. This is the
+    # invoice's carrying rate: the entry is posted at it and payments settle
+    # AR/AP at it. Month-end revaluation never overwrites it (it is stored in
+    # db.fx_revaluations and reversed on the 1st of the next month).
     exchange_rate: float = 1.0
+    settle_amount_egp: Optional[float] = None  # AR/AP the entry booked, in EGP
+    settled_egp: float = 0.0                   # AR/AP closed by payments, in EGP
     payment_terms: PaymentTerms = PaymentTerms.CASH
     
     # Lines
@@ -317,6 +328,12 @@ class Payment(BaseModel):
     bank_account: Optional[str] = None
     notes: Optional[str] = None
     journal_entry_id: Optional[str] = None
+    # ── Multi-currency: amount is in the INVOICE currency ──────
+    currency: Optional[str] = None           # copied from the invoice
+    exchange_rate: Optional[float] = None    # EGP per unit on the payment date (None → looked up)
+    amount_egp: Optional[float] = None       # cash/bank side in EGP (amount × payment rate)
+    settled_egp: Optional[float] = None      # AR/AP closed in EGP (at the invoice's carrying rate)
+    fx_difference: Optional[float] = None    # + gain / − loss posted to 432 / 33611
     created_by: str
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 

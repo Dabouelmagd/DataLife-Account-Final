@@ -424,6 +424,37 @@ async def run_auto_monitor():
     except Exception as e:
         print(f"[Monitor] Error: {e}")
 
+async def run_monthly_depreciation():
+    """1st of each month: post LAST month's depreciation for every company with
+    active fixed assets — the same function as the «تشغيل الإهلاك» button,
+    posted as user "system". Claims make a re-run (or a click at the same
+    time) skip what is already posted; one company's error doesn't stop the rest."""
+    try:
+        from api.fixed_assets import run_scheduled_depreciation
+        res = await run_scheduled_depreciation()
+        print(f"[{datetime.now()}] Depreciation {res['period']}: {res['entries_created']} entries, "
+              f"{res['companies']} companies, {len(res['errors'])} errors")
+        for err in res["errors"]:
+            print(f"  [Depreciation] company {err['company_id']}: {err['error']}")
+        return res
+    except Exception as e:
+        print(f"[{datetime.now()}] Error running monthly depreciation: {e}")
+        return None
+
+
+async def run_real_estate_daily_job():
+    """Daily: mark overdue real-estate instalments and notify managers of
+    instalments due within 7 days and newly overdue ones."""
+    try:
+        from api.real_estate import run_real_estate_daily
+        res = await run_real_estate_daily()
+        print(f"[{datetime.now()}] Real estate: {res}")
+        return res
+    except Exception as e:
+        print(f"[{datetime.now()}] Error in real-estate daily job: {e}")
+        return None
+
+
 def start_scheduler():
     """Start the scheduler with all jobs"""
     
@@ -454,6 +485,24 @@ def start_scheduler():
         replace_existing=True
     )
     
+    # Monthly fixed-asset depreciation for the previous month — 1st at 2:30 AM (UTC)
+    scheduler.add_job(
+        run_monthly_depreciation,
+        CronTrigger(day=1, hour=2, minute=30),
+        id='monthly_depreciation',
+        name='Monthly Fixed-Asset Depreciation',
+        replace_existing=True
+    )
+
+    # Real-estate instalments: overdue marking and reminders — daily 5:00 AM UTC (8:00 Cairo)
+    scheduler.add_job(
+        run_real_estate_daily_job,
+        CronTrigger(hour=5, minute=0),
+        id='real_estate_daily',
+        name='Real Estate Instalments Daily',
+        replace_existing=True
+    )
+
     # Daily audit report at 7 AM (UTC)
     scheduler.add_job(
         send_daily_audit_report,

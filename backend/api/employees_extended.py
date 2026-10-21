@@ -206,7 +206,11 @@ async def get_employees(
     for emp in employees:
         totals = await calculate_employee_totals(emp)
         emp.update(totals)
-    
+
+    # national ID / phone / bank account / salaries were returned in full to
+    # every role that can open the list; masked now unless HR/payroll/top
+    from api.data_protection import mask_employee
+    employees = [mask_employee(e, current_user) for e in employees]
     return {"employees": employees, "total": len(employees)}
 
 
@@ -316,7 +320,15 @@ async def get_employee(
                     "net_salary": emp_pay.get("net_salary", 0)
                 }
                 break
-    
+
+    from api.data_protection import mask_employee, log_pii_view
+    employee = mask_employee(employee, current_user)
+    shown = [f for f in ("national_id", "iban", "bank_account_number") if employee.get(f)] \
+        if not employee["pii_masked"] else []
+    if not employee["salary_hidden"]:
+        shown.append("salary")
+    if shown:
+        await log_pii_view(current_user, "employee", employee_id, shown, "عرض ملف موظف")
     return employee
 
 
@@ -364,6 +376,17 @@ async def update_employee(
     # not editable either (they were, through this body)
     for k in ("employee_code", "company_id", "id", "_id"):
         request.pop(k, None)
+    # a screen that loaded the masked record and saves it back must not
+    # overwrite the real national ID / IBAN with "*******123", nor blank the
+    # salary it was not allowed to see
+    from api.data_protection import is_masked, has_salary_clearance, SALARY_FIELDS
+    for k in [k for k, v in request.items() if is_masked(v)]:
+        request.pop(k)
+    for k in ("pii_masked", "salary_hidden"):
+        request.pop(k, None)
+    if not has_salary_clearance(current_user):
+        for k in SALARY_FIELDS + ["allowances", "deductions"]:
+            request.pop(k, None)
     
     # تحديث البيانات
     request["updated_at"] = datetime.utcnow()

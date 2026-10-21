@@ -254,6 +254,7 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'inventory',        name: isArabic ? '🗄️ المخزون'           : '🗄️ Inventory' },
   { id: 'bank',             name: isArabic ? '🏧 البنوك والخزائن'    : '🏧 Banks & Cash' },
   { id: 'treasury',         name: isArabic ? '💵 الخزينة والشيكات'  : '💵 Cash & Cheques' },
+  { id: 'bank-reconciliation', name: isArabic ? '🏦 التسوية البنكية'   : '🏦 Bank Reconciliation' },
   { id: 'progress-claims',  name: isArabic ? '🏗️ المستخلصات'        : '🏗️ Progress Claims' },
   { id: 'guarantees',       name: isArabic ? '🛡️ خطابات الضمان'     : '🛡️ Letters of Guarantee' },
   { id: 'tax-forms',        name: isArabic ? '🧾 نموذج 10 و41'      : '🧾 Tax Forms 10 & 41' },
@@ -270,6 +271,7 @@ export const getFinancialSubModules = (isArabic) => [
   { id: 'letters-of-credit', name: isArabic ? '🚢 الاعتمادات المستندية'  : '🚢 Letters of Credit' },
   { id: 'medical',          name: isArabic ? '🏥 القطاع الطبي وأتعاب الأطباء' : '🏥 Medical & Doctor Fees' },
   { id: 'currencies',       name: isArabic ? '💱 العملات'           : '💱 Currencies' },
+  { id: 'fx-revaluation',   name: isArabic ? '💱 فروق العملة وإعادة التقييم' : '💱 FX Revaluation' },
   { id: 'reports',          name: isArabic ? '📊 التقارير المالية'  : '📊 Financial Reports' },
 ];
 

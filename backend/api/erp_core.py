@@ -25,43 +25,26 @@ router = APIRouter(prefix="/api/erp-core", tags=["Core ERP"])
 # ══════════════════════════════════════════════════════════════
 
 def get_client_ip(request: Request) -> str:
-    """Extract real client IP from headers or connection"""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip
-    return getattr(request.client, "host", "unknown")
+    """X-Real-IP (set by nginx), else the LAST X-Forwarded-For hop, else the
+    socket peer — the first X-Forwarded-For entry is client-supplied."""
+    from services.security_log import client_ip
+    return client_ip(request) or "unknown"
 
 
 def make_audit_hash(entry: dict, prev_hash: str = "") -> str:
-    """
-    SHA-256 hash linking each audit entry to the previous one.
-    Creates an immutable chain — tampering any entry breaks the chain.
-    """
-    payload = json.dumps({
-        "id":         entry.get("id"),
-        "timestamp":  entry.get("timestamp"),
-        "user_id":    entry.get("user_id"),
-        "action":     entry.get("action"),
-        "entity_id":  entry.get("entity_id"),
-        "new_value":  str(entry.get("new_value","")),
-        "prev_hash":  prev_hash,
-    }, sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(payload.encode()).hexdigest()
+    """The OLD (v1) row hash — kept only to verify rows written before
+    services.audit_helper (hash_v 2). New rows are hashed over every field."""
+    from services.audit_helper import legacy_hash
+    return legacy_hash(entry, prev_hash)
 
 
 async def get_last_audit_hash(company_id: str) -> str:
-    """Get hash of last audit entry for chaining"""
-    # Other modules (financial_engine) write plain audit_trail rows with no
-    # chain_hash; picking one of those as "last" restarted the chain from "".
-    last = await db.audit_trail.find_one(
-        {"company_id": company_id, "chain_hash": {"$exists": True, "$ne": ""}},
-        {"_id": 0, "chain_hash": 1},
-        sort=[("timestamp", -1)]
-    )
-    return last.get("chain_hash", "") if last else ""
+    """Current head of the company's chain (see services.audit_helper)."""
+    c = await db.audit_counters.find_one({"_id": company_id}, {"head_hash": 1})
+    if c:
+        return c.get("head_hash", "") or ""
+    from services.audit_helper import _legacy_head
+    return await _legacy_head(db, company_id)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1066,42 +1049,13 @@ async def write_audit(
     old_value: dict = None, new_value: dict = None,
 ) -> str:
     """
-    كتابة سجل تدقيق غير قابل للتعديل مع ربط تشفيري (SHA-256 chain)
-
-    الحقول:
-    - timestamp   : وقت العملية بدقة millisecond
-    - user_id     : هوية المستخدم
-    - ip          : عنوان IP
-    - action      : نوع العملية
-    - old_value   : القيم قبل التعديل
-    - new_value   : القيم بعد التعديل
-    - prev_hash   : hash السجل السابق (للتسلسل)
-    - chain_hash  : SHA-256 hash لهذا السجل
+    كتابة سجل تدقيق مربوط بسلسلة SHA-256 — عبر الكاتب الموحد
+    services.audit_helper.log_event (تسلسل لكل شركة + بصمة تشمل كل الحقول).
     """
-    entry_id = str(uuid.uuid4())
-    now      = datetime.now(timezone.utc).isoformat()
-    prev_hash = await get_last_audit_hash(company_id)
-
-    entry = {
-        "id":          entry_id,
-        "company_id":  company_id,
-        "timestamp":   now,
-        "user_id":     user_id,
-        "ip_address":  ip,
-        "action":      action,
-        "module":      module,
-        "entity_id":   entity_id,
-        "description": description,
-        "old_value":   old_value,
-        "new_value":   new_value,
-        "prev_hash":   prev_hash,
-        "chain_hash":  "",  # Set after computing
-    }
-    chain_hash = make_audit_hash(entry, prev_hash)
-    entry["chain_hash"] = chain_hash
-
-    await db.audit_trail.insert_one(entry)
-    return entry_id
+    from services.audit_helper import log_event
+    row = await log_event(db, company_id, user_id, action, module, entity=module, entity_id=entity_id,
+                          old=old_value, new=new_value, ip=ip, description=description)
+    return (row or {}).get("id", "")
 
 
 @router.post("/audit/log")
@@ -1155,7 +1109,7 @@ async def get_audit_trail(
 
     total   = await db.audit_trail.count_documents(q)
     entries = await db.audit_trail.find(q, {"_id": 0}).sort(
-        "timestamp", -1).skip((page-1)*limit).limit(limit).to_list(None)
+        [("timestamp", -1), ("seq", -1)]).skip((page-1)*limit).limit(limit).to_list(None)
 
     return {
         "entries": entries, "total": total, "page": page,
@@ -1171,46 +1125,14 @@ async def verify_audit_chain(
     """
     التحقق من سلامة سلسلة التدقيق (tamper detection)
 
-    يُعيد حساب hash كل سجل ويتحقق من التسلسل
-    إذا وُجِد أي تعديل → يُبلِّغ بالسجل المعدَّل
+    السلسلة الحالية: يُعاد حساب بصمة كل سجل (كل الحقول) ويُتحقق من تتابع
+    الأرقام والربط بالسجل السابق، ثم يُقارن آخر سجل بنقطة الإثبات
+    (audit_anchors) لاكتشاف الحذف من النهاية. السجلات القديمة تُفحص
+    بالصيغة القديمة وتُعرض منفصلة.
     """
-    company_id = current_user["company_id"]
+    from services.audit_helper import verify_chain
     try:
-        limit = max(1, min(int(data.get("limit", 1000)), 20000))
+        limit = max(1, min(int((data or {}).get("limit", 20000)), 50000))
     except (TypeError, ValueError):
-        limit = 1000
-
-    entries = await db.audit_trail.find(
-        {"company_id": company_id, "chain_hash": {"$exists": True, "$ne": ""}}, {"_id": 0}
-    ).sort("timestamp", 1).limit(limit).to_list(None)
-
-    tampered = []
-    prev_hash = None
-
-    for entry in entries:
-        computed = make_audit_hash(entry, entry.get("prev_hash",""))
-        problem = None
-        if computed != entry.get("chain_hash",""):
-            problem = "محتوى السجل تغيَّر"
-        # Only each row's own hash was checked, so DELETING a row went
-        # unnoticed. Each row must point at the hash of the row before it.
-        elif prev_hash is not None and entry.get("prev_hash", "") != prev_hash:
-            problem = "سجل سابق محذوف أو مُعاد ترتيبه"
-        if problem:
-            tampered.append({
-                "entry_id":  entry["id"],
-                "timestamp": entry["timestamp"],
-                "action":    entry["action"],
-                "problem":   problem,
-                "stored_hash":   entry.get("chain_hash",""),
-                "computed_hash": computed,
-            })
-        prev_hash = entry.get("chain_hash","")
-
-    return {
-        "entries_checked": len(entries),
-        "chain_intact":    len(tampered) == 0,
-        "note": "قد تظهر ملاحظة تسلسل إذا سُجِّل حدثان في نفس اللحظة",
-        "tampered_entries": tampered,
-        "message": "✅ سلسلة التدقيق سليمة" if not tampered else f"⚠️ {len(tampered)} سجل مُعدَّل",
-    }
+        limit = 20000
+    return await verify_chain(db, current_user["company_id"], limit)

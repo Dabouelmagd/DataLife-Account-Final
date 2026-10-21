@@ -934,6 +934,49 @@ async def build_payroll_sheet(run: dict, company_id: str, department: str = None
             "departments": departments, "branches": branches, "by_department": by_department}
 
 
+# ── who sees salary figures in payroll sheets and exports ──────────
+# Every role that could open /api/payroll got every salary, national ID and
+# IBAN. Roles without salary clearance (api.data_protection) now get the
+# sheet/exports with money columns empty; the bank file is refused. A full
+# view is recorded as pii_viewed in the audit trail.
+
+def _salary_ok(user: dict) -> bool:
+    from api.data_protection import has_salary_clearance
+    return has_salary_clearance(user)
+
+
+async def _note_payroll_view(user: dict, run_id: str, what: str, fields: list) -> None:
+    from api.data_protection import log_pii_view
+    await log_pii_view(user, "payroll_run", run_id, fields, f"كشف/تصدير رواتب: {what}")
+
+
+async def _sheet_for_role(sheet: dict, user: dict, run_id: str, what: str) -> dict:
+    if _salary_ok(user):
+        await _note_payroll_view(user, run_id, what, ["salary"])
+        return {**sheet, "salary_hidden": False}
+    from api.data_protection import mask_employee
+    rows = []
+    for r in sheet.get("rows", []):
+        m = mask_employee(r, user)
+        m["allowances"] = {k: None for k in (r.get("allowances") or {})}
+        m["deductions"] = {k: None for k in (r.get("deductions") or {})}
+        rows.append(m)
+    t = dict(sheet.get("totals") or {})
+    for k in list(t):
+        if k == "allowances" or k == "deductions":
+            t[k] = {kk: None for kk in (t[k] or {})}
+        elif k != "employees":
+            t[k] = None
+    by_dep = [{k: (v if k in ("department", "name", "employees", "count") else None) for k, v in d.items()}
+              if isinstance(d, dict) else d for d in (sheet.get("by_department") or [])]
+    return {**sheet, "rows": rows, "totals": t, "by_department": by_dep, "salary_hidden": True}
+
+
+def _masked_run_rows(run: dict, user: dict) -> list:
+    from api.data_protection import mask_employee
+    return [mask_employee(e, user) for e in run.get("employees", [])]
+
+
 @router.get("/runs/{run_id}/sheet")
 async def payroll_sheet(run_id: str, department: Optional[str] = None, branch: Optional[str] = None,
                         format: Optional[str] = None, current_user: dict = Depends(get_current_user)):
@@ -942,6 +985,7 @@ async def payroll_sheet(run_id: str, department: Optional[str] = None, branch: O
     if not run:
         raise HTTPException(404, "مسير الرواتب غير موجود")
     sheet = await build_payroll_sheet(run, current_user["company_id"], department, branch)
+    sheet = await _sheet_for_role(sheet, current_user, run_id, "xlsx" if format == "xlsx" else "sheet")
     if format != "xlsx":
         return sheet
 
@@ -2227,7 +2271,9 @@ async def export_payroll_csv(
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
-    for emp in run.get("employees", []):
+    if _salary_ok(current_user):
+        await _note_payroll_view(current_user, run_id, "csv", ["salary"])
+    for emp in _masked_run_rows(run, current_user):
         writer.writerow({
             "اسم الموظف": emp.get("employee_name", ""),
             "الوظيفة": emp.get("job_title") or emp.get("position", ""),   # run rows carry `position`
@@ -2274,6 +2320,13 @@ async def export_bank_transfer_file(
         raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
     if payroll.get("status") not in ("approved", "paid"):
         raise HTTPException(status_code=400, detail="يجب اعتماد المسير أولاً")
+    from api.data_protection import has_pii_clearance
+    if not (_salary_ok(current_user) and has_pii_clearance(current_user)):
+        # a bank file with masked accounts is useless and a full one is
+        # exactly the data this role may not see
+        raise HTTPException(status_code=403, detail="ملف التحويل البنكي لمدير الموارد البشرية أو المدير المالي أو الإدارة العليا فقط")
+    await _note_payroll_view(current_user, run_id, f"bank-file {method}",
+                             ["salary", "national_id", "iban", "bank_account_number"])
 
     rows = [r for r in await _transfer_rows(payroll, company_id)
             if r["payment_method"] == method and r["net_salary"] > 0]
@@ -2376,7 +2429,10 @@ async def export_payroll_excel(
 
     keys = ["basic_salary","total_allowances","total_deductions","social_insurance","income_tax","net_salary"]
     totals = {k: 0 for k in keys}
-    for row, emp in enumerate(run.get("employees", []), 1):
+    salary_ok = _salary_ok(current_user)
+    if salary_ok:
+        await _note_payroll_view(current_user, run_id, "excel", ["salary"])
+    for row, emp in enumerate(_masked_run_rows(run, current_user), 1):
         ws.write(row, 0, row, txt)
         ws.write(row, 1, emp.get("employee_name", ""), txt)
         ws.write(row, 2, emp.get("job_title") or emp.get("position", ""), txt)
@@ -2388,19 +2444,15 @@ async def export_payroll_excel(
         ws.write(row, 8, emp.get("income_tax", 0), num)
         ws.write(row, 9, emp.get("net_salary", 0), num)
         for k in keys:
-            totals[k] += emp.get(k, 0)
+            totals[k] += emp.get(k) or 0
 
     last = len(run.get("employees", [])) + 1
     ws.write(last, 0, "الإجمالي", tot)
     ws.write(last, 1, run.get("total_employees", ""), tot)
     ws.write(last, 2, "", tot)
     ws.write(last, 3, "", tot)
-    ws.write(last, 4, totals["basic_salary"], tot)
-    ws.write(last, 5, totals["total_allowances"], tot)
-    ws.write(last, 6, totals["total_deductions"], tot)
-    ws.write(last, 7, totals["social_insurance"], tot)
-    ws.write(last, 8, totals["income_tax"], tot)
-    ws.write(last, 9, totals["net_salary"], tot)
+    for c, k in enumerate(keys[:3] + ["social_insurance", "income_tax", "net_salary"], 4):
+        ws.write(last, c, totals[k] if salary_ok else None, tot)
     wb.close()
 
     month_str = f"{run.get('year', '')}-{run.get('month', '')}"

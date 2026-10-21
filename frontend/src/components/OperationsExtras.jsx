@@ -453,7 +453,8 @@ export function ManufacturingPage() {
   const orderBody = () => ({
     order_number: form.order_number.trim(), product_id: form.product_id, product_name: pname(form.product_id),
     planned_qty: +form.planned_qty, start_date: form.start_date, warehouse_id: form.warehouse_id || null,
-    materials_account: form.materials_account, notes: form.notes || null,
+    materials_account: form.materials_account || null, notes: form.notes || null,
+    overhead_basis: form.overhead_basis || null, overhead_rate: form.overhead_basis ? +form.overhead_rate || 0 : 0,
     bom_id: form.source === 'bom' ? form.bom_id : null,
     materials: form.source === 'bom' ? [] : form.materials.filter((m) => +m.qty > 0).map((m) => ({
       product_id: m.product_id || null, name: m.name || pname(m.product_id), qty: +m.qty, unit_cost: +m.unit_cost || 0 })),
@@ -468,24 +469,26 @@ export function ManufacturingPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-4" dir="rtl">
-      <Header title="التصنيع وأوامر الإنتاج" sub="خامات 121 ← إنتاج تحت التشغيل 126 ← إنتاج تام 122. الأجور تُنقل من 312 والتكاليف غير المباشرة تُحمَّل على 3181.">
-        {tab === 'orders' && <AddBtn onClick={() => { setErr(''); setPreview(null); setForm({ kind: 'order', order_number: `MO-${(orders || []).length + 1}`, product_id: '', planned_qty: '', start_date: today(), warehouse_id: '', materials_account: '121', source: 'manual', bom_id: '', notes: '', materials: [{ product_id: '', name: '', qty: '', unit_cost: '' }] }); }}>أمر إنتاج</AddBtn>}
+      <Header title="التصنيع وأوامر الإنتاج" sub="خامات 121 ← إنتاج تحت التشغيل 126 ← إنتاج تام 122 (في الجرد الدوري: 311 ← 126 ← 311 والكميات فقط تدخل المخزن). الأجور تُنقل من 312 والتكاليف غير المباشرة تُحمَّل على 3181.">
+        {tab === 'orders' && <AddBtn onClick={() => { setErr(''); setPreview(null); setForm({ kind: 'order', order_number: `MO-${(orders || []).length + 1}`, product_id: '', planned_qty: '', start_date: today(), warehouse_id: '', materials_account: '', overhead_basis: '', overhead_rate: '', source: 'manual', bom_id: '', notes: '', materials: [{ product_id: '', name: '', qty: '', unit_cost: '' }] }); }}>أمر إنتاج</AddBtn>}
         {tab === 'boms' && <AddBtn onClick={() => { setErr(''); setForm({ kind: 'bom', product_id: '', output_qty: 1, name: '', components: [{ product_id: '', qty: '' }] }); }}>قائمة مواد</AddBtn>}
         {tab === 'variance' && <AddBtn onClick={() => { setErr(''); const d = new Date(); setForm({ kind: 'variance', period: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, actual_foh: '', applied_foh: '', date: today() }); }}>تسوية فروق التحميل</AddBtn>}
       </Header>
       <Tabs tabs={[['orders', 'أوامر الإنتاج'], ['boms', 'قوائم المواد'], ['variance', 'فروق التحميل']]} value={tab} onChange={setTab} />
 
       {tab === 'orders' && (orders === null ? <Spinner /> : (
-        <Table head={['الأمر', 'المنتج', '#المخطط', '#الفعلي', '#خامات', '#أجور + غير مباشرة', '#التكلفة', 'الحالة', '']} empty={orders.length === 0 && 'لا توجد أوامر إنتاج بعد.'}>
+        <Table head={['الأمر', 'المنتج', '#المخطط', '#الفعلي', '#انحراف العائد', '#خامات', '#أجور + غير مباشرة', '#التكلفة', 'الحالة', '']} empty={orders.length === 0 && 'لا توجد أوامر إنتاج بعد.'}>
           {orders.map((o) => (
             <tr key={o.id}>
               <td className="px-3 py-2"><bdi dir="ltr">{o.order_number}</bdi></td><td className="px-3 py-2 font-semibold">{o.product_name}</td>
               <td className="px-3 py-2 text-end"><Q v={o.planned_qty} /></td><td className="px-3 py-2 text-end">{o.status === 'closed' ? <Q v={o.actual_qty} /> : '—'}</td>
+              <td className={`px-3 py-2 text-end ${o.yield_variance_pct < 0 ? 'text-red-700' : o.yield_variance_pct > 0 ? 'text-emerald-700' : ''}`}>
+                {o.status === 'closed' && o.yield_variance_pct != null ? <bdi dir="ltr">{o.yield_variance_pct > 0 ? '+' : ''}{o.yield_variance_pct}%</bdi> : '—'}</td>
               <td className="px-3 py-2 text-end"><N v={o.total_materials_cost} /></td><td className="px-3 py-2 text-end"><N v={(o.total_labor_cost || 0) + (o.total_foh_applied || 0)} /></td>
               <td className="px-3 py-2 text-end font-semibold"><N v={o.total_actual_cost} /></td><td className="px-3 py-2">{statusBadge(o.status)}</td>
               <td className="px-3 py-2 text-end whitespace-nowrap">{o.status === 'open' && <>
                 <button onClick={() => { setErr(''); setForm({ kind: 'alloc', order: o, labor_cost: '', date: today(), foh: [{ type: 'electricity', amount: '', description: '' }] }); }} className={btnSmall}>تحميل تكاليف</button>{' '}
-                <button onClick={() => { setErr(''); setForm({ kind: 'complete', order: o, actual_qty: o.planned_qty, date: today(), warehouse_id: '' }); }} className={btnSmall}>إتمام</button></>}</td>
+                <button onClick={() => { setErr(''); setForm({ kind: 'complete', order: o, actual_qty: o.planned_qty, date: today(), warehouse_id: '', confirm_yield: false }); }} className={btnSmall}>إتمام</button></>}</td>
             </tr>
           ))}
         </Table>
@@ -518,8 +521,13 @@ export function ManufacturingPage() {
             <Label t="مخزن الخامات"><WarehouseSelect warehouses={warehouses} value={form.warehouse_id} onChange={(v) => { setPreview(null); setForm({ ...form, warehouse_id: v }); }} /></Label>
             <Label t="الخامات مسجلة على" className="sm:col-span-3">
               <select value={form.materials_account} onChange={(e) => { setPreview(null); setForm({ ...form, materials_account: e.target.value }); }} className={input}>
+                <option value="">تلقائي — حسب طريقة الجرد (121 في الجرد المستمر، 311 في الدوري)</option>
                 <option value="121">121 مخزون الخامات والمواد الأولية</option>
                 <option value="125">125 بضائع — إن كانت الخامات مشتراة بفاتورة شراء (الجرد المستمر يقيد المشتريات على 125)</option></select></Label>
+            <Label t="تحميل غير مباشر بمعدل محدد مسبقاً (يُحمَّل تلقائياً عند الإتمام)">
+              <select value={form.overhead_basis} onChange={(e) => { setPreview(null); setForm({ ...form, overhead_basis: e.target.value }); }} className={input}>
+                <option value="">بدون — تحميل يدوي</option><option value="material_pct">% من تكلفة الخامات</option><option value="per_unit">مبلغ لكل وحدة منتجة</option></select></Label>
+            {form.overhead_basis && <Label t={form.overhead_basis === 'material_pct' ? 'النسبة %' : 'المبلغ لكل وحدة'}><Num value={form.overhead_rate} onChange={(v) => { setPreview(null); setForm({ ...form, overhead_rate: v }); }} /></Label>}
           </div>
           <div className="mt-4"><Tabs tabs={[['manual', 'خامات يدوياً'], ['bom', 'من قائمة مواد']]} value={form.source} onChange={(v) => { setPreview(null); setForm({ ...form, source: v }); }} /></div>
           {form.source === 'bom' ? (
@@ -549,7 +557,8 @@ export function ManufacturingPage() {
                 {preview.materials.map((m, i) => <tr key={i}><td className="px-3 py-1.5">{m.name}</td><td className="px-3 py-1.5 text-end"><Q v={m.qty} /></td>
                   <td className="px-3 py-1.5 text-end"><N v={m.unit_cost} /></td><td className="px-3 py-1.5 text-end"><N v={m.total_cost} /></td></tr>)}
               </Table>
-              <Lines rows={[['126 إنتاج تحت التشغيل', preview.total_materials_cost, 0], [`${preview.credit_account} ${preview.credit_account === '311' ? 'تكلفة الخامات (الجرد الدوري)' : 'المخزون'}`, 0, preview.total_materials_cost]]} />
+              <Lines rows={[['126 إنتاج تحت التشغيل', preview.total_materials_cost, 0], [`${preview.credit_account} ${preview.credit_account === '311' ? 'تكلفة الخامات (الجرد الدوري)' : 'المخزون'}`, 0, preview.total_materials_cost]]}
+                note={preview.overhead_at_planned_qty > 0 ? `سيُحمَّل عند الإتمام تلقائياً ≈ ${money(preview.overhead_at_planned_qty)} تكاليف غير مباشرة (126 / 3181) بالكمية المخططة.` : undefined} />
             </div>
           )}
           <Err e={err} />
@@ -586,21 +595,37 @@ export function ManufacturingPage() {
         );
       })()}
 
-      {form?.kind === 'complete' && (
-        <Modal title={`إتمام أمر ${form.order.order_number} — ${form.order.product_name}`} onClose={() => setForm(null)} footer={<>
+      {form?.kind === 'complete' && (() => {
+        const o = form.order; const qty = +form.actual_qty || 0;
+        const oh = !o.overhead_basis || !(o.overhead_rate > 0) ? 0
+          : r2(o.overhead_basis === 'material_pct' ? o.total_materials_cost * o.overhead_rate / 100 : qty * o.overhead_rate);
+        const total = r2(o.total_actual_cost + oh);
+        const yPct = o.planned_qty > 0 ? Math.round((qty - o.planned_qty) / o.planned_qty * 10000) / 100 : 0;
+        const huge = qty > o.planned_qty * 10;
+        const periodic = o.materials_account === '311';
+        return (
+        <Modal title={`إتمام أمر ${o.order_number} — ${o.product_name}`} onClose={() => setForm(null)} footer={<>
           <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
-          <button onClick={() => run(() => axios.post(`${API}/api/manufacturing/production-orders/${form.order.id}/complete`, { actual_qty: +form.actual_qty, date: form.date, warehouse_id: form.warehouse_id || null }, auth()))}
-            disabled={busy || !(+form.actual_qty > 0)} className={btnPrimary}>{busy ? '…' : 'إتمام وترحيل'}</button></>}>
+          <button onClick={() => run(() => axios.post(`${API}/api/manufacturing/production-orders/${o.id}/complete`, { actual_qty: qty, date: form.date, warehouse_id: form.warehouse_id || null, confirm_yield: form.confirm_yield }, auth()))}
+            disabled={busy || !(qty > 0) || (huge && !form.confirm_yield)} className={btnPrimary}>{busy ? '…' : 'إتمام وترحيل'}</button></>}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Label t="الكمية المنتجة فعلاً *"><Num value={form.actual_qty} onChange={(v) => setForm({ ...form, actual_qty: v })} /></Label>
             <Label t="التاريخ"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={input} /></Label>
             <Label t="مخزن الإنتاج التام"><WarehouseSelect warehouses={warehouses} value={form.warehouse_id} onChange={(v) => setForm({ ...form, warehouse_id: v })} /></Label>
           </div>
-          {+form.actual_qty > 0 && <p className="mt-3">تكلفة الوحدة: <N v={form.order.total_actual_cost / form.actual_qty} /></p>}
-          <div className="mt-3"><Lines rows={[['122 مخزون الإنتاج التام', r2(form.order.total_actual_cost), 0], ['126 إنتاج تحت التشغيل', 0, r2(form.order.total_actual_cost)]]} /></div>
+          {qty > 0 && <p className="mt-3">تكلفة الوحدة: <N v={total / qty} /> — انحراف العائد عن المخطط:{' '}
+            <bdi dir="ltr" className={yPct < 0 ? 'text-red-700 font-bold' : yPct > 0 ? 'text-emerald-700 font-bold' : ''}>{yPct > 0 ? '+' : ''}{yPct}%</bdi></p>}
+          {huge && <label className="mt-2 flex items-start gap-2 text-sm text-red-700"><input type="checkbox" checked={form.confirm_yield} onChange={(e) => setForm({ ...form, confirm_yield: e.target.checked })} className="mt-1" />
+            <span>الكمية أكبر من 10 أضعاف المخطط — أؤكد أنها صحيحة وليست خطأ إدخال.</span></label>}
+          <div className="mt-3 space-y-2">
+            {oh > 0 && <Lines rows={[['126 إنتاج تحت التشغيل', oh, 0], ['3181 تكاليف صناعية غير مباشرة محملة', 0, oh]]} note={`تحميل تلقائي بالمعدل المحدد مسبقاً (${o.overhead_basis === 'material_pct' ? `${o.overhead_rate}% من الخامات` : `${o.overhead_rate} لكل وحدة`}).`} />}
+            <Lines rows={[[periodic ? '311 تكلفة الخامات (الجرد الدوري)' : '122 مخزون الإنتاج التام', total, 0], ['126 إنتاج تحت التشغيل', 0, total]]}
+              note={periodic ? 'الجرد الدوري: تكلفة الإنتاج تعود إلى 311 والكمية تدخل المخزن؛ جرد آخر الفترة يُثبت قيمة المخزون التام.' : undefined} />
+          </div>
           <Err e={err} />
         </Modal>
-      )}
+        );
+      })()}
 
       {form?.kind === 'bom' && (
         <Modal title="قائمة مواد جديدة" onClose={() => setForm(null)} footer={<>
@@ -654,7 +679,25 @@ export function ManufacturingPage() {
 /* ═════════════════════════ التطوير العقاري ═════════════════════════ */
 
 const UNIT_STATUS = { available: ['متاحة', 'green'], reserved: ['محجوزة', 'amber'], contracted: ['متعاقد', 'blue'], delivered: ['مُسلَّمة', 'slate'] };
-const CHQ_STATUS = { pending: ['تحت التحصيل', 'amber'], collected: ['محصّل', 'green'], bounced: ['مرتد', 'red'] };
+const CHQ_STATUS = { pending: ['تحت التحصيل', 'amber'], processing: ['جارٍ التنفيذ', 'slate'], collected: ['محصّل', 'green'], bounced: ['مرتد', 'red'] };
+const INST_STATUS = { due: ['مستحق', 'blue'], overdue: ['متأخر', 'red'], paid: ['مسدد', 'green'], cancelled: ['ملغى', 'slate'] };
+const FREQ = [['monthly', 'شهري'], ['quarterly', 'ربع سنوي'], ['semiannual', 'نصف سنوي'], ['annual', 'سنوي']];
+const FREQ_M = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12 };
+// the same split the server makes: equal instalments, the last absorbs rounding
+const splitPlan = (total, count, freq, start) => {
+  const n = parseInt(count, 10) || 0;
+  if (!(total > 0) || n < 1 || !start) return [];
+  const base = r2(total / n);
+  const d0 = new Date(`${start}T00:00:00`);
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(d0); d.setMonth(d.getMonth() + FREQ_M[freq] * i);
+    return { seq: i + 1, due_date: d.toISOString().slice(0, 10), amount: i < n - 1 ? base : r2(total - base * (n - 1)) };
+  });
+};
+const InstBadge = ({ r }) => (
+  <span className="inline-flex items-center gap-1"><Badge tone={(INST_STATUS[r.status] || [])[1]}>{(INST_STATUS[r.status] || [r.status])[0]}</Badge>
+    {r.is_partial && r.status !== 'paid' && <Badge tone="amber">جزئي</Badge>}</span>
+);
 
 export function RealEstatePage() {
   const [tab, setTab] = useState('projects');
@@ -668,6 +711,8 @@ export function RealEstatePage() {
   const [units, setUnits] = useState(null);
   const [bookings, setBookings] = useState(null);
   const [cheques, setCheques] = useState(null);
+  const [insts, setInsts] = useState(null);
+  const [instFilter, setInstFilter] = useState('overdue');
   const [report, setReport] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [banks, setBanks] = useState([]);
@@ -702,7 +747,42 @@ export function RealEstatePage() {
     getBanks().then(setBanks);
   }, []);
 
-  const refreshAll = async () => { await loadProjects(); await loadBookings(); await loadCheques(); if (project) await loadUnits(project); };
+  const loadInsts = async (status) => {
+    try { const { data } = await axios.get(`${API}/api/real-estate/installments`, { ...auth(), params: { status } }); setInsts(data); }
+    catch (e) { setInsts({ installments: [], totals: {} }); setErr(errText(e, 'تعذّر تحميل الأقساط')); }
+  };
+  const refreshAll = async () => {
+    await loadProjects(); await loadBookings(); await loadCheques(); if (project) await loadUnits(project);
+    if (insts) await loadInsts(instFilter);
+  };
+  const changeTab = (t) => { setTab(t); if (t === 'installments') loadInsts(instFilter); };
+  const openSchedule = async (b) => {
+    setErr('');
+    try {
+      const { data } = await axios.get(`${API}/api/real-estate/bookings/${b.id}/schedule`, auth());
+      setForm({ kind: 'schedule', booking: b, data, mode: data.installments.length ? 'view' : 'gen',
+        plan: { count: '12', frequency: 'monthly', start_date: today(), down_payment: '' },
+        pay: { amount: '', penalty_amount: '', method: 'bank', bank_account: banks[0]?.account_code || '162', date: today() } });
+    } catch (e) { setErr(errText(e, 'تعذّر تحميل جدول الأقساط')); }
+  };
+  // actions inside the schedule window keep it open and reload it
+  const runSched = async (fn, mode = 'view') => {
+    setBusy(true); setErr('');
+    try {
+      await fn();
+      const { data } = await axios.get(`${API}/api/real-estate/bookings/${form.booking.id}/schedule`, auth());
+      setForm((f) => ({ ...f, data, mode }));
+      await refreshAll();
+    } catch (e) { setErr(errText(e, 'تعذّر الحفظ')); } finally { setBusy(false); }
+  };
+  const applyPenalty = (id) => axios.post(`${API}/api/real-estate/installments/${id}/penalty`, {}, auth());
+  const openPolicy = async () => {
+    setErr('');
+    try {
+      const { data } = await axios.get(`${API}/api/real-estate/policy`, auth());
+      setForm({ kind: 'policy', ...data.policy });
+    } catch (e) { setErr(errText(e, 'تعذّر تحميل السياسة')); }
+  };
   const run = async (fn) => {
     setBusy(true); setErr('');
     try { await fn(); setForm(null); await refreshAll(); }
@@ -721,9 +801,10 @@ export function RealEstatePage() {
   return (
     <div className="p-4 md:p-6 space-y-4" dir="rtl">
       <Header title="التطوير العقاري" sub="المعيار المصري 48: المقدم والشيكات قبل التسليم التزام عقد (2431)، والإيراد 4111 يُثبَّت بالكامل عند تسليم الوحدة.">
+        {tab === 'installments' && <button onClick={openPolicy} className={btnGhost}>سياسة الغرامات والتنبيهات</button>}
         {tab === 'projects' && <AddBtn onClick={() => { setErr(''); setForm({ kind: 'project', name: '', location: '', total_units: '', total_area_sqm: '', initial_cost: '', payment_method: 'credit', date: today(), expected_delivery: '' }); }}>مشروع جديد</AddBtn>}
       </Header>
-      <Tabs tabs={[['projects', 'المشاريع والوحدات'], ['bookings', 'الحجوزات والتسليم'], ['cheques', 'شيكات الأقساط'], ['report', 'تقرير الإيراد']]} value={tab} onChange={setTab} />
+      <Tabs tabs={[['projects', 'المشاريع والوحدات'], ['bookings', 'الحجوزات والتسليم'], ['installments', 'الأقساط والمتأخرات'], ['cheques', 'شيكات الأقساط'], ['report', 'تقرير الإيراد']]} value={tab} onChange={changeTab} />
 
       {tab === 'projects' && (projects === null ? <Spinner /> : (<>
         {projects.length === 0 ? <p className="text-center py-12 text-sm text-slate-500">لا توجد مشاريع بعد.</p> : (
@@ -771,10 +852,35 @@ export function RealEstatePage() {
               <td className="px-3 py-2">{b.status === 'delivered' ? <Badge>مُسلَّمة</Badge> : <Badge tone="amber">محجوزة</Badge>}</td>
               <td className="px-3 py-2 text-end whitespace-nowrap">
                 {bookingOpenCheques(b) > 0 && <button onClick={() => { setErr(''); setForm({ kind: 'cheques', booking: b, receive_date: today(), rows: [{ cheque_number: '', amount: '', due_date: '', bank_name: '' }] }); }} className={btnSmall}>استلام شيكات</button>}{' '}
+                <button onClick={() => openSchedule(b)} className={btnSmall}>جدول الأقساط</button>{' '}
                 {b.status === 'booked' && <button onClick={() => openDeliver(b)} className={btnSmall}>تسليم</button>}</td></tr>
           ))}
         </Table>
       ))}
+
+      {tab === 'installments' && (insts === null ? <Spinner /> : (<>
+        <div className="flex flex-wrap items-end gap-2">
+          <Tabs tabs={[['overdue', 'متأخرة'], ['due_soon', 'تستحق قريباً'], ['open', 'كل المفتوحة'], ['paid', 'مسددة']]} value={instFilter}
+            onChange={(v) => { setInstFilter(v); setInsts(null); loadInsts(v); }} />
+          <button onClick={() => loadInsts(instFilter)} aria-label="تحديث" className="p-2 rounded-lg border border-slate-300 dark:border-slate-600"><RefreshCw className="w-4 h-4" /></button>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Stat label="عدد الأقساط" v={insts.totals?.count} money={false} /><Stat label="الإجمالي" v={insts.totals?.amount} />
+          <Stat label="غير المسدد" v={insts.totals?.outstanding} /><Stat label="غرامات مستحقة" v={insts.totals?.penalties_outstanding} />
+        </div>
+        {instFilter === 'due_soon' && <p className="text-xs text-slate-500">المستحق خلال {insts.policy?.due_soon_days ?? 7} أيام — يُرسل تنبيه يومي للمديرين بالمتأخر والمستحق قريباً.</p>}
+        <Table head={['العميل', 'الوحدة', '#القسط', 'الاستحقاق', '#المبلغ', '#غير المسدد', '#أيام التأخير', '#الغرامات', 'الحالة', '']} empty={(insts.installments || []).length === 0 && 'لا توجد أقساط في هذا التصنيف.'}>
+          {insts.installments.map((r) => (
+            <tr key={r.id} className={r.status === 'overdue' ? 'bg-red-50/60 dark:bg-red-950/20' : ''}>
+              <td className="px-3 py-2 font-semibold">{r.customer_name}</td><td className="px-3 py-2">{r.project_name} — <bdi dir="ltr">{r.unit_number}</bdi></td>
+              <td className="px-3 py-2 text-end"><bdi dir="ltr">{r.seq}</bdi></td><td className="px-3 py-2"><bdi dir="ltr">{r.due_date}</bdi></td>
+              <td className="px-3 py-2 text-end"><N v={r.amount} /></td><td className="px-3 py-2 text-end"><N v={r.outstanding} /></td>
+              <td className="px-3 py-2 text-end"><bdi dir="ltr">{r.days_late || '—'}</bdi></td><td className="px-3 py-2 text-end"><N v={r.penalty_amount} /></td>
+              <td className="px-3 py-2"><InstBadge r={r} /></td>
+              <td className="px-3 py-2 text-end">{r.status === 'overdue' && <button disabled={busy} onClick={() => run(() => applyPenalty(r.id))} className={btnSmall}>احتساب غرامة</button>}</td></tr>
+          ))}
+        </Table>
+      </>))}
 
       {tab === 'cheques' && (cheques === null ? <Spinner /> : (<>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3"><Stat label="شيكات تحت التحصيل" v={cheques.pending_total} /></div>
@@ -952,6 +1058,100 @@ export function RealEstatePage() {
           <Err e={err} />
         </Modal>
       )}
+
+      {form?.kind === 'policy' && (
+        <Modal title="سياسة غرامات التأخير وتنبيهات الأقساط" onClose={() => setForm(null)} footer={<>
+          <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
+          <button onClick={() => run(() => axios.put(`${API}/api/real-estate/policy`, { penalty_rate_monthly_pct: +form.penalty_rate_monthly_pct || 0,
+            grace_days: parseInt(form.grace_days, 10) || 0, penalty_account: form.penalty_account, due_soon_days: parseInt(form.due_soon_days, 10) || 7 }, auth()))}
+            disabled={busy || +form.penalty_rate_monthly_pct > 10} className={btnPrimary}>{busy ? '…' : 'حفظ'}</button></>}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Label t="نسبة الغرامة الشهرية % (0 = بدون غرامات)"><Num value={form.penalty_rate_monthly_pct} onChange={(v) => setForm({ ...form, penalty_rate_monthly_pct: v })} max="10" /></Label>
+            <Label t="فترة السماح (أيام)"><Num value={form.grace_days} onChange={(v) => setForm({ ...form, grace_days: v })} step="1" /></Label>
+            <Label t="حساب إيراد الغرامات">
+              <select value={form.penalty_account} onChange={(e) => setForm({ ...form, penalty_account: e.target.value })} className={input}>
+                <option value="423">423 إيرادات متنوعة أخرى</option><option value="421">421 أرباح رأسمالية</option></select></Label>
+            <Label t="التنبيه بالأقساط المستحقة خلال (أيام)"><Num value={form.due_soon_days} onChange={(v) => setForm({ ...form, due_soon_days: v })} step="1" /></Label>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">الغرامة = المتأخر × النسبة × أشهر التأخير بعد فترة السماح، تُقيد Dr 1312 / Cr حساب الإيراد، ولا تُحتسب مرتين لنفس الشهر.</p>
+          <Err e={err} />
+        </Modal>
+      )}
+
+      {form?.kind === 'schedule' && (() => {
+        const b = form.booking; const d = form.data; const rows = d.installments || []; const t = d.totals || {};
+        const setPlan = (k, v) => setForm({ ...form, plan: { ...form.plan, [k]: v } });
+        const setPay = (k, v) => setForm({ ...form, pay: { ...form.pay, [k]: v } });
+        const received = form.plan.down_payment === '' ? (d.paid_so_far || 0) : +form.plan.down_payment;
+        const planTotal = form.mode === 'resched' ? t.outstanding : r2((d.contract_price || 0) - received);
+        const plan = splitPlan(planTotal, form.plan.count, form.plan.frequency, form.plan.start_date);
+        const planBody = () => ({ count: parseInt(form.plan.count, 10), frequency: form.plan.frequency, start_date: form.plan.start_date,
+          down_payment: form.mode === 'gen' && form.plan.down_payment !== '' ? +form.plan.down_payment : null });
+        return (
+          <Modal wide title={`جدول أقساط — ${b.customer_name} — ${b.unit_number}`} onClose={() => setForm(null)} footer={<>
+            <button onClick={() => setForm(null)} className={btnGhost}>إغلاق</button>
+            {form.mode === 'gen' && <button disabled={busy || !plan.length} onClick={() => runSched(() => axios.post(`${API}/api/real-estate/bookings/${b.id}/schedule`, planBody(), auth()))} className={btnPrimary}>{busy ? '…' : 'توليد الجدول'}</button>}
+            {form.mode === 'resched' && <button disabled={busy || !plan.length} onClick={() => runSched(() => axios.post(`${API}/api/real-estate/bookings/${b.id}/reschedule`, planBody(), auth()))} className={btnPrimary}>{busy ? '…' : 'إعادة الجدولة'}</button>}
+            {form.mode === 'pay' && <button disabled={busy || !(+form.pay.amount > 0 || +form.pay.penalty_amount > 0)} onClick={() => runSched(() => axios.post(`${API}/api/real-estate/bookings/${b.id}/payments`, {
+              amount: +form.pay.amount || 0, penalty_amount: +form.pay.penalty_amount || 0, method: form.pay.method, bank_account: form.pay.method === 'bank' ? form.pay.bank_account : null, date: form.pay.date }, auth()))} className={btnPrimary}>{busy ? '…' : 'تسجيل وترحيل'}</button>}
+          </>}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Stat label="سعر العقد" v={d.contract_price} /><Stat label="المحصّل نقداً" v={d.paid_so_far} />
+              <Stat label="غير المسدد من الجدول" v={t.outstanding} /><Stat label="متأخر" v={t.overdue} />
+            </div>
+            {rows.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Tabs tabs={[['view', 'الجدول'], ['pay', 'تسجيل سداد'], ['resched', 'إعادة جدولة']]} value={form.mode} onChange={(m) => { setErr(''); setForm({ ...form, mode: m }); }} />
+              </div>
+            )}
+            {(form.mode === 'gen' || form.mode === 'resched') && (
+              <div className="mt-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <Label t="عدد الأقساط *"><Num value={form.plan.count} onChange={(v) => setPlan('count', v)} step="1" /></Label>
+                  <Label t="الدورية"><select value={form.plan.frequency} onChange={(e) => setPlan('frequency', e.target.value)} className={input}>
+                    {FREQ.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Label>
+                  <Label t="تاريخ أول قسط"><input type="date" value={form.plan.start_date} onChange={(e) => setPlan('start_date', e.target.value)} className={input} /></Label>
+                  {form.mode === 'gen' && <Label t="المقدم المدفوع (فارغ = المحصّل المسجل)"><Num value={form.plan.down_payment} onChange={(v) => setPlan('down_payment', v)} /></Label>}
+                </div>
+                <p>{form.mode === 'resched' ? 'المتبقي غير المسدد الذي سيُعاد تقسيطه' : 'المبلغ المقسط = سعر العقد − ما حُصّل'}: <N v={planTotal} />
+                  {form.mode === 'resched' && <span className="block text-xs text-slate-500">تُلغى الأقساط غير المسددة، والمسدد جزئياً يُقفل بما سُدد منه، والمسدد يبقى كما هو.</span>}
+                  {form.mode === 'gen' && (d.cheques_in_hand || 0) > 0 && <span className="block text-xs text-slate-500">الشيكات تحت التحصيل (<N v={d.cheques_in_hand} />) تُخصم من الأقساط عند تحصيلها.</span>}</p>
+                {plan.length > 0 && (
+                  <Table head={['#القسط', 'الاستحقاق', '#المبلغ']}>
+                    {plan.slice(0, 60).map((r) => <tr key={r.seq}><td className="px-3 py-1.5 text-end"><bdi dir="ltr">{r.seq}</bdi></td><td className="px-3 py-1.5"><bdi dir="ltr">{r.due_date}</bdi></td><td className="px-3 py-1.5 text-end"><N v={r.amount} /></td></tr>)}
+                  </Table>
+                )}
+              </div>
+            )}
+            {form.mode === 'pay' && (
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Label t="مبلغ الأقساط (يُوزّع على الأقدم فالأحدث)"><Num value={form.pay.amount} onChange={(v) => setPay('amount', v)} /></Label>
+                <Label t={`سداد غرامات (المستحق ${money(t.penalties_outstanding)})`}><Num value={form.pay.penalty_amount} onChange={(v) => setPay('penalty_amount', v)} /></Label>
+                <Label t="طريقة السداد"><select value={form.pay.method} onChange={(e) => setPay('method', e.target.value)} className={input}>
+                  <option value="bank">تحويل بنكي</option><option value="cash">نقدي</option></select></Label>
+                {form.pay.method === 'bank' ? <Label t="البنك"><BankSelect banks={banks} value={form.pay.bank_account} onChange={(v) => setPay('bank_account', v)} /></Label> : <span />}
+                <Label t="التاريخ"><input type="date" value={form.pay.date} onChange={(e) => setPay('date', e.target.value)} className={input} /></Label>
+                <div className="sm:col-span-2"><Lines rows={[[form.pay.method === 'bank' ? `${form.pay.bank_account} البنك` : '161 الخزينة', r2((+form.pay.amount || 0) + (+form.pay.penalty_amount || 0)), 0],
+                  [b.status === 'delivered' ? '1312 عملاء أقساط مؤجلة' : '2431 التزامات العقود', 0, r2(form.pay.amount)], ['1312 غرامات تأخير', 0, r2(form.pay.penalty_amount)]]} /></div>
+              </div>
+            )}
+            {form.mode === 'view' && rows.length > 0 && (
+              <div className="mt-4">
+                <Table head={['#القسط', 'الاستحقاق', '#المبلغ', '#المسدد', '#الغرامات', 'الحالة', '']}>
+                  {rows.map((r) => (
+                    <tr key={r.id} className={r.status === 'overdue' ? 'bg-red-50/60 dark:bg-red-950/20' : r.status === 'paid' ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''}>
+                      <td className="px-3 py-1.5 text-end"><bdi dir="ltr">{r.seq}</bdi></td><td className="px-3 py-1.5"><bdi dir="ltr">{r.due_date}</bdi></td>
+                      <td className="px-3 py-1.5 text-end"><N v={r.amount} /></td><td className="px-3 py-1.5 text-end"><N v={r.paid_amount} /></td>
+                      <td className="px-3 py-1.5 text-end"><N v={r.penalty_amount} /></td><td className="px-3 py-1.5"><InstBadge r={r} /></td>
+                      <td className="px-3 py-1.5 text-end">{r.status === 'overdue' && <button disabled={busy} onClick={() => runSched(() => applyPenalty(r.id))} className={btnSmall}>احتساب غرامة</button>}</td></tr>
+                  ))}
+                </Table>
+              </div>
+            )}
+            <Err e={err} />
+          </Modal>
+        );
+      })()}
 
       {form?.kind === 'deliver' && (() => {
         const p = form.preview; const cost = r2(form.unit_cost); const tax = form.apply_re_tax ? r2(p.contract_price * (reTax.disposal_tax_rate || 0.025)) : 0;

@@ -39,3 +39,6 @@ assessments.py:/submit  # test scores, not money — an aptitude result out of 1
 subscriptions.py:/industry-packs/{pack_key}/request  # a request is an intention to buy, not a supply — the entry and the tax invoice follow the confirmed payment
 subscriptions.py:/industry-packs/{pack_key}/confirm-payment  # platform revenue, not the tenant's books — posting it into the customer's ledger would record our income as theirs; the customer gets a tax invoice and books it as an expense themselves
 payment_vouchers.py:  # posts through services.import_documents.post_two_line_entry (draft → post_journal_entry); the voucher is saved only after its entry is posted
+bank_reconciliation.py:/import  # the bank's own statement lines, stored for matching — the movements are already in the books; anything the books lack is posted from /statements/{id}/post-unmatched
+real_estate.py:/bookings/{booking_id}/schedule  # an instalment plan, not a transaction — money is posted when each instalment is collected (cheque collect / booking payment) and penalties post their own entry
+real_estate.py:/bookings/{booking_id}/reschedule  # replaces the unpaid part of the plan; nothing moves until collection

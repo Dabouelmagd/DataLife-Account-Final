@@ -9,7 +9,7 @@ legal judgement about the whole company (policies, consents, DPO, licences
 from the Data Protection Centre...) that only a lawyer can give.
 
 1. Data Retention overview   — مدد احتفاظ افتراضية تُراجَع مع المستشار القانوني/الضريبي
-2. PII Field Encryption      — معطَّل افتراضياً (انظر التعليق)
+2. PII Field Encryption      — معطَّل افتراضياً؛ ENCRYPTION_INVENTORY يبين ما هو مشفَّر وما ليس مشفَّراً
 3. Data Masking by Role      — إخفاء البيانات الحساسة حسب الصلاحية
 4. Data Subject requests     — سجل الطلبات + تقرير الوصول + التصحيح
 5. Status report             — حالة الأدوات (ليس تقرير امتثال)
@@ -38,8 +38,21 @@ DISCLAIMER = ("هذه أدوات مساعدة للتعامل مع طلبات ح�
 # showed masked data, including to HR.
 TOP_ROLES = {"Board Chairman", "رئيس مجلس الإدارة", "General Manager", "مدير عام",
              "المدير العام", "CEO", "المدير التنفيذي", "owner"}
-PII_CLEARANCE_ROLES = TOP_ROLES | {"HR Manager", "مدير الموارد البشرية",
-                                   "Financial Manager", "المدير المالي"}
+HR_ROLES = {"HR Manager", "مدير الموارد البشرية", "مدير موارد بشرية"}
+PAYROLL_ROLES = {"Financial Manager", "المدير المالي", "Payroll Officer", "مسؤول الرواتب",
+                 "Payroll Accountant", "محاسب الرواتب"}
+# Who sees national ID / phone / bank account in full.
+PII_CLEARANCE_ROLES = TOP_ROLES | HR_ROLES | PAYROLL_ROLES
+# Who sees salary figures. The chief accountant posts the payroll entries.
+SALARY_CLEARANCE_ROLES = PII_CLEARANCE_ROLES | {"Chief Accountant", "رئيس الحسابات"}
+
+
+def has_pii_clearance(user: dict) -> bool:
+    return (user or {}).get("role") in PII_CLEARANCE_ROLES or bool((user or {}).get("is_platform_admin"))
+
+
+def has_salary_clearance(user: dict) -> bool:
+    return (user or {}).get("role") in SALARY_CLEARANCE_ROLES or bool((user or {}).get("is_platform_admin"))
 
 
 def _require_top(user: dict, what: str):
@@ -123,17 +136,85 @@ ENCRYPTION = FieldEncryption()
 # Real field names of an employee (models/employee_extended.py). The old list
 # named "mobile_number", "home_address", "bank_account_iban" — fields that do
 # not exist — so masking hid nothing but the national ID.
+# PII_FIELDS["employees"] is also the list the (disabled) field encryption
+# would encrypt, so salary figures are kept in their own list: encrypting a
+# number would break payroll arithmetic.
+SALARY_FIELDS = ["basic_salary", "net_salary", "gross_salary", "total_allowances", "total_deductions",
+                 "salary", "insurance_salary", "insured_salary", "social_insurance_salary",
+                 "variable_salary", "health_insurance_amount", "hourly_rate", "daily_rate",
+                 "income_tax", "social_insurance", "company_social_insurance", "total_cost",
+                 "total_earnings", "overtime_amount", "bonus", "deductions_total"]
 PII_FIELDS = {
     "employees": ["national_id", "bank_account_number", "iban", "mobile", "phone",
                   "address", "emergency_phone",
                   # legacy names, kept so old records are masked too
                   "bank_account_iban", "mobile_number", "home_address"],
+    "employee_salary": SALARY_FIELDS,
     "customers": ["national_id", "tax_id", "phone"],
     "users":     ["mobile", "personal_email"],
 }
 
+# how many trailing characters stay visible; 0 = hidden entirely
+MASK_SHOW = {"national_id": 3, "tax_id": 3, "phone": 3, "mobile": 3, "mobile_number": 3,
+             "emergency_phone": 3, "wallet_number": 3, "social_insurance_number": 3,
+             "iban": 4, "bank_account_iban": 4, "bank_account_number": 4, "account_number": 4,
+             "address": 0, "home_address": 0, "personal_email": 0}
+
+
+def mask_value(value, show: int) -> str:
+    if value in (None, ""):
+        return value
+    plain = ENCRYPTION.decrypt(str(value)) if str(value).startswith("ENCRYPTED:") else str(value)
+    if show <= 0 or len(plain) <= show:
+        return "*" * min(len(plain), 8) or "*"
+    return "*" * (len(plain) - show) + plain[-show:]
+
+
+def is_masked(value) -> bool:
+    """True for a value this module produced by masking (so it is never
+    written back over the real one)."""
+    return isinstance(value, str) and value.startswith("*") and set(value[:max(1, len(value) - 4)]) <= {"*"}
+
+
+def _hide_salary(doc: dict) -> None:
+    for f in SALARY_FIELDS:
+        if f in doc:
+            doc[f] = None
+    for lst in ("allowances", "deductions"):
+        if isinstance(doc.get(lst), list):
+            doc[lst] = [{**x, "amount": None, "percentage": None} if isinstance(x, dict) else x for x in doc[lst]]
+        elif isinstance(doc.get(lst), dict):
+            doc[lst] = {k: None for k in doc[lst]}
+    doc.pop("last_payroll", None)
+
+
+def mask_employee(doc: dict, user: dict) -> dict:
+    """Mask an employee (or payroll row) for the caller's role.
+    Identity fields → last 3 (national ID, phone) / last 4 (IBAN, account);
+    salary figures → hidden (None) for roles without salary clearance.
+    Returns a copy with `pii_masked` / `salary_hidden` flags."""
+    out = dict(doc)
+    pii = has_pii_clearance(user)
+    sal = has_salary_clearance(user)
+    if pii:
+        for field in PII_FIELDS["employees"]:
+            if out.get(field):
+                out[field] = ENCRYPTION.decrypt(out[field])
+    else:
+        for field, show in MASK_SHOW.items():
+            if out.get(field):
+                out[field] = mask_value(out[field], show)
+    if not sal:
+        _hide_salary(out)
+    out["pii_masked"] = not pii
+    out["salary_hidden"] = not sal
+    return out
+
 
 def apply_pii_mask(doc: dict, collection: str, user_role: str) -> dict:
+    """Older entry point (by role name only)."""
+    if collection == "employees":
+        return mask_employee(doc, {"role": user_role})
     if user_role in PII_CLEARANCE_ROLES:
         for field in PII_FIELDS.get(collection, []):
             if doc.get(field):
@@ -141,9 +222,21 @@ def apply_pii_mask(doc: dict, collection: str, user_role: str) -> dict:
         return doc
     for field in PII_FIELDS.get(collection, []):
         if doc.get(field):
-            show = 4 if ("id" in field or "iban" in field or "account" in field) else 3
-            doc[field] = ENCRYPTION.mask(str(doc[field]), show)
+            doc[field] = mask_value(doc[field], MASK_SHOW.get(field, 3))
     return doc
+
+
+async def log_pii_view(user: dict, entity: str, entity_id: str = None, fields: list = None,
+                       description: str = None, ip: str = None) -> None:
+    """Record that personal data was shown in full (pii_viewed) in the
+    company's chained audit trail. Never raises."""
+    try:
+        from services.audit_helper import log_event
+        await log_event(db, (user or {}).get("company_id"), user, "pii_viewed", "data_protection",
+                        entity=entity, entity_id=entity_id, ip=ip,
+                        new={"fields": fields or []}, description=description)
+    except Exception:
+        pass
 
 
 async def _log(company_id: str, user_id: str, action: str, employee_id: str = None, **extra):
@@ -253,10 +346,13 @@ async def get_masked_employee(
     if not emp:
         raise HTTPException(404, "الموظف غير موجود")
 
-    emp_masked = apply_pii_mask(dict(emp), "employees", user_role)
+    emp_masked = mask_employee(emp, current_user)
+    if not emp_masked["pii_masked"]:
+        await log_pii_view(current_user, "employee", employee_id, ["national_id", "iban", "mobile"],
+                           "عرض بيانات موظف كاملة (masked-employee)")
     return {
         "employee":     emp_masked,
-        "access_level": "full" if user_role in PII_CLEARANCE_ROLES else "masked",
+        "access_level": "full" if has_pii_clearance(current_user) else "masked",
         "note":         "الحقول الحساسة مُخفاة لغير المصرح لهم",
     }
 
@@ -509,6 +605,8 @@ async def get_subject_data(
     appraisal_count  = await db.employee_appraisals.count_documents(
         {"company_id": company_id, "employee_id": employee_id})
     await _log(company_id, current_user["user_id"], "access_report", employee_id)
+    await log_pii_view(current_user, "employee", employee_id, ["national_id", "iban", "mobile", "address"],
+                       "تقرير البيانات الشخصية لصاحب البيانات")
 
     return {
         "title":       "تقرير البيانات الشخصية المحفوظة",
@@ -570,6 +668,63 @@ async def rectify_subject_data(
 # 4. STATUS REPORT — حالة أدوات حماية البيانات (ليس تقرير امتثال)
 # ══════════════════════════════════════════════════════════════
 
+# ══════════════════════════════════════════════════════════════
+# ENCRYPTION AT REST — what is and is NOT encrypted (stated plainly)
+# ══════════════════════════════════════════════════════════════
+# Field encryption of employee PII stays OFF: payroll bank files, social
+# insurance forms, the e-invoice validator, ghost-employee checks and import
+# de-duplication read national ID / IBAN / mobile as plain text and would
+# break. The application itself therefore stores these in readable form.
+# Whether the DISK / database files are encrypted is a server setting the
+# application cannot see — it is reported as "unknown", not as done.
+ENCRYPTION_INVENTORY = [
+    {"item": "كلمات مرور المستخدمين", "state": "hashed",
+     "detail": "تُحفظ بصمة bcrypt وليس كلمة المرور — لا يمكن استرجاعها"},
+    {"item": "رموز التحقق الثنائي (2FA)", "state": "hashed",
+     "detail": "تُحفظ بصمة SHA-256 للرمز فقط"},
+    {"item": "شهادة الختم الإلكتروني للفاتورة الإلكترونية وكلمة مرورها", "state": "encrypted",
+     "detail": "مشفّرة بـ Fernet بمفتاح ETA_SECRET_KEY (أو مفتاح مشتق من JWT_SECRET_KEY إن لم يُضبط)"},
+    {"item": "الرقم القومي، IBAN ورقم الحساب البنكي، الموبايل والعنوان للموظفين", "state": "not_encrypted",
+     "detail": "نص صريح في قاعدة البيانات — تشفير الحقول معطَّل لأن الرواتب والتأمينات والفاتورة الإلكترونية تقرؤها كنص. "
+               "تُخفى على الشاشات والتصدير لغير المصرح لهم فقط (إخفاء عرض، وليس تشفيراً)."},
+    {"item": "الرواتب والبدلات والخصومات", "state": "not_encrypted",
+     "detail": "أرقام صريحة في قاعدة البيانات؛ تُخفى عن الأدوار غير المخوَّلة بالرواتب في القوائم والتصدير"},
+    {"item": "بيانات العملاء والموردين والفواتير والقيود", "state": "not_encrypted",
+     "detail": "نص صريح في قاعدة البيانات"},
+    {"item": "سجل التدقيق", "state": "not_encrypted",
+     "detail": "غير مشفَّر، لكنه مربوط ببصمات SHA-256 لاكتشاف التعديل والحذف (ليس منعاً لهما)"},
+    {"item": "الملفات المرفوعة (صور ومستندات الموظفين)", "state": "not_encrypted",
+     "detail": "تُحفظ كما هي على قرص الخادم؛ تُقدَّم لمستخدمي الشركة المصرح لهم فقط"},
+    {"item": "تشفير القرص / ملفات قاعدة البيانات على الخادم", "state": "unknown",
+     "detail": "إعداد في الخادم لا يستطيع البرنامج التحقق منه — يُؤكَّد مع مسؤول الخادم"},
+    {"item": "الاتصال بين المتصفح والخادم", "state": "in_transit",
+     "detail": "HTTPS عبر nginx (تشفير أثناء النقل، وليس أثناء التخزين)"},
+]
+
+
+def encryption_status() -> dict:
+    field_enc = os.environ.get("PII_FIELD_ENCRYPTION", "").lower() == "enabled"
+    inv = [dict(i) for i in ENCRYPTION_INVENTORY]
+    if field_enc and ENCRYPTION.available():
+        inv[3] = {**inv[3], "state": "partial",
+                  "detail": "تشفير الحقول مفعَّل يدوياً على هذا الخادم للموظفين الذين شُغِّل لهم — راجع أعداد الموظفين المشفَّرين"}
+    return {
+        "field_encryption_enabled": field_enc,
+        "field_encryption_key_configured": ENCRYPTION.available(),
+        "items": inv,
+        "summary": "البيانات الشخصية للموظفين غير مشفَّرة داخل قاعدة البيانات؛ تُخفى على الشاشات حسب الدور فقط."
+                   if not field_enc else "تشفير الحقول مفعَّل جزئياً — انظر التفاصيل.",
+    }
+
+
+@router.get("/encryption-status")
+async def get_encryption_status(current_user: dict = Depends(get_current_user)):
+    """ما هو مشفَّر وما ليس مشفَّراً — بيان صريح، ليس شهادة."""
+    total = await db.employees.count_documents({"company_id": current_user["company_id"]})
+    enc = await db.employees.count_documents({"company_id": current_user["company_id"], "pii_encrypted": True})
+    return {**encryption_status(), "employees": {"total": total, "field_encrypted": enc}, "disclaimer": DISCLAIMER}
+
+
 @router.get("/compliance-report")
 async def compliance_report(current_user: dict = Depends(get_current_user)):
     """حالة أدوات حماية البيانات — لا يُصدر حكماً بالامتثال (انظر DISCLAIMER)"""
@@ -589,13 +744,17 @@ async def compliance_report(current_user: dict = Depends(get_current_user)):
     # checklist cannot establish legal compliance; it only lists which tools
     # are in use.
     checks = [
-        {"check": "إخفاء البيانات الحساسة حسب الدور", "status": "مفعَّل", "passed": True},
+        {"check": "إخفاء البيانات الحساسة حسب الدور",
+         "status": "مفعَّل في قائمة الموظفين وتفاصيل الموظف وتصدير الرواتب وكشف المرتبات (إخفاء عرض فقط)", "passed": True},
+        {"check": "تسجيل الاطلاع على البيانات الكاملة", "status": "يُسجَّل pii_viewed في سجل التدقيق", "passed": True},
         {"check": "سجل التدقيق", "status": f"{audit_count:,} حدث" if audit_count else "لا توجد أحداث", "passed": audit_count > 0},
         {"check": "سجل طلبات أصحاب البيانات", "status": f"{open_reqs} طلب مفتوح" + (f" — {overdue} متأخر" if overdue else ""), "passed": overdue == 0},
         {"check": "تقرير الاطلاع وتصحيح البيانات", "status": "متاح", "passed": True},
         {"check": "تشفير الحقول داخل قاعدة البيانات",
          "status": f"{encrypted_emps} من {total_emps} موظف" if os.environ.get("PII_FIELD_ENCRYPTION", "").lower() == "enabled"
-                   else "غير مفعَّل — يُعتمد على تشفير الخادم", "passed": None},
+                   else "غير مفعَّل — الرقم القومي والحساب البنكي والرواتب نص صريح في قاعدة البيانات", "passed": False
+         if os.environ.get("PII_FIELD_ENCRYPTION", "").lower() != "enabled" else None},
+        {"check": "تشفير قرص الخادم", "status": "غير معروف للبرنامج — يُؤكَّد مع مسؤول الخادم", "passed": None},
     ]
     return {
         "title":    "حالة أدوات حماية البيانات",
@@ -605,6 +764,7 @@ async def compliance_report(current_user: dict = Depends(get_current_user)):
         "overdue_requests": overdue,
         "data_protection_actions": dp_actions,
         "pii_encryption": {"total_employees": total_emps, "encrypted": encrypted_emps},
+        "encryption": encryption_status(),
         "recommendations": [r for r in [
             f"{overdue} طلب تجاوز موعد الرد" if overdue else None,
             "راجع مدد الاحتفاظ وسياسة الخصوصية مع مستشار قانوني",

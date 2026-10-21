@@ -48,6 +48,26 @@ async def verify_token(authorization: str):
 
 # ============ PURCHASE ORDERS ============
 
+async def _gate_po(order: dict, user_data: dict):
+    """Open an approval request when the order's total is above the creator's
+    threshold. Returns the request (order must wait) or None (may go ahead)."""
+    from api.approvals import gate_document
+    return await gate_document(
+        order["company_id"], user_data.get("user_id"), user_data.get("full_name"), "purchase_order",
+        order.get("grand_total"), "purchase_order", order["po_number"],
+        f"أمر شراء {order['po_number']} — {order.get('supplier_name') or ''}".strip(" —"),
+        data={"supplier_id": order.get("supplier_id"), "items": len(order.get("items") or [])},
+        role=user_data.get("role"))
+
+
+async def _hold_po(po_number: str, company_id: str, req: dict):
+    await db.purchase_orders.update_one(
+        {"po_number": po_number, "company_id": company_id},
+        {"$set": {"status": "pending_approval", "approval_status": "pending",
+                  "approval_request_id": req["id"], "approval_band": req.get("band_label"),
+                  "updated_at": datetime.now(timezone.utc).isoformat()}})
+
+
 @router.post("/orders")
 async def create_purchase_order(
     order_data: dict,
@@ -99,6 +119,17 @@ async def create_purchase_order(
     await db.purchase_orders.insert_one(purchase_order)
     if "_id" in purchase_order:
         del purchase_order["_id"]
+
+    try:
+        req = await _gate_po(purchase_order, user_data)
+    except HTTPException as e:
+        # saved as a draft; it cannot move on until someone can approve it
+        purchase_order["approval_error"] = e.detail
+        return purchase_order
+    if req:
+        await _hold_po(purchase_order["po_number"], company_id, req)
+        purchase_order.update(status="pending_approval", approval_status="pending",
+                              approval_request_id=req["id"], approval_band=req.get("band_label"))
     
     return purchase_order
 
@@ -185,9 +216,26 @@ async def update_purchase_order(
     update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     await db.purchase_orders.update_one(
-        {"po_number": po_number},
+        {"po_number": po_number, "company_id": company_id},
         {"$set": update_fields}
     )
+
+    # a new amount needs a new decision: the old approval was for the old total
+    old_total = float(order.get("grand_total") or 0)
+    new_total = float(update_fields.get("grand_total", old_total) or 0)
+    if abs(new_total - old_total) > 0.005 and order.get("status") in ("pending_approval", "approved", "ordered"):
+        if order.get("approval_request_id"):
+            await db.approval_requests.update_one(
+                {"id": order["approval_request_id"], "company_id": company_id, "status": "pending"},
+                {"$set": {"status": "cancelled", "cancelled_at": update_fields["updated_at"],
+                          "cancel_reason": "تعدّل مبلغ أمر الشراء"}})
+        fresh = {**order, **update_fields}
+        fresh.pop("_id", None)
+        req = await _gate_po(fresh, user_data)
+        if req:
+            await _hold_po(po_number, company_id, req)
+            return {"success": True, "status": "pending_approval", "approval_request_id": req["id"],
+                    "message": "تغيّر المبلغ — أمر الشراء بانتظار الاعتماد من جديد"}
     
     return {"success": True}
 
@@ -204,10 +252,42 @@ async def update_order_status(
     
     new_status = status_data.get("status")
     created_invoice = None
+    # "approved" cannot be set by hand above a threshold: asking for it opens an
+    # approval request instead, and only that request's approval approves it
     valid_statuses = ["draft", "pending_approval", "approved", "ordered", "received", "cancelled"]
     
     if new_status not in valid_statuses:
         raise HTTPException(status_code=400, detail="Invalid status")
+
+    order = await db.purchase_orders.find_one(
+        {"po_number": po_number, "company_id": company_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    current = order.get("status")
+    waiting = None
+    if order.get("approval_request_id"):
+        waiting = await db.approval_requests.find_one(
+            {"id": order["approval_request_id"], "company_id": company_id, "status": "pending"}, {"_id": 0, "id": 1})
+
+    if current == "pending_approval" and waiting and new_status not in ("cancelled", "pending_approval"):
+        raise HTTPException(status_code=403,
+                            detail="أمر الشراء بانتظار الاعتماد من صفحة الموافقات — لا يمكن تغيير حالته قبل القرار")
+    if current == "rejected" and new_status not in ("draft", "cancelled"):
+        raise HTTPException(status_code=400, detail="أمر الشراء مرفوض — عدّله وأعده مسودة ثم أرسله من جديد")
+    if new_status == "received" and current in ("pending_approval", "rejected"):
+        raise HTTPException(status_code=400, detail="لا يمكن استلام أمر شراء غير معتمد")
+
+    if new_status in ("pending_approval", "approved", "ordered", "received") and current not in ("approved", "ordered") \
+            and order.get("approval_status") != "approved":
+        req = waiting or await _gate_po(order, user_data)
+        if req:
+            if new_status == "received":
+                await _hold_po(po_number, company_id, req)
+                raise HTTPException(status_code=400,
+                                    detail="لا يمكن استلام أمر شراء غير معتمد — أُرسل للاعتماد")
+            await _hold_po(po_number, company_id, req)
+            return {"success": True, "status": "pending_approval", "approval_request_id": req["id"],
+                    "message": "المبلغ يتجاوز حد الاعتماد — أُرسل أمر الشراء للموافقة"}
     
     update_data = {
         "status": new_status,
@@ -217,6 +297,11 @@ async def update_order_status(
     if new_status == "approved":
         update_data["approved_by"] = user_data.get("user_id")
         update_data["approved_at"] = datetime.now(timezone.utc).isoformat()
+    elif new_status == "cancelled" and waiting:
+        await db.approval_requests.update_one(
+            {"id": waiting["id"], "company_id": company_id, "status": "pending"},
+            {"$set": {"status": "cancelled", "cancelled_at": update_data["updated_at"],
+                      "cancel_reason": "أُلغي أمر الشراء"}})
     elif new_status == "received":
         update_data["received_at"] = datetime.now(timezone.utc).isoformat()
         # Receiving no longer moves stock by itself. It used to add the
@@ -224,10 +309,6 @@ async def update_order_status(
         # second time, and neither step had an entry. The order now becomes a
         # draft purchase invoice; approving that invoice posts the entry
         # (purchases/stock, input VAT, supplier) and receives the goods once.
-        order = await db.purchase_orders.find_one(
-            {"po_number": po_number, "company_id": company_id}, {"_id": 0})
-        if not order:
-            raise HTTPException(status_code=404, detail="Order not found")
         if not order.get("purchase_invoice_id"):
             inv = await _invoice_from_order(order, user_data.get("user_id"))
             update_data["purchase_invoice_id"] = inv["id"]
@@ -299,9 +380,14 @@ async def delete_purchase_order(
     
     if order.get("status") == "received":
         raise HTTPException(status_code=400, detail="Cannot cancel received order")
+    if order.get("approval_request_id"):
+        await db.approval_requests.update_one(
+            {"id": order["approval_request_id"], "company_id": company_id, "status": "pending"},
+            {"$set": {"status": "cancelled", "cancelled_at": datetime.now(timezone.utc).isoformat(),
+                      "cancel_reason": "أُلغي أمر الشراء"}})
     
     await db.purchase_orders.update_one(
-        {"po_number": po_number},
+        {"po_number": po_number, "company_id": company_id},
         {"$set": {
             "status": "cancelled",
             "cancelled_by": user_data.get("user_id"),

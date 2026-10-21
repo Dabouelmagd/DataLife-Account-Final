@@ -7,6 +7,8 @@
 import React from 'react';
 import IndustryPackScreen from './IndustryPackScreen';
 import MedicalPage from './MedicalPage';
+import BankReconciliationPage from './BankReconciliationPage';
+import FxRevaluationPage from './FxRevaluationPage';
 import RecruitmentPage from '../pages/RecruitmentPage';
 import UnauthorizedPage from './UnauthorizedPage';
 
@@ -196,6 +198,8 @@ export const renderFinancialContent = ({
     'inventory': <InventoryPage language={language} />,
     'bank': <BankManagementPage language={language} />,
     'treasury': <TreasuryPage />,
+    'bank-reconciliation': <BankReconciliationPage />,
+    'fx-revaluation': <FxRevaluationPage language={language} />,
     'progress-claims': <ProgressClaimsPage />,
     'guarantees': <GuaranteesPage />,
     'tax-forms': <TaxFormsPage />,

@@ -92,6 +92,8 @@ class CreateInvoiceRequest(BaseModel):
     due_date: Optional[str] = None
     party_id: str
     currency: str = "EGP"
+    # EGP per one unit of `currency`. Empty → the rate effective on document_date.
+    exchange_rate: Optional[float] = None
     payment_terms: str = "cash"
     lines: List[InvoiceLineRequest]
     adjustments: Optional[List[InvoiceAdjustmentRequest]] = []
@@ -125,6 +127,22 @@ async def _check_dimensions(company_id: str, cost_center_id: Optional[str], proj
         raise HTTPException(status_code=400, detail="المشروع غير موجود في هذه الشركة")
 
 
+async def _invoice_fx(company_id: str, currency: str, rate: Optional[float], date: str):
+    """(Currency, EGP-per-unit rate) for a new/edited invoice — Arabic 400 on
+    an unknown currency or a foreign invoice with no rate to be found."""
+    from services.fx import rate_on
+    code = (currency or "EGP").strip().upper()
+    try:
+        cur = Currency(code)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"العملة {code} غير مدعومة في الفواتير")
+    if code == "EGP":
+        return cur, 1.0
+    if rate is not None and float(rate) <= 0:
+        raise HTTPException(status_code=400, detail="سعر الصرف يجب أن يكون أكبر من صفر")
+    return cur, (float(rate) if rate else await rate_on(db, company_id, code, date))
+
+
 async def _own_invoice(invoice_id: str, company_id: str) -> dict:
     """get/update/approve/payments looked the invoice up by bare id, so any
     logged-in user could read, edit, approve (post!) or list payments of
@@ -138,10 +156,13 @@ async def _own_invoice(invoice_id: str, company_id: str) -> dict:
 class RecordPaymentRequest(BaseModel):
     invoice_id: str
     payment_date: str
-    amount: float
+    amount: float                             # in the invoice currency
     payment_method: str = "cash"
     reference: Optional[str] = None
     notes: Optional[str] = None
+    # foreign invoices: EGP per unit on the payment date (empty → looked up)
+    exchange_rate: Optional[float] = None
+    bank_account: Optional[str] = None        # account id/code to receive/pay from
 
 
 # ==========================================
@@ -362,6 +383,8 @@ async def create_invoice(
     if not party or party.get("company_id") not in (None, current_user["company_id"]):
         raise HTTPException(status_code=400, detail="Party not found")
     await _check_dimensions(current_user["company_id"], request.cost_center_id, request.project_id)
+    currency, fx_rate = await _invoice_fx(current_user["company_id"], request.currency,
+                                          request.exchange_rate, request.document_date)
     
     # تحويل الأسطر
     lines = []
@@ -406,7 +429,8 @@ async def create_invoice(
         party_name=party["name"],
         party_tax_id=party.get("tax_id"),
         party_address=party.get("address"),
-        currency=Currency(request.currency),
+        currency=currency,
+        exchange_rate=fx_rate,
         payment_terms=PaymentTerms(request.payment_terms),
         lines=lines,
         adjustments=adjustments,
@@ -475,9 +499,13 @@ async def update_invoice(
             )
             adjustments.append(adjustment)
     
+    currency, fx_rate = await _invoice_fx(current_user["company_id"], request.currency,
+                                          request.exchange_rate, request.document_date)
     updates = {
         "document_date": request.document_date,
         "due_date": request.due_date,
+        "currency": currency.value,
+        "exchange_rate": fx_rate,
         "payment_terms": request.payment_terms,
         "lines": [line.dict() for line in lines],
         "adjustments": [adj.dict() for adj in adjustments],
@@ -507,7 +535,19 @@ async def approve_invoice(
     
     try:
         result = await service.approve_invoice(invoice_id, current_user["user_id"])
-        return {"message": "تم اعتماد الفاتورة بنجاح", "invoice": result}
+        out = {"message": "تم اعتماد الفاتورة بنجاح", "invoice": result}
+        # credit limit: a warning (and a notification to finance), never a block
+        inv = result if isinstance(result, dict) else {}
+        if inv.get("document_type") == "sales_invoice" and inv.get("party_id"):
+            try:
+                from api.sales import credit_check
+                cc = await credit_check(current_user["company_id"], inv["party_id"], 0,
+                                        user_id=current_user["user_id"], document=inv.get("document_number"))
+                if cc.get("exceeds"):
+                    out["credit_warning"] = cc
+            except Exception:
+                pass
+        return out
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -564,6 +604,8 @@ async def record_payment(
         payment_method=PaymentMethod(request.payment_method),
         reference=request.reference,
         notes=request.notes,
+        exchange_rate=request.exchange_rate if request.exchange_rate and request.exchange_rate > 0 else None,
+        bank_account=request.bank_account,
         created_by=current_user["user_id"]
     )
     
@@ -1546,6 +1588,16 @@ async def get_exchange_rates(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/config/exchange-rates/on")
+async def exchange_rate_on(currency: str, date: Optional[str] = None,
+                           current_user: dict = Depends(get_current_user)):
+    """سعر الصرف الساري في تاريخ — EGP per one unit (the invoice/payment forms prefill from it)."""
+    from services.fx import rate_on
+    day = (date or datetime.now().strftime("%Y-%m-%d"))[:10]
+    rate = await rate_on(db, current_user["company_id"], currency, day)
+    return {"currency": currency.upper(), "date": day, "rate": rate, "unit": "EGP per 1 " + currency.upper()}
 
 
 @router.post("/config/exchange-rates")

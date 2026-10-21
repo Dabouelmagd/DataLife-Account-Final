@@ -31,14 +31,35 @@ KEEP_DAYS = 180
 
 
 def client_ip(request) -> str:
-    """Behind nginx the real address is in X-Forwarded-For."""
+    """The caller's address as nginx saw it.
+
+    nginx-server.conf (host) and frontend/nginx.conf both set
+    `proxy_set_header X-Real-IP $remote_addr;` and
+    `X-Forwarded-For $proxy_add_x_forwarded_for;`. X-Real-IP is overwritten
+    by nginx, so a client cannot choose it. The FIRST X-Forwarded-For entry
+    is whatever the client sent (spoofable); the LAST one is the hop nginx
+    appended. So: X-Real-IP, else the last X-Forwarded-For hop, else the
+    socket peer. (This trusts nginx: the backend port must not be reachable
+    from outside without it.)
+    """
     try:
+        if request is None:
+            return ""
+        real = (request.headers.get("x-real-ip") or "").strip()
+        if real:
+            return real[:45]
         fwd = request.headers.get("x-forwarded-for") or ""
-        if fwd:
-            return fwd.split(",")[0].strip()[:45]
-        return (request.client.host if request.client else "")[:45]
+        hops = [h.strip() for h in fwd.split(",") if h.strip()]
+        if hops:
+            return hops[-1][:45]
+        return (request.client.host if getattr(request, "client", None) else "")[:45]
     except Exception:
         return ""
+
+
+# login outcomes also go to the company's chained audit trail
+_AUDITED = {LOGIN_OK: "login_ok", LOGIN_FAILED: "login_failed", LOGIN_LOCKED: "login_failed",
+            TWO_FACTOR_FAILED: "login_failed", TWO_FACTOR_OK: "login_ok"}
 
 
 async def record(db, kind: str, *, email: str = None, user_id: str = None,
@@ -59,3 +80,19 @@ async def record(db, kind: str, *, email: str = None, user_id: str = None,
         await db.security_events.insert_one(dict(entry))
     except Exception:
         pass                       # the file log still has it
+    if kind in _AUDITED:
+        try:
+            cid, uid, name = company_id, user_id, None
+            if email and (not cid or not uid):
+                # failed logins carry only the e-mail typed; file them under
+                # that account's company (unknown e-mails stay in security_events)
+                u = await db.users.find_one({"email": email}, {"_id": 0, "id": 1, "company_id": 1, "full_name": 1})
+                if u:
+                    cid, uid, name = cid or u.get("company_id"), uid or u.get("id"), u.get("full_name")
+            if cid:
+                from services.audit_helper import log_event
+                await log_event(db, cid, {"user_id": uid, "email": entry["email"], "full_name": name},
+                                _AUDITED[kind], "auth", entity="user", entity_id=uid, ip=entry["ip"],
+                                description=f"{kind}" + (f" — {entry['detail']}" if entry["detail"] else ""))
+        except Exception:
+            pass

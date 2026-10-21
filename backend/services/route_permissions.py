@@ -27,6 +27,7 @@ PREFIX_PERMISSIONS = [
     ("/api/bank-transactions", {FIN}),
     ("/api/bank-counter-accounts", {FIN}),
     ("/api/bank-settings", {FIN}),
+    ("/api/bank-reconciliation", {FIN}),
     ("/api/expenses", {FIN}),
     ("/api/revenues", {FIN}),
     ("/api/tax-reports", {FIN}),

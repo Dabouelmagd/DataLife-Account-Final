@@ -104,6 +104,34 @@ const NotificationBell = () => {
     }
   };
 
+  // approvals, credit-limit alerts etc. carry a link: open it and mark the row read
+  const openNotification = async (n) => {
+    if (!n.read) {
+      setNotifications(prev => prev.map(x => (x.id === n.id ? { ...x, read: true } : x)));
+      setUnread(u => Math.max(0, u - 1));
+      try {
+        await axios.put(`${API_URL}/api/push/notifications/${n.id}/read`, {}, config);
+      } catch (e) {
+        // silent
+      }
+    }
+    const link = n.link || n.url;
+    if (!link || link === '/') return;
+    setOpen(false);
+    try {
+      const target = new URL(link, window.location.origin);
+      if (target.origin === window.location.origin && target.pathname === window.location.pathname) {
+        // same screen (the dashboard): switch tab without reloading
+        window.history.pushState({}, '', target.pathname + target.search);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      } else {
+        window.location.assign(target.href);
+      }
+    } catch (e) {
+      // malformed link: stay put
+    }
+  };
+
   const timeAgo = (dateStr) => {
     if (!dateStr) return '';
     const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
@@ -163,13 +191,14 @@ const NotificationBell = () => {
               notifications.map((n) => (
                 <div
                   key={n.id}
+                  onClick={() => openNotification(n)}
                   className={`p-3 border-b border-gray-50 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer ${!n.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
                 >
                   <div className="flex items-start gap-2">
                     {!n.read && <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0" />}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{n.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{n.body}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{n.title || n.title_ar || n.title_en}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{n.body || n.message_ar || n.message_en}</p>
                       <p className="text-xs text-gray-400 mt-1">{timeAgo(n.created_at)}</p>
                     </div>
                   </div>

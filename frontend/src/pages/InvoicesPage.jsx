@@ -61,6 +61,10 @@ const InvoicesPage = () => {
   const [currencies, setCurrencies] = useState([]);
   const [baseCurrency, setBaseCurrency] = useState('EGP');
   const [adjustmentCategories, setAdjustmentCategories] = useState(null);
+  // payment on an approved invoice (foreign currency: payment rate + realized FX)
+  const [payInvoice, setPayInvoice] = useState(null);
+  const [payForm, setPayForm] = useState({ amount: '', payment_date: '', payment_method: 'bank_transfer', exchange_rate: '', reference: '' });
+  const [payBusy, setPayBusy] = useState(false);
 
   const [formData, setFormData] = useState({
     document_type: 'sales_invoice',
@@ -68,6 +72,7 @@ const InvoicesPage = () => {
     due_date: '',
     party_id: '',
     currency: 'EGP',
+    exchange_rate: '',
     payment_terms: 'cash',
     lines: [{ description: '', quantity: 1, unit_price: 0, tax_rate: 14, discount_percent: 0 }],
     adjustments: [], // خصومات وإضافات الفاتورة
@@ -362,6 +367,76 @@ const InvoicesPage = () => {
       .catch(() => {});
   }, []);
 
+  // EGP per one unit of `currency` on `date` (the server reads every saved rate format)
+  const fetchRateOn = async (currency, date) => {
+    if (!currency || currency === 'EGP') return '';
+    try {
+      const res = await fetch(`${API}/config/exchange-rates/on?currency=${currency}&date=${date}`, {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      const d = await res.json();
+      if (!res.ok) { toast.error(d.detail || text.error); return ''; }
+      return String(d.rate);
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const changeInvoiceFx = async (patch) => {
+    const next = { ...formData, ...patch };
+    setFormData(prev => ({ ...prev, ...patch, exchange_rate: next.currency === 'EGP' ? '' : prev.exchange_rate }));
+    if (next.currency !== 'EGP') {
+      const rate = await fetchRateOn(next.currency, next.document_date);
+      setFormData(prev => ({ ...prev, exchange_rate: rate }));
+    }
+  };
+
+  const openPayment = async (invoice) => {
+    const today = new Date().toISOString().split('T')[0];
+    setPayInvoice(invoice);
+    setPayForm({ amount: String(invoice.amount_due ?? ''), payment_date: today, payment_method: 'bank_transfer', exchange_rate: '', reference: '' });
+    if (invoice.currency && invoice.currency !== 'EGP') {
+      const rate = await fetchRateOn(invoice.currency, today);
+      setPayForm(prev => ({ ...prev, exchange_rate: rate }));
+    }
+  };
+
+  const changePaymentDate = async (date) => {
+    setPayForm(prev => ({ ...prev, payment_date: date }));
+    if (payInvoice && payInvoice.currency && payInvoice.currency !== 'EGP') {
+      const rate = await fetchRateOn(payInvoice.currency, date);
+      setPayForm(prev => ({ ...prev, exchange_rate: rate }));
+    }
+  };
+
+  const handleRecordPayment = async () => {
+    const amount = Number(payForm.amount);
+    if (!(amount > 0)) { toast.error(isRTL ? 'أدخل مبلغ السداد' : 'Enter the amount'); return; }
+    const foreign = payInvoice.currency && payInvoice.currency !== 'EGP';
+    setPayBusy(true);
+    try {
+      const res = await fetch(`${API}/payments`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoice_id: payInvoice.id, amount, payment_date: payForm.payment_date,
+          payment_method: payForm.payment_method, reference: payForm.reference || null,
+          exchange_rate: foreign ? (Number(payForm.exchange_rate) || null) : null
+        })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || text.error);
+      const fx = d.payment && d.payment.fx_difference;
+      toast.success(fx ? (isRTL ? `تم تسجيل السداد — فرق عملة ${fx > 0 ? 'ربح' : 'خسارة'} ${Math.abs(fx).toLocaleString()} ج.م`
+                                : `Payment recorded — FX ${fx > 0 ? 'gain' : 'loss'} ${Math.abs(fx).toLocaleString()} EGP`)
+                       : (isRTL ? 'تم تسجيل السداد' : 'Payment recorded'));
+      setPayInvoice(null);
+      fetchInvoices();
+    } catch (e) {
+      toast.error(e.message || text.error);
+    } finally { setPayBusy(false); }
+  };
+
   const handleCreateInvoice = async () => {
     try {
       const token = getToken();
@@ -373,6 +448,7 @@ const InvoicesPage = () => {
         },
         body: JSON.stringify({
           ...formData,
+          exchange_rate: formData.currency !== 'EGP' ? (Number(formData.exchange_rate) || null) : null,
           lines: formData.lines.map(line => ({
             ...line,
             tax_type: 'vat'
@@ -533,6 +609,7 @@ const InvoicesPage = () => {
       due_date: '',
       party_id: '',
       currency: 'EGP',
+      exchange_rate: '',
       payment_terms: 'cash',
       lines: [{ description: '', quantity: 1, unit_price: 0, tax_rate: 14, discount_percent: 0 }],
       adjustments: [],
@@ -920,6 +997,16 @@ const InvoicesPage = () => {
                           </Button>
                         )}
 
+                        {['approved', 'partially_paid'].includes(invoice.status) &&
+                         ['sales_invoice', 'purchase_invoice'].includes(invoice.document_type) &&
+                         Number(invoice.amount_due) > 0 && (
+                          <Button variant="ghost" size="icon" onClick={() => openPayment(invoice)}
+                            title={isRTL ? 'تسجيل سداد' : 'Record payment'}
+                            className="text-emerald-600 hover:text-emerald-700">
+                            <DollarSign className="w-4 h-4" />
+                          </Button>
+                        )}
+
                         {/* Debit note — a posted purchase invoice cannot be edited */}
                         {['approved', 'partially_paid', 'paid'].includes(invoice.status) &&
                          invoice.document_type === 'purchase_invoice' && (
@@ -988,7 +1075,7 @@ const InvoicesPage = () => {
                 <Input
                   type="date"
                   value={formData.document_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, document_date: e.target.value }))}
+                  onChange={(e) => changeInvoiceFx({ document_date: e.target.value })}
                 />
               </div>
               <div>
@@ -1034,7 +1121,7 @@ const InvoicesPage = () => {
                 <label className="block text-sm font-medium mb-1 text-gray-700">
                   {language === 'ar' ? 'العملة' : 'Currency'}
                 </label>
-                <Select value={formData.currency} onValueChange={(val) => setFormData(prev => ({ ...prev, currency: val }))}>
+                <Select value={formData.currency} onValueChange={(val) => changeInvoiceFx({ currency: val })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {currencies.map(curr => (
@@ -1045,6 +1132,22 @@ const InvoicesPage = () => {
                   </SelectContent>
                 </Select>
               </div>
+              {formData.currency !== 'EGP' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">
+                    {isRTL ? `سعر الصرف (ج.م لكل 1 ${formData.currency})` : `Exchange rate (EGP per 1 ${formData.currency})`}
+                  </label>
+                  <Input
+                    type="number" step="0.0001" min="0"
+                    value={formData.exchange_rate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, exchange_rate: e.target.value }))}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isRTL ? 'يُملأ تلقائياً بسعر تاريخ الفاتورة — القيد يُرحَّل بالجنيه بهذا السعر'
+                           : 'Prefilled with the rate on the invoice date — the entry posts in EGP at this rate'}
+                  </p>
+                </div>
+              )}
             </div>
 
             {costCenters.length > 0 && (
@@ -1310,6 +1413,12 @@ const InvoicesPage = () => {
                 
                 <div className="text-lg font-bold text-gray-900 dark:text-white border-t border-gray-300 dark:border-gray-600 pt-2">{text.grandTotal}:</div>
                 <div className="text-right text-lg font-bold text-[#28376B] dark:text-blue-400 border-t border-gray-300 dark:border-gray-600 pt-2">{totals.grandTotal.toLocaleString()} {formData.currency}</div>
+                {formData.currency !== 'EGP' && Number(formData.exchange_rate) > 0 && (
+                  <>
+                    <div className="text-sm text-gray-500">{isRTL ? 'المعادل بالجنيه:' : 'EGP equivalent:'}</div>
+                    <div className="text-right text-sm text-gray-600">{(Math.round(totals.grandTotal * Number(formData.exchange_rate) * 100) / 100).toLocaleString()} EGP</div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1502,6 +1611,82 @@ const InvoicesPage = () => {
                 </div>
               </div>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment dialog */}
+      <Dialog open={!!payInvoice} onOpenChange={(open) => { if (!open) setPayInvoice(null); }}>
+        <DialogContent className="max-w-md" dir={isRTL ? 'rtl' : 'ltr'}>
+          <DialogHeader>
+            <DialogTitle>{isRTL ? 'تسجيل سداد' : 'Record payment'}</DialogTitle>
+          </DialogHeader>
+          {payInvoice && (
+            <div className="space-y-3">
+              <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                <p className="font-bold text-gray-800">{payInvoice.document_number} — {payInvoice.party_name}</p>
+                <p className="text-gray-600">
+                  {isRTL ? 'المستحق:' : 'Due:'} {Number(payInvoice.amount_due || 0).toLocaleString()} {payInvoice.currency}
+                  {payInvoice.currency !== 'EGP' && ` — ${isRTL ? 'سعر الفاتورة' : 'invoice rate'} ${payInvoice.exchange_rate}`}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  {isRTL ? `المبلغ (${payInvoice.currency})` : `Amount (${payInvoice.currency})`}
+                </label>
+                <Input type="number" step="0.01" min="0" value={payForm.amount}
+                  onChange={(e) => setPayForm(prev => ({ ...prev, amount: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">{text.date}</label>
+                  <Input type="date" value={payForm.payment_date} onChange={(e) => changePaymentDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">{isRTL ? 'طريقة السداد' : 'Method'}</label>
+                  <select className="w-full h-10 px-3 border border-gray-300 rounded-md text-sm bg-white"
+                    value={payForm.payment_method}
+                    onChange={(e) => setPayForm(prev => ({ ...prev, payment_method: e.target.value }))}>
+                    <option value="bank_transfer">{isRTL ? 'تحويل بنكي' : 'Bank transfer'}</option>
+                    <option value="cash">{isRTL ? 'نقدي' : 'Cash'}</option>
+                    <option value="check">{isRTL ? 'شيك' : 'Cheque'}</option>
+                    <option value="credit_card">{isRTL ? 'بطاقة' : 'Card'}</option>
+                    <option value="mobile_wallet">{isRTL ? 'محفظة' : 'Wallet'}</option>
+                  </select>
+                </div>
+              </div>
+              {payInvoice.currency && payInvoice.currency !== 'EGP' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">
+                    {isRTL ? `سعر الصرف يوم السداد (ج.م لكل 1 ${payInvoice.currency})` : `Payment rate (EGP per 1 ${payInvoice.currency})`}
+                  </label>
+                  <Input type="number" step="0.0001" min="0" value={payForm.exchange_rate}
+                    onChange={(e) => setPayForm(prev => ({ ...prev, exchange_rate: e.target.value }))} />
+                  {Number(payForm.exchange_rate) > 0 && Number(payForm.amount) > 0 && (() => {
+                    const cash = Math.round(Number(payForm.amount) * Number(payForm.exchange_rate) * 100) / 100;
+                    const book = Math.round(Number(payForm.amount) * Number(payInvoice.exchange_rate || 1) * 100) / 100;
+                    const diff = Math.round((cash - book) * 100) / 100;
+                    const gain = payInvoice.document_type === 'sales_invoice' ? diff > 0 : diff < 0;
+                    return (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {isRTL ? 'بالجنيه:' : 'In EGP:'} {cash.toLocaleString()}
+                        {diff !== 0 && ` — ${isRTL ? (gain ? 'ربح' : 'خسارة') : (gain ? 'gain' : 'loss')} ${isRTL ? 'فرق عملة تقريبي' : 'approx. FX'} ${Math.abs(diff).toLocaleString()}`}
+                      </p>
+                    );
+                  })()}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">{text.reference}</label>
+                <Input value={payForm.reference} onChange={(e) => setPayForm(prev => ({ ...prev, reference: e.target.value }))} />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button onClick={handleRecordPayment} disabled={payBusy} className="flex-1 bg-[#28376B] hover:bg-[#1e2a52] text-white">
+                  {payBusy ? '…' : (isRTL ? 'تأكيد السداد' : 'Confirm payment')}
+                </Button>
+                <Button variant="outline" onClick={() => setPayInvoice(null)}>{text.cancel}</Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

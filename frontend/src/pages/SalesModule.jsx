@@ -768,7 +768,18 @@ function InvoicesTab({ headers, ar, showMsg, fetchStats }) {
   const [search, setSearch]     = useState('');
   const [payStatus, setPayStatus] = useState('');
   const [showPayModal, setShowPayModal] = useState(null);
-  const [payForm, setPayForm]   = useState({ amount:0, method:'cash', date: new Date().toISOString().split('T')[0], reference:'' });
+  const [payForm, setPayForm]   = useState({ amount:0, method:'cash', date: new Date().toISOString().split('T')[0], reference:'', exchange_rate:'' });
+  // foreign-currency invoice: the payment rate (EGP per unit) on the payment date
+  const payCurrency = (showPayModal && showPayModal.currency) || 'EGP';
+  const loadPayRate = async (currency, date) => {
+    if (!currency || currency === 'EGP') return;
+    try {
+      const res = await fetch(`${API}/api/invoice/config/exchange-rates/on?currency=${currency}&date=${date}`, { headers });
+      const d = await res.json();
+      setPayForm(f => ({ ...f, exchange_rate: res.ok ? String(d.rate) : '' }));
+      if (!res.ok) showMsg('error', d.detail || 'Error');
+    } catch {}
+  };
   const [saving, setSaving]     = useState(false);
 
   const fetchInvoices = useCallback(async () => {
@@ -788,7 +799,7 @@ function InvoicesTab({ headers, ar, showMsg, fetchStats }) {
     setSaving(true);
     try {
       const res = await fetch(`${API}/api/sales/invoices/${showPayModal.id}/payment`, {
-        method:'POST', headers, body: JSON.stringify(payForm)
+        method:'POST', headers, body: JSON.stringify({ ...payForm, exchange_rate: payCurrency !== 'EGP' ? Number(payForm.exchange_rate) || null : null })
       });
       if (res.ok) {
         const d = await res.json();
@@ -856,7 +867,7 @@ function InvoicesTab({ headers, ar, showMsg, fetchStats }) {
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
                   {inv.payment_status !== 'paid' && (
-                    <button onClick={() => { setShowPayModal(inv); setPayForm(f=>({...f,amount:inv.balance||inv.total,date:new Date().toISOString().split('T')[0]})); }}
+                    <button onClick={() => { const d0 = new Date().toISOString().split('T')[0]; setShowPayModal(inv); setPayForm(f=>({...f,amount:inv.balance||inv.total,date:d0,exchange_rate:''})); loadPayRate(inv.currency, d0); }}
                       className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium">
                       <DollarSign className="w-3 h-3" />{ar?'تسجيل دفعة':'Record Payment'}
                     </button>
@@ -960,7 +971,10 @@ function InvoicesTab({ headers, ar, showMsg, fetchStats }) {
             </div>
             <div className="bg-amber-50 rounded-xl p-3 mb-4 text-sm">
               <p className="font-bold text-gray-800">{showPayModal.invoice_number} — {showPayModal.customer_name}</p>
-              <p className="text-gray-600">{ar?'الرصيد المستحق:':'Balance due:'} <span className="font-bold text-red-600">{fmt(showPayModal.balance)} {ar?'ج.م':'EGP'}</span></p>
+              <p className="text-gray-600">{ar?'الرصيد المستحق:':'Balance due:'} <span className="font-bold text-red-600">{fmt(showPayModal.balance)} {payCurrency !== 'EGP' ? payCurrency : (ar?'ج.م':'EGP')}</span></p>
+              {payCurrency !== 'EGP' && (
+                <p className="text-gray-500 text-xs mt-1">{ar?`سعر الفاتورة: ${showPayModal.exchange_rate} ج.م — فرق السعر يُرحَّل تلقائياً ربحاً (432) أو خسارة (33611)`:`Invoice rate: ${showPayModal.exchange_rate} EGP — the difference posts to FX gain (432) / loss (33611)`}</p>
+              )}
             </div>
             <div className="space-y-3">
               <div>
@@ -977,9 +991,19 @@ function InvoicesTab({ headers, ar, showMsg, fetchStats }) {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">{ar?'التاريخ':'Date'}</label>
-                <input type="date" value={payForm.date} onChange={e=>setPayForm(f=>({...f,date:e.target.value}))}
+                <input type="date" value={payForm.date} onChange={e=>{ const v=e.target.value; setPayForm(f=>({...f,date:v})); loadPayRate(payCurrency, v); }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
               </div>
+              {payCurrency !== 'EGP' && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">{ar?`سعر الصرف يوم التحصيل (ج.م لكل 1 ${payCurrency})`:`Payment rate (EGP per 1 ${payCurrency})`}</label>
+                  <input type="number" step="0.0001" value={payForm.exchange_rate} onChange={e=>setPayForm(f=>({...f,exchange_rate:e.target.value}))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  {Number(payForm.exchange_rate) > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">{ar?'بالجنيه:':'In EGP:'} {fmt(Math.round(payForm.amount * Number(payForm.exchange_rate) * 100) / 100)}</p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">{ar?'المرجع':'Reference'}</label>
                 <input type="text" value={payForm.reference} onChange={e=>setPayForm(f=>({...f,reference:e.target.value}))}

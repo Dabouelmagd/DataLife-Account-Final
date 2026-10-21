@@ -40,6 +40,7 @@ from api.import_data import router as import_data_router
 from api.accounting import router as accounting_router
 from api.fixed_assets import router as fixed_assets_router
 from api.treasury import router as treasury_router
+from api.bank_reconciliation import router as bank_reconciliation_router
 from api.hr_engine import router as hr_engine_router
 from api.tax_reports import router as tax_reports_router
 from api.inventory_engine import router as inventory_engine_router
@@ -239,6 +240,7 @@ app.include_router(import_data_router)
 app.include_router(accounting_router)
 app.include_router(fixed_assets_router)
 app.include_router(treasury_router)
+app.include_router(bank_reconciliation_router)
 app.include_router(hr_engine_router)
 app.include_router(tax_reports_router)
 app.include_router(inventory_engine_router)

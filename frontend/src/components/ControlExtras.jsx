@@ -1,6 +1,6 @@
 /**
  * الرقابة والالتزام — شاشات لموديولات كانت في الخلفية بلا واجهة:
- *   FraudControlPage    — كشف المخاطر والاحتيال (/api/fraud) + سلامة سجل التدقيق (/api/erp-core/audit)
+ *   FraudControlPage    — كشف المخاطر والاحتيال (/api/fraud) + سلامة سجل التدقيق (/api/audit/logs + /api/erp-core/audit/verify-chain)
  *   DataProtectionPage  — أدوات طلبات حماية البيانات الشخصية (/api/data-protection)
  *                          (أدوات مساعدة — ليست شهادة امتثال لقانون 151/2020)
  *   ConsolidationPage   — القوائم المجمعة لمجموعة شركات (/api/consolidation)
@@ -419,8 +419,9 @@ function AuditChainTab() {
   const [err, setErr] = useState('');
   useEffect(() => {
     setRows(null);
-    axios.get(`${API}/api/erp-core/audit/trail`, { ...auth(), params: { page, limit: 50 } })
-      .then(({ data }) => { setRows(data.entries || []); setTotal(data.total || 0); })
+    // the same unified endpoint the audit-log screen reads, chained rows only
+    axios.get(`${API}/api/audit/logs`, { ...auth(), params: { source: 'trail', skip: (page - 1) * 50, limit: 50 } })
+      .then(({ data }) => { setRows(data.logs || []); setTotal(data.total || 0); })
       .catch((e) => { setRows([]); setErr(errText(e, 'تعذّر تحميل سجل التدقيق')); });
   }, [page]);
   const verify = async () => {
@@ -430,26 +431,37 @@ function AuditChainTab() {
       setCheck(data);
     } catch (e) { setErr(errText(e, 'تعذّر التحقق')); } finally { setBusy(false); }
   };
+  const issues = check?.tampered_entries || [];
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
         <button onClick={verify} disabled={busy} className={btnPrimary}>{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" aria-hidden />} التحقق من سلامة السجل</button>
-        <p className="text-xs text-slate-500">كل حدث مربوط بالحدث السابق ببصمة رقمية؛ أي تعديل أو حذف لاحق يظهر هنا.</p>
+        <p className="text-xs text-slate-500">كل حدث يحمل رقماً متسلسلاً وبصمة تشمل كل حقوله (المستخدم، IP، القيم قبل وبعد) مربوطة بالحدث السابق، ويُقارن آخر حدث بنقطة إثبات محفوظة؛ التعديل أو الحذف اللاحق يظهر هنا (يُكتشف، ولا يُمنع).</p>
       </div>
       {check && (
-        <div className={`rounded-lg p-3 text-sm border ${check.chain_intact ? 'border-green-200 bg-green-50 dark:bg-green-900/20' : 'border-red-200 bg-red-50 dark:bg-red-900/20'}`}>
-          <p className="font-bold">{check.chain_intact ? 'السجل سليم' : `يوجد ${check.tampered_entries.length} سجل به ملاحظة`} — تم فحص <I v={check.entries_checked} /> حدث</p>
-          {(check.tampered_entries || []).slice(0, 20).map((t) => <p key={t.entry_id} className="text-xs"><D v={t.timestamp} /> — {t.action}: {t.problem}</p>)}
+        <div className={`rounded-lg p-3 text-sm border space-y-1 ${check.chain_intact ? 'border-green-200 bg-green-50 dark:bg-green-900/20' : 'border-red-200 bg-red-50 dark:bg-red-900/20'}`}>
+          <p className="font-bold">{check.chain_intact ? 'السجل سليم' : `يوجد ${issues.length} ملاحظة`}</p>
+          <p className="text-xs">السلسلة الحالية: <I v={check.current_checked ?? check.entries_checked} /> حدث — {check.current_intact === false ? 'بها ملاحظات' : 'سليمة'}
+            {check.anchor?.seq ? <> — آخر رقم مُثبت <I v={check.anchor.seq} /></> : null}</p>
+          {(check.legacy_checked || 0) > 0 && (
+            <p className="text-xs">السجلات القديمة (قبل التحديث): <I v={check.legacy_checked} /> حدث — {check.legacy_intact === false ? 'بها ملاحظات' : 'سليمة'}. {check.legacy_note}</p>
+          )}
+          {issues.slice(0, 20).map((t, i) => (
+            <p key={`${t.entry_id}-${i}`} className="text-xs">
+              {t.segment === 'legacy' ? '[قديم] ' : ''}{t.seq ? <>#<I v={t.seq} /> </> : null}<D v={t.timestamp} /> — <bdi dir="ltr">{t.action}</bdi>: {t.problem}
+            </p>
+          ))}
         </div>
       )}
       <ErrorLine text={err} />
       {rows === null ? <Spinner /> : rows.length === 0 ? <Empty text="لا توجد أحداث مسجلة بعد." /> : (
         <>
-          <Table head={[['الوقت'], ['الحدث'], ['الوصف'], ['IP', 'text-start hidden md:table-cell']]}>
+          <Table head={[['الوقت'], ['المستخدم'], ['الحدث'], ['الوصف'], ['IP', 'text-start hidden md:table-cell']]}>
             {rows.map((e) => (
-              <tr key={e.id}><td className="px-3 py-2 whitespace-nowrap"><bdi dir="ltr">{String(e.timestamp || '').slice(0, 16).replace('T', ' ')}</bdi></td>
-                <td className="px-3 py-2"><bdi dir="ltr">{e.action}</bdi></td><td className="px-3 py-2">{e.description}</td>
-                <td className="px-3 py-2 hidden md:table-cell"><bdi dir="ltr">{e.ip_address}</bdi></td></tr>
+              <tr key={e.id}><td className="px-3 py-2 whitespace-nowrap"><bdi dir="ltr">{String(e.time || '').slice(0, 16).replace('T', ' ')}</bdi></td>
+                <td className="px-3 py-2">{e.user_name || e.user_email || '—'}</td>
+                <td className="px-3 py-2"><bdi dir="ltr">{e.action}</bdi></td><td className="px-3 py-2">{e.details}</td>
+                <td className="px-3 py-2 hidden md:table-cell"><bdi dir="ltr">{e.ip}</bdi></td></tr>
             ))}
           </Table>
           <div className="flex items-center gap-2 text-sm">
@@ -740,16 +752,28 @@ function RetentionTab() {
   );
 }
 
+const ENC_STATE = {
+  hashed: ['بصمة (لا يمكن استرجاعها)', 'text-green-700'],
+  encrypted: ['مشفَّر', 'text-green-700'],
+  partial: ['مشفَّر جزئياً', 'text-amber-700'],
+  not_encrypted: ['غير مشفَّر', 'text-red-700'],
+  unknown: ['غير معروف للبرنامج', 'text-slate-600'],
+  in_transit: ['مشفَّر أثناء النقل فقط', 'text-amber-700'],
+};
+
 function StatusTab() {
   const [res, setRes] = useState(null);
+  const [enc, setEnc] = useState(null);
   const [err, setErr] = useState('');
   useEffect(() => {
     axios.get(`${API}/api/data-protection/compliance-report`, auth()).then(({ data }) => setRes(data))
       .catch((e) => { setRes({ checks: [] }); setErr(errText(e, 'تعذّر التحميل')); });
+    axios.get(`${API}/api/data-protection/encryption-status`, auth()).then(({ data }) => setEnc(data))
+      .catch(() => setEnc(null));
   }, []);
   if (res === null) return <Spinner />;
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <ErrorLine text={err} />
       <ul className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
         {(res.checks || []).map((c) => (
@@ -757,10 +781,30 @@ function StatusTab() {
             <span className="inline-flex items-center gap-2">
               {c.passed === true ? <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden /> : c.passed === false ? <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden /> : <FileLock2 className="w-4 h-4 text-slate-400" aria-hidden />}
               {c.check}</span>
-            <span className="text-slate-600 dark:text-slate-300">{c.status}</span>
+            <span className="text-slate-600 dark:text-slate-300 text-end">{c.status}</span>
           </li>
         ))}
       </ul>
+      {enc && (
+        <section className="space-y-2" aria-labelledby="enc-h">
+          <h3 id="enc-h" className="font-bold text-sm">ما هو مشفَّر وما ليس مشفَّراً</h3>
+          <p className="text-sm text-slate-600 dark:text-slate-300">{enc.summary}</p>
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+            {(enc.items || []).map((it) => {
+              const [label, cls] = ENC_STATE[it.state] || [it.state, 'text-slate-600'];
+              return (
+                <li key={it.item} className="px-4 py-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">{it.item}</span>
+                    <span className={`shrink-0 font-semibold ${cls}`}>{label}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">{it.detail}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
       {(res.recommendations || []).length > 0 && (
         <ul className="list-disc ps-5 text-sm text-slate-600 dark:text-slate-300">{res.recommendations.map((r) => <li key={r}>{r}</li>)}</ul>
       )}

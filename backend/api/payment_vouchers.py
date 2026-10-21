@@ -13,6 +13,10 @@ A bank payment is also recorded as a withdrawal on that bank account, so the
 bank page's balance per bank and the ledger move together. Nothing is saved
 if the entry cannot be posted — a voucher without its entry is a payment the
 books never saw.
+
+Above the user's approval threshold (approval bands / approval_limit in
+/api/approvals) the voucher is saved as pending_approval with NO entry; the
+approvals engine calls post_pending_voucher() when the request is approved.
 """
 import logging
 from datetime import datetime, timezone
@@ -105,6 +109,64 @@ async def list_vouchers(limit: int = Query(100, le=500), current_user: dict = De
     return {"vouchers": rows, "total": len(rows)}
 
 
+async def _resolve_source(company_id: str, source: str):
+    """(source_code, source_label, bank doc | None) for 'cash' or a bank account id."""
+    bank = None
+    if source == "cash":
+        return CASH_CODE, "الخزينة", None
+    try:
+        bank = await db.bank_accounts.find_one({"_id": ObjectId(source), "company_id": company_id})
+    except Exception:
+        bank = None
+    if not bank:
+        raise HTTPException(400, "الحساب البنكي غير موجود")
+    label = f"{bank.get('bank_name', '')} {bank.get('account_number', '')}".strip()
+    return bank.get("linked_account_code") or "162", label, bank
+
+
+async def _post_voucher(company_id: str, user_id: str, number: str, date: str, amount: float,
+                        counter: dict, source: str, beneficiary: str, description: str,
+                        reference: Optional[str]) -> dict:
+    """Post the entry (and the bank withdrawal). Raises HTTPException when it
+    cannot — nothing is written in that case."""
+    source_code, source_label, bank = await _resolve_source(company_id, source)
+    source_acc = await db.chart_of_accounts.find_one(
+        {"company_id": company_id, "account_code": source_code}, {"_id": 0})
+    if not source_acc:
+        raise HTTPException(400, f"حساب {source_code} غير موجود في شجرة الحسابات")
+    balance = await _ledger_balance(company_id, source_acc)
+    if source == "cash" and amount > balance + 0.005:
+        raise HTTPException(400, f"رصيد الخزينة {balance:,.2f} لا يكفي لصرف {amount:,.2f}")
+    desc = f"سند صرف {number} — {beneficiary}: {description}"[:200]
+
+    from services.import_documents import post_two_line_entry
+    try:
+        entry = await post_two_line_entry(db, company_id, user_id, date, counter["account_code"],
+                                          source_code, amount, desc, "payment_voucher", number)
+    except Exception as e:
+        raise HTTPException(400, f"تعذّر ترحيل القيد — لم يُحفظ السند: {e}")
+
+    txn_id = None
+    if bank:
+        txn = {
+            "company_id": company_id, "bank_account_id": str(bank["_id"]),
+            "transaction_type": "withdrawal", "amount": amount, "description": description,
+            "reference": reference or number, "beneficiary": beneficiary,
+            "counter_account_code": counter["account_code"], "auto_create_journal": False,
+            "transaction_number": number, "bank_name": bank.get("bank_name"),
+            "account_number": bank.get("account_number"), "transaction_date": date,
+            "journal_entry_id": entry["id"], "journal_entry_number": entry.get("entry_number"),
+            "status": "posted", "created_at": datetime.now(timezone.utc), "created_by": user_id,
+        }
+        txn_id = str((await db.bank_transactions.insert_one(txn)).inserted_id)
+    warning = None
+    if bank and amount > balance + 0.005:
+        warning = f"رصيد البنك في الدفتر كان {balance:,.2f} — الحساب أصبح مكشوفاً"
+    return {"journal_entry_id": entry["id"],
+            "journal_entry_number": entry.get("entry_number_str") or entry.get("entry_number"),
+            "bank_transaction_id": txn_id, "warning": warning}
+
+
 @router.post("")
 async def create_voucher(v: VoucherIn, current_user: dict = Depends(get_current_user)):
     await _require_finance(current_user)
@@ -122,18 +184,7 @@ async def create_voucher(v: VoucherIn, current_user: dict = Depends(get_current_
     if counter.get("is_header") or counter.get("account_category") == "header":
         raise HTTPException(400, f"«{counter['account_name']}» حساب تجميعي — اختر حساباً فرعياً تحته")
 
-    bank = None
-    if v.source == "cash":
-        source_code, source_label = CASH_CODE, "الخزينة"
-    else:
-        try:
-            bank = await db.bank_accounts.find_one({"_id": ObjectId(v.source), "company_id": company_id})
-        except Exception:
-            bank = None
-        if not bank:
-            raise HTTPException(400, "الحساب البنكي غير موجود")
-        source_code = bank.get("linked_account_code") or "162"
-        source_label = f"{bank.get('bank_name', '')} {bank.get('account_number', '')}".strip()
+    source_code, source_label, bank = await _resolve_source(company_id, v.source)
     source_acc = await db.chart_of_accounts.find_one(
         {"company_id": company_id, "account_code": source_code}, {"_id": 0})
     if not source_acc:
@@ -141,8 +192,12 @@ async def create_voucher(v: VoucherIn, current_user: dict = Depends(get_current_
     if source_acc["id"] == counter["id"]:
         raise HTTPException(400, "الحساب المقابل هو نفس حساب الصرف")
 
+    # above the user's approval threshold: saved, but nothing is posted until approved
+    from api.approvals import approval_required
+    need = await approval_required(company_id, "expense", amount, user_id)
+
     balance = await _ledger_balance(company_id, source_acc)
-    if v.source == "cash" and amount > balance + 0.005:
+    if v.source == "cash" and amount > balance + 0.005 and not need["required"]:
         raise HTTPException(400, f"رصيد الخزينة {balance:,.2f} لا يكفي لصرف {amount:,.2f}")
 
     year = date[:4]
@@ -150,43 +205,99 @@ async def create_voucher(v: VoucherIn, current_user: dict = Depends(get_current_
         {"_id": f"payment_voucher:{company_id}:{year}"}, {"$inc": {"seq": 1}},
         upsert=True, return_document=True)
     number = f"PV-{year}-{int((seq or {}).get('seq', 1)):04d}"
-    desc = f"سند صرف {number} — {v.beneficiary}: {v.description}"[:200]
-
-    from services.import_documents import post_two_line_entry
-    try:
-        entry = await post_two_line_entry(db, company_id, user_id, date, counter["account_code"],
-                                          source_code, amount, desc, "payment_voucher", number)
-    except Exception as e:
-        raise HTTPException(400, f"تعذّر ترحيل القيد — لم يُحفظ السند: {e}")
-
-    txn_id = None
-    if bank:
-        txn = {
-            "company_id": company_id, "bank_account_id": str(bank["_id"]),
-            "transaction_type": "withdrawal", "amount": amount, "description": v.description,
-            "reference": v.reference or number, "beneficiary": v.beneficiary,
-            "counter_account_code": counter["account_code"], "auto_create_journal": False,
-            "transaction_number": number, "bank_name": bank.get("bank_name"),
-            "account_number": bank.get("account_number"), "transaction_date": date,
-            "journal_entry_id": entry["id"], "journal_entry_number": entry.get("entry_number"),
-            "status": "posted", "created_at": datetime.now(timezone.utc), "created_by": user_id,
-        }
-        txn_id = str((await db.bank_transactions.insert_one(txn)).inserted_id)
 
     voucher = {
         "id": number, "number": number, "company_id": company_id, "date": date,
         "source": "cash" if v.source == "cash" else "bank", "bank_account_id": str(bank["_id"]) if bank else None,
+        "source_ref": v.source,
         "source_label": source_label, "source_account_code": source_code,
         "counter_account_id": counter["id"], "counter_account_code": counter["account_code"],
         "counter_account_name": counter["account_name"], "beneficiary": v.beneficiary,
         "description": v.description, "reference": v.reference, "amount": amount,
-        "journal_entry_id": entry["id"], "journal_entry_number": entry.get("entry_number_str") or entry.get("entry_number"),
-        "bank_transaction_id": txn_id, "created_by": user_id,
+        "journal_entry_id": None, "journal_entry_number": None,
+        "bank_transaction_id": None, "created_by": user_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+
+    if need["required"]:
+        from api.approvals import gate_document
+        req = await gate_document(
+            company_id, user_id, current_user.get("full_name"), "expense", amount,
+            "payment_voucher", number, f"سند صرف {number} — {v.beneficiary}",
+            description=v.description,
+            data={"source": source_label, "counter_account": counter["account_name"]},
+            role=current_user.get("role"))
+        if req:
+            voucher.update(status="pending_approval", approval_request_id=req["id"],
+                           approval_band=req.get("band_label"))
+            await db.payment_vouchers.insert_one(dict(voucher))
+            return {"message": f"السند {number} يتجاوز حد الاعتماد — حُفظ بانتظار الموافقة ولم يُرحَّل بعد",
+                    "voucher": voucher, "pending_approval": True}
+
+    posted = await _post_voucher(company_id, user_id, number, date, amount, counter, v.source,
+                                 v.beneficiary, v.description, v.reference)
+    warning = posted.pop("warning")
+    voucher.update(status="posted", **posted)
     await db.payment_vouchers.insert_one(dict(voucher))
-    warning = None
-    if bank and amount > balance + 0.005:
-        warning = f"رصيد البنك في الدفتر كان {balance:,.2f} — الحساب أصبح مكشوفاً"
     return {"message": f"تم الصرف وترحيل القيد {voucher['journal_entry_number']}", "voucher": voucher,
             **({"warning": warning} if warning else {})}
+
+
+async def post_pending_voucher(company_id: str, number: str, request_id: Optional[str] = None,
+                               approver_id: Optional[str] = None) -> dict:
+    """Called by the approvals engine when the voucher's request is approved:
+    post the entry now. Only the request the voucher opened can release it."""
+    q = {"id": number, "company_id": company_id, "status": "pending_approval"}
+    if request_id:
+        q["approval_request_id"] = request_id
+    v = await db.payment_vouchers.find_one(q, {"_id": 0})
+    if not v:
+        return {}
+    # claim it first so two approvals cannot post it twice
+    claim = await db.payment_vouchers.update_one(q, {"$set": {"status": "posting"}})
+    if not claim.modified_count:
+        return {}
+    try:
+        counter = await db.chart_of_accounts.find_one(
+            {"company_id": company_id, "id": v["counter_account_id"]}, {"_id": 0})
+        if not counter:
+            raise HTTPException(400, "الحساب المقابل لم يعد موجوداً")
+        posted = await _post_voucher(company_id, v.get("created_by"), number, v["date"], float(v["amount"]),
+                                     counter, v.get("source_ref") or (v.get("bank_account_id") or "cash"),
+                                     v.get("beneficiary", ""), v.get("description", ""), v.get("reference"))
+    except Exception:
+        await db.payment_vouchers.update_one({"id": number, "company_id": company_id, "status": "posting"},
+                                             {"$set": {"status": "pending_approval"}})
+        raise
+    posted.pop("warning", None)
+    await db.payment_vouchers.update_one(
+        {"id": number, "company_id": company_id},
+        {"$set": {**posted, "status": "posted", "approved_by": approver_id,
+                  "approved_at": datetime.now(timezone.utc).isoformat()}})
+    return posted
+
+
+@router.post("/{number}/post")
+async def retry_post(number: str, current_user: dict = Depends(get_current_user)):
+    """Re-try posting an approved voucher whose entry failed at approval time
+    (e.g. the cash box did not cover it then)."""
+    await _require_finance(current_user)
+    company_id = current_user["company_id"]
+    v = await db.payment_vouchers.find_one({"id": number, "company_id": company_id}, {"_id": 0})
+    if not v or v.get("status") != "post_failed":
+        raise HTTPException(400, "السند ليس معتمداً بانتظار الترحيل")
+    req = await db.approval_requests.find_one(
+        {"id": v.get("approval_request_id"), "company_id": company_id, "status": "approved"}, {"_id": 1})
+    if not req:
+        raise HTTPException(400, "السند غير معتمد")
+    await db.payment_vouchers.update_one({"id": number, "company_id": company_id, "status": "post_failed"},
+                                         {"$set": {"status": "pending_approval"}})
+    try:
+        posted = await post_pending_voucher(company_id, number, v.get("approval_request_id"),
+                                            current_user.get("user_id"))
+    except Exception as e:
+        await db.payment_vouchers.update_one(
+            {"id": number, "company_id": company_id, "status": "pending_approval"},
+            {"$set": {"status": "post_failed", "post_error": getattr(e, "detail", None) or str(e)}})
+        raise
+    return {"message": f"تم ترحيل القيد {posted.get('journal_entry_number')}", **posted}

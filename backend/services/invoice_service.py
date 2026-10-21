@@ -21,6 +21,37 @@ import base64
 
 logger = logging.getLogger(__name__)
 
+PARTY_CODES = ("131", "251")      # AR / AP — the line that takes the rounding cent
+
+
+def _cur(v) -> str:
+    return str(getattr(v, "value", v) or "EGP").upper()
+
+
+def _convert_lines_to_egp(lines, currency: str, rate: float) -> None:
+    """A foreign-currency document is journalised in EGP: every amount × the
+    invoice rate, rounded to 2dp, the foreign amount kept on the line. Rounding
+    each line can leave the entry a cent or two out; that cent goes on the
+    AR/AP line, which is the balancing figure anyway.
+
+    Without this a USD 1,000 invoice was posted as EGP 1,000."""
+    if _cur(currency) == "EGP" or not lines:
+        return
+    for ln in lines:
+        ln.currency_id = _cur(currency)
+        ln.exchange_rate = rate
+        ln.debit_foreign = round(float(ln.debit or 0), 2)
+        ln.credit_foreign = round(float(ln.credit or 0), 2)
+        ln.debit = round(ln.debit_foreign * rate, 2)
+        ln.credit = round(ln.credit_foreign * rate, 2)
+    diff = round(sum(l.debit for l in lines) - sum(l.credit for l in lines), 2)
+    if diff:
+        party = next((l for l in lines if l.account_code in PARTY_CODES), lines[-1])
+        if party.debit:
+            party.debit = round(party.debit - diff, 2)
+        else:
+            party.credit = round(party.credit + diff, 2)
+
 
 def _tag_dimensions(lines, invoice: Dict) -> None:
     """Copy the invoice's cost centre / project onto every journal line.
@@ -166,6 +197,8 @@ class InvoiceService:
         Invoice model, so they are stored next to it on the document, where
         _create_invoice_journal_entry reads them.
         """
+        await self._resolve_fx(invoice)
+
         # توليد رقم الفاتورة
         if not invoice.document_number:
             invoice.document_number = await self.get_next_document_number(
@@ -206,6 +239,31 @@ class InvoiceService:
         
         return invoice_dict
     
+    async def _resolve_fx(self, invoice: Invoice) -> None:
+        """Currency and rate of a new document.
+
+        - a credit/debit note follows the invoice it corrects (same currency,
+          same carrying rate — it reverses part of that invoice's AR/AP);
+        - EGP is always 1;
+        - a foreign document with no rate takes the rate effective on its date
+          (Arabic 400 when none is defined)."""
+        from services.fx import rate_on
+        if invoice.original_invoice_id:
+            orig = await self.db.invoices.find_one(
+                {"id": invoice.original_invoice_id, "company_id": invoice.company_id},
+                {"_id": 0, "currency": 1, "exchange_rate": 1})
+            if orig and _cur(orig.get("currency")) != "EGP":
+                invoice.currency = Currency(_cur(orig["currency"]))
+                invoice.exchange_rate = float(orig.get("exchange_rate") or 1)
+                return
+        if _cur(invoice.currency) == "EGP":
+            invoice.exchange_rate = 1.0
+            return
+        rate = float(invoice.exchange_rate or 0)
+        if rate <= 0 or rate == 1.0:
+            invoice.exchange_rate = await rate_on(self.db, invoice.company_id, invoice.currency,
+                                                  invoice.document_date)
+
     async def get_invoice(self, invoice_id: str) -> Optional[Dict]:
         """الحصول على فاتورة"""
         return await self.db.invoices.find_one({"id": invoice_id}, {"_id": 0})
@@ -253,6 +311,20 @@ class InvoiceService:
         if invoice["status"] not in [DocumentStatus.DRAFT.value, DocumentStatus.PENDING.value]:
             raise ValueError("Cannot update approved or paid invoice")
         
+        if "currency" in updates or "exchange_rate" in updates:
+            from services.fx import rate_on
+            cur = _cur(updates.get("currency", invoice.get("currency")))
+            rate = float(updates.get("exchange_rate") or 0)
+            if cur == "EGP":
+                rate = 1.0
+            elif rate <= 0:
+                same = cur == _cur(invoice.get("currency")) and float(invoice.get("exchange_rate") or 1) != 1.0
+                rate = float(invoice["exchange_rate"]) if same else await rate_on(
+                    self.db, invoice["company_id"], cur,
+                    updates.get("document_date") or invoice.get("document_date"))
+            updates["currency"] = cur
+            updates["exchange_rate"] = rate
+
         # إعادة حساب المجاميع إذا تم تحديث الأسطر
         if "lines" in updates:
             lines = [InvoiceLine(**line) for line in updates["lines"]]
@@ -293,7 +365,8 @@ class InvoiceService:
         
         # إنشاء القيد المحاسبي
         journal_entry_id = await self._create_invoice_journal_entry(invoice, user_id)
-        settle = await self._settle_amount(journal_entry_id, invoice["document_type"], invoice["grand_total"])
+        settle, settle_egp = await self._settle_amounts(journal_entry_id, invoice["document_type"],
+                                                        invoice["grand_total"], invoice.get("exchange_rate"))
         
         # تحديث حالة الفاتورة
         updates = {
@@ -306,6 +379,10 @@ class InvoiceService:
             # settled invoice stayed "partially paid" with a phantom 10.
             "settle_amount": settle,
             "amount_due": settle,
+            # the same AR/AP in EGP as the entry booked it (foreign invoices:
+            # settle × the invoice rate, with the rounding cent)
+            "settle_amount_egp": settle_egp,
+            "settled_egp": 0.0,
             "updated_at": datetime.utcnow().isoformat()
         }
         
@@ -522,7 +599,9 @@ class InvoiceService:
                 else 0.03 if p_inv_type in {"services", "engineering", "consulting"} else 0.01
             # تطبيق WHT فقط إذا كانت قيمة الشراء > 300 ج.م (حد الإعفاء الضريبي)
             purchase_base = invoice["total_after_discount"]
-            p_wht_amount  = round(purchase_base * p_wht_rate, 2) if purchase_base > 300 else 0
+            # the 300 threshold is in pounds — compare the EGP value of a foreign invoice
+            _fx = float(invoice.get("exchange_rate") or 1) if _cur(invoice.get("currency")) != "EGP" else 1.0
+            p_wht_amount  = round(purchase_base * p_wht_rate, 2) if purchase_base * _fx > 300 else 0
             # صافي المستحق للمورد = grand_total - WHT
             supplier_net  = round(invoice["grand_total"] - p_wht_amount, 2)
             
@@ -580,6 +659,9 @@ class InvoiceService:
                 lines.append(_adj_line(purchases_acc, inv_add, True,
                                        f"إضافات على فاتورة الشراء {invoice['document_number']}"))
         
+        # ── فاتورة بعملة أجنبية: القيد بالجنيه (المبلغ × سعر الفاتورة) ──
+        _convert_lines_to_egp(lines, invoice.get("currency"), float(invoice.get("exchange_rate") or 1))
+
         # ── التحقق من توازن القيد (مدين = دائن) ──────────────────
         total_dr = round(sum(l.debit  for l in lines), 2)
         total_cr = round(sum(l.credit for l in lines), 2)
@@ -658,6 +740,9 @@ class InvoiceService:
             if not product_id or qty <= 0:
                 continue
             price = float(line.get("unit_price", 0) or 0)
+            if _cur(invoice.get("currency")) != "EGP":
+                # stock is carried in pounds: a USD purchase price × the invoice rate
+                price = round(price * float(invoice.get("exchange_rate") or 1), 4)
             warehouse = line.get("warehouse_id", "main")
             stock = await self.db.stocks.find_one(
                 {"company_id": company_id, "product_id": product_id, "warehouse_id": warehouse},
@@ -792,7 +877,13 @@ class InvoiceService:
             logger.error(f"COGS entry failed for {invoice.get('document_number')}: {e}")
 
     async def record_payment(self, payment: Payment, user_id: str) -> Dict:
-        """تسجيل سداد للفاتورة"""
+        """تسجيل سداد للفاتورة
+
+        payment.amount is in the INVOICE currency. For a foreign invoice the
+        customer/supplier balance is closed at the invoice's carrying rate and
+        the cash/bank side at the payment rate (payment.exchange_rate, else the
+        rate effective on the payment date); the difference is the realized
+        exchange gain (432) or loss (33611), posted in the same entry."""
         invoice = await self.get_invoice(payment.invoice_id)
         # the invoice was looked up by bare id: a user of one company could
         # record a payment (and post its entry) against another company's invoice
@@ -802,11 +893,42 @@ class InvoiceService:
         if invoice["status"] == DocumentStatus.CANCELLED.value:
             raise ValueError("Cannot record payment for cancelled invoice")
         
-        if payment.amount > invoice["amount_due"]:
+        if payment.amount > invoice["amount_due"] + 0.004:
             raise ValueError("Payment amount exceeds amount due")
-        
+
+        # ── سعر الصرف وفروق العملة المحققة ──────────────────────
+        cur = _cur(invoice.get("currency"))
+        amount = round(float(payment.amount), 2)
+        if cur == "EGP":
+            pay_rate = carry = 1.0
+        else:
+            from services.fx import rate_on
+            carry = float(invoice.get("exchange_rate") or 1)
+            pay_rate = float(payment.exchange_rate or 0)
+            if pay_rate <= 0:
+                pay_rate = await rate_on(self.db, invoice["company_id"], cur, payment.payment_date)
+        cash_egp = round(amount * pay_rate, 2)
+        party_egp = round(amount * carry, 2)
+        closes = round(float(invoice["amount_due"]) - amount, 2) <= 0.004
+        if cur != "EGP" and closes and invoice.get("settle_amount_egp") is not None \
+                and not float(invoice.get("credited_amount") or 0):
+            # last payment: close exactly what is left in EGP, so AR/AP ends
+            # at zero in pounds as well as in dollars (no stray rounding cent)
+            party_egp = round(float(invoice["settle_amount_egp"]) - float(invoice.get("settled_egp") or 0), 2)
+        payment.currency = cur
+        payment.exchange_rate = pay_rate
+        payment.amount_egp = cash_egp
+        payment.settled_egp = party_egp
+        # sales: receiving more pounds than booked is a gain; purchases: paying more is a loss
+        raw = round(cash_egp - party_egp, 2)
+        is_sales = invoice["document_type"] == DocumentType.SALES_INVOICE.value
+        payment.fx_difference = raw if is_sales else -raw
+
         # إنشاء قيد السداد
-        journal_entry_id = await self._create_payment_journal_entry(invoice, payment, user_id)
+        journal_entry_id = await self._create_payment_journal_entry(
+            invoice, payment, user_id,
+            fx={"currency": cur, "pay_rate": pay_rate, "carry": carry,
+                "cash_egp": cash_egp, "party_egp": party_egp})
         payment.journal_entry_id = journal_entry_id
         
         # حفظ السداد
@@ -815,37 +937,59 @@ class InvoiceService:
         payment_dict.pop("_id", None)
         
         # تحديث الفاتورة
-        new_amount_paid = invoice["amount_paid"] + payment.amount
+        new_amount_paid = round(invoice["amount_paid"] + payment.amount, 2)
         new_amount_due = round((invoice.get("settle_amount") or invoice["grand_total"]) - new_amount_paid, 2)
         new_status = DocumentStatus.PAID.value if new_amount_due <= 0 else DocumentStatus.PARTIALLY_PAID.value
         
         await self.db.invoices.update_one(
-            {"id": payment.invoice_id},
+            {"id": payment.invoice_id, "company_id": invoice["company_id"]},
             {"$set": {
                 "amount_paid": new_amount_paid,
                 "amount_due": new_amount_due,
                 "status": new_status,
+                "settled_egp": round(float(invoice.get("settled_egp") or 0) + party_egp, 2),
                 "updated_at": datetime.utcnow().isoformat()
             }}
         )
         
         return payment_dict
 
-    async def _settle_amount(self, je_id: str, doc_type: str, fallback: float) -> float:
+    async def _settle_amounts(self, je_id: str, doc_type: str, fallback: float, rate=None):
         """What is actually owed: the net the entry put on 131 (sales) or 251
         (purchases) — net of withholding, so a fully settled invoice does not
-        stay 'partially paid' with a phantom remainder."""
+        stay 'partially paid' with a phantom remainder.
+
+        Returns (amount in the invoice currency, amount in EGP). For a foreign
+        invoice the first comes from the lines' foreign amounts."""
         je = await self.db.journal_entries.find_one({"id": je_id}, {"_id": 0, "lines": 1}) or {}
         code = "131" if doc_type == DocumentType.SALES_INVOICE.value else "251"
-        net = sum((l.get("debit", 0) - l.get("credit", 0)) if code == "131" else (l.get("credit", 0) - l.get("debit", 0))
-                  for l in je.get("lines", []) if l.get("account_code") == code)
-        return round(net, 2) if net > 0 else round(float(fallback), 2)
+        sign = (lambda d, c: d - c) if code == "131" else (lambda d, c: c - d)
+        rows = [l for l in je.get("lines", []) if l.get("account_code") == code]
+        egp = round(sum(sign(float(l.get("debit") or 0), float(l.get("credit") or 0)) for l in rows), 2)
+        foreign_rows = [l for l in rows if _cur(l.get("currency_id")) != "EGP"]
+        if foreign_rows:
+            net = round(sum(sign(float(l.get("debit_foreign") or 0), float(l.get("credit_foreign") or 0))
+                            for l in foreign_rows), 2)
+        else:
+            net = egp
+        if net > 0:
+            return net, egp
+        fb = round(float(fallback), 2)
+        return fb, round(fb * float(rate or 1), 2)
+
+    async def _settle_amount(self, je_id: str, doc_type: str, fallback: float) -> float:
+        return (await self._settle_amounts(je_id, doc_type, fallback))[0]
 
     async def apply_external_payment(self, company_id: str, party_id: str, doc_type: str, amount: float,
                                      source: str, ref_id: str, date: str):
         """Apply a payment that was posted ELSEWHERE (a supplier payment, an issued
         cheque) to the party's open invoices, oldest first. No journal entry here —
-        the caller already posted one. Returns (applied, unapplied)."""
+        the caller already posted one. Returns (applied, unapplied).
+
+        Those payments are in pounds, so only EGP invoices are matched: a
+        foreign-currency invoice is settled through record_payment, which knows
+        its rate and posts the realized exchange difference. Applying EGP 5,000
+        to a USD 5,000 invoice would have marked it paid."""
         left = round(float(amount), 2)
         applied = []
         invs = await self.db.invoices.find(
@@ -855,6 +999,8 @@ class InvoiceService:
         for inv in invs:
             if left <= 0.004:
                 break
+            if _cur(inv.get("currency")) != "EGP":
+                continue
             base = inv.get("settle_amount") or inv["grand_total"]
             open_amt = round(base - (inv.get("amount_paid") or 0), 2)
             if open_amt <= 0.004:
@@ -871,12 +1017,34 @@ class InvoiceService:
             left = round(left - part, 2)
         return applied, left
 
-    async def _create_payment_journal_entry(self, invoice: Dict, payment: Payment, user_id: str) -> str:
-        """إنشاء القيد المحاسبي للسداد"""
+    async def _create_payment_journal_entry(self, invoice: Dict, payment: Payment, user_id: str,
+                                            fx: Optional[Dict] = None) -> str:
+        """إنشاء القيد المحاسبي للسداد
+
+        fx (foreign invoices): cash/bank at the payment rate, AR/AP at the
+        carrying rate, the difference to 432 (gain) or 33611 (loss)."""
         accounts = await self.accounting.get_all_accounts(invoice["company_id"])
         
         def find_account(code: str) -> Optional[Dict]:
             return next((a for a in accounts if a["account_code"] == code), None)
+
+        fx = fx or {}
+        cur = fx.get("currency", "EGP")
+        amount = round(float(payment.amount), 2)
+        cash_egp = fx.get("cash_egp", amount)
+        party_egp = fx.get("party_egp", amount)
+        diff = round(cash_egp - party_egp, 2)
+
+        def jl(acc, debit, credit, text, foreign=None, rate=None):
+            ln = JournalEntryLine(account_id=acc["id"], account_code=acc["account_code"],
+                                  account_name=acc["account_name"], debit=debit, credit=credit,
+                                  description=text)
+            if cur != "EGP" and foreign is not None:
+                ln.currency_id = cur
+                ln.exchange_rate = rate
+                ln.debit_foreign = foreign if debit else 0.0
+                ln.credit_foreign = foreign if credit else 0.0
+            return ln
         
         lines = []
         # cash only for cash payments; anything else settles through the bank —
@@ -884,54 +1052,43 @@ class InvoiceService:
         _method = str(getattr(payment, "payment_method", "") or "").lower()
         _method = getattr(_method, "value", _method)
         cash_acc = find_account("161") if "cash" in _method and "wallet" not in _method else find_account("162")
+        # a specific bank/cash account of this company (e.g. the USD account)
+        if payment.bank_account:
+            chosen = next((a for a in accounts if payment.bank_account in (a.get("id"), a.get("account_code"))), None)
+            if chosen:
+                cash_acc = chosen
+
+        fx_line = None
+        if diff:
+            gain = (diff > 0) == (invoice["document_type"] == DocumentType.SALES_INVOICE.value)
+            fx_acc = find_account("432" if gain else "33611")
+            if not fx_acc:
+                raise ValueError(f"حساب {'أرباح' if gain else 'خسائر'} فروق العملة "
+                                 f"({'432' if gain else '33611'}) غير موجود في شجرة الحسابات")
+            text = (f"{'ربح' if gain else 'خسارة'} فرق عملة محقق — {cur} من {fx.get('carry')} "
+                    f"إلى {fx.get('pay_rate')} — فاتورة {invoice['document_number']}")
+            fx_line = jl(fx_acc, 0.0 if gain else abs(diff), abs(diff) if gain else 0.0, text)
 
         if invoice["document_type"] == DocumentType.SALES_INVOICE.value:
-            # سداد فاتورة بيع: النقدية (مدين) - العملاء (دائن)
+            # سداد فاتورة بيع: النقدية (مدين) - العملاء (دائن) ± فرق العملة
             customers_acc = find_account("131")
-            
             if cash_acc:
-                lines.append(JournalEntryLine(
-                    account_id=cash_acc["id"],
-                    account_code=cash_acc["account_code"],
-                    account_name=cash_acc["account_name"],
-                    debit=payment.amount,
-                    credit=0,
-                    description=f"سداد فاتورة {invoice['document_number']}"
-                ))
-            
+                lines.append(jl(cash_acc, cash_egp, 0, f"سداد فاتورة {invoice['document_number']}",
+                                amount, fx.get("pay_rate")))
             if customers_acc:
-                lines.append(JournalEntryLine(
-                    account_id=customers_acc["id"],
-                    account_code=customers_acc["account_code"],
-                    account_name=customers_acc["account_name"],
-                    debit=0,
-                    credit=payment.amount,
-                    description=f"سداد من {invoice['party_name']}"
-                ))
-        
+                lines.append(jl(customers_acc, 0, party_egp, f"سداد من {invoice['party_name']}",
+                                amount, fx.get("carry")))
         else:
-            # سداد فاتورة شراء: الموردين (مدين) - النقدية (دائن)
+            # سداد فاتورة شراء: الموردين (مدين) - النقدية (دائن) ± فرق العملة
             suppliers_acc = find_account("251")
-            
             if suppliers_acc:
-                lines.append(JournalEntryLine(
-                    account_id=suppliers_acc["id"],
-                    account_code=suppliers_acc["account_code"],
-                    account_name=suppliers_acc["account_name"],
-                    debit=payment.amount,
-                    credit=0,
-                    description=f"سداد فاتورة {invoice['document_number']}"
-                ))
-            
+                lines.append(jl(suppliers_acc, party_egp, 0, f"سداد فاتورة {invoice['document_number']}",
+                                amount, fx.get("carry")))
             if cash_acc:
-                lines.append(JournalEntryLine(
-                    account_id=cash_acc["id"],
-                    account_code=cash_acc["account_code"],
-                    account_name=cash_acc["account_name"],
-                    debit=0,
-                    credit=payment.amount,
-                    description=f"سداد إلى {invoice['party_name']}"
-                ))
+                lines.append(jl(cash_acc, 0, cash_egp, f"سداد إلى {invoice['party_name']}",
+                                amount, fx.get("pay_rate")))
+        if fx_line:
+            lines.append(fx_line)
         
         _tag_dimensions(lines, invoice)
         entry = JournalEntry(
@@ -939,7 +1096,8 @@ class InvoiceService:
             entry_number=0,
             entry_date=payment.payment_date,
             reference=f"PAY-{invoice['document_number']}",
-            description=f"سداد فاتورة {invoice['document_number']} - {invoice['party_name']}",
+            description=f"سداد فاتورة {invoice['document_number']} - {invoice['party_name']}"
+                        + (f" ({amount:,.2f} {cur} × {fx.get('pay_rate')})" if cur != "EGP" else ""),
             lines=lines,
             created_by=user_id
         )

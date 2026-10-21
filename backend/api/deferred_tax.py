@@ -60,7 +60,7 @@ DTA_PROVISIONS = {
 from models.fixed_assets import TAX_DEPRECIATION_RULES
 TAX_DEPRECIATION_RATES = {k: v[1] for k, v in TAX_DEPRECIATION_RULES.items() if v[0]}
 TAX_DEPRECIATION_RATES["machines"] = TAX_DEPRECIATION_RATES["machinery"]   # old key
-TAX_DEPRECIATION_RATES["other"] = 0.10   # not in the law's schedule — override per asset if different
+TAX_DEPRECIATION_RATES.setdefault("other", 0.25)   # art. 25: all other assets 25% declining (was 0.10)
 
 
 async def get_acc(company_id: str, code: str) -> dict:

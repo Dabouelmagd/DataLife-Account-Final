@@ -92,6 +92,10 @@ TOP_ROLES = ["Board Chairman", "رئيس مجلس الإدارة", "General Mana
              "CEO", "المدير التنفيذي", "Super Admin", "admin", "owner"]
 
 
+# documents whose approval request is opened by the document itself
+DOCUMENT_REFS = {"purchase_order", "payment_voucher"}
+
+
 def _renumber(approvers: list) -> list:
     """Levels become 1..n in order, with no gaps (an empty level blocked a
     request forever: nobody could ever approve it)."""
@@ -120,6 +124,147 @@ async def _default_approvers(company_id: str, roles: list, requester_id: str) ->
     return out
 
 
+# ============ AMOUNT THRESHOLDS ============
+# A workflow can carry amount bands: [{min_amount, max_amount, approver_roles, levels}].
+# An amount falls in the band with min_amount <= amount < max_amount (no max =
+# no ceiling). The band decides who approves: approver_roles (one level per
+# role, in order) or the first `levels` levels of the workflow's chain.
+# Below every band (or below auto_approve_below) no approval is needed.
+# A user's approval_limit lets them commit up to that amount on their own;
+# above it they need approval even where no band applies.
+
+def _num(v):
+    try:
+        if v is None or v == "":
+            return None
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _clean_bands(bands) -> list:
+    out = []
+    for b in bands or []:
+        if not isinstance(b, dict):
+            continue
+        lo = _num(b.get("min_amount")) or 0.0
+        hi = _num(b.get("max_amount"))
+        roles = [str(r).strip() for r in (b.get("approver_roles") or []) if str(r or "").strip()]
+        levels = b.get("levels")
+        try:
+            levels = int(levels) if levels not in (None, "") else None
+        except (TypeError, ValueError):
+            levels = None
+        out.append({"min_amount": lo, "max_amount": hi, "approver_roles": roles,
+                    "levels": levels if levels and levels > 0 else None,
+                    "label": (b.get("label") or "").strip() or None})
+    return sorted(out, key=lambda b: b["min_amount"])
+
+
+def _band_for(bands, amount):
+    amount = _num(amount)
+    if amount is None:
+        return None
+    for b in _clean_bands(bands):
+        if amount >= b["min_amount"] and (b["max_amount"] is None or amount < b["max_amount"]):
+            return b
+    return None
+
+
+def _band_label(b) -> Optional[str]:
+    if not b:
+        return None
+    if b.get("label"):
+        return b["label"]
+    hi = b.get("max_amount")
+    return f"{b['min_amount']:,.0f} – {hi:,.0f}" if hi is not None else f"≥ {b['min_amount']:,.0f}"
+
+
+async def _workflow(company_id: str, approval_type: str) -> dict:
+    return await db.approval_workflows.find_one(
+        {"company_id": company_id, "type": approval_type, "is_active": True}, {"_id": 0}) or {}
+
+
+async def approval_required(company_id: str, approval_type: str, amount, user_id: Optional[str]) -> dict:
+    """Does a document of this type and amount, created by this user, need approval?"""
+    amount = _num(amount)
+    res = {"required": False, "band": None, "band_label": None, "amount": amount,
+           "user_limit": None, "auto_approve_below": None, "reason": None}
+    if amount is None or amount <= 0:
+        return res
+    wf = await _workflow(company_id, approval_type)
+    user = await db.users.find_one({"id": user_id, "company_id": company_id},
+                                   {"_id": 0, "approval_limit": 1}) if user_id else None
+    limit = _num((user or {}).get("approval_limit"))
+    aab = _num(wf.get("auto_approve_below"))
+    bands = _clean_bands(wf.get("bands"))
+    band = _band_for(bands, amount)
+    res.update(user_limit=limit, auto_approve_below=aab, band=band, band_label=_band_label(band))
+    if limit is not None and amount <= limit:
+        res["reason"] = "within_user_limit"
+        return res
+    if aab is not None and amount < aab:
+        res["reason"] = "below_auto_approve"
+        return res
+    if bands:
+        if band:
+            res.update(required=True, reason="band")
+    elif aab is not None:
+        res.update(required=True, reason="above_auto_approve")
+    if not res["required"] and limit is not None and amount > limit:
+        res.update(required=True, reason="above_user_limit")
+    return res
+
+
+async def _resolve_approvers(company_id: str, approval_type: str, amount, requester_id: str):
+    """(approvers, band) for a request: the band's roles, else the workflow's
+    chain (cut to the band's levels), else the type's default roles, else top
+    management. The requester is never one of them."""
+    wf = await _workflow(company_id, approval_type)
+    band = _band_for(wf.get("bands"), amount)
+    chain = [a for a in wf.get("approvers", []) or [] if a.get("user_id") and a.get("user_id") != requester_id]
+    approvers = []
+    if band and band.get("approver_roles"):
+        approvers = await _default_approvers(company_id, band["approver_roles"], requester_id)
+    if not approvers:
+        approvers = chain or await _default_approvers(
+            company_id, APPROVAL_TYPES[approval_type]["default_approvers"], requester_id)
+        if approvers and band and band.get("levels"):
+            approvers = _renumber(approvers)
+            approvers = [a for a in approvers if a["level"] <= band["levels"]] or approvers
+    if not approvers:
+        approvers = await _default_approvers(company_id, TOP_ROLES, requester_id)
+    return (_renumber(approvers) if approvers else []), band, wf
+
+
+async def gate_document(company_id: str, user_id: str, user_name: Optional[str], approval_type: str,
+                        amount, reference_type: str, reference_id: str, title: str,
+                        description: str = "", data: Optional[dict] = None, role: Optional[str] = None):
+    """Used by purchases / payment vouchers before a document takes effect.
+    Returns the open approval request when one is needed, None when the
+    document may go ahead. A top-role user with nobody else to approve goes
+    ahead (a one-manager company must still be able to work)."""
+    need = await approval_required(company_id, approval_type, amount, user_id)
+    if not need["required"]:
+        return None
+    existing = await db.approval_requests.find_one(
+        {"company_id": company_id, "reference_type": reference_type, "reference_id": reference_id,
+         "status": "pending"}, {"_id": 0})
+    if existing:
+        return existing
+    approvers, _, _ = await _resolve_approvers(company_id, approval_type, amount, user_id)
+    if not approvers:
+        if not role:
+            u = await db.users.find_one({"id": user_id, "company_id": company_id}, {"_id": 0, "role": 1}) or {}
+            role = u.get("role")
+        if role in TOP_ROLES:
+            return None
+    return await open_approval_request(company_id, user_id, user_name, {
+        "type": approval_type, "title": title, "description": description,
+        "reference_type": reference_type, "reference_id": reference_id,
+        "amount": need["amount"], "data": data or {}, "_gated": True})
+
+
 # ============ APPROVAL REQUESTS ============
 
 @router.post("/request")
@@ -129,6 +274,12 @@ async def create_approval_request(
 ):
     """Create a new approval request"""
     user_data = await verify_token(authorization)
+    request_data = {k: v for k, v in (request_data or {}).items() if k != "_gated"}
+    # purchase orders and payment vouchers open their own requests when they
+    # cross a threshold; a hand-made request pointing at one could approve it
+    if request_data.get("reference_type") in DOCUMENT_REFS:
+        raise HTTPException(status_code=400,
+                            detail="طلب اعتماد هذا المستند يُنشأ تلقائياً من المستند نفسه")
     return await open_approval_request(user_data.get("company_id"), user_data.get("user_id"),
                                        user_data.get("full_name"), request_data)
 
@@ -146,25 +297,12 @@ async def open_approval_request(company_id: str, requester_id: str, requester_na
     
     type_config = APPROVAL_TYPES[approval_type]
     
-    # Get approvers (from workflow settings or defaults)
-    workflow = await db.approval_workflows.find_one({
-        "company_id": company_id,
-        "type": approval_type,
-        "is_active": True
-    })
-    
     requester_id = user_data.get("user_id")
-    if workflow:
-        approvers = [a for a in workflow.get("approvers", []) if a.get("user_id") and a.get("user_id") != requester_id]
-    else:
-        approvers = await _default_approvers(company_id, type_config["default_approvers"], requester_id)
-    if not approvers:
-        # nobody in the configured roles (or only the requester): the top management decides
-        approvers = await _default_approvers(company_id, TOP_ROLES, requester_id)
+    amount = _num(request_data.get("amount"))
+    approvers, band, workflow = await _resolve_approvers(company_id, approval_type, amount, requester_id)
     if not approvers:
         raise HTTPException(status_code=400,
                             detail="لا يوجد مَن يعتمد هذا الطلب — أضف مستخدماً بدور مدير أو اضبط مسار الموافقات")
-    approvers = _renumber(approvers)
     approval_levels = max(a["level"] for a in approvers)
     
     approval_request = {
@@ -177,8 +315,10 @@ async def open_approval_request(company_id: str, requester_id: str, requester_na
         "description": request_data.get("description", ""),
         "reference_type": request_data.get("reference_type"),  # leave, expense, po, invoice, etc.
         "reference_id": request_data.get("reference_id"),
-        "amount": request_data.get("amount"),
+        "amount": amount if amount is not None else request_data.get("amount"),
         "currency": request_data.get("currency", "EGP"),
+        "band": band,
+        "band_label": _band_label(band),
         "attachments": request_data.get("attachments", []),
         "data": request_data.get("data", {}),
         "status": "pending",  # pending, approved, rejected, cancelled
@@ -192,6 +332,18 @@ async def open_approval_request(company_id: str, requester_id: str, requester_na
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
     
+    # a manual request under the workflow's auto-approve amount is approved at once
+    aab = _num(workflow.get("auto_approve_below"))
+    if not request_data.get("_gated") and amount is not None and aab is not None and amount < aab:
+        now = datetime.now(timezone.utc).isoformat()
+        approval_request.update(status="approved", approved_at=now, approval_history=[
+            {"action": "auto_approved", "level": 0, "user_id": "system", "user_name": "auto",
+             "comments": f"أقل من حد الاعتماد التلقائي {aab:,.2f}", "timestamp": now}])
+        await db.approval_requests.insert_one(approval_request)
+        approval_request.pop("_id", None)
+        await execute_approval_action(approval_request)
+        return approval_request
+
     await db.approval_requests.insert_one(approval_request)
     if "_id" in approval_request:
         del approval_request["_id"]
@@ -366,6 +518,103 @@ async def get_workflows(authorization: Optional[str] = Header(None)):
     return workflows
 
 
+# ============ THRESHOLD SETTINGS & USER LIMITS ============
+
+def _validate_bands(bands) -> list:
+    if bands is None:
+        return []
+    if not isinstance(bands, list):
+        raise HTTPException(status_code=400, detail="الشرائح يجب أن تكون قائمة")
+    clean = _clean_bands(bands)
+    for i, b in enumerate(clean):
+        if b["min_amount"] < 0:
+            raise HTTPException(status_code=400, detail="بداية الشريحة لا تكون سالبة")
+        if b["max_amount"] is not None and b["max_amount"] <= b["min_amount"]:
+            raise HTTPException(status_code=400, detail=f"نهاية الشريحة {i + 1} يجب أن تكون أكبر من بدايتها")
+        if i and (clean[i - 1]["max_amount"] is None or clean[i - 1]["max_amount"] > b["min_amount"]):
+            raise HTTPException(status_code=400, detail="الشرائح متداخلة — كل شريحة تبدأ حيث تنتهي السابقة أو بعدها")
+        if not b["approver_roles"] and not b["levels"]:
+            raise HTTPException(status_code=400, detail=f"حدد أدوار المعتمدين أو عدد المستويات للشريحة {i + 1}")
+    return clean
+
+
+def _require_top(user_data: dict):
+    if user_data.get("role") not in TOP_ROLES:
+        raise HTTPException(status_code=403, detail="ضبط حدود الاعتماد لرئيس مجلس الإدارة أو المدير العام فقط")
+
+
+@router.get("/settings/thresholds")
+async def get_threshold_settings(authorization: Optional[str] = Header(None)):
+    """Amount bands per document type, and each user's approval limit."""
+    user_data = await verify_token(authorization)
+    company_id = user_data.get("company_id")
+    wfs = {w["type"]: w async for w in db.approval_workflows.find({"company_id": company_id}, {"_id": 0})}
+    types = []
+    for key, cfg in APPROVAL_TYPES.items():
+        w = wfs.get(key, {})
+        types.append({"type": key, "name_ar": cfg["name_ar"], "name_en": cfg["name_en"],
+                      "bands": [{**b, "band_label": _band_label(b)} for b in _clean_bands(w.get("bands"))],
+                      "auto_approve_below": _num(w.get("auto_approve_below")),
+                      "default_approvers": cfg["default_approvers"]})
+    users = await db.users.find(
+        {"company_id": company_id, "is_active": {"$ne": False}},
+        {"_id": 0, "id": 1, "full_name": 1, "email": 1, "role": 1, "approval_limit": 1}).to_list(length=None)
+    roles = sorted({u.get("role") for u in users if u.get("role")} | set(ROLE_ALIASES))
+    return {"types": types, "users": users, "roles": roles,
+            "can_edit": user_data.get("role") in TOP_ROLES}
+
+
+@router.put("/settings/thresholds/{approval_type}")
+async def set_threshold_settings(approval_type: str, payload: dict,
+                                 authorization: Optional[str] = Header(None)):
+    """{bands: [{min_amount, max_amount, approver_roles: [...], levels}], auto_approve_below}"""
+    user_data = await verify_token(authorization)
+    _require_top(user_data)
+    if approval_type not in APPROVAL_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid approval type")
+    update = {"bands": _validate_bands((payload or {}).get("bands")),
+              "updated_at": datetime.now(timezone.utc).isoformat()}
+    if "auto_approve_below" in (payload or {}):
+        aab = _num(payload.get("auto_approve_below"))
+        if aab is not None and aab < 0:
+            raise HTTPException(status_code=400, detail="حد الاعتماد التلقائي لا يكون سالباً")
+        update["auto_approve_below"] = aab
+    await db.approval_workflows.update_one(
+        {"company_id": user_data.get("company_id"), "type": approval_type},
+        {"$set": update,
+         "$setOnInsert": {"company_id": user_data.get("company_id"), "type": approval_type,
+                          "name_en": APPROVAL_TYPES[approval_type]["name_en"],
+                          "name_ar": APPROVAL_TYPES[approval_type]["name_ar"],
+                          "approvers": [], "is_active": True}},
+        upsert=True)
+    return {"success": True, "bands": update["bands"], "auto_approve_below": update.get("auto_approve_below")}
+
+
+@router.put("/limits/{user_id}")
+async def set_user_approval_limit(user_id: str, payload: dict,
+                                  authorization: Optional[str] = Header(None)):
+    """{approval_limit: number | null} — the amount this user may commit without approval."""
+    user_data = await verify_token(authorization)
+    _require_top(user_data)
+    limit = _num((payload or {}).get("approval_limit"))
+    if limit is not None and limit < 0:
+        raise HTTPException(status_code=400, detail="الحد لا يكون سالباً")
+    res = await db.users.update_one({"id": user_id, "company_id": user_data.get("company_id")},
+                                    {"$set": {"approval_limit": limit}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    return {"success": True, "user_id": user_id, "approval_limit": limit}
+
+
+@router.get("/check")
+async def check_approval_needed(type: str, amount: float, authorization: Optional[str] = Header(None)):
+    """Would a document of this type and amount need approval for the current user?"""
+    user_data = await verify_token(authorization)
+    if type not in APPROVAL_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid approval type")
+    return await approval_required(user_data.get("company_id"), type, amount, user_data.get("user_id"))
+
+
 @router.get("/{request_id}")
 async def get_approval_request(
     request_id: str,
@@ -467,7 +716,7 @@ async def approve_request(
     if not res.modified_count:
         raise HTTPException(status_code=409, detail="تغيّرت حالة الطلب — حدّث الصفحة")
     if update_data.get("status") == "approved":
-        await execute_approval_action(request)
+        await execute_approval_action(request, approver_id=user_id)
     
     # Notify requester
     await create_approval_notification(
@@ -541,6 +790,7 @@ async def reject_request(
         }
     )
     
+    await _close_document(request, "rejected", rejection_data.get("reason", ""))
     if request.get("reference_type") == "leave" and request.get("reference_id"):
         await db.leaves.update_one(
             {"id": request["reference_id"], "company_id": company_id, "status": "pending"},
@@ -587,6 +837,7 @@ async def cancel_request(
             "cancelled_at": datetime.now(timezone.utc).isoformat()
         }}
     )
+    await _close_document(request, "cancelled")
     
     return {"success": True}
 
@@ -637,11 +888,14 @@ async def create_workflow(
         "name_ar": APPROVAL_TYPES[approval_type]["name_ar"],
         "approvers": approvers,
         "levels": max(a["level"] for a in approvers),
-        "auto_approve_below": workflow_data.get("auto_approve_below"),  # Auto-approve if amount below this
         "escalation_days": workflow_data.get("escalation_days", 3),
         "is_active": True,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
+    if "auto_approve_below" in workflow_data:   # amounts below it need no approval
+        workflow["auto_approve_below"] = _num(workflow_data.get("auto_approve_below"))
+    if "bands" in workflow_data:
+        workflow["bands"] = _validate_bands(workflow_data.get("bands"))
     
     await db.approval_workflows.update_one(
         {"company_id": company_id, "type": approval_type},
@@ -654,47 +908,68 @@ async def create_workflow(
 
 # ============ HELPER FUNCTIONS ============
 
+APPROVALS_LINK = "/dashboard?tab=approvals"
+
+
 async def create_approval_notification(request_id: str, user_id: str, company_id: str, action: str):
-    """Create notification for approval action"""
-    messages = {
-        "new_request": {
-            "en": "New approval request pending your review",
-            "ar": "طلب موافقة جديد بانتظار مراجعتك"
-        },
-        "level_approved": {
-            "en": "Approval request has been approved at current level",
-            "ar": "تمت الموافقة على الطلب في المستوى الحالي"
-        },
-        "approved": {
-            "en": "Your request has been fully approved",
-            "ar": "تمت الموافقة على طلبك بالكامل"
-        },
-        "rejected": {
-            "en": "Your request has been rejected",
-            "ar": "تم رفض طلبك"
+    """In-app row + web push (and, for a new request, an email to the approver).
+    Never raises: the approval itself is already saved."""
+    try:
+        from services.notify import notify, send_email
+        req = await db.approval_requests.find_one({"id": request_id, "company_id": company_id}, {"_id": 0}) or {}
+        what = req.get("title") or req.get("type_name_ar") or "طلب"
+        amt = _num(req.get("amount"))
+        money = f" — {amt:,.2f} {req.get('currency') or 'EGP'}" if amt else ""
+        texts = {
+            "new_request": ("طلب موافقة جديد", f"{what}{money} من {req.get('requester_name') or ''} بانتظار اعتمادك",
+                            "approval_request"),
+            "level_approved": ("تقدّم طلب الموافقة", f"{what}{money}: اعتُمد في المستوى الحالي",
+                               "approval_level"),
+            "approved": ("تم اعتماد طلبك", f"{what}{money}: تمت الموافقة بالكامل", "approval_approved"),
+            "rejected": ("تم رفض طلبك", f"{what}{money}" + (f": {req['rejection_reason']}" if req.get("rejection_reason") else ""),
+                         "approval_rejected"),
         }
-    }
-    
-    notification = {
-        "id": f"notif_{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
-        "type": "approval",
-        "title_en": "Approval Update",
-        "title_ar": "تحديث الموافقة",
-        "message_en": messages.get(action, {}).get("en", ""),
-        "message_ar": messages.get(action, {}).get("ar", ""),
-        "icon": "clipboard-check" if action in ["approved", "level_approved"] else "clipboard-x" if action == "rejected" else "clipboard",
-        "color": "green" if action in ["approved", "level_approved"] else "red" if action == "rejected" else "blue",
-        "user_id": user_id,
-        "company_id": company_id,
-        "data": {"request_id": request_id, "action": action},
-        "read": False,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    await db.notifications.insert_one(notification)
+        title, body, kind = texts.get(action, ("تحديث الموافقة", what, "approval"))
+        await notify(db, company_id, [user_id], title, body, APPROVALS_LINK, kind,
+                     data={"request_id": request_id, "action": action,
+                           "reference_type": req.get("reference_type"), "reference_id": req.get("reference_id")})
+        if action == "new_request":
+            u = await db.users.find_one({"id": user_id, "company_id": company_id}, {"_id": 0, "email": 1, "full_name": 1}) or {}
+            if u.get("email"):
+                band = f"<p>الشريحة: {req['band_label']}</p>" if req.get("band_label") else ""
+                html = f"""<div dir="rtl" style="font-family:Tahoma,Arial;line-height:1.8">
+      <p>مرحباً {u.get('full_name') or ''}،</p>
+      <p>طلب <b>{req.get('type_name_ar') or ''}</b> بانتظار اعتمادك: <b>{what}</b>{money}</p>
+      <p>مقدم الطلب: {req.get('requester_name') or ''}</p>{band}
+      <p>افتح صفحة الموافقات في DataLife Account لاعتماده أو رفضه.</p></div>"""
+                await send_email([u["email"]], f"طلب موافقة: {what}{money}", html)
+    except Exception:
+        pass
 
 
-async def execute_approval_action(request: dict):
+async def _close_document(request: dict, outcome: str, reason: str = ""):
+    """A rejected or cancelled request releases the document it was holding."""
+    ref_type, ref_id, company_id = request.get("reference_type"), request.get("reference_id"), request.get("company_id")
+    if not ref_type or not ref_id:
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        if ref_type == "purchase_order":
+            await db.purchase_orders.update_one(
+                {"po_number": ref_id, "company_id": company_id, "status": "pending_approval",
+                 "approval_request_id": request.get("id")},
+                {"$set": {"status": "rejected" if outcome == "rejected" else "draft",
+                          "approval_status": outcome, "rejection_reason": reason or None, "updated_at": now}})
+        elif ref_type == "payment_voucher":
+            await db.payment_vouchers.update_one(
+                {"id": ref_id, "company_id": company_id, "status": "pending_approval",
+                 "approval_request_id": request.get("id")},
+                {"$set": {"status": outcome, "rejection_reason": reason or None, "updated_at": now}})
+    except Exception:
+        pass
+
+
+async def execute_approval_action(request: dict, approver_id: Optional[str] = None):
     """Execute action after final approval"""
     ref_type = request.get("reference_type")
     ref_id = request.get("reference_id")
@@ -731,10 +1006,32 @@ async def execute_approval_action(request: dict):
         except Exception as e:
             pass  # Email failure should not block approval
     elif ref_type == "purchase_order":
+        # only the request the order itself opened, and only while it waits
         await db.purchase_orders.update_one(
-            {"po_number": ref_id, "company_id": company_id},
-            {"$set": {"status": "approved", "approved_at": datetime.now(timezone.utc).isoformat()}}
+            {"po_number": ref_id, "company_id": company_id, "status": "pending_approval",
+             "approval_request_id": request.get("id")},
+            {"$set": {"status": "approved", "approval_status": "approved",
+                      "approved_by": approver_id or "approval",
+                      "approved_at": datetime.now(timezone.utc).isoformat()}}
         )
+    elif ref_type == "payment_voucher":
+        # the entry is posted only now; if it cannot be (e.g. the cash box no
+        # longer covers it) the voucher says so and the requester is told
+        try:
+            from api.payment_vouchers import post_pending_voucher
+            await post_pending_voucher(company_id, ref_id, request.get("id"), approver_id)
+        except Exception as e:
+            detail = getattr(e, "detail", None) or str(e)
+            await db.payment_vouchers.update_one(
+                {"id": ref_id, "company_id": company_id, "status": "pending_approval"},
+                {"$set": {"status": "post_failed", "post_error": detail}})
+            try:
+                from services.notify import notify
+                await notify(db, company_id, [request.get("requester_id")], "تعذّر ترحيل سند الصرف",
+                             f"{ref_id}: اعتُمد لكن لم يُرحَّل — {detail}", APPROVALS_LINK,
+                             "approval_rejected", data={"voucher": ref_id})
+            except Exception:
+                pass
     elif ref_type == "invoice":
         # approve through the invoice service so the entry is posted (and stock
         # moves); just flipping the status left an approved invoice with no entry

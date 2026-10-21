@@ -19,6 +19,21 @@ from dependencies import get_current_user
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
 
+# Cheques run through ONE cycle — الخزينة والشيكات (/api/treasury): a received
+# cheque goes to 132, then 163 when deposited, and reaches the bank only when
+# collected. A "check_deposit" bank movement here debited the bank on the day it
+# was typed, and the bank-checks status switch moved cheques with no entry at
+# all, so the two systems disagreed with each other and with the bank.
+CHEQUE_TXN_TYPES = {"check_deposit", "check_issued"}
+CHEQUES_ELSEWHERE = ("الشيكات تُسجَّل من شاشة «الخزينة والشيكات» فقط: استلام الشيك ثم إيداعه ثم تحصيله "
+                     "(أو ارتداده)، والشيك الصادر يُصدَر ثم يُصرف — كل خطوة بقيدها، ولا يدخل البنك إلا عند "
+                     "التحصيل أو الصرف الفعلي.")
+
+
+def refuse_cheque_type(transaction_type: str):
+    if transaction_type in CHEQUE_TXN_TYPES:
+        raise HTTPException(status_code=400, detail=CHEQUES_ELSEWHERE)
+
 # ==========================================
 # Models
 # ==========================================
@@ -303,6 +318,9 @@ async def create_bank_transaction(
 ):
     """إنشاء حركة بنكية جديدة مع قيد محاسبي تلقائي"""
     company_id = current_user["company_id"]
+    refuse_cheque_type(transaction.transaction_type)
+    if not transaction.amount or transaction.amount <= 0:
+        raise HTTPException(status_code=400, detail="المبلغ يجب أن يكون أكبر من صفر")
     
     # Verify bank account exists
     bank_account = await db.bank_accounts.find_one({
@@ -619,22 +637,9 @@ async def update_check_status(
     status: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """تحديث حالة الشيك"""
-    company_id = current_user["company_id"]
-    
-    valid_statuses = ["pending", "deposited", "cleared", "bounced", "cancelled"]
-    if status not in valid_statuses:
-        raise HTTPException(status_code=400, detail=f"حالة غير صالحة. الحالات المتاحة: {', '.join(valid_statuses)}")
-    
-    result = await db.bank_transactions.update_one(
-        {"_id": ObjectId(check_id), "company_id": company_id},
-        {"$set": {"check_status": status, "updated_at": datetime.now(timezone.utc)}}
-    )
-    
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="الشيك غير موجود")
-    
-    return {"message": "تم تحديث حالة الشيك بنجاح"}
+    """تحديث حالة الشيك — موقوف: تغيير الحالة هنا لم يكن يُنشئ أي قيد.
+    إيداع / تحصيل / ارتداد / صرف / إلغاء الشيك يتم من «الخزينة والشيكات»."""
+    raise HTTPException(status_code=400, detail=CHEQUES_ELSEWHERE)
 
 
 
@@ -785,6 +790,7 @@ async def create_journal_for_existing_transaction(
     
     if transaction.get("journal_entry_id"):
         raise HTTPException(status_code=400, detail="يوجد قيد محاسبي مرتبط بهذه الحركة بالفعل")
+    refuse_cheque_type(transaction.get("transaction_type"))
     
     # جلب الحساب البنكي
     bank_account = await db.bank_accounts.find_one({

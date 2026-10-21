@@ -187,6 +187,9 @@ UNIQUE_INDEXES = {
     "users":                       [("email", 1)],
     "journal_counters":            [("company_id", 1)],
     "asset_counters":              [("company_id", 1), ("asset_type", 1)],
+    # one depreciation claim per asset per month — api/fixed_assets.py also
+    # creates it lazily; blocks double posting by concurrent runs
+    "depreciation_claims":         [("company_id", 1), ("asset_id", 1), ("period", 1)],
     "cheque_counters":             [("company_id", 1), ("direction", 1)],
     "receipt_counters":            [("company_id", 1)],
 }

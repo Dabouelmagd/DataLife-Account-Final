@@ -29,14 +29,18 @@ const errText = (e, fallback) => {
 // keys and law rates mirror backend/models/fixed_assets.py (Law 91/2005 art. 25)
 const TYPES = {
   buildings: ['مباني وإنشاءات', 'Buildings'], machinery: ['آلات ومعدات إنتاج', 'Machinery'],
-  computers: ['حاسبات ونظم معلومات', 'Computers'], vehicles: ['سيارات ووسائل نقل', 'Vehicles'],
+  computers: ['حاسبات ونظم معلومات', 'Computers'], software: ['برامج ونظم معلومات', 'Software'], vehicles: ['سيارات ووسائل نقل', 'Vehicles'],
   furniture: ['أثاث وتجهيزات', 'Furniture'], intangible: ['أصول معنوية (برمجيات، شهرة)', 'Intangibles'],
   land: ['أراضٍ (لا تُهلَك)', 'Land'], wip: ['مشروع تحت التنفيذ', 'Construction in progress'],
 };
 const TAX_RULES = [
   ['buildings', 'straight_line', 5], ['intangible', 'straight_line', 10], ['computers', 'declining_balance', 50],
-  ['machinery', 'declining_balance', 25], ['vehicles', 'declining_balance', 25], ['furniture', 'declining_balance', 25], ['land', null, 0],
+  ['software', 'declining_balance', 50], ['machinery', 'declining_balance', 25], ['vehicles', 'declining_balance', 25],
+  ['furniture', 'declining_balance', 25], ['land', null, 0],
 ];
+// tax book value: the register stores it; older records only carry the accumulated tax depreciation
+const taxNbv = (a) => (a.status === 'disposed' ? 0
+  : a.tax_book_value != null ? a.tax_book_value : (Number(a.purchase_cost) || 0) - (Number(a.accumulated_dep_tax) || 0));
 const STATUS = {
   active: ['نشط', 'Active', 'bg-green-100 text-green-700'], wip: ['تحت التنفيذ', 'In progress', 'bg-blue-100 text-blue-700'],
   fully_depreciated: ['مُهلَك بالكامل', 'Fully depreciated', 'bg-amber-100 text-amber-800'],
@@ -68,6 +72,9 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
   const [vatResult, setVatResult] = useState(null);
   const [whForm, setWhForm] = useState({amount:'',service_type:'services'});
   const [whResult, setWhResult] = useState(null);
+  const [poolYear, setPoolYear] = useState(String(new Date().getFullYear() - 1));
+  const [pool, setPool] = useState(null);
+  const [poolLoading, setPoolLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -124,6 +131,16 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
     return { data: { schedule: s.data.schedule || [], history: h.data.entries || [] } };
   }, (data) => setModal({ kind: 'schedule', asset, form: {}, preview: data }));
 
+  const loadPool = async (year) => {
+    setPoolLoading(true); setErr('');
+    try {
+      const { data } = await axios.get(`${API}/api/fixed-assets/tax-depreciation-pool`, { ...auth(), params: { year } });
+      setPool(data);
+    } catch (e) { setPool(null); setErr(errText(e, t('تعذّر تحميل الإهلاك الضريبي المجمّع', 'Could not load the tax depreciation pool'))); }
+    setPoolLoading(false);
+  };
+  const openTab = (id) => { setTab(id); if (id === 'pool' && !pool) loadPool(poolYear); };
+
   const calcPayroll = async () => {
     const res = await fetch(`${API}/api/financial/tax/payroll-calculate`,{method:'POST',headers,body:JSON.stringify(payrollForm)});
     setPayrollResult(await res.json());
@@ -156,6 +173,13 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
         )}
       </div>
 
+      {tab === 'assets' && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+          {t('🗓️ الإهلاك الشهري يُرحَّل تلقائياً يوم 1 من كل شهر عن الشهر السابق لكل الأصول النشطة. زر «تشغيل الإهلاك» يبقى للتشغيل اليدوي أو السنوي، ولا يُرحَّل أي شهر مرتين.',
+             '🗓️ Monthly depreciation now posts automatically on the 1st of each month for the previous month. The Run Depreciation button stays for manual or annual runs; no month is ever posted twice.')}
+        </div>
+      )}
+
       {msg && <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">{msg}</div>}
       {err && !m && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">{err}</div>}
 
@@ -175,8 +199,9 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
       <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
         {[['assets',t('الأصول الثابتة','Fixed Assets')],['payroll',t('ضريبة المرتبات','Payroll Tax')],
           ['vat',t('القيمة المضافة','VAT')],['withholding',t('خصم وإضافة','Withholding')],
+          ['pool',t('الإهلاك الضريبي المجمّع','Tax Depreciation Pool')],
           ['rates',t('معدلات الإهلاك','Dep. Rates')]].map(([id,label])=>(
-          <button key={id} onClick={()=>setTab(id)}
+          <button key={id} onClick={()=>openTab(id)}
             className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${tab===id?'border-[#28376B] text-[#28376B]':'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {label}
           </button>
@@ -185,13 +210,13 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
 
       {tab==='assets' && (
         <div className="bg-white dark:bg-slate-900 border border-gray-200 rounded-xl overflow-x-auto">
-          <table className="w-full min-w-[900px]">
+          <table className="w-full min-w-[1100px]">
             <thead className="bg-gray-50 dark:bg-slate-800 text-xs font-semibold text-gray-500">
-              <tr>{[t('الكود','Code'),t('الأصل','Asset'),t('النوع','Type'),t('التكلفة','Cost'),t('مجمع الإهلاك','Accum.'),t('القيمة الدفترية','Book Value'),t('الحالة','Status'),''].map((h,i)=><th key={i} className="p-3 text-start border-b">{h}</th>)}</tr>
+              <tr>{[t('الكود','Code'),t('الأصل','Asset'),t('النوع','Type'),t('التكلفة','Cost'),t('مجمع الإهلاك','Accum.'),t('القيمة الدفترية','Book Value'),t('مجمع الإهلاك الضريبي','Tax accum.'),t('الأساس الضريبي','Tax NBV'),t('الحالة','Status'),''].map((h,i)=><th key={i} className="p-3 text-start border-b">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
-              {loading?<tr><td colSpan={8} className="p-8 text-center text-gray-400">{t('جاري التحميل...','Loading...')}</td></tr>
-              :assets.length===0?<tr><td colSpan={8} className="p-8 text-center text-gray-400">{t('لا توجد أصول بعد — اضغط إضافة أصل','No assets yet — click Add Asset')}</td></tr>
+              {loading?<tr><td colSpan={10} className="p-8 text-center text-gray-400">{t('جاري التحميل...','Loading...')}</td></tr>
+              :assets.length===0?<tr><td colSpan={10} className="p-8 text-center text-gray-400">{t('لا توجد أصول بعد — اضغط إضافة أصل','No assets yet — click Add Asset')}</td></tr>
               :assets.map(a=>{
                 const st = STATUS[a.status] || [a.status, a.status, 'bg-gray-100 text-gray-600'];
                 return(
@@ -202,6 +227,8 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
                     <td className="p-3"><N v={a.purchase_cost} /></td>
                     <td className="p-3 text-red-600"><N v={a.accumulated_dep_accounting} /></td>
                     <td className="p-3 font-bold text-green-700"><N v={a.net_book_value} /></td>
+                    <td className="p-3 text-purple-700"><N v={a.status==='disposed' ? (a.accumulated_dep_tax_at_disposal ?? a.accumulated_dep_tax) : a.accumulated_dep_tax} /></td>
+                    <td className="p-3 text-purple-800 font-medium" title={a.tax_gain_loss!=null ? `${t('ربح/خسارة ضريبية عند الاستبعاد','Tax gain/loss on disposal')}: ${money(a.tax_gain_loss)}` : undefined}><N v={taxNbv(a)} /></td>
                     <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs ${st[2]}`}>{t(st[0], st[1])}</span></td>
                     <td className="p-3 whitespace-nowrap text-xs space-x-2 space-x-reverse">
                       <button onClick={()=>loadSchedule(a)} className="text-blue-600 hover:text-blue-800">📋 {t('جدول','Schedule')}</button>
@@ -293,11 +320,54 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
         </div>
       )}
 
+      {tab==='pool' && (
+        <div className="bg-white dark:bg-slate-900 border border-gray-200 rounded-xl overflow-x-auto">
+          <div className="p-4 bg-gray-50 dark:bg-slate-800 border-b flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h3 className="font-bold">{t('الإهلاك الضريبي المجمّع','Pooled Tax Depreciation')}</h3>
+              <p className="text-xs text-gray-500 mt-1">{t('للإقرار الضريبي — الأصول ذات القسط المتناقص تُهلَك كمجمّع لكل معدل: رصيد أول المدة + الإضافات − 30% الإضافية للآلات الجديدة − متحصلات المستبعدات، ثم يُطبَّق المعدل.','For the tax return — declining-balance assets are depreciated as one pool per rate: opening pool + additions − 30% new-machinery allowance − disposal proceeds, then the rate.')}</p>
+            </div>
+            <div className="flex items-end gap-2">
+              <label className="text-xs text-gray-500">{t('السنة الضريبية','Tax year')}<input type="number" dir="ltr" className={field} value={poolYear} onChange={e=>setPoolYear(e.target.value)} /></label>
+              <button onClick={()=>loadPool(poolYear)} disabled={poolLoading} className="px-4 py-2 bg-[#28376B] text-white rounded-lg text-sm font-medium disabled:opacity-50">{poolLoading ? '…' : t('عرض','Show')}</button>
+            </div>
+          </div>
+          {poolLoading ? <p className="p-8 text-center text-gray-400 text-sm">{t('جاري التحميل...','Loading...')}</p>
+          : !pool ? <p className="p-8 text-center text-gray-400 text-sm">{t('اختر السنة ثم اضغط عرض','Pick a year and click Show')}</p>
+          : !pool.pools.length ? <p className="p-8 text-center text-gray-400 text-sm">{t('لا توجد أصول بالقسط المتناقص','No declining-balance assets')}</p>
+          : (
+            <div className="p-4 space-y-4">
+              <table className="w-full text-sm min-w-[900px]">
+                <thead className="text-xs text-gray-500"><tr>{[t('المجمّع','Pool'),t('رصيد أول المدة','Opening'),t('الإضافات','Additions'),t('30% إضافية','30% allowance'),t('متحصلات المستبعدات','Disposal proceeds'),t('أساس الإهلاك','Base'),t('الإهلاك','Depreciation'),t('رصيد آخر المدة','Closing')].map(h=><th key={h} className="p-2 text-start border-b">{h}</th>)}</tr></thead>
+                <tbody className="divide-y divide-gray-100">
+                  {pool.pools.map(p=>(
+                    <tr key={p.rate}>
+                      <td className="p-2 font-medium">{p.label}</td><td className="p-2"><N v={p.opening_pool} /></td><td className="p-2"><N v={p.additions} /></td>
+                      <td className="p-2"><N v={p.first_year_allowance} /></td><td className="p-2"><N v={p.disposal_proceeds} /></td>
+                      <td className="p-2"><N v={p.depreciation_base} /></td><td className="p-2 font-bold text-purple-700"><N v={p.depreciation} /></td><td className="p-2"><N v={p.closing_pool} /></td>
+                    </tr>))}
+                  <tr className="font-bold border-t-2">
+                    <td className="p-2">{t('الإجمالي','Total')}</td><td className="p-2"><N v={pool.totals.opening_pool} /></td><td className="p-2"><N v={pool.totals.additions} /></td>
+                    <td className="p-2"><N v={pool.totals.first_year_allowance} /></td><td className="p-2"><N v={pool.totals.disposal_proceeds} /></td><td className="p-2" />
+                    <td className="p-2 text-purple-700"><N v={pool.totals.depreciation} /></td><td className="p-2"><N v={pool.totals.closing_pool} /></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div className="bg-purple-50 rounded-lg p-3"><p className="text-xs text-gray-500">{t('إجمالي الخصم الضريبي (إهلاك + 30% إضافية)','Total tax deduction (depreciation + 30% allowance)')}</p><p className="font-bold text-purple-800"><N v={pool.totals.total_deduction} /></p></div>
+                {pool.totals.excess_proceeds_taxable > 0 && <div className="bg-amber-50 rounded-lg p-3"><p className="text-xs text-gray-500">{t('زيادة المتحصلات عن المجمّع — ربح خاضع','Proceeds above the pool — taxable gain')}</p><p className="font-bold text-amber-800"><N v={pool.totals.excess_proceeds_taxable} /></p></div>}
+              </div>
+              <p className="text-xs text-gray-500">{pool.legal_reference} — {pool.note}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {tab==='rates' && (
         <div className="bg-white dark:bg-slate-900 border border-gray-200 rounded-xl overflow-x-auto">
           <div className="p-4 bg-gray-50 dark:bg-slate-800 border-b">
             <h3 className="font-bold">{t('معدلات الإهلاك الضريبي المصري','Egyptian Tax Depreciation Rates')}</h3>
-            <p className="text-xs text-gray-500 mt-1">{t('قانون الضريبة على الدخل 91/2005 — المادة 25 (آلات جديدة للإنتاج: 30% إضافية في السنة الأولى)','Income Tax Law 91/2005 art. 25 (new productive machinery: extra 30% in year one)')}</p>
+            <p className="text-xs text-gray-500 mt-1">{t('قانون الضريبة على الدخل 91/2005 — المادتان 25 و27 (آلات جديدة للإنتاج: 30% إضافية في السنة الأولى تُخصم أولاً ثم 25% على الباقي = 47.5% من التكلفة)','Income Tax Law 91/2005 arts. 25 & 27 (new productive machinery: extra 30% in year one, then 25% on the rest = 47.5% of cost)')}</p>
           </div>
           <table className="w-full text-sm min-w-[480px]">
             <thead className="bg-gray-50 dark:bg-slate-800 text-xs font-semibold text-gray-500">
@@ -356,7 +426,7 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
                   <label className="text-xs text-gray-500">{t('الموقع','Location')}<input className={field} value={f.location} onChange={e=>setForm('location', e.target.value)} /></label>
                 </div>
                 {f.asset_type !== 'wip' && <label className="flex items-center gap-2"><input type="checkbox" checked={f.in_service} onChange={e=>setForm('in_service', e.target.checked)} /> {t('الأصل جاهز للاستخدام الآن (وإلا يُسجَّل تحت التنفيذ 143)','Ready for use now (otherwise booked to construction-in-progress 143)')}</label>}
-                {f.asset_type === 'machinery' && <label className="flex items-center gap-2"><input type="checkbox" checked={f.is_new_productive} onChange={e=>setForm('is_new_productive', e.target.checked)} /> {t('آلة جديدة مستخدمة في الإنتاج (إهلاك ضريبي معجل 30% أول سنة)','New productive machinery (30% accelerated tax depreciation year one)')}</label>}
+                {f.asset_type === 'machinery' && <label className="flex items-center gap-2"><input type="checkbox" checked={f.is_new_productive} onChange={e=>setForm('is_new_productive', e.target.checked)} /> {t('آلة جديدة مستخدمة في الإنتاج (30% إضافية أول سنة + 25% على الباقي)','New productive machinery (extra 30% in year one + 25% on the rest)')}</label>}
               </div>
             )}
 
@@ -366,7 +436,7 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
                   <label className="text-xs text-gray-500">{t('شهر','Month')}<input type="month" className={field} value={f.period?.length === 7 ? f.period : ''} onChange={e=>setForm('period', e.target.value)} /></label>
                   <label className="text-xs text-gray-500">{t('أو سنة كاملة','or a full year')}<input type="number" dir="ltr" className={field} value={f.period?.length === 4 ? f.period : ''} placeholder="2026" onChange={e=>setForm('period', e.target.value)} /></label>
                 </div>
-                <p className="text-xs text-gray-500">{t('لا يُكرَّر إهلاك نفس الفترة، ولا يُجمع تشغيل سنوي مع تشغيل شهري لنفس السنة.','A period is never posted twice; annual and monthly runs of the same year cannot be mixed.')}</p>
+                <p className="text-xs text-gray-500">{t('لا يُكرَّر إهلاك نفس الفترة، ولا يُجمع تشغيل سنوي مع تشغيل شهري لنفس السنة. الإهلاك الشهري يعمل تلقائياً يوم 1 من كل شهر — استخدم هذا الزر لشهر فائت أو لسنة كاملة.','A period is never posted twice; annual and monthly runs of the same year cannot be mixed. Monthly depreciation runs automatically on the 1st — use this for a missed month or a full year.')}</p>
                 {pv && (
                   <div className="space-y-2">
                     <div className="overflow-x-auto"><table className="w-full text-xs min-w-[520px]">
@@ -400,8 +470,16 @@ export default function AssetsModule({ defaultTab = 'assets' } = {}) {
                       </select></label>
                   </>}
                 </div>
-                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2">{t('شغّل إهلاك الفترة حتى تاريخ البيع أولاً — يُستبعد الأصل بمجمع إهلاكه المسجَّل حالياً.','Post depreciation up to the sale date first — the asset leaves with its currently posted accumulated depreciation.')}</p>
+                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2">{t('يُرحَّل تلقائياً إهلاك الأشهر غير المرحَّلة حتى تاريخ الاستبعاد (شهر الاستبعاد بنسبة الأيام) قبل حساب الربح أو الخسارة.','Unposted depreciation up to the disposal date (the disposal month pro-rata by days) is posted automatically before the gain or loss is computed.')}</p>
+                {pv?.catch_up?.length > 0 && (
+                  <div className="text-xs bg-gray-50 rounded-lg p-2">
+                    <p className="font-bold mb-1">{t('إهلاك حتى تاريخ الاستبعاد','Depreciation up to disposal')}: <N v={pv.financials.catchup_depreciation} /></p>
+                    {pv.catch_up.map(c=><p key={c.period}><bdi dir="ltr">{c.period}</bdi> — <N v={c.accounting_dep} /> ({t('ضريبي','tax')} <N v={c.tax_dep} />)</p>)}
+                  </div>
+                )}
+                {pv?.note && <p className="text-xs text-amber-700">{pv.note}</p>}
                 {pv?.financials && <p>{t('القيمة الدفترية','Book value')} <N v={pv.financials.net_book_value} /> — {pv.financials.gain_loss >= 0 ? t('ربح','Gain') : t('خسارة','Loss')} <b><N v={Math.abs(pv.financials.gain_loss)} /></b></p>}
+                {pv?.financials && <p className="text-xs text-purple-800">{t('الأساس الضريبي','Tax base')} <N v={pv.financials.tax_book_value} /> — {pv.financials.tax_gain_loss >= 0 ? t('ربح ضريبي','Tax gain') : t('خسارة ضريبية','Tax loss')} <N v={Math.abs(pv.financials.tax_gain_loss)} /></p>}
               </div>
             )}
 

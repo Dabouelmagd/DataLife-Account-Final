@@ -459,7 +459,15 @@ async def create_sales_invoice(data: dict, authorization: Optional[str] = Header
     from services.invoice_service import InvoiceService
     company = await db.companies.find_one({"id": company_id}, {"_id": 0, "name": 1}) or {}
     created = await InvoiceService(db).create_invoice(invoice, company.get("name", ""))
-    return {"message": f"تم إنشاء الفاتورة {created['document_number']}", "invoice": created}
+    out = {"message": f"تم إنشاء الفاتورة {created['document_number']}", "invoice": created}
+    try:   # a draft does not move the balance yet: warn only, notify on approval
+        chk = await credit_check(company_id, customer_id, float(created.get("settle_amount") or created.get("grand_total") or 0),
+                                 notify_breach=False)
+        if chk["exceeds"]:
+            out["credit_warning"] = chk
+    except Exception:
+        pass
+    return out
 
 @router.get("/invoices/{invoice_id}")
 async def get_sales_invoice(invoice_id: str, authorization: Optional[str] = Header(None)):
@@ -508,11 +516,22 @@ async def approve_sales_invoice(invoice_id: str, authorization: Optional[str] = 
     if not inv:
         raise HTTPException(404, "Invoice not found")
     from services.invoice_service import InvoiceService
+    was_draft = inv.get("status") == "draft"
     try:
         result = await InvoiceService(db).approve_invoice(inv["id"], user.get("user_id"))
     except ValueError as e:
         raise HTTPException(400, str(e))
-    return {"message": "تم اعتماد الفاتورة وترحيلها", "invoice": as_sales_invoice(result or inv)}
+    chk = None
+    if was_draft and inv.get("party_id"):
+        try:   # the posted invoice is now in the balance: check it as it stands
+            chk = await credit_check(company_id, inv["party_id"], 0, user_id=user.get("user_id"),
+                                     document=f"الفاتورة {inv.get('document_number', '')}")
+        except Exception:
+            chk = None
+    out = {"message": "تم اعتماد الفاتورة وترحيلها", "invoice": as_sales_invoice(result or inv)}
+    if chk and chk.get("exceeds"):
+        out["credit_warning"] = chk
+    return out
 
 
 @router.post("/invoices/{invoice_id}/payment")
@@ -539,6 +558,8 @@ async def record_payment(invoice_id: str, data: dict, authorization: Optional[st
             payment_date=data.get("date") or datetime.now().strftime("%Y-%m-%d"),
             payment_method=PAYMENT_METHODS.get(str(data.get("method", "cash")).strip().lower(), "cash"),
             reference=data.get("reference", ""),
+            # foreign invoice: EGP per unit on the payment date (empty → looked up)
+            exchange_rate=float(data.get("exchange_rate") or 0) or None,
             notes=data.get("notes", ""), created_by=user.get("user_id")), user.get("user_id"))
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -608,6 +629,53 @@ async def _open_sales_invoices(company_id: str, customer_id: str):
     return [{"id": r["id"], "invoice_number": r.get("document_number"), "date": r.get("document_date"),
              "due_date": r.get("due_date"), "total": round(float(r.get("settle_amount") or r.get("grand_total") or 0), 2),
              "balance": round(float(r.get("amount_due") or 0), 2)} for r in rows]
+
+async def credit_check(company_id: str, party_id: str, amount: float, notify_breach: bool = True,
+                       user_id: Optional[str] = None, document: Optional[str] = None) -> dict:
+    """Would `amount` more on this customer's account cross their credit limit?
+    Balance = what the ledger holds on receivables for them (posted invoices
+    less collections, cheques and credit notes). A breach notifies finance and
+    top management (once per customer per day) and the user who triggered it."""
+    customer = await db.parties.find_one({"id": party_id, **party_query(company_id, "customer")}, {"_id": 0})
+    if not customer:
+        raise HTTPException(404, "العميل غير موجود")
+    rows = await _customer_movements(company_id, party_id)
+    balance = round(sum(r["debit"] - r["credit"] for r in rows), 2)
+    limit = round(float(customer.get("credit_limit") or 0), 2)
+    after = round(balance + float(amount or 0), 2)
+    exceeds = bool(limit and after > limit + 0.005)
+    out = {"party_id": party_id, "party_name": customer.get("name"), "limit": limit, "balance": balance,
+           "amount": round(float(amount or 0), 2), "after": after, "exceeds": exceeds,
+           "excess": round(after - limit, 2) if exceeds else 0.0}
+    if exceeds and notify_breach:
+        try:
+            from services.notify import notify, resolve_users
+            day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            key = f"credit:{party_id}:{day}"
+            if not await db.notifications.find_one({"company_id": company_id, "data.dedupe": key}, {"_id": 1}):
+                recipients = await resolve_users(
+                    db, company_id, [user_id] if user_id else [],
+                    ["Financial Manager", "General Manager", "CFO", "Board Chairman", "رئيس مجلس الإدارة"])
+                await notify(db, company_id, recipients, "تجاوز حد ائتمان عميل",
+                             f"{customer.get('name', '')}: الرصيد بعد {document or 'العملية'} {after:,.2f} "
+                             f"يتجاوز حد الائتمان {limit:,.2f} بمقدار {after - limit:,.2f}",
+                             "/dashboard?tab=sales", "credit_limit",
+                             data={"dedupe": key, "party_id": party_id, "after": after, "limit": limit})
+        except Exception:
+            pass
+    return out
+
+
+@router.get("/credit-check")
+async def credit_check_endpoint(party_id: str = Query(...), amount: float = Query(0),
+                                notify: bool = Query(True),
+                                authorization: Optional[str] = Header(None)):
+    """{limit, balance, after, exceeds} for a customer and an amount about to be invoiced."""
+    user = await get_user(authorization)
+    if not user or not user.get("company_id"):
+        raise HTTPException(401, "تسجيل الدخول مطلوب")
+    return await credit_check(user["company_id"], party_id, amount, notify, user.get("user_id"))
+
 
 @router.get("/customers-balances")
 async def customers_with_balances(authorization: Optional[str] = Header(None)):

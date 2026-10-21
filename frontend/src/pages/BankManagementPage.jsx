@@ -207,6 +207,11 @@ const BankManagementPage = ({ language: propLanguage }) => {
             ? `تم إنشاء الحركة بنجاح مع القيد المحاسبي رقم ${result.journal_entry_number}` 
             : `Transaction created successfully with Journal Entry #${result.journal_entry_number}`);
         }
+      } else {
+        // e.g. cheques are refused here — they go through الخزينة والشيكات
+        const err = await response.json().catch(() => ({}));
+        const detail = typeof err.detail === 'string' ? err.detail : (language === 'ar' ? 'تعذّر حفظ الحركة' : 'Could not save the transaction');
+        alert(detail);
       }
     } catch (error) {
       console.error('Error creating transaction:', error);
@@ -675,8 +680,6 @@ const BankManagementPage = ({ language: propLanguage }) => {
                   >
                     <option value="deposit">{language === 'ar' ? 'إيداع' : 'Deposit'}</option>
                     <option value="withdrawal">{language === 'ar' ? 'سحب' : 'Withdrawal'}</option>
-                    <option value="check_deposit">{language === 'ar' ? 'إيداع شيك' : 'Check Deposit'}</option>
-                    <option value="check_issued">{language === 'ar' ? 'شيك صادر' : 'Check Issued'}</option>
                     <option value="transfer_in">{language === 'ar' ? 'تحويل وارد' : 'Transfer In'}</option>
                     <option value="transfer_out">{language === 'ar' ? 'تحويل صادر' : 'Transfer Out'}</option>
                   </select>

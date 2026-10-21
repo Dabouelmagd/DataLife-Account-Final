@@ -18,6 +18,7 @@ class AssetType(str, Enum):
     BUILDINGS       = "buildings"        # مباني وإنشاءات
     MACHINERY       = "machinery"        # آلات ومعدات إنتاجية
     COMPUTERS       = "computers"        # حواسب ونظم معلومات
+    SOFTWARE        = "software"         # برامج ونظم معلومات (50% ضريبياً)
     VEHICLES        = "vehicles"         # سيارات ووسائل نقل
     FURNITURE       = "furniture"        # أثاث وأجهزة
     INTANGIBLE      = "intangible"       # أصول معنوية (شهرة، برمجيات)
@@ -44,13 +45,22 @@ class AssetStatus(str, Enum):
 # TAX DEPRECIATION RULES — قانون 91/2005 المواد 25-26
 # ══════════════════════════════════════════════════════════════
 TAX_DEPRECIATION_RULES = {
-    # asset_type → (method, rate, accelerated_rate_year1)
+    # asset_type → (method, rate, first_year_allowance)
+    # Art. 25: buildings 5% SL; intangibles 10% SL; computers, information
+    # systems and software 50% declining; every other asset 25% declining.
+    # Art. 27: new machinery/equipment used in production get an EXTRA 30% of
+    # cost in their first year — deducted first, the 25% then applies to the
+    # remaining 70% (year 1 = 30% + 70% × 25% = 47.5% of cost).
     "buildings":   ("straight_line",    0.05,  None),    # 5% قسط ثابت
     "intangible":  ("straight_line",    0.10,  None),    # 10% قسط ثابت
+    "goodwill":    ("straight_line",    0.10,  None),    # legacy key — أصل معنوي
     "computers":   ("declining_balance", 0.50,  None),   # 50% متناقص
-    "machinery":   ("declining_balance", 0.25,  0.30),   # 25% متناقص (30% سنة أولى)
+    "software":    ("declining_balance", 0.50,  None),   # برامج ونظم معلومات 50%
+    "machinery":   ("declining_balance", 0.25,  0.30),   # 25% متناقص + 30% إضافية سنة أولى (آلات جديدة)
     "vehicles":    ("declining_balance", 0.25,  None),   # 25% متناقص
     "furniture":   ("declining_balance", 0.25,  None),   # 25% متناقص
+    "leasehold":   ("declining_balance", 0.25,  None),   # legacy key — باقي الأصول
+    "other":       ("declining_balance", 0.25,  None),   # باقي الأصول 25%
     "land":        (None,               0.00,  None),    # لا إهلاك
     "wip":         (None,               0.00,  None),    # لا إهلاك حتى التشغيل
 }
@@ -67,6 +77,7 @@ ASSET_ACCOUNTS = {
     "buildings":  {"asset": "112",   "accum_dep": "22201", "dep_exp": "333"},
     "machinery":  {"asset": "114",   "accum_dep": "22202", "dep_exp": "313"},   # production → cost of activity
     "computers":  {"asset": "116",   "accum_dep": "22204", "dep_exp": "333"},   # 22204 = أثاث وأجهزة
+    "software":   {"asset": "116",   "accum_dep": "22204", "dep_exp": "333"},
     "vehicles":   {"asset": "113",   "accum_dep": "22203", "dep_exp": "333"},
     "furniture":  {"asset": "115",   "accum_dep": "22204", "dep_exp": "333"},
     "intangible": {"asset": "117",   "accum_dep": "22205", "dep_exp": "333"},
@@ -176,9 +187,10 @@ class FixedAsset(BaseModel):
             return round(self.purchase_cost * rate, 2)
 
         elif method == "declining_balance":
-            # الإهلاك المعجل: 30% سنة أولى للآلات الجديدة المستخدمة في الإنتاج
+            # الإهلاك الإضافي 30% سنة أولى للآلات الجديدة — إضافةً إلى الـ25% على الباقي
             if year_of_use == 1 and self.is_new_productive and accel_rate:
-                return round(self.purchase_cost * accel_rate, 2)
+                allowance = self.purchase_cost * accel_rate
+                return round(allowance + (self.purchase_cost - allowance) * rate, 2)
             # باقي السنوات: على أساس القيمة الدفترية الضريبية
             tax_base = self.tax_book_value if self.tax_book_value > 0 else self.purchase_cost
             return round(tax_base * rate, 2)
@@ -211,6 +223,10 @@ class AssetDisposal(BaseModel):
     sale_proceeds:   float = 0.0            # عائد البيع
     net_book_value:  float = 0.0            # القيمة الدفترية الصافية
     gain_loss:       float = 0.0            # ربح أو (خسارة) رأسمالية
+    catchup_depreciation: float = 0.0       # إهلاك حتى تاريخ الاستبعاد رُحِّل مع الاستبعاد
+    accumulated_dep_tax: float = 0.0        # مجمع الإهلاك الضريبي عند الاستبعاد
+    tax_book_value:  float = 0.0            # الأساس الضريبي عند الاستبعاد
+    tax_gain_loss:   float = 0.0            # ربح/(خسارة) ضريبية = العائد − الأساس الضريبي
     journal_entry_id: Optional[str] = None
     notes:           Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())

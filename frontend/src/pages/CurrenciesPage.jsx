@@ -83,7 +83,7 @@ const CurrenciesPage = () => {
       to: 'إلى',
       convert: 'تحويل',
       result: 'النتيجة',
-      rateInfo: 'سعر الصرف مقابل العملة الأساسية',
+      rateInfo: 'سعر الصرف = كم جنيه مقابل وحدة واحدة من العملة (مثال: الدولار 48.50)، مقابل العملة الأساسية',
       totalCurrencies: 'إجمالي العملات',
       activeRates: 'أسعار الصرف النشطة'
     },
@@ -116,7 +116,7 @@ const CurrenciesPage = () => {
       to: 'To',
       convert: 'Convert',
       result: 'Result',
-      rateInfo: 'Exchange rate against base currency',
+      rateInfo: 'Rate = EGP per 1 unit of the currency (e.g. USD 48.50), against base currency',
       totalCurrencies: 'Total Currencies',
       activeRates: 'Active Rates'
     }
