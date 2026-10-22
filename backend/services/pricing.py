@@ -53,6 +53,13 @@ def pack_price(pack_key: str, plan: str, duration: str) -> float:
     return float(round(float(pack.get("price_egp") or 0) * period_factor(plan, duration)))
 
 
+def _pack_opens(key: str) -> list:
+    """Tools a sector pack opens on any plan (services/plan_limits.PACK_UNLOCKS)."""
+    from services.plan_limits import PACK_UNLOCKS, TIER_PATHS
+    names = {p: n for p, _, n in TIER_PATHS}
+    return list(dict.fromkeys(names[p] for p in PACK_UNLOCKS.get(key, ()) if p in names))
+
+
 def catalog() -> dict:
     """Everything the pricing page needs, from the server's own prices."""
     from services.industry_packs import PACKS
@@ -67,7 +74,8 @@ def catalog() -> dict:
                                   for d, v in prices.items()}})
     packs = [{"key": k, "name_ar": v["name_ar"], "name_en": v["name_en"], "note_ar": v.get("note_ar", ""),
               "monthly": float(v.get("price_egp") or 0),
-              "adds": [a[1] for a in v.get("accounts", [])]} for k, v in PACKS.items()]
+              "adds": [a[1] for a in v.get("accounts", [])],
+              "opens": _pack_opens(k)} for k, v in PACKS.items()]
     return {"plans": plans, "packs": packs, "durations": DURATIONS, "vat_rate": VAT_RATE,
             "vat_inclusive": True, "currency": "EGP"}
 

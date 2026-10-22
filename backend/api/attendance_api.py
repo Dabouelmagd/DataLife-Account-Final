@@ -171,7 +171,11 @@ async def attendance_methods(company_id: str) -> dict:
     """Which ways of recording attendance this company uses — any combination.
     Manual entry by HR stays available for corrections whatever is chosen."""
     s = await db.attendance_settings.find_one({"company_id": company_id}, {"_id": 0, "methods": 1}) or {}
-    return {**METHODS_DEFAULT, **(s.get("methods") or {})}
+    methods = {**METHODS_DEFAULT, **(s.get("methods") or {})}
+    from services.plan_limits import feature_allowed
+    if methods.get("gps") and not await feature_allowed(db, company_id, "gps"):
+        methods["gps"] = False          # GPS attendance comes with Professional and above
+    return methods
 
 
 def local_now():
@@ -1016,6 +1020,9 @@ async def update_methods(data: dict, current_user: dict = Depends(get_current_us
     methods = {k: bool((data or {}).get(k, v)) for k, v in METHODS_DEFAULT.items()}
     if not any(methods.values()):
         raise HTTPException(400, "فعّل طريقة واحدة على الأقل")
+    from services.plan_limits import feature_allowed
+    if methods.get("gps") and not await feature_allowed(db, current_user["company_id"], "gps"):
+        raise HTTPException(403, "الحضور بالموقع GPS موجود من باقة «المحترف» — رقّي باقتك من صفحة الاشتراك")
     await db.attendance_settings.update_one({"company_id": current_user["company_id"]},
                                             {"$set": {"methods": methods, "updated_at": datetime.utcnow()}}, upsert=True)
     on = "، ".join(METHOD_AR[k] for k, v in methods.items() if v)

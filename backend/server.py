@@ -466,16 +466,22 @@ class PermissionMiddleware:
                         # customer paying for one module had the whole system.
                         if user and not user.get("is_platform_admin"):
                             try:
-                                from services.plan_limits import covers, refusal_message
+                                from services.plan_limits import (allowed_modules, refusal_message,
+                                                                  company_plan, tier_refusal)
                                 from database import db as _db
-                                sub = await _db.subscriptions.find_one(
-                                    {"company_id": user.get("company_id"), "status": "active"},
-                                    {"_id": 0, "plan": 1})
-                                plan = (sub or {}).get("plan")
-                                module = next(iter(need[1]), None)
-                                if plan and module and not covers(plan, module):
+                                info = await company_plan(_db, user.get("company_id"))
+                                plan = info["plan"]
+                                # single-module plans: the route must belong to one of the plan's modules
+                                allowed = allowed_modules(plan) if plan else None
+                                why = None
+                                if allowed is not None and not (set(need[1]) & allowed):
+                                    why = refusal_message(plan, next(iter(sorted(need[1])), ""))
+                                # full plans: Starter / Professional / Enterprise
+                                why = why or tier_refusal(info, scope["path"])
+                                module = scope["path"]
+                                if why:
                                     if os.environ.get("PLAN_ENFORCEMENT", "log") == "enforce":
-                                        body = json.dumps({"detail": refusal_message(plan, module)},
+                                        body = json.dumps({"detail": why, "plan_limit": True},
                                                           ensure_ascii=False).encode()
                                         await send({"type": "http.response.start", "status": 403,
                                                     "headers": [(b"content-type", b"application/json; charset=utf-8"),

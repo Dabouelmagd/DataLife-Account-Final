@@ -30,48 +30,64 @@ const PLAN_META = {
                       en: { tag: 'Stock & purchasing only', emp: 'No accounting or HR', extra: ['Email & ticket support'] } },
 };
 
-// every feature, and which single-module plan covers it ('all' = every plan)
+// every feature: [arabic, english, plan level] — 1 Starter, 2 Professional, 3 Enterprise.
+// mods = the single-module plan that covers the group ('all' = every plan).
+// The server enforces the same levels (backend/services/plan_limits.py TIER_PATHS).
 const FEATURES = [
   { g: 'المحاسبة والمالية', ge: 'Accounting', mods: ['fin'], items: [
-    ['دليل حسابات مصري جاهز', 'Egyptian chart of accounts'], ['قيود يومية وأستاذ عام وميزان مراجعة', 'Journals, ledger, trial balance'],
-    ['قائمة الدخل والمركز المالي والتدفقات النقدية', 'P&L, balance sheet, cash flow'], ['إقفال السنة المالية وإعادة الفتح', 'Year-end close & reopen'],
-    ['مراكز التكلفة', 'Cost centres'], ['الأصول الثابتة — إهلاك محاسبي وضريبي واستبعاد', 'Fixed assets — book & tax depreciation'],
-    ['عملات أجنبية وفروق العملة وإعادة التقييم', 'Foreign currency & revaluation'], ['البنوك والشيكات والتسوية البنكية', 'Banks, cheques, bank reconciliation'],
-    ['الخزينة والعهد', 'Treasury & petty cash'], ['المشاريع وإيراداتها ومصروفاتها', 'Projects with revenue & costs']] },
+    ['دليل حسابات مصري جاهز', 'Egyptian chart of accounts', 1], ['قيود يومية وأستاذ عام وميزان مراجعة', 'Journals, ledger, trial balance', 1],
+    ['قائمة الدخل والمركز المالي والتدفقات النقدية', 'P&L, balance sheet, cash flow', 1], ['إقفال السنة المالية وإعادة الفتح', 'Year-end close & reopen', 1],
+    ['مراكز التكلفة', 'Cost centres', 1], ['الخزينة والبنوك', 'Treasury & banks', 1],
+    ['فواتير بالعملات الأجنبية وفروق العملة المحققة', 'Foreign-currency invoices & realised FX', 1],
+    ['الأصول الثابتة — إهلاك محاسبي وضريبي واستبعاد', 'Fixed assets — book & tax depreciation', 2],
+    ['الشيكات والتسوية البنكية والعهد', 'Cheques, bank reconciliation, petty cash', 2],
+    ['المشاريع وإيراداتها ومصروفاتها', 'Projects with revenue & costs', 2], ['الموازنة التقديرية', 'Budgets', 2],
+    ['التحليلات والمؤشرات', 'Analytics & KPIs dashboards', 2],
+    ['إعادة تقييم العملات الأجنبية', 'Foreign-currency revaluation', 3], ['القوائم المجمعة لأكثر من شركة', 'Consolidated statements', 3],
+    ['الضرائب المؤجلة', 'Deferred tax', 3], ['كشف الاحتيال (قانون بنفورد)', "Fraud detection (Benford's law)", 3]] },
   { g: 'الضرائب والفاتورة الإلكترونية', ge: 'Tax & e-invoicing', mods: ['fin'], items: [
-    ['ضريبة القيمة المضافة وإقرارها الشهري', 'VAT and the monthly return'], ['الخصم والتحصيل ونموذج 41', 'Withholding tax & form 41'],
-    ['ضريبة الدمغة وضريبة الجدول', 'Stamp & table tax'], ['ربط الفاتورة الإلكترونية ETA', 'ETA e-invoice link'],
-    ['الإيصال الإلكتروني لنقاط البيع', 'POS e-receipt'], ['إشعارات دائنة ومدينة مرتبطة بالفاتورة الأصلية', 'Credit/debit notes linked to the original']] },
+    ['ضريبة القيمة المضافة وإقرارها الشهري', 'VAT and the monthly return', 1], ['الخصم والتحصيل ونموذج 41', 'Withholding tax & form 41', 1],
+    ['ضريبة الدمغة وضريبة الجدول', 'Stamp & table tax', 1], ['ربط الفاتورة الإلكترونية ETA', 'ETA e-invoice link', 1],
+    ['إشعارات دائنة ومدينة مرتبطة بالفاتورة الأصلية', 'Credit/debit notes linked to the original', 1],
+    ['الإيصال الإلكتروني لنقاط البيع', 'POS e-receipt', 2]] },
   { g: 'المبيعات والعملاء', ge: 'Sales & customers', mods: ['fin'], items: [
-    ['عروض أسعار وفواتير وتحصيل', 'Quotes, invoices, collections'], ['كشف حساب عميل بفترة وحد ائتمان', 'Customer statement & credit limit'],
-    ['إدارة العملاء والمبيعات CRM', 'Customers & sales CRM']] },
+    ['عروض أسعار وفواتير وتحصيل', 'Quotes, invoices, collections', 1], ['كشف حساب عميل بفترة وحد ائتمان', 'Customer statement & credit limit', 1],
+    ['إدارة العملاء والمبيعات CRM', 'Customers & sales CRM', 1], ['ربط متجر إلكتروني (سلة)', 'Online store link (Salla)', 3]] },
   { g: 'المخزون والمشتريات', ge: 'Stock & purchasing', mods: ['fin', 'inv'], items: [
-    ['الأصناف والمخازن المتعددة', 'Items & multiple warehouses'], ['الجرد والتحويل بين المخازن', 'Counts & transfers'],
-    ['المشتريات وأوامر التوريد والموردين', 'Purchases, supply orders, suppliers'], ['تكاليف الاستيراد على الأصناف', 'Import landed costs'],
-    ['المرتجعات للمخزن أو الحجر أو الإعدام', 'Returns to stock, quarantine or scrap'], ['نقاط بيع تشتغل من غير إنترنت', 'Offline POS'],
-    ['ربط متجر إلكتروني (سلة)', 'Online store link (Salla)']] },
+    ['الأصناف والمخازن', 'Items & warehouses', 1], ['المشتريات وأوامر التوريد والموردين', 'Purchases, supply orders, suppliers', 1],
+    ['المرتجعات للمخزن أو الحجر أو الإعدام', 'Returns to stock, quarantine or scrap', 1],
+    ['الجرد والتحويل بين المخازن', 'Counts & transfers', 2], ['تكاليف الاستيراد على الأصناف', 'Import landed costs', 2],
+    ['نقاط بيع تشتغل من غير إنترنت', 'Offline POS', 2], ['الاعتمادات المستندية والتجارة الخارجية', 'Letters of credit & foreign trade', 3],
+    ['التصنيع', 'Manufacturing', 3], ['التطوير العقاري (الوحدات والأقساط)', 'Real estate (units & instalments)', 3]] },
   { g: 'الموارد البشرية والرواتب', ge: 'HR & payroll', mods: ['hr'], items: [
-    ['ملف موظف بمستنداته وصورته', 'Employee file & documents'], ['حضور بالبصمة واليدوي والموقع GPS', 'Fingerprint, manual & GPS attendance'],
-    ['العمل عن بُعد لموظفين محددين', 'Remote work for chosen staff'], ['الورديات والإجازات', 'Shifts & leave'],
-    ['الإضافي بنسب قانون العمل', 'Overtime by Labour Law rates'], ['رواتب الشهر بضريبة كسب العمل والتأمينات (حدود 2026)', 'Monthly payroll with salary tax & insurance (2026 limits)'],
-    ['كشف رواتب كامل بفلتر الإدارة والفرع وتصدير Excel', 'Full payroll sheet by department/branch, Excel'], ['ملفات تحويل الرواتب للبنوك وقسائم PDF', 'Bank salary files & PDF payslips'],
-    ['السلف والجزاءات ونهاية الخدمة', 'Loans, penalties, end of service'], ['الصناديق والمساهمات — اختيارية لكل شركة', 'Payroll funds — optional per company'],
-    ['بيانات نماذج التأمينات 1 و6', 'Insurance forms 1 & 6 data'], ['تقييم الأداء ومؤشرات KPI', 'Appraisals & KPIs'],
-    ['التوظيف ودليل المقابلات والاختبارات', 'Recruitment guide & tests']] },
+    ['ملف موظف بمستنداته وصورته', 'Employee file & documents', 1], ['حضور بالبصمة واليدوي', 'Fingerprint & manual attendance', 1],
+    ['الورديات والإجازات', 'Shifts & leave', 1], ['الإضافي بنسب قانون العمل', 'Overtime by Labour Law rates', 1],
+    ['رواتب الشهر بضريبة كسب العمل والتأمينات (حدود 2026)', 'Monthly payroll with salary tax & insurance (2026 limits)', 1],
+    ['كشف رواتب كامل بفلتر الإدارة والفرع وتصدير Excel', 'Full payroll sheet by department/branch, Excel', 1],
+    ['ملفات تحويل الرواتب للبنوك وقسائم PDF', 'Bank salary files & PDF payslips', 1], ['السلف والجزاءات ونهاية الخدمة', 'Loans, penalties, end of service', 1],
+    ['الصناديق والمساهمات — اختيارية لكل شركة', 'Payroll funds — optional per company', 1],
+    ['حضور بالموقع GPS', 'GPS attendance', 2], ['العمل عن بُعد لموظفين محددين', 'Remote work for chosen staff', 2],
+    ['بيانات نماذج التأمينات 1 و6', 'Insurance forms 1 & 6 data', 2], ['تقييم الأداء ومؤشرات KPI', 'Appraisals & KPIs', 2],
+    ['التوظيف ودليل المقابلات والاختبارات', 'Recruitment guide & tests', 2]] },
   { g: 'بوابة الموظف', ge: 'Employee portal', mods: ['hr'], items: [
-    ['دخول لكل موظف يشوف بياناته بس', 'Each employee sees only their own data'], ['تسجيل الحضور من الموبايل بالموقع', 'Check in from the phone'],
-    ['طلب إجازة وسلفة وشوف القسيمة والتقييم', 'Leave & loan requests, payslips, appraisals'], ['تثبيت البرنامج على الموبايل كتطبيق', 'Installs on the phone like an app']] },
+    ['دخول لكل موظف يشوف بياناته بس', 'Each employee sees only their own data', 1],
+    ['طلب إجازة وسلفة وشوف القسيمة والتقييم', 'Leave & loan requests, payslips, appraisals', 1],
+    ['تثبيت البرنامج على الموبايل كتطبيق', 'Installs on the phone like an app', 1], ['تسجيل الحضور من الموبايل بالموقع', 'Check in from the phone by location', 2]] },
   { g: 'الإدارة والأمان', ge: 'Admin & security', mods: ['all'], items: [
-    ['صلاحيات حسب الدور', 'Role permissions'], ['موافقات بحدود مبالغ وإشعارات', 'Approval limits & notifications'],
-    ['سجل مراجعة لكل العمليات', 'Audit trail'], ['استيراد Excel بيرفض الملف الغلط ويقول الصف', 'Excel import that names the wrong row'],
-    ['تصدير كل بيانات شركتك في أي وقت', 'Export all your data any time'], ['نسخ احتياطي يومي مشفّر', 'Daily encrypted backup'],
-    ['مساعد ذكي يجاوب من داخل البرنامج', 'In-app assistant'], ['عربي وإنجليزي', 'Arabic & English']] },
+    ['صلاحيات حسب الدور', 'Role permissions', 1], ['سجل مراجعة لكل العمليات', 'Audit trail', 1],
+    ['استيراد Excel بيرفض الملف الغلط ويقول الصف', 'Excel import that names the wrong row', 1],
+    ['تصدير كل بيانات شركتك في أي وقت', 'Export all your data any time', 1], ['نسخ احتياطي يومي مشفّر', 'Daily encrypted backup', 1],
+    ['مساعد ذكي يجاوب من داخل البرنامج', 'In-app assistant', 1], ['عربي وإنجليزي', 'Arabic & English', 1],
+    ['موافقات بحدود مبالغ وإشعارات', 'Approval limits & notifications', 2]] },
 ];
-const covers = (planKey, mods) => {
+const TIER = { starter: 1, professional: 2, enterprise: 3 };
+// does this plan include this feature?
+const covers = (planKey, mods, level = 1) => {
   const m = (PLAN_META[planKey] || {}).mod;
-  return !m || mods.includes('all') || mods.includes(m);
+  if (m) return mods.includes('all') || mods.includes(m);
+  return (TIER[planKey] || 3) >= level;
 };
-const featuresFor = (planKey) => FEATURES.filter((g) => covers(planKey, g.mods));
+const featuresFor = (planKey) => FEATURES.filter((g) => g.items.some(([, , lv]) => covers(planKey, g.mods, lv)));
 
 const COMPARE = [
   ['employees', 'عدد الموظفين', 'Employees', { starter: ['حتى 10', 'Up to 10'], professional: ['من 11 لـ 100', '11 – 100'], enterprise: ['بلا حد', 'Unlimited'], 'hr-only': ['بلا حد', 'Unlimited'], 'financial-only': ['—', '—'], 'inventory-only': ['—', '—'] }],
@@ -80,14 +96,24 @@ const COMPARE = [
   ['onboarding', 'التهيئة', 'Onboarding', { starter: ['أدلة وفيديو', 'Guides & video'], professional: ['جلسة أونلاين', 'Online session'], enterprise: ['تدريب الفريق', 'Team training'], 'hr-only': ['أدلة وفيديو', 'Guides & video'], 'financial-only': ['أدلة وفيديو', 'Guides & video'], 'inventory-only': ['أدلة وفيديو', 'Guides & video'] }],
 ];
 
-function FeatureList({ ar, planKey, compact }) {
+function FeatureList({ ar, planKey }) {
+  const groups = FEATURES.filter((g) => (PLAN_META[planKey] || {}).mod ? covers(planKey, g.mods) : true);
   return (
     <div className="grid gap-3 text-sm">
-      {featuresFor(planKey).map((g) => (
+      {groups.map((g) => (
         <div key={g.g}>
           <p className="text-xs font-bold text-amber-300 mb-1">{ar ? g.g : g.ge}</p>
           <ul className="grid gap-1">
-            {g.items.map(([a, e]) => <li key={a} className="flex gap-2"><Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-hidden />{ar ? a : e}</li>)}
+            {g.items.map(([a, e, lv]) => {
+              const ok = covers(planKey, g.mods, lv);
+              return (
+                <li key={a} className={`flex gap-2 ${ok ? '' : 'text-gray-500 line-through decoration-gray-600'}`}>
+                  {ok ? <Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-label={ar ? 'متضمن' : 'included'} />
+                      : <span className="w-4 shrink-0 text-center no-underline" aria-label={ar ? 'غير متضمن' : 'not included'}>—</span>}
+                  {ar ? a : e}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}
@@ -184,7 +210,7 @@ export default function PricingSection({ onStartTrial }) {
           {step === 1 && (
             <section aria-labelledby="st1">
               <h3 id="st1" className="sr-only">{ar ? 'اختار الباقة الأساسية' : 'Choose a base plan'}</h3>
-              <p className="text-center text-gray-300 mb-5">{ar ? 'الباقات الكاملة فيها البرنامج كله — الفرق في عدد الموظفين والتخزين والدعم. ولو محتاج وحدة واحدة بس فيه باقات الوحدة الواحدة تحت.' : 'Full plans include the whole system — they differ in employees, storage and support. Single-module plans are below.'}</p>
+              <p className="text-center text-gray-300 mb-5">{ar ? 'كل باقة أعلى فيها كل اللي قبلها وأكتر. والمجال المتخصص بيفتح أدواته على أي باقة (مثلاً المقاولات بتفتح المشاريع على المبتدئ).' : 'Each higher plan has everything below it and more. A sector add-on opens its own tools on any plan.'}</p>
               <div className="flex flex-wrap justify-center gap-2 mb-6">
                 {Object.keys(catalog.durations).map((d) => (
                   <button key={d} type="button" onClick={() => setDuration(d)} aria-pressed={duration === d}
@@ -193,7 +219,7 @@ export default function PricingSection({ onStartTrial }) {
                   </button>
                 ))}
               </div>
-              {[['full', ar ? 'الباقات الكاملة — البرنامج كله' : 'Full plans — the whole system'], ['module', ar ? 'أو باقة وحدة واحدة' : 'Or a single-module plan']].map(([kind, head]) => (
+              {[['full', ar ? 'الباقات' : 'Plans'], ['module', ar ? 'أو باقة وحدة واحدة' : 'Or a single-module plan']].map(([kind, head]) => (
               <div key={kind} className="mb-8">
               <h4 className="text-white font-bold text-lg mb-3">{head}</h4>
               <div className="grid gap-4 md:grid-cols-3 items-start">
@@ -242,6 +268,7 @@ export default function PricingSection({ onStartTrial }) {
                         <span className="font-semibold text-white">{ar ? k.name_ar : k.name_en}</span>
                       </span>
                       {k.note_ar && ar && <span className="text-xs text-gray-300 ps-6">{k.note_ar}</span>}
+                      {(k.opens || []).length > 0 && <span className="text-xs text-teal-300 ps-6">{ar ? `بيفتح على أي باقة: ${k.opens.join('، ')}` : `Opens on any plan: ${k.opens.join(', ')}`}</span>}
                       {(k.adds || []).length > 0 && <ul className="text-xs text-gray-400 ps-6 list-disc ms-4">{k.adds.map((x) => <li key={x}>{x}</li>)}</ul>}
                       <span className="text-sm ps-6 tabular-nums"><b className="text-white">{fmt(Math.round(k.monthly * factor))}</b> {ar ? 'ج.م' : 'EGP'} / {durLabel(duration)}</span>
                     </label>
@@ -403,8 +430,8 @@ function Compare({ ar, catalog }) {
             {FEATURES.map((g) => (
               <React.Fragment key={g.g}>
                 <tr className="bg-white/5"><td colSpan={plans.length + 1} className="p-2 px-3 font-bold text-amber-300">{ar ? g.g : g.ge}</td></tr>
-                {g.items.map(([a, e]) => (
-                  <tr key={a} className="border-t border-white/5"><td className="p-2.5 px-3 text-gray-200">{ar ? a : e}</td>{plans.map((p) => <td key={p.key} className="p-2.5 text-center">{mark(covers(p.key, g.mods))}</td>)}</tr>
+                {g.items.map(([a, e, lv]) => (
+                  <tr key={a} className="border-t border-white/5"><td className="p-2.5 px-3 text-gray-200">{ar ? a : e}</td>{plans.map((p) => <td key={p.key} className="p-2.5 text-center">{mark(covers(p.key, g.mods, lv))}</td>)}</tr>
                 ))}
               </React.Fragment>
             ))}
@@ -420,6 +447,7 @@ function Compare({ ar, catalog }) {
             <div key={k.key} className={`${card} p-5 grid gap-2`}>
               <div className="flex items-baseline justify-between gap-2"><h4 className="font-bold text-white">{ar ? k.name_ar : k.name_en}</h4><span className="tabular-nums text-white text-sm">{fmt(k.monthly)} {ar ? 'ج.م/شهر' : 'EGP/mo'}</span></div>
               {ar && k.note_ar && <p className="text-sm text-gray-300">{k.note_ar}</p>}
+              {(k.opens || []).length > 0 && <p className="text-sm text-teal-300">{ar ? `بيفتح على أي باقة: ${k.opens.join('، ')}` : `Opens on any plan: ${k.opens.join(', ')}`}</p>}
               {(k.adds || []).length > 0 && (<>
                 <p className="text-xs text-gray-400">{ar ? 'بيضيف للدليل المحاسبي:' : 'Adds these accounts:'}</p>
                 <ul className="grid gap-1 text-sm">{k.adds.map((x) => <li key={x} className="flex gap-2"><Check className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-hidden />{x}</li>)}</ul>
@@ -435,7 +463,7 @@ function Compare({ ar, catalog }) {
 
 function Faq({ ar }) {
   const items = ar ? [
-    ['إيه الفرق بين الباقات؟', 'الباقات الكاملة (المبتدئ والمحترف والمؤسسي) فيها البرنامج كله، والفرق في عدد الموظفين والتخزين والدعم. باقات الوحدة الواحدة فيها وحدة واحدة بس: الموارد البشرية، أو المالية، أو المخزون.'],
+    ['إيه الفرق بين الباقات؟', 'المبتدئ فيه الأساسيات: الحسابات والفواتير والضرائب والمخزون والرواتب والحضور اليدوي وبوابة الموظف. المحترف بيضيف الحضور بالموقع والأصول الثابتة والتسوية البنكية والمشاريع ونقاط البيع والموافقات وتقييم الأداء. المؤسسي بيضيف الأدوات المتقدمة زي العملات الأجنبية والاعتمادات والتصنيع والعقارات والمتجر الإلكتروني. وباقات الوحدة الواحدة فيها وحدة واحدة بس.'],
     ['إيه هي المجالات المتخصصة؟', 'إضافات لأنشطة معينة (مقاولات، تصنيع، عقارات، طبي، مطاعم…) بتضيف حساباتها وشاشاتها. اختيارية وتضيفها أو توقفها في أي وقت.'],
     ['الأسعار شاملة الضريبة؟', 'أيوه، كل الأسعار شاملة ضريبة القيمة المضافة 14%، والفاتورة بتوضح الضريبة اللي جوه السعر.'],
     ['التجديد التلقائي بيشتغل إزاي؟', 'قبل نهاية الاشتراك بـ 7 أيام بتتعمل فاتورة التجديد وتوصلك في البرنامج، وتدفعها بنفس طرق الدفع. الخصم التلقائي من الكارت هيتفعّل أول ما ربط البنك يخلص.'],
