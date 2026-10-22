@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field
 from database import db
 from dependencies import get_current_user
 from services import ops_posting as P
+from services import pack_accounts as PA
 
 router = APIRouter(prefix="/api/real-estate", tags=["Real Estate"])
 
@@ -55,7 +56,7 @@ ACC = {
     "cash":               "161",
     "ap":                 "251",
 }
-CHEQUE_ACCOUNTS = ["144", "163"]   # 144 من باقة التطوير العقاري، وإلا 163 من الشجرة الافتراضية
+CHEQUE_ACCOUNTS = PA.codes("re_cheques")   # 144 من باقة التطوير العقاري، وإلا 163 من الشجرة الافتراضية
 
 RE_TAX_RATE = 0.025  # 2.5% — قانون 91/2005 م.42 (على الأشخاص الطبيعيين) — اختياري
 
@@ -208,10 +209,13 @@ async def book_unit(req: BookingRequest, current_user: dict = Depends(get_curren
     booking_id = str(uuid.uuid4())
     deposit = P.r2(req.deposit_amount)
     pay = _pay_acc(req.payment_method)
+    # real-estate pack: 245 التزامات عقود عملاء; otherwise 2431. The booking keeps
+    # its own account, so cheques, payments and delivery follow it.
+    liability_acc = await PA.pick_code(db, company_id, "re_contract_liability")
     try:
         lines = [
             await P.je_line(db, company_id, pay, debit=deposit, desc=f"دفعة حجز وحدة {unit['unit_number']} — {req.customer_name}"),
-            await P.je_line(db, company_id, ACC["contract_liability"], credit=deposit,
+            await P.je_line(db, company_id, liability_acc, credit=deposit,
                             desc=f"حجز {req.customer_name} — وحدة {unit['unit_number']} (التزام حتى التسليم)"),
         ]
         je_id = await _post_je(company_id, current_user["user_id"], req.booking_date,
@@ -229,7 +233,7 @@ async def book_unit(req: BookingRequest, current_user: dict = Depends(get_curren
         "customer_id": req.customer_id, "customer_name": req.customer_name, "customer_tax_id": req.customer_tax_id,
         "booking_date": req.booking_date, "contract_price": P.r2(req.contract_price),
         "deposit_amount": deposit,
-        "liability_account": ACC["contract_liability"],
+        "liability_account": liability_acc,
         "liability_balance": deposit,      # ما في 2431 لهذا الحجز
         "paid_so_far": deposit,            # نقدية فعلية (المقدم + الشيكات المحصلة)
         "cheques_in_hand": 0.0,            # شيكات لم تُحصّل بعد

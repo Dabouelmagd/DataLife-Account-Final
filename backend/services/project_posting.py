@@ -19,6 +19,8 @@ from typing import Optional
 
 from bson import ObjectId
 
+from services import pack_accounts as PA
+
 DEBIT_TYPES = {"asset", "expense", "contra_liability", "contra_equity"}
 
 # category → preferred account codes (first one the company's chart has wins)
@@ -26,7 +28,7 @@ EXPENSE_ACCOUNTS = {
     "materials":      ["316", "311"],          # مواد ومستلزمات الموقع
     "labor":          ["317", "312"],          # أجور عمال الموقع
     "subcontractor":  ["315"],                 # مقاولو الباطن
-    "equipment":      ["313"],                 # مصروفات وإهلاكات تشغيلية
+    "equipment":      PA.codes("project_equipment"),   # 318 معدات وسقالات (باقة المقاولات) وإلا 313
     "administrative": ["333", "336", "332"],   # مصروفات إدارية
     "transport":      ["337"],                 # سفر وانتقالات
     "utilities":      ["332"],                 # كهرباء ومياه
@@ -35,7 +37,13 @@ EXPENSE_ACCOUNTS = {
     "marketing":      ["341"],                 # دعاية وإعلان
     "software":       ["313", "332"],          # برمجيات واشتراكات
     "other":          ["313", "332"],
+    # industry-pack categories: offered and accepted only when the company's
+    # chart has the pack account — never a fallback to another account
+    "quality_testing": PA.codes("project_quality_testing"),   # 319 اختبارات جودة ومختبرات (المقاولات)
+    "site_permits":    PA.codes("project_site_permits"),      # 322 تراخيص وتأمينات المواقع (المقاولات)
+    "consultants":     PA.codes("project_consultants"),       # 346 أجور استشاريين (المكاتب المهنية)
 }
+PACK_ONLY_CATEGORIES = {"quality_testing", "site_permits", "consultants"}
 REVENUE_ACCOUNTS = {
     "payment":   ["412", "431"], "advance": ["412", "431"], "milestone": ["431", "412"],
     "final":     ["412", "431"], "retention": ["431", "412"], "other": ["423", "412"],
@@ -71,6 +79,8 @@ def account_for(ch: dict, kind: str, category: str) -> Optional[dict]:
     for code in table.get(category) or table["other"]:
         if _leaf(ch.get(code)):
             return ch[code]
+    if kind == "expense" and category in PACK_ONLY_CATEGORIES:
+        return None                               # the pack is not active for this company
     want = "expense" if kind == "expense" else "revenue"
     for code in sorted(ch):                       # any leaf account of the right type
         if _kind(ch[code].get("account_type")) == want and _leaf(ch[code]):
@@ -150,6 +160,11 @@ async def post_item(db, company_id: str, user_id: str, *, kind: str, project: di
             raise ValueError("اختر حساب " + ("مصروف" if kind == "expense" else "إيراد") + " فرعياً")
     else:
         main = account_for(ch, kind, item.get("category") or "other")
+    if not main and kind == "expense" and (item.get("category") in PACK_ONLY_CATEGORIES):
+        code = EXPENSE_ACCOUNTS[item["category"]][0]
+        from services.ops_posting import PACK_HINT
+        raise ValueError(f"الحساب {code} غير موجود في شجرة حسابات الشركة — فعّل «{PACK_HINT.get(code, '')}» "
+                         "من إعدادات الحسابات أو اختر تصنيفاً آخر")
     if not main:
         raise ValueError("لا يوجد في شجرة الحسابات حساب " + ("مصروفات" if kind == "expense" else "إيرادات"))
 

@@ -34,6 +34,17 @@ PACK_HINT = {
 }
 
 
+def _pack_hints():
+    # every other pack account names its own pack (services/pack_accounts.py posts to them)
+    from services.industry_packs import PACKS
+    for pack in PACKS.values():
+        for acc in pack["accounts"]:
+            PACK_HINT.setdefault(acc[0], pack["name_ar"])
+
+
+_pack_hints()
+
+
 def r2(x) -> float:
     return round(float(x or 0) + 0.0, 2)
 

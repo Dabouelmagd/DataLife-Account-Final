@@ -62,7 +62,16 @@ export default function CustodyPage() {
   const { language } = useLanguage();
   const isRTL = language === 'ar';
   const t = T[isRTL ? 'ar' : 'en'];
-  const cats = CATEGORIES[isRTL ? 'ar' : 'en'];
+  // sector-pack categories (fleet fuel, kitchen waste…) come from the server and
+  // only exist when the company's chart has that pack's account
+  const [packCats, setPackCats] = useState({});
+  useEffect(() => {
+    axios.get(`${API_URL}/api/petty-cash/categories`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then((r) => setPackCats(Object.fromEntries((r.data?.categories || [])
+        .filter((c) => c.industry_pack).map((c) => [c.category, c.label]))))
+      .catch(() => setPackCats({}));
+  }, []);
+  const cats = useMemo(() => ({ ...CATEGORIES[isRTL ? 'ar' : 'en'], ...packCats }), [isRTL, packCats]);
   const loc = isRTL ? 'ar-EG' : 'en-US';
   const fmt = (n) => (Number(n) || 0).toLocaleString(loc, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });

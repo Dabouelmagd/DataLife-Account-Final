@@ -13,6 +13,8 @@ from models.invoice import (
     calculate_line_totals, calculate_invoice_totals, generate_qr_code_data
 )
 from models.accounting import JournalEntry, JournalEntryLine, JournalEntryStatus
+from models.invoice import vat_category_of
+from services import pack_accounts as PA
 from services.accounting_service import AccountingService
 import logging
 import qrcode
@@ -109,6 +111,57 @@ class InvoiceService:
     def __init__(self, db: AsyncIOMotorClient):
         self.db = db
         self.accounting = AccountingService(db)
+
+    async def _pack_revenue_split(self, invoice: Dict, accounts: list, default_acc: Optional[Dict],
+                                  total: float, default_desc: str, service_lines: bool = True) -> list:
+        """[(account, amount, text)] for a sale's revenue.
+
+        Without industry packs this is [(default_acc, total, default_desc)] —
+        exactly the single revenue line posted before. With them, the net of
+        zero-rated export lines goes to 424 (export pack) and the net of
+        service-item lines to 429 / 428 (education / logistics packs); the
+        rest — and any invoice-level adjustment — stays on the default account.
+        """
+        export_acc = PA.pick_from_list(accounts, "export_revenue")
+        service_acc = PA.pick_from_list(accounts, "service_line_revenue") if service_lines else None
+        if not (export_acc or service_acc):
+            return [(default_acc, total, default_desc)] if default_acc else []
+        lines = invoice.get("lines") or []
+        service_ids = set()
+        if service_acc:
+            pids = [l.get("product_id") for l in lines if l.get("product_id")]
+            if pids:
+                service_ids = {p["id"] async for p in self.db.products.find(
+                    {"company_id": invoice["company_id"], "id": {"$in": pids}, "is_service": True},
+                    {"_id": 0, "id": 1})}
+        export_net = service_net = 0.0
+        unclassified = False
+        for l in lines:
+            net = round(float(l.get("subtotal") or 0) - float(l.get("discount_amount") or 0)
+                        - float(l.get("invoice_discount") or 0), 2)
+            if export_acc and vat_category_of(l) == "export":
+                export_net += net
+            elif service_acc and l.get("product_id") in service_ids:
+                service_net += net
+            else:
+                unclassified = True
+        buckets = [[export_acc, round(export_net, 2), "إيرادات تصدير (نسبة صفر)"],
+                   [service_acc, round(service_net, 2), "إيرادات خدمات النشاط"]]
+        buckets = [b for b in buckets if b[0] and b[1] > 0]
+        if not buckets:
+            return [(default_acc, total, default_desc)] if default_acc else []
+        rest = round(total - sum(b[1] for b in buckets), 2)
+        if rest and (not unclassified or abs(rest) <= 0.01):
+            # adjustments / rounding on an invoice with no other lines ride on its largest part
+            big = max(buckets, key=lambda b: b[1])
+            big[1] = round(big[1] + rest, 2)
+            rest = 0.0
+        if rest < 0 or any(b[1] <= 0 for b in buckets):
+            return [(default_acc, total, default_desc)] if default_acc else []   # inconsistent: as before
+        parts = [(b[0], b[1], f"{b[2]} — {b[0]['account_name']}") for b in buckets]
+        if rest and default_acc:
+            parts.append((default_acc, rest, default_desc))
+        return parts
     
     # ==========================================
     # Invoice Sequence
@@ -485,6 +538,11 @@ class InvoiceService:
             PROFESSIONAL_TYPES = {"engineering", "consulting", "medical_professional",
                                    "legal", "accounting", "services"}
             
+            # professional-services pack: audit fees 425, tax & legal advisory 426,
+            # incorporation 427 — when the company has them
+            pro_role = {"accounting": "audit_fee_revenue", "legal": "advisory_fee_revenue",
+                        "incorporation": "incorporation_fee_revenue"}.get(inv_type)
+            pro_acc = PA.pick_from_list(accounts, pro_role) if pro_role else None
             if inv_type in PROFESSIONAL_TYPES:
                 # ── فاتورة خدمات مهنية / استشارات هندسية ──────────────
                 # م/416 إيرادات استشارات هندسية ومهنية (دليل الحسابات المصري)
@@ -494,7 +552,11 @@ class InvoiceService:
                     sales_acc = find_account("412")
                     if not sales_acc:
                         sales_acc = find_account("411")
+                sales_acc = pro_acc or sales_acc
                 rev_desc = "إيرادات استشارات هندسية ومهنية — خدمات مهن حرة"
+            elif pro_acc:
+                sales_acc = pro_acc
+                rev_desc = f"إيرادات أتعاب — {pro_acc['account_name']}"
             else:
                 # ── فاتورة بضائع عادية ─────────────────────────────────
                 # م/411 إيراد مبيعات بضائع
@@ -527,14 +589,18 @@ class InvoiceService:
                 ))
             
             # ── دائن 1: إيرادات (م/421 خدمات أو م/411 بضائع) ──────────
-            if sales_acc:
+            # export pack: zero-rated export lines → 424; education / logistics
+            # packs: service-item lines → 429 / 428 (see _pack_revenue_split)
+            for rev_acc, rev_amount, rev_text in await self._pack_revenue_split(
+                    invoice, accounts, sales_acc, invoice["total_after_discount"], rev_desc,
+                    service_lines=not (inv_type in PROFESSIONAL_TYPES or pro_acc)):
                 lines.append(JournalEntryLine(
-                    account_id=sales_acc["id"],
-                    account_code=sales_acc["account_code"],
-                    account_name=sales_acc["account_name"],
+                    account_id=rev_acc["id"],
+                    account_code=rev_acc["account_code"],
+                    account_name=rev_acc["account_name"],
                     debit=0,
-                    credit=invoice["total_after_discount"],
-                    description=rev_desc
+                    credit=rev_amount,
+                    description=rev_text
                 ))
             
             # ── دائن 2: ضريبة القيمة المضافة 14% مخرجات ───────────────
@@ -636,8 +702,13 @@ class InvoiceService:
             # debited (we owe less) and purchases are credited. No flip needed.
             label = ("إشعار دائن" if doc_type == DocumentType.CREDIT_NOTE.value else "إشعار مدين")
             ref = invoice.get("original_invoice_number") or invoice.get("document_number")
-            if net:
+            if net and purchase_side:
                 lines.append(line(revenue, net, credit_note, f"{label} — مردودات/خصم على الفاتورة {ref}"))
+            elif net:
+                # a note on an export / service sale reverses the pack revenue it was posted to
+                for rev_acc, rev_amount, _ in await self._pack_revenue_split(
+                        invoice, accounts, revenue, net, ""):
+                    lines.append(line(rev_acc, rev_amount, credit_note, f"{label} — مردودات/خصم على الفاتورة {ref}"))
             if tax and vat_out:
                 lines.append(line(vat_out, tax, credit_note, f"ضريبة {label} — {ref}"))
             if not purchase_side:

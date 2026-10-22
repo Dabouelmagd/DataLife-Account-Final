@@ -23,6 +23,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 
 from database import db
+from services import pack_accounts as PA
 from api.users import get_current_user
 from models.accounting import JournalEntry
 from services.accounting_service import AccountingService
@@ -54,6 +55,23 @@ EXPENSE_ACCOUNTS = {
     "transport":   ("3362", "مصروفات نقل وتوصيل"),
     "repairs":     ("3363", "مصروفات إصلاح طارئ"),
 }
+
+# Industry-pack categories: usable only when the company's chart has the pack
+# account (a readable Arabic error names the pack otherwise) — never redirected
+# to another account. category → (pack_accounts role, Arabic label)
+PACK_CATEGORIES = {
+    "fleet_fuel":            ("petty_fleet_fuel", "وقود وزيوت الأسطول"),
+    "fleet_maintenance":     ("petty_fleet_maintenance", "صيانة وإطارات وقطع غيار المركبات"),
+    "vehicle_licences":      ("petty_vehicle_licences", "رخص وتأمين وفحص المركبات"),
+    "educational_materials": ("petty_educational_materials", "مواد ومستلزمات تعليمية"),
+    "kitchen_waste":         ("petty_kitchen_waste", "هالك وفاقد المطبخ"),
+}
+
+
+async def expense_code(company_id: str, category: str) -> str:
+    if category in PACK_CATEGORIES:
+        return await PA.pick_code(db, company_id, PACK_CATEGORIES[category][0])
+    return EXPENSE_ACCOUNTS.get(category, (ACC["petty_exp"], "مصروفات نثرية"))[0]
 
 
 async def get_acc(company_id: str, code: str) -> dict:
@@ -256,8 +274,7 @@ async def replenish_petty_cash(
     # Build expense lines (مدين)
     exp_lines = []
     for item in req.items:
-        exp_acc_code, exp_acc_name = EXPENSE_ACCOUNTS.get(
-            item.category, (ACC["petty_exp"], "مصروفات نثرية"))
+        exp_acc_code = await expense_code(company_id, item.category)
         exp_lines.append(await je_line(
             company_id, exp_acc_code, debit=float(item.amount),
             desc=f"{item.description} — إيصال: {item.receipt_ref or '-'}"
@@ -376,9 +393,10 @@ async def settle_petty_cash(
     all_lines = []
 
     # Expense lines (مدين)
+    exp_codes = []
     for item in req.expense_items:
-        exp_acc_code, exp_acc_name = EXPENSE_ACCOUNTS.get(
-            item.category, (ACC["petty_exp"], "مصروفات نثرية"))
+        exp_acc_code = await expense_code(company_id, item.category)
+        exp_codes.append(exp_acc_code)
         all_lines.append(await je_line(
             company_id, exp_acc_code, debit=float(item.amount),
             desc=f"{item.description} — تصفية العهدة — {item.receipt_ref or ''}"
@@ -437,8 +455,8 @@ async def settle_petty_cash(
         "journal": {
             "id":       je_id,
             "debits":   (
-                [f"م/{EXPENSE_ACCOUNTS.get(i.category,(ACC['petty_exp'],''))[0]} "
-                 f"{i.description}  {i.amount:,.2f}" for i in req.expense_items] +
+                [f"م/{code} {i.description}  {i.amount:,.2f}"
+                 for code, i in zip(exp_codes, req.expense_items)] +
                 ([f"م/{src_code} خزينة (مُعاد)  {cash_returned:,.2f}"]
                  if cash_returned > 0 else [])
             ),
@@ -528,7 +546,8 @@ async def fund_statement(fund_id: str, current_user: dict = Depends(get_current_
         "total_receipts_count": total_items,
         "category_breakdown": [
             {"category": k, "total": round(v, 2),
-             "account": EXPENSE_ACCOUNTS.get(k,("",""))[0]}
+             "account": (PA.codes(PACK_CATEGORIES[k][0])[0] if k in PACK_CATEGORIES
+                         else EXPENSE_ACCOUNTS.get(k, ("", ""))[0])}
             for k, v in sorted(cat_totals.items(), key=lambda x: -x[1])
         ],
         "replenishments": reps,
@@ -564,3 +583,17 @@ async def petty_cash_summary(current_user: dict = Depends(get_current_user)):
         ],
         "note": f"إجمالي العهد المفتوحة: {total_open_balance:,.2f} ج.م أصول متداولة",
     }
+
+
+@router.get("/categories")
+async def petty_cash_categories(current_user: dict = Depends(get_current_user)):
+    """بنود المصروفات المتاحة للعهدة — بنود الباقات تظهر فقط إن كان حسابها في شجرة الشركة"""
+    company_id = current_user["company_id"]
+    out = [{"category": k, "label": v[1], "account_code": v[0], "industry_pack": None}
+           for k, v in EXPENSE_ACCOUNTS.items()]
+    for k, (role, label) in PACK_CATEGORIES.items():
+        acc = await PA.optional(db, company_id, role)
+        if acc:
+            out.append({"category": k, "label": label, "account_code": acc["account_code"],
+                        "industry_pack": acc.get("industry_pack")})
+    return {"categories": out}

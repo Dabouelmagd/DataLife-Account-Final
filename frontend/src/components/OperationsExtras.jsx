@@ -906,6 +906,7 @@ export function ManufacturingPage() {
           <Modal title="تسوية فروق التحميل" onClose={() => setForm(null)} footer={<>
             <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
             <button onClick={() => run(() => axios.post(`${API}/api/manufacturing/overhead-variance`, { period: form.period, actual_foh: +form.actual_foh || 0,
+              actual_utilities: +form.actual_utilities || 0, actual_maintenance: +form.actual_maintenance || 0, actual_safety: +form.actual_safety || 0,
               applied_foh: auto ? null : +form.applied_foh, date: form.date }, auth()))} disabled={busy || form.actual_foh === '' || !/^\d{4}-\d{2}$/.test(form.period)} className={btnPrimary}>{busy ? '…' : 'تسوية وترحيل'}</button></>}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Label t="الفترة (YYYY-MM)"><input dir="ltr" value={form.period} onChange={(e) => setForm({ ...form, period: e.target.value })} className={input} /></Label>
@@ -913,6 +914,15 @@ export function ManufacturingPage() {
               <Label t="التكاليف الفعلية (رصيد 313) *"><Num value={form.actual_foh} onChange={(x) => setForm({ ...form, actual_foh: x })} /></Label>
               <Label t="المحمَّل (فارغ = مجموع أوامر الفترة)"><Num value={form.applied_foh} onChange={(x) => setForm({ ...form, applied_foh: x })} /></Label>
             </div>
+            <details className="mt-3 text-sm">
+              <summary className="cursor-pointer text-slate-600">باقة التصنيع: جزء من الفعلي متسجّل على 325 / 326 / 327؟ (اختياري)</summary>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+                <Label t="منه قوى محركة (325)"><Num value={form.actual_utilities || ''} onChange={(x) => setForm({ ...form, actual_utilities: x })} /></Label>
+                <Label t="منه صيانة خطوط (326)"><Num value={form.actual_maintenance || ''} onChange={(x) => setForm({ ...form, actual_maintenance: x })} /></Label>
+                <Label t="منه أمن وسلامة (327)"><Num value={form.actual_safety || ''} onChange={(x) => setForm({ ...form, actual_safety: x })} /></Label>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">الجزء ده بيتقفل من حساباته، والباقي من 313.</p>
+            </details>
             {!auto && <div className="mt-4"><Lines rows={[['3181 تكاليف صناعية محملة', r2(form.applied_foh), 0], ['313 مصروفات تشغيلية فعلية', 0, r2(form.actual_foh)],
               ['3182 انحراف التكاليف الصناعية', v < 0 ? -v : 0, v > 0 ? v : 0]]} /></div>}
             {auto && <p className="mt-3 text-xs text-slate-500">سيُحسب المحمَّل من أوامر الإنتاج التي حُمّلت عليها تكاليف في هذه الفترة، ويُعرض القيد بعد الترحيل.</p>}
@@ -1432,7 +1442,7 @@ export function RealEstatePage() {
 /* ═════════════════════════ الاعتمادات المستندية ═════════════════════════ */
 
 const LC_STATUS = { open: ['مفتوح', 'blue'], in_transit: ['مفتوح', 'blue'], paid: ['مستندات مسددة', 'amber'], received: ['بضاعة مستلمة', 'green'], closed: ['مُغلق', 'slate'], cancelled: ['ملغى', 'red'] };
-const LC_COSTS = { freight: 'شحن دولي', insurance: 'تأمين بحري', customs: 'رسوم جمركية', clearance: 'تخليص وميناء', bank: 'مصروفات بنكية', other: 'أخرى' };
+const LC_COSTS = { freight: 'شحن دولي', insurance: 'تأمين بحري', customs: 'رسوم جمركية', clearance: 'تخليص وميناء', bank: 'مصروفات بنكية', demurrage: 'أرضيات وموانئ', inspection: 'فحص ورقابة', inland_haulage: 'نقل داخلي للمخازن', other: 'أخرى' };
 
 export function LettersOfCreditPage() {
   const [data, setData] = useState(null);
@@ -1631,10 +1641,11 @@ export function LettersOfCreditPage() {
 
 /* ═════════════════════════ أدوات المخزون ═════════════════════════ */
 
-const LANDED_TYPES = { freight: 'شحن', insurance: 'تأمين', customs: 'جمارك', clearance: 'تخليص', other: 'أخرى' };
+const LANDED_TYPES = { freight: 'شحن', insurance: 'تأمين', customs: 'جمارك', clearance: 'تخليص', demurrage: 'أرضيات وموانئ', inspection: 'فحص ورقابة', inland_haulage: 'نقل داخلي', other: 'أخرى' };
 const LANDED_CREDIT = [['251', '251 مستحق للمورد / الشاحن'], ['162', '162 مدفوع من البنك'], ['161', '161 مدفوع من الخزينة'],
-  ['3372', '3372 سبق تسجيله مصروف شحن'], ['3373', '3373 سبق تسجيله مصروف تأمين'], ['3374', '3374 سبق تسجيله رسوم جمركية'], ['3375', '3375 سبق تسجيله تخليص']];
-const LANDED_DEFAULT = { freight: '251', insurance: '251', customs: '3374', clearance: '3375', other: '251' };
+  ['3372', '3372 سبق تسجيله مصروف شحن'], ['3373', '3373 سبق تسجيله مصروف تأمين'], ['3374', '3374 سبق تسجيله رسوم جمركية'], ['3375', '3375 سبق تسجيله تخليص'],
+  ['3376', '3376 سبق تسجيله أرضيات (باقة الاستيراد)'], ['3377', '3377 سبق تسجيله فحص (باقة الاستيراد)'], ['3378', '3378 سبق تسجيله نقل داخلي (باقة الاستيراد)']];
+const LANDED_DEFAULT = { freight: '251', insurance: '251', customs: '3374', clearance: '3375', demurrage: '251', inspection: '251', inland_haulage: '251', other: '251' };
 
 export function InventoryEngineTools({ initialTab = 'landed' } = {}) {
   const [tab, setTab] = useState(initialTab);

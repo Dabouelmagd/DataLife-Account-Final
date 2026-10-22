@@ -14,6 +14,7 @@ from services.auth_service import verify_token
 from fastapi import Header
 from typing import Optional
 from database import db
+from services import pack_accounts as PA
 from datetime import datetime, timezone
 import uuid
 from models.enterprise_accounting import (
@@ -482,7 +483,7 @@ async def create_subcontractor_claim(data: dict, current_user: dict = Depends(ge
             (("315",), current_claim, 0, f"تكلفة مستخلص مقاول الباطن رقم {no} — {party}",
              {**proj, "partner_type": "vendor", "partner_id": data.get("partner_id")}),
             (("137",), vat_amt, 0, f"ضريبة مدخلات {vat_rate*100:g}% على مستخلص مقاول الباطن", proj),
-            (("243", "251"), 0, sub_ap, f"مستحق لمقاول الباطن {party} (الصافي + الضريبة)",
+            (tuple(PA.codes("subcontractor_payable")), 0, sub_ap, f"مستحق لمقاول الباطن {party} (الصافي + الضريبة)",
              {**proj, "partner_type": "vendor", "partner_id": data.get("partner_id")}),
             (("261",), 0, wht_amt, f"خصم وتحصيل {wht_rate*100:g}% مستحق لمصلحة الضرائب", proj),
             (("263",), 0, ret_amt, f"ضمان حسن التنفيذ محتجز {ret_pct:g}% من مقاول الباطن", proj),

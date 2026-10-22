@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 from database import db
 from dependencies import get_current_user
 from services import ops_posting as P
+from services import pack_accounts as PA
 
 router = APIRouter(prefix="/api/lc", tags=["Letter of Credit"])
 
@@ -50,7 +51,13 @@ COST_TYPES = {   # type → (expense account used only if the LC is cancelled, A
     "clearance": ("3375", "تخليص جمركي وميناء"),
     "bank":      ("334",  "مصروفات وعمولات بنكية"),
     "other":     ("3375", "مصاريف استيراد أخرى"),
+    # import pack: on cancellation these go to 3376/3377/3378; without it to 3375 like "other"
+    "demurrage":      ("3375", "أرضيات وتفريغ ومصاريف موانئ"),
+    "inspection":     ("3375", "فحص ورقابة على الواردات"),
+    "inland_haulage": ("3375", "نولون نقل داخلي من الميناء للمخازن"),
 }
+COST_PACK_ROLE = {"demurrage": "import_demurrage", "inspection": "import_inspection",
+                  "inland_haulage": "import_inland_haulage"}
 
 
 def _bank(code: str) -> str:
@@ -91,7 +98,8 @@ class OpenLCRequest(BaseModel):
 
 
 class CostItem(BaseModel):
-    cost_type:   Literal["freight", "insurance", "customs", "clearance", "bank", "other"]
+    cost_type:   Literal["freight", "insurance", "customs", "clearance", "bank", "other",
+                         "demurrage", "inspection", "inland_haulage"]
     description: str = ""
     amount_egp:  float = Field(gt=0)
     invoice_ref: Optional[str] = None
@@ -331,7 +339,7 @@ async def receive_goods(lc_id: str, req: ReceiveGoodsRequest, current_user: dict
 async def settle_lc(lc_id: str, req: SettleRequest, current_user: dict = Depends(get_current_user)):
     """
     بعد الاستلام: رد ما تبقى من الغطاء للبنك (Dr البنك / Cr 165) وإقفال الملف.
-    قبل السداد (إلغاء): رد كامل الغطاء، وتحميل التكاليف المدفوعة على مصروفاتها (Dr 3372..3375 / Cr 123).
+    قبل السداد (إلغاء): رد كامل الغطاء، وتحميل التكاليف المدفوعة على مصروفاتها (Dr 3372..3375، و3376..3378 مع باقة الاستيراد / Cr 123).
     """
     company_id = current_user["company_id"]
     lc = await _get(company_id, lc_id)
@@ -351,7 +359,9 @@ async def settle_lc(lc_id: str, req: SettleRequest, current_user: dict = Depends
         by_type: dict = {}
         for e in lc.get("cost_entries", []):
             for c in e.get("costs", []):
-                acc = COST_TYPES.get(c.get("type"), COST_TYPES["other"])[0]
+                t = c.get("type")
+                acc = await PA.pick_code(db, company_id, COST_PACK_ROLE[t]) if t in COST_PACK_ROLE \
+                    else COST_TYPES.get(t, COST_TYPES["other"])[0]
                 by_type[acc] = P.r2(by_type.get(acc, 0) + float(c.get("amount_egp", 0)))
         for acc, amt in by_type.items():
             lines.append(await P.je_line(db, company_id, acc, debit=amt, desc=f"تكاليف اعتماد ملغى {lc['lc_number']}"))

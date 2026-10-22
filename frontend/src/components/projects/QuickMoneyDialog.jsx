@@ -11,7 +11,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Loader2, TrendingDown, TrendingUp, Paperclip, Wallet, Landmark, ChevronDown } from 'lucide-react';
 import {
-  API_URL, authHeaders, today, money, errText, SIMPLE_EXPENSE_KINDS, Modal, inputCls, btnGhost,
+  API_URL, authHeaders, today, money, errText, SIMPLE_EXPENSE_KINDS, PACK_EXPENSE_KINDS, Modal, inputCls, btnGhost,
 } from './simpleShared';
 
 const MAX_FILE = 10 * 1024 * 1024;
@@ -121,7 +121,7 @@ export default function QuickMoneyDialog({ token, isRTL = true, projectId, kind,
               <span className="text-slate-700 font-medium">{L('نوع المصروف', 'Kind')}</span>
               <span className="text-slate-400 text-xs ms-1">{L('(اختياري)', '(optional)')}</span>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {SIMPLE_EXPENSE_KINDS.map((k) => (
+                {[...SIMPLE_EXPENSE_KINDS, ...PACK_EXPENSE_KINDS.filter((k) => opts?.categories?.[k.id])].map((k) => (
                   <button key={k.id} type="button" onClick={() => setF({ ...f, category: k.id })} aria-pressed={f.category === k.id}
                     className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${f.category === k.id
                       ? 'bg-rose-600 border-rose-600 text-white' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}>

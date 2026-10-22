@@ -8,7 +8,7 @@ POS, Retail & F&B Engine — محرك نقاط البيع والتجزئة وا�
    - معالجة عجز أو زيادة الكاشير
 2. تسوية مبيعات البطاقات (حين يوجد حساب تسويات معلقة 166/167 من باقة القطاع)
 3. تالف وهدر المواد (Waste & Spoilage)
-   Dr م/33610 مصروف تالف وهدر
+   Dr م/33610 مصروف تالف وهدر (33612 هالك المطبخ مع باقة المطاعم)
    Cr م/125 مخزون (أو 311 في الجرد الدوري)
 """
 import asyncio
@@ -22,6 +22,7 @@ from pymongo.errors import DuplicateKeyError
 from database import db
 from dependencies import get_current_user
 from services import ops_posting as P
+from services import pack_accounts as PA
 from services import eta_receipt as ER
 
 router = APIRouter(prefix="/api/pos", tags=["POS & Retail"])
@@ -47,17 +48,15 @@ ACC = {
     "bank_charges":     "334",   # مصروفات وعمولات بنكية (عمولة ماكينة البطاقات)
 }
 # industry-pack accounts for card money not yet in the bank (retail 167, F&B 166)
-CARD_IN_TRANSIT = ["167", "166"]
+CARD_IN_TRANSIT = PA.codes("card_in_transit")
 ALLOWED_SPOILAGE_ACCOUNTS = {"121", "122", "125", "1251", "1252", "1253", "1254", "1255", "1256", "1257"}
 
 CASH_SHORTAGE_TOLERANCE = 50.0   # ج.م — العجز المسموح لكل وردية (قابل للتكوين لكل إقفال)
 
 
 async def _card_account(company_id: str) -> str:
-    for c in CARD_IN_TRANSIT:
-        if await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": c}, {"_id": 1}):
-            return c
-    return ACC["bank"]
+    acc = await PA.optional(db, company_id, "card_in_transit")
+    return acc["account_code"] if acc else ACC["bank"]
 
 
 async def _signed(company_id, code, amount, desc):
@@ -369,8 +368,10 @@ async def _close_lines(company_id: str, shift: dict, actual_cash: float, toleran
     cogs_lines = []
     net_cost = P.r2(f("total_cost") - f("returns_cost"))
     if net_cost and await P.inventory_method(db, company_id) == "perpetual":
+        # restaurants pack: 347 تكلفة الأغذية والمشروبات; otherwise 314
+        cogs_acc = await PA.pick_code(db, company_id, "pos_cost_of_sales")
         cogs_lines = [
-            await _signed(company_id, ACC["cogs"], net_cost, f"تكلفة مبيعات وردية {who}"),
+            await _signed(company_id, cogs_acc, net_cost, f"تكلفة مبيعات وردية {who}"),
             await _signed(company_id, ACC["fnb_inventory"], -net_cost, f"إخراج بضاعة مباعة — وردية {who}"),
         ]
     summary = {"expected_cash": expected, "cash_difference": diff, "shortage_type": shortage_type,
@@ -414,7 +415,7 @@ async def close_shift(shift_id: str, data: CloseShiftRequest,
     Dr 413 مردودات + Dr 260 ضريبة المرتجعات
     Dr 3353 عجز مسموح | Dr 1313 عجز على الكاشير | Cr 4231 زيادة
     Cr 4121 إيرادات نقاط البيع          Cr 260 ضريبة المخرجات
-    وفي الجرد المستمر قيد التكلفة: Dr 314 / Cr 125
+    وفي الجرد المستمر قيد التكلفة: Dr 314 (347 مع باقة المطاعم) / Cr 125
     """
     company_id = current_user["company_id"]
     shift = await db.pos_shifts.find_one({"id": shift_id, "company_id": company_id}, {"_id": 0})
@@ -486,12 +487,9 @@ class CardSettlementRequest(BaseModel):
 @router.post("/card-settlements")
 async def settle_cards(req: CardSettlementRequest, current_user: dict = Depends(get_current_user)):
     """وصول مبالغ البطاقات للبنك بعد خصم العمولة:
-    Dr 162 البنك (الصافي) + Dr 334 عمولة بنكية / Cr 166|167 تسويات البطاقات المعلقة"""
+    Dr 162 البنك (الصافي) + Dr 334 عمولة بنكية (3472 مع باقة التجزئة) / Cr 166|167 تسويات البطاقات المعلقة"""
     company_id = current_user["company_id"]
-    transit = None
-    for c in CARD_IN_TRANSIT:
-        if await db.chart_of_accounts.find_one({"company_id": company_id, "account_code": c}, {"_id": 1}):
-            transit = c; break
+    transit = (await PA.optional(db, company_id, "card_in_transit") or {}).get("account_code")
     if not transit:
         raise HTTPException(400, "لا يوجد حساب تسويات بطاقات معلقة (167 أو 166) — فعّل باقة التجزئة أو المطاعم. "
                                  "بدونها تُقيَّد مبيعات البطاقات على البنك 162 مباشرة عند إقفال الوردية ولا تحتاج تسوية.")
@@ -503,7 +501,9 @@ async def settle_cards(req: CardSettlementRequest, current_user: dict = Depends(
     sid = str(uuid.uuid4())
     lines = [
         await P.je_line(db, company_id, req.bank_account, debit=net, desc=f"تحصيل تسوية بطاقات {req.reference or ''}"),
-        await P.je_line(db, company_id, ACC["bank_charges"], debit=req.commission, desc="عمولة ماكينات الدفع"),
+        # retail pack: 3472 عمولات شبكات الدفع; otherwise 334
+        await P.je_line(db, company_id, await PA.pick_code(db, company_id, "card_network_fee"),
+                        debit=req.commission, desc="عمولة ماكينات الدفع"),
         await P.je_line(db, company_id, transit, credit=req.gross_amount, desc="إقفال تسويات بطاقات معلقة"),
     ]
     je_id = await P.post_je(db, company_id, current_user["user_id"], req.date, "تسوية مبيعات البطاقات",
@@ -550,7 +550,7 @@ async def record_spoilage(req: SpoilageRequest,
                           current_user: dict = Depends(get_current_user)):
     """
     تسجيل تالف وهدر المواد
-    Dr م/33610 مصروف تالف وهدر
+    Dr م/33610 مصروف تالف وهدر (33612 مع باقة المطاعم)
     Cr م/125 (أو حساب المخزون المختار) — وفي الجرد الدوري Cr م/311 لأن المشتريات حُمِّلت عليه
     """
     company_id = current_user["company_id"]
@@ -578,7 +578,9 @@ async def record_spoilage(req: SpoilageRequest,
     total_cost = P.r2(sum(i["total_cost"] for i in item_details))
     if total_cost <= 0:
         raise HTTPException(400, "يجب إدخال بنود بتكلفة موجبة")
-    lines = [await P.je_line(db, company_id, ACC["waste_exp"], debit=total_cost,
+    # restaurants pack: 33612 هالك وفاقد المطبخ; otherwise 33610
+    waste_acc = await PA.pick_code(db, company_id, "pos_waste")
+    lines = [await P.je_line(db, company_id, waste_acc, debit=total_cost,
                              desc=f"تالف وهدر مواد — {len(req.items)} صنف — {req.date}")] + credit_lines
     je_id = await P.post_je(db, company_id, current_user["user_id"], req.date,
                             f"تالف وهدر مواد — {req.date}", lines, "spoilage", spoilage_id)
@@ -598,7 +600,7 @@ async def record_spoilage(req: SpoilageRequest,
     return {
         "message": f"تم تسجيل تالف {len(req.items)} صنف — إجمالي {total_cost:,.2f} ج.م",
         "record": record,
-        "journal": {"id": je_id, "debit": f"م/{ACC['waste_exp']} مصروف تالف وهدر  {total_cost:,.2f}",
+        "journal": {"id": je_id, "debit": f"م/{waste_acc} مصروف تالف وهدر  {total_cost:,.2f}",
                     "credit": f"م/{inv_acc}  {total_cost:,.2f}", "balanced": True},
     }
 

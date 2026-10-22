@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from database import db
 from dependencies import get_current_user
 from services import ops_posting as P
+from services import pack_accounts as PA
 
 router = APIRouter(prefix="/api/inventory-engine", tags=["Inventory Engine"])
 
@@ -48,9 +49,15 @@ ACC = {
 }
 # credit side of a landed cost: owed (251), paid (161/162), or already booked
 # as an expense and now capitalised (3372 freight, 3373 insurance, 3374 customs, 3375 clearance)
-LANDED_CREDIT_OK = {"251", "161", "162", "3372", "3373", "3374", "3375"}
+# import pack: 3376 أرضيات وموانئ, 3377 فحص ورقابة, 3378 نقل داخلي — reclassified like 3372-3375
+LANDED_CREDIT_OK = {"251", "161", "162", "3372", "3373", "3374", "3375"} | {
+    c for r in ("import_demurrage", "import_inspection", "import_inland_haulage") for c in PA.codes(r)}
 LANDED_DEFAULT_CREDIT = {"freight": "251", "insurance": "251", "customs": "3374", "clearance": "3375", "other": "251"}
-LANDED_LABEL = {"freight": "شحن", "insurance": "تأمين", "customs": "جمارك", "clearance": "تخليص", "other": "أخرى"}
+# import-pack cost types: the pack expense account when the company has it, else owed (251)
+LANDED_PACK_ROLE = {"demurrage": "import_demurrage", "inspection": "import_inspection",
+                    "inland_haulage": "import_inland_haulage"}
+LANDED_LABEL = {"freight": "شحن", "insurance": "تأمين", "customs": "جمارك", "clearance": "تخليص", "other": "أخرى",
+                "demurrage": "أرضيات وموانئ", "inspection": "فحص ورقابة", "inland_haulage": "نقل داخلي"}
 
 
 async def _is_perpetual(company_id: str) -> bool:
@@ -199,7 +206,8 @@ async def _consume_fifo(company_id, product_id, warehouse_id, qty_needed, dry_ru
 # ══════════════════════════════════════════════════════════════
 
 class LandedCostItem(BaseModel):
-    type:           Literal["freight", "insurance", "customs", "clearance", "other"] = "other"
+    type:           Literal["freight", "insurance", "customs", "clearance", "other",
+                            "demurrage", "inspection", "inland_haulage"] = "other"
     amount:         float = Field(gt=0)
     description:    Optional[str] = None
     credit_account: Optional[str] = None
@@ -270,7 +278,13 @@ async def apply_landed_costs(req: LandedCostRequest, current_user: dict = Depend
 
     credit_lines = []
     for c in req.costs:
-        acc = c.credit_account or LANDED_DEFAULT_CREDIT[c.type]
+        acc = c.credit_account or LANDED_DEFAULT_CREDIT.get(c.type)
+        if not acc:
+            # an import-pack type: reclassify from its pack expense account when
+            # the company has it (like customs → 3374); otherwise it is owed (251)
+            pack = await PA.optional(db, company_id, LANDED_PACK_ROLE[c.type])
+            own = PA.codes(LANDED_PACK_ROLE[c.type])[0]
+            acc = own if pack and pack["account_code"] == own else "251"
         # the credit account came from a fixed map keyed on a free "type"; now
         # a caller can choose, but only among accounts that make sense here
         if acc not in LANDED_CREDIT_OK:
@@ -373,12 +387,16 @@ async def reconcile_inventory(req: ReconciliationRequest, current_user: dict = D
       عجز ضمن النسبة المسموحة:  Dr 3365 خسائر عهد ومفقودات / Cr 125
       عجز يتجاوز النسبة:         Dr 1314 (أو 1313) مطالبة على المسؤول / Cr 125
       زيادة:                     Dr 125 / Cr 423 إيرادات متنوعة
+      (مع باقة التجزئة: العجز المسموح والزيادة على 3471 عجز وزيادة جرد الفروع)
     (في الجرد الدوري يكون الطرف المخزني 311)
     """
     company_id = current_user["company_id"]
     await _wh(company_id, req.warehouse_id)
     stock_acc = await P.stock_account(db, company_id, "goods")
     denied_acc = (await P.first_account(db, company_id, ACC["shortage_denied"]))["account_code"]
+    # retail pack: both sides of a count difference go to 3471 عجز وزيادة جرد الفروع
+    allowed_acc = await PA.pick_code(db, company_id, "stock_count_shortage")
+    surplus_acc = await PA.pick_code(db, company_id, "stock_count_surplus")
     je_lines, detail = [], []
     tot = {"allowed": 0.0, "denied": 0.0, "surplus": 0.0}
     seen = set()
@@ -399,14 +417,14 @@ async def reconcile_inventory(req: ReconciliationRequest, current_user: dict = D
         pname = product.get("name", line.product_id)
         if diff < 0:
             kind = "allowed" if abs(diff) <= max(system_qty, 0) * req.shortage_tolerance else "denied"
-            acc = ACC["shortage_allowed"] if kind == "allowed" else denied_acc
+            acc = allowed_acc if kind == "allowed" else denied_acc
             je_lines.append(await P.je_line(db, company_id, acc, debit=value,
                                             desc=f"عجز {'مسموح' if kind == 'allowed' else 'غير مسموح'} — {pname} ({abs(diff):g} وحدة)"))
             je_lines.append(await P.je_line(db, company_id, stock_acc, credit=value, desc=f"تسوية جرد — {pname}"))
         else:
             kind = "surplus"
             je_lines.append(await P.je_line(db, company_id, stock_acc, debit=value, desc=f"فائض جرد — {pname} ({diff:g} وحدة)"))
-            je_lines.append(await P.je_line(db, company_id, ACC["surplus"], credit=value, desc=f"إيراد زيادة مخزون — {pname}"))
+            je_lines.append(await P.je_line(db, company_id, surplus_acc, credit=value, desc=f"إيراد زيادة مخزون — {pname}"))
         tot[kind] += value
         detail.append({"product_id": line.product_id, "product_name": pname, "system_qty": system_qty,
                        "counted_qty": line.counted_qty, "difference": diff, "unit_cost": unit_cost,

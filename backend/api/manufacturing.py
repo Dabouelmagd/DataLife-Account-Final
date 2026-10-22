@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from database import db
 from dependencies import get_current_user
 from services import ops_posting as P
+from services import pack_accounts as PA
 
 router = APIRouter(prefix="/api/manufacturing", tags=["Manufacturing & Accruals"])
 
@@ -501,6 +502,17 @@ class OverheadVarianceRequest(BaseModel):
     actual_foh: float = Field(ge=0)
     applied_foh: Optional[float] = Field(None, ge=0)   # فارغ = مجموع المحمّل على أوامر الفترة
     date: Optional[str] = None
+    # parts of actual_foh that were booked to the manufacturing-pack accounts
+    # (325 قوى محركة, 326 صيانة خطوط الإنتاج, 327 أمن وسلامة وجودة) — closed
+    # from there instead of 313. Zero (the default) leaves everything on 313.
+    actual_utilities:  float = Field(0, ge=0)
+    actual_maintenance: float = Field(0, ge=0)
+    actual_safety:     float = Field(0, ge=0)
+
+
+FOH_PACK_PARTS = (("actual_utilities", "foh_utilities", "قوى محركة"),
+                  ("actual_maintenance", "foh_maintenance", "صيانة خطوط الإنتاج"),
+                  ("actual_safety", "foh_safety", "أمن وسلامة وجودة صناعية"))
 
 
 @router.post("/overhead-variance")
@@ -509,6 +521,7 @@ async def record_overhead_variance(data: OverheadVarianceRequest,
     """
     تسوية فروق التحميل في نهاية الشهر — يُقفل 3181 (المحمّل) مقابل 313 (الفعلي)
     والفرق إلى 3182: مدين = نقص تحميل (خسارة)، دائن = زيادة تحميل.
+    مع باقة التصنيع: ما سُجل من الفعلي على 325/326/327 يُقفل منها (actual_utilities…).
     """
     company_id = current_user["company_id"]
     period = data.period
@@ -522,6 +535,11 @@ async def record_overhead_variance(data: OverheadVarianceRequest,
     applied_foh, actual_foh = P.r2(applied_foh), P.r2(data.actual_foh)
     date_str = data.date or date.today().isoformat()
 
+    pack_parts = [(P.r2(getattr(data, f)), role, label) for f, role, label in FOH_PACK_PARTS]
+    in_pack = P.r2(sum(a for a, _, _ in pack_parts))
+    if in_pack > actual_foh + 0.005:
+        raise HTTPException(400, f"تفصيل التكاليف الفعلية ({in_pack:,.2f}) أكبر من إجماليها ({actual_foh:,.2f})")
+
     variance = P.r2(applied_foh - actual_foh)
     abs_var = abs(variance)
     is_over = variance > 0  # over-absorbed = applied > actual
@@ -533,7 +551,13 @@ async def record_overhead_variance(data: OverheadVarianceRequest,
     # DEBIT balance, so it is closed by a CREDIT.
     lines = [
         await je_line(company_id, ACC["foh_applied"], debit=applied_foh, desc=f"إغلاق التكاليف المحملة — {period}"),
-        await je_line(company_id, ACC["foh_exp"], credit=actual_foh, desc=f"إغلاق التكاليف الصناعية الفعلية — {period}"),
+        await je_line(company_id, ACC["foh_exp"], credit=P.r2(actual_foh - in_pack),
+                      desc=f"إغلاق التكاليف الصناعية الفعلية — {period}"),
+    ] + [
+        await je_line(company_id, await PA.pick_code(db, company_id, role), credit=amt,
+                      desc=f"إغلاق {label} الفعلية — {period}")
+        for amt, role, label in pack_parts if amt > 0
+    ] + [
         await je_line(company_id, ACC["foh_variance"],
                       credit=abs_var if is_over else 0.0, debit=0.0 if is_over else abs_var,
                       desc=(f"ربح انحراف تحميل (زيادة تحميل) — {period}" if is_over
@@ -603,6 +627,13 @@ async def create_prepayment(req: PrepaymentRequest,
     company_id = current_user["company_id"]
     prepay_id  = str(uuid.uuid4())
     total      = P.r2(req.total_amount)
+    deferred_acc = ACC["deferred_rev"]
+    if req.prepayment_type == "revenue":
+        # education pack: 247 رسوم دراسية محصلة مقدماً, earned into 429 (logistics:
+        # 428) unless the user named the revenue account; otherwise 257 / 412
+        deferred_acc = await PA.pick_code(db, company_id, "deferred_revenue")
+        if "revenue_account" not in req.model_fields_set:
+            req.revenue_account = await PA.pick_code(db, company_id, "deferred_revenue_income")
 
     # The three account codes came from the body unchecked: a revenue code as
     # the "payment account" or a bank as the "expense account" posted happily.
@@ -640,7 +671,7 @@ async def create_prepayment(req: PrepaymentRequest,
         init_lines = await asyncio.gather(
             je_line(company_id, req.payment_account, debit=total,
                     desc=f"تحصيل اشتراك/إيراد مقدم — {req.description}"),
-            je_line(company_id, ACC["deferred_rev"], credit=total,
+            je_line(company_id, deferred_acc, credit=total,
                     desc=f"إيراد محصل مقدماً — {req.description}"),
         )
         init_desc = f"إيراد مؤجل — {req.description}"
@@ -676,6 +707,7 @@ async def create_prepayment(req: PrepaymentRequest,
         "start_date": req.start_date, "end_date": req.end_date,
         "expense_account": req.expense_account,
         "revenue_account": req.revenue_account,
+        "deferred_account": deferred_acc,
         "schedule": schedule,
         "initial_je_id": je_init_id,
         "status": "active",
@@ -740,7 +772,7 @@ async def run_monthly_accruals(data: dict,
             else:
                 rev_acc = prepay.get("revenue_account", ACC["service_rev"])
                 lines = await asyncio.gather(
-                    je_line(company_id, ACC["deferred_rev"], debit=amount,
+                    je_line(company_id, prepay.get("deferred_account") or ACC["deferred_rev"], debit=amount,
                             desc=f"استحقاق إيراد — {desc_base} — {period}"),
                     je_line(company_id, rev_acc, credit=amount,
                             desc=f"إيراد خدمة محقق — {desc_base}"),

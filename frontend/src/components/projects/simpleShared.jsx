@@ -43,9 +43,17 @@ export const SIMPLE_EXPENSE_KINDS = [
   { id: 'other',         ar: 'أخرى',            en: 'Other' },
 ];
 
+// shown only when the company has the sector pack (money-options lists them then)
+export const PACK_EXPENSE_KINDS = [
+  { id: 'quality_testing', ar: 'اختبارات جودة ومعامل', en: 'Quality testing' },
+  { id: 'site_permits',    ar: 'تراخيص وتأمين الموقع', en: 'Site permits' },
+  { id: 'consultants',     ar: 'أتعاب استشاريين',      en: 'Consultants' },
+];
+
 // labels for every category an older or detailed form may have stored
 export const CATEGORY_LABELS = {
   materials: 'خامات ومواد', labor: 'عمالة', subcontractor: 'مقاول باطن', equipment: 'معدات', other: 'أخرى',
+  quality_testing: 'اختبارات جودة ومعامل', site_permits: 'تراخيص وتأمين الموقع', consultants: 'أتعاب استشاريين',
   salaries: 'رواتب', software: 'برمجيات واشتراكات', marketing: 'دعاية وإعلان', rent: 'إيجار',
   utilities: 'كهرباء ومياه', transport: 'نقل ومواصلات', administrative: 'مصاريف إدارية',
   payment: 'دفعة من العميل', advance: 'دفعة مقدمة', milestone: 'دفعة مستخلص', final: 'دفعة ختامية',
