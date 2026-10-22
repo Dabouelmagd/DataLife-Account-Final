@@ -1004,71 +1004,33 @@ Employee statuses:
     items: [
       {
         q: ar ? 'ما هي الخطط المتاحة وأسعارها؟' : 'What plans are available and their prices?',
-        a: ar ? `3 خطط تناسب كل شركة:
+        a: ar ? `3 باقات أساسية:
 
-🔵 المبتدئ — 299 ج.م / شهر (أو 2,390 سنوياً)
-   • 1-10 موظفين
-   • HR أساسي + محاسبة كاملة + فواتير + مخزون
-   • 108 حساب وفق الدليل المصري المعياري
-   • دعم بريد إلكتروني + 5 جيجا تخزين
+🔹 المبتدئ — 449 ج.م / شهر (3 شهور 1,212 · سنة 3,592)
+• حتى 10 موظفين | الحسابات والقوائم المالية | الفواتير والفاتورة الإلكترونية | المبيعات والمشتريات والمخزون | الموارد البشرية والرواتب والحضور
 
-⭐ المحترف — 799 ج.م / شهر (أو 6,392 سنوياً)
-   • 11-100 موظف
-   • كل مميزات المبتدئ +
-   • كشف مرتبات تلقائي (قانون 148/2019 + 91/2005)
-   • حضور GPS مع جيوفنسينج
-   • قسيمة راتب PDF بالإيميل
-   • صرف مرتبات: بنك / InstaPay / Vodafone / نقدي
-   • تقرير تحويلات بنكية CSV
-   • الفاتورة الإلكترونية ETA
-   • المبيعات CRM + مشتريات + مخزون متقدم
-   • بنوك وتسويات بنكية + VAT
-   • أصول ثابتة وإهلاك
-   • دعم أولوية + 25 جيجا تخزين
+🔹 المحترف — 1,099 ج.م / شهر (3 شهور 2,967 · سنة 8,792)
+• من 11 لـ 100 موظف | كل المبتدئ + الأصول الثابتة، الشيكات والتسوية البنكية، العهد، الموافقات، المشاريع، نقاط البيع، المخزون المتقدم، تقييم الأداء والتوظيف، التحليلات والموازنة، الحضور بالموقع GPS
 
-👑 المؤسسي — 1,499 ج.م / شهر (أو 11,992 سنوياً)
-   • موظفون غير محدودون
-   • كل مميزات المحترف +
-   • المشاريع والمقاولات (معيار 8)
-   • مستخلصات وجداول كميات BOQ
-   • قطاع طبي — أتعاب أطباء
-   • مراكز التكلفة + فروع متعددة
-   • مدير حساب مخصص + تدريب
-   • دعم هاتفي 24/7 + SLA مضمون
+🔹 المؤسسي — 1,999 ج.م / شهر (3 شهور 5,397 · سنة 15,992)
+• موظفين بلا حد | كل المحترف + العملات الأجنبية وإعادة التقييم، دمج الشركات، الاعتمادات المستندية، الضريبة المؤجلة، كشف الاحتيال، المتجر الإلكتروني، العقارات، التصنيع
 
-💡 خصم 20% عند الدفع السنوي` : `3 plans for every business:
+باقات بموديول واحد: الموارد البشرية 249 · المالية 299 · المخزون 229 ج.م / شهر.
+المجالات المتخصصة (مقاولات، مطاعم، طبي، تجزئة…) بتتضاف على أي باقة وبتفتح أدواتها.
+كل الأسعار شاملة ضريبة القيمة المضافة. السنة بسعر 8 شهور.` : `3 main plans:
 
-🔵 Starter — 299 EGP/month (or 2,390/year)
-   • 1-10 employees
-   • Basic HR + full accounting + invoices + inventory
-   • 108 accounts (Egyptian standard)
-   • Email support + 5 GB storage
+🔹 Starter — 449 EGP / month (3 months 1,212 · year 3,592)
+• Up to 10 employees | Accounting & statements | Invoices & e-invoice | Sales, purchases, inventory | HR, payroll, attendance
 
-⭐ Professional — 799 EGP/month (or 6,392/year)
-   • 11-100 employees
-   • All Starter features +
-   • Auto payroll (Law 148/2019 + 91/2005)
-   • GPS attendance with geofencing
-   • PDF payslip by email
-   • Salary disbursement: Bank / InstaPay / Vodafone / Cash
-   • Bank transfer CSV report
-   • E-Invoice ETA
-   • Sales CRM + purchases + advanced inventory
-   • Banking & reconciliation + VAT
-   • Fixed assets & depreciation
-   • Priority support + 25 GB storage
+🔹 Professional — 1,099 EGP / month (3 months 2,967 · year 8,792)
+• 11–100 employees | Starter + fixed assets, cheques & bank reconciliation, petty cash, approvals, projects, POS, advanced inventory, appraisals & recruitment, analytics & budget, GPS attendance
 
-👑 Enterprise — 1,499 EGP/month (or 11,992/year)
-   • Unlimited employees
-   • All Professional features +
-   • Projects & contracting (Standard 8)
-   • Progress claims + BOQ
-   • Medical sector — doctor fees
-   • Cost centers + multi-branch
-   • Dedicated account manager + training
-   • Phone support 24/7 + guaranteed SLA
+🔹 Enterprise — 1,999 EGP / month (3 months 5,397 · year 15,992)
+• Unlimited employees | Professional + FX revaluation, consolidation, letters of credit, deferred tax, fraud detection, online store, real estate, manufacturing
 
-💡 20% discount on annual billing`
+Single-module plans: HR 249 · Finance 299 · Inventory 229 EGP / month.
+Sector packs (construction, restaurants, medical, retail…) add on to any plan and open their tools.
+All prices include VAT. A year costs 8 months.`
       },
       {
         q: ar ? 'كيف أدفع وما هي طرق الدفع؟' : 'How to pay and what are payment methods?',

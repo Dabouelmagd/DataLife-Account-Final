@@ -41,7 +41,7 @@ export default function LandingPage() {
   const features = [
     { icon: '🧾', title: ar ? 'فاتورة إلكترونية ETA' : 'ETA E-Invoice', desc: ar ? 'B2B وB2C · CAdES-BES · TLV QR · نماذج 10 و41 تلقائياً' : 'B2B & B2C · CAdES-BES · TLV QR · Forms 10 & 41 auto', tags: ['ETA API', 'CAdES-BES'], color: 'from-amber-500 to-orange-500' },
     { icon: '👥', title: ar ? 'رواتب الشهر — قانون 148/2019' : 'Payroll — Law 148/2019', desc: ar ? '7 شرائح ضريبية + تأمينات 11%+18.75% + نهاية خدمة + سُلف + قيد تلقائي' : '7 tax brackets + 11%+18.75% insurance + end of service + loans + auto entry', tags: [ar?'7 شرائح':'7 Brackets', ar?'تأمين اجتماعي':'Social Insurance'], color: 'from-teal-500 to-teal-600' },
-    { icon: '👤', title: ar ? 'بوابة الموظف ESS' : 'Employee Self-Service ESS', desc: ar ? 'الموظف يرى بياناته فقط: راتب + بدلات + إجازات + حضور GPS. عزل كامل.' : 'Employee sees own data only: salary + leaves + GPS attendance. Full isolation.', tags: ['GPS', ar?'قسيمة PDF':'PDF Payslip', ar?'عزل تام':'Isolated'], color: 'from-purple-600 to-violet-500', isNew: true },
+    { icon: '👤', title: ar ? 'بوابة الموظف ESS' : 'Employee Self-Service ESS', desc: ar ? 'الموظف يرى بياناته فقط: راتب + بدلات + إجازات + حضور GPS. المرتب بيظهر مخفي ومعاه زرار إظهار / إخفاء، والشركة تقدر تقفله خالص.' : 'Employee sees own data only: salary + leaves + GPS attendance. Salary starts hidden with a Show / Hide button, and the company can turn it off entirely.', tags: ['GPS', ar?'قسيمة PDF':'PDF Payslip', ar?'عزل تام':'Isolated'], color: 'from-purple-600 to-violet-500', isNew: true },
     { icon: '🔐', title: ar ? 'صلاحيات متدرجة' : 'Role-Based Permissions', desc: ar ? 'كل مستخدم يرى ما يخصه فقط. منح/سحب فوري. الموظف معزول في ESS.' : 'Each user sees only their data. Grant/revoke instantly. Employee isolated in ESS.', tags: ['Role-Based', 'HR Manager'], color: 'from-green-600 to-emerald-500' },
     { icon: '🤖', title: ar ? 'مساعد AI محاسبي' : 'AI Accounting Assistant', desc: ar ? 'مساعد ذكاء اصطناعي (Claude) — يجيب عن أسئلة البرنامج والمحاسبة والضرائب المصرية، والرد يظهر أثناء كتابته' : 'AI assistant (Claude) — answers product, Egyptian accounting & tax questions, streamed as it writes', tags: ['Claude AI', 'SSE Streaming'], color: 'from-indigo-600 to-purple-500' },
     { icon: '🔍', title: ar ? 'كشف الاحتيال Benford' : "Fraud Detection — Benford's Law", desc: ar ? 'تحليل χ² للأرقام المحاسبية. ينبه عند اكتشاف تلاعب في البيانات.' : 'χ² analysis of accounting numbers. Alerts on detected manipulation.', tags: ["Benford χ²", ar?'تنبيه':'Alert'], color: 'from-red-600 to-rose-500' },
@@ -56,30 +56,33 @@ export default function LandingPage() {
     { icon: '💾', title: ar ? 'نسخ احتياطي وتصدير بياناتك' : 'Backups & your data export', desc: ar ? 'نسخة احتياطية يومية مشفّرة خارج السيرفر، وتقدر تصدّر كل بيانات شركتك في أي وقت.' : 'Daily encrypted off-site backup, and export all your company data any time.', tags: [ar?'يومي':'Daily', ar?'تصدير':'Export'], color: 'from-slate-600 to-slate-500', isNew: true },
     { icon: '↩️', title: ar ? 'المرتجعات والإشعارات الدائنة' : 'Returns & credit notes', desc: ar ? 'المرتجع يرجع للمخزن أو الحجر أو الإعدام، والإشعار الدائن مربوط بالفاتورة الأصلية في الفاتورة الإلكترونية.' : 'Returns go back to stock, quarantine or scrap; the credit note is linked to the original e-invoice.', tags: ['RMA', 'ETA'], color: 'from-cyan-700 to-sky-600', isNew: true },
     { icon: '🧑‍💼', title: ar ? 'التوظيف والمقابلات' : 'Recruitment & interviews', desc: ar ? 'دليل للمقابلة والاختبار النفسي والقدرات والخبرة، وتحويل المرشح المقبول لموظف.' : 'A guide for interviews, psychological, aptitude and experience tests; hire the accepted candidate.', tags: [ar?'اختبارات':'Tests'], color: 'from-lime-600 to-green-500', isNew: true },
+    { icon: '🧩', title: ar ? 'حسابات مجالك بتتقيد لوحدها' : 'Your sector accounts post automatically', desc: ar ? 'لما تضيف باقة مجالك، حساباتها بتدخل في القيود التلقائية: عجز وزيادة جرد الفروع، عمولات شبكات الدفع، تكلفة الأغذية والهالك، إيرادات التصدير، أتعاب المكاتب المهنية، مقاولي الباطن' : 'Add your sector pack and its accounts drive the automatic entries: branch stock variance, card fees, food cost and waste, export revenue, professional fees, subcontractors', tags: [ar?'قيود تلقائية':'Auto entries', ar?'12 مجال':'12 sectors'], color: 'from-fuchsia-600 to-pink-500', isNew: true },
+    { icon: '🛵', title: ar ? 'منصات التوصيل للمطاعم' : 'Delivery platforms for restaurants', desc: ar ? 'البيع عن طريق طلبات ومرسول وغيرهم من الكاشير، وكل منصة عليها كام، والتسوية بعد خصم عمولتها بقيد واحد' : 'Sell through delivery apps at the till, see what each platform owes, and settle net of its commission in one entry', tags: [ar?'مطاعم':'Restaurants', ar?'تسوية':'Settlement'], color: 'from-orange-500 to-red-500', isNew: true },
+    { icon: '🏁', title: ar ? 'أعمال منجزة، هوالك، ووحدات تامة' : 'Unbilled work, scrap & finished units', desc: ar ? 'إثبات الأعمال المنجزة اللي لسه ما اتفوترتش وتتقفل لوحدها مع المستخلص، تسجيل الهالك وبيع الهوالك، تحويل الوحدات العقارية التامة ووديعة الصيانة، وأتعاب الأطباء أمانة أو مصروف' : 'Record work done not yet billed (cleared automatically on the claim), log and sell scrap, transfer finished property units with maintenance deposits, and book doctor fees as trust or expense', tags: [ar?'مقاولات':'Construction', ar?'تصنيع':'Manufacturing', ar?'عقارات':'Real estate'], color: 'from-lime-600 to-green-600', isNew: true },
     { icon: '📥', title: ar ? 'استيراد Excel ذكي' : 'Smart Excel Import', desc: ar ? 'أرصدة افتتاحية + موظفين + عملاء وموردين + مخزون. الملف يُفحص كله قبل التسجيل ويُرفض بأخطائه، مع تحقق المدين = الدائن.' : 'Opening balances + employees + customers & suppliers + stock. The whole file is checked before anything is saved; rejected with its errors; Dr = Cr verified.', tags: [ar?'فحص قبل التسجيل':'Checked before saving', 'Dr=Cr'], color: 'from-teal-600 to-cyan-500' },
   ];
 
   const verticals = [
     { id: 'co', icon: '🏗️', label: ar ? 'مقاولات' : 'Contracting', price: 399,
       items: ar
-        ? ['مستخلصات الملاك مع خصم تأمين 5%','مقاولو الباطن + خصم وتحصيل وقيمة مضافة','خطابات ضمان LGs مع متابعة تاريخ الانتهاء','ربحية فعلي vs BOQ','استرداد الدفعات المقدمة']
-        : ['Owner claims with 5% retention','Subcontractors + WHT and VAT','LGs with expiry tracking','Actual vs BOQ profitability','Advance recovery'] },
+        ? ['مستخلصات الملاك مع خصم تأمين 5%','مقاولو الباطن + خصم وتحصيل وقيمة مضافة','خطابات ضمان LGs مع متابعة تاريخ الانتهاء','ربحية فعلي vs BOQ','استرداد الدفعات المقدمة', 'أعمال منجزة لم تُفوتر — بتتقفل مع المستخلص']
+        : ['Owner claims with 5% retention','Subcontractors + WHT and VAT','LGs with expiry tracking','Actual vs BOQ profitability','Advance recovery', 'Unbilled work — cleared on the claim'] },
     { id: 'med', icon: '🏥', label: ar ? 'طبي' : 'Medical', price: 349,
       items: ar
-        ? ['تقسيم إيراد العيادة: نسبة المستشفى / أمانة طبيب','خصم مهن حرة 5% تلقائياً','مطالبات التأمين مع تتبع الرفض','ESS: أطباء وممرضون يتابعون بدلاتهم']
-        : ['Clinic revenue split: hospital % / doctor trust','5% liberal profession deduction auto','Insurance claims with rejection tracking','ESS: doctors track their allowances'] },
+        ? ['تقسيم إيراد العيادة: نسبة المستشفى / أتعاب الطبيب أمانة أو مصروف','خصم مهن حرة 5% تلقائياً','مطالبات التأمين مع تتبع الرفض','ESS: أطباء وممرضون يتابعون بدلاتهم']
+        : ['Clinic revenue split: hospital % / doctor fee as trust or expense','5% liberal profession deduction auto','Insurance claims with rejection tracking','ESS: doctors track their allowances'] },
     { id: 'mfg', icon: '🏭', label: ar ? 'تصنيع' : 'Manufacturing', price: 599,
       items: ar
-        ? ['خامات → WIP → منتج تام مع Landed Cost','فارق التكلفة: فعلي vs تقديري','معدل الهدر Scrap Rate%','ESS: ورديات عمال الإنتاج GPS']
-        : ['Raw → WIP → finished with Landed Cost','Cost variance: actual vs estimated','Scrap Rate%','ESS: production workers GPS shifts'] },
+        ? ['خامات → WIP → منتج تام مع Landed Cost','فارق التكلفة: فعلي vs تقديري','معدل الهدر Scrap Rate%','ESS: ورديات عمال الإنتاج GPS', 'تسجيل الهالك من أمر الإنتاج وبيع الهوالك']
+        : ['Raw → WIP → finished with Landed Cost','Cost variance: actual vs estimated','Scrap Rate%','ESS: production workers GPS shifts', 'Log scrap per order and sell it'] },
     { id: 'trd', icon: '🛒', label: ar ? 'تجاري' : 'Trading', price: 349,
       items: ar
-        ? ['اعتماد مستندي LC — 4 مراحل مع Landed Cost','جمارك ACI/ACID تلقائياً','مخزون FIFO / AVCO / LIFO','ESS: مندوبي المبيعات يتابعون عمولاتهم']
-        : ['LC documentary credit — 4 stages with Landed Cost','ACI/ACID customs auto','FIFO / AVCO / LIFO inventory','ESS: sales reps track commissions'] },
+        ? ['اعتماد مستندي LC — 4 مراحل مع Landed Cost','جمارك ACI/ACID تلقائياً','مخزون FIFO / AVCO / LIFO','ESS: مندوبي المبيعات يتابعون عمولاتهم', 'أرضيات وفحص ونقل داخلي ضمن تكلفة الاستيراد']
+        : ['LC documentary credit — 4 stages with Landed Cost','ACI/ACID customs auto','FIFO / AVCO / LIFO inventory','ESS: sales reps track commissions', 'Demurrage, inspection and inland haulage in landed cost'] },
     { id: 're', icon: '🏠', label: ar ? 'عقاري' : 'Real Estate', price: 299,
       items: ar
-        ? ['إيراد مؤجل EAS 48 بنسبة الإنجاز','جدول تحصيل الأقساط مع تنبيه التأخر','ربحية كل مشروع/برج منفصلة','ESS: فريق المبيعات يتابع عمولاتهم']
-        : ['Deferred revenue EAS 48 by completion %','Installment schedule with delay alerts','Per-project/tower profitability','ESS: sales team tracks commissions'] },
+        ? ['إيراد مؤجل EAS 48 بنسبة الإنجاز','جدول تحصيل الأقساط مع تنبيه التأخر','ربحية كل مشروع/برج منفصلة','ESS: فريق المبيعات يتابع عمولاتهم', 'تحويل الوحدات التامة + وديعة الصيانة']
+        : ['Deferred revenue EAS 48 by completion %','Installment schedule with delay alerts','Per-project/tower profitability','ESS: sales team tracks commissions', 'Finished-unit transfer + maintenance deposit'] },
   ];
 
   // only what each product's own pages state (Oct 2026); «—» = not stated there

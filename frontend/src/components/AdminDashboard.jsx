@@ -206,9 +206,9 @@ const AdminDashboard = () => {
 
   // Subscription prices
   const PLAN_PRICES = {
-    starter: { monthly: 299, quarterly: 799, yearly: 2990, lifetime: 9990 },
-    professional: { monthly: 799, quarterly: 2199, yearly: 7990, lifetime: 24990 },
-    enterprise: { monthly: 1499, quarterly: 3999, yearly: 14990, lifetime: 50000 }
+    starter: { monthly: 449, quarterly: 1212, yearly: 3592, lifetime: 9990 },
+    professional: { monthly: 1099, quarterly: 2967, yearly: 8792, lifetime: 24990 },
+    enterprise: { monthly: 1999, quarterly: 5397, yearly: 15992, lifetime: 50000 }
   };
 
   const durationNames = {

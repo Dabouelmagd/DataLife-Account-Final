@@ -14,9 +14,9 @@ const API = process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com';
 
 const PLANS = [
   { id: 'trial',        name_ar: 'تجريبي',     name_en: 'Trial',        color: 'bg-gray-500',   icon: '🔍', days: 14,  price_ar: 'مجاني',    price_en: 'Free' },
-  { id: 'starter',      name_ar: 'مبتدئ',      name_en: 'Starter',      color: 'bg-blue-500',   icon: '🚀', days: 30,  price_ar: '299 ج.م',  price_en: '299 EGP' },
-  { id: 'professional', name_ar: 'محترف',      name_en: 'Professional', color: 'bg-purple-600', icon: '⭐', days: 30,  price_ar: '799 ج.م',  price_en: '799 EGP' },
-  { id: 'enterprise',   name_ar: 'مؤسسي',      name_en: 'Enterprise',   color: 'bg-amber-500',  icon: '👑', days: 30,  price_ar: '1,499 ج.م',price_en: '1,499 EGP' },
+  { id: 'starter',      name_ar: 'مبتدئ',      name_en: 'Starter',      color: 'bg-blue-500',   icon: '🚀', days: 30,  price_ar: '449 ج.م',  price_en: '449 EGP' },
+  { id: 'professional', name_ar: 'محترف',      name_en: 'Professional', color: 'bg-purple-600', icon: '⭐', days: 30,  price_ar: '1,099 ج.م',  price_en: '1,099 EGP' },
+  { id: 'enterprise',   name_ar: 'مؤسسي',      name_en: 'Enterprise',   color: 'bg-amber-500',  icon: '👑', days: 30,  price_ar: '1,999 ج.م',price_en: '1,999 EGP' },
   { id: 'lifetime',     name_ar: 'مدى الحياة', name_en: 'Lifetime',     color: 'bg-emerald-600',icon: '♾️', days: 9999,price_ar: 'مدى الحياة',price_en: 'Lifetime' },
 ];
 
@@ -81,9 +81,9 @@ export default function SubscriptionsPanel() {
   };
 
   const planRevenue = {
-    starter: subs.filter(s => s.plan === 'starter' && s.status === 'active').length * 299,
-    professional: subs.filter(s => s.plan === 'professional' && s.status === 'active').length * 799,
-    enterprise: subs.filter(s => s.plan === 'enterprise' && s.status === 'active').length * 1499,
+    starter: subs.filter(s => s.plan === 'starter' && s.status === 'active').length * 449,
+    professional: subs.filter(s => s.plan === 'professional' && s.status === 'active').length * 1099,
+    enterprise: subs.filter(s => s.plan === 'enterprise' && s.status === 'active').length * 1999,
   };
   const totalRevenue = Object.values(planRevenue).reduce((a, b) => a + b, 0);
 
