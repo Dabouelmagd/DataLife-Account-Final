@@ -70,7 +70,7 @@ export default function HRSettingsPage() {
       essSection: 'بوابة الموظف',
       essDesc: 'الموظف بيشوف إيه في بوابته (/my-portal)',
       essShowSalary: 'إظهار المرتب والقسائم للموظف في بوابته',
-      essShowSalaryHint: 'لو قفلتها، البوابة مش هتعرض المرتب ولا البدلات ولا الخصومات ولا قسائم المرتب — والسيرفر نفسه مش هيبعتها',
+      essShowSalaryHint: 'لو قفلتها، البوابة مش هتعرض المرتب ولا البدلات ولا الخصومات ولا قسائم المرتب — والسيرفر نفسه مش هيبعتها. لو سبتها مفتوحة، الموظف بيشوف المرتب مخفي وعنده زرار «إظهار / إخفاء» في صفحته',
       
       save: 'حفظ الإعدادات',
       saving: 'جاري الحفظ...',
@@ -136,7 +136,7 @@ export default function HRSettingsPage() {
       essSection: 'Employee Portal',
       essDesc: 'What employees see in their own portal (/my-portal)',
       essShowSalary: 'Show salary and payslips to the employee in their portal',
-      essShowSalaryHint: 'When off, the portal shows no salary, allowances, deductions or payslips — the server does not send them',
+      essShowSalaryHint: 'When off, the portal shows no salary, allowances, deductions or payslips — the server does not send them. When on, figures start hidden and the employee has a Show / Hide button',
       
       save: 'Save Settings',
       saving: 'Saving...',

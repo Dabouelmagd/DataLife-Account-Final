@@ -119,6 +119,16 @@ const EmployeeSelfService = () => {
   const isPreview = !!previewToken;
   const [loadError, setLoadError] = useState('');
   const [showSalary, setShowSalary] = useState(true);
+  // the employee's own «إظهار / إخفاء» for the figures on this device —
+  // hidden by default so a colleague looking at the phone doesn't see them
+  const [salaryVisible, setSalaryVisible] = useState(() => {
+    try { return window.localStorage.getItem('ess_salary_visible') === '1'; } catch { return false; }
+  });
+  const toggleSalaryVisible = () => setSalaryVisible(v => {
+    try { window.localStorage.setItem('ess_salary_visible', v ? '0' : '1'); } catch { /* private mode */ }
+    return !v;
+  });
+  const HIDDEN_FIG = '••••••';
 
   // Modal states
   const [leaveModal, setLeaveModal] = useState(false);
@@ -404,6 +414,8 @@ const EmployeeSelfService = () => {
   const totalAllowances = (emp.allowances || []).reduce((s, a) => s + (a.amount || 0), 0);
   const totalDeductions = (emp.deductions || []).reduce((s, d) => s + (d.amount || 0), 0);
   const netSalary = (emp.basic_salary || 0) + totalAllowances - totalDeductions;
+  const fig2 = (v) => salaryVisible ? Number(v || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 }) : HIDDEN_FIG;
+  const fig = (v) => salaryVisible ? Number(v || 0).toLocaleString('ar-EG') : HIDDEN_FIG;
 
   // ── TABS ──────────────────────────────────────────────────────
   const TABS = [
@@ -574,6 +586,15 @@ const EmployeeSelfService = () => {
         {/* ══ SALARY TAB ═════════════════════════════════════════ */}
         {activeTab === 'salary' && showSalary && (
           <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3 bg-white rounded-2xl border shadow-sm px-4 py-3">
+              <span className="text-sm text-gray-600">{salaryVisible ? 'الأرقام ظاهرة' : 'الأرقام مخفية — اضغط «إظهار» لعرضها'}</span>
+              <button type="button" onClick={toggleSalaryVisible} aria-pressed={salaryVisible}
+                data-testid="ess-salary-toggle"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors">
+                <Icon d={ICONS.eye} size={16} />
+                {salaryVisible ? 'إخفاء المرتب' : 'إظهار المرتب'}
+              </button>
+            </div>
             {latestSlip && (
               <div className="bg-white rounded-2xl border shadow-sm overflow-hidden" dir="rtl">
                 <div className="bg-emerald-50 border-b px-5 py-3 font-bold text-emerald-900 text-sm">
@@ -584,7 +605,7 @@ const EmployeeSelfService = () => {
                     {[['الراتب الأساسي', latestSlip.basic_salary], ['البدلات', latestSlip.allowances],
                       ...(latestSlip.overtime ? [['الإضافي', latestSlip.overtime]] : []),
                       ['إجمالي الاستحقاقات', latestSlip.gross_salary, true]].map(([l, v, b]) => (
-                      <div key={l} className={`flex justify-between ${b ? 'font-bold border-t pt-1.5' : ''}`}><dt>{l}</dt><dd className="tabular-nums">{Number(v || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}</dd></div>
+                      <div key={l} className={`flex justify-between ${b ? 'font-bold border-t pt-1.5' : ''}`}><dt>{l}</dt><dd className="tabular-nums">{fig2(v)}</dd></div>
                     ))}
                   </dl>
                   <dl className="space-y-1.5">
@@ -592,13 +613,13 @@ const EmployeeSelfService = () => {
                       ...(latestSlip.loan_deduction ? [['أقساط السلف', latestSlip.loan_deduction]] : []),
                       ...(latestSlip.other_deductions ? [['خصومات أخرى (غياب، تأخير، جزاءات)', latestSlip.other_deductions]] : []),
                       ['إجمالي الخصومات', latestSlip.total_deductions, true]].map(([l, v, b]) => (
-                      <div key={l} className={`flex justify-between ${b ? 'font-bold border-t pt-1.5' : ''}`}><dt>{l}</dt><dd className="tabular-nums text-red-700">{Number(v || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}</dd></div>
+                      <div key={l} className={`flex justify-between ${b ? 'font-bold border-t pt-1.5' : ''}`}><dt>{l}</dt><dd className="tabular-nums text-red-700">{fig2(v)}</dd></div>
                     ))}
                   </dl>
                 </div>
                 <div className="flex justify-between px-5 py-3 bg-gray-50 border-t font-extrabold">
                   <span>صافي الراتب</span>
-                  <span className="tabular-nums">{Number(latestSlip.net_salary || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}</span>
+                  <span className="tabular-nums">{fig2(latestSlip.net_salary)}</span>
                 </div>
               </div>
             )}
@@ -614,7 +635,7 @@ const EmployeeSelfService = () => {
                   border-${color}-100`}>
                   <div className={`text-xs font-bold text-${color}-600 mb-1`}>{label}</div>
                   <div className={`text-xl font-black text-${color}-700`}>
-                    {value.toLocaleString('ar-EG')}
+                    {fig(value)}
                     <span className="text-xs font-normal mr-1">ج.م</span>
                   </div>
                 </div>
@@ -631,7 +652,7 @@ const EmployeeSelfService = () => {
                   {emp.allowances.map((a, i) => (
                     <div key={i} className="flex justify-between items-center px-5 py-3 text-sm">
                       <span className="text-gray-700 font-semibold">{a.type || a.name || 'بدل'}</span>
-                      <span className="font-bold text-green-700">+{(a.amount || 0).toLocaleString('ar-EG')} ج.م</span>
+                      <span className="font-bold text-green-700">+{fig(a.amount)} ج.م</span>
                     </div>
                   ))}
                 </div>
@@ -648,7 +669,7 @@ const EmployeeSelfService = () => {
                   {emp.deductions.map((d, i) => (
                     <div key={i} className="flex justify-between items-center px-5 py-3 text-sm">
                       <span className="text-gray-700 font-semibold">{d.type || d.name || 'خصم'}</span>
-                      <span className="font-bold text-red-700">-{(d.amount || 0).toLocaleString('ar-EG')} ج.م</span>
+                      <span className="font-bold text-red-700">-{fig(d.amount)} ج.م</span>
                     </div>
                   ))}
                 </div>
@@ -667,11 +688,11 @@ const EmployeeSelfService = () => {
                   {payrollHistory.map((slip, i) => (
                     <div key={i} className="flex justify-between items-center px-5 py-3">
                       <div>
-                        <div className="text-sm font-bold text-gray-800">{slip.period_month || slip.period || `مسير ${i + 1}`}</div>
+                        <div className="text-sm font-bold text-gray-800">{slip.period_month || slip.period || `كشف ${i + 1}`}</div>
                         <div className="text-xs text-gray-400">{slip.payment_date || slip.created_at?.slice(0, 10)}</div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-blue-700">{(slip.net_salary || 0).toLocaleString('ar-EG')} ج.م</span>
+                        <span className="font-bold text-blue-700">{fig(slip.net_salary)} ج.م</span>
                         <button onClick={() => downloadPayslip(slip.run_id || slip.id)}
                           className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors">
                           <Icon d={ICONS.download} size={14} />

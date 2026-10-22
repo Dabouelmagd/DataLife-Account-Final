@@ -599,7 +599,7 @@ function RequestsTab() {
           </div>
           {form.request_type === 'erasure' && (
             <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs">
-              لا يحذف النظام شيئاً تلقائياً. القيود المحاسبية والفواتير ومسيرات الرواتب وسجلات التأمينات والضرائب تبقى طوال مدة الاحتفاظ القانونية حتى لو طلب صاحب البيانات حذفها، ويُنفَّذ المحو يدوياً على البيانات غير المطلوبة قانوناً فقط بعد رأي المستشار القانوني.
+              لا يحذف النظام شيئاً تلقائياً. القيود المحاسبية والفواتير ورواتب الشهور وسجلات التأمينات والضرائب تبقى طوال مدة الاحتفاظ القانونية حتى لو طلب صاحب البيانات حذفها، ويُنفَّذ المحو يدوياً على البيانات غير المطلوبة قانوناً فقط بعد رأي المستشار القانوني.
             </p>
           )}
           <div className="mt-3"><ErrorLine text={err} /></div>
@@ -673,7 +673,7 @@ function SubjectTab() {
             <dl className="grid grid-cols-3 gap-y-1 text-sm">
               {PD.map(([k, l]) => <React.Fragment key={k}><dt className="text-slate-500">{l}</dt><dd className="col-span-2">{['national_id', 'bank_iban', 'mobile', 'email', 'hire_date'].includes(k) ? <bdi dir="ltr">{pd[k] || '—'}</bdi> : (pd[k] || '—')}</dd></React.Fragment>)}
             </dl>
-            <p className="text-sm pt-2 border-t border-slate-200 dark:border-slate-700">سجلات مرتبطة: مسيرات رواتب <I v={rep.data_holdings?.payroll_records} /> — حضور <I v={rep.data_holdings?.attendance_records} /> — تقييمات <I v={rep.data_holdings?.appraisals} /></p>
+            <p className="text-sm pt-2 border-t border-slate-200 dark:border-slate-700">سجلات مرتبطة: رواتب شهور <I v={rep.data_holdings?.payroll_records} /> — حضور <I v={rep.data_holdings?.attendance_records} /> — تقييمات <I v={rep.data_holdings?.appraisals} /></p>
             <p className="text-xs text-slate-500">{rep.note}</p>
           </div>
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
@@ -719,7 +719,7 @@ function RetentionTab() {
       setFlag(null); load();
     } catch (e) { setErr(errText(e, 'تعذّر التعليم')); } finally { setBusy(false); }
   };
-  const LABEL = { journal_entries: 'القيود اليومية', invoices: 'الفواتير', payroll_runs: 'مسيرات الرواتب', tax_forms: 'النماذج الضريبية', eta_signing_records: 'سجلات الفاتورة الإلكترونية', letters_of_credit: 'الاعتمادات المستندية', audit_trail: 'سجل التدقيق', employees: 'ملفات العاملين', contracts: 'العقود' };
+  const LABEL = { journal_entries: 'القيود اليومية', invoices: 'الفواتير', payroll_runs: 'رواتب الشهور', tax_forms: 'النماذج الضريبية', eta_signing_records: 'سجلات الفاتورة الإلكترونية', letters_of_credit: 'الاعتمادات المستندية', audit_trail: 'سجل التدقيق', employees: 'ملفات العاملين', contracts: 'العقود' };
   return (
     <div className="space-y-3">
       <p className="text-xs text-slate-500">{res?.note || 'المدد افتراضية للمراجعة مع المستشار الضريبي والقانوني.'} النظام لا يحذف أي سجل — أقصى ما يفعله هو تعليم السجلات القديمة للأرشفة.</p>

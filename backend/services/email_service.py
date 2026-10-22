@@ -310,7 +310,7 @@ async def send_payroll_approved_notification(
     total_net: float,
     company_name: str = "DataLife Account"
 ) -> dict:
-    """إشعار المدير باعتماد المسير"""
+    """إشعار المدير باعتماد رواتب الشهر"""
     if not resend.api_key:
         return {"status": "skipped"}
 
@@ -325,12 +325,12 @@ async def send_payroll_approved_notification(
 <body style="font-family:Arial,sans-serif;background:#f3f4f6;padding:20px;">
 <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;">
   <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:24px;text-align:center;">
-    <h1 style="color:#fff;margin:0;font-size:20px;">✅ تم اعتماد مسير الرواتب</h1>
+    <h1 style="color:#fff;margin:0;font-size:20px;">✅ تم اعتماد رواتب الشهر</h1>
     <p style="color:#bfdbfe;margin:8px 0 0;font-size:13px;">{month_ar} — {_h(company_name)}</p>
   </div>
   <div style="padding:24px;">
     <p style="color:#374151;">مرحباً {_h(manager_name)}،</p>
-    <p style="color:#374151;">تم اعتماد مسير رواتب شهر <strong>{month_ar}</strong> بنجاح.</p>
+    <p style="color:#374151;">تم اعتماد رواتب شهر شهر <strong>{month_ar}</strong> بنجاح.</p>
     <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:16px 0;border-right:4px solid #10b981;">
       <p style="margin:0;color:#065f46;"><strong>عدد الموظفين:</strong> {total_employees} موظف</p>
       <p style="margin:8px 0 0;color:#065f46;"><strong>إجمالي الرواتب الصافية:</strong> {total_net:,.2f} ج.م</p>
@@ -345,7 +345,7 @@ async def send_payroll_approved_notification(
         params = {
             "from": SENDER_EMAIL,
             "to": [manager_email],
-            "subject": f"✅ تم اعتماد مسير الرواتب — {month_ar}",
+            "subject": f"✅ تم اعتماد رواتب الشهر — {month_ar}",
             "html": html
         }
         email = await asyncio.to_thread(resend.Emails.send, params)

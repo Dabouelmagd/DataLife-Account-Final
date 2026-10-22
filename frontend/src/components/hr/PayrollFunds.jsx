@@ -3,15 +3,15 @@ import { AlertTriangle } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL + '/api/payroll';
 
-/** تنبيه يظهر فوق مسيرات الرواتب لحد ما الشركة تراجع إعدادات الصناديق. */
+/** تنبيه يظهر فوق رواتب الشهور لحد ما الشركة تراجع إعدادات الصناديق. */
 export function FundsReviewBanner({ settings, onOpen }) {
   if (!settings || settings.funds_reviewed) return null;
   return (
     <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900" dir="rtl" role="note">
       <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" aria-hidden />
       <div className="flex-1 text-sm">
-        <p className="font-bold">راجع الصناديق والمساهمات قبل اعتماد أول مسير</p>
-        <p className="mt-1">صندوق الطوارئ والشهداء وذوي الإعاقة والتأمين الصحي الشامل محسوبين حالياً بالنسب الافتراضية على كل المسيرات. تطبيقها ونسبها ومين يتحملها بيختلف من شركة للتانية — حدّدها مع محاسبك.</p>
+        <p className="font-bold">راجع الصناديق والمساهمات قبل اعتماد رواتب أول شهر</p>
+        <p className="mt-1">صندوق الطوارئ والشهداء وذوي الإعاقة والتأمين الصحي الشامل محسوبين حالياً بالنسب الافتراضية على كل رواتب الشهور. تطبيقها ونسبها ومين يتحملها بيختلف من شركة للتانية — حدّدها مع محاسبك.</p>
       </div>
       {onOpen && <button type="button" onClick={onOpen} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-semibold whitespace-nowrap">مراجعة الإعدادات</button>}
     </div>
@@ -36,7 +36,7 @@ export default function PayrollFunds({ settings, onSaved }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'تعذّر الحفظ');
-      setMsg({ ok: true, text: 'تم الحفظ — يُطبَّق على المسيرات اللي هتتحسب وتتعتمد من دلوقتي' });
+      setMsg({ ok: true, text: 'تم الحفظ — يُطبَّق على رواتب الشهور اللي هتتحسب وتتعتمد من دلوقتي' });
       onSaved && onSaved();
     } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
   };
@@ -47,7 +47,7 @@ export default function PayrollFunds({ settings, onSaved }) {
         <h3 className="font-bold">الصناديق والمساهمات على الأجور</h3>
         <p className="text-sm text-slate-600 mt-1">
           كل صندوق هنا اختياري للشركة. قبل ما تحدد النسب راجع محاسبك أو مستشارك القانوني: هل الصندوق ينطبق على شركتك،
-          ونسبته كام، ومين يتحمله. البرنامج بيطبّق اختيارك على المسير وعلى القيد وعلى قيد السداد.
+          ونسبته كام، ومين يتحمله. البرنامج بيطبّق اختيارك على رواتب الشهر وعلى القيد وعلى قيد السداد.
         </p>
       </div>
       <div className="grid gap-3">

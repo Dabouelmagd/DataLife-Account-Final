@@ -14,7 +14,7 @@ const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('
 const input = 'mt-1 w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900';
 
 const RECORDS = {
-  journal_entries: 'القيود المحاسبية', invoices: 'الفواتير', payroll_runs: 'مسيرات الرواتب', tax_forms: 'الإقرارات والنماذج الضريبية',
+  journal_entries: 'القيود المحاسبية', invoices: 'الفواتير', payroll_runs: 'رواتب الشهور', tax_forms: 'الإقرارات والنماذج الضريبية',
   eta_signing_records: 'سجلات الفاتورة الإلكترونية', letters_of_credit: 'الاعتمادات المستندية', audit_trail: 'سجل المراجعة',
   employees: 'ملفات العاملين', contracts: 'العقود',
 };
@@ -87,7 +87,7 @@ export default function CompanyPoliciesPage() {
               onChange={() => setP({ ...p, payroll: { ...(p.payroll || {}), penalties_treatment: v } })} /> {l}
           </label>
         ))}
-        <p className="text-xs text-slate-500">يُطبَّق على مسيرات الرواتب التي تُعتمد بعد الحفظ.</p>
+        <p className="text-xs text-slate-500">يُطبَّق على رواتب الشهور التي تُعتمد بعد الحفظ.</p>
       </section>
 
       <section className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">

@@ -98,7 +98,7 @@ class TestPayrollRuns:
         )
         # Should fail with 400 if duplicate
         if response.status_code == 400:
-            assert "يوجد مسير رواتب" in response.json().get("detail", "") or "already" in response.json().get("detail", "").lower()
+            assert "رواتب هذا الشهر" in response.json().get("detail", "") or "already" in response.json().get("detail", "").lower()
     
     def test_create_new_payroll_run(self):
         """POST /api/payroll/runs - Create new payroll run for new month"""

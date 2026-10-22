@@ -11,7 +11,7 @@ import uuid
 
 
 class PayrollStatus(str, Enum):
-    """حالة مسير الرواتب"""
+    """حالة رواتب الشهر"""
     DRAFT = "draft"
     CALCULATED = "calculated"
     APPROVED = "approved"
@@ -143,11 +143,11 @@ class EmployeePayroll(BaseModel):
 
 
 # ==========================================
-# Payroll Run (مسير الرواتب)
+# Payroll Run (رواتب الشهر)
 # ==========================================
 
 class PayrollRun(BaseModel):
-    """مسير الرواتب الشهري"""
+    """رواتب الشهر"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     company_id: str
     

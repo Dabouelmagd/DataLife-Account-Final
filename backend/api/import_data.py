@@ -211,7 +211,7 @@ async def import_employees(file: UploadFile = File(...), current_user: dict = De
         except Exception as e:
             raise _partial_failure(done, len(rows), r["n"], e)
     return await _finish(current_user, "employees", "الموظفين", file.filename, digest, len(df), done, [],
-                         ["الموظفون يظهرون في شؤون العاملين ويدخلون مسير الرواتب القادم"])
+                         ["الموظفون يظهرون في شؤون العاملين ويدخلون في رواتب الشهر القادم"])
 
 
 # ── revenues / expenses ─────────────────────────────────────────────────────

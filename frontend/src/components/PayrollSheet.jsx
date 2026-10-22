@@ -37,7 +37,7 @@ export default function PayrollSheet() {
         setRuns(list);
         if (list[0]) setRunId(list[0].id);
       })
-      .catch(() => { setRuns([]); setErr('تعذّر تحميل مسيرات الرواتب'); });
+      .catch(() => { setRuns([]); setErr('تعذّر تحميل رواتب الشهور'); });
   }, []);
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function PayrollSheet() {
   };
 
   if (runs === null) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
-  if (!runs.length) return <p className="py-12 text-center text-slate-500 text-sm">لا توجد مسيرات رواتب بعد — أنشئ مسيراً واحسبه أولاً.</p>;
+  if (!runs.length) return <p className="py-12 text-center text-slate-500 text-sm">لسه مفيش رواتب شهور — أنشئ رواتب الشهر واحسبها الأول.</p>;
 
   const A = sheet?.allowance_columns || [];
   const D = sheet?.deduction_columns || [];
@@ -86,7 +86,7 @@ export default function PayrollSheet() {
   return (
     <div className="space-y-4 text-sm" dir="rtl">
       <div className="flex flex-wrap items-end gap-2">
-        <label><span className="block text-slate-600 mb-1">المسير</span>
+        <label><span className="block text-slate-600 mb-1">رواتب الشهر</span>
           <select className={sel} value={runId} onChange={(e) => { setRunId(e.target.value); setDepartment(''); setBranch(''); }}>
             {runs.map((r) => <option key={r.id} value={r.id}>{r.month} — {r.run_number || ''} ({STATUS[r.status] || r.status})</option>)}
           </select></label>
@@ -114,7 +114,7 @@ export default function PayrollSheet() {
       {loading ? <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div> : sheet && (
         rows.length === 0 ? (
           <p className="py-12 text-center text-slate-500">
-            {sheet.rows.length ? 'لا نتائج لهذا البحث' : 'المسير لا يحتوي موظفين — أضف ملفات الموظفين من «الموارد البشرية ← الموظفون» ثم أعد حساب المسير.'}</p>
+            {sheet.rows.length ? 'لا نتائج لهذا البحث' : 'رواتب الشهر مفيهاش موظفين — أضف ملفات الموظفين من «الموارد البشرية ← الموظفون» ثم أعد حساب رواتب الشهر.'}</p>
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

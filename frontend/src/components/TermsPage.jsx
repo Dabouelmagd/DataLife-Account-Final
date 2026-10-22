@@ -23,7 +23,7 @@ export default function TermsPage() {
 
     { icon: '📋', title: ar ? 'خطط الاشتراك والأسعار' : 'Subscription Plans & Pricing',
       content: ar
-        ? 'الخطط المتاحة:\n\n🔹 المبتدئ — 299 ج.م / شهر (أو 2,390 ج.م / سنة)\n• 1-10 موظفين | HR أساسي | محاسبة | فواتير\n\n🔹 المحترف — 799 ج.م / شهر (أو 6,392 ج.م / سنة)\n• 11-100 موظف | مسير رواتب كامل | GPS حضور | ETA | مخزون | بنوك\n\n🔹 المؤسسي — 1,499 ج.م / شهر (أو 11,992 ج.م / سنة)\n• موظفون غير محدودون | كل المميزات | مشاريع | فروع | مدير حساب\n\nجميع الأسعار شاملة ضريبة القيمة المضافة. خصم 20% على الاشتراك السنوي.'
+        ? 'الخطط المتاحة:\n\n🔹 المبتدئ — 299 ج.م / شهر (أو 2,390 ج.م / سنة)\n• 1-10 موظفين | HR أساسي | محاسبة | فواتير\n\n🔹 المحترف — 799 ج.م / شهر (أو 6,392 ج.م / سنة)\n• 11-100 موظف | رواتب شهرية كاملة | GPS حضور | ETA | مخزون | بنوك\n\n🔹 المؤسسي — 1,499 ج.م / شهر (أو 11,992 ج.م / سنة)\n• موظفون غير محدودون | كل المميزات | مشاريع | فروع | مدير حساب\n\nجميع الأسعار شاملة ضريبة القيمة المضافة. خصم 20% على الاشتراك السنوي.'
         : 'Available plans:\n\n🔹 Starter — 299 EGP / month (or 2,390 EGP / year)\n• 1-10 employees | Basic HR | Accounting | Invoicing\n\n🔹 Professional — 799 EGP / month (or 6,392 EGP / year)\n• 11-100 employees | Full payroll | GPS attendance | ETA | Inventory | Banks\n\n🔹 Enterprise — 1,499 EGP / month (or 11,992 EGP / year)\n• Unlimited employees | All features | Projects | Branches | Account manager\n\nAll prices include VAT. 20% discount on annual subscription.' },
 
     { icon: '⚠️', title: ar ? 'الاستخدام المقبول' : 'Acceptable Use',

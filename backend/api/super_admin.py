@@ -164,7 +164,7 @@ async def queues_health(x_admin_key: Optional[str] = Header(None)):
     queues = [
         {
             "name": "payroll_processor",
-            "name_ar": "معالج مسيرات الرواتب",
+            "name_ar": "معالج رواتب الشهور",
             "status": "warning" if stuck_payrolls > 0 else "healthy",
             "pending": recent_payrolls,
             "stuck": stuck_payrolls,

@@ -451,7 +451,7 @@ async def generate_form_4(
     company    = await get_company(company_id)
     date_from, date_to = quarter_dates(year, quarter)
 
-    # ── جمع بيانات الرواتب من كشوف المسير ────────────────────
+    # ── جمع بيانات الرواتب من كشوف رواتب الشهر ────────────────────
     payroll_runs = await db.payroll_runs.find({
         "company_id": company_id,
         "status": {"$in": ["approved", "paid"]},

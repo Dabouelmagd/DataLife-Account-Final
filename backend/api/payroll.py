@@ -117,7 +117,7 @@ async def calculate_income_tax(annual_taxable_income: float, settings: dict,
 
 
 async def get_employee_loans(employee_id: str, month: str, company_id: str) -> List[dict]:
-    """الحصول على أقساط السُلف المستحقة — لشركة المسير فقط.
+    """الحصول على أقساط السُلف المستحقة — لنفس شركة رواتب الشهر فقط.
 
     It matched by employee id alone, so a payroll could pick up (and then mark
     paid) a loan belonging to another company's record with the same id."""
@@ -769,7 +769,7 @@ async def approve_loan(
 
 
 # ==========================================
-# Payroll Run Endpoints (مسير الرواتب)
+# Payroll Run Endpoints (رواتب الشهر)
 # ==========================================
 
 @router.get("/runs")
@@ -780,7 +780,7 @@ async def get_payroll_runs(
     limit: int = Query(50, ge=1, le=200),
     current_user: dict = Depends(get_current_user)
 ):
-    """الحصول على مسيرات الرواتب
+    """الحصول على رواتب الشهور
 
     The response referenced total/page/limit that were never defined, so
     every call raised NameError -> 500 and the payroll runs page was empty.
@@ -805,14 +805,14 @@ async def get_payroll_run(
     run_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """الحصول على تفاصيل مسير الرواتب"""
+    """الحصول على تفاصيل رواتب الشهر"""
     run = await db.payroll_runs.find_one({
         "id": run_id,
         "company_id": current_user["company_id"]
     }, {"_id": 0})
     
     if not run:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+        raise HTTPException(status_code=404, detail="رواتب الشهر غير موجودة")
     
     return run
 
@@ -986,7 +986,7 @@ async def payroll_sheet(run_id: str, department: Optional[str] = None, branch: O
     await _require_payroll_access(current_user)
     run = await db.payroll_runs.find_one({"id": run_id, "company_id": current_user["company_id"]}, {"_id": 0})
     if not run:
-        raise HTTPException(404, "مسير الرواتب غير موجود")
+        raise HTTPException(404, "رواتب الشهر غير موجودة")
     sheet = await build_payroll_sheet(run, current_user["company_id"], department, branch)
     sheet = await _sheet_for_role(sheet, current_user, run_id, "xlsx" if format == "xlsx" else "sheet")
     if format != "xlsx":
@@ -1050,7 +1050,7 @@ async def create_payroll_run(
     request: PayrollRunRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """إنشاء مسير رواتب جديد — للشركة كلها أو لإدارة/فرع بعينه.
+    """إنشاء رواتب شهر جديد — للشركة كلها أو لإدارة/فرع بعينه.
 
     A run embeds every employee's calculation in one document (≈1–3 KB per
     employee; MongoDB caps a document at 16 MB). Large companies split the
@@ -1068,12 +1068,12 @@ async def create_payroll_run(
             {"_id": 0, "id": 1, "department": 1, "branch": 1}):
         if _scopes_overlap(existing, scope):
             if not (existing.get("department") or existing.get("branch")) and not (department or branch):
-                raise HTTPException(status_code=400, detail="يوجد مسير رواتب لهذا الشهر بالفعل")
+                raise HTTPException(status_code=400, detail="رواتب هذا الشهر موجودة بالفعل")
             raise HTTPException(status_code=400, detail=(
-                "يوجد مسير رواتب لهذا الشهر يشمل نفس الموظفين"
+                "رواتب هذا الشهر محسوبة بالفعل لنفس الموظفين"
                 + (f" (الإدارة: {existing.get('department')})" if existing.get("department") else "")
                 + (f" (الفرع: {existing.get('branch')})" if existing.get("branch") else "")
-                + " — لا يمكن تقسيم الشهر إلا إلى مسيرات لا تتداخل (إدارات مختلفة أو فروع مختلفة)"))
+                + " — لا يمكن تقسيم الشهر إلا لأجزاء لا تتداخل (إدارات مختلفة أو فروع مختلفة)"))
 
     # تحليل الشهر
     year, month_num = map(int, request.month.split("-"))
@@ -1095,7 +1095,7 @@ async def create_payroll_run(
     await db.payroll_runs.insert_one(doc)
     doc.pop("_id", None)
 
-    return {"message": "تم إنشاء مسير الرواتب بنجاح", "payroll_run": doc}
+    return {"message": "تم إنشاء رواتب الشهر بنجاح", "payroll_run": doc}
 
 
 # ── Payroll calculation ──────────────────────────────────────────
@@ -1428,9 +1428,9 @@ async def _calculate_run(payroll: dict, job_id: Optional[str] = None) -> dict:
     size = _bson_size({**{k: v for k, v in payroll.items() if k != "_id"}, **update_data})
     if size > MAX_RUN_DOC_BYTES:
         raise PayrollTooLarge(
-            f"حجم مسير الرواتب ({size / 1024 / 1024:.1f} ميجابايت لعدد {len(employee_payrolls)} موظف) "
+            f"حجم رواتب الشهر ({size / 1024 / 1024:.1f} ميجابايت لعدد {len(employee_payrolls)} موظف) "
             f"يتجاوز الحد الآمن ({MAX_RUN_DOC_BYTES / 1024 / 1024:g} ميجابايت) لمستند واحد في قاعدة البيانات. "
-            "قسّم رواتب هذا الشهر إلى أكثر من مسير حسب الإدارة أو الفرع (عند إنشاء المسير) ثم احسب كل مسير على حدة.")
+            "قسّم رواتب هذا الشهر لأكثر من جزء حسب الإدارة أو الفرع (عند إنشاء رواتب الشهر) ثم احسب كل جزء على حدة.")
 
     await db.payroll_runs.update_one({"id": payroll["id"], "company_id": company_id}, {"$set": update_data})
     return {
@@ -1501,13 +1501,13 @@ async def calculate_payroll(
 
     payroll = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id}, {"_id": 0})
     if not payroll:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+        raise HTTPException(status_code=404, detail="رواتب الشهر غير موجودة")
     if payroll["status"] not in ["draft", "calculated"]:
-        raise HTTPException(status_code=400, detail="لا يمكن حساب هذا المسير")
+        raise HTTPException(status_code=400, detail="لا يمكن حساب رواتب هذا الشهر")
 
     payroll = await _claim_calculation(run_id, company_id)
     if not payroll:
-        raise HTTPException(status_code=409, detail="يجري حساب هذا المسير الآن — انتظر حتى ينتهي الحساب الحالي")
+        raise HTTPException(status_code=409, detail="يجري حساب رواتب هذا الشهر الآن — انتظر حتى ينتهي الحساب الحالي")
 
     try:
         total = await db.employees.count_documents(_run_employee_query(payroll))
@@ -1538,17 +1538,17 @@ async def calculate_payroll(
 
 @router.get("/runs/{run_id}/job")
 async def get_calculation_job(run_id: str, current_user: dict = Depends(get_current_user)):
-    """تقدّم آخر عملية حساب في الخلفية لهذا المسير."""
+    """تقدّم آخر عملية حساب في الخلفية لرواتب هذا الشهر."""
     company_id = current_user["company_id"]
     jobs = await db.payroll_jobs.find({"run_id": run_id, "company_id": company_id}, {"_id": 0}) \
         .sort("created_at", -1).limit(1).to_list(1)
     if not jobs:
-        raise HTTPException(status_code=404, detail="لا توجد عملية حساب لهذا المسير")
+        raise HTTPException(status_code=404, detail="لا توجد عملية حساب لرواتب هذا الشهر")
     j = jobs[0]
     if j.get("status") == "running" and j.get("created_at") and \
             j["created_at"] < datetime.utcnow() - timedelta(minutes=CALC_LOCK_MINUTES):
         # the server restarted mid-job: the task is gone and the lock has expired
-        j["status"], j["error"] = "error", "انقطع الحساب (أُعيد تشغيل الخادم) — أعد حساب المسير"
+        j["status"], j["error"] = "error", "انقطع الحساب (أُعيد تشغيل الخادم) — أعد حساب رواتب الشهر"
         await db.payroll_jobs.update_one({"id": j["id"]}, {"$set": {"status": "error", "error": j["error"]}})
     total = j.get("total") or 0
     j["percent"] = 100 if j.get("status") == "done" else (
@@ -1561,7 +1561,7 @@ async def approve_payroll(
     run_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """اعتماد مسير الرواتب وإنشاء القيد المحاسبي"""
+    """اعتماد رواتب الشهر وإنشاء القيد المحاسبي"""
     company_id = current_user["company_id"]
     
     payroll = await db.payroll_runs.find_one({
@@ -1570,12 +1570,12 @@ async def approve_payroll(
     })
     
     if not payroll:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+        raise HTTPException(status_code=404, detail="رواتب الشهر غير موجودة")
     
     if payroll["status"] != "calculated":
         raise HTTPException(status_code=400, detail="يجب حساب الرواتب أولاً")
     if _calc_locked(payroll):
-        raise HTTPException(status_code=409, detail="يجري إعادة حساب هذا المسير الآن — اعتمده بعد انتهاء الحساب")
+        raise HTTPException(status_code=409, detail="يجري إعادة حساب رواتب هذا الشهر الآن — اعتمدها بعد انتهاء الحساب")
     
     settings = await get_payroll_settings(company_id)
     
@@ -1592,7 +1592,7 @@ async def approve_payroll(
         except Exception as e:
             logger.warning(f"Could not auto-post payroll journal {journal_id}: {e}")
     
-    # الجزاءات المخصومة في هذا المسير لا تُخصم مرة ثانية
+    # الجزاءات المخصومة في رواتب هذا الشهر لا تُخصم مرة ثانية
     pen_ids = [d.get("reference_id") for e in payroll.get("employees", []) for d in e.get("deductions", [])
                if d.get("deduction_type") == "penalty" and d.get("reference_id")]
     if pen_ids:
@@ -1619,7 +1619,7 @@ async def approve_payroll(
                         }}
                     )
     
-    # تحديث مسير الرواتب
+    # تحديث رواتب الشهر
     await db.payroll_runs.update_one(
         {"id": run_id},
         {"$set": {
@@ -1632,7 +1632,7 @@ async def approve_payroll(
     )
     
     return {
-        "message": "تم اعتماد مسير الرواتب بنجاح",
+        "message": "تم اعتماد رواتب الشهر بنجاح",
         "journal_entry_number": journal_number
     }
 
@@ -1652,10 +1652,10 @@ async def pay_payroll(
     })
     
     if not payroll:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+        raise HTTPException(status_code=404, detail="رواتب الشهر غير موجودة")
     
     if payroll["status"] != "approved":
-        raise HTTPException(status_code=400, detail="يجب اعتماد المسير أولاً")
+        raise HTTPException(status_code=400, detail="يجب اعتماد رواتب الشهر أولاً")
     
     settings = await get_payroll_settings(company_id)
     service = AccountingService(db)
@@ -1720,7 +1720,7 @@ async def pay_payroll(
         except Exception as e:
             logger.warning(f"Could not auto-post payment journal {payment_journal_id}: {e}")
     
-    # تحديث مسير الرواتب
+    # تحديث رواتب الشهر
     await db.payroll_runs.update_one(
         {"id": run_id},
         {"$set": {
@@ -1755,10 +1755,10 @@ async def send_payslip_emails(
     })
     
     if not payroll:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+        raise HTTPException(status_code=404, detail="رواتب الشهر غير موجودة")
     
     if payroll["status"] not in ["approved", "paid"]:
-        raise HTTPException(status_code=400, detail="يجب اعتماد المسير أولاً قبل إرسال الإشعارات")
+        raise HTTPException(status_code=400, detail="يجب اعتماد رواتب الشهر أولاً قبل إرسال الإشعارات")
     
     # الحصول على معلومات الشركة
     company = await db.companies.find_one({"company_id": company_id}, {"_id": 0, "company_name": 1})
@@ -2159,7 +2159,7 @@ async def get_payslip(
     })
     
     if not payroll:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+        raise HTTPException(status_code=404, detail="رواتب الشهر غير موجودة")
     
     employee_payroll = None
     for emp in payroll.get("employees", []):
@@ -2168,7 +2168,7 @@ async def get_payslip(
             break
     
     if not employee_payroll:
-        raise HTTPException(status_code=404, detail="الموظف غير موجود في هذا المسير")
+        raise HTTPException(status_code=404, detail="الموظف غير موجود في رواتب هذا الشهر")
     
     company = await db.companies.find_one({"id": current_user["company_id"]})
     
@@ -2251,7 +2251,7 @@ async def get_attendance_payroll_preview(
     employee_id: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user)
 ):
-    """معاينة تأثير الحضور على الراتب قبل إنشاء المسير"""
+    """معاينة تأثير الحضور على الراتب قبل إنشاء رواتب الشهر"""
     company_id = current_user["company_id"]
     hr_settings = await get_hr_settings(company_id)
     
@@ -2385,9 +2385,9 @@ async def get_bank_transfer_report(
 
     payroll = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id})
     if not payroll:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+        raise HTTPException(status_code=404, detail="رواتب الشهر غير موجودة")
     if payroll["status"] not in ["approved", "paid"]:
-        raise HTTPException(status_code=400, detail="يجب اعتماد المسير أولاً")
+        raise HTTPException(status_code=400, detail="يجب اعتماد رواتب الشهر أولاً")
 
     company = await db.companies.find_one({"id": company_id}, {"_id": 0})
     company_name = company.get("name", "") if company else ""
@@ -2437,9 +2437,9 @@ async def pay_with_method(
 
     payroll = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id})
     if not payroll:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+        raise HTTPException(status_code=404, detail="رواتب الشهر غير موجودة")
     if payroll["status"] != "approved":
-        raise HTTPException(status_code=400, detail="يجب اعتماد المسير أولاً")
+        raise HTTPException(status_code=400, detail="يجب اعتماد رواتب الشهر أولاً")
 
     default_method  = payment_data.get("default_method", "bank_transfer")
     employee_methods = payment_data.get("employee_methods", {})  # {employee_id: method}
@@ -2730,9 +2730,9 @@ async def export_bank_transfer_file(
     company_id = current_user["company_id"]
     payroll = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id}, {"_id": 0})
     if not payroll:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+        raise HTTPException(status_code=404, detail="رواتب الشهر غير موجودة")
     if payroll.get("status") not in ("approved", "paid"):
-        raise HTTPException(status_code=400, detail="يجب اعتماد المسير أولاً")
+        raise HTTPException(status_code=400, detail="يجب اعتماد رواتب الشهر أولاً")
     from api.data_protection import has_pii_clearance
     if not (_salary_ok(current_user) and has_pii_clearance(current_user)):
         # a bank file with masked accounts is useless and a full one is
@@ -2759,7 +2759,7 @@ async def export_bank_transfer_file(
     rows = [r for r in await _transfer_rows(payroll, company_id)
             if r["payment_method"] == method and r["net_salary"] > 0]
     if not rows:
-        raise HTTPException(status_code=404, detail="لا يوجد موظفون يُصرف لهم بهذه الطريقة في هذا المسير")
+        raise HTTPException(status_code=404, detail="لا يوجد موظفون يُصرف لهم بهذه الطريقة في رواتب هذا الشهر")
 
     def mobile_ok(v):
         d = "".join(ch for ch in v if ch.isdigit())
@@ -2939,11 +2939,11 @@ async def disburse_payroll(
     
     run = await db.payroll_runs.find_one({"id": run_id, "company_id": company_id}, {"_id": 0})
     if not run:
-        raise HTTPException(status_code=404, detail="مسير الرواتب غير موجود")
+        raise HTTPException(status_code=404, detail="رواتب الشهر غير موجودة")
     if run.get("status") != "approved":
-        raise HTTPException(status_code=400, detail="يجب اعتماد المسير قبل الصرف")
+        raise HTTPException(status_code=400, detail="يجب اعتماد رواتب الشهر قبل الصرف")
     if run.get("disbursed"):
-        raise HTTPException(status_code=400, detail="تم صرف هذا المسير مسبقاً")
+        raise HTTPException(status_code=400, detail="تم صرف رواتب هذا الشهر مسبقاً")
     
     settings  = await get_payroll_settings(company_id)
     service   = AccountingService(db)

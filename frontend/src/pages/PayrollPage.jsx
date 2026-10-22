@@ -40,7 +40,7 @@ function PayrollLawSettings({ settings, onSaved }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'تعذّر الحفظ');
-      setMsg({ ok: true, text: 'تم الحفظ — يُطبَّق على المسيرات الجديدة' });
+      setMsg({ ok: true, text: 'تم الحفظ — يُطبَّق على رواتب الشهور الجديدة' });
       onSaved && onSaved();
     } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
   };
@@ -102,12 +102,12 @@ export default function PayrollPage() {
   const text = {
     ar: {
       payroll: 'إدارة الرواتب',
-      runs: 'مسيرات الرواتب',
+      runs: 'رواتب الشهور',
       loans: 'السُلف',
       endOfService: 'نهاية الخدمة',
       settings: 'الإعدادات',
       reports: 'التقارير',
-      createPayroll: 'إنشاء مسير رواتب',
+      createPayroll: 'إنشاء رواتب شهر',
       createLoan: 'إنشاء سُلفة',
       createSettlement: 'تسوية نهاية خدمة',
       month: 'الشهر',
@@ -769,7 +769,7 @@ export default function PayrollPage() {
               </table>
               {payrollRuns.length === 0 && (
                 <p className="text-center py-8 text-gray-500">
-                  {language === 'ar' ? 'لا توجد مسيرات رواتب' : 'No payroll runs found'}
+                  {language === 'ar' ? 'لا توجد رواتب شهور' : 'No payroll runs found'}
                 </p>
               )}
             </div>
@@ -963,7 +963,7 @@ export default function PayrollPage() {
                   </div>
                   <p className="text-xs text-gray-500">
                     {language === 'ar'
-                      ? 'للشركات الكبيرة (آلاف الموظفين): قسّم الشهر إلى مسيرات حسب الإدارة أو الفرع — المسير الواحد يُحفظ كمستند واحد وله حد أقصى للحجم. لا يُسمح بمسيرين يشملان نفس الموظف.'
+                      ? 'للشركات الكبيرة (آلاف الموظفين): قسّم رواتب الشهر لأكتر من جزء حسب الإدارة أو الفرع — كل جزء بيتحفظ كمستند واحد وله حد أقصى للحجم. مينفعش جزئين يشملوا نفس الموظف.'
                       : 'Large companies: split the month into runs by department or branch — one run is stored as a single document with a size limit. Two runs may not cover the same employee.'}
                   </p>
                 </>

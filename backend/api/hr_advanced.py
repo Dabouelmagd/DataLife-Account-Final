@@ -83,7 +83,7 @@ async def grant_loan(req: LoanRequest,
                      current_user: dict = Depends(get_current_user)):
     """
     صرف سلفة لموظف:  مدين 134 سلف الموظفين / دائن 162 البنك أو 161 الخزينة
-    الأقساط تُخصم تلقائياً في كشف الرواتب (مسير الرواتب يقرأ نفس السلفة).
+    الأقساط تُخصم تلقائياً في كشف الرواتب (رواتب الشهر بتقرأ نفس السلفة).
     """
     company_id = current_user["company_id"]
     emp = await get_employee(company_id, req.employee_id)

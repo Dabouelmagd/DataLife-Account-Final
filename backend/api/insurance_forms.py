@@ -261,8 +261,8 @@ async def build_form6(company_id: str, employee_id: str, termination_date: str =
         "employer_data": employer,
         "employee_data": employee,
         "insurance_wage": {**wage_now, "last_payroll_run": last_run,
-                           "last_wage_source": "آخر مسير رواتب" if last_run and last_run["insured_salary"]
-                           else "أجر الاشتراك الحالي (لا يوجد مسير رواتب للموظف)"},
+                           "last_wage_source": "آخر رواتب شهر" if last_run and last_run["insured_salary"]
+                           else "أجر الاشتراك الحالي (لا يوجد رواتب شهر للموظف)"},
         "settlement": {
             "settlement_id": (st or {}).get("id"), "settlement_number": (st or {}).get("settlement_number"),
             "status": (st or {}).get("status"),

@@ -485,7 +485,7 @@ REQUEST_TYPES = {
 }
 REQUEST_STATUSES = {"received", "in_review", "completed", "rejected"}
 # Shown on every erasure request so whoever decides it knows what may NOT go.
-ERASURE_HOLD_NOTE = ("لا يجوز حذف القيود المحاسبية والفواتير ومسيرات الرواتب وسجلات التأمينات والضرائب "
+ERASURE_HOLD_NOTE = ("لا يجوز حذف القيود المحاسبية والفواتير ورواتب الشهور وسجلات التأمينات والضرائب "
                      "خلال مدة الاحتفاظ القانونية حتى لو طلب صاحب البيانات ذلك. يُنفَّذ المحو يدوياً "
                      "على البيانات غير المطلوبة قانوناً فقط بعد رأي المستشار القانوني.")
 
