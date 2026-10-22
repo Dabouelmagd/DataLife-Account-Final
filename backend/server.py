@@ -333,14 +333,25 @@ class RateLimitMiddleware:
             headers = dict(scope.get("headers", []))
             ip = headers.get(b"x-real-ip", b"").decode() or                  headers.get(b"x-forwarded-for", b"").decode().split(",")[0].strip() or                  (scope.get("client") or ["unknown"])[0]
 
-            # Auth endpoints: same limit as general
-            path = scope.get("path", "")
-            limit = self.limit
+            # A signed-in user is counted on their own: a whole office behind
+            # one internet IP shares that IP, and one dashboard load makes
+            # ~20 calls, so a per-IP count turned ordinary use into 429s.
+            # Anonymous requests stay per IP (logins have their own throttle).
+            auth = headers.get(b"authorization", b"")
+            if auth.startswith(b"Bearer ") and len(auth) > 20:
+                import hashlib
+                key = "u:" + hashlib.sha256(auth).hexdigest()[:24]
+                limit = self.limit * 2
+            else:
+                key = "ip:" + ip
+                limit = self.limit
 
             now = time()
-            self.calls[ip] = [t for t in self.calls[ip] if now - t < 60]
+            self.calls[key] = [t for t in self.calls[key] if now - t < 60]
+            if not self.calls[key]:
+                self.calls.pop(key, None)
 
-            if len(self.calls[ip]) >= limit:
+            if len(self.calls.get(key, ())) >= limit:
                 from starlette.responses import JSONResponse
                 response = JSONResponse(
                     {"detail": "Too many requests. Please wait a minute."},
@@ -350,7 +361,7 @@ class RateLimitMiddleware:
                 await response(scope, receive, send)
                 return
 
-            self.calls[ip].append(now)
+            self.calls[key].append(now)
         await self.app(scope, receive, send)
 
 class SafeUploadsMiddleware:

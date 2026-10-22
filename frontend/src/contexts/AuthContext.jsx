@@ -23,10 +23,18 @@ export const AuthProvider = ({ children }) => {
           setUser(response.data);
           localStorage.setItem('user', JSON.stringify(response.data));
         } catch (error) {
-          console.error('Token verification failed:', error);
-          localStorage.removeItem('token');
-          setToken(null);
-          setUser(null);
+          // only a real "this login is not valid" signs the user out — a busy
+          // server (429), a deploy restart (502) or a dropped connection keeps
+          // the session and the cached user
+          const st = error?.response?.status;
+          if (st === 401 || st === 403) {
+            localStorage.removeItem('token');
+            setToken(null);
+            setUser(null);
+          } else {
+            console.warn('Token check skipped:', st || error?.message);
+            try { const u = JSON.parse(localStorage.getItem('user') || 'null'); if (u) setUser(u); } catch { /* ignore */ }
+          }
         }
       }
       setLoading(false);
