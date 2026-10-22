@@ -48,20 +48,26 @@ grep -q "PASTE\|CHANGE_ME\|changeme" .env && bad "فيه قيمة مؤقتة ف�
 docker port datalife_mongo 2>/dev/null | grep -q "0.0.0.0" && bad "قاعدة البيانات مفتوحة للإنترنت" || ok "قاعدة البيانات مش مفتوحة برا السيرفر"
 
 echo "── النسخ الاحتياطي"
-[ -f /etc/datalife-backup.env ] && . /etc/datalife-backup.env
-BDIR="${DATALIFE_BACKUP_DIR:-/opt/datalife-backups}"
-last=$(ls -t "$BDIR"/db_*.archive.gz 2>/dev/null | head -1)
+# the active job is deploy/backup/mongo_backup.sh (replaced scripts/backup_datalife.sh)
+[ -r /etc/datalife-backup.env ] && { set -a; . /etc/datalife-backup.env; set +a; }
+BDIR="${BACKUP_DIR:-/var/backups/datalife}"
+last=$(ls -t "$BDIR"/datalife-*.archive.gz 2>/dev/null | head -1)
 if [ -n "$last" ]; then
   age=$(( ( $(date +%s) - $(stat -c %Y "$last") ) / 3600 ))
   [ "$age" -le 26 ] && ok "آخر نسخة على السيرفر من $age ساعة ($(basename "$last"))" || bad "آخر نسخة على السيرفر عمرها $age ساعة ($(basename "$last"))"
 else bad "مفيش نسخ في $BDIR"; fi
-if { crontab -l 2>/dev/null; cat /etc/crontab /etc/cron.d/* 2>/dev/null; } | grep -v '^\s*#' | grep -q backup_datalife; then
+if [ -r "$BDIR/last_backup.json" ]; then
+  grep -q '"verified": *true' "$BDIR/last_backup.json" && ok "آخر نسخة اتجربت واسترجاعها سليم" || warn "آخر نسخة مكتوب إنها ما اتجربتش"
+  off=$(grep -o '"offsite": *"[^"]*"' "$BDIR/last_backup.json" | cut -d'"' -f4)
+  [ -n "$off" ] && [ "$off" != "none" ] && ok "آخر نسخة اترفعت برا السيرفر ($off)" || bad "آخر نسخة ما اترفعتش برا السيرفر"
+fi
+if { crontab -l 2>/dev/null; cat /etc/crontab /etc/cron.d/* 2>/dev/null; } | grep -v '^\s*#' | grep -q 'mongo_backup.sh'; then
   ok "النسخ اليومي متجدول"
-else bad "النسخ اليومي مش متجدول (لا في crontab ولا في /etc/cron.d)"; fi
-if [ -n "${DATALIFE_BACKUP_REMOTE:-}" ] && command -v rclone >/dev/null; then
-  rl=$(rclone lsl "$DATALIFE_BACKUP_REMOTE" --include 'db_*.gpg' 2>/dev/null | sort -k2,3 | tail -1)
-  [ -n "$rl" ] && ok "آخر نسخة على جوجل درايف: $(echo "$rl" | awk '{print $2, $NF}')" || bad "مفيش نسخ على $DATALIFE_BACKUP_REMOTE"
-else warn "النسخة خارج السيرفر مش متظبطة (DATALIFE_BACKUP_REMOTE)"; fi
+else bad "النسخ اليومي مش متجدول"; fi
+if [ -n "${RCLONE_REMOTE:-}" ] && command -v rclone >/dev/null; then
+  rl=$(rclone lsl "$RCLONE_REMOTE" --include 'datalife-*' 2>/dev/null | sort -k2,3 | tail -1)
+  [ -n "$rl" ] && ok "آخر نسخة على درايف: $(echo "$rl" | awk '{print $2, $NF}')" || bad "مفيش نسخ على $RCLONE_REMOTE"
+else warn "RCLONE_REMOTE مش متظبط في /etc/datalife-backup.env"; fi
 
 echo "── السيرفر"
 use=$(df --output=pcent / | tail -1 | tr -dc '0-9')
