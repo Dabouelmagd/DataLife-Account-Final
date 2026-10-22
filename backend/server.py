@@ -146,6 +146,19 @@ async def _missing_context(request, exc):
     return _JR(status_code=500, content={"detail": "حدث خطأ غير متوقع"})
 
 
+# Safety net: a request with NO login that crashes inside a route (a helper
+# that read fields off a missing user) is a "log in" answer, not a 500.
+# Anything else still logs the full traceback and returns a plain 500.
+@app.exception_handler(Exception)
+async def _unhandled(request, exc):
+    from fastapi.responses import JSONResponse as _JR
+    path = request.url.path
+    if path.startswith("/api/") and not request.headers.get("authorization"):
+        return _JR(status_code=401, content={"detail": "سجّل الدخول من جديد — الجلسة منتهية أو غير موجودة"})
+    logging.getLogger("server").error("unhandled error on %s", path, exc_info=exc)
+    return _JR(status_code=500, content={"detail": "حدث خطأ غير متوقع"})
+
+
 @app.get("/api/uploads/{file_path:path}")
 async def serve_upload(file_path: str, request: _Req):
     import os as _os

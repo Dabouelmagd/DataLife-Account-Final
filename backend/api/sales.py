@@ -31,7 +31,10 @@ router = APIRouter(prefix="/api/sales", tags=["sales"])
 # ══════════════════════════════════════════
 async def get_user(authorization: str):
     from services.auth_service import verify_token
-    return verify_token((authorization or '').replace('Bearer ',''))
+    user = verify_token((authorization or '').replace('Bearer ','').strip())
+    if not user:
+        raise HTTPException(status_code=401, detail="سجّل الدخول من جديد — الجلسة منتهية أو غير موجودة")
+    return user
 
 
 def gen_id(prefix=""):

@@ -17,7 +17,10 @@ router = APIRouter(prefix="/api/newsletter", tags=["newsletter"])
 # ══════════════════════════════════════════
 async def verify_admin(authorization: str):
     from services.auth_service import verify_token
-    user = verify_token((authorization or '').replace('Bearer ',''))
+    user = verify_token((authorization or '').replace('Bearer ','').strip())
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="سجّل الدخول من جديد — الجلسة منتهية أو غير موجودة")
     is_admin = user.get("is_platform_admin") or user.get("role") == "Super Admin"
     if not is_admin:
         from fastapi import HTTPException

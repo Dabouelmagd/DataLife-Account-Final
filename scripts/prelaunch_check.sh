@@ -48,16 +48,20 @@ grep -q "PASTE\|CHANGE_ME\|changeme" .env && bad "فيه قيمة مؤقتة ف�
 docker port datalife_mongo 2>/dev/null | grep -q "0.0.0.0" && bad "قاعدة البيانات مفتوحة للإنترنت" || ok "قاعدة البيانات مش مفتوحة برا السيرفر"
 
 echo "── النسخ الاحتياطي"
-last=$(ls -t /opt/datalife-backups/db_*.gpg 2>/dev/null | head -1)
+[ -f /etc/datalife-backup.env ] && . /etc/datalife-backup.env
+BDIR="${DATALIFE_BACKUP_DIR:-/opt/datalife-backups}"
+last=$(ls -t "$BDIR"/db_*.archive.gz 2>/dev/null | head -1)
 if [ -n "$last" ]; then
   age=$(( ( $(date +%s) - $(stat -c %Y "$last") ) / 3600 ))
-  [ "$age" -le 26 ] && ok "آخر نسخة من $age ساعة ($(basename "$last"))" || bad "آخر نسخة عمرها $age ساعة"
-else bad "مفيش نسخ في /opt/datalife-backups"; fi
-crontab -l 2>/dev/null | grep -q backup_datalife.sh && ok "النسخ اليومي متجدول" || bad "النسخ اليومي مش في crontab"
-if command -v rclone >/dev/null && [ -f /etc/datalife-backup.env ]; then
-  n=$(rclone lsf gdrive: --include 'db_*.gpg' 2>/dev/null | wc -l)
-  [ "$n" -gt 0 ] && ok "فيه $n نسخة على جوجل درايف" || warn "مش لاقي نسخ على جوجل درايف"
-fi
+  [ "$age" -le 26 ] && ok "آخر نسخة على السيرفر من $age ساعة ($(basename "$last"))" || bad "آخر نسخة على السيرفر عمرها $age ساعة ($(basename "$last"))"
+else bad "مفيش نسخ في $BDIR"; fi
+if { crontab -l 2>/dev/null; cat /etc/crontab /etc/cron.d/* 2>/dev/null; } | grep -v '^\s*#' | grep -q backup_datalife; then
+  ok "النسخ اليومي متجدول"
+else bad "النسخ اليومي مش متجدول (لا في crontab ولا في /etc/cron.d)"; fi
+if [ -n "${DATALIFE_BACKUP_REMOTE:-}" ] && command -v rclone >/dev/null; then
+  rl=$(rclone lsl "$DATALIFE_BACKUP_REMOTE" --include 'db_*.gpg' 2>/dev/null | sort -k2,3 | tail -1)
+  [ -n "$rl" ] && ok "آخر نسخة على جوجل درايف: $(echo "$rl" | awk '{print $2, $NF}')" || bad "مفيش نسخ على $DATALIFE_BACKUP_REMOTE"
+else warn "النسخة خارج السيرفر مش متظبطة (DATALIFE_BACKUP_REMOTE)"; fi
 
 echo "── السيرفر"
 use=$(df --output=pcent / | tail -1 | tr -dc '0-9')

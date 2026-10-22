@@ -704,6 +704,8 @@ async def create_owner_assistant(
 ):
     """Super Admin يضيف مساعد له بصلاحيات محددة"""
     user_data = verify_token((authorization or '').replace('Bearer ',''))
+    if not user_data:
+        raise HTTPException(status_code=401, detail="سجّل الدخول من جديد — الجلسة منتهية أو غير موجودة")
     
     # Only Super Admin can create assistants
     is_super = user_data.get("is_platform_admin") or user_data.get("role") == "Super Admin"
@@ -776,6 +778,8 @@ async def create_owner_assistant(
 async def get_owner_assistants(authorization: Optional[str] = Header(None)):
     """جلب قائمة مساعدي الـ Owner"""
     user_data = verify_token((authorization or '').replace('Bearer ',''))
+    if not user_data:
+        raise HTTPException(status_code=401, detail="سجّل الدخول من جديد — الجلسة منتهية أو غير موجودة")
     is_super = user_data.get("is_platform_admin") or user_data.get("role") == "Super Admin"
     if not is_super:
         raise HTTPException(status_code=403, detail="Super Admin only")
@@ -796,6 +800,8 @@ async def update_assistant(
 ):
     """تعديل صلاحيات أو حالة مساعد"""
     user_data = verify_token((authorization or '').replace('Bearer ',''))
+    if not user_data:
+        raise HTTPException(status_code=401, detail="سجّل الدخول من جديد — الجلسة منتهية أو غير موجودة")
     is_super = user_data.get("is_platform_admin") or user_data.get("role") == "Super Admin"
     if not is_super:
         raise HTTPException(status_code=403, detail="Super Admin only")
@@ -819,6 +825,8 @@ async def delete_assistant(
 ):
     """حذف مساعد"""
     user_data = verify_token((authorization or '').replace('Bearer ',''))
+    if not user_data:
+        raise HTTPException(status_code=401, detail="سجّل الدخول من جديد — الجلسة منتهية أو غير موجودة")
     is_super = user_data.get("is_platform_admin") or user_data.get("role") == "Super Admin"
     if not is_super:
         raise HTTPException(status_code=403, detail="Super Admin only")
