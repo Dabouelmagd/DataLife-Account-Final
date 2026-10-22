@@ -497,6 +497,146 @@ async def complete_production_order(order_id: str, data: CompleteOrderRequest,
     }
 
 
+
+# ══════════════════════════════════════════════════════════════
+# SCRAP & DEFECTIVE OUTPUT — الهوالك والإنتاج المعيب (باقة التصنيع: 140)
+#   إثبات هالك من أمر مفتوح بقيمته الاستردادية:  Dr 140 / Cr 126 إنتاج تحت التشغيل
+#   بيع هوالك:  Dr الخزينة/البنك (+ضريبة) / Cr 140 (القيمة الدفترية) + Cr 260 الضريبة
+#               والفرق: ربح → Cr 423 إيرادات متنوعة أخرى | خسارة → Dr 33610 مصروف تالف وهدر
+# ══════════════════════════════════════════════════════════════
+SCRAP_GAIN, SCRAP_LOSS = "423", "33610"
+
+
+async def _scrap_account(company_id: str) -> str:
+    # pack-only: a readable Arabic 400 naming «باقة التصنيع والإنتاج» without it
+    return await PA.pick_code(db, company_id, "scrap_stock")
+
+
+async def _scrap_balance(company_id: str) -> float:
+    total = 0.0
+    async for r in db.mfg_scrap.find({"company_id": company_id}, {"_id": 0, "value": 1}):
+        total += float(r.get("value") or 0)
+    return P.r2(total)
+
+
+class ScrapRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    qty:         float = Field(gt=0)
+    unit:        str = Field("وحدة", max_length=20)          # وحدة / كجم / طن …
+    value:       float = Field(gt=0)                          # القيمة الاستردادية (ما يُتوقع بيعه به)
+    date:        Optional[str] = None
+    description: str = Field("", max_length=200)
+
+
+@router.post("/production-orders/{order_id}/scrap")
+async def record_scrap(order_id: str, data: ScrapRequest, current_user: dict = Depends(get_current_user)):
+    """هالك / إنتاج معيب من أمر إنتاج مفتوح بقيمته الاستردادية:
+    Dr م/140 مخزون الهوالك والإنتاج المعيب / Cr م/126 إنتاج تحت التشغيل
+    (تنخفض تكلفة الأمر بقيمة الهالك، فتكلفة الوحدة السليمة لا تتحمل ما يُسترد ببيعه)."""
+    company_id = current_user["company_id"]
+    order = await db.production_orders.find_one({"id": order_id, "company_id": company_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(404, "أمر الإنتاج غير موجود")
+    scrap_acc = await _scrap_account(company_id)
+    if order.get("status") != "open":
+        raise HTTPException(400, "الهالك يُسجَّل على أمر مفتوح — الأمر مُغلَق أو جارٍ إغلاقه")
+    value, qty = P.r2(data.value), round(float(data.qty), 4)
+    unit = data.unit.strip() or "وحدة"
+    planned = float(order.get("planned_qty") or 0)
+    if unit == "وحدة" and planned > 0 and qty > planned:
+        raise HTTPException(400, f"كمية الهالك ({qty:g}) أكبر من الكمية المخططة للأمر ({planned:g})")
+    cost = P.r2(order.get("total_actual_cost") or 0)
+    if value > cost + 0.005:
+        raise HTTPException(400, f"القيمة الاستردادية ({value:,.2f}) أكبر من التكلفة المتراكمة على الأمر ({cost:,.2f})")
+    date_str = data.date or date.today().isoformat()
+    sid = str(uuid.uuid4())
+    what = data.description.strip() or "هالك وإنتاج معيب"
+    lines = [
+        await je_line(company_id, scrap_acc, debit=value, desc=f"{what} — {qty:g} {unit} — أمر {order['order_number']}"),
+        await je_line(company_id, ACC["wip"], credit=value, desc=f"تخفيض تكلفة أمر {order['order_number']} بالقيمة الاستردادية للهالك"),
+    ]
+    je_id = await post_je(company_id, current_user["user_id"], date_str,
+                          f"إثبات هالك — أمر إنتاج {order['order_number']}", lines, sid)
+    entry = {"id": sid, "qty": qty, "unit": unit, "value": value, "date": date_str, "description": what, "je_id": je_id}
+    done = await db.production_orders.update_one(
+        {"id": order_id, "company_id": company_id, "status": "open"},
+        {"$inc": {"total_actual_cost": -value, "total_scrap_value": value}, "$push": {"scrap": entry}})
+    if not done.modified_count:           # closed between the check and now: undo the entry
+        await _rollback(company_id, current_user["user_id"], [je_id], [], date_str, sid)
+        raise HTTPException(409, "أُغلق أمر الإنتاج أثناء التسجيل — لم يُرحَّل شيء")
+    await db.mfg_scrap.insert_one({**entry, "company_id": company_id, "kind": "in", "order_id": order_id,
+                                   "order_number": order["order_number"], "account": scrap_acc,
+                                   "created_by": current_user["user_id"], "created_at": datetime.now(timezone.utc).isoformat()})
+    return {"message": f"تم إثبات هالك بقيمة {value:,.2f} ج.م على أمر {order['order_number']}",
+            "scrap": entry, "new_total_cost": P.r2(cost - value), "journal_entry_id": je_id}
+
+
+@router.get("/scrap")
+async def scrap_register(current_user: dict = Depends(get_current_user)):
+    """رصيد الهوالك وحركتها. available=false بدون باقة التصنيع."""
+    company_id = current_user["company_id"]
+    acc = await PA.optional(db, company_id, "scrap_stock")
+    rows = await db.mfg_scrap.find({"company_id": company_id}, {"_id": 0}).sort("date", -1).to_list(300) if acc else []
+    return {"available": bool(acc), "account": acc["account_code"] if acc else None,
+            "message": None if acc else f"الهوالك والإنتاج المعيب تحتاج الحساب 140 — فعّل «{P.PACK_HINT.get('140', 'باقة التصنيع والإنتاج')}»",
+            "balance": await _scrap_balance(company_id) if acc else 0.0, "movements": rows,
+            "gain_account": SCRAP_GAIN, "loss_account": SCRAP_LOSS}
+
+
+class ScrapSaleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    date:           Optional[str] = None
+    proceeds:       float = Field(gt=0)                 # ثمن البيع قبل الضريبة
+    vat_amount:     float = Field(0, ge=0)
+    carrying_value: Optional[float] = Field(None, gt=0)   # القيمة الدفترية المباعة — فارغ = الرصيد كله
+    money_account:  str = "161"                           # 161 خزينة / 162 بنك / حساب بنك فرعي
+    buyer:          str = Field("", max_length=120)
+    reference:      Optional[str] = Field(None, max_length=120)
+
+
+@router.post("/scrap-sales")
+async def sell_scrap(data: ScrapSaleRequest, current_user: dict = Depends(get_current_user)):
+    """بيع هوالك:
+    Dr الخزينة/البنك (الثمن + الضريبة) / Cr 140 (القيمة الدفترية) + Cr 260 (الضريبة)
+    الفرق: ربح Cr 423 إيرادات متنوعة أخرى — خسارة Dr 33610 مصروف تالف وهدر"""
+    company_id = current_user["company_id"]
+    scrap_acc = await _scrap_account(company_id)
+    if not data.money_account.startswith("16") or data.money_account == "164":
+        raise HTTPException(400, "اختر الخزينة أو حساب بنك")
+    balance = await _scrap_balance(company_id)
+    if balance <= 0:
+        raise HTTPException(400, "لا يوجد رصيد هوالك لبيعه — سجّل الهالك من أمر الإنتاج أولاً")
+    carrying = P.r2(data.carrying_value if data.carrying_value is not None else balance)
+    if carrying > balance + 0.005:
+        raise HTTPException(400, f"القيمة الدفترية المباعة ({carrying:,.2f}) أكبر من رصيد الهوالك ({balance:,.2f})")
+    proceeds, vat = P.r2(data.proceeds), P.r2(data.vat_amount)
+    if vat >= proceeds:
+        raise HTTPException(400, "الضريبة لا يمكن أن تساوي أو تتجاوز ثمن البيع")
+    diff = P.r2(proceeds - carrying)
+    date_str = data.date or date.today().isoformat()
+    sid = str(uuid.uuid4())
+    who = f" — {data.buyer.strip()}" if data.buyer.strip() else ""
+    lines = [
+        await je_line(company_id, data.money_account, debit=P.r2(proceeds + vat), desc=f"ثمن بيع هوالك{who}"),
+        await je_line(company_id, scrap_acc, credit=carrying, desc="إخراج الهوالك المباعة بقيمتها الدفترية"),
+        await je_line(company_id, "260", credit=vat, desc="ضريبة القيمة المضافة على بيع الهوالك"),
+    ]
+    if diff > 0:
+        lines.append(await je_line(company_id, SCRAP_GAIN, credit=diff, desc="ربح بيع هوالك (الثمن أعلى من القيمة الدفترية)"))
+    elif diff < 0:
+        lines.append(await je_line(company_id, SCRAP_LOSS, debit=-diff, desc="خسارة بيع هوالك (الثمن أقل من القيمة الدفترية)"))
+    je_id = await post_je(company_id, current_user["user_id"], date_str, f"بيع هوالك{who}", lines, sid)
+    rec = {"id": sid, "company_id": company_id, "kind": "out", "value": -carrying, "date": date_str,
+           "proceeds": proceeds, "vat_amount": vat, "gain_loss": diff, "money_account": data.money_account,
+           "buyer": data.buyer.strip(), "reference": data.reference, "je_id": je_id, "account": scrap_acc,
+           "description": f"بيع هوالك{who}", "created_by": current_user["user_id"],
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.mfg_scrap.insert_one(dict(rec))
+    return {"message": f"تم بيع هوالك بـ {proceeds:,.2f} ج.م — " +
+                       (f"ربح {diff:,.2f}" if diff > 0 else f"خسارة {-diff:,.2f}" if diff < 0 else "بدون فرق"),
+            "sale": rec, "remaining_balance": P.r2(balance - carrying), "journal_entry_id": je_id}
+
+
 class OverheadVarianceRequest(BaseModel):
     period: str = Field(pattern=r"^\d{4}-\d{2}$")
     actual_foh: float = Field(ge=0)

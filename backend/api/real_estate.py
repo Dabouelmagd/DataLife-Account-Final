@@ -435,21 +435,38 @@ class DeliverRequest(BaseModel):
     date: Optional[str] = None
     unit_cost: Optional[float] = Field(None, ge=0)   # فارغ = تخصيص تلقائي من تكلفة المشروع بالمساحة
     apply_re_tax: Optional[bool] = None   # None = the company's policy (سياسات الشركة)
+    # وديعة صيانة تُحصَّل عند الاستلام (باقة التطوير العقاري: 246) — 0 = لا شيء
+    maintenance_deposit: float = Field(0, ge=0)
+    maintenance_method: Literal["cash", "bank"] = "cash"
+
+
+def _remaining_wip(project: dict) -> float:
+    """What is still in 142: accumulated − cost of delivered units − cost moved to 129."""
+    return P.r2(float(project.get("accumulated_cost", 0) or 0) - float(project.get("cost_relieved", 0) or 0)
+                - float(project.get("cost_transferred", 0) or 0))
+
+
+def _area_share(project: dict, unit: dict, units: list) -> tuple:
+    acc = float(project.get("accumulated_cost", 0) or 0)
+    total_area = sum(float(u.get("area_sqm") or 0) for u in units)
+    if total_area > 0 and float(unit.get("area_sqm") or 0) > 0:
+        return acc * float(unit["area_sqm"]) / total_area, "area"
+    n = max(int(project.get("total_units") or 0), len(units), 1)
+    return acc / n, "units"
 
 
 async def _suggest_cost(company_id: str, booking: dict) -> dict:
     project = await db.re_projects.find_one({"id": booking["project_id"], "company_id": company_id}, {"_id": 0}) or {}
     unit = await db.re_units.find_one({"id": booking["unit_id"], "company_id": company_id}, {"_id": 0}) or {}
+    remaining = _remaining_wip(project)
+    if unit.get("finished_cost") is not None:
+        # moved to finished units stock (129 — real estate pack) at project close
+        fc = P.r2(unit["finished_cost"])
+        return {"suggested": fc, "remaining_wip": remaining, "basis": "finished",
+                "cost_account": unit.get("finished_account") or "129", "finished_cost": fc}
     units = await db.re_units.find({"company_id": company_id, "project_id": booking["project_id"]},
                                    {"_id": 0, "area_sqm": 1}).to_list(None)
-    acc = float(project.get("accumulated_cost", 0) or 0)
-    remaining = P.r2(acc - float(project.get("cost_relieved", 0) or 0))
-    total_area = sum(float(u.get("area_sqm") or 0) for u in units)
-    if total_area > 0 and float(unit.get("area_sqm") or 0) > 0:
-        cost, basis = acc * float(unit["area_sqm"]) / total_area, "area"
-    else:
-        n = max(int(project.get("total_units") or 0), len(units), 1)
-        cost, basis = acc / n, "units"
+    cost, basis = _area_share(project, unit, units)
     return {"suggested": P.r2(min(cost, max(remaining, 0))), "remaining_wip": remaining, "basis": basis}
 
 
@@ -491,9 +508,19 @@ async def deliver_unit(booking_id: str, data: DeliverRequest, current_user: dict
             raise HTTPException(400, "المحصّل أكبر من سعر العقد — راجع الحجز")
         receivable = P.r2(price - liab_bal)
         sug = await _suggest_cost(company_id, booking)
-        unit_cost = P.r2(data.unit_cost if data.unit_cost is not None else sug["suggested"])
-        if unit_cost > sug["remaining_wip"] + 0.01:
-            raise HTTPException(400, f"تكلفة الوحدة ({unit_cost:,.2f}) أكبر من المتبقي في تكاليف المشروع ({sug['remaining_wip']:,.2f})")
+        deposit = P.r2(data.maintenance_deposit)
+        deposit_acc = (await PA.pick(db, company_id, "re_maintenance_deposits"))["account_code"] if deposit > 0 else None
+        cost_acc = ACC["re_wip"]
+        if sug.get("basis") == "finished":
+            # the unit sits in finished units stock (129): its cost is fixed there
+            unit_cost, cost_acc = sug["finished_cost"], sug["cost_account"]
+            if data.unit_cost is not None and abs(P.r2(data.unit_cost) - unit_cost) > 0.01:
+                raise HTTPException(400, f"الوحدة محوّلة لمخزون الوحدات التامة {cost_acc} بتكلفة {unit_cost:,.2f} — "
+                                         "لا تُعدَّل تكلفتها عند التسليم")
+        else:
+            unit_cost = P.r2(data.unit_cost if data.unit_cost is not None else sug["suggested"])
+            if unit_cost > sug["remaining_wip"] + 0.01:
+                raise HTTPException(400, f"تكلفة الوحدة ({unit_cost:,.2f}) أكبر من المتبقي في تكاليف المشروع ({sug['remaining_wip']:,.2f})")
         from api.company_policies import disposal_tax
         tax_on, tax_rate = await disposal_tax(company_id)
         apply_tax = tax_on if data.apply_re_tax is None else data.apply_re_tax
@@ -519,20 +546,35 @@ async def deliver_unit(booking_id: str, data: DeliverRequest, current_user: dict
         if unit_cost > 0:
             cogs_lines = [
                 await P.je_line(db, company_id, ACC["re_cogs"], debit=unit_cost, desc=f"تكلفة وحدة {booking['unit_number']} المباعة"),
-                await P.je_line(db, company_id, ACC["re_wip"], credit=unit_cost, desc=f"إقفال تكلفة وحدة {booking['unit_number']} من المشروع"),
+                await P.je_line(db, company_id, cost_acc, credit=unit_cost,
+                                desc=(f"إقفال تكلفة وحدة {booking['unit_number']} من المشروع" if cost_acc == ACC["re_wip"]
+                                      else f"إخراج وحدة {booking['unit_number']} من مخزون الوحدات التامة")),
             ]
             je_cogs_id = await _post_je(company_id, current_user["user_id"], delivery_date,
                                      f"تكلفة وحدة عقارية مباعة — {booking['unit_number']}", cogs_lines, "re_booking", booking_id)
+        je_dep_id = None
+        if deposit > 0:
+            je_dep_id = await _post_je(company_id, current_user["user_id"], delivery_date,
+                                       f"وديعة صيانة — {booking['customer_name']} وحدة {booking['unit_number']}", [
+                await P.je_line(db, company_id, ACC["bank"] if data.maintenance_method == "bank" else ACC["cash"],
+                                debit=deposit, desc=f"تحصيل وديعة صيانة — {booking['customer_name']}"),
+                await P.je_line(db, company_id, deposit_acc, credit=deposit,
+                                desc=f"وديعة صيانة محصلة — وحدة {booking['unit_number']}"),
+            ], "re_booking", booking_id)
     except Exception:
         await db.re_bookings.update_one({"id": booking_id, "company_id": company_id}, {"$set": {"status": "booked"}})
         raise
 
     await db.re_bookings.update_one({"id": booking_id, "company_id": company_id}, {"$set": {
         "status": "delivered", "delivery_date": delivery_date, "revenue_je_id": je_rev_id, "cogs_je_id": je_cogs_id,
-        "liability_balance": 0.0, "receivable_at_delivery": receivable, "unit_cost": unit_cost, "re_tax_amount": re_tax}})
+        "liability_balance": 0.0, "receivable_at_delivery": receivable, "unit_cost": unit_cost, "re_tax_amount": re_tax,
+        **({"maintenance_deposit": deposit, "maintenance_je_id": je_dep_id} if deposit > 0 else {}),
+        **({"cost_account": cost_acc} if cost_acc != ACC["re_wip"] else {})}})
     await db.re_units.update_one({"id": booking["unit_id"], "company_id": company_id},
                                  {"$set": {"status": "delivered", "delivery_date": delivery_date, "cost_allocated": unit_cost}})
-    await db.re_projects.update_one({"id": booking["project_id"], "company_id": company_id}, {"$inc": {"cost_relieved": unit_cost}})
+    # a unit relieved from 129 was already taken out of the project's 142 at transfer
+    await db.re_projects.update_one({"id": booking["project_id"], "company_id": company_id},
+                                    {"$inc": {"cost_relieved" if cost_acc == ACC["re_wip"] else "finished_relieved": unit_cost}})
     margin = P.r2(price - unit_cost)
     return {
         "message": f"✅ تم تسليم الوحدة {booking['unit_number']} لـ {booking['customer_name']}",
@@ -540,9 +582,96 @@ async def deliver_unit(booking_id: str, data: DeliverRequest, current_user: dict
         "financials": {"contract_price": price, "re_tax_amount": re_tax, "revenue": price,
                        "receivable": receivable, "unit_cost": unit_cost, "gross_margin": margin,
                        "gross_margin_pct": round(margin / price * 100, 1) if price else None},
-        "journal_entries": {"revenue_recognition": je_rev_id, "cogs": je_cogs_id},
+        "journal_entries": {"revenue_recognition": je_rev_id, "cogs": je_cogs_id,
+                            **({"maintenance_deposit": je_dep_id} if deposit > 0 else {})},
         "law": "المعيار المحاسبي المصري 48 — الإيراد يُثبَّت عند نقل السيطرة (التسليم الفعلي)",
     }
+
+
+# ══════════════════════════════════════════════════════════════
+# PROJECT CLOSE — إقفال مشروع / تحويل وحدات تامة (باقة التطوير العقاري: 129)
+#   Dr 129 مخزون وحدات تامة معدة للبيع (لكل وحدة) / Cr 142 مشروعات عقارية تحت التنفيذ
+#   ثم عند التسليم: Dr 3211 / Cr 129 بتكلفة الوحدة المحوّلة
+# ══════════════════════════════════════════════════════════════
+
+class TransferFinishedRequest(BaseModel):
+    date: Optional[str] = None
+    unit_ids: Optional[List[str]] = None     # فارغ = كل الوحدات غير المسلَّمة وغير المحوّلة
+
+
+async def _transfer_plan(company_id: str, project: dict, unit_ids: Optional[List[str]]) -> dict:
+    units = await db.re_units.find({"company_id": company_id, "project_id": project["id"]}, {"_id": 0}).to_list(None)
+    eligible = [u for u in units if u.get("status") != "delivered" and u.get("finished_cost") is None]
+    if unit_ids:
+        wanted = set(unit_ids)
+        unknown = wanted - {u["id"] for u in units}
+        if unknown:
+            raise HTTPException(404, "وحدة غير موجودة في هذا المشروع")
+        chosen = [u for u in eligible if u["id"] in wanted]
+        if len(chosen) != len(wanted):
+            raise HTTPException(400, "بعض الوحدات المختارة مسلَّمة أو محوّلة من قبل")
+    else:
+        chosen = eligible
+    left = max(_remaining_wip(project), 0.0)
+    rows = []
+    for u in sorted(chosen, key=lambda x: str(x.get("unit_number"))):
+        share, basis = _area_share(project, u, units)
+        cost = P.r2(min(share, left))
+        left = P.r2(left - cost)
+        rows.append({"unit_id": u["id"], "unit_number": u["unit_number"], "area_sqm": u.get("area_sqm"),
+                     "status": u.get("status"), "cost": cost, "basis": basis})
+    return {"units": rows, "total": P.r2(sum(r["cost"] for r in rows)), "remaining_wip": _remaining_wip(project),
+            "eligible_count": len(eligible)}
+
+
+@router.get("/projects/{project_id}/transfer-finished")
+async def transfer_finished_preview(project_id: str, current_user: dict = Depends(get_current_user)):
+    """معاينة تحويل الوحدات التامة: تكلفة كل وحدة بالمساحة من تكلفة المشروع المتراكمة."""
+    company_id = current_user["company_id"]
+    project = await db.re_projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(404, "المشروع غير موجود")
+    acc = await PA.optional(db, company_id, "re_finished_units")
+    plan = await _transfer_plan(company_id, project, None)
+    return {**plan, "available": bool(acc),
+            "message": None if acc else f"تحويل الوحدات التامة يحتاج الحساب 129 — فعّل «{P.PACK_HINT.get('129', 'باقة التطوير العقاري')}»"}
+
+
+@router.post("/projects/{project_id}/transfer-finished")
+async def transfer_finished_units(project_id: str, data: TransferFinishedRequest,
+                                  current_user: dict = Depends(get_current_user)):
+    """إقفال مشروع / تحويل وحدات تامة:
+    Dr 129 مخزون وحدات تامة معدة للبيع (لكل وحدة) / Cr 142 مشروعات عقارية تحت التنفيذ"""
+    company_id = current_user["company_id"]
+    project = await db.re_projects.find_one({"id": project_id, "company_id": company_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(404, "المشروع غير موجود")
+    finished = (await PA.pick(db, company_id, "re_finished_units"))["account_code"]
+    plan = await _transfer_plan(company_id, project, data.unit_ids)
+    rows = [r for r in plan["units"] if r["cost"] > 0]
+    if not rows:
+        raise HTTPException(400, "لا توجد وحدات للتحويل أو لا تكلفة متبقية في المشروع (142)")
+    date_str = data.date or date.today().isoformat()
+    total = P.r2(sum(r["cost"] for r in rows))
+    lines = [await P.je_line(db, company_id, finished, debit=r["cost"],
+                             desc=f"وحدة {r['unit_number']} تامة — {project['name']}") for r in rows]
+    lines.append(await P.je_line(db, company_id, ACC["re_wip"], credit=total,
+                                 desc=f"إقفال تكاليف وحدات تامة من مشروع {project['name']}"))
+    je_id = await _post_je(company_id, current_user["user_id"], date_str,
+                           f"تحويل وحدات تامة لمخزون الوحدات — {project['name']}", lines, "re_project", project_id)
+    for r in rows:
+        await db.re_units.update_one({"id": r["unit_id"], "company_id": company_id}, {"$set": {
+            "finished_cost": r["cost"], "finished_account": finished, "transferred_date": date_str,
+            "transfer_je_id": je_id}})
+    left = plan["eligible_count"] - len(rows)
+    upd = {"$inc": {"cost_transferred": total},
+           "$push": {"transfers": {"date": date_str, "units": len(rows), "amount": total, "je_id": je_id}}}
+    if left == 0:
+        upd["$set"] = {"status": "completed", "completed_date": date_str}
+    await db.re_projects.update_one({"id": project_id, "company_id": company_id}, upd)
+    return {"message": f"تم تحويل {len(rows)} وحدة تامة بتكلفة {total:,.2f} ج.م إلى {finished}",
+            "units": rows, "total": total, "journal_entry_id": je_id,
+            "project_completed": left == 0}
 
 
 # ══════════════════════════════════════════════════════════════
@@ -551,8 +680,12 @@ async def deliver_unit(booking_id: str, data: DeliverRequest, current_user: dict
 
 @router.get("/projects")
 async def list_projects(current_user: dict = Depends(get_current_user)):
-    projects = await db.re_projects.find({"company_id": current_user["company_id"]}, {"_id": 0}).sort("created_at", -1).to_list(None)
-    return {"projects": projects, "total": len(projects)}
+    company_id = current_user["company_id"]
+    projects = await db.re_projects.find({"company_id": company_id}, {"_id": 0}).sort("created_at", -1).to_list(None)
+    # which pack actions this company has (129 finished units, 246 maintenance deposits)
+    pack = {"finished_units": bool(await PA.optional(db, company_id, "re_finished_units")),
+            "maintenance_deposits": bool(await PA.optional(db, company_id, "re_maintenance_deposits"))}
+    return {"projects": projects, "total": len(projects), "pack": pack}
 
 
 @router.get("/projects/{project_id}/units")

@@ -213,9 +213,26 @@ async def _add_item(kind: str, project_id: str, data: dict, authorization: Optio
     item.update(posting)
     item["payment_method"] = "cash" if posting["paid_from_code"] == "161" else \
         ("bank" if posting["paid_from_code"].startswith("16") else "account")
+    # a project revenue is a billing: it replaces work recorded earlier as done
+    # but not billed (143/150/149 — industry packs). No accrual → nothing happens.
+    released = None
+    if kind == "revenue" and data.get("offset_unbilled") is not False:
+        from services import unbilled_work as UW
+        try:
+            released = await UW.release(db, company_id, user_data.get("user_id"), project_id=project_id,
+                                        amount=item["amount"], date=item["date"], source_type="project_revenue",
+                                        source_id=item["id"], note=f"فوترة أعمال منجزة سبق إثباتها — {item['description']}")
+        except HTTPException as e:
+            item["unbilled_release_error"] = str(e.detail)
+        if released:
+            item["unbilled_released"] = released["released"]
+            item["unbilled_release_entry_id"] = released["journal_entry_id"]
     await (db.project_expenses if kind == "expense" else db.project_revenues).insert_one(dict(item))
     await update_project_financials(project_id)
-    return {**item, "message": f"تم التسجيل وترحيل القيد {posting['journal_entry_number']}"}
+    msg = f"تم التسجيل وترحيل القيد {posting['journal_entry_number']}"
+    if released:
+        msg += f" — وسُوّيت أعمال منجزة غير مفوترة بقيمة {released['released']:,.2f}"
+    return {**item, "message": msg}
 
 
 @router.get("/{project_id}/money-options")
@@ -257,12 +274,71 @@ async def _cancel_item(kind: str, project_id: str, item_id: str, body: Optional[
     reason = str((body or {}).get("reason") or "").strip()
     if len(reason) < 3:
         raise HTTPException(status_code=400, detail="اكتب سبب الإلغاء")
+    if kind == "revenue" and item.get("unbilled_release_entry_id"):
+        # the billing is undone, so the work it billed is unbilled again
+        from services import unbilled_work as UW
+        await UW.undo_release(db, cid, user_data.get("user_id"), "project_revenue", item_id)
     try:
         r = await cancel_item(db, cid, user_data.get("user_id"), kind, item, reason)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     await update_project_financials(project_id)
     return {"message": "تم الإلغاء" + (f" بقيد عكسي {r['reversal_entry_number']}" if r["reversal_entry_number"] else ""), **r}
+
+
+# ============ WORK DONE, NOT YET BILLED (industry packs 143 / 150 / 149) ============
+
+@router.get("/{project_id}/unbilled")
+async def get_project_unbilled(project_id: str, authorization: Optional[str] = Header(None)):
+    """الأعمال المنجزة غير المفوترة للمشروع + الحسابات المتاحة (available=false بدون باقة)."""
+    from services import unbilled_work as UW
+    user_data = await verify_token_from_header(authorization)
+    cid = user_data.get("company_id")
+    if not await db.projects.find_one({"id": project_id, "company_id": cid}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    return await UW.summary(db, cid, project_id)
+
+
+@router.post("/{project_id}/unbilled")
+async def add_project_unbilled(project_id: str, data: dict, authorization: Optional[str] = Header(None)):
+    """إثبات أعمال منجزة لم تُفوتر: Dr 143|150|149 / Cr حساب الإيراد.
+    تُسوّى تلقائياً عند تسجيل إيراد/مستخلص/فاتورة لنفس المشروع."""
+    from services import unbilled_work as UW
+    user_data = await verify_token_from_header(authorization)
+    cid = user_data.get("company_id")
+    project = await db.projects.find_one({"id": project_id, "company_id": cid}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    try:
+        amount = float(data.get("amount") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="المبلغ غير صحيح")
+    doc = await UW.record(db, cid, user_data.get("user_id"), project=project, amount=amount,
+                          date=str(data.get("date") or datetime.now(timezone.utc).date().isoformat())[:10],
+                          description=str(data.get("description") or ""),
+                          wip_code=data.get("wip_account") or None, revenue_code=data.get("revenue_account") or None)
+    return {"message": f"تم إثبات أعمال منجزة غير مفوترة بقيمة {doc['amount']:,.2f} وترحيل القيد", "item": doc}
+
+
+@router.post("/{project_id}/unbilled/{accrual_id}/reverse")
+async def reverse_project_unbilled(project_id: str, accrual_id: str, data: Optional[dict] = None,
+                                   authorization: Optional[str] = Header(None)):
+    """إقفال المتبقي يدوياً (أعمال لن تُفوتر أو فُوترت خارج النظام): Dr الإيراد / Cr 143|150|149."""
+    from services import unbilled_work as UW
+    user_data = await verify_token_from_header(authorization)
+    cid = user_data.get("company_id")
+    item = await db.unbilled_work.find_one({"id": accrual_id, "project_id": project_id, "company_id": cid}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="غير موجود")
+    if item.get("status") not in ("open", "partial"):
+        raise HTTPException(status_code=400, detail="تمت تسويته بالكامل من قبل")
+    reason = str((data or {}).get("reason") or "").strip()
+    if len(reason) < 3:
+        raise HTTPException(status_code=400, detail="اكتب سبب الإقفال")
+    date = str((data or {}).get("date") or datetime.now(timezone.utc).date().isoformat())[:10]
+    r = await UW.release(db, cid, user_data.get("user_id"), project_id=project_id, accrual_id=accrual_id,
+                         date=date, source_type="manual", source_id=accrual_id, note=f"إقفال أعمال غير مفوترة: {reason}")
+    return {"message": f"تم إقفال {r['released']:,.2f} وترحيل القيد", **r}
 
 
 @router.post("/{project_id}/expenses/{expense_id}/cancel")

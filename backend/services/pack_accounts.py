@@ -35,6 +35,10 @@ ROLES = {
     # ── المطاعم (restaurants) ─────────────────────────────────────
     "pos_cost_of_sales":    ["347", "314"],      # تكلفة الأغذية والمشروبات / تكلفة البضاعة المباعة
     "pos_waste":            ["33612", "33610"],  # هالك المطبخ / مصروف تالف وهدر
+    # delivery-platform sales (طلبات / Elmenus / مرسول …) — pack-only: without
+    # the pack the POS has no "delivery platform" payment method at all
+    "delivery_receivable":  ["147"],             # مستحقات منصات التوصيل
+    "delivery_commission":  ["33613"],           # عمولات منصات توصيل الطعام
 
     # ── التصدير (export) ──────────────────────────────────────────
     "export_revenue":       ["424"],             # pack-only: else the invoice's own revenue account
@@ -58,6 +62,9 @@ ROLES = {
     "project_quality_testing": ["319"],          # pack-only project category
     "project_site_permits":    ["322"],          # pack-only project category
     "project_consultants":     ["346"],          # professional pack: consultant costs on engagements
+    # work done but not yet billed (services/unbilled_work.py) — pack-only:
+    # 143 contracts (construction), 150 hours/services (professional), 149 campaigns (ads)
+    "unbilled_work":           ["143", "150", "149"],
 
     # ── التطوير العقاري (real estate) ─────────────────────────────
     "re_contract_liability":   ["245", "2431"],
@@ -68,6 +75,14 @@ ROLES = {
     "foh_maintenance":         ["326"],
     "foh_safety":              ["327"],
     "packaging_stock":         ["130"],          # materials issued from packaging stock
+    "scrap_stock":             ["140"],          # هوالك وإنتاج معيب بقيمته الاستردادية (pack-only)
+
+    # ── التطوير العقاري: وحدات تامة / ودائع صيانة (pack-only) ──────
+    "re_finished_units":       ["129"],
+    "re_maintenance_deposits": ["246"],
+
+    # ── الطبي: أتعاب الأطباء كمصروف على المنشأة (pack-only) ───────
+    "physician_fees":          ["345"],
 
     # ── الاستيراد (import) ────────────────────────────────────────
     # expense of an LC cost type when the LC is cancelled (default: 3375 like "other")

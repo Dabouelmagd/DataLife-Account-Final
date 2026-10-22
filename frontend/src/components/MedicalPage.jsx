@@ -4,14 +4,15 @@
  *   أتعاب الأطباء   — المستحق لكل طبيب وسداده مع خصم ضريبة المهن الحرة
  *   مطالبات التأمين — ما زال مستحقاً على كل شركة تأمين، وتحصيله أو تسجيل المرفوض
  *   سجل السداد      — كل ما سُدد للأطباء
- * Backend: /api/enterprise/medical-services, /doctor-payment, /doctor-payments.
+ * Backend: /api/enterprise/medical-services, /doctor-payment, /doctor-payments,
+ *          /medical-settings (doctor's share: pass-through 264, or the facility's expense 345 — medical pack).
  * Every amount is previewed as the entry the server will post; the server
  * recomputes it and refuses anything that does not reconcile.
  */
 import MonthInput from './ui/MonthInput';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { Loader2, Plus, X, Trash2 } from 'lucide-react';
+import { Loader2, Plus, X, Trash2, Settings2 } from 'lucide-react';
 
 const API = (process.env.REACT_APP_BACKEND_URL || 'https://datalifeaccount.com').replace('http://', 'https://');
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -91,8 +92,61 @@ function Card({ label, value, tone = 'slate' }) {
   );
 }
 
+// a doctor's treatment: per-doctor choice, else the company default
+const feeOf = (cfg, id, name) => (cfg?.doctor_overrides || {})[id] || (cfg?.doctor_overrides || {})[name] || cfg?.doctor_fee_treatment || 'pass_through';
+
+// ── doctors' share: pass-through or the facility's expense ──
+function FeeSettingsModal({ cfg, known, onClose, onSaved }) {
+  const [def, setDef] = useState(cfg.doctor_fee_treatment || 'pass_through');
+  const [over, setOver] = useState({ ...(cfg.doctor_overrides || {}) });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const save = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const { data } = await axios.put(`${BASE}/medical-settings`, { doctor_fee_treatment: def, doctor_overrides: over }, auth());
+      onSaved(data.message);
+    } catch (e) { setMsg({ err: true, text: errText(e, 'تعذّر الحفظ') }); } finally { setBusy(false); }
+  };
+  const opt = (v) => (v === 'expense' && !cfg.expense_available);
+  return (
+    <Modal title="معالجة أتعاب الأطباء" onClose={onClose}
+      footer={<><button onClick={onClose} className={`${btn} border border-slate-300`}>إلغاء</button>
+        <button onClick={save} disabled={busy} className={`${btn} bg-blue-600 text-white`}>{busy ? '…' : 'حفظ'}</button></>}>
+      <p className="text-xs leading-6 text-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800 p-3">{cfg.hint}</p>
+      {!cfg.expense_available && <p className="text-sm rounded-lg bg-amber-50 text-amber-800 p-3">{cfg.message}</p>}
+      <fieldset className="space-y-2">
+        <legend className="font-bold mb-1">الافتراضي لكل الأطباء</legend>
+        {[['pass_through', 'أمانة للطبيب — حصته ليست إيراداً للمنشأة (264)'], ['expense', 'مصروف على المنشأة — الإيراد كامل وحصة الطبيب تكلفة (345 / 264)']].map(([v, l]) => (
+          <label key={v} className={`flex items-center gap-2 ${opt(v) ? 'opacity-50' : ''}`}>
+            <input type="radio" name="fee-def" checked={def === v} disabled={opt(v)} onChange={() => setDef(v)} /> {l}</label>
+        ))}
+      </fieldset>
+      {known.doctors.length > 0 && (
+        <fieldset className="space-y-2">
+          <legend className="font-bold mb-1">طبيب بعينه (اختياري)</legend>
+          {known.doctors.map((d) => {
+            const id = d.doctor_id || idFor('dr', d.doctor_name);
+            return (
+              <div key={id} className="grid grid-cols-2 gap-2 items-center">
+                <span>د. {d.doctor_name}</span>
+                <select className={input} value={over[id] || ''} onChange={(e) => { const n = { ...over }; if (e.target.value) n[id] = e.target.value; else delete n[id]; setOver(n); }}>
+                  <option value="">الافتراضي</option><option value="pass_through">أمانة للطبيب</option>
+                  <option value="expense" disabled={!cfg.expense_available}>مصروف على المنشأة</option>
+                </select>
+              </div>
+            );
+          })}
+        </fieldset>
+      )}
+      <p className="text-xs text-slate-500">التغيير يسري على الخدمات الجديدة فقط — الخدمات المسجلة تبقى بقيودها.</p>
+      <Msg m={msg} />
+    </Modal>
+  );
+}
+
 // ── new service ─────────────────────────────────────────────
-function NewServiceModal({ known, onClose, onSaved }) {
+function NewServiceModal({ known, feeCfg, onClose, onSaved }) {
   const [f, setF] = useState({
     service_date: today(), service_type: 'outpatient', service_description: '', patient_name: '',
     patient_copay: '', payment_method: 'cash', insurance_company_name: '', insurance_claim_amount: '',
@@ -107,6 +161,9 @@ function NewServiceModal({ known, onClose, onSaved }) {
   const docRows = docs.filter((d) => d.name.trim() && r2(d.share) > 0);
   const docTotal = r2(docRows.reduce((s, d) => s + r2(d.share), 0));
   const hosp = r2(total - docTotal);
+  const docId = (name) => known.doctors.find((x) => x.doctor_name === name.trim())?.doctor_id || idFor('dr', name);
+  const expensed = docRows.filter((d) => feeOf(feeCfg, docId(d.name), d.name.trim()) === 'expense');
+  const feeExp = r2(expensed.reduce((s, d) => s + r2(d.share), 0));
 
   const save = async () => {
     setMsg(null);
@@ -164,7 +221,9 @@ function NewServiceModal({ known, onClose, onSaved }) {
 
       <fieldset className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
         <legend className="px-1 font-bold">حصص الأطباء</legend>
-        <p className="text-xs text-slate-500">حصة الطبيب أمانة عليكم له وليست إيراداً للمنشأة. ضريبة الخصم تُستقطع عند سداد الأتعاب.</p>
+        <p className="text-xs text-slate-500">{feeCfg?.doctor_fee_treatment === 'expense' || Object.values(feeCfg?.doctor_overrides || {}).includes('expense')
+          ? 'حسب إعداد «معالجة أتعاب الأطباء»: حصة الطبيب إما أمانة له (264) أو مصروف على المنشأة (345) والإيراد كامل. ضريبة الخصم تُستقطع عند سداد الأتعاب.'
+          : 'حصة الطبيب أمانة عليكم له وليست إيراداً للمنشأة. ضريبة الخصم تُستقطع عند سداد الأتعاب.'}</p>
         <datalist id="med-doctors">{known.doctors.map((x) => <option key={x.doctor_id} value={x.doctor_name} />)}</datalist>
         {docs.map((d, i) => (
           <div key={i} className="grid grid-cols-12 gap-2 items-end">
@@ -191,7 +250,8 @@ function NewServiceModal({ known, onClose, onSaved }) {
 
       <Lines rows={[
         [cashAcc, copay, 0], ['شركات التأمين الطبي 148', ins, 0],
-        [`إيرادات ${SERVICE_TYPES[f.service_type].replace(/ \(\d+\)/, '')} ${REVENUE_CODE[f.service_type]}`, 0, Math.max(hosp, 0)],
+        ...expensed.map((d) => [`أتعاب ونسب الأطباء 345 — د. ${d.name.trim()}`, r2(d.share), 0]),
+        [`إيرادات ${SERVICE_TYPES[f.service_type].replace(/ \(\d+\)/, '')} ${REVENUE_CODE[f.service_type]}`, 0, Math.max(r2(hosp + feeExp), 0)],
         ...docRows.map((d) => [`أمانات أطباء 264 — د. ${d.name.trim()}`, 0, r2(d.share)]),
       ]} />
       <Msg m={msg} />
@@ -302,6 +362,7 @@ export default function MedicalPage() {
   const [msg, setMsg] = useState(null);
   const [modal, setModal] = useState(null);
   const [month, setMonth] = useState(today().slice(0, 7));
+  const [feeCfg, setFeeCfg] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -313,6 +374,7 @@ export default function MedicalPage() {
         axios.get(`${BASE}/doctor-payments`, { ...auth(), params: { limit: 100 } }),
       ]);
       setServices(s.data.services || []); setPending(p.data); setIns(i.data); setPayments(d.data.payments || []);
+      axios.get(`${BASE}/medical-settings`, auth()).then((r) => setFeeCfg(r.data)).catch(() => {});
     } catch (e) {
       setMsg({ err: true, text: errText(e, 'تعذّر تحميل بيانات القطاع الطبي') });
     } finally { setLoading(false); }
@@ -353,12 +415,15 @@ export default function MedicalPage() {
           <h2 className="text-xl font-extrabold">القطاع الطبي</h2>
           <p className="text-slate-500">تقسيم إيراد الخدمة بين المنشأة والأطباء، مطالبات التأمين، وسداد الأتعاب.</p>
         </div>
-        <button onClick={() => setModal({ type: 'new' })} className={`${btn} bg-blue-600 text-white`}><Plus className="w-4 h-4" aria-hidden /> خدمة جديدة</button>
+        <div className="flex flex-wrap gap-2">
+          {feeCfg && <button onClick={() => setModal({ type: 'fees' })} className={`${btn} border border-slate-300`}><Settings2 className="w-4 h-4" aria-hidden /> معالجة أتعاب الأطباء</button>}
+          <button onClick={() => setModal({ type: 'new' })} className={`${btn} bg-blue-600 text-white`}><Plus className="w-4 h-4" aria-hidden /> خدمة جديدة</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card label={`قيمة الخدمات — ${month}`} value={sum('total_amount')} />
-        <Card label="إيراد المنشأة" value={sum('hospital_share')} tone="emerald" />
+        <Card label="إيراد المنشأة" value={r2(live.reduce((t, x) => t + (Number(x.revenue_amount ?? x.hospital_share) || 0), 0))} tone="emerald" />
         <Card label="أتعاب أطباء لم تُسدد (صافي)" value={pending.total_amount} tone="amber" />
         <Card label="مستحق على شركات التأمين" value={ins.total_outstanding} tone="blue" />
       </div>
@@ -473,7 +538,8 @@ export default function MedicalPage() {
         </>
       )}
 
-      {modal?.type === 'new' && <NewServiceModal known={known} onClose={() => setModal(null)} onSaved={done} />}
+      {modal?.type === 'new' && <NewServiceModal known={known} feeCfg={feeCfg} onClose={() => setModal(null)} onSaved={done} />}
+      {modal?.type === 'fees' && feeCfg && <FeeSettingsModal cfg={feeCfg} known={known} onClose={() => setModal(null)} onSaved={done} />}
       {modal?.type === 'settle' && <SettleModal claim={modal.claim} insurer={modal.insurer} onClose={() => setModal(null)} onSaved={done} />}
       {modal?.type === 'pay' && <PayDoctorModal doctor={modal.doctor} svc={modal.svc} onClose={() => setModal(null)} onSaved={done} />}
     </div>

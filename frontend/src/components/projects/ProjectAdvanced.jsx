@@ -10,6 +10,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { ClipboardList, FileSpreadsheet, ShieldCheck, SlidersHorizontal, Plus, RefreshCw, Check } from 'lucide-react';
 import ProjectMoneyDialog from '../ProjectMoneyDialog';
+import UnbilledWorkPanel from './UnbilledWorkPanel';
 import { API_URL, authHeaders, errText, Amount, inputCls, btnPrimary, btnGhost } from './simpleShared';
 
 function Section({ icon: Icon, title, hint, children, action }) {
@@ -115,6 +116,8 @@ export default function ProjectAdvanced({ token, isRTL = true, projectId, onPost
           <button type="button" onClick={() => setDetailed('expense')} className={btnGhost}>{L('مصروف بالتفصيل', 'Detailed expense')}</button>
         </div>
       </Section>
+
+      <UnbilledWorkPanel token={token} isRTL={isRTL} projectId={projectId} onPosted={onPosted} />
 
       <Section icon={FileSpreadsheet} title={L('بنود المقايسة', 'Bill of quantities')}
         hint={L('الكميات المتفق عليها وسعر الوحدة، وكام اتنفذ منها.', 'Agreed quantities, unit prices and what was executed.')}

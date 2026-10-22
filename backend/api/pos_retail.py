@@ -7,6 +7,9 @@ POS, Retail & F&B Engine — محرك نقاط البيع والتجزئة وا�
    - إغلاق الوردية: قيد واحد بالإيراد والضريبة والفروق، وقيد تكلفة (الجرد المستمر)
    - معالجة عجز أو زيادة الكاشير
 2. تسوية مبيعات البطاقات (حين يوجد حساب تسويات معلقة 166/167 من باقة القطاع)
+2ب. منصات التوصيل (باقة المطاعم): بيع بطريقة «منصة توصيل» (طلبات، Elmenus، مرسول…)
+   يُقيَّد عند الإقفال على 147 مستحقات منصات التوصيل لكل منصة، والتسوية:
+   Dr البنك (الصافي) + Dr 33613 عمولة المنصة / Cr 147 (الإجمالي)
 3. تالف وهدر المواد (Waste & Spoilage)
    Dr م/33610 مصروف تالف وهدر (33612 هالك المطبخ مع باقة المطاعم)
    Cr م/125 مخزون (أو 311 في الجرد الدوري)
@@ -63,6 +66,54 @@ async def _signed(company_id, code, amount, desc):
     """Positive → debit, negative → credit (a net refund day flips the side)."""
     amount = P.r2(amount)
     return await P.je_line(db, company_id, code, debit=max(amount, 0), credit=max(-amount, 0), desc=desc)
+
+
+# ── delivery platforms (restaurants pack: 147 receivable, 33613 commission) ──
+DELIVERY_PACK_MSG = ("البيع عن طريق منصات التوصيل (طلبات، Elmenus، مرسول…) يحتاج حساب مستحقات منصات التوصيل 147 — "
+                     f"فعّل «{P.PACK_HINT.get('147', 'باقة المطاعم والكافيهات')}» من إعدادات الحسابات")
+
+
+async def _delivery_account(company_id: str) -> dict:
+    acc = await PA.optional(db, company_id, "delivery_receivable")
+    if not acc:
+        raise HTTPException(400, DELIVERY_PACK_MSG)
+    return acc
+
+
+def _platform_name(raw: Optional[str]) -> str:
+    return " ".join(str(raw or "").split())[:60]
+
+
+async def _check_delivery(company_id: str, method: str, platform: Optional[str]) -> Optional[str]:
+    """The platform name for a delivery-platform sale/return (None otherwise)."""
+    if method != "delivery":
+        return None
+    await _delivery_account(company_id)
+    name = _platform_name(platform)
+    if not name:
+        raise HTTPException(400, "اكتب اسم منصة التوصيل (طلبات، Elmenus، مرسول…)")
+    return name
+
+
+async def _delivery_by_platform(company_id: str, shift: dict) -> dict:
+    """Net delivery-platform sales of a shift per platform (sales − returns)."""
+    if not (float(shift.get("total_delivery_sales") or 0) or float(shift.get("delivery_refunds") or 0)):
+        return {}
+    out = {}
+    async for t in db.pos_transactions.find({"company_id": company_id, "shift_id": shift["id"],
+                                             "payment_method": "delivery", "status": "committed"}, {"_id": 0}):
+        sign = -1 if t.get("type") == "return" else 1
+        name = t.get("platform") or "منصة توصيل"
+        out[name] = P.r2(out.get(name, 0) + sign * float(t.get("amount") or 0))
+    return {k: v for k, v in out.items() if v}
+
+
+async def _platform_outstanding(company_id: str) -> dict:
+    """Open balance per platform: shift closes add, settlements subtract."""
+    out = {}
+    async for r in db.pos_platform_ledger.find({"company_id": company_id}, {"_id": 0, "platform": 1, "amount": 1}):
+        out[r["platform"]] = P.r2(out.get(r["platform"], 0) + float(r.get("amount") or 0))
+    return out
 
 
 # ══════════════════════════════════════════════════════════════
@@ -154,7 +205,9 @@ class SaleRequest(BaseModel):
     # payment method silently counted as wallet
     amount:         float = Field(gt=0)            # الإجمالي شامل الضريبة
     vat:            float = Field(0, ge=0)
-    payment_method: Literal["cash", "card", "wallet"] = "cash"
+    payment_method: Literal["cash", "card", "wallet", "delivery"] = "cash"
+    # delivery platform name (طلبات / Elmenus / مرسول …) — only with payment_method "delivery"
+    platform:       Optional[str] = Field(None, max_length=60)
     receipt_number: str = ""
     items:          List[SaleItem] = []
     # idempotency key made by the till once per sale; a retried upload with the
@@ -249,6 +302,7 @@ async def record_sale(shift_id: str, data: SaleRequest,
     amount, vat = P.r2(data.amount), P.r2(data.vat)
     if vat >= amount:
         raise HTTPException(400, "الضريبة لا يمكن أن تساوي أو تتجاوز إجمالي البيع")
+    platform = await _check_delivery(company_id, data.payment_method, data.platform)
     claim, existing = await _claim_txn(company_id, shift_id, "sale", data.client_uuid or str(uuid.uuid4()))
     if existing:
         return await _duplicate_reply(company_id, existing, "البيع مسجّل من قبل")
@@ -268,6 +322,8 @@ async def record_sale(shift_id: str, data: SaleRequest,
         "buyer": data.buyer.model_dump() if data.buyer else None,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+    if platform:
+        txn["platform"] = platform
     await db.pos_shifts.update_one({"id": shift_id, "company_id": company_id}, {"$inc": inc})
     await db.pos_transactions.update_one({"id": claim["id"]}, {"$set": txn})
     # the sale stands whatever happens to its e-receipt (errors are kept on the receipt)
@@ -279,7 +335,8 @@ async def record_sale(shift_id: str, data: SaleRequest,
 class ReturnRequest(BaseModel):
     amount:           float = Field(gt=0)          # المرتجع شامل الضريبة
     vat:              float = Field(0, ge=0)
-    payment_method:   Literal["cash", "card", "wallet"] = "cash"   # طريقة رد المبلغ
+    payment_method:   Literal["cash", "card", "wallet", "delivery"] = "cash"   # طريقة رد المبلغ
+    platform:         Optional[str] = Field(None, max_length=60)
     original_receipt: str = Field(min_length=1)
     reason:           Optional[str] = None
     items:            List[SaleItem] = []
@@ -298,6 +355,7 @@ async def record_return(shift_id: str, data: ReturnRequest,
     amount, vat = P.r2(data.amount), P.r2(data.vat)
     if vat >= amount:
         raise HTTPException(400, "الضريبة لا يمكن أن تساوي أو تتجاوز قيمة المرتجع")
+    platform = await _check_delivery(company_id, data.payment_method, data.platform)
     claim, existing = await _claim_txn(company_id, shift_id, "return", data.client_uuid or str(uuid.uuid4()))
     if existing:
         return await _duplicate_reply(company_id, existing, "المرتجع مسجّل من قبل")
@@ -314,6 +372,8 @@ async def record_return(shift_id: str, data: ReturnRequest,
         "payment_method": data.payment_method, "items": items, "reason": data.reason,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+    if platform:
+        txn["platform"] = platform
     await db.pos_shifts.update_one({"id": shift_id, "company_id": company_id}, {"$inc": {
         "total_returns": amount, "total_returns_vat": vat, "returns_cost": cost, "returns_count": 1,
         f"{data.payment_method}_refunds": amount}})
@@ -347,6 +407,12 @@ async def _close_lines(company_id: str, shift: dict, actual_cash: float, toleran
         await P.je_line(db, company_id, ACC["sales_returns"], debit=returns_net, desc=f"مردودات مبيعات — وردية {who}"),
         await P.je_line(db, company_id, ACC["vat_output"], debit=f("total_returns_vat"), desc=f"رد ضريبة مرتجعات — وردية {who}"),
     ]
+    # restaurants pack: delivery-platform sales are owed by the platform (147), per platform
+    delivery = await _delivery_by_platform(company_id, shift)
+    if delivery:
+        dacc = (await _delivery_account(company_id))["account_code"]
+        for name, amt in sorted(delivery.items()):
+            lines.append(await _signed(company_id, dacc, amt, f"مستحق على منصة {name} — وردية {who}"))
     shortage_type = None
     if diff < 0:
         if abs(diff) <= tolerance:
@@ -377,6 +443,8 @@ async def _close_lines(company_id: str, shift: dict, actual_cash: float, toleran
     summary = {"expected_cash": expected, "cash_difference": diff, "shortage_type": shortage_type,
                "sales_net": sales_net, "returns_net": returns_net, "noncash_net": noncash_net,
                "card_account": card_acc, "net_cost": net_cost}
+    if delivery:
+        summary["delivery_by_platform"] = delivery
     return lines, cogs_lines, summary
 
 
@@ -412,6 +480,7 @@ async def close_shift(shift_id: str, data: CloseShiftRequest,
     إغلاق الوردية وتسوية النقدية — قيد واحد:
     Dr 161 الخزينة (المعدود فعلاً)       Cr 164 درج الكاشير (العهدة)
     Dr 162/166/167 صافي البطاقات والمحافظ
+    Dr 147 مستحقات منصات التوصيل (باقة المطاعم) — سطر لكل منصة
     Dr 413 مردودات + Dr 260 ضريبة المرتجعات
     Dr 3353 عجز مسموح | Dr 1313 عجز على الكاشير | Cr 4231 زيادة
     Cr 4121 إيرادات نقاط البيع          Cr 260 ضريبة المخرجات
@@ -449,7 +518,13 @@ async def close_shift(shift_id: str, data: CloseShiftRequest,
         "actual_cash": actual_cash, "expected_cash": s["expected_cash"],
         "cash_difference": s["cash_difference"], "shortage_type": s["shortage_type"],
         "close_je_id": je_id, "cogs_je_id": cogs_je, "card_account": s["card_account"],
+        **({"delivery_by_platform": s["delivery_by_platform"]} if s.get("delivery_by_platform") else {}),
     }})
+    for name, amt in (s.get("delivery_by_platform") or {}).items():
+        await db.pos_platform_ledger.insert_one({
+            "id": str(uuid.uuid4()), "company_id": company_id, "platform": name, "kind": "shift",
+            "amount": amt, "date": date_str, "shift_id": shift_id, "journal_entry_id": je_id,
+            "created_at": datetime.now(timezone.utc).isoformat()})
     diff, st = s["cash_difference"], s["shortage_type"]
     return {
         "message": f"تم إغلاق وردية {shift['cashier_name']}",
@@ -522,6 +597,75 @@ async def list_card_settlements(current_user: dict = Depends(get_current_user)):
     rows = await db.pos_card_settlements.find({"company_id": company_id}, {"_id": 0}).sort("date", -1).to_list(200)
     transit = await _card_account(company_id)
     return {"settlements": rows, "transit_account": transit if transit != ACC["bank"] else None}
+
+
+# ══════════════════════════════════════════════════════════════
+# 2b. DELIVERY PLATFORMS — منصات التوصيل (باقة المطاعم)
+# ══════════════════════════════════════════════════════════════
+
+class DeliverySettlementRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    date:         str
+    platform:     str = Field(min_length=1, max_length=60)
+    gross_amount: float = Field(gt=0)        # ما تُسوّيه المنصة من مستحقاتنا (قبل العمولة)
+    commission:   float = Field(0, ge=0)     # عمولة المنصة
+    bank_account: str = "162"
+    reference:    Optional[str] = Field(None, max_length=120)
+
+
+@router.get("/delivery-platforms")
+async def delivery_platforms(current_user: dict = Depends(get_current_user)):
+    """المستحق على كل منصة توصيل + آخر التسويات. available=false بدون باقة المطاعم."""
+    company_id = current_user["company_id"]
+    acc = await PA.optional(db, company_id, "delivery_receivable")
+    if not acc:
+        return {"available": False, "message": DELIVERY_PACK_MSG, "platforms": [], "settlements": [], "total_outstanding": 0.0}
+    bal = await _platform_outstanding(company_id)
+    rows = await db.pos_delivery_settlements.find({"company_id": company_id}, {"_id": 0}).sort("date", -1).to_list(200)
+    platforms = [{"platform": k, "outstanding": v} for k, v in sorted(bal.items(), key=lambda x: -x[1])]
+    return {"available": True, "account": acc["account_code"], "platforms": platforms, "settlements": rows,
+            "commission_account": (await PA.optional(db, company_id, "delivery_commission") or {}).get("account_code"),
+            "total_outstanding": P.r2(sum(bal.values()))}
+
+
+@router.post("/delivery-settlements")
+async def settle_delivery_platform(req: DeliverySettlementRequest, current_user: dict = Depends(get_current_user)):
+    """تحويل المنصة لمستحقاتنا بعد خصم عمولتها:
+    Dr البنك (الصافي) + Dr 33613 عمولات منصات التوصيل / Cr 147 مستحقات منصات التوصيل (الإجمالي)"""
+    company_id = current_user["company_id"]
+    receivable = (await _delivery_account(company_id))["account_code"]
+    commission_acc = await PA.pick_code(db, company_id, "delivery_commission")
+    name = _platform_name(req.platform)
+    if not req.bank_account.startswith("16") or req.bank_account in CARD_IN_TRANSIT or req.bank_account == receivable:
+        raise HTTPException(400, "اختر حساب بنك أو خزينة صحيحاً")
+    if req.commission >= req.gross_amount:
+        raise HTTPException(400, "العمولة لا يمكن أن تساوي أو تتجاوز المبلغ")
+    outstanding = (await _platform_outstanding(company_id)).get(name, 0.0)
+    if req.gross_amount > outstanding + 0.01:
+        raise HTTPException(400, f"المستحق على منصة {name} {outstanding:,.2f} ج.م فقط — "
+                                 "المبيعات تُضاف للمستحق عند إقفال الوردية")
+    gross, commission = P.r2(req.gross_amount), P.r2(req.commission)
+    net = P.r2(gross - commission)
+    sid = str(uuid.uuid4())
+    lines = [
+        await P.je_line(db, company_id, req.bank_account, debit=net, desc=f"تحويل منصة {name} {req.reference or ''}".strip()),
+        await P.je_line(db, company_id, commission_acc, debit=commission, desc=f"عمولة منصة {name}"),
+        await P.je_line(db, company_id, receivable, credit=gross, desc=f"تسوية مستحقات منصة {name}"),
+    ]
+    je_id = await P.post_je(db, company_id, current_user["user_id"], req.date, f"تسوية منصة توصيل — {name}",
+                            lines, "pos_delivery_settlement", sid, req.reference)
+    rec = {"id": sid, "company_id": company_id, "date": req.date, "platform": name, "gross_amount": gross,
+           "commission": commission, "net_amount": net, "bank_account": req.bank_account,
+           "receivable_account": receivable, "commission_account": commission_acc, "reference": req.reference,
+           "journal_entry_id": je_id, "created_by": current_user["user_id"],
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.pos_delivery_settlements.insert_one(rec); rec.pop("_id", None)
+    await db.pos_platform_ledger.insert_one({
+        "id": str(uuid.uuid4()), "company_id": company_id, "platform": name, "kind": "settlement",
+        "amount": -gross, "date": req.date, "settlement_id": sid, "journal_entry_id": je_id,
+        "created_at": rec["created_at"]})
+    return {"message": f"تم تسجيل تسوية {name} بصافي {net:,.2f} ج.م", "settlement": rec,
+            "outstanding": P.r2(outstanding - gross)}
 
 
 # ══════════════════════════════════════════════════════════════

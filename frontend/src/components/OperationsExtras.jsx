@@ -161,7 +161,9 @@ const DelBtn = ({ onClick }) => (
 
 /* ═════════════════════════ نقاط البيع ═════════════════════════ */
 
-const PAY = { cash: 'نقدي', card: 'بطاقة', wallet: 'محفظة' };
+const PAY = { cash: 'نقدي', card: 'بطاقة', wallet: 'محفظة', delivery: 'منصة توصيل' };
+// common Egyptian delivery platforms — the user can type any other name
+const PLATFORMS = ['طلبات', 'Elmenus', 'مرسول', 'بريد فاست', 'جاهز'];
 const ETA_ST = { pending: ['بانتظار الإرسال', 'amber'], submitted: ['مُرسل', 'green'], rejected: ['مرفوض', 'red'], error: ['خطأ', 'red'] };
 const EtaBadge = ({ r }) => {
   if (!r) return <span className="text-slate-400">—</span>;
@@ -221,6 +223,7 @@ export function PosShiftsPage() {
   const [preview, setPreview] = useState(null);
   const [spoil, setSpoil] = useState(null);
   const [settle, setSettle] = useState(null);
+  const [deliv, setDeliv] = useState(null);       // {available, message, platforms, settlements, total_outstanding}
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [online, setOnline] = useState(posQueue.isOnline());
@@ -258,6 +261,10 @@ export function PosShiftsPage() {
   const loadSettle = async () => {
     try { const { data: r } = await axios.get(`${API}/api/pos/card-settlements`, auth()); setSettle(r); }
     catch (e) { setSettle({ settlements: [] }); }
+  };
+  const loadDeliv = async () => {
+    try { const { data: r } = await axios.get(`${API}/api/pos/delivery-platforms`, auth()); setDeliv(r); }
+    catch (e) { setDeliv((prev) => prev || { available: false, platforms: [], settlements: [] }); }
   };
   const loadReceipts = async (status) => {
     try {
@@ -300,7 +307,7 @@ export function PosShiftsPage() {
   sendRef.current = sendOp;
 
   useEffect(() => {
-    load(); loadSpoil(); loadSettle(); loadProducts(); loadReceipts(''); loadEta();
+    load(); loadSpoil(); loadSettle(); loadDeliv(); loadProducts(); loadReceipts(''); loadEta();
     getWarehouses().then(setWarehouses); getBanks().then(setBanks);
     const up = () => setOnline(true); const down = () => setOnline(false);
     window.addEventListener('online', up); window.addEventListener('offline', down);
@@ -328,6 +335,7 @@ export function PosShiftsPage() {
         receipt_number: form.receipt_number.trim() || autoReceipt(shift.terminal_id), items: itemsBody(form.items) }
       : { amount: +form.amount, vat: +form.vat || 0, payment_method: form.payment_method,
         original_receipt: form.receipt_number.trim(), reason: form.reason || null, items: itemsBody(form.items) };
+    if (form.payment_method === 'delivery') payload.platform = String(form.platform || '').trim();
     const op = { client_uuid: form.client_uuid, kind, shift_id: shift.id, payload };
     const keepOffline = async () => {
       await posQueue.enqueue(op);
@@ -355,13 +363,16 @@ export function PosShiftsPage() {
     try { const { data: p } = await axios.post(`${API}/api/pos/shifts/${active.id}/close-preview`, closeBody(), auth()); setPreview(p); }
     catch (e) { setErr(errText(e, 'تعذّرت المعاينة')); } finally { setBusy(false); }
   };
-  const saveClose = () => run(() => axios.post(`${API}/api/pos/shifts/${active.id}/close`, closeBody(), auth()), async () => { setActive(null); await load(); });
+  const saveClose = () => run(() => axios.post(`${API}/api/pos/shifts/${active.id}/close`, closeBody(), auth()), async () => { setActive(null); await load(); loadDeliv(); });
   const saveSpoil = () => run(() => axios.post(`${API}/api/pos/spoilage`, {
     date: form.date, warehouse_id: form.warehouse_id || null, inventory_account: form.inventory_account, notes: form.notes || null,
     items: form.items.filter((i) => +i.qty > 0).map((i) => ({ product_id: i.product_id || null, product_name: i.product_name || null,
       qty: +i.qty, unit_cost: i.unit_cost === '' ? null : +i.unit_cost, reason: i.reason || 'تالف' })) }, auth()), loadSpoil);
   const saveSettle = () => run(() => axios.post(`${API}/api/pos/card-settlements`, {
     date: form.date, gross_amount: +form.gross_amount, commission: +form.commission || 0, bank_account: form.bank_account, reference: form.reference || null }, auth()), loadSettle);
+  const saveDelivSettle = () => run(() => axios.post(`${API}/api/pos/delivery-settlements`, {
+    date: form.date, platform: form.platform, gross_amount: +form.gross_amount, commission: +form.commission || 0,
+    bank_account: form.bank_account, reference: form.reference || null }, auth()), loadDeliv);
   const saveEta = async () => {
     setBusy(true); setErr(''); setNote('');
     const body = {};
@@ -398,6 +409,10 @@ export function PosShiftsPage() {
         {tab === 'shifts' && <AddBtn onClick={() => { setErr(''); setForm({ kind: 'open', cashier_id: '', cashier_name: '', terminal_id: 'POS-01', opening_cash: '', shift_date: today(), warehouse_id: '' }); }}>فتح وردية</AddBtn>}
         {tab === 'spoilage' && <AddBtn onClick={() => { setErr(''); setForm({ kind: 'spoil', date: today(), warehouse_id: '', inventory_account: '125', notes: '', items: [{ product_id: '', product_name: '', qty: '', unit_cost: '', reason: 'تالف' }] }); }}>تسجيل تالف</AddBtn>}
         {tab === 'cards' && <AddBtn onClick={() => { setErr(''); setForm({ kind: 'settle', date: today(), gross_amount: '', commission: '', bank_account: banks[0]?.account_code || '162', reference: '' }); }}>تسوية بطاقات</AddBtn>}
+        {tab === 'delivery' && deliv?.available && <AddBtn onClick={() => {
+          const first = (deliv.platforms || []).find((p) => p.outstanding > 0);
+          setErr(''); setForm({ kind: 'dsettle', date: today(), platform: first?.platform || '', gross_amount: first ? String(first.outstanding) : '', commission: '', bank_account: banks[0]?.account_code || '162', reference: '' });
+        }}>تسوية منصة</AddBtn>}
       </Header>
 
       {!online && (
@@ -423,8 +438,8 @@ export function PosShiftsPage() {
         </div>
       )}
 
-      <Tabs tabs={[['shifts', 'الورديات'], ['spoilage', 'التالف والهدر'], ['cards', 'تسويات البطاقات'], ['eta', 'الإيصال الإلكتروني']]} value={tab}
-        onChange={(t) => { setTab(t); setNote(''); if (t === 'eta') { loadEta(); loadReceipts(etaFilter); } }} />
+      <Tabs tabs={[['shifts', 'الورديات'], ['spoilage', 'التالف والهدر'], ['cards', 'تسويات البطاقات'], ['delivery', 'منصات التوصيل'], ['eta', 'الإيصال الإلكتروني']]} value={tab}
+        onChange={(t) => { setTab(t); setNote(''); if (t === 'eta') { loadEta(); loadReceipts(etaFilter); } if (t === 'delivery') loadDeliv(); }} />
       {note && <p className="text-sm rounded-lg bg-blue-50 text-blue-900 p-3" role="status">{note}</p>}
 
       {tab === 'shifts' && (<>
@@ -468,6 +483,28 @@ export function PosShiftsPage() {
               <td className="px-3 py-2 text-end"><N v={r.gross_amount} /></td><td className="px-3 py-2 text-end"><N v={r.commission} /></td><td className="px-3 py-2 text-end font-semibold"><N v={r.net_amount} /></td></tr>
           ))}
         </Table>
+      </>))}
+
+      {tab === 'delivery' && (deliv === null ? <Spinner /> : !deliv.available ? (
+        <p className="text-sm rounded-lg bg-amber-50 text-amber-800 p-3">{deliv.message || 'البيع عن طريق منصات التوصيل يحتاج «باقة المطاعم والكافيهات».'}</p>
+      ) : (<>
+        <p className="text-sm text-slate-500">البيع بطريقة «منصة توصيل» لا يدخل الدرج: عند إقفال الوردية يُقيَّد على {deliv.account} مستحقات منصات التوصيل لكل منصة.
+          ولما المنصة تحوّل فلوسك سجّل «تسوية منصة»: البنك بالصافي، وعمولة المنصة على {deliv.commission_account || '33613'}.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><Stat label="إجمالي المستحق على المنصات" v={deliv.total_outstanding} /></div>
+        <Table head={['المنصة', '#المستحق', '']} empty={(deliv.platforms || []).length === 0 && 'لا توجد مبيعات منصات في ورديات مُقفلة بعد.'}>
+          {(deliv.platforms || []).map((p) => (
+            <tr key={p.platform}><td className="px-3 py-2 font-semibold">{p.platform}</td><td className="px-3 py-2 text-end"><N v={p.outstanding} /></td>
+              <td className="px-3 py-2 text-end">{p.outstanding > 0 && <button onClick={() => { setErr(''); setForm({ kind: 'dsettle', date: today(), platform: p.platform, gross_amount: String(p.outstanding), commission: '', bank_account: banks[0]?.account_code || '162', reference: '' }); }} className={btnSmall}>تسوية</button>}</td></tr>
+          ))}
+        </Table>
+        {(deliv.settlements || []).length > 0 && (
+          <Table head={['التاريخ', 'المنصة', 'المرجع', '#الإجمالي', '#العمولة', '#الصافي للبنك']}>
+            {deliv.settlements.map((r) => (
+              <tr key={r.id}><td className="px-3 py-2"><bdi dir="ltr">{r.date}</bdi></td><td className="px-3 py-2">{r.platform}</td><td className="px-3 py-2"><bdi dir="ltr">{r.reference || '—'}</bdi></td>
+                <td className="px-3 py-2 text-end"><N v={r.gross_amount} /></td><td className="px-3 py-2 text-end"><N v={r.commission} /></td><td className="px-3 py-2 text-end font-semibold"><N v={r.net_amount} /></td></tr>
+            ))}
+          </Table>
+        )}
       </>))}
 
       {tab === 'eta' && (etaForm === null ? <Spinner /> : (<>
@@ -530,6 +567,7 @@ export function PosShiftsPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
             <Stat label="العهدة الافتتاحية" v={active.opening_cash} /><Stat label="مبيعات نقدية" v={active.total_cash_sales} />
             <Stat label="بطاقات ومحافظ" v={(active.total_card_sales || 0) + (active.total_wallet_sales || 0)} /><Stat label="مرتجعات" v={active.total_returns} />
+            {(active.total_delivery_sales || 0) > 0 && <Stat label="منصات توصيل" v={r2((active.total_delivery_sales || 0) - (active.delivery_refunds || 0))} />}
           </div>
           {active.status === 'closed' && <p className="mb-3 text-sm">النقدية المتوقعة <N v={active.expected_cash} /> — المعدودة <N v={active.actual_cash} /> — الفرق <N v={active.cash_difference} /></p>}
           <Table head={['الوقت', 'النوع', 'الإيصال', 'الدفع', '#المبلغ', '#الضريبة', 'الإيصال الإلكتروني']} empty={(active.transactions || []).length === 0 && activeQueued.length === 0 && 'لا توجد عمليات بعد.'}>
@@ -570,7 +608,8 @@ export function PosShiftsPage() {
       {(form?.kind === 'sale' || form?.kind === 'return') && (
         <Modal title={form.kind === 'sale' ? 'تسجيل بيع' : 'مرتجع مبيعات'} onClose={() => setForm(null)} footer={<>
           <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
-          <button onClick={saveTxn} disabled={busy || !(+form.amount > 0) || +form.vat >= +form.amount || (form.kind === 'return' && !form.receipt_number.trim())} className={btnPrimary}>{busy ? '…' : 'حفظ'}</button></>}>
+          <button onClick={saveTxn} disabled={busy || !(+form.amount > 0) || +form.vat >= +form.amount || (form.kind === 'return' && !form.receipt_number.trim())
+            || (form.payment_method === 'delivery' && !String(form.platform || '').trim())} className={btnPrimary}>{busy ? '…' : 'حفظ'}</button></>}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Label t="الإجمالي شامل الضريبة *"><Num value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Label>
             <Label t="ضريبة القيمة المضافة">
@@ -578,7 +617,11 @@ export function PosShiftsPage() {
                 <button type="button" onClick={() => setForm({ ...form, vat: String(r2((+form.amount || 0) * 14 / 114)) })} className={`${btnSmall} mt-1 whitespace-nowrap`}>14% ضمنية</button></div></Label>
             <Label t={form.kind === 'sale' ? 'طريقة الدفع' : 'طريقة رد المبلغ'}>
               <select value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })} className={input}>
-                {Object.entries(PAY).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Label>
+                {Object.entries(PAY).filter(([k]) => k !== 'delivery' || deliv?.available).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Label>
+            {form.payment_method === 'delivery' && (
+              <Label t="المنصة *"><input list="pos-platforms" value={form.platform || ''} onChange={(e) => setForm({ ...form, platform: e.target.value })} placeholder="طلبات، Elmenus، مرسول…" className={input} />
+                <datalist id="pos-platforms">{[...new Set([...(deliv?.platforms || []).map((p) => p.platform), ...PLATFORMS])].map((p) => <option key={p} value={p} />)}</datalist></Label>
+            )}
             <Label t={form.kind === 'sale' ? 'رقم الإيصال' : 'رقم الإيصال الأصلي *'}><input dir="ltr" value={form.receipt_number} onChange={(e) => setForm({ ...form, receipt_number: e.target.value })} className={input} /></Label>
           </div>
           <p className="mt-4 font-bold">الأصناف ({form.kind === 'sale' ? 'تخرج من المخزن' : 'تعود للمخزن'}) — اختياري</p>
@@ -652,6 +695,30 @@ export function PosShiftsPage() {
         );
       })()}
 
+      {form?.kind === 'dsettle' && (() => {
+        const gross = r2(form.gross_amount), comm = r2(form.commission);
+        const owed = (deliv?.platforms || []).find((p) => p.platform === form.platform)?.outstanding || 0;
+        return (
+          <Modal title="تسوية منصة توصيل" onClose={() => setForm(null)} footer={<>
+            <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
+            <button onClick={saveDelivSettle} disabled={busy || !form.platform || !(gross > 0) || comm >= gross || gross > owed + 0.01} className={btnPrimary}>{busy ? '…' : 'حفظ وترحيل'}</button></>}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Label t="المنصة *"><select value={form.platform} onChange={(e) => { const p = (deliv?.platforms || []).find((x) => x.platform === e.target.value); setForm({ ...form, platform: e.target.value, gross_amount: p ? String(p.outstanding) : '' }); }} className={input}>
+                <option value="">— اختر —</option>{(deliv?.platforms || []).filter((p) => p.outstanding > 0).map((p) => <option key={p.platform} value={p.platform}>{p.platform} — {money(p.outstanding)}</option>)}</select></Label>
+              <Label t="التاريخ"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={input} /></Label>
+              <Label t="المبلغ المُسوّى (قبل العمولة) *"><Num value={form.gross_amount} onChange={(v) => setForm({ ...form, gross_amount: v })} /></Label>
+              <Label t="عمولة المنصة"><Num value={form.commission} onChange={(v) => setForm({ ...form, commission: v })} /></Label>
+              <Label t="استلمناها في"><BankSelect banks={banks} value={form.bank_account} onChange={(v) => setForm({ ...form, bank_account: v })} /></Label>
+              <Label t="المرجع (رقم كشف المنصة)"><input dir="ltr" value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} className={input} /></Label>
+            </div>
+            {form.platform && <p className="mt-3 text-slate-600">المستحق على {form.platform}: <b><N v={owed} /></b></p>}
+            {gross > 0 && <div className="mt-3"><Lines rows={[[`${form.bank_account} البنك (الصافي)`, r2(gross - comm), 0],
+              [`${deliv?.commission_account || '33613'} عمولات منصات توصيل الطعام`, comm, 0], [`${deliv?.account || '147'} مستحقات منصات التوصيل — ${form.platform}`, 0, gross]]} /></div>}
+            <Err e={err} />
+          </Modal>
+        );
+      })()}
+
       {form?.kind === 'settle' && (
         <Modal title="تسوية مبيعات البطاقات" onClose={() => setForm(null)} footer={<>
           <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
@@ -682,6 +749,8 @@ export function ManufacturingPage() {
   const [warehouses, setWarehouses] = useState([]);
   const [form, setForm] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [scrap, setScrap] = useState(null);     // {available, message, balance, movements}
+  const [banks, setBanks] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -689,8 +758,9 @@ export function ManufacturingPage() {
     try { const { data } = await axios.get(`${API}/api/manufacturing/production-orders`, { ...auth(), params: { limit: 100 } }); setOrders(data.orders || []); }
     catch (e) { setOrders([]); setErr(errText(e, 'تعذّر تحميل أوامر الإنتاج')); }
     axios.get(`${API}/api/manufacturing/boms`, auth()).then((r) => setBoms(r.data?.boms || [])).catch(() => {});
+    axios.get(`${API}/api/manufacturing/scrap`, auth()).then((r) => setScrap(r.data)).catch(() => setScrap((x) => x || { available: false, movements: [] }));
   };
-  useEffect(() => { load(); getProducts().then(setProducts); getWarehouses().then(setWarehouses); }, []);
+  useEffect(() => { load(); getProducts().then(setProducts); getWarehouses().then(setWarehouses); getBanks().then(setBanks); }, []);
 
   const pname = (id) => products.find((p) => p.id === id)?.name || '';
   const run = async (fn) => {
@@ -721,8 +791,9 @@ export function ManufacturingPage() {
         {tab === 'orders' && <AddBtn onClick={() => { setErr(''); setPreview(null); setForm({ kind: 'order', order_number: `MO-${(orders || []).length + 1}`, product_id: '', planned_qty: '', start_date: today(), warehouse_id: '', materials_account: '', overhead_basis: '', overhead_rate: '', source: 'manual', bom_id: '', notes: '', materials: [{ product_id: '', name: '', qty: '', unit_cost: '' }] }); }}>أمر إنتاج</AddBtn>}
         {tab === 'boms' && <AddBtn onClick={() => { setErr(''); setForm({ kind: 'bom', product_id: '', output_qty: 1, name: '', components: [{ product_id: '', qty: '' }] }); }}>قائمة مواد</AddBtn>}
         {tab === 'variance' && <AddBtn onClick={() => { setErr(''); const d = new Date(); setForm({ kind: 'variance', period: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, actual_foh: '', applied_foh: '', date: today() }); }}>تسوية فروق التحميل</AddBtn>}
+        {tab === 'scrap' && scrap?.available && scrap.balance > 0 && <AddBtn onClick={() => { setErr(''); setForm({ kind: 'scrapsale', date: today(), proceeds: '', vat_amount: '', carrying_value: String(scrap.balance), money_account: '161', buyer: '', reference: '' }); }}>بيع هوالك</AddBtn>}
       </Header>
-      <Tabs tabs={[['orders', 'أوامر الإنتاج'], ['boms', 'قوائم المواد'], ['variance', 'فروق التحميل']]} value={tab} onChange={setTab} />
+      <Tabs tabs={[['orders', 'أوامر الإنتاج'], ['boms', 'قوائم المواد'], ['variance', 'فروق التحميل'], ['scrap', 'الهوالك']]} value={tab} onChange={setTab} />
 
       {tab === 'orders' && (orders === null ? <Spinner /> : (
         <Table head={['الأمر', 'المنتج', '#المخطط', '#الفعلي', '#انحراف العائد', '#خامات', '#أجور + غير مباشرة', '#التكلفة', 'الحالة', '']} empty={orders.length === 0 && 'لا توجد أوامر إنتاج بعد.'}>
@@ -736,7 +807,8 @@ export function ManufacturingPage() {
               <td className="px-3 py-2 text-end font-semibold"><N v={o.total_actual_cost} /></td><td className="px-3 py-2">{statusBadge(o.status)}</td>
               <td className="px-3 py-2 text-end whitespace-nowrap">{o.status === 'open' && <>
                 <button onClick={() => { setErr(''); setForm({ kind: 'alloc', order: o, labor_cost: '', date: today(), foh: [{ type: 'electricity', amount: '', description: '' }] }); }} className={btnSmall}>تحميل تكاليف</button>{' '}
-                <button onClick={() => { setErr(''); setForm({ kind: 'complete', order: o, actual_qty: o.planned_qty, date: today(), warehouse_id: '', confirm_yield: false }); }} className={btnSmall}>إتمام</button></>}</td>
+                <button onClick={() => { setErr(''); setForm({ kind: 'complete', order: o, actual_qty: o.planned_qty, date: today(), warehouse_id: '', confirm_yield: false }); }} className={btnSmall}>إتمام</button>
+                {scrap?.available && <>{' '}<button onClick={() => { setErr(''); setForm({ kind: 'scrap', order: o, qty: '', unit: 'وحدة', value: '', date: today(), description: '' }); }} className={btnSmall}>هالك</button></>}</>}</td>
             </tr>
           ))}
         </Table>
@@ -752,6 +824,25 @@ export function ManufacturingPage() {
           ))}
         </Table>
       )}
+
+      {tab === 'scrap' && (scrap === null ? <Spinner /> : !scrap.available ? (
+        <p className="text-sm rounded-lg bg-amber-50 text-amber-800 p-3">{scrap.message}</p>
+      ) : (<>
+        <p className="text-sm text-slate-500">الهالك والإنتاج المعيب يُسجَّل من أمر إنتاج مفتوح (زر «هالك») بقيمته الاستردادية: مدين 140 / دائن 126 — فتقل تكلفة الأمر.
+          وعند البيع: الخزينة/البنك مدين و140 دائن بالقيمة الدفترية، والفرق ربح على {scrap.gain_account} أو خسارة على {scrap.loss_account}.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><Stat label="رصيد الهوالك (140)" v={scrap.balance} /></div>
+        <Table head={['التاريخ', 'الحركة', 'البيان', '#الكمية', '#القيمة', '#ثمن البيع', '#ربح / خسارة']} empty={(scrap.movements || []).length === 0 && 'لا توجد هوالك مسجلة بعد.'}>
+          {(scrap.movements || []).map((m) => (
+            <tr key={m.id}><td className="px-3 py-2"><bdi dir="ltr">{m.date}</bdi></td>
+              <td className="px-3 py-2">{m.kind === 'in' ? <Badge tone="blue">هالك من أمر {m.order_number}</Badge> : <Badge tone="green">بيع</Badge>}</td>
+              <td className="px-3 py-2">{m.description}</td>
+              <td className="px-3 py-2 text-end">{m.kind === 'in' ? <><Q v={m.qty} /> {m.unit}</> : '—'}</td>
+              <td className="px-3 py-2 text-end"><N v={Math.abs(m.value)} /></td>
+              <td className="px-3 py-2 text-end">{m.kind === 'out' ? <N v={m.proceeds} /> : '—'}</td>
+              <td className={`px-3 py-2 text-end ${m.gain_loss < 0 ? 'text-red-700' : ''}`}>{m.kind === 'out' ? <N v={m.gain_loss} /> : '—'}</td></tr>
+          ))}
+        </Table>
+      </>))}
 
       {tab === 'variance' && <p className="text-sm text-slate-500 rounded-lg border border-slate-200 dark:border-slate-700 p-4">في نهاية كل شهر: التكاليف الصناعية الفعلية تتجمع على 313، والمحمَّلة على الأوامر على 3181. التسوية تُقفل الاثنين والفرق يذهب إلى 3182 (مدين = نقص تحميل، دائن = زيادة تحميل). تُسوّى كل فترة مرة واحدة.</p>}
       {err && !form && <Err e={err} />}
@@ -875,6 +966,59 @@ export function ManufacturingPage() {
         );
       })()}
 
+      {form?.kind === 'scrap' && (() => {
+        const o = form.order; const v = r2(form.value);
+        return (
+          <Modal title={`هالك / إنتاج معيب — أمر ${o.order_number}`} onClose={() => setForm(null)} footer={<>
+            <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
+            <button onClick={() => run(() => axios.post(`${API}/api/manufacturing/production-orders/${o.id}/scrap`, { qty: +form.qty, unit: form.unit.trim() || 'وحدة',
+              value: v, date: form.date, description: form.description.trim() }, auth()))}
+              disabled={busy || !(+form.qty > 0) || !(v > 0) || v > o.total_actual_cost + 0.005} className={btnPrimary}>{busy ? '…' : 'حفظ وترحيل'}</button></>}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Label t="الكمية *"><Num value={form.qty} onChange={(x) => setForm({ ...form, qty: x })} /></Label>
+              <Label t="الوحدة"><input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="وحدة / كجم / طن" className={input} /></Label>
+              <Label t="التاريخ"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={input} /></Label>
+              <Label t="القيمة الاستردادية (المتوقع بيعه به) *"><Num value={form.value} onChange={(x) => setForm({ ...form, value: x })} /></Label>
+              <Label t="البيان" className="sm:col-span-2"><input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="عبوات معيبة، رايش، بواقي قص…" className={input} /></Label>
+            </div>
+            <p className="mt-3 text-slate-600">التكلفة المتراكمة على الأمر: <N v={o.total_actual_cost} /> — بعد الهالك: <N v={r2(o.total_actual_cost - v)} /></p>
+            {v > 0 && <div className="mt-3"><Lines rows={[[`${scrap?.account || '140'} مخزون الهوالك والإنتاج المعيب`, v, 0], ['126 إنتاج تحت التشغيل', 0, v]]}
+              note="الهالك يُسجَّل بما يمكن بيعه به، لا بتكلفته — فتكلفة الوحدات السليمة لا تتحمل ما سيُسترد." /></div>}
+            <Err e={err} />
+          </Modal>
+        );
+      })()}
+
+      {form?.kind === 'scrapsale' && (() => {
+        const pr = r2(form.proceeds), vat = r2(form.vat_amount), cv = r2(form.carrying_value), diff = r2(pr - cv);
+        const moneyRows = [['161', '161 الخزينة'], ...banks.map((b) => [b.account_code, `${b.account_code} — ${b.label}`])];
+        if (!banks.length) moneyRows.push(['162', '162 النقدية بالبنوك']);
+        return (
+          <Modal title="بيع هوالك" onClose={() => setForm(null)} footer={<>
+            <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
+            <button onClick={() => run(() => axios.post(`${API}/api/manufacturing/scrap-sales`, { date: form.date, proceeds: pr, vat_amount: vat,
+              carrying_value: cv > 0 ? cv : null, money_account: form.money_account, buyer: form.buyer.trim(), reference: form.reference || null }, auth()))}
+              disabled={busy || !(pr > 0) || vat >= pr || !(cv > 0) || cv > (scrap?.balance || 0) + 0.005} className={btnPrimary}>{busy ? '…' : 'حفظ وترحيل'}</button></>}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Label t="التاريخ"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={input} /></Label>
+              <Label t="المشتري"><input value={form.buyer} onChange={(e) => setForm({ ...form, buyer: e.target.value })} placeholder="تاجر خردة…" className={input} /></Label>
+              <Label t={`القيمة الدفترية المباعة (الرصيد ${money(scrap?.balance)})`}><Num value={form.carrying_value} onChange={(x) => setForm({ ...form, carrying_value: x })} /></Label>
+              <Label t="ثمن البيع قبل الضريبة *"><Num value={form.proceeds} onChange={(x) => setForm({ ...form, proceeds: x })} /></Label>
+              <Label t="ضريبة القيمة المضافة (إن وُجدت)">
+                <div className="flex gap-2"><Num value={form.vat_amount} onChange={(x) => setForm({ ...form, vat_amount: x })} />
+                  <button type="button" onClick={() => setForm({ ...form, vat_amount: String(r2(pr * 0.14)) })} className={`${btnSmall} mt-1 whitespace-nowrap`}>14%</button></div></Label>
+              <Label t="استلمناه في"><select value={form.money_account} onChange={(e) => setForm({ ...form, money_account: e.target.value })} className={input}>
+                {moneyRows.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Label>
+            </div>
+            {pr > 0 && cv > 0 && <div className="mt-3"><Lines rows={[[`${form.money_account} الخزينة / البنك`, r2(pr + vat), 0],
+              [`${scrap?.account || '140'} مخزون الهوالك`, 0, cv], ['260 ضريبة القيمة المضافة', 0, vat],
+              [`${scrap?.gain_account || '423'} إيرادات متنوعة — ربح بيع هوالك`, 0, diff > 0 ? diff : 0],
+              [`${scrap?.loss_account || '33610'} مصروف تالف وهدر — خسارة بيع هوالك`, diff < 0 ? -diff : 0, 0]]} /></div>}
+            <Err e={err} />
+          </Modal>
+        );
+      })()}
+
       {form?.kind === 'bom' && (
         <Modal title="قائمة مواد جديدة" onClose={() => setForm(null)} footer={<>
           <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
@@ -965,6 +1109,7 @@ export function RealEstatePage() {
     axios.get(`${API}/api/company-policies`, auth()).then((r) => r.data?.policies?.real_estate && setReTax(r.data.policies.real_estate)).catch(() => {});
   }, []);
   const [projects, setProjects] = useState(null);
+  const [rePack, setRePack] = useState({ finished_units: false, maintenance_deposits: false });
   const [project, setProject] = useState(null);
   const [units, setUnits] = useState(null);
   const [bookings, setBookings] = useState(null);
@@ -979,7 +1124,7 @@ export function RealEstatePage() {
   const [err, setErr] = useState('');
 
   const loadProjects = async () => {
-    try { const { data } = await axios.get(`${API}/api/real-estate/projects`, auth()); setProjects(data.projects || []); }
+    try { const { data } = await axios.get(`${API}/api/real-estate/projects`, auth()); setProjects(data.projects || []); if (data.pack) setRePack(data.pack); }
     catch (e) { setProjects([]); setErr(errText(e, 'تعذّر تحميل المشاريع')); }
   };
   const loadUnits = async (p) => {
@@ -1051,8 +1196,16 @@ export function RealEstatePage() {
     setErr('');
     try {
       const { data } = await axios.get(`${API}/api/real-estate/bookings/${b.id}/delivery-preview`, auth());
-      setForm({ kind: 'deliver', booking: b, preview: data, unit_cost: String(data.suggested), date: today(), apply_re_tax: !!reTax.disposal_tax_enabled });
+      setForm({ kind: 'deliver', booking: b, preview: data, unit_cost: String(data.suggested), date: today(), apply_re_tax: !!reTax.disposal_tax_enabled,
+        maintenance_deposit: '', maintenance_method: 'cash' });
     } catch (e) { setErr(errText(e, 'تعذّر تحميل بيانات التسليم')); }
+  };
+  const openTransfer = async (p) => {
+    setErr('');
+    try {
+      const { data } = await axios.get(`${API}/api/real-estate/projects/${p.id}/transfer-finished`, auth());
+      setForm({ kind: 'transfer', project: p, plan: data, date: today(), picked: Object.fromEntries((data.units || []).map((u) => [u.unit_id, true])) });
+    } catch (e) { setErr(errText(e, 'تعذّر تحميل وحدات المشروع')); }
   };
   const bookingOpenCheques = (b) => r2(b.contract_price - (b.paid_so_far || 0) - (b.cheques_in_hand || 0));
 
@@ -1072,9 +1225,12 @@ export function RealEstatePage() {
                 <p className="font-extrabold">{p.name}</p><p className="text-xs text-slate-500">{p.location || '—'}</p>
                 <p className="mt-2 text-sm">تكلفة متراكمة (142): <N v={p.accumulated_cost} /></p>
                 <p className="text-sm">المُحمَّل على وحدات مباعة: <N v={p.cost_relieved} /></p>
+                {(p.cost_transferred || 0) > 0 && <p className="text-sm">محوّل لمخزون الوحدات التامة (129): <N v={p.cost_transferred} /></p>}
+                {p.status === 'completed' && <p className="mt-1"><Badge tone="green">مشروع مُقفل — وحداته في مخزون الوحدات التامة</Badge></p>}
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button onClick={() => { setProject(p); loadUnits(p); }} className={btnSmall}>الوحدات</button>
                   <button onClick={() => { setErr(''); setForm({ kind: 'cost', project: p, amount: '', cost_type: 'construction', payment_method: 'credit', date: today(), description: '' }); }} className={btnSmall}>إضافة تكلفة</button>
+                  {rePack.finished_units && p.status !== 'completed' && <button onClick={() => openTransfer(p)} className={btnSmall}>إقفال المشروع / تحويل وحدات تامة</button>}
                 </div>
               </div>
             ))}
@@ -1092,7 +1248,8 @@ export function RealEstatePage() {
                   <tr key={u.id}><td className="px-3 py-2 font-semibold"><bdi dir="ltr">{u.unit_number}</bdi></td><td className="px-3 py-2">{u.unit_type}</td>
                     <td className="px-3 py-2 text-end"><bdi dir="ltr">{u.floor}</bdi></td><td className="px-3 py-2 text-end"><Q v={u.area_sqm} /></td>
                     <td className="px-3 py-2 text-end"><N v={u.contract_price || u.sale_price} /></td><td className="px-3 py-2">{u.customer_name || '—'}</td>
-                    <td className="px-3 py-2"><Badge tone={(UNIT_STATUS[u.status] || [])[1]}>{(UNIT_STATUS[u.status] || [u.status])[0]}</Badge></td>
+                    <td className="px-3 py-2"><Badge tone={(UNIT_STATUS[u.status] || [])[1]}>{(UNIT_STATUS[u.status] || [u.status])[0]}</Badge>
+                      {u.finished_cost != null && u.status !== 'delivered' && <> <Badge tone="blue">وحدة تامة <N v={u.finished_cost} /></Badge></>}</td>
                     <td className="px-3 py-2 text-end">{u.status === 'available' && <button onClick={() => { setErr(''); setForm({ kind: 'book', unit: u, customer_id: '', customer_name: '', booking_date: today(), deposit_amount: '', contract_price: String(u.sale_price || ''), payment_method: 'bank' }); }} className={btnSmall}>حجز</button>}</td></tr>
                 ))}
               </Table>
@@ -1411,26 +1568,66 @@ export function RealEstatePage() {
         );
       })()}
 
+      {form?.kind === 'transfer' && (() => {
+        const rows = (form.plan.units || []).filter((u) => form.picked[u.unit_id]);
+        const total = r2(rows.reduce((t, u) => t + u.cost, 0));
+        return (
+          <Modal wide title={`إقفال المشروع / تحويل وحدات تامة — ${form.project.name}`} onClose={() => setForm(null)} footer={<>
+            <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
+            <button onClick={() => run(() => axios.post(`${API}/api/real-estate/projects/${form.project.id}/transfer-finished`, { date: form.date,
+              unit_ids: rows.length === (form.plan.units || []).length ? null : rows.map((u) => u.unit_id) }, auth()))}
+              disabled={busy || !(total > 0)} className={btnPrimary}>{busy ? '…' : 'تحويل وترحيل'}</button></>}>
+            <p className="text-slate-600">لما الوحدات تخلص، تكلفتها تنتقل من «مشروعات تحت التنفيذ» 142 إلى «مخزون وحدات تامة معدة للبيع» 129 — كل وحدة بنصيبها من التكلفة المتراكمة بالمساحة.
+              وعند تسليم الوحدة لاحقاً تُحمَّل تكلفة المبيعات من 129 بنفس المبلغ.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+              <Label t="التاريخ"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={input} /></Label>
+              <Stat label="المتبقي في 142" v={form.plan.remaining_wip} />
+            </div>
+            <div className="mt-3"><Table head={['', 'الوحدة', '#المساحة م²', 'الحالة', '#التكلفة المحوّلة']} empty={(form.plan.units || []).length === 0 && 'لا توجد وحدات غير مسلَّمة وغير محوّلة.'}>
+              {(form.plan.units || []).map((u) => (
+                <tr key={u.unit_id}><td className="px-3 py-2"><input type="checkbox" aria-label={`تحويل ${u.unit_number}`} checked={!!form.picked[u.unit_id]} onChange={(e) => setForm({ ...form, picked: { ...form.picked, [u.unit_id]: e.target.checked } })} /></td>
+                  <td className="px-3 py-2 font-semibold"><bdi dir="ltr">{u.unit_number}</bdi></td><td className="px-3 py-2 text-end"><Q v={u.area_sqm} /></td>
+                  <td className="px-3 py-2"><Badge tone={(UNIT_STATUS[u.status] || [])[1]}>{(UNIT_STATUS[u.status] || [u.status])[0]}</Badge></td>
+                  <td className="px-3 py-2 text-end"><N v={u.cost} /></td></tr>
+              ))}
+            </Table></div>
+            {rows.length < (form.plan.units || []).length && <p className="mt-2 text-xs text-slate-500">التكلفة المعروضة محسوبة لتحويل كل الوحدات؛ عند تحويل جزء منها يُعاد الحساب بنفس الطريقة.</p>}
+            {total > 0 && <div className="mt-3"><Lines rows={[['129 مخزون وحدات تامة معدة للبيع', total, 0], ['142 مشروعات عقارية تحت التنفيذ', 0, total]]} /></div>}
+            <Err e={err} />
+          </Modal>
+        );
+      })()}
+
       {form?.kind === 'deliver' && (() => {
         const p = form.preview; const cost = r2(form.unit_cost); const tax = form.apply_re_tax ? r2(p.contract_price * (reTax.disposal_tax_rate || 0.025)) : 0;
+        const finished = p.basis === 'finished'; const dep = r2(form.maintenance_deposit);
         return (
           <Modal title={`تسليم الوحدة ${form.booking.unit_number} — ${form.booking.customer_name}`} onClose={() => setForm(null)} footer={<>
             <button onClick={() => setForm(null)} className={btnGhost}>إلغاء</button>
-            <button onClick={() => run(() => axios.post(`${API}/api/real-estate/bookings/${form.booking.id}/deliver`, { date: form.date, unit_cost: form.unit_cost === '' ? null : cost, apply_re_tax: form.apply_re_tax }, auth()))}
-              disabled={busy || cost > p.remaining_wip + 0.01} className={btnPrimary}>{busy ? '…' : 'تسليم والاعتراف بالإيراد'}</button></>}>
+            <button onClick={() => run(() => axios.post(`${API}/api/real-estate/bookings/${form.booking.id}/deliver`, { date: form.date, unit_cost: finished || form.unit_cost === '' ? null : cost, apply_re_tax: form.apply_re_tax,
+              ...(dep > 0 ? { maintenance_deposit: dep, maintenance_method: form.maintenance_method } : {}) }, auth()))}
+              disabled={busy || (!finished && cost > p.remaining_wip + 0.01)} className={btnPrimary}>{busy ? '…' : 'تسليم والاعتراف بالإيراد'}</button></>}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Label t="تاريخ التسليم (نقل السيطرة)"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={input} /></Label>
-              <Label t={`تكلفة الوحدة (مقترحة ${p.basis === 'area' ? 'بالمساحة' : 'بعدد الوحدات'})`}><Num value={form.unit_cost} onChange={(v) => setForm({ ...form, unit_cost: v })} /></Label>
+              {finished
+                ? <Label t="تكلفة الوحدة (محوّلة لمخزون الوحدات التامة)"><Num value={form.unit_cost} onChange={() => {}} disabled /></Label>
+                : <Label t={`تكلفة الوحدة (مقترحة ${p.basis === 'area' ? 'بالمساحة' : 'بعدد الوحدات'})`}><Num value={form.unit_cost} onChange={(v) => setForm({ ...form, unit_cost: v })} /></Label>}
+              {rePack.maintenance_deposits && <>
+                <Label t="وديعة صيانة تُحصَّل عند الاستلام (اختياري)"><Num value={form.maintenance_deposit} onChange={(v) => setForm({ ...form, maintenance_deposit: v })} /></Label>
+                <Label t="استلمناها في"><select value={form.maintenance_method} onChange={(e) => setForm({ ...form, maintenance_method: e.target.value })} className={input}>
+                  <option value="cash">161 الخزينة</option><option value="bank">162 البنك</option></select></Label></>}
             </div>
-            <p className="mt-2 text-xs text-slate-500">المتبقي في تكاليف المشروع (142): <N v={p.remaining_wip} /></p>
+            {!finished && <p className="mt-2 text-xs text-slate-500">المتبقي في تكاليف المشروع (142): <N v={p.remaining_wip} /></p>}
             <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" checked={form.apply_re_tax} onChange={(e) => setForm({ ...form, apply_re_tax: e.target.checked })} className="mt-1" />
               <span>ضريبة التصرفات العقارية {(reTax.disposal_tax_rate * 100).toLocaleString('en-US')}% — الافتراضي من سياسات الشركة ({reTax.disposal_tax_enabled ? 'مفعّلة' : 'غير مفعّلة'})، ويمكن تغييره لهذه الوحدة.</span></label>
             <div className="mt-4 space-y-2">
               <Lines rows={[[`${p.liability_account} التزامات العقود (ما حُصّل وما استُلم من شيكات)`, p.liability_balance, 0], ['1312 عملاء أقساط مؤجلة', p.receivable, 0],
                 ['4111 إيرادات بيع الوحدات العقارية', 0, p.contract_price], ['3351 مصروف ضريبة التصرفات', tax, 0], ['2541 ضريبة التصرفات المستحقة', 0, tax]]} />
-              {cost > 0 && <Lines rows={[['3211 تكلفة الوحدات المباعة', cost, 0], ['142 مشروعات عقارية تحت التنفيذ', 0, cost]]} />}
+              {cost > 0 && <Lines rows={[['3211 تكلفة الوحدات المباعة', cost, 0], finished ? [`${p.cost_account} مخزون وحدات تامة معدة للبيع`, 0, cost] : ['142 مشروعات عقارية تحت التنفيذ', 0, cost]]} />}
+              {dep > 0 && <Lines rows={[[form.maintenance_method === 'bank' ? '162 البنك' : '161 الخزينة', dep, 0], ['246 ودائع صيانة محصلة من الحاجزين', 0, dep]]}
+                note="وديعة الصيانة أمانة على الشركة (التزام) — ليست إيراداً." />}
             </div>
-            {cost > p.remaining_wip + 0.01 && <p className="mt-2 text-red-700 text-sm">التكلفة أكبر من المتبقي في تكاليف المشروع.</p>}
+            {!finished && cost > p.remaining_wip + 0.01 && <p className="mt-2 text-red-700 text-sm">التكلفة أكبر من المتبقي في تكاليف المشروع.</p>}
             <Err e={err} />
           </Modal>
         );

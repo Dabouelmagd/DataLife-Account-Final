@@ -475,6 +475,25 @@ class InvoiceService:
             "updated_at": datetime.utcnow().isoformat()
         }
         
+        # a sales invoice tagged with a project bills work possibly recorded
+        # earlier as done-not-billed (143/150/149 — industry packs): release it
+        # so the revenue is counted once. No accrual → nothing happens.
+        if invoice["document_type"] == DocumentType.SALES_INVOICE.value and invoice.get("project_id"):
+            from services import unbilled_work as UW
+            try:
+                rel = await UW.release(self.db, invoice["company_id"], user_id, project_id=invoice["project_id"],
+                                       amount=float(invoice.get("total_after_discount") or 0) * (
+                                           1.0 if _cur(invoice.get("currency")) == "EGP"
+                                           else float(invoice.get("exchange_rate") or 1)),
+                                       date=str(invoice.get("document_date") or datetime.utcnow().date().isoformat())[:10],
+                                       source_type="invoice", source_id=invoice_id,
+                                       note=f"فوترة أعمال منجزة سبق إثباتها — فاتورة {invoice.get('document_number', '')}")
+            except Exception as e:            # the invoice stands; the accrual stays open to settle by hand
+                rel, updates["unbilled_release_error"] = None, str(getattr(e, "detail", e))
+            if rel:
+                updates["unbilled_released"] = rel["released"]
+                updates["unbilled_release_entry_id"] = rel["journal_entry_id"]
+
         result = await self.db.invoices.find_one_and_update(
             {"id": invoice_id},
             {"$set": updates},
@@ -941,6 +960,9 @@ class InvoiceService:
                      "status": "posted"}, {"_id": 0, "id": 1}):
                 r = await self.accounting.reverse_journal_entry(ce["id"], user_id)
                 reversed_ids.append((r or {}).get("id"))
+            if invoice.get("unbilled_release_entry_id"):
+                from services import unbilled_work as UW
+                await UW.undo_release(self.db, company_id, user_id, "invoice", invoice["id"])
             # goods back where they came from
             if doc_type == DocumentType.SALES_INVOICE.value:
                 await self._create_cogs_entry(invoice, user_id, reverse=True, post_entry=False)

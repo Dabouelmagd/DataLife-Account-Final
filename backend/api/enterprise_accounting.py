@@ -15,6 +15,7 @@ from fastapi import Header
 from typing import Optional
 from database import db
 from services import pack_accounts as PA
+from services import ops_posting as P
 from datetime import datetime, timezone
 import uuid
 from models.enterprise_accounting import (
@@ -414,6 +415,19 @@ async def create_progress_claim(data: dict, current_user: dict = Depends(get_use
                  f"تأمينات العمالة المستحقة للهيئة {ci_pct:g}% — مستخلص رقم {no}", proj),
             ], "claim", data["id"])
         data["journal_entry_id"] = je["id"]
+        # the claim bills work possibly recorded earlier as done-not-billed
+        # (143 — construction pack): release it so the revenue is counted once
+        if data.get("project_id"):
+            from services import unbilled_work as UW
+            try:
+                rel = await UW.release(db, company_id, user_id, project_id=data["project_id"], amount=current,
+                                       date=data["claim_date"], source_type="claim", source_id=data["id"],
+                                       note=f"تسوية أعمال منجزة غير مفوترة — مستخلص رقم {no}")
+            except HTTPException as e:       # the claim stands; the accrual stays open to settle by hand
+                rel, data["unbilled_release_error"] = None, str(e.detail)
+            if rel:
+                data["unbilled_released"] = rel["released"]
+                data["unbilled_release_entry_id"] = rel["journal_entry_id"]
 
     await db.progress_claims.insert_one(data)
     data.pop("_id", None)
@@ -793,6 +807,54 @@ def _money(v, label):
     return x
 
 
+# ── doctors' share: pass-through (default) or the facility's own expense ──
+# pass_through: the doctor's share is collected on the doctor's behalf —
+#   it is never revenue of the facility: Cr 264 for the share, Cr revenue for the rest.
+# expense (medical pack, 345): the facility bills the patient in its own name,
+#   so the whole service is its revenue and the doctor's share is its cost:
+#   Cr revenue (gross) + Dr 345 أتعاب ونسب الأطباء / Cr 264 (the payable is the same).
+FEE_TREATMENTS = ("pass_through", "expense")
+FEE_HINT = ("«أمانة للطبيب»: المنشأة تحصّل حصة الطبيب نيابةً عنه — لا تدخل إيراداتها (دائن 264). "
+            "«مصروف على المنشأة»: المنشأة تبيع الخدمة باسمها فالإيراد كامل، وحصة الطبيب تكلفة عليها "
+            "(مدين 345 أتعاب ونسب الأطباء / دائن 264). صافي الربح واحد في الحالتين؛ يختلف حجم الإيراد والتكلفة.")
+
+
+async def _medical_settings(company_id: str) -> dict:
+    s = await db.medical_settings.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    return {"doctor_fee_treatment": s.get("doctor_fee_treatment") or "pass_through",
+            "doctor_overrides": s.get("doctor_overrides") or {}}
+
+
+def _fee_treatment(settings: dict, doctor: dict) -> str:
+    o = settings["doctor_overrides"]
+    return o.get(doctor.get("doctor_id") or "") or o.get(doctor.get("doctor_name") or "") or settings["doctor_fee_treatment"]
+
+
+@router.get("/medical-settings")
+async def get_medical_settings(current_user: dict = Depends(get_user)):
+    company_id = current_user.get("company_id")
+    acc = await PA.optional(db, company_id, "physician_fees")
+    return {**await _medical_settings(company_id), "expense_available": bool(acc), "hint": FEE_HINT,
+            "message": None if acc else f"معالجة الأتعاب كمصروف تحتاج الحساب 345 — فعّل «{P.PACK_HINT.get('345', 'الباقة الطبية')}»"}
+
+
+@router.put("/medical-settings")
+async def put_medical_settings(data: dict, current_user: dict = Depends(get_user)):
+    company_id = current_user.get("company_id")
+    default = data.get("doctor_fee_treatment") or "pass_through"
+    overrides = data.get("doctor_overrides") or {}
+    if default not in FEE_TREATMENTS or not isinstance(overrides, dict) or \
+            any(v not in FEE_TREATMENTS for v in overrides.values()):
+        raise HTTPException(400, "المعالجة: pass_through (أمانة للطبيب) أو expense (مصروف على المنشأة)")
+    overrides = {str(k)[:160]: v for k, v in list(overrides.items())[:500] if str(k).strip()}
+    if default == "expense" or "expense" in overrides.values():
+        await PA.pick(db, company_id, "physician_fees")      # 400 naming «الباقة الطبية» without 345
+    await db.medical_settings.update_one({"company_id": company_id}, {"$set": {
+        "company_id": company_id, "doctor_fee_treatment": default, "doctor_overrides": overrides,
+        "updated_by": current_user.get("user_id"), "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    return {"message": "تم حفظ معالجة أتعاب الأطباء", **await _medical_settings(company_id)}
+
+
 @router.post("/medical-services")
 async def create_medical_service(data: dict, current_user: dict = Depends(get_user)):
     """
@@ -865,6 +927,20 @@ async def create_medical_service(data: dict, current_user: dict = Depends(get_us
             {"company_id": company_id, "account_code": INSURER_RECEIVABLE}, {"_id": 0, "id": 1}):
         raise HTTPException(400, "حساب شركات التأمين الطبي 148 غير موجود — فعّل الباقة الطبية من إعدادات الشركة")
 
+    # doctors whose share is the facility's expense (medical pack 345) — none by default
+    fee_cfg = await _medical_settings(company_id) if doctors else None
+    expensed = [d for d in doctors if _fee_treatment(fee_cfg, d) == "expense"]
+    fee_acc = None
+    if expensed:
+        fee_acc = (await PA.optional(db, company_id, "physician_fees") or {}).get("account_code")
+        if not fee_acc:
+            raise HTTPException(400, "إعداد أتعاب الأطباء «مصروف على المنشأة» يحتاج الحساب 345 — "
+                                     f"فعّل «{P.PACK_HINT.get('345', 'الباقة الطبية')}» أو غيّر الإعداد إلى «أمانة للطبيب»")
+        for d in expensed:
+            d["fee_treatment"] = "expense"
+    fee_expense = round(sum(d["share"] for d in expensed), 2)
+    revenue = round(hosp_share + fee_expense, 2)
+
     service_id = str(uuid.uuid4())
     service_date = data.get("service_date") or datetime.now().strftime("%Y-%m-%d")
     patient = str(data.get("patient_name") or "")[:120]
@@ -874,8 +950,11 @@ async def create_medical_service(data: dict, current_user: dict = Depends(get_us
          f"دفعة المريض {patient}", {"partner_type": "patient", "partner_id": data.get("patient_id")}),
         ((INSURER_RECEIVABLE,), ins_amt, 0, f"مطالبة تأمين — {data.get('insurance_company_name', '')}",
          {"partner_type": "insurance", "partner_id": data.get("insurance_company_id")}),
-        ((rev_code,), 0, hosp_share, f"إيراد خدمة {desc} — حصة المنشأة", None),
-    ] + [((DOCTORS_PAYABLE,), 0, d["share"], f"أتعاب د. {d['doctor_name']} مستحقة (قبل الضريبة)",
+        ((rev_code,), 0, revenue,
+         f"إيراد خدمة {desc} — " + ("حصة المنشأة" if not fee_expense else "كامل قيمة الخدمة (أتعاب الأطباء مصروف)"), None),
+    ] + [((fee_acc,), d["share"], 0, f"أتعاب د. {d['doctor_name']} — مصروف على المنشأة",
+          {"partner_type": "doctor", "partner_id": d["doctor_id"] or None}) for d in expensed] \
+      + [((DOCTORS_PAYABLE,), 0, d["share"], f"أتعاب د. {d['doctor_name']} مستحقة (قبل الضريبة)",
           {"partner_type": "doctor", "partner_id": d["doctor_id"] or None}) for d in doctors]
     je = await _post_claim_entry(company_id, user_id, service_date,
                                  f"خدمة طبية — {desc} — مريض: {patient}"[:200], spec,
@@ -893,6 +972,8 @@ async def create_medical_service(data: dict, current_user: dict = Depends(get_us
         "status": "pending", "journal_entry_id": je["id"], "je_balanced": True,
         "created_by": user_id, "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    if fee_expense:
+        record.update({"doctor_fee_expense": fee_expense, "revenue_amount": revenue, "doctor_fee_account": fee_acc})
     await db.medical_services.insert_one(dict(record))
 
     return {
@@ -906,7 +987,8 @@ async def create_medical_service(data: dict, current_user: dict = Depends(get_us
         "journal_summary": {
             "journal_entry_id": je["id"],
             "debit_cash_or_bank": copay, "debit_insurance_ar": ins_amt,
-            "credit_hospital_revenue": hosp_share, "credit_doctor_trust": total_doc,
+            "credit_hospital_revenue": revenue, "credit_doctor_trust": total_doc,
+            **({"debit_doctor_fee_expense": fee_expense} if fee_expense else {}),
             "je_balanced": True,
             "note": "ضريبة الخصم تُحجز عند سداد الأتعاب — POST /api/enterprise/doctor-payment",
         },

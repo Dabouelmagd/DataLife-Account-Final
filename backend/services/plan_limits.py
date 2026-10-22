@@ -108,6 +108,9 @@ PACK_UNLOCKS = {
     "export": ("/api/lc", "/api/trade-finance"),
     "retail": ("/api/pos", "/api/inventory-engine"),
     "restaurants": ("/api/pos",),
+    # «أعمال منجزة لم تُفوتر» (150 / 149) lives on the project screen
+    "professional": ("/api/projects",),
+    "ads": ("/api/projects",),
 }
 
 
