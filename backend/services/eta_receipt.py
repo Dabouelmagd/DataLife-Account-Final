@@ -86,7 +86,7 @@ async def load_settings(db, company_id: str) -> dict:
     }
     addr_src = pos if pos.get("governate") or pos.get("street") else inv
     s["address"] = {
-        "country": (addr_src.get("country") or "EG").upper()[:2],
+        "country": __import__("services.country", fromlist=["x"]).country_code(addr_src.get("country")),
         "governate": (addr_src.get("governate") or "").strip(),
         "regionCity": (addr_src.get("region_city") or "").strip(),
         "street": (addr_src.get("street") or "").strip(),

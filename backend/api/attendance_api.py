@@ -159,7 +159,7 @@ async def get_attendance_settings(company_id: str) -> dict:
     if not settings:
         # إعدادات افتراضية
         settings = AttendanceSettings(company_id=company_id).dict()
-        await db.attendance_settings.insert_one(settings)
+        await db.attendance_settings.insert_one(dict(settings))   # insert_one adds _id to the dict it gets
     return settings
 
 

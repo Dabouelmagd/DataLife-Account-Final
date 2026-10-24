@@ -182,7 +182,8 @@ def default_vat_category(party: Optional[dict], document_type: str = "sales_invo
         return None
     if party.get("free_zone"):
         return VatCategory.FREE_ZONE.value
-    if party.get("is_foreign") or str(party.get("country") or "EG").upper()[:2] != "EG":
+    from services.country import is_egypt
+    if party.get("is_foreign") or not is_egypt(party.get("country")):
         return VatCategory.EXPORT.value
     return None
 

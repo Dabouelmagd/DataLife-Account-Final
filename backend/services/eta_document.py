@@ -85,7 +85,7 @@ def _address(src: dict, label: str, with_branch: Optional[str] = None, foreign: 
             or src.get("city") or src.get("country")
         src["building_number"] = src.get("building_number") or src.get("building") or "0"
     a = {
-        "country": (src.get("country") or "EG").upper()[:2],
+        "country": __import__("services.country", fromlist=["x"]).country_code(src.get("country")),
         "governate": (src.get("governate") or src.get("governorate") or "").strip(),
         "regionCity": (src.get("region_city") or src.get("city") or "").strip(),
         "street": (src.get("street") or src.get("address") or "").strip(),
@@ -227,7 +227,7 @@ def build_document(invoice: dict, settings: dict, issuer_name: str, receiver: di
         "totalItemsDiscountAmount": 0,
     }
     # a company receiver needs an address; an individual's is optional
-    if receiver["type"] == "F" and (receiver.get("country") or "EG").upper()[:2] == "EG":
+    if receiver["type"] == "F" and __import__("services.country", fromlist=["x"]).is_egypt(receiver.get("country")):
         raise ETADocumentError("العميل أجنبي — حدد دولته (كود الدولة من حرفين) في بيانات العميل")
     if receiver["type"] in ("B", "F") or any(receiver.get(k) for k in ("governate", "city", "street")):
         doc["receiver"] = {"address": _address(receiver, "العميل", foreign=receiver["type"] == "F"),

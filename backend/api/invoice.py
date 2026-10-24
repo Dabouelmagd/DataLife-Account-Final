@@ -272,7 +272,7 @@ async def create_party(
         governate=request.governate,
         building_number=request.building_number,
         national_id=request.national_id,
-        country=(request.country or "EG").strip().upper()[:2] or "EG",
+        country=__import__("services.country", fromlist=["x"]).country_code(request.country),
         is_foreign=request.is_foreign,
         free_zone=request.free_zone,
         foreign_tax_id=request.foreign_tax_id,
@@ -301,7 +301,7 @@ async def update_party(
     service = InvoiceService(db)
     updates = request.dict(exclude_unset=True)
     if "country" in updates:
-        updates["country"] = (updates["country"] or "EG").strip().upper()[:2] or "EG"
+        updates["country"] = __import__("services.country", fromlist=["x"]).country_code(updates["country"])
     result = await service.update_party(party_id, updates)
     if not result:
         raise HTTPException(status_code=404, detail="Party not found")

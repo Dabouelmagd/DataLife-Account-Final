@@ -84,7 +84,8 @@ def validate_party(invoice: dict, party: dict = None) -> dict:
 
     # a receiver outside Egypt is type "F": its own country's tax number (or a
     # passport for a person) — the 9-digit / 14-digit Egyptian rules do not apply
-    country = str(party.get("country") or "EG").strip().upper()[:2]
+    from services.country import country_code
+    country = country_code(party.get("country"))
     if party.get("is_foreign") or country != "EG":
         foreign_id = str(party.get("foreign_tax_id") or party.get("tax_id") or party.get("tax_number")
                          or party.get("passport_number") or "").strip()

@@ -364,6 +364,26 @@ const InvoicesPage = () => {
     fetchParties();
   }, [fetchParties]);
 
+  // الأصناف: سطر مربوط بصنف بيخصم من المخزون ويسجل تكلفة المبيعات
+  const [products, setProducts] = useState([]);
+  useEffect(() => {
+    fetch(`${process.env.REACT_APP_BACKEND_URL}/api/invoice/products`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      .then((r) => (r.ok ? r.json() : { products: [] }))
+      .then((d) => setProducts(d.products || []))
+      .catch(() => {});
+  }, []);
+  const pickProduct = (index, productId) => {
+    const p = products.find((x) => x.id === productId);
+    setFormData(prev => ({
+      ...prev,
+      lines: prev.lines.map((line, i) => (i !== index ? line : p ? {
+        ...line, product_id: p.id, description: p.name || line.description,
+        unit_price: Number(p.unit_price) || line.unit_price,
+        tax_rate: p.tax_rate != null ? Number(p.tax_rate) : line.tax_rate,
+      } : { ...line, product_id: undefined }))
+    }));
+  };
+
   // مراكز التكلفة / الفروع — يُسجَّل المركز المختار على كل سطر في قيد الفاتورة
   const [costCenters, setCostCenters] = useState([]);
   useEffect(() => {
@@ -1331,6 +1351,16 @@ const InvoicesPage = () => {
                 {formData.lines.map((line, index) => (
                   <div key={index} className="p-3 rounded-lg border bg-gray-50">
                     <div className="grid grid-cols-12 gap-2 items-end">
+                      {products.length > 0 && (
+                        <div className="col-span-12">
+                          <label className="text-xs text-gray-500">{language === 'ar' ? 'الصنف (اختياري — بيخصم من المخزون)' : 'Item (optional — moves stock)'}</label>
+                          <select value={line.product_id || ''} onChange={(e) => pickProduct(index, e.target.value)}
+                            className="w-full h-9 rounded-md border border-input bg-white px-2 text-sm">
+                            <option value="">{language === 'ar' ? '— بدون صنف (خدمة أو بند حر) —' : '— no item (service / free text) —'}</option>
+                            {products.map((p) => <option key={p.id} value={p.id}>{p.code ? `${p.code} — ` : ''}{p.name}</option>)}
+                          </select>
+                        </div>
+                      )}
                       <div className="col-span-4">
                         <label className="text-xs text-gray-500">{text.description}</label>
                         <Input

@@ -188,14 +188,16 @@ async def get_current_subscription(current_user: dict = Depends(get_current_user
     if isinstance(end_date, str):
         end_date = datetime.fromisoformat(end_date)
     
+    if end_date is not None and getattr(end_date, "tzinfo", None) is not None:
+        end_date = end_date.replace(tzinfo=None) - (end_date.utcoffset() or __import__("datetime").timedelta(0))
     days_remaining = (end_date - datetime.utcnow()).days if end_date else 0
     
     return {
-        "id": subscription["id"],
-        "plan": subscription["plan"],
-        "duration": subscription["duration"],
-        "status": subscription["status"],
-        "start_date": subscription["start_date"].isoformat() if isinstance(subscription["start_date"], datetime) else subscription["start_date"],
+        "id": subscription.get("id"),
+        "plan": subscription.get("plan"),
+        "duration": subscription.get("duration"),
+        "status": subscription.get("status"),
+        "start_date": subscription.get("start_date").isoformat() if isinstance(subscription.get("start_date"), datetime) else subscription.get("start_date"),
         "end_date": end_date.isoformat() if end_date else None,
         "days_remaining": max(0, days_remaining),
         "is_active": days_remaining > 0
