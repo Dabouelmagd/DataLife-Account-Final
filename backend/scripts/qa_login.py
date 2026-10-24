@@ -32,7 +32,8 @@ async def main():
     if "--reset" in sys.argv:
         pw = secrets.token_urlsafe(12)
         await db.users.update_one({"id": u["id"]}, {"$set": {
-            "password_hash": hash_password(pw), "updated_at": datetime.now(timezone.utc).isoformat()}})
+            "password_hash": hash_password(pw), "updated_at": datetime.now(timezone.utc).isoformat()},
+            "$unset": {"password": ""}})   # login reads an old "password" field first
         print(f"password   : {pw}   (جديد — اكتبيه في صفحة الدخول، ومتبعتيهوش في أي شات)")
     else:
         print("password   : اللي ظهر وقت إنشاء الشركة — لو مش معاكي شغّلي نفس الأمر بـ --reset")
